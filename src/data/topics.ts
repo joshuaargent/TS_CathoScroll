@@ -1795,4 +1795,249 @@ export const topics: Topic[] = [
       text: 'When he had made purification for sins, he sat down at the right hand of the Majesty on high.',
     },
   },
+  {
+    id: '71',
+
+    slug: 'what-is-the-seventh-article-of-the-creed',
+
+    category: 'Jesus Christ',
+
+    question: 'What is the seventh article of the Creed?',
+
+    answer:
+      'The seventh article of the Creed is, "from there he will come to judge the living and the dead".',
+
+    explanation:
+      "The seventh article of the Creed teaches that Jesus Christ will return in glory at the end of time to judge all humanity. The same Lord who ascended into Heaven will come again as Judge of the living and the dead. This judgment will reveal the truth about every person's life, choices, and response to God's grace. Christ's return, often called the Second Coming, is an essential part of Christian hope. Catholics do not view the Last Judgment merely as a cause of fear, but as the moment when God's justice and mercy will be fully revealed. Evil will be defeated, the faithful will be vindicated, and God's kingdom will be brought to its fullness. The certainty of Christ's return encourages Christians to live faithfully, remain vigilant in prayer, and persevere in holiness. Every generation of believers lives in hopeful expectation of the day when Christ will come again in glory.",
+
+    catechism: {
+      paragraphs: ['668', '681', '682'],
+      text: 'Christ is Lord of eternal life. The Son did not come to judge, but to save and to give the life he has in himself. By rejecting grace in this life, one already judges oneself. At the end of time, Christ will come in glory to achieve the definitive triumph of good over evil.',
+    },
+
+    scripture: {
+      reference: 'Acts 10:42',
+      text: 'And he commanded us to preach to the people, and to testify that he is the one ordained by God to be judge of the living and the dead.',
+    },
+  },
+  {
+    id: '72',
+
+    slug: 'when-will-christ-come-again',
+
+    category: 'Jesus Christ',
+
+    question: 'When will Christ come again?',
+
+    answer: 'Christ will come again from heaven at the last day, to judge all mankind.',
+
+    explanation:
+      "Jesus Christ will return in glory at the end of time to bring history to its fulfilment and judge all people. This event is often called the Second Coming. Although Christ has revealed that He will come again, He has not revealed the exact day or hour. Christians are therefore called to live in continual readiness, remaining faithful to God through prayer, holiness, and perseverance. The return of Christ will not be a hidden or symbolic event but a glorious manifestation of His divine authority before all creation. At His coming, the dead will be raised, the final judgment will take place, and God's kingdom will be fully established. For believers, the Second Coming is not merely something to fear but a source of hope, because it will mark the complete victory of Christ over sin, evil, and death. The Church therefore lives in constant expectation of the Lord's return.",
+
+    catechism: {
+      paragraphs: ['673', '681', '682'],
+      text: "Since the Ascension Christ's coming in glory has been imminent. On Judgment Day at the end of the world, Christ will come in glory to achieve the definitive triumph of good over evil. Christ is Lord of eternal life and has the right to pass definitive judgment on the works and hearts of men.",
+    },
+
+    scripture: {
+      reference: 'Matthew 24:30',
+      text: 'Then will appear the sign of the Son of man in heaven, and then all the tribes of the earth will mourn, and they will see the Son of man coming on the clouds of heaven with power and great glory.',
+    },
+  },
+  {
+    id: '73',
+
+    slug: 'what-are-the-things-christ-will-judge',
+
+    category: 'Jesus Christ',
+
+    question: 'What are the things Christ will judge?',
+
+    answer: 'Christ will judge our thoughts, words, works, and omissions.',
+
+    explanation:
+      "Christ's judgment will extend to every aspect of human life. Not only our outward actions, but also our thoughts, motives, words, and failures to do good will be brought into the light. The Church teaches that God sees the human heart and knows every circumstance surrounding our actions. At the Last Judgment, all truth will be revealed and God's perfect justice will be made manifest. This truth reminds Christians that discipleship is not merely about avoiding evil actions but also about cultivating purity of heart, truthful speech, charity towards others, and faithful obedience to God's will. Sins of omission, the good we failed to do when we had the opportunity, are also important in God's sight. The certainty of judgment encourages believers to examine their conscience regularly, repent of sin, and seek to live lives pleasing to God.",
+
+    catechism: {
+      paragraphs: ['678', '679', '1039'],
+      text: 'Following in the steps of the prophets and John the Baptist, Jesus announced the judgment of the Last Day. Then will the conduct of each one and the secrets of hearts be brought to light. The Last Judgment will reveal even to its furthest consequences the good each person has done or failed to do during his earthly life.',
+    },
+
+    scripture: {
+      reference: 'Ecclesiastes 12:14',
+      text: 'For God will bring every deed into judgment, with every secret thing, whether good or evil.',
+    },
+  },
+  {
+    id: '74',
+
+    slug: 'what-will-christ-say-to-the-wicked',
+
+    category: 'Heaven, Hell & Purgatory',
+
+    question: 'What will Christ say to the wicked?',
+
+    answer:
+      'Christ will say to the wicked: "Go away from me, with your curse upon you, to the eternal fire prepared for the devil and his angels."',
+
+    explanation:
+      "The Church teaches that human beings have been given the freedom to accept or reject God's grace. At the Last Judgment, those who have definitively rejected God through unrepented mortal sin will experience eternal separation from Him. The words spoken by Christ in this passage emphasise the seriousness of human freedom and the reality of Hell. God desires all people to be saved and provides sufficient grace for salvation, but He does not force anyone to love Him. The existence of Hell demonstrates both God's justice and His respect for human freedom. At the same time, Catholics should never presume that a particular person is condemned. Instead, these warnings should inspire repentance, humility, prayer, and trust in God's mercy. Christ spoke about judgment not to drive people to despair but to call them to conversion and eternal life.",
+
+    catechism: {
+      paragraphs: ['1033', '1035', '1037'],
+      text: "To die in mortal sin without repenting and accepting God's merciful love means remaining separated from him forever by our own free choice. The chief punishment of hell is eternal separation from God. God predestines no one to go to hell; for this, a willful turning away from God is necessary.",
+    },
+
+    scripture: {
+      reference: 'Matthew 25:41',
+      text: 'Then he will say to those at his left hand, "Depart from me, you cursed, into the eternal fire prepared for the devil and his angels."',
+    },
+  },
+  {
+    id: '75',
+
+    slug: 'what-will-christ-say-to-the-just',
+
+    category: 'Heaven, Hell & Purgatory',
+
+    question: 'What will Christ say to the just?',
+
+    answer:
+      'Christ will say to the just: "Come, you whom my Father has blessed, take for your heritage the kingdom prepared for you."',
+
+    explanation:
+      "At the Last Judgment, those who have remained faithful to God and died in his grace will be welcomed into the fullness of eternal life. Christ's words to the just reveal God's desire to share his kingdom with those who have loved and served him. Salvation is entirely a gift of God's grace, yet Christians are called to cooperate with that grace through faith, hope, charity, prayer, and obedience. The judgment described by Jesus highlights the importance of loving God and neighbour in practical ways. The righteous are praised for acts of mercy because genuine faith produces works of charity. These words of welcome are among the most comforting in Scripture because they reveal the destiny God desires for every human person. Christians should therefore live with hope, trusting in God's mercy while striving to remain faithful to Christ until the end of their lives.",
+
+    catechism: {
+      paragraphs: ['1023', '1025', '1821'],
+      text: "Those who die in God's grace and friendship and are perfectly purified live for ever with Christ. They are like God forever, for they see him as he is, face to face. Christian hope is the confident expectation of divine blessing and the beatific vision of God.",
+    },
+
+    scripture: {
+      reference: 'Matthew 25:34',
+      text: 'Then the King will say to those at his right hand, "Come, O blessed of my Father, inherit the kingdom prepared for you from the foundation of the world."',
+    },
+  },
+  {
+    id: '76',
+
+    slug: 'will-everyone-be-judged-at-death-and-at-the-last-day',
+
+    category: 'Heaven, Hell & Purgatory',
+
+    question: 'Will every one be judged at death, as well as at the last day?',
+
+    answer:
+      'Every one will be judged at death, as well as at the last day: "Since men only die once, and after that comes judgment."',
+
+    explanation:
+      "The Church teaches that every person undergoes two judgments: the Particular Judgment and the Last Judgment. The Particular Judgment takes place immediately after death, when each person receives from God the particular judgment of their life and enters Heaven, Purgatory, or Hell. The Last Judgment will occur at the end of time when Christ returns in glory. At that judgment, all people will be raised from the dead and God's justice, mercy, and providence will be publicly revealed before all creation. The Last Judgment does not change the outcome of the Particular Judgment, but manifests fully the consequences of every person's choices and God's plan throughout history. This teaching reminds Christians that earthly life has eternal significance. Every action, decision, and response to God's grace matters. The certainty of judgment calls believers to repentance, holiness, and trust in God's mercy.",
+
+    catechism: {
+      paragraphs: ['1021', '1022', '1038'],
+      text: 'Death puts an end to human life as the time open to either accepting or rejecting the divine grace manifested in Christ. Each man receives his eternal retribution in his immortal soul at the very moment of his death. The resurrection of all the dead will precede the Last Judgment.',
+    },
+
+    scripture: {
+      reference: 'Hebrews 9:27',
+      text: 'And just as it is appointed for men to die once, and after that comes judgment.',
+    },
+  },
+  {
+    id: '77',
+
+    slug: 'what-is-the-eighth-article-of-the-creed',
+
+    category: 'God',
+
+    question: 'What is the eighth article of the Creed?',
+
+    answer: 'The eighth article of the Creed is, "I believe in the Holy Spirit".',
+
+    explanation:
+      "The eighth article of the Apostles' Creed begins the Church's profession of faith in the Third Person of the Blessed Trinity. The Holy Spirit is not an impersonal force, energy, or symbol, but a divine Person who is fully God, equal to the Father and the Son. Throughout salvation history, the Holy Spirit has been active in creation, inspired the prophets, overshadowed the Blessed Virgin Mary at the Annunciation, descended upon Christ at His Baptism, and was poured out upon the Church at Pentecost. The Holy Spirit continues to guide, sanctify, and strengthen the Church today. Through the Holy Spirit, believers receive sanctifying grace, grow in holiness, understand God's truth, and are empowered to live as faithful disciples of Christ. This article reminds Christians that the Holy Spirit is always at work drawing people into deeper communion with the Blessed Trinity.",
+
+    catechism: {
+      paragraphs: ['683', '687', '688'],
+      text: 'No one can say "Jesus is Lord" except by the Holy Spirit. The Holy Spirit reveals God, makes Christ known to us, and is at work with the Father and the Son from the beginning to the completion of God\'s plan for our salvation.',
+    },
+
+    scripture: {
+      reference: '2 Corinthians 3:17',
+      text: 'Now the Lord is the Spirit, and where the Spirit of the Lord is, there is freedom.',
+    },
+  },
+  {
+    id: '78',
+
+    slug: 'who-is-the-holy-spirit',
+
+    category: 'God',
+
+    question: 'Who is the Holy Spirit?',
+
+    answer: 'The Holy Spirit is the Third Person of the Blessed Trinity.',
+
+    explanation:
+      "The Holy Spirit is not an impersonal force, energy, or symbol. He is a divine Person, equal to the Father and the Son, and together with them is one God. Throughout Scripture, the Holy Spirit acts personally: He speaks, guides, teaches, comforts, and sanctifies God's people. The Holy Spirit was active in creation, inspired the prophets, descended upon Jesus at His Baptism, and was poured out upon the Church at Pentecost. Today, the Holy Spirit continues to dwell within the Church and within the souls of those who are in God's grace. Through His work, believers receive spiritual gifts, grow in holiness, understand divine truth, and are strengthened to live as faithful disciples of Christ. The Holy Spirit is often called the Sanctifier because He helps God's people become holy and draws them into deeper communion with the Father and the Son.",
+
+    catechism: {
+      paragraphs: ['685', '687', '689'],
+      text: 'To believe in the Holy Spirit is to profess that the Holy Spirit is one of the Persons of the Holy Trinity, consubstantial with the Father and the Son. The Holy Spirit reveals Christ, sanctifies the Church, and brings believers into communion with God.',
+    },
+
+    scripture: {
+      reference: 'John 14:26',
+      text: 'But the Counselor, the Holy Spirit, whom the Father will send in my name, he will teach you all things, and bring to your remembrance all that I have said to you.',
+    },
+  },
+  {
+    id: '79',
+
+    slug: 'from-whom-does-the-holy-spirit-proceed',
+
+    category: 'God',
+
+    question: 'From whom does the Holy Spirit proceed?',
+
+    answer: 'The Holy Spirit proceeds from the Father and the Son.',
+
+    explanation:
+      "Within the mystery of the Blessed Trinity, the Holy Spirit eternally proceeds from the Father and the Son. This procession is not an event in time but an eternal relationship within the inner life of God. Just as the Son is eternally begotten of the Father, the Holy Spirit eternally proceeds from the Father and the Son. This doctrine helps Catholics understand the relationship between the three divine Persons while maintaining that there is only one God. The procession of the Holy Spirit demonstrates the perfect unity and love shared within the Trinity. Although this mystery surpasses human understanding, it has been revealed by Christ and faithfully taught by the Church. The Holy Spirit's eternal procession is reflected in His mission in the world, where He is sent by the Father and the Son to guide, sanctify, and strengthen believers.",
+
+    catechism: {
+      paragraphs: ['246', '248', '264'],
+      text: 'The Latin tradition of the Creed confesses that the Spirit proceeds from the Father and the Son. The eternal order of the divine Persons in their consubstantial communion implies that the Father is the first origin of the Spirit, but also that as Father of the only Son, he is with the Son the single principle from which the Spirit proceeds.',
+    },
+
+    scripture: {
+      reference: 'John 15:26',
+      text: 'But when the Counselor comes, whom I shall send to you from the Father, even the Spirit of truth, who proceeds from the Father, he will bear witness to me.',
+    },
+  },
+  {
+    id: '80',
+
+    slug: 'is-the-holy-spirit-equal-to-the-father-and-the-son',
+
+    category: 'God',
+
+    question: 'Is the Holy Spirit equal to the Father and to the Son?',
+
+    answer:
+      'The Holy Spirit is equal to the Father and to the Son, for he is the same Lord and God as they are.',
+
+    explanation:
+      "The Holy Spirit is fully and truly God. He is not a lesser divine being, nor is He simply a power or influence of God. The Father, the Son, and the Holy Spirit each possess the one divine nature completely and perfectly. Therefore, the Holy Spirit is equal to the Father and the Son in majesty, glory, eternity, and power. From the earliest centuries, the Church defended the divinity of the Holy Spirit against those who denied it. Christians worship the Holy Spirit together with the Father and the Son because He is the same Lord and God. The Holy Spirit's divinity is revealed throughout Scripture, where He performs divine actions such as giving life, inspiring God's Word, sanctifying believers, and dwelling within the Church. To honour the Holy Spirit is to honour God Himself, for He is one with the Father and the Son in the unity of the Blessed Trinity.",
+
+    catechism: {
+      paragraphs: ['245', '685', '690'],
+      text: 'The apostolic faith concerning the Spirit was confessed by the Second Ecumenical Council at Constantinople: we believe in the Holy Spirit, the Lord and giver of life. The Holy Spirit is consubstantial with the Father and the Son and is adored and glorified with them.',
+    },
+
+    scripture: {
+      reference: '2 Corinthians 3:17',
+      text: 'Now the Lord is the Spirit, and where the Spirit of the Lord is, there is freedom.',
+    },
+  },
 ];
