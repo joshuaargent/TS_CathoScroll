@@ -1,9 +1,11 @@
 
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import type { Metadata } from 'next';
 
 import { topics } from '@/data/topics';
 import { categories } from '@/data/categories';
+import { siteConfig } from '@/lib/constants';
 
 import { Badge } from '@/components/ui/Badge';
 
@@ -11,6 +13,29 @@ interface Props {
   params: Promise<{
     category: string;
   }>;
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { category } = await params;
+  const categoryData = categories.find((item) => item.slug === category);
+
+  if (!categoryData) {
+    return {
+      title: 'Category not found',
+      robots: {
+        index: false,
+        follow: false,
+      },
+    };
+  }
+
+  return {
+    title: categoryData.name,
+    description: categoryData.description,
+    alternates: {
+      canonical: new URL(`/categories/${categoryData.slug}`, siteConfig.url).toString(),
+    },
+  };
 }
 
 export default async function CategoryPage({

@@ -1,7 +1,13 @@
 import Link from 'next/link';
+import type { Metadata } from 'next';
 
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+
+export const metadata: Metadata = {
+  title: 'About',
+  description: 'Learn about CathoScroll and its mission to make Catholic teaching clear and accessible.',
+};
 
 export default function AboutPage() {
   return (

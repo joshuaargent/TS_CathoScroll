@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import type { Metadata } from 'next';
 
 import { TopicNotes } from '@/components/topic/TopicNotes';
 import { TopicActions } from '@/components/topic/TopicActions';
@@ -7,12 +8,36 @@ import { TopicActions } from '@/components/topic/TopicActions';
 import { CommentSection } from '@/components/comments/CommentSection';
 
 import { topics } from '@/data/topics';
+import { siteConfig } from '@/lib/constants';
 import { Badge } from '@/components/ui/Badge';
 
 interface Props {
   params: Promise<{
     slug: string;
   }>;
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { slug } = await params;
+  const topic = topics.find((item) => item.slug === slug);
+
+  if (!topic) {
+    return {
+      title: 'Topic not found',
+      robots: {
+        index: false,
+        follow: false,
+      },
+    };
+  }
+
+  return {
+    title: topic.question,
+    description: topic.answer,
+    alternates: {
+      canonical: new URL(`/topic/${topic.slug}`, siteConfig.url).toString(),
+    },
+  };
 }
 
 export default async function TopicPage({ params }: Props) {

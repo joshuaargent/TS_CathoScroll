@@ -1,4 +1,10 @@
 import Link from 'next/link';
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'Privacy',
+  description: 'Learn how CathoScroll collects, uses, and protects your personal information.',
+};
 
 export default function PrivacyPage() {
   return (

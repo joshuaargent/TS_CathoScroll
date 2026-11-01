@@ -1,11 +1,20 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import type { Metadata } from 'next';
 
 import { createClient } from '@/lib/supabase/server';
 
 import { Badge } from '@/components/ui/Badge';
 
 import { topics } from '@/data/topics';
+
+export const metadata: Metadata = {
+  title: 'Bookmarks',
+  robots: {
+    index: false,
+    follow: false,
+  },
+};
 
 function formatSavedDate(dateString: string) {
   const savedDate = new Date(dateString);

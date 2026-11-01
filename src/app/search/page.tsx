@@ -1,4 +1,14 @@
 import { SearchClient } from '@/components/search/SearchClient';
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'Search',
+  description: 'Search Catholic topics, answers, Catechism references, and Scripture.',
+  robots: {
+    index: false,
+    follow: true,
+  },
+};
 
 export default function SearchPage() {
   return (

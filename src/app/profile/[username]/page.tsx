@@ -1,7 +1,9 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import type { Metadata } from 'next';
 
 import { createClient } from '@/lib/supabase/server';
+import { siteConfig } from '@/lib/constants';
 
 import { Badge } from '@/components/ui/Badge';
 
@@ -11,6 +13,18 @@ interface Props {
   params: Promise<{
     username: string;
   }>;
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { username } = await params;
+
+  return {
+    title: `${username}'s Profile`,
+    description: `View ${username}'s public learning profile on CathoScroll.`,
+    alternates: {
+      canonical: new URL(`/profile/${encodeURIComponent(username)}`, siteConfig.url).toString(),
+    },
+  };
 }
 
 function calculateCurrentStreak(dates: string[]) {

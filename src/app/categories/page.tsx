@@ -1,8 +1,18 @@
 import Link from 'next/link';
+import type { Metadata } from 'next';
 
 import { topics } from '@/data/topics';
 import { categories } from '@/data/categories';
+import { siteConfig } from '@/lib/constants';
 import { Badge } from '@/components/ui/Badge';
+
+export const metadata: Metadata = {
+  title: 'Categories',
+  description: 'Browse Catholic teaching by topic, from Scripture and prayer to the sacraments and Church history.',
+  alternates: {
+    canonical: new URL('/categories', siteConfig.url).toString(),
+  },
+};
 
 export default function CategoriesPage() {
   const categoriesMetadata = categories.map(
