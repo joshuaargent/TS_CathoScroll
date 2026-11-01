@@ -1298,4 +1298,249 @@ export const topics: Topic[] = [
       text: 'And while they were there, the time came for her to be delivered. And she gave birth to her first-born son and wrapped him in swaddling cloths, and laid him in a manger, because there was no place for them in the inn.',
     },
   },
+  {
+    id: '51',
+
+    slug: 'on-what-day-was-our-saviour-born',
+
+    category: 'Jesus Christ',
+
+    question: 'On what day was our Saviour born?',
+
+    answer: 'Our Saviour was born on Christmas Day.',
+
+    explanation:
+      'Christmas Day is the feast on which Christians celebrate the birth of Jesus Christ. The Church celebrates Christmas on 25 December, commemorating the Incarnation and birth of the Son of God. While Scripture does not reveal the exact calendar date of Christs birth, the Church established this feast to honour the moment when God entered human history as a man. Christmas is therefore much more than a celebration of a babys birth. It is the celebration of the Incarnation, the beginning of Gods work of redemption through Jesus Christ. The feast reminds believers that God loved the world so greatly that He sent His only Son for its salvation. Through prayer, worship, charity, and joy, Christians celebrate the coming of Emmanuel, which means "God with us".',
+
+    catechism: {
+      paragraphs: ['525', '526', '563'],
+      text: 'To become a child in relation to God is the condition for entering the kingdom. Jesus birth manifests Gods goodness and loving kindness. The faithful celebrate the mysteries of Christs life throughout the liturgical year, beginning with his Nativity.',
+    },
+
+    scripture: {
+      reference: 'Luke 2:10-11',
+      text: 'And the angel said to them, "Be not afraid; for behold, I bring you good news of a great joy which will come to all the people; for to you is born this day in the city of David a Saviour, who is Christ the Lord."',
+    },
+  },
+  {
+    id: '52',
+
+    slug: 'what-is-the-fourth-article-of-the-creed',
+
+    category: 'Jesus Christ',
+
+    question: 'What is the fourth article of the Creed?',
+
+    answer:
+      'The fourth article of the Creed is, "suffered under Pontius Pilate, was crucified, died and was buried."',
+
+    explanation:
+      'The fourth article proclaims the saving Passion and Death of Jesus Christ. Unlike myths or legends, Christs suffering took place at a specific moment in human history under the Roman governor Pontius Pilate. The Creed therefore emphasises that Jesus truly suffered, truly died, and was truly buried. His death was not an accident or merely the result of human cruelty. Rather, Jesus freely accepted suffering and death out of love for humanity and obedience to the Fathers plan of salvation. Through His sacrifice on the Cross, He atoned for sin and reconciled mankind with God. The mention of His burial further confirms the reality of His death before His glorious Resurrection. Every time Catholics recite the Creed, they profess their belief that Christs Passion was the decisive act through which God redeemed the world.',
+
+    catechism: {
+      paragraphs: ['571', '599', '618'],
+      text: 'The Paschal mystery of Christs Cross and Resurrection stands at the centre of the Good News. Jesus violent death was not the result of chance but part of the mystery of Gods plan. The cross is the unique sacrifice of Christ, the one mediator between God and men.',
+    },
+
+    scripture: {
+      reference: '1 Peter 2:24',
+      text: 'He himself bore our sins in his body on the tree, that we might die to sin and live to righteousness. By his wounds you have been healed.',
+    },
+  },
+  {
+    id: '53',
+
+    slug: 'what-were-the-chief-sufferings-of-christ',
+
+    category: 'Jesus Christ',
+
+    question: 'What were the chief sufferings of Christ?',
+
+    answer:
+      'The chief sufferings of Christ were: first, his agony, and his sweat of blood in the Garden; secondly, his being scourged at the pillar, and crowned with thorns; and thirdly his carrying his cross, his crucifixion, and his death between two thieves.',
+
+    explanation:
+      'The Passion of Christ reveals both the seriousness of sin and the depth of Gods love. Before His arrest, Jesus entered into profound agony in the Garden of Gethsemane, where He accepted the Fathers will and experienced such anguish that His sweat became like drops of blood. He was then unjustly condemned, scourged, mocked, and crowned with thorns. After carrying His Cross through the streets of Jerusalem, He was crucified between two criminals and endured immense physical suffering, humiliation, and rejection. Yet throughout these sufferings, Jesus remained obedient to the Father and continued to love those who persecuted Him. Catholics meditate on these events through devotions such as the Stations of the Cross and the Sorrowful Mysteries of the Rosary. Christs sufferings were not meaningless. He willingly endured them to redeem humanity from sin and to demonstrate the immeasurable love of God for every person.',
+
+    catechism: {
+      paragraphs: ['612', '618', '619'],
+      text: 'The cup of the New Covenant, which Jesus anticipated when he offered himself at the Last Supper, he accepted afterwards from his Fathers hands in his agony in the garden. Christ suffered for us and offered his life as a sacrifice for our sins. By his holy and precious blood, he merited justification for us.',
+    },
+
+    scripture: {
+      reference: 'Isaiah 53:5',
+      text: 'But he was wounded for our transgressions, he was bruised for our iniquities; upon him was the chastisement that made us whole, and with his stripes we are healed.',
+    },
+  },
+  {
+    id: '54',
+
+    slug: 'what-are-the-chief-sufferings-of-our-lord-called',
+
+    category: 'Jesus Christ',
+
+    question: 'What are the chief sufferings of our Lord called?',
+
+    answer: 'The chief sufferings of our Lord are called the Passion of Jesus Christ.',
+
+    explanation:
+      'The word "Passion" comes from a Latin word meaning "to suffer". The Passion of Jesus Christ refers to the events of His suffering from His agony in the Garden of Gethsemane until His death on the Cross. The Church recalls the Passion in a special way during Holy Week, particularly on Good Friday. Christ did not suffer because He was powerless to avoid suffering. Rather, He freely accepted it out of love for humanity and obedience to the Father\'s will. Through His Passion, Jesus took upon Himself the consequences of sin and offered the perfect sacrifice for the salvation of the world. Catholics meditate on the Passion through prayer, the Stations of the Cross, the Rosary, and the liturgy because these events reveal the depth of God\'s love and the cost of our redemption. The Passion remains at the heart of Christian faith and devotion.',
+
+    catechism: {
+      paragraphs: ['571', '572', '618'],
+      text: "The Paschal mystery of Christ's Cross and Resurrection stands at the centre of the Good News. Christ's whole life is a mystery of redemption. The cross is the unique sacrifice of Christ, the one mediator between God and men.",
+    },
+
+    scripture: {
+      reference: 'John 15:13',
+      text: 'Greater love has no man than this, that a man lay down his life for his friends.',
+    },
+  },
+  {
+    id: '55',
+
+    slug: 'why-did-our-saviour-suffer',
+
+    category: 'Jesus Christ',
+
+    question: 'Why did our Saviour suffer?',
+
+    answer: 'Our Saviour suffered to atone for our sins, and to purchase for us eternal life.',
+
+    explanation:
+      "Sin separates humanity from God and no human being could fully repair the damage caused by sin. Out of love, Jesus willingly suffered and died to reconcile humanity with the Father. His sacrifice on the Cross atoned for sin by offering perfect obedience and love in place of humanity's disobedience. Through His suffering and death, Christ opened the way to forgiveness, grace, and eternal life. This does not mean that people are saved automatically regardless of their response to God. Rather, Christ won the graces necessary for salvation and invites every person to accept them through faith, repentance, and participation in the life of the Church. The sufferings of Jesus demonstrate both the seriousness of sin and the immeasurable mercy of God. Whenever Catholics look upon the Cross, they are reminded of the price of redemption and the depth of Christ's love for the world.",
+
+    catechism: {
+      paragraphs: ['599', '615', '618'],
+      text: 'Jesus atoned for our faults and made satisfaction for our sins to the Father. By his loving obedience to the Father, unto death on the Cross, Jesus fulfills the atoning mission of the suffering servant. The cross is the unique sacrifice of Christ.',
+    },
+
+    scripture: {
+      reference: '1 Peter 3:18',
+      text: 'For Christ also died for sins once for all, the righteous for the unrighteous, that he might bring us to God.',
+    },
+  },
+  {
+    id: '56',
+
+    slug: 'why-is-jesus-christ-called-our-redeemer',
+
+    category: 'Jesus Christ',
+
+    question: 'Why is Jesus Christ called our Redeemer?',
+
+    answer:
+      'Jesus Christ is called our Redeemer because his precious blood is the price by which we were ransomed.',
+
+    explanation:
+      "To redeem means to buy back or set free by paying a price. Humanity had fallen under the power of sin and death and could not free itself. Jesus Christ redeemed us through His Passion, Death, and Resurrection. The New Testament frequently speaks of believers being purchased or ransomed by the precious blood of Christ. This language highlights the immense value of Christ's sacrifice and the cost of our salvation. The Church does not teach that God paid a literal price to someone, but rather that the sacrifice of Christ perfectly accomplished what was necessary to reconcile humanity with God. Because Jesus is both true God and true man, His sacrifice possesses infinite value. Through His redeeming work, believers are freed from slavery to sin and invited into the freedom and dignity of the children of God.",
+
+    catechism: {
+      paragraphs: ['601', '607', '622'],
+      text: "The Son of God freely accepted his Father's plan of divine salvation. Christ's whole life is an offering to the Father. The redemption won by Christ consists in this, that he came to give his life as a ransom for many, that is, he loved his own to the end.",
+    },
+
+    scripture: {
+      reference: '1 Peter 1:18-19',
+      text: 'You know that you were ransomed from the futile ways inherited from your fathers, not with perishable things such as silver or gold, but with the precious blood of Christ, like that of a lamb without blemish or spot.',
+    },
+  },
+  {
+    id: '57',
+
+    slug: 'on-what-day-did-our-saviour-die',
+
+    category: 'Jesus Christ',
+
+    question: 'On what day did our Saviour die?',
+
+    answer: 'Our Saviour died on Good Friday.',
+
+    explanation:
+      'Good Friday is the day on which Christians commemorate the suffering and death of Jesus Christ on the Cross. It is called "Good" not because of the suffering involved, but because of the great good that Christ accomplished through His sacrifice. On that day, Jesus offered Himself freely for the salvation of the world, reconciling humanity with God and opening the way to eternal life. The Church observes Good Friday with solemnity, prayer, fasting, and reflection upon the Passion. Although it is a day marked by sorrow, it is also a day of hope because Christ\'s death was not the end of the story. Good Friday leads to Easter Sunday, when the Church celebrates Christ\'s victory over sin and death through His Resurrection. Together, these events form the heart of the Christian faith and the foundation of our salvation.',
+
+    catechism: {
+      paragraphs: ['613', '617', '624'],
+      text: "Christ's death is both the Paschal sacrifice that accomplishes the definitive redemption of men and the sacrifice of the New Covenant. By his holy Cross he has redeemed the world. By the grace of God, Jesus tasted death for every man.",
+    },
+
+    scripture: {
+      reference: 'John 19:30',
+      text: 'When Jesus had received the vinegar, he said, "It is finished"; and he bowed his head and gave up his spirit.',
+    },
+  },
+  {
+    id: '58',
+
+    slug: 'where-did-our-saviour-die',
+
+    category: 'Jesus Christ',
+
+    question: 'Where did our Saviour die?',
+
+    answer: 'Our Saviour died on Mount Calvary.',
+
+    explanation:
+      'Calvary, also known as Golgotha, was the place outside Jerusalem where Jesus was crucified. The name Golgotha means "Place of a Skull". There, Jesus was nailed to the Cross between two criminals and offered His life for the salvation of the world. Calvary stands at the centre of Christian history because it was the place where Christ accomplished the work of redemption. What appeared to be a place of defeat became the place of victory over sin and death. Throughout the centuries, Christians have regarded Calvary with deep reverence and devotion. The Cross raised on Calvary has become the universal symbol of Christianity, reminding believers of God\'s love and the sacrifice by which they were redeemed. Every Mass makes present the one sacrifice of Calvary, allowing Christians to participate in the saving mystery of Christ\'s Passion.',
+
+    catechism: {
+      paragraphs: ['617', '618', '1367'],
+      text: 'By his holy Cross he has redeemed the world. The sacrifice of Christ and the sacrifice of the Eucharist are one single sacrifice. The cross is the unique sacrifice of Christ, the one mediator between God and men.',
+    },
+
+    scripture: {
+      reference: 'Luke 23:33',
+      text: 'And when they came to the place which is called The Skull, there they crucified him, and the criminals, one on the right hand and one on the left.',
+    },
+  },
+  {
+    id: '59',
+
+    slug: 'why-do-we-make-the-sign-of-the-cross',
+
+    category: 'Prayer',
+
+    question: 'Why do we make the sign of the cross?',
+
+    answer:
+      'We make the sign of the cross - first, to put us in mind of the Blessed Trinity; and secondly, to remind us that God the Son died for us on the Cross.',
+
+    explanation:
+      'The Sign of the Cross is one of the oldest and most important prayers in Christianity. When Catholics trace the cross upon themselves while saying "In the name of the Father, and of the Son, and of the Holy Spirit", they profess two central mysteries of the faith: the Blessed Trinity and the saving death of Jesus Christ. The words recall the three divine Persons, while the gesture of the cross recalls Christ\'s sacrifice on Calvary. The Sign of the Cross is therefore much more than a habit or greeting. It is a brief profession of faith, a prayer, and a reminder of our baptism. Catholics make the Sign of the Cross at the beginning and end of prayer, before receiving blessings, and during the liturgy. By making this sign with reverence, Christians place themselves under God\'s protection and renew their commitment to live as disciples of Christ.',
+
+    catechism: {
+      paragraphs: ['2157', '1235', '1668'],
+      text: 'The Christian begins his day, his prayers and activities with the Sign of the Cross: "In the name of the Father and of the Son and of the Holy Spirit. Amen." The sign of the cross strengthens us in temptations and difficulties and recalls our baptism into Christ.',
+    },
+
+    scripture: {
+      reference: 'Matthew 28:19',
+      text: 'Go therefore and make disciples of all nations, baptising them in the name of the Father and of the Son and of the Holy Spirit.',
+    },
+  },
+  {
+    id: '60',
+
+    slug: 'how-does-the-sign-of-the-cross-remind-us-of-the-blessed-trinity',
+
+    category: 'Prayer',
+
+    question: 'In making the sign of the cross how are we reminded of the Blessed Trinity?',
+
+    answer:
+      'In making the sign of the cross we are reminded of the Blessed Trinity by the words, "In the name of the Father, and of the Son, and of the Holy Spirit".',
+
+    explanation:
+      'The Sign of the Cross is a brief profession of faith in the mystery of the Blessed Trinity. Every time Catholics say the words "In the name of the Father, and of the Son, and of the Holy Spirit", they acknowledge the one God who exists eternally as three divine Persons. The wording is significant because Christians say "name", not "names", affirming that there is one God, not three gods. At the same time, the three Persons are individually named, expressing the distinction between the Father, the Son, and the Holy Spirit. This simple prayer therefore contains one of the deepest truths of the Christian faith. By beginning and ending prayers with these words, Catholics place themselves consciously in the presence of the Triune God and renew the faith received at Baptism. The Sign of the Cross serves as a daily reminder that Christian life begins, continues, and ends in communion with the Blessed Trinity.',
+
+    catechism: {
+      paragraphs: ['232', '233', '2157'],
+      text: 'Christians are baptised in the name of the Father and of the Son and of the Holy Spirit. The mystery of the Most Holy Trinity is the central mystery of Christian faith and life. The Christian begins his day, his prayers and activities with the Sign of the Cross.',
+    },
+
+    scripture: {
+      reference: 'Matthew 28:19',
+      text: 'Go therefore and make disciples of all nations, baptising them in the name of the Father and of the Son and of the Holy Spirit.',
+    },
+  },
 ];
