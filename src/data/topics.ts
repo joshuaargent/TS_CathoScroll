@@ -1543,4 +1543,256 @@ export const topics: Topic[] = [
       text: 'Go therefore and make disciples of all nations, baptising them in the name of the Father and of the Son and of the Holy Spirit.',
     },
   },
+
+  {
+    id: '61',
+
+    slug: 'how-does-the-sign-of-the-cross-remind-us-that-christ-died-for-us',
+
+    category: 'Prayer',
+
+    question:
+      'In making the sign of the cross how are we reminded that Christ died for us on the Cross?',
+
+    answer:
+      'In making the sign of the cross we are reminded that Christ died for us on the cross by the very form of the cross which we make upon ourselves.',
+
+    explanation:
+      "The gesture of tracing the cross upon ourselves reminds us of the instrument by which Jesus redeemed the world. The Cross stands at the centre of Christianity because it was there that Christ offered His life for the forgiveness of sins and the salvation of humanity. Every Sign of the Cross therefore serves as a brief remembrance of Christ's Passion and Death. It is not merely a symbolic movement of the hand but a visible profession of faith in the saving work of Jesus. By making the Sign of the Cross, Catholics recall the price of their redemption and express gratitude for Christ's sacrifice. The gesture also reminds believers that they are called to take up their own cross and follow Him. In this way, the Sign of the Cross unites the mysteries of the Trinity and the Redemption in one simple yet profound act of faith.",
+
+    catechism: {
+      paragraphs: ['618', '1235', '2157'],
+      text: 'The cross is the unique sacrifice of Christ, the one mediator between God and men. The Sign of the Cross marks us with the seal of Christ. The Christian begins his day, his prayers and activities with the Sign of the Cross, placing himself under the grace of the Saviour.',
+    },
+
+    scripture: {
+      reference: 'Galatians 6:14',
+      text: 'But far be it from me to glory except in the cross of our Lord Jesus Christ, by which the world has been crucified to me, and I to the world.',
+    },
+  },
+  {
+    id: '62',
+
+    slug: 'what-is-the-fifth-article-of-the-creed',
+
+    category: 'Jesus Christ',
+
+    question: 'What is the fifth article of the Creed?',
+
+    answer:
+      'The fifth article of the Creed is, "he descended into hell; on the third day he rose again from the dead".',
+
+    explanation:
+      'The fifth article of the Creed proclaims two important events that took place between Christ\'s death and Ascension: His descent into hell and His Resurrection. The word "hell" in this context does not mean the place of eternal punishment. Rather, it refers to the abode of the dead, where the just of the Old Testament awaited the coming of the Redeemer. By descending among the dead, Christ proclaimed His victory and opened Heaven to those who had died in friendship with God before His coming. On the third day, He rose bodily from the dead, conquering sin and death forever. The Resurrection is the crowning truth of the Christian faith and the foundation of Christian hope. It confirms that Jesus is truly the Son of God and that His sacrifice on the Cross accomplished our salvation. Through His victory, Christ has opened the way for all who believe in Him to share in eternal life.',
+
+    catechism: {
+      paragraphs: ['631', '632', '638'],
+      text: 'Jesus descended into the depths of death so that the dead would hear the voice of the Son of God and those who hear will live. The Resurrection of Jesus is the crowning truth of our faith in Christ, a faith believed and lived as the central truth by the first Christian community.',
+    },
+
+    scripture: {
+      reference: '1 Corinthians 15:3-4',
+      text: 'Christ died for our sins in accordance with the scriptures, that he was buried, that he was raised on the third day in accordance with the scriptures.',
+    },
+  },
+  {
+    id: '63',
+
+    slug: 'what-do-you-mean-he-descended-into-hell',
+
+    category: 'Jesus Christ',
+
+    question: 'What do you mean by the words, "he descended into hell"?',
+
+    answer:
+      'By the words "he descended into hell" I mean that, as soon as Christ was dead, his blessed Soul went down into that part of Hell called Limbo.',
+
+    explanation:
+      "In the Apostles' Creed, the phrase \"he descended into hell\" does not refer to the Hell of the damned. The Church teaches that after His death, Christ descended to the abode of the dead, where the righteous who had died before His coming awaited redemption. Traditional catechisms often refer to this state as the Limbo of the Fathers or Abraham's Bosom. These holy men and women, including figures such as Abraham, Moses, David, and the prophets, could not enter Heaven until Christ had completed His saving work. By descending among the dead, Jesus proclaimed His victory over sin and death and brought the just into the fullness of salvation. This event demonstrates that Christ's redemption extends to all times and all peoples. The descent into hell forms an important part of the Paschal Mystery, showing that Jesus truly experienced death and triumphed over it from within.",
+
+    catechism: {
+      paragraphs: ['632', '633', '634'],
+      text: 'The frequent New Testament affirmations that Jesus was raised from the dead presuppose that the crucified one sojourned in the realm of the dead prior to his resurrection. Jesus did not descend into hell to deliver the damned, but to free the just who had gone before him.',
+    },
+
+    scripture: {
+      reference: '1 Peter 3:18-19',
+      text: 'For Christ also died for sins once for all, the righteous for the unrighteous, that he might bring us to God, being put to death in the flesh but made alive in the spirit; in which he went and preached to the spirits in prison.',
+    },
+  },
+  {
+    id: '64',
+
+    slug: 'what-do-you-mean-by-limbo',
+
+    category: 'Jesus Christ',
+
+    question: 'What do you mean by Limbo?',
+
+    answer:
+      'By Limbo I mean a place of rest, where the souls of the just who died before Christ were detained.',
+
+    explanation:
+      'In the Penny Catechism, the word "Limbo" refers to what is traditionally called the Limbo of the Fathers or Abraham\'s Bosom. It was not a place of punishment but a state of peace where the righteous who had died before Christ awaited the coming of the Redeemer. These holy men and women had lived by faith and friendship with God, but Heaven had not yet been opened through Christ\'s saving Death and Resurrection. The Church teaches that when Jesus descended among the dead, He announced the Good News of salvation and brought these just souls into the presence of God. Modern Catholic teaching more commonly speaks of the "abode of the dead" or the state of the righteous awaiting redemption, but the reality remains the same. This doctrine emphasises that Christ\'s saving work extends not only to those living after His coming but also to the faithful who awaited Him throughout salvation history.',
+
+    catechism: {
+      paragraphs: ['633', '634', '635'],
+      text: 'Scripture calls the abode of the dead, to which the dead Christ went down, "hell" because those who are there are deprived of the vision of God. Jesus did not descend into hell to deliver the damned, but to free the just who had gone before him. The Gospel was preached even to the dead.',
+    },
+
+    scripture: {
+      reference: 'Luke 16:22',
+      text: "The poor man died and was carried by the angels to Abraham's bosom. The rich man also died and was buried.",
+    },
+  },
+  {
+    id: '65',
+
+    slug: 'why-were-the-souls-of-the-just-detained-in-limbo',
+
+    category: 'Jesus Christ',
+
+    question: 'Why were the souls of the just detained in Limbo?',
+
+    answer:
+      'The souls of the just were detained in Limbo because they could not go up to the kingdom of heaven till Christ had opened it for them.',
+
+    explanation:
+      "Before the redemption accomplished by Jesus Christ, Heaven was not yet opened to humanity. Although the righteous of the Old Testament lived and died in God's friendship, they still awaited the coming of the promised Messiah who would conquer sin and death. Because of Adam's fall, mankind could not enter the full vision of God until Christ completed His saving mission. When Jesus died on the Cross and descended among the dead, He announced His victory and led the just into Heaven. This teaching highlights the central role of Christ in God's plan of salvation. No one reaches Heaven apart from Him. The patriarchs, prophets, and all the faithful of the Old Covenant were ultimately saved through the merits of Christ, even though they lived before His earthly life. His redemption transcends time and reaches both those who came before Him and those who come after Him.",
+
+    catechism: {
+      paragraphs: ['1026', '633', '637'],
+      text: "By his death and Resurrection, Jesus Christ has opened Heaven to us. Jesus descended into the abode of the dead and opened Heaven's gates for the just who had gone before him. Christ is risen from the dead, opening for us the way to a new life.",
+    },
+
+    scripture: {
+      reference: 'Hebrews 9:15',
+      text: 'Therefore he is the mediator of a new covenant, so that those who are called may receive the promised eternal inheritance, since a death has occurred which redeems them from the transgressions under the first covenant.',
+    },
+  },
+  {
+    id: '66',
+
+    slug: 'what-do-you-mean-by-on-the-third-day-he-rose-again',
+
+    category: 'Jesus Christ',
+
+    question: 'What do you mean by the words, "on the third day he rose again from the dead"?',
+
+    answer:
+      'By the words "on the third day he rose again from the dead", I mean that, after Christ had been dead and buried part of three days, he raised his blessed Body to life again on the third day.',
+
+    explanation:
+      "The Resurrection of Jesus Christ is the central event of the Christian faith. After truly suffering, dying, and being buried, Jesus rose bodily from the dead on the third day. His Resurrection was not merely the survival of His soul or a symbolic return in the memories of His followers. The same body that was crucified and laid in the tomb was raised and glorified by the power of God. Through His Resurrection, Christ conquered sin, death, and the power of the devil. The Resurrection confirms that Jesus is truly the Son of God and that His sacrifice on the Cross accomplished the salvation of the world. It also gives Christians confidence in their own future resurrection. Because Christ lives forever, those who belong to Him have the hope of eternal life. The Resurrection transforms the Cross from a sign of defeat into the sign of Christ's victory and triumph.",
+
+    catechism: {
+      paragraphs: ['638', '646', '655'],
+      text: "The Resurrection of Jesus is the crowning truth of our faith in Christ. Christ's Resurrection was a real event with manifestations that were historically verified by his disciples. Christ is risen from the dead, and in him all will be made alive.",
+    },
+
+    scripture: {
+      reference: 'Luke 24:6-7',
+      text: 'He is not here, but has risen. Remember how he told you, while he was still in Galilee, that the Son of man must be delivered into the hands of sinful men, and be crucified, and on the third day rise.',
+    },
+  },
+  {
+    id: '67',
+
+    slug: 'on-what-day-did-christ-rise-again-from-the-dead',
+
+    category: 'Jesus Christ',
+
+    question: 'On what day did Christ rise again from the dead?',
+
+    answer: 'Christ rose again from the dead on Easter Sunday.',
+
+    explanation:
+      "Easter Sunday is the greatest feast of the Christian year because it celebrates the Resurrection of Jesus Christ. After His death on Good Friday and His burial, Christ rose triumphantly from the dead on the first day of the week. The Resurrection is the foundation of Christian hope because it demonstrates Christ's victory over sin and death. Every Sunday is celebrated by Christians as the Lord's Day because it commemorates this victory. Easter is not simply the remembrance of a past event but the celebration of a living reality. The risen Christ continues to be present in His Church, especially through the sacraments. By rising from the dead, Jesus opened the way to eternal life for all who believe in Him. Easter therefore stands at the centre of the Church's liturgical year and remains the source of Christian joy and hope.",
+
+    catechism: {
+      paragraphs: ['638', '647', '1166'],
+      text: "The Resurrection of Jesus is the crowning truth of our faith in Christ. Sunday is expressly distinguished from the sabbath and follows chronologically every week. It is the day of Christ's Resurrection and is rightly called the Lord's Day.",
+    },
+
+    scripture: {
+      reference: 'Matthew 28:5-6',
+      text: 'But the angel said to the women, "Do not be afraid; for I know that you seek Jesus who was crucified. He is not here; for he has risen, as he said. Come, see the place where he lay."',
+    },
+  },
+  {
+    id: '68',
+
+    slug: 'what-is-the-sixth-article-of-the-creed',
+
+    category: 'Jesus Christ',
+
+    question: 'What is the sixth article of the Creed?',
+
+    answer:
+      'The sixth article of the Creed is, "he ascended into heaven, and is seated at the right hand of God the Father almighty".',
+
+    explanation:
+      'The sixth article of the Creed professes Christ\'s Ascension into Heaven and His exaltation at the right hand of the Father. After His Resurrection, Jesus remained with His disciples for forty days, teaching them and preparing them for the coming of the Holy Spirit. He then ascended into Heaven in their sight. The Ascension does not mean that Jesus abandoned His Church. Rather, having completed His earthly mission, He entered fully into His heavenly glory and continues to intercede for His people before the Father. The phrase "seated at the right hand of God" does not refer to a physical location, but signifies Christ\'s supreme authority, honour, and kingship. From Heaven, He reigns as Lord of all creation and guides His Church through the Holy Spirit. The Ascension also gives Christians hope, because where Christ has gone, His faithful followers are called to follow.',
+
+    catechism: {
+      paragraphs: ['659', '663', '665'],
+      text: "The Lord Jesus, after speaking to them, was taken up into heaven and took his seat at the right hand of God. Christ's Ascension marks the definitive entrance of Jesus' humanity into God's heavenly domain. Seated at the Father's right hand, Christ inaugurates the Kingdom of the Messiah.",
+    },
+
+    scripture: {
+      reference: 'Mark 16:19',
+      text: 'So then the Lord Jesus, after he had spoken to them, was taken up into heaven, and sat down at the right hand of God.',
+    },
+  },
+  {
+    id: '69',
+
+    slug: 'what-do-you-mean-by-he-ascended-into-heaven',
+
+    category: 'Jesus Christ',
+
+    question: 'What do you mean by the words, "he ascended into heaven"?',
+
+    answer:
+      'By the words "he ascended into heaven", I mean that our Saviour went up Body and Soul into heaven on Ascension Day forty days after his Resurrection.',
+
+    explanation:
+      "Forty days after His Resurrection, Jesus Christ ascended into Heaven in the presence of His apostles. Unlike the saints, who enter Heaven through God's grace, Jesus ascended by His own divine power because He is the Son of God. His Ascension completed His earthly mission and marked the beginning of a new phase in salvation history. Christ did not leave behind His humanity when He ascended. Rather, He entered Heaven with His glorified human body and soul, demonstrating the destiny that awaits those who remain faithful to Him. The Ascension is therefore a source of great hope for Christians. It teaches that human nature has been raised to a place of honour in Heaven and that Christ continually intercedes for us before the Father. While He is no longer visibly present on earth, He remains present through His Church, His Word, and especially through the sacraments.",
+
+    catechism: {
+      paragraphs: ['659', '660', '665'],
+      text: "Jesus Christ, the head of the Church, precedes us into the Father's glorious kingdom so that we, the members of his Body, may live in the hope of one day being with him forever. Having entered the sanctuary of heaven once and for all, Christ intercedes constantly for us.",
+    },
+
+    scripture: {
+      reference: 'Acts 1:9-11',
+      text: 'And when he had said this, as they were looking on, he was lifted up, and a cloud took him out of their sight. And while they were gazing into heaven as he went, behold, two men stood by them in white robes, and said, "Men of Galilee, why do you stand looking into heaven? This Jesus, who was taken up from you into heaven, will come in the same way as you saw him go into heaven."',
+    },
+  },
+  {
+    id: '70',
+
+    slug: 'what-do-you-mean-by-seated-at-the-right-hand-of-the-father',
+
+    category: 'Jesus Christ',
+
+    question:
+      'What do you mean by the words, "and is seated at the right hand of God the Father Almighty"?',
+
+    answer:
+      'By the words, "is seated at the right hand of God the Father Almighty", I do not mean that God the Father has hands, for he is a spirit; but I mean that Christ, as God, is equal to the Father and, as man, is in the highest place in Heaven.',
+
+    explanation:
+      'When the Creed says that Christ is seated at the right hand of the Father, it is using symbolic language to express a profound spiritual reality. Since God is pure spirit and does not possess a physical body, He does not literally sit on a throne with Christ beside Him. In biblical language, the right hand is the place of honour, authority, and power. The Creed therefore teaches that Jesus Christ, having completed His earthly mission, now reigns in glory with the Father. As the eternal Son, He is equal to the Father in divinity. As man, He has been exalted above all creation and entered fully into heavenly glory. This truth gives Christians great confidence because the same Jesus who suffered, died, and rose again now reigns as Lord of Heaven and earth. From His place of glory, He intercedes for His people and governs His Church until He comes again in glory.',
+
+    catechism: {
+      paragraphs: ['663', '664', '665'],
+      text: "Being seated at the Father's right hand signifies the inauguration of the Messiah's kingdom. Christ's Ascension marks the definitive entrance of Jesus' humanity into God's heavenly domain. There he permanently exercises his priesthood, for he always lives to make intercession for those who draw near to God through him.",
+    },
+
+    scripture: {
+      reference: 'Hebrews 1:3',
+      text: 'When he had made purification for sins, he sat down at the right hand of the Majesty on high.',
+    },
+  },
 ];
