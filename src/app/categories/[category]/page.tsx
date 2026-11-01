@@ -15,6 +15,10 @@ interface Props {
   }>;
 }
 
+export function generateStaticParams() {
+  return categories.map((category) => ({ category: category.slug }));
+}
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { category } = await params;
   const categoryData = categories.find((item) => item.slug === category);
@@ -29,11 +33,34 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     };
   }
 
+  const url = new URL(`/categories/${categoryData.slug}`, siteConfig.url).toString();
+
   return {
     title: categoryData.name,
     description: categoryData.description,
     alternates: {
-      canonical: new URL(`/categories/${categoryData.slug}`, siteConfig.url).toString(),
+      canonical: url,
+    },
+    openGraph: {
+      type: 'website',
+      title: categoryData.name,
+      description: categoryData.description,
+      url,
+      siteName: siteConfig.name,
+      images: [
+        {
+          url: siteConfig.ogImage,
+          width: 512,
+          height: 512,
+          alt: siteConfig.name,
+        },
+      ],
+    },
+    twitter: {
+      card: 'summary',
+      title: categoryData.name,
+      description: categoryData.description,
+      images: [siteConfig.ogImage],
     },
   };
 }

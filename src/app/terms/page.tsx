@@ -1,9 +1,13 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
+import { siteConfig } from '@/lib/constants';
 
 export const metadata: Metadata = {
   title: 'Terms',
   description: 'Terms and conditions for using CathoScroll.',
+  alternates: {
+    canonical: new URL('/terms', siteConfig.url).toString(),
+  },
 };
 
 export default function TermsPage() {

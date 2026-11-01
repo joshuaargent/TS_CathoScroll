@@ -1,9 +1,13 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
+import { siteConfig } from '@/lib/constants';
 
 export const metadata: Metadata = {
   title: 'Privacy',
   description: 'Learn how CathoScroll collects, uses, and protects your personal information.',
+  alternates: {
+    canonical: new URL('/privacy', siteConfig.url).toString(),
+  },
 };
 
 export default function PrivacyPage() {

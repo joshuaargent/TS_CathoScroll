@@ -17,6 +17,23 @@ interface Props {
   }>;
 }
 
+export function generateStaticParams() {
+  return topics.map((topic) => ({ slug: topic.slug }));
+}
+
+function getTopicDescription(explanation: string) {
+  const normalized = explanation.replace(/\s+/g, ' ').trim();
+
+  if (normalized.length <= 160) {
+    return normalized;
+  }
+
+  const excerpt = normalized.slice(0, 157);
+  const wordBoundary = excerpt.lastIndexOf(' ');
+
+  return `${excerpt.slice(0, wordBoundary > 0 ? wordBoundary : excerpt.length).trimEnd()}...`;
+}
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const topic = topics.find((item) => item.slug === slug);
@@ -31,11 +48,35 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     };
   }
 
+  const description = getTopicDescription(topic.explanation);
+  const url = new URL(`/topic/${topic.slug}`, siteConfig.url).toString();
+
   return {
     title: topic.question,
-    description: topic.answer,
+    description,
     alternates: {
-      canonical: new URL(`/topic/${topic.slug}`, siteConfig.url).toString(),
+      canonical: url,
+    },
+    openGraph: {
+      type: 'article',
+      title: topic.question,
+      description,
+      url,
+      siteName: siteConfig.name,
+      images: [
+        {
+          url: siteConfig.ogImage,
+          width: 512,
+          height: 512,
+          alt: siteConfig.name,
+        },
+      ],
+    },
+    twitter: {
+      card: 'summary',
+      title: topic.question,
+      description,
+      images: [siteConfig.ogImage],
     },
   };
 }

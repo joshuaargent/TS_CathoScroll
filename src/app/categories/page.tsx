@@ -12,6 +12,29 @@ export const metadata: Metadata = {
   alternates: {
     canonical: new URL('/categories', siteConfig.url).toString(),
   },
+  openGraph: {
+    type: 'website',
+    title: 'Categories',
+    description:
+      'Browse Catholic teaching by topic, from Scripture and prayer to the sacraments and Church history.',
+    url: new URL('/categories', siteConfig.url).toString(),
+    siteName: siteConfig.name,
+    images: [
+      {
+        url: siteConfig.ogImage,
+        width: 512,
+        height: 512,
+        alt: siteConfig.name,
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary',
+    title: 'Categories',
+    description:
+      'Browse Catholic teaching by topic, from Scripture and prayer to the sacraments and Church history.',
+    images: [siteConfig.ogImage],
+  },
 };
 
 export default function CategoriesPage() {

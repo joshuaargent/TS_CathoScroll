@@ -14,7 +14,7 @@ export default function robots(): MetadataRoute.Robots {
 
         allow: '/',
 
-        disallow: ['/api/', '/_next/', '/account', '/signin', '/signup', '/bookmarks'],
+        disallow: ['/api/'],
       },
     ],
 

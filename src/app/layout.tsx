@@ -48,14 +48,14 @@ export const metadata: Metadata = {
     images: [
       {
         url: siteConfig.ogImage,
-        width: 1200,
-        height: 630,
+        width: 512,
+        height: 512,
         alt: siteConfig.name,
       },
     ],
   },
   twitter: {
-    card: 'summary_large_image',
+    card: 'summary',
     title: meta.title,
     description: meta.description,
     images: [siteConfig.ogImage],
@@ -76,6 +76,19 @@ export const metadata: Metadata = {
     types: {
       'application/rss+xml': `${siteConfig.url}/feed.xml`,
     },
+  },
+};
+
+const websiteStructuredData = {
+  '@context': 'https://schema.org',
+  '@type': 'WebSite',
+  name: siteConfig.name,
+  url: siteConfig.url,
+  description: siteConfig.description,
+  publisher: {
+    '@type': 'Organization',
+    name: siteConfig.name,
+    url: siteConfig.url,
   },
 };
 
@@ -120,6 +133,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body className="flex min-h-screen flex-col antialiased">
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(websiteStructuredData).replace(/</g, '\\u003c'),
+          }}
+        />
         <ThemeProvider>
           <AuthProvider>
             <Navbar />

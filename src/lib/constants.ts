@@ -8,7 +8,7 @@ export const siteConfig: SiteConfig = {
   name: 'CathoScroll',
   description: 'Learn Catholic teaching one swipe at a time',
   url: process.env.NEXT_PUBLIC_SITE_URL || 'https://joshuaargent.vercel.app',
-  ogImage: '/og-image.png',
+  ogImage: '/web-app-manifest-512x512.png',
   links: {
     email: 'argentjackjoshua@gmail.com',
     github: 'https://github.com/joshuaargent',

@@ -2,10 +2,14 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 
 import { Button } from '@/components/ui/Button';
+import { siteConfig } from '@/lib/constants';
 
 export const metadata: Metadata = {
   title: 'FAQs',
   description: 'Answers to common questions about CathoScroll, Catholic learning, accounts, and subscriptions.',
+  alternates: {
+    canonical: new URL('/faq', siteConfig.url).toString(),
+  },
 };
 
 export default function FAQPage() {

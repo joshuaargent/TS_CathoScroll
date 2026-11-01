@@ -3,10 +3,14 @@ import type { Metadata } from 'next';
 
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+import { siteConfig } from '@/lib/constants';
 
 export const metadata: Metadata = {
   title: 'About',
   description: 'Learn about CathoScroll and its mission to make Catholic teaching clear and accessible.',
+  alternates: {
+    canonical: new URL('/about', siteConfig.url).toString(),
+  },
 };
 
 export default function AboutPage() {

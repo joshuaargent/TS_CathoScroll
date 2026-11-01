@@ -25,6 +25,9 @@ const FORMSPREE_FORM_ID = process.env.NEXT_PUBLIC_FORMSPREE_FORM_ID;
 export const metadata: Metadata = {
   title: 'Contact',
   description: 'Contact CathoScroll for support, feedback, bug reports, and topic suggestions.',
+  alternates: {
+    canonical: new URL('/contact', siteConfig.url).toString(),
+  },
 };
 
 export default function ContactPage() {
