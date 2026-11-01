@@ -809,4 +809,247 @@ export const topics: Topic[] = [
       text: 'Do not be conformed to this world but be transformed by the renewal of your mind, that you may prove what is the will of God, what is good and acceptable and perfect.',
     },
   },
+  {
+    id: '31',
+
+    slug: 'what-is-the-second-article-of-the-creed',
+
+    category: 'Jesus Christ',
+
+    question: 'What is the second article of the Creed?',
+
+    answer: 'The second article of the Creed is, "and in Jesus Christ, his only Son, our Lord".',
+
+    explanation:
+      'The second article of the Apostles\' Creed begins the Church\'s profession of faith concerning Jesus Christ. While the first article focuses on God the Father and creation, the second article introduces the Son, through whom the work of redemption is accomplished. The name Jesus means "God saves", revealing His mission to save humanity from sin. Christ means "Anointed One" or "Messiah", indicating that He is the Saviour promised throughout the Old Testament. By calling Jesus the only Son of God, the Creed teaches that His relationship with the Father is unique and eternal. By calling Him Lord, Christians acknowledge His divine authority and worship Him as God. This article marks the beginning of the Church\'s teaching on the person and work of Jesus Christ, who stands at the very centre of the Catholic faith.',
+
+    catechism: {
+      paragraphs: ['430', '436', '454'],
+      text: 'Jesus means "God saves". The title "Christ" means "Anointed One", "Messiah". The title "Lord" indicates divine sovereignty. In the Greek translation of the Old Testament, "Lord" was the name most often used to translate the divine name revealed to Moses.',
+    },
+
+    scripture: {
+      reference: 'Acts 2:36',
+      text: 'Let all the house of Israel therefore know assuredly that God has made him both Lord and Christ, this Jesus whom you crucified.',
+    },
+  },
+  {
+    id: '32',
+
+    slug: 'who-is-jesus-christ',
+
+    category: 'Jesus Christ',
+
+    question: 'Who is Jesus Christ?',
+
+    answer: 'Jesus Christ is God the Son, made man for us.',
+
+    explanation:
+      'Jesus Christ is the eternal Son of God who became man for our salvation. This mystery is known as the Incarnation. Without ceasing to be God, the Son took on a true human nature and entered human history. He experienced human life in all things except sin. Through His teaching, miracles, suffering, death, and resurrection, He revealed the Father and accomplished the redemption of the world. Jesus is not half God and half man, nor is He a human person joined to a divine person. He is one divine Person with both a divine nature and a human nature. Because He is truly God and truly man, He is the perfect mediator between God and humanity. Everything Christians believe about salvation ultimately depends upon who Jesus is and what He has done for us.',
+
+    catechism: {
+      paragraphs: ['456', '464', '480'],
+      text: 'The Word became flesh to save us by reconciling us with God. Jesus Christ is true God and true man in the unity of his divine Person. He is the one mediator between God and men.',
+    },
+
+    scripture: {
+      reference: 'John 1:14',
+      text: 'And the Word became flesh and dwelt among us, full of grace and truth; we have beheld his glory, glory as of the only Son from the Father.',
+    },
+  },
+  {
+    id: '33',
+
+    slug: 'is-jesus-christ-truly-god',
+
+    category: 'Jesus Christ',
+
+    question: 'Is Jesus Christ truly God?',
+
+    answer: 'Jesus Christ is truly God.',
+
+    explanation:
+      'The Church teaches that Jesus Christ is fully and completely God. He is not merely a holy man, prophet, or exceptionally gifted teacher. From all eternity He exists as the Son of the Father and shares the same divine nature as the Father and the Holy Spirit. Throughout the Gospels, Jesus claims divine authority, forgives sins, accepts worship, and identifies Himself in ways that reveal His divinity. The apostles came to recognise that Jesus was more than the promised Messiah; He was God made visible among men. The divinity of Christ is essential to Christianity because only God can save humanity from sin and grant eternal life. If Jesus were not truly God, His death could not have brought about the redemption of the world. The Church therefore professes and worships Jesus as Lord, equal to the Father in glory and majesty.',
+
+    catechism: {
+      paragraphs: ['441', '454', '590'],
+      text: 'Jesus accepted Peter\'s profession of faith, which acknowledged him as the Messiah and Son of the living God. The title "Lord" indicates divine sovereignty. Jesus\' identity as Son of God lies at the heart of the Christian faith.',
+    },
+
+    scripture: {
+      reference: 'John 20:28',
+      text: 'Thomas answered him, "My Lord and my God!"',
+    },
+  },
+  {
+    id: '34',
+
+    slug: 'why-is-jesus-christ-truly-god',
+
+    category: 'Jesus Christ',
+
+    question: 'Why is Jesus Christ truly God?',
+
+    answer: 'Jesus Christ is truly God because he has one and the same nature with God the Father.',
+
+    explanation:
+      'Jesus is truly God because He shares the same divine nature as the Father. He is not a creature, nor is He merely the greatest of Gods creations. From all eternity, the Son possesses everything that belongs to the divine nature. For this reason, the Church teaches that Jesus is equal to the Father in power, glory, majesty, and eternity. During His earthly ministry, Jesus claimed powers that belong to God alone, including the authority to forgive sins and judge humanity. He also accepted worship, something that no mere human being or angel could rightfully do. Christians worship Jesus because He is fully divine. The divinity of Christ is essential to salvation, for only God could perfectly reconcile humanity with Himself. By sharing the same divine nature as the Father, Jesus reveals God perfectly and makes it possible for us to become children of God through grace.',
+
+    catechism: {
+      paragraphs: ['242', '253', '454'],
+      text: 'Following the apostolic tradition, the Church confessed at the first ecumenical council that the Son is consubstantial with the Father, that is, one only God with him. The Father and the Son possess the same divine nature. The title Lord indicates divine sovereignty and is therefore frequently used of Jesus.',
+    },
+
+    scripture: {
+      reference: 'John 10:30',
+      text: 'I and the Father are one.',
+    },
+  },
+  {
+    id: '35',
+
+    slug: 'was-jesus-christ-always-god',
+
+    category: 'Jesus Christ',
+
+    question: 'Was Jesus Christ always God?',
+
+    answer: 'Jesus Christ was always God, born of the Father from all eternity.',
+
+    explanation:
+      'Jesus did not begin to exist at His birth in Bethlehem. His human nature began at the Incarnation, but as the eternal Son of God He has always existed. Before all creation, before the world existed, the Son was with the Father and shared fully in the divine life. The Church teaches that the Son is eternally begotten of the Father, meaning that His divine origin is outside of time and unlike any human birth. There was never a moment when the Son did not exist. This truth distinguishes Christian belief from the mistaken idea that Jesus was merely a great man who later became divine. The Son is eternal God who entered human history for our salvation. Because Jesus is eternal, His power, authority, and saving work extend to every age and every generation.',
+
+    catechism: {
+      paragraphs: ['240', '242', '479'],
+      text: 'Jesus revealed that God is Father in an unheard-of sense. The Church confesses that Jesus is eternally begotten of the Father, not made, consubstantial with the Father. The Son existed before all ages and shares fully in the divine nature.',
+    },
+
+    scripture: {
+      reference: 'John 1:1-2',
+      text: 'In the beginning was the Word, and the Word was with God, and the Word was God. He was in the beginning with God.',
+    },
+  },
+  {
+    id: '36',
+
+    slug: 'which-person-of-the-blessed-trinity-is-jesus-christ',
+
+    category: 'Jesus Christ',
+
+    question: 'Which Person of the Blessed Trinity is Jesus Christ?',
+
+    answer: 'Jesus Christ is the Second Person of the Blessed Trinity.',
+
+    explanation:
+      'The Blessed Trinity consists of three divine Persons: the Father, the Son, and the Holy Spirit. Jesus Christ is the Son, the Second Person of the Trinity. He is distinct from the Father and the Holy Spirit, yet He possesses the same divine nature as they do. When the Son became man through the Incarnation, He did not cease to be God or become a different person. The eternal Son simply took on a human nature while remaining the divine Person He had always been. Throughout the Gospels, Jesus speaks to the Father, obeys the Father, and promises to send the Holy Spirit, revealing the distinction between the three divine Persons. Understanding that Jesus is the Second Person of the Trinity helps Catholics appreciate both His true divinity and His unique role in the work of salvation. Through the Son, humanity comes to know the Father and receive the Holy Spirit.',
+
+    catechism: {
+      paragraphs: ['232', '243', '253'],
+      text: 'Christians are baptised in the name of the Father and of the Son and of the Holy Spirit. The Father, the Son, and the Holy Spirit are distinct from one another. The divine Persons are really distinct while possessing one and the same divine nature.',
+    },
+
+    scripture: {
+      reference: 'Matthew 3:16-17',
+      text: 'And when Jesus was baptised, he went up immediately from the water, and behold, the heavens were opened and he saw the Spirit of God descending like a dove and alighting on him; and behold, a voice from heaven said, "This is my beloved Son, with whom I am well pleased."',
+    },
+  },
+  {
+    id: '37',
+
+    slug: 'is-jesus-christ-truly-man',
+
+    category: 'Jesus Christ',
+
+    question: 'Is Jesus Christ truly man?',
+
+    answer: 'Jesus Christ is truly man.',
+
+    explanation:
+      'The Catholic Church teaches that Jesus Christ is truly and fully human. He was not merely God appearing to be a man, nor was His humanity somehow incomplete. Jesus experienced every aspect of human life except sin. He was born, grew, learned, worked, felt hunger and fatigue, experienced joy and sorrow, suffered, and died. Because He became truly man, He is able to represent humanity before the Father and fully share in our condition. His true humanity also reveals the dignity of human nature, since God Himself chose to assume it. By becoming man, Jesus entered human history and lived among us, showing us how to live in loving obedience to God. The Church insists upon Christs true humanity because our salvation depends upon it. As the early Church Fathers taught, what Christ did not assume could not be healed.',
+
+    catechism: {
+      paragraphs: ['464', '470', '476'],
+      text: 'The Church confesses that Jesus is inseparably true God and true man. The Son of God worked with human hands; he thought with a human mind, acted by human choice and loved with a human heart. Born of the Virgin Mary, he has truly been made one of us in all things except sin.',
+    },
+
+    scripture: {
+      reference: 'Hebrews 2:17',
+      text: 'Therefore he had to be made like his brethren in every respect, so that he might become a merciful and faithful high priest in the service of God.',
+    },
+  },
+  {
+    id: '38',
+
+    slug: 'why-is-jesus-christ-truly-man',
+
+    category: 'Jesus Christ',
+
+    question: 'Why is Jesus Christ truly man?',
+
+    answer:
+      'Jesus Christ is truly man because he has the nature of man, having a body and soul like ours.',
+
+    explanation:
+      'To be truly human, Jesus had to possess everything that belongs to human nature. The Church therefore teaches that Christ has a real human body and a real human soul. He did not merely appear human, nor was His humanity an illusion. Jesus experienced human emotions, thoughts, choices, and physical limitations, while remaining completely free from sin. At the same time, His humanity was united to His divinity in the one Person of God the Son. This union did not diminish either nature. Jesus remained fully God and fully man. Because He possesses a true human nature, He can sympathise with our struggles and serve as the perfect example of holiness. His humanity also enables Him to offer Himself on behalf of humanity, reconciling mankind to God through His sacrifice on the Cross.',
+
+    catechism: {
+      paragraphs: ['470', '471', '480'],
+      text: 'The Son of God worked with human hands; he thought with a human mind, acted by human choice and loved with a human heart. Jesus Christ is true God and true man. Each of his two natures remains distinct while united in the one divine Person.',
+    },
+
+    scripture: {
+      reference: 'Philippians 2:7-8',
+      text: 'But emptied himself, taking the form of a servant, being born in the likeness of men. And being found in human form he humbled himself and became obedient unto death, even death on a cross.',
+    },
+  },
+  {
+    id: '39',
+
+    slug: 'was-jesus-christ-always-man',
+
+    category: 'Jesus Christ',
+
+    question: 'Was Jesus Christ always man?',
+
+    answer:
+      'Jesus Christ was not always man. He has been man only from the time of his Incarnation.',
+
+    explanation:
+      'The Son of God existed from all eternity before becoming man. As the eternal Word, He was with the Father before the creation of the world and shared the same divine nature. At a specific moment in history, however, the Son took on a human nature through the mystery of the Incarnation. This occurred when the Virgin Mary conceived Jesus by the power of the Holy Spirit. From that moment onward, the Son possessed both a divine nature and a human nature united in one divine Person. Before the Incarnation, the Son was God but not man. After the Incarnation, He remained forever both God and man. Even now, the risen and glorified Jesus retains His human nature in Heaven. This truth reveals the extraordinary love of God, who entered human history and permanently united Himself to humanity for our salvation.',
+
+    catechism: {
+      paragraphs: ['456', '461', '479'],
+      text: 'The Word became flesh to save us by reconciling us with God. At the appointed time, the only Son of the Father took on our human nature. Jesus Christ is true God and true man, remaining forever the incarnate Son of God.',
+    },
+
+    scripture: {
+      reference: 'John 1:14',
+      text: 'And the Word became flesh and dwelt among us, full of grace and truth; we have beheld his glory, glory as of the only Son from the Father.',
+    },
+  },
+  {
+    id: '40',
+
+    slug: 'what-do-you-mean-by-the-incarnation',
+
+    category: 'Jesus Christ',
+
+    question: 'What do you mean by the Incarnation?',
+
+    answer:
+      'I mean by the Incarnation that God the Son took to himself the nature of man: "the Word was made flesh".',
+
+    explanation:
+      'The Incarnation is the mystery by which the eternal Son of God became man without ceasing to be God. At the moment of the Annunciation, through the power of the Holy Spirit, the Son took on a true human nature in the womb of the Virgin Mary. This was not the creation of a new divine person, nor was it a temporary appearance in human form. Rather, the eternal Son truly became man while remaining fully divine. The Incarnation is central to Christianity because it reveals Gods immense love for humanity. By becoming man, Jesus was able to teach us, provide an example of holiness, suffer for our sins, and restore our relationship with the Father. The Word became flesh so that humanity might be reconciled with God and share in His divine life. Every Christmas celebrates this extraordinary mystery of Gods love made visible in Jesus Christ.',
+
+    catechism: {
+      paragraphs: ['456', '461', '463'],
+      text: 'The Word became flesh to save us by reconciling us with God. Believing that Jesus Christ is the Son of God come in the flesh is distinctive of the Christian faith. The Church calls the fact that the Son of God assumed a human nature in order to accomplish our salvation the Incarnation.',
+    },
+
+    scripture: {
+      reference: 'John 1:14',
+      text: 'And the Word became flesh and dwelt among us, full of grace and truth; we have beheld his glory, glory as of the only Son from the Father.',
+    },
+  },
 ];
