@@ -6,7 +6,7 @@
 
 Explore Catholic theology, Scripture, Church history, apologetics, prayer, and doctrine through a modern educational experience designed to make learning the faith more accessible and engaging.
 
-[![Website](https://img.shields.io/badge/Website-CathoScroll-0D9488?style=for-the-badge&logo=vercel&logoColor=white)](https://cathoscroll.com)
+[![Website](https://img.shields.io/badge/Website-cathoscroll.vercel.app-0D9488?style=for-the-badge&logo=vercel&logoColor=white)](https://cathoscroll.vercel.app)
 [![GitHub](https://img.shields.io/badge/GitHub-joshuaargent-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/joshuaargent)
 
 <br />
@@ -204,7 +204,7 @@ The focus for now remains on growing the content library and improving the core 
 
 ## Deployment
 
-CathoScroll is deployed on Vercel and uses Supabase for authentication, database storage, and user management.
+CathoScroll is deployed on [Vercel](https://vercel.com) and uses [Supabase](https://supabase.com) for authentication, database storage, and user management.
 
 Before deploying, configure the required environment variables in both Vercel and Supabase.
 
@@ -218,7 +218,7 @@ All rights are reserved unless permission is granted by the author. Please conta
 
 <div align="center">
 
-Built by Joshua Argent
+Built by [Joshua Argent](https://joshuaargent.vercel.app)
 
 CathoScroll • Learn Catholic teaching one swipe at a time
 
