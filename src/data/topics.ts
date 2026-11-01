@@ -2040,4 +2040,153 @@ export const topics: Topic[] = [
       text: 'Now the Lord is the Spirit, and where the Spirit of the Lord is, there is freedom.',
     },
   },
+
+  {
+    id: '81',
+
+    slug: 'when-did-the-holy-spirit-come-down-on-the-apostles',
+
+    category: 'God',
+
+    question: 'When did the Holy Spirit come down on the Apostles?',
+
+    answer:
+      'The Holy Spirit came down on the Apostles at Pentecost, in the form that "seemed like tongues of fire".',
+
+    explanation:
+      "Pentecost took place fifty days after Easter and marks the public beginning of the Church's mission. Before Pentecost, the Apostles were often fearful and uncertain, despite having witnessed the Resurrection of Jesus. When the Holy Spirit came upon them, they were transformed and filled with courage, wisdom, and zeal. They immediately began preaching the Gospel, and thousands were converted. For this reason, Pentecost is often called the birthday of the Church. The coming of the Holy Spirit fulfilled Christ's promise that He would send a Helper to guide His followers into all truth. The same Holy Spirit who descended upon the Apostles continues to guide the Church today, strengthens believers through the sacraments, and equips Christians to bear witness to Christ in the world. Pentecost demonstrates that the Church's mission depends not merely on human effort but on the power of God working through His people.",
+
+    catechism: {
+      paragraphs: ['731', '732', '767'],
+      text: 'On the day of Pentecost the Holy Spirit was manifested, given, and communicated as a divine Person. Christ, having accomplished his mission, poured out the Spirit abundantly. The Church was openly displayed to the crowds and the spread of the Gospel among the nations began.',
+    },
+
+    scripture: {
+      reference: 'Acts 2:3-4',
+      text: 'And there appeared to them tongues as of fire, distributed and resting on each one of them. And they were all filled with the Holy Spirit and began to speak in other tongues, as the Spirit gave them utterance.',
+    },
+  },
+  {
+    id: '82',
+
+    slug: 'why-did-the-holy-spirit-come-down-on-the-apostles',
+
+    category: 'God',
+
+    question: 'Why did the Holy Spirit come down on the Apostles?',
+
+    answer:
+      'The Holy Spirit came down on the Apostles to confirm their faith, to sanctify them, and to enable them to found the Church.',
+
+    explanation:
+      "The Apostles had been chosen and instructed by Christ, but they still needed the special help of the Holy Spirit to carry out their mission. At Pentecost, the Holy Spirit strengthened their faith, purified and sanctified them, and gave them the grace necessary to preach the Gospel boldly to all nations. Through the Spirit's guidance, the Apostles were able to teach the truth faithfully, govern the Church, and administer the sacraments. The Holy Spirit also united believers into one Body, the Church, making Pentecost the beginning of the Church's worldwide mission. This mission continues today through the successors of the Apostles and the work of the Holy Spirit in every generation. The Church depends upon the Holy Spirit for her life, unity, holiness, and fidelity to the teachings of Christ.",
+
+    catechism: {
+      paragraphs: ['737', '738', '767'],
+      text: 'The mission of Christ and the Holy Spirit is brought to completion in the Church. The Holy Spirit prepares men and goes out to them with his grace so as to draw them to Christ. Through the gift of the Spirit, the Church receives the power to proclaim and spread the Gospel.',
+    },
+
+    scripture: {
+      reference: 'Acts 1:8',
+      text: 'But you shall receive power when the Holy Spirit has come upon you; and you shall be my witnesses in Jerusalem and in all Judea and Samaria and to the end of the earth.',
+    },
+  },
+  {
+    id: '83',
+
+    slug: 'what-is-the-ninth-article-of-the-creed',
+
+    category: 'The Church',
+
+    question: 'What is the ninth article of the Creed?',
+
+    answer:
+      'The ninth article of the Creed is, "the Holy Catholic Church, the communion of saints".',
+
+    explanation:
+      'The ninth article professes faith in the Church founded by Jesus Christ and in the communion that exists among all who belong to Him. The Church is not merely a human organisation but the Body of Christ, guided by the Holy Spirit and entrusted with the mission of proclaiming the Gospel and administering the sacraments. The phrase "Holy Catholic Church" expresses the Church\'s divine origin, universal mission, and call to holiness. The "communion of saints" refers to the spiritual union that exists between the faithful on earth, the souls being purified after death, and the saints in Heaven. All members of Christ\'s Body are united through Him and share in spiritual goods such as prayer, grace, and charity. This article reminds Catholics that Christianity is not meant to be lived in isolation. Believers are part of a worldwide family united in Christ across time and eternity.',
+
+    catechism: {
+      paragraphs: ['748', '946', '954'],
+      text: 'The Church is the People that God gathers in the whole world. The communion of saints is the Church. There exists a constant bond of charity and an abundant exchange of spiritual goods among the faithful on earth, the souls in purgatory, and the saints in Heaven.',
+    },
+
+    scripture: {
+      reference: '1 Corinthians 12:12-13',
+      text: 'For just as the body is one and has many members, and all the members of the body, though many, are one body, so it is with Christ. For by one Spirit we were all baptised into one body.',
+    },
+  },
+  {
+    id: '84',
+
+    slug: 'what-is-the-catholic-church',
+
+    category: 'The Church',
+
+    question: 'What is the Catholic Church?',
+
+    answer: 'The Catholic Church is the union of all the faithful under one Head.',
+
+    explanation:
+      'The Catholic Church is not merely a human organisation or a collection of believers with similar opinions. It is the Body of Christ founded by Jesus Himself and united by one faith, one worship, and one baptism. All who belong fully to the Church are joined together under Christ, sharing in the same spiritual life and mission. The Church exists to continue the work of Jesus in the world by preaching the Gospel, administering the sacraments, and helping people attain salvation. Throughout history, the Church has spread to every nation while remaining one family united in Christ. This unity is visible through the profession of the same faith and communion with the successors of the apostles. The Church is both human and divine: human because it is made up of people, and divine because Christ is its founder and the Holy Spirit is its soul and guide.',
+
+    catechism: {
+      paragraphs: ['777', '789', '815'],
+      text: 'The Church is the Body of Christ. The faithful are united with Christ and with one another in this Body. What characterises the unity of the Church is one Lord, one faith, one baptism, and one common hope rooted in Christ.',
+    },
+
+    scripture: {
+      reference: '1 Corinthians 12:27',
+      text: 'Now you are the body of Christ and individually members of it.',
+    },
+  },
+  {
+    id: '85',
+
+    slug: 'who-is-the-head-of-the-catholic-church',
+
+    category: 'The Church',
+
+    question: 'Who is Head of the Catholic Church?',
+
+    answer: 'The Head of the Catholic Church is Jesus Christ our Lord.',
+
+    explanation:
+      "Jesus Christ is the true and supreme Head of the Church. He founded the Church, redeemed it through His Blood, and continues to guide it through the Holy Spirit. All authority within the Church ultimately comes from Him and exists to serve His mission. Because Christ is risen and lives forever, He remains actively present in His Church, especially through the sacraments, Sacred Scripture, and the ministry of the apostles' successors. While the Church has visible leaders on earth, including bishops and the Pope, none of them replace Christ. Their role is to serve as His representatives and shepherd His people according to His teachings. Recognising Christ as the Head of the Church reminds Catholics that the Church belongs to Him and that her primary mission is to lead all people into communion with Him and His saving work.",
+
+    catechism: {
+      paragraphs: ['792', '794', '795'],
+      text: "Christ is the head of the Body, the Church. He is the principle of creation and redemption. Raised to the Father's glory, Christ now precedes us so that we may live in hope of being with him forever. Christ and the Church together make up the whole Christ.",
+    },
+
+    scripture: {
+      reference: 'Colossians 1:18',
+      text: 'He is the head of the body, the church; he is the beginning, the first-born from the dead, that in everything he might be pre-eminent.',
+    },
+  },
+  {
+    id: '86',
+
+    slug: 'has-the-church-a-visible-head-on-earth',
+
+    category: 'The Church',
+
+    question: 'Has the Church a visible Head on earth?',
+
+    answer:
+      'The Church has a visible Head on earth - the Bishop of Rome, who is the Vicar of Christ.',
+
+    explanation:
+      'Although Jesus Christ is the invisible and supreme Head of the Church, He established a visible structure to preserve unity among His followers. The Bishop of Rome, commonly called the Pope, is the successor of Saint Peter, whom Christ appointed to strengthen his brethren and shepherd His flock. The title "Vicar of Christ" means that the Pope serves as Christ\'s representative on earth, not as a replacement for Christ. Catholics believe that the Pope has a unique role in preserving the unity of the Church and safeguarding the deposit of faith entrusted to the apostles. Throughout history, the Popes have served as visible signs of communion among Catholics worldwide. While individual Popes are human and capable of personal faults, Catholics believe that Christ continues to guide His Church through the office established for Peter and his successors.',
+
+    catechism: {
+      paragraphs: ['880', '881', '882'],
+      text: "Christ, in instituting the Twelve, constituted them in the form of a college with Peter at their head. The Lord made Simon alone, whom he named Peter, the rock of his Church. The Pope, Bishop of Rome and Peter's successor, is the perpetual and visible source and foundation of the unity of the whole Church.",
+    },
+
+    scripture: {
+      reference: 'Matthew 16:18-19',
+      text: 'And I tell you, you are Peter, and on this rock I will build my church, and the powers of death shall not prevail against it. I will give you the keys of the kingdom of heaven.',
+    },
+  },
 ];
