@@ -4,7 +4,9 @@ import { siteConfig } from '@/lib/constants';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Catholic Teaching',
+  title: {
+    absolute: 'Catholic Teaching | CathoScroll',
+  },
   description: 'Explore clear, approachable guides to Catholic teaching, Scripture, prayer, and the Church.',
   alternates: {
     canonical: siteConfig.url,
