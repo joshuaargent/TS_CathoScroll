@@ -119,7 +119,7 @@ Never put Supabase service-role keys or other server secrets in `NEXT_PUBLIC_*` 
 
 - Infinite topic feed
 - Category browsing
-- Full-text search
+- Full text search
 - Topic bookmarking
 - Progress tracking
 - Learning streaks
