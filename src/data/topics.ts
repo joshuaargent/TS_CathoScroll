@@ -565,4 +565,248 @@ export const topics: Topic[] = [
       text: 'Before the mountains were brought forth, or ever you had formed the earth and the world, from everlasting to everlasting you are God.',
     },
   },
+
+  {
+    id: '21',
+
+    slug: 'where-is-god',
+
+    category: 'God',
+
+    question: 'Where is God?',
+
+    answer: 'God is everywhere.',
+
+    explanation:
+      'God is present everywhere because He is not limited by space as created things are. Nothing can exist apart from His sustaining power. God is present in every place, sees all things, and knows all things. This does not mean that God is identical with the universe or that everything is God. Rather, God remains distinct from His creation while being fully present to it. His presence extends to every person and every circumstance, even when He may seem distant. This truth is a source of comfort because Christians know that they are never abandoned by God. Whether in moments of joy, suffering, prayer, or uncertainty, God is near. Because God is everywhere, every place can become a place of encounter with Him, and no situation is beyond His knowledge, care, and providence.',
+
+    catechism: {
+      paragraphs: ['300', '301', '303'],
+      text: 'God is infinitely greater than all his works, yet because he is the free and sovereign Creator, he is present to his creatures inmost being. In him we live and move and have our being. God cares for all, from the least things to the great events of the world and its history.',
+    },
+
+    scripture: {
+      reference: 'Psalm 139:7-10',
+      text: 'Where shall I go from your Spirit? Or where shall I flee from your presence? If I ascend to heaven, you are there! If I make my bed in Sheol, you are there!',
+    },
+  },
+  {
+    id: '22',
+
+    slug: 'does-god-know-and-see-all-things',
+
+    category: 'God',
+
+    question: 'Does God know and see all things?',
+
+    answer: 'God knows and sees all things, even our most secret thoughts.',
+
+    explanation:
+      'God possesses perfect knowledge. Nothing is hidden from Him, whether it takes place in the past, present, or future. He knows every action, every word, and even the deepest thoughts and intentions of the human heart. This truth should not cause fear in those who love God, but rather confidence and trust. Unlike human beings, God never misunderstands us or judges based only on appearances. He sees the whole truth about every person and every situation. Gods complete knowledge also means that He is able to guide His creation with perfect wisdom and providence. He knows our struggles, our hopes, our weaknesses, and our needs even before we express them in prayer. Because God sees all things, Christians are called to live honestly before Him and to seek purity not only in outward actions but also in their thoughts and intentions.',
+
+    catechism: {
+      paragraphs: ['208', '270', '271'],
+      text: 'God sees all things and knows all things. Nothing that exists is hidden from him. The divine power is universal and mysterious. God is the Lord of all hearts and knows the secrets of men.',
+    },
+
+    scripture: {
+      reference: 'Hebrews 4:13',
+      text: 'And before him no creature is hidden, but all are open and laid bare to the eyes of him with whom we have to do.',
+    },
+  },
+  {
+    id: '23',
+
+    slug: 'has-god-any-body',
+
+    category: 'God',
+
+    question: 'Has God any body?',
+
+    answer: 'God has no body; he is a spirit.',
+
+    explanation:
+      'God is not a physical being and is not limited by matter, size, shape, or location. As a pure spirit, God exists beyond the limitations of the material universe that He created. Because God is spirit, He is present everywhere and is not confined to any particular place. Sometimes Scripture speaks of Gods "hand" or "face", but these descriptions are figurative language that help human beings understand something about Gods actions and presence. The fact that God is spirit does not make Him distant or unreal. Rather, it means that He is infinitely greater than anything in creation. In Jesus Christ, God the Son took on a true human nature and a real human body, but the divine nature itself remains spiritual. Understanding that God is spirit helps us recognise His transcendence while also appreciating His closeness to all who seek Him.',
+
+    catechism: {
+      paragraphs: ['370', '212', '239'],
+      text: 'God is neither man nor woman: he is God. God transcends human fatherhood and motherhood, though he is their origin and standard. God is pure spirit in which there is no place for the differences between the sexes.',
+    },
+
+    scripture: {
+      reference: 'John 4:24',
+      text: 'God is spirit, and those who worship him must worship in spirit and truth.',
+    },
+  },
+  {
+    id: '24',
+
+    slug: 'is-there-only-one-god',
+
+    category: 'God',
+
+    question: 'Is there only one God?',
+
+    answer: 'There is only one God.',
+
+    explanation:
+      'The belief in one God is at the heart of the Catholic faith. Although many ancient cultures believed in numerous gods, God revealed to Israel that He alone is the true God and that there is no other besides Him. Christianity continues this belief and teaches that there is one divine being who created and sustains all things. This truth does not contradict the doctrine of the Trinity. Catholics believe in one God who exists eternally as three divine Persons: Father, Son, and Holy Spirit. The three Persons are not three gods but one God. Belief in one God provides unity and meaning to all of reality because everything comes from the same Creator and is directed toward Him. Christians therefore worship God alone and reject every form of idolatry that places created things in the place that belongs to God.',
+
+    catechism: {
+      paragraphs: ['200', '201', '228'],
+      text: 'These are the words with which the Niceno-Constantinopolitan Creed begins its profession of faith in the one God. To confess that God is One is rooted in divine revelation. Hear, O Israel: The Lord our God is one Lord.',
+    },
+
+    scripture: {
+      reference: 'Deuteronomy 6:4',
+      text: 'Hear, O Israel: The Lord our God is one Lord.',
+    },
+  },
+  {
+    id: '25',
+
+    slug: 'are-there-three-persons-in-god',
+
+    category: 'God',
+
+    question: 'Are there three Persons in God?',
+
+    answer: 'There are three Persons in God; God the Father, God the Son, and God the Holy Spirit.',
+
+    explanation:
+      'God has revealed Himself as a Trinity of Persons. The Father, the Son, and the Holy Spirit are not merely different names or roles played by God, but three distinct divine Persons. The Father is not the Son, the Son is not the Holy Spirit, and the Holy Spirit is not the Father. Each Person possesses intellect, will, and the fullness of the divine nature. This truth was gradually revealed throughout salvation history and fully revealed by Jesus Christ. At His Baptism, for example, the Son stood in the Jordan, the Holy Spirit descended like a dove, and the Fathers voice was heard from Heaven. Although the mystery of the Trinity surpasses human understanding, it lies at the heart of Christian faith because it reveals that God is an eternal communion of love. Every Christian is baptised in the name of the Father, the Son, and the Holy Spirit and is called to share in their divine life.',
+
+    catechism: {
+      paragraphs: ['232', '253', '254'],
+      text: 'The mystery of the Most Holy Trinity is the central mystery of Christian faith and life. The Father is that which the Son is, the Son that which the Father is, the Father and the Son that which the Holy Spirit is, one God by nature.',
+    },
+
+    scripture: {
+      reference: 'Matthew 28:19',
+      text: 'Go therefore and make disciples of all nations, baptising them in the name of the Father and of the Son and of the Holy Spirit.',
+    },
+  },
+  {
+    id: '26',
+
+    slug: 'are-the-three-persons-three-gods',
+
+    category: 'God',
+
+    question: 'Are the three Persons three Gods?',
+
+    answer:
+      'These three Persons are not three Gods: the Father, the Son, and the Holy Spirit are all one and the same God.',
+
+    explanation:
+      'The doctrine of the Trinity does not teach the existence of three separate gods. Christianity is strictly monotheistic, meaning that there is only one God. The Father, Son, and Holy Spirit are distinct Persons, yet they possess one and the same divine nature. Each Person is fully God, not one-third of God, but there are not three Gods because there is only one divine essence. This mystery cannot be fully comprehended by human reason, yet it does not contradict reason. Throughout history, the Church has carefully defended this truth against misunderstandings that either divided God into three separate beings or denied the distinction between the Persons. The mystery of the Trinity teaches that Gods very nature is love, because from all eternity the Father, Son, and Holy Spirit exist in perfect communion. Christians therefore worship one God in three divine Persons.',
+
+    catechism: {
+      paragraphs: ['253', '255'],
+      text: 'The Trinity is One. We do not confess three Gods, but one God in three Persons, the consubstantial Trinity. The divine Persons do not share the one divinity among themselves but each of them is God whole and entire.',
+    },
+
+    scripture: {
+      reference: 'Deuteronomy 6:4',
+      text: 'Hear, O Israel: The Lord our God is one Lord.',
+    },
+  },
+  {
+    id: '27',
+
+    slug: 'what-is-the-blessed-trinity',
+
+    category: 'God',
+
+    question: 'What is the mystery of the three Persons in one God called?',
+
+    answer:
+      'The mystery of the three Persons in one God is called the mystery of the Blessed Trinity.',
+
+    explanation:
+      'The Blessed Trinity is the greatest mystery of the Christian faith because it concerns the inner life of God Himself. Human reason can know that God exists, but only God could reveal that He is Father, Son, and Holy Spirit. The Trinity is not a puzzle to be solved but a reality to be believed and contemplated. Every major aspect of Catholic life is connected to this mystery. Christians are baptised in the name of the Trinity, pray to the Father through the Son in the Holy Spirit, and are called to share forever in the life of the Trinity in Heaven. The mystery reminds us that God is not solitary but an eternal communion of love. Although we cannot fully understand the Trinity in this life, we can truly know what God has revealed about Himself and worship Him with faith and trust.',
+
+    catechism: {
+      paragraphs: ['234', '237', '261'],
+      text: 'The mystery of the Most Holy Trinity is the central mystery of Christian faith and life. God has left traces of his Trinitarian being in creation and in his Revelation throughout the Old Testament, but his inmost Being as Holy Trinity is a mystery inaccessible to reason alone.',
+    },
+
+    scripture: {
+      reference: '2 Corinthians 13:14',
+      text: 'The grace of the Lord Jesus Christ and the love of God and the fellowship of the Holy Spirit be with you all.',
+    },
+  },
+  {
+    id: '28',
+
+    slug: 'what-do-you-mean-by-a-mystery',
+
+    category: 'God',
+
+    question: 'What do you mean by a mystery?',
+
+    answer: 'By a mystery I mean a truth which is above reason, but revealed by God.',
+
+    explanation:
+      'A mystery is not something irrational or impossible. Rather, it is a truth that human reason alone could never fully discover or comprehend without Gods help. Because God is infinite and human beings are finite, there are aspects of His nature and plan that surpass our understanding. Examples include the Blessed Trinity, the Incarnation, and the Real Presence of Christ in the Eucharist. Although these mysteries are beyond reason, they are not contrary to reason. Catholics believe them because God has revealed them and because God can neither deceive nor be deceived. Throughout history, theologians have studied these mysteries and gained deeper insights into them, but their full depth can never be exhausted. Mysteries invite believers not merely to understand God intellectually but to trust Him, worship Him, and enter more deeply into His divine life.',
+
+    catechism: {
+      paragraphs: ['50', '157', '237'],
+      text: 'By natural reason man can know God with certainty on the basis of his works. But there is another order of knowledge which man cannot possibly arrive at by his own powers: the order of divine Revelation. Faith is certain because it is founded on the very word of God.',
+    },
+
+    scripture: {
+      reference: 'Isaiah 55:8-9',
+      text: 'For my thoughts are not your thoughts, neither are your ways my ways, says the Lord. For as the heavens are higher than the earth, so are my ways higher than your ways and my thoughts than your thoughts.',
+    },
+  },
+  {
+    id: '29',
+
+    slug: 'is-there-any-likeness-to-the-blessed-trinity-in-your-soul',
+
+    category: 'God',
+
+    question: 'Is there any likeness to the Blessed Trinity in your soul?',
+
+    answer:
+      'There is this likeness to the Blessed Trinity in my soul: that as in one God there are three Persons, so in my one soul there are three powers.',
+
+    explanation:
+      'The human soul is created in the image and likeness of God, and because God is a Trinity, traces of this divine image can be found within us. The Church has long taught that the soul reflects the Trinity in a limited way through its faculties of memory, understanding, and will. This comparison does not mean that the soul contains three persons or that human beings are miniature trinities. Rather, it illustrates how unity and distinction can exist together. Just as the three divine Persons are distinct yet remain one God, the different powers of the soul work together within one human person. This likeness helps us appreciate both the dignity of the human person and the fact that we are created for relationship with God. Ultimately, the image of the Trinity within us points beyond ourselves to the God whose likeness we bear.',
+
+    catechism: {
+      paragraphs: ['1701', '1704', '1878'],
+      text: 'Christ reveals that God is love and that man is called to love. The divine image is present in every man. Created in the image of the one God and equally endowed with rational souls, all men have the same nature and the same origin.',
+    },
+
+    scripture: {
+      reference: 'Genesis 1:26',
+      text: 'Then God said, "Let us make man in our image, after our likeness."',
+    },
+  },
+  {
+    id: '30',
+
+    slug: 'which-are-the-three-powers-of-your-soul',
+
+    category: 'God',
+
+    question: 'Which are the three powers of your soul?',
+
+    answer: 'The three powers of my soul are my memory, my understanding, and my will.',
+
+    explanation:
+      'God has given every human soul spiritual faculties that allow us to know Him and respond to Him freely. Memory allows us to retain knowledge and reflect on our experiences. Understanding enables us to reason, learn truth, and contemplate God. Will gives us the ability to make choices and direct our actions toward what we believe to be good. These powers work together constantly in daily life. We remember, we understand, and then we choose. Because of original sin, these faculties can be weakened or misused, but they remain gifts from God that can be strengthened through grace. By using our memory to recall Gods blessings, our understanding to learn His truth, and our will to choose what is right, we grow in holiness and become more fully the people God created us to be.',
+
+    catechism: {
+      paragraphs: ['1704', '1730', '1731'],
+      text: 'The human person participates in the light and power of the divine Spirit. By reason he is capable of understanding the order of things established by the Creator. By free will he is capable of directing himself toward his true good. Freedom is the power to act or not to act, and so to perform deliberate actions on ones own responsibility.',
+    },
+
+    scripture: {
+      reference: 'Romans 12:2',
+      text: 'Do not be conformed to this world but be transformed by the renewal of your mind, that you may prove what is the will of God, what is good and acceptable and perfect.',
+    },
+  },
 ];
