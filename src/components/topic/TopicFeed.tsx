@@ -13,9 +13,9 @@ interface TopicFeedProps {
 }
 
 export function TopicFeed({ topics }: TopicFeedProps) {
-  const [feedTopics, setFeedTopics] = useState<Topic[]>([]);
+  const [feedTopics, setFeedTopics] = useState<Topic[]>(topics);
 
-  const [topicIndex, setTopicIndex] = useState(0);
+  const [topicIndex, setTopicIndex] = useState(Math.floor(topics.length / 2));
 
   // ----------------------------------
   // Initial Feed
