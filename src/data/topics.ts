@@ -1052,4 +1052,250 @@ export const topics: Topic[] = [
       text: 'And the Word became flesh and dwelt among us, full of grace and truth; we have beheld his glory, glory as of the only Son from the Father.',
     },
   },
+
+  {
+    id: '41',
+
+    slug: 'how-many-natures-are-there-in-jesus-christ',
+
+    category: 'Jesus Christ',
+
+    question: 'How many natures are there in Jesus Christ?',
+
+    answer: 'There are two natures in Jesus Christ, the nature of God and the nature of man.',
+
+    explanation:
+      'Jesus Christ possesses two complete natures: a divine nature and a human nature. He is fully God and fully man. The divine nature was not changed into a human nature, nor was the human nature absorbed into the divine. Both remain complete and distinct. As God, Jesus is eternal, all-powerful, and worthy of worship. As man, He was born, grew, learned, suffered, and died. The Church defended this truth throughout the centuries because it is essential to understanding who Jesus is and how He saves us. If Christ were not truly God, He could not reconcile humanity to God. If He were not truly man, He could not represent humanity or redeem human nature. The doctrine of the two natures safeguards both Christs divinity and His humanity and allows believers to understand the full meaning of the Incarnation.',
+
+    catechism: {
+      paragraphs: ['464', '467', '470'],
+      text: 'The Church confesses that Jesus is inseparably true God and true man. Following the holy Fathers, we unanimously teach and confess one and the same Son, perfect in divinity and perfect in humanity. The Son of God worked with human hands and thought with a human mind.',
+    },
+
+    scripture: {
+      reference: 'Colossians 2:9',
+      text: 'For in him the whole fullness of deity dwells bodily.',
+    },
+  },
+  {
+    id: '42',
+
+    slug: 'is-there-only-one-person-in-jesus-christ',
+
+    category: 'Jesus Christ',
+
+    question: 'Is there only one Person in Jesus Christ?',
+
+    answer: 'There is only one Person in Jesus Christ, which is the Person of God the Son.',
+
+    explanation:
+      'Although Jesus Christ possesses both a divine nature and a human nature, He is not two persons. He is one divine Person: the eternal Son of God. Everything Jesus does, whether through His divine nature or His human nature, is done by the one Person of the Son. This truth is sometimes called the hypostatic union, meaning the union of two natures in one divine Person. The Church teaches this doctrine to preserve the unity of Christ. When Jesus was born, suffered, taught, healed, and died, it was the Son of God acting through His human nature. Likewise, the miracles He performed revealed His divine power. Understanding that Jesus is one Person helps Catholics see that the same Jesus who walked the roads of Galilee is the eternal Son through whom all things were made. The Incarnation united God and man in the one Person of Christ forever.',
+
+    catechism: {
+      paragraphs: ['466', '467', '469'],
+      text: 'The Church confesses that the one whom she recognises as Jesus Christ is true God and true man. We confess one and the same Christ, Son, Lord, Only-begotten, acknowledged in two natures without confusion, change, division, or separation.',
+    },
+
+    scripture: {
+      reference: 'John 1:14',
+      text: 'And the Word became flesh and dwelt among us, full of grace and truth; we have beheld his glory, glory as of the only Son from the Father.',
+    },
+  },
+  {
+    id: '43',
+
+    slug: 'why-was-god-the-son-made-man',
+
+    category: 'Jesus Christ',
+
+    question: 'Why was God the Son made man?',
+
+    answer:
+      'God the Son was made man to redeem us from sin and hell, and to teach us the way to heaven.',
+
+    explanation:
+      'Humanity was separated from God by sin and unable to restore that relationship through its own efforts. Out of love, God sent His Son into the world to save us. By becoming man, Jesus was able to live in perfect obedience to the Father, reveal the truth about God, and offer Himself as a sacrifice for our sins. Through His death on the Cross and His Resurrection, He conquered sin, death, and the power of the devil. Jesus did not come merely to provide moral instruction or to be an example of kindness. He came to accomplish our redemption and open the gates of Heaven. At the same time, His teachings and example show us how to live as children of God. Through faith, baptism, and participation in the life of the Church, believers receive the graces won by Christ and are guided along the path that leads to eternal life.',
+
+    catechism: {
+      paragraphs: ['457', '458', '459'],
+      text: "The Word became flesh for us in order to save us by reconciling us with God. The Word became flesh so that thus we might know God's love. The Word became flesh to be our model of holiness and make us partakers of the divine nature.",
+    },
+
+    scripture: {
+      reference: 'Luke 19:10',
+      text: 'For the Son of man came to seek and to save the lost.',
+    },
+  },
+  {
+    id: '44',
+
+    slug: 'what-does-the-holy-name-jesus-mean',
+
+    category: 'Jesus Christ',
+
+    question: 'What does the holy name Jesus mean?',
+
+    answer: 'The holy name Jesus means Saviour.',
+
+    explanation:
+      'The name Jesus is rich in meaning and reveals Christ\'s mission. It comes from a Hebrew name meaning "God saves". Before Jesus was born, the angel instructed Saint Joseph to give Him this name because He would save His people from their sins. The name is therefore not merely a personal identifier but a declaration of who Jesus is and why He came into the world. Throughout Christian history, Catholics have shown special reverence for the Holy Name of Jesus because it reminds them of God\'s saving love. The Church encourages devotion to the Holy Name and frequently invokes it in prayer and worship. Every time Christians call upon the name of Jesus, they express faith in the One who alone has the power to redeem humanity and bring salvation to the world.',
+
+    catechism: {
+      paragraphs: ['430', '432', '435'],
+      text: 'The name Jesus means "God saves". The child born of the Virgin Mary is called Jesus, for he will save his people from their sins. The name Jesus contains all: God and man and the whole economy of creation and salvation.',
+    },
+
+    scripture: {
+      reference: 'Matthew 1:21',
+      text: 'She will bear a son, and you shall call his name Jesus, for he will save his people from their sins.',
+    },
+  },
+  {
+    id: '45',
+
+    slug: 'what-does-the-name-christ-mean',
+
+    category: 'Jesus Christ',
+
+    question: 'What does the name Christ mean?',
+
+    answer: 'The name Christ means Anointed.',
+
+    explanation:
+      'The title Christ comes from a Greek word meaning "Anointed One" and is equivalent to the Hebrew title Messiah. In the Old Testament, kings, priests, and prophets were often anointed with oil as a sign that they had been chosen by God for a special mission. Jesus perfectly fulfils all of these roles. He is the eternal King who reigns over the Kingdom of God, the perfect High Priest who offers Himself for the salvation of the world, and the supreme Prophet who reveals the Father completely. By calling Jesus the Christ, Christians proclaim that He is the long-awaited Messiah promised throughout the Scriptures. He is the fulfilment of God\'s covenant promises and the Saviour whom Israel and the nations were awaiting. The title Christ therefore expresses both His identity and His mission in God\'s plan of salvation.',
+
+    catechism: {
+      paragraphs: ['436', '437', '440'],
+      text: 'Christ comes from the Greek translation of the Hebrew term Messiah, which means anointed. Jesus fulfilled the messianic hope of Israel in his threefold office of priest, prophet, and king.',
+    },
+
+    scripture: {
+      reference: 'John 1:41',
+      text: 'He first found his brother Simon and said to him, "We have found the Messiah" (which means Christ).',
+    },
+  },
+  {
+    id: '46',
+
+    slug: 'where-is-jesus-christ',
+
+    category: 'Jesus Christ',
+
+    question: 'Where is Jesus Christ?',
+
+    answer:
+      'As God, Jesus Christ is everywhere. As God made man, he is in heaven, and in the Blessed Sacrament of the Altar.',
+
+    explanation:
+      'Because Jesus Christ is truly God, He possesses all the attributes of God, including omnipresence. As God, He is present everywhere and sustains all creation. However, Jesus is also truly man. After His Resurrection and Ascension, His glorified human body entered Heaven, where He sits at the right hand of the Father. Yet Christ has not abandoned His Church. In a unique and wonderful way, He remains truly present in the Eucharist. The Church teaches that in the Blessed Sacrament, Jesus is present Body, Blood, Soul, and Divinity. This presence is called "real" because it is not merely symbolic but substantial. For this reason Catholics adore Christ in the Eucharist and show great reverence toward the tabernacle. Whether in Heaven reigning in glory or sacramentally present on earth, Jesus remains close to His people and continues His work of sanctification and salvation.',
+
+    catechism: {
+      paragraphs: ['1374', '1377', '669'],
+      text: 'In the most blessed sacrament of the Eucharist the body and blood, together with the soul and divinity, of our Lord Jesus Christ are truly, really, and substantially contained. Christ is seated at the right hand of the Father, yet remains mysteriously present to his Church, especially in the Eucharist.',
+    },
+
+    scripture: {
+      reference: 'Matthew 28:20',
+      text: 'And behold, I am with you always, to the close of the age.',
+    },
+  },
+  {
+    id: '47',
+
+    slug: 'what-is-the-third-article-of-the-creed',
+
+    category: 'Jesus Christ',
+
+    question: 'What is the third article of the Creed?',
+
+    answer:
+      'The third article of the Creed is, "who was conceived by the Holy Spirit, born of the Virgin Mary".',
+
+    explanation:
+      "The third article of the Apostles' Creed professes the mystery of the Incarnation. It declares that Jesus Christ entered human history through a miraculous conception by the power of the Holy Spirit and was born of the Virgin Mary. This article emphasises both Christ's divine origin and His true humanity. The conception of Jesus was not the result of a human father but was brought about by the Holy Spirit according to God's saving plan. At the same time, Jesus was truly born of Mary and therefore truly became one of us. This profession of faith reminds Catholics that salvation is not simply an idea or a moral teaching but a real event in history. God truly entered our world and took on human nature in order to redeem humanity from sin and restore us to friendship with Himself.",
+
+    catechism: {
+      paragraphs: ['484', '485', '488'],
+      text: 'The Annunciation to Mary inaugurates the fullness of time. The mission of the Holy Spirit is always conjoined and ordered to that of the Son. God sent forth his Son, but to prepare a body for him, he wanted the free cooperation of a creature.',
+    },
+
+    scripture: {
+      reference: 'Luke 1:35',
+      text: 'And the angel said to her, "The Holy Spirit will come upon you, and the power of the Most High will overshadow you; therefore the child to be born will be called holy, the Son of God."',
+    },
+  },
+  {
+    id: '48',
+
+    slug: 'what-does-the-third-article-mean',
+
+    category: 'Jesus Christ',
+
+    question: 'What does the third article mean?',
+
+    answer:
+      'The third article means that God the Son took a body and soul like ours, in the womb of the Blessed Virgin Mary, by the power of the Holy Spirit.',
+
+    explanation:
+      'The third article teaches how the Son of God became man. Jesus did not come into existence at His conception, since He is the eternal Son of God. Rather, at the Annunciation, He took to Himself a true human nature through the power of the Holy Spirit. From the very first moment of His conception, Jesus possessed both a complete human nature and a complete divine nature united in one divine Person. The Virgin Mary freely cooperated with Gods plan by accepting the angels message with faith and obedience. Because Jesus was conceived by the power of the Holy Spirit and not by a human father, His conception was entirely miraculous. This article therefore highlights both Christs divinity and His true humanity. It reminds Catholics that salvation began not at the Cross or the Resurrection but at the moment when the eternal Word became flesh in the womb of Mary. Through the Incarnation, God entered human history in order to redeem it from within.',
+
+    catechism: {
+      paragraphs: ['484', '485', '496'],
+      text: 'The Annunciation to Mary inaugurates the fullness of time. The mission of the Holy Spirit is always conjoined and ordered to that of the Son. From the first formulations of her faith, the Church has confessed that Jesus was conceived solely by the power of the Holy Spirit in the womb of the Virgin Mary.',
+    },
+
+    scripture: {
+      reference: 'Luke 1:35',
+      text: 'And the angel said to her, "The Holy Spirit will come upon you, and the power of the Most High will overshadow you; therefore the child to be born will be called holy, the Son of God."',
+    },
+  },
+  {
+    id: '49',
+
+    slug: 'had-jesus-christ-any-father-on-earth',
+
+    category: 'Jesus Christ',
+
+    question: 'Had Jesus Christ any father on earth?',
+
+    answer:
+      'Jesus Christ had no father on earth: St Joseph was only his guardian or foster father.',
+
+    explanation:
+      'Jesus was conceived by the power of the Holy Spirit in the womb of the Virgin Mary and therefore did not have a human father. Saint Joseph was chosen by God to be Marys husband and the guardian of Jesus. Although Joseph was not the biological father of Christ, he lovingly fulfilled the duties of a father by protecting, providing for, and raising Him. Through Joseph, Jesus grew up within a holy family and learned the customs and traditions of Israel. The Church honours Saint Joseph as the foster father of Jesus, the spouse of the Blessed Virgin Mary, and the patron of the universal Church. His faithful obedience, humility, and trust in God make him a model for all Christians. Josephs unique role in salvation history demonstrates how God entrusts important responsibilities to ordinary people who are willing to follow His will.',
+
+    catechism: {
+      paragraphs: ['437', '497', '532'],
+      text: 'Joseph was called by God to take Mary as his wife and give legal fatherhood to Jesus. The Gospel accounts understand the virginal conception of Jesus as a divine work that surpasses all human understanding. Jesus lived hidden for most of his life, sharing the ordinary condition of a family.',
+    },
+
+    scripture: {
+      reference: 'Matthew 1:20-21',
+      text: 'But as he considered this, behold, an angel of the Lord appeared to him in a dream, saying, "Joseph, son of David, do not fear to take Mary your wife, for that which is conceived in her is of the Holy Spirit; she will bear a son, and you shall call his name Jesus."',
+    },
+  },
+  {
+    id: '50',
+
+    slug: 'where-was-our-saviour-born',
+
+    category: 'Jesus Christ',
+
+    question: 'Where was our Saviour born?',
+
+    answer: 'Our Saviour was born in a stable at Bethlehem.',
+
+    explanation:
+      'Jesus Christ was born in Bethlehem, the city foretold by the prophets as the birthplace of the Messiah. Although He is the King of Kings and Lord of Lords, He chose to enter the world in poverty and humility. Because there was no room for Mary and Joseph in the inn, Jesus was born in humble surroundings and placed in a manger. This reveals an important truth about Gods kingdom: He does not measure greatness by wealth, status, or power. The circumstances of Christs birth show Gods closeness to the poor, the forgotten, and the humble. Bethlehem therefore stands as a powerful reminder that God often works through what the world considers insignificant. Every Christmas, Christians remember the birth of Jesus and give thanks that God came among us, not with earthly splendour, but with humility, love, and simplicity.',
+
+    catechism: {
+      paragraphs: ['525', '526'],
+      text: 'Jesus was born in a humble stable, into a poor family. Simple shepherds were the first witnesses to this event. In this poverty heavens glory was made manifest. To become a child in relation to God is the condition for entering the kingdom.',
+    },
+
+    scripture: {
+      reference: 'Luke 2:6-7',
+      text: 'And while they were there, the time came for her to be delivered. And she gave birth to her first-born son and wrapped him in swaddling cloths, and laid him in a manger, because there was no place for them in the inn.',
+    },
+  },
 ];
