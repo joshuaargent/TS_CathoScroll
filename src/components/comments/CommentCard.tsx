@@ -15,8 +15,6 @@ interface CommentCardProps {
 
   currentUserId: string | null;
 
-  currentUsername?: string;
-
   depth?: number;
 
   onReply: (parentId: number, content: string) => Promise<void>;
@@ -26,10 +24,6 @@ interface CommentCardProps {
   onEdit: (commentId: number, content: string) => Promise<void>;
 
   onDelete: (commentId: number) => Promise<void>;
-
-  onPin?: (commentId: number) => Promise<void>;
-
-  hasPinnedComment?: boolean;
 }
 
 function formatRelativeDate(dateString: string) {
@@ -69,14 +63,11 @@ function formatRelativeDate(dateString: string) {
 export function CommentCard({
   comment,
   currentUserId,
-  currentUsername,
   depth = 0,
   onReply,
   onLike,
   onEdit,
   onDelete,
-  onPin,
-  hasPinnedComment = false,
 }: CommentCardProps) {
   const [showReply, setShowReply] = useState(false);
 
@@ -85,11 +76,6 @@ export function CommentCard({
   const isOwner = currentUserId === comment.user_id;
 
   const canReply = depth < 2;
-
-  const canPin = currentUsername === 'joshua_argent' || currentUsername === 'admin';
-
-  const canShowPinButton =
-    canPin && comment.parent_id === null && (comment.is_pinned || !hasPinnedComment);
 
   return (
     <div className="space-y-4">
@@ -194,15 +180,6 @@ export function CommentCard({
                   </button>
                 </>
               )}
-              {!comment.is_deleted && canShowPinButton && (
-                <button
-                  type="button"
-                  onClick={() => onPin?.(comment.id)}
-                  className="text-text-secondary hover:text-text-primary"
-                >
-                  {comment.is_pinned ? 'Unpin' : 'Pin'}
-                </button>
-              )}
             </div>
 
             {showReply && !isEditing && (
@@ -229,13 +206,11 @@ export function CommentCard({
               key={reply.id}
               comment={reply}
               currentUserId={currentUserId}
-              currentUsername={currentUsername}
               depth={depth + 1}
               onReply={onReply}
               onLike={onLike}
               onEdit={onEdit}
               onDelete={onDelete}
-              onPin={onPin}
             />
           ))}
         </div>

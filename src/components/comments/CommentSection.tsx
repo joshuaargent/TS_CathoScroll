@@ -130,11 +130,7 @@ export function CommentSection({ topicId }: CommentSectionProps) {
 
   const [currentProfile, setCurrentProfile] = useState<Profile | null>(null);
 
-  const [currentUsername, setCurrentUsername] = useState<string | undefined>();
-
   const commentCount = useMemo(() => countComments(comments), [comments]);
-
-  const hasPinnedComment = comments.some((comment) => comment.is_pinned);
 
   const sortComments = useCallback((comments: Comment[]) => {
     // Apply the same ordering independently at each level: pinned first,
@@ -200,10 +196,6 @@ export function CommentSection({ topicId }: CommentSectionProps) {
 
     if (user?.id) {
       setCurrentProfile(profiles.get(user.id) ?? null);
-    }
-
-    if (user?.id) {
-      setCurrentUsername(profiles.get(user.id)?.username);
     }
 
     const likeCounts = new Map<number, number>();
@@ -439,41 +431,6 @@ export function CommentSection({ topicId }: CommentSectionProps) {
     }
   }
 
-  async function togglePin(commentId: number) {
-    const comment = findComment(comments, commentId);
-
-    if (!comment) {
-      return;
-    }
-
-    const nextPinned = !comment.is_pinned;
-
-    // Pinning changes sort priority, so apply the optimistic update and then
-    // re-sort a cloned tree before displaying it.
-    setComments((prev) =>
-      cloneAndSortComments(
-        updateCommentTree(prev, commentId, (comment) => ({
-          ...comment,
-          is_pinned: nextPinned,
-        })),
-        sortComments
-      )
-    );
-
-    const supabase = createClient();
-
-    const { error } = await supabase
-      .from('comments')
-      .update({
-        is_pinned: nextPinned,
-      })
-      .eq('id', commentId);
-
-    if (error) {
-      await loadComments();
-    }
-  }
-
   function findComment(comments: Comment[], id: number): Comment | undefined {
     // Depth-first search: check each comment, then recursively inspect its
     // replies before moving to the next sibling.
@@ -594,13 +551,10 @@ export function CommentSection({ topicId }: CommentSectionProps) {
               key={comment.id}
               comment={comment}
               currentUserId={userId}
-              currentUsername={currentUsername}
-              hasPinnedComment={hasPinnedComment}
               onReply={createReply}
               onLike={toggleLike}
               onEdit={editComment}
               onDelete={deleteComment}
-              onPin={togglePin}
             />
           ))}
         </div>

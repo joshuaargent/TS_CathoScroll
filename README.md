@@ -37,9 +37,9 @@ Whether you're exploring Catholicism for the first time, returning to the faith,
 - **Progress tracking** - keep track of completed topics and learning streaks.
 - **Community discussion** - comment, reply, like contributions, and engage with other learners.
 - **Public profiles** - view user profiles, progress, activity, and community contributions.
-- **Structured learning** - planned learning paths that guide users through key areas of Catholic teaching.
-- **Audio lessons** - planned narrated audio versions of topics; audio will be premium while written topics remain free.
-- **Quizzes** - planned quizzes designed to reinforce learning and understanding.
+- **Structured learning** - planned premium learning paths that guide users through key areas of Catholic teaching.
+- **Audio lessons** - planned premium narrated audio versions of topics; written topics remain free.
+- **Quizzes** - planned premium quizzes designed to reinforce learning and understanding.
 - **SEO and discoverability** - sitemap generation, robots rules, metadata, and rich social previews.
 - **RSS feed** - public topic feed available at `/feed.xml`.
 - **Responsive design** - designed to work seamlessly across desktop and mobile devices.
@@ -189,6 +189,12 @@ The `/account` and `/bookmarks` pages have two layers of sign-in checks:
 2. The account page repeats the check client-side, and the bookmarks page checks the session on the server before reading user data.
 
 These redirects improve navigation but do not replace authorization. Supabase Row Level Security policies and server-side checks must continue to protect user data and mutations.
+
+### Supabase write-permission hardening
+
+Before deploying the matching application changes, apply the corresponding SQL directly in the Supabase SQL Editor. It removes client write access to profile subscription tiers and comment pin state, while allowing authenticated users to create/update only the profile and comment fields used by the app. New profiles default to the free tier. No Supabase migration files are maintained in this repository.
+
+Comment pin controls are intentionally unavailable until an authenticated server-side admin action is implemented. Existing pinned comments remain visible. Subscription tiers must only be changed by trusted billing/server-side code.
 
 | Variable                        | Purpose                                                                                                       |
 | ------------------------------- | ------------------------------------------------------------------------------------------------------------- |

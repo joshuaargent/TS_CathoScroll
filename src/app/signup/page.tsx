@@ -118,8 +118,6 @@ export default function SignupPage() {
         username,
 
         display_name: username,
-
-        subscription_tier: 'free',
       });
 
       if (profileError) {
