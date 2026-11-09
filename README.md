@@ -100,6 +100,53 @@ Open:
 http://localhost:3000
 ```
 
+## Mobile app wrapper
+
+CathoScroll can be packaged for Android and iOS with Capacitor while loading the
+website hosted on Vercel. This thin wrapper requires an internet connection and
+does not provide offline access to topics or account features.
+
+The wrapper defaults to `https://cathoscroll.vercel.app`. To point it at a
+different HTTPS deployment, set `CAPACITOR_SERVER_URL` in the environment used
+to run Capacitor commands. Do not set it to an HTTP URL for a production build.
+
+**This is a remote-site prototype, not a recommended production configuration.**
+It uses Capacitor's `server.url`, which Capacitor documents as intended for
+live-reload and not production. It is useful for trying the site in native
+WebViews, but should not be treated as ready for public app-store distribution.
+
+Install the native platform projects once:
+
+```bash
+npx cap add android
+npx cap add ios
+```
+
+Generate the native app icons and splash screens from the CathoScroll logo, then
+synchronize Capacitor and open the platform project:
+
+```bash
+npm run assets:generate
+npm run cap:sync
+npm run cap:open:android
+npm run cap:open:ios
+```
+
+The source logo is `assets/logo.png`; generated iOS and Android assets are checked
+in with their respective native projects. Run the asset generator again whenever
+the source artwork changes.
+
+Android builds require Android Studio and its Android SDK. iOS builds require
+macOS and Xcode. Re-run `npm run cap:sync` after changing Capacitor configuration
+or native plugins. Ordinary website changes continue to deploy through Vercel
+and do not require rebuilding the native wrapper.
+
+The local `www/index.html` is only an offline/error message; it does not cache
+the application. Test sign-in, email verification, navigation, and external
+links on real devices. A production Capacitor app should bundle its web assets;
+that would require adapting this server-rendered Next.js app for a compatible
+native delivery architecture.
+
 ## Configuration
 
 Copy `.env.example` to `.env.local` in the project root and fill in the values for your project. `.env.local` is ignored by Git; commit changes to `.env.example` when the required variables change, never your real credentials.

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">CathoScroll</string>
+    <string name="title_activity_main">CathoScroll</string>
+    <string name="package_name">com.joshuaargent.cathoscroll</string>
+    <string name="custom_url_scheme">com.joshuaargent.cathoscroll</string>
+</resources>
