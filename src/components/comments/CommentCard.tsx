@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 
-import { Pin } from 'lucide-react';
+import { Flag, Pin } from 'lucide-react';
 
 import { Comment } from '../../lib/supabase/types';
 
@@ -24,6 +24,20 @@ interface CommentCardProps {
   onEdit: (commentId: number, content: string) => Promise<void>;
 
   onDelete: (commentId: number) => Promise<void>;
+
+  onReport: (commentId: number, reason: string, details: string) => Promise<void>;
+
+  onPin?: (commentId: number) => Promise<void>;
+
+  canPin?: boolean;
+
+  isCommentBanned?: boolean;
+
+  hasPinnedComment?: boolean;
+
+  isPinning?: boolean;
+
+  pinActionPending?: boolean;
 }
 
 function formatRelativeDate(dateString: string) {
@@ -68,14 +82,36 @@ export function CommentCard({
   onLike,
   onEdit,
   onDelete,
+  onReport,
+  onPin,
+  canPin = false,
+  isCommentBanned = false,
+  hasPinnedComment = false,
+  isPinning = false,
+  pinActionPending = false,
 }: CommentCardProps) {
   const [showReply, setShowReply] = useState(false);
 
   const [isEditing, setIsEditing] = useState(false);
 
+  const [showReport, setShowReport] = useState(false);
+
+  const [reportReason, setReportReason] = useState('harassment');
+
+  const [reportDetails, setReportDetails] = useState('');
+
+  const [reportError, setReportError] = useState('');
+
+  const [reportSubmitted, setReportSubmitted] = useState(false);
+
+  const [isReporting, setIsReporting] = useState(false);
+
   const isOwner = currentUserId === comment.user_id;
 
   const canReply = depth < 2;
+
+  const canShowPinButton =
+    canPin && comment.parent_id === null && (comment.is_pinned || !hasPinnedComment);
 
   return (
     <div className="space-y-4">
@@ -147,13 +183,27 @@ export function CommentCard({
                 ♥ {comment.likes}
               </button>
 
-              {!isEditing && canReply && currentUserId && (
+              {!isEditing && canReply && currentUserId && !isCommentBanned && (
                 <button
                   type="button"
                   onClick={() => setShowReply(!showReply)}
                   className="text-text-secondary hover:text-text-primary"
                 >
                   Reply
+                </button>
+              )}
+
+              {currentUserId && !isOwner && !comment.is_deleted && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowReport(!showReport);
+                    setReportError('');
+                  }}
+                  className="text-text-secondary hover:text-text-primary inline-flex items-center gap-1"
+                >
+                  <Flag className="h-4 w-4" />
+                  Report
                 </button>
               )}
 
@@ -180,6 +230,16 @@ export function CommentCard({
                   </button>
                 </>
               )}
+              {!comment.is_deleted && canShowPinButton && (
+                <button
+                  type="button"
+                  onClick={() => onPin?.(comment.id)}
+                  disabled={pinActionPending}
+                  className="text-text-secondary hover:text-text-primary"
+                >
+                  {isPinning ? 'Updating...' : comment.is_pinned ? 'Unpin' : 'Pin'}
+                </button>
+              )}
             </div>
 
             {showReply && !isEditing && (
@@ -194,6 +254,94 @@ export function CommentCard({
                   onCancel={() => setShowReply(false)}
                 />
               </div>
+            )}
+
+            {showReport && !reportSubmitted && (
+              <form
+                className="border-border mt-5 space-y-3 rounded-xl border p-4"
+                onSubmit={async (event) => {
+                  event.preventDefault();
+                  setIsReporting(true);
+                  setReportError('');
+
+                  try {
+                    await onReport(comment.id, reportReason, reportDetails.trim());
+                    setReportSubmitted(true);
+                  } catch (error) {
+                    setReportError(
+                      error instanceof Error ? error.message : 'Unable to submit your report.'
+                    );
+                  } finally {
+                    setIsReporting(false);
+                  }
+                }}
+              >
+                <label
+                  className="block text-sm font-medium"
+                  htmlFor={`report-reason-${comment.id}`}
+                >
+                  Why are you reporting this comment?
+                </label>
+                <select
+                  id={`report-reason-${comment.id}`}
+                  value={reportReason}
+                  onChange={(event) => setReportReason(event.target.value)}
+                  className="border-border bg-background w-full rounded-lg border px-3 py-2"
+                >
+                  <option value="harassment">Harassment or bullying</option>
+                  <option value="hate_speech">Hate speech</option>
+                  <option value="spam">Spam or repeated promotion</option>
+                  <option value="inappropriate">Inappropriate content</option>
+                  <option value="other">Something else</option>
+                </select>
+                <label
+                  className="block text-sm font-medium"
+                  htmlFor={`report-details-${comment.id}`}
+                >
+                  Additional context (optional)
+                </label>
+                <textarea
+                  id={`report-details-${comment.id}`}
+                  value={reportDetails}
+                  onChange={(event) => setReportDetails(event.target.value)}
+                  maxLength={1000}
+                  rows={3}
+                  className="border-border bg-background w-full resize-y rounded-lg border p-3"
+                  placeholder="Explain what happened, if useful."
+                />
+                <p className="text-text-muted text-xs">
+                  Reports are private to admins. Don’t report a comment just because you disagree;
+                  knowingly false or abusive reports may lead to restrictions.
+                </p>
+                {reportError && (
+                  <p role="alert" className="text-sm text-red-600">
+                    {reportError}
+                  </p>
+                )}
+                <div className="flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowReport(false)}
+                    disabled={isReporting}
+                    className="border-border rounded-lg border px-3 py-2 text-sm"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isReporting}
+                    className="bg-accent rounded-lg px-3 py-2 text-sm text-white disabled:opacity-50"
+                  >
+                    {isReporting ? 'Sending...' : 'Submit report'}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {reportSubmitted && (
+              <p role="status" className="text-text-secondary mt-4 text-sm">
+                Thanks. Your report was sent privately to the moderation team.
+              </p>
             )}
           </>
         )}
@@ -211,6 +359,13 @@ export function CommentCard({
               onLike={onLike}
               onEdit={onEdit}
               onDelete={onDelete}
+              onReport={onReport}
+              onPin={onPin}
+              canPin={canPin}
+              isCommentBanned={isCommentBanned}
+              hasPinnedComment={hasPinnedComment}
+              isPinning={isPinning}
+              pinActionPending={pinActionPending}
             />
           ))}
         </div>

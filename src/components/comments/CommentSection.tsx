@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/client';
 
 import { CommentCard } from './CommentCard';
 import { CommentForm } from './CommentForm';
+import Link from 'next/link';
 
 interface CommentSectionProps {
   topicId: string;
@@ -130,7 +131,19 @@ export function CommentSection({ topicId }: CommentSectionProps) {
 
   const [currentProfile, setCurrentProfile] = useState<Profile | null>(null);
 
+  const [canPinComments, setCanPinComments] = useState(false);
+
+  const [isCommentBanned, setIsCommentBanned] = useState(false);
+
+  const [commentBanCheckFailed, setCommentBanCheckFailed] = useState(false);
+
+  const [pinError, setPinError] = useState('');
+
+  const [pinningCommentId, setPinningCommentId] = useState<number | null>(null);
+
   const commentCount = useMemo(() => countComments(comments), [comments]);
+
+  const hasPinnedComment = comments.some((comment) => comment.is_pinned);
 
   const sortComments = useCallback((comments: Comment[]) => {
     // Apply the same ordering independently at each level: pinned first,
@@ -174,7 +187,7 @@ export function CommentSection({ topicId }: CommentSectionProps) {
       ...new Set([...commentRows.map((row) => row.user_id), user?.id].filter(Boolean)),
     ];
 
-    const [likesResult, profilesResult] = await Promise.all([
+    const [likesResult, profilesResult, adminRoleResult, commentBanResult] = await Promise.all([
       supabase.from('comment_likes').select('comment_id,user_id'),
 
       userIds.length
@@ -182,7 +195,36 @@ export function CommentSection({ topicId }: CommentSectionProps) {
         : Promise.resolve({
             data: [],
           }),
+
+      user
+        ? supabase.from('admin_users').select('user_id').eq('user_id', user.id).maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
+
+      user
+        ? supabase
+            .from('user_comment_bans')
+            .select('id')
+            .eq('user_id', user.id)
+            .is('unbanned_at', null)
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
     ]);
+
+    if (adminRoleResult.error) {
+      console.error('Unable to verify comment moderation role:', adminRoleResult.error.message);
+      setCanPinComments(false);
+    } else {
+      setCanPinComments(Boolean(adminRoleResult.data));
+    }
+
+    if (commentBanResult.error) {
+      console.error('Unable to check comment restriction:', commentBanResult.error.message);
+      setIsCommentBanned(false);
+      setCommentBanCheckFailed(true);
+    } else {
+      setIsCommentBanned(Boolean(commentBanResult.data));
+      setCommentBanCheckFailed(false);
+    }
 
     const profiles = new Map((profilesResult.data ?? []).map((profile) => [profile.id, profile]));
 
@@ -431,6 +473,67 @@ export function CommentSection({ topicId }: CommentSectionProps) {
     }
   }
 
+  async function togglePin(commentId: number) {
+    if (!canPinComments) {
+      return;
+    }
+
+    const selectedComment = comments.find((comment) => comment.id === commentId);
+
+    if (!selectedComment || selectedComment.parent_id !== null) {
+      return;
+    }
+
+    const shouldPin = !selectedComment.is_pinned;
+
+    setPinError('');
+    setPinningCommentId(commentId);
+    setComments((previous) =>
+      cloneAndSortComments(
+        previous.map((comment) => ({
+          ...comment,
+          is_pinned: shouldPin && comment.id === commentId,
+        })),
+        sortComments
+      )
+    );
+
+    try {
+      const response = await fetch(`/api/admin/comments/${commentId}/pin`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ pinned: shouldPin }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Pin request failed with status ${response.status}`);
+      }
+    } catch (error) {
+      console.error('Unable to update pinned comment:', error);
+      setPinError('Unable to update the pinned comment. Please try again.');
+      await loadComments();
+    } finally {
+      setPinningCommentId(null);
+    }
+  }
+
+  async function reportComment(commentId: number, reason: string, details: string) {
+    const response = await fetch('/api/reports/comments', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ commentId, reason, details }),
+    });
+
+    if (!response.ok) {
+      const result = (await response.json().catch(() => null)) as { error?: string } | null;
+      throw new Error(result?.error ?? 'Unable to submit your report. Please try again.');
+    }
+  }
+
   function findComment(comments: Comment[], id: number): Comment | undefined {
     // Depth-first search: check each comment, then recursively inspect its
     // replies before moving to the next sibling.
@@ -520,7 +623,28 @@ export function CommentSection({ topicId }: CommentSectionProps) {
     <section id="comments" className="mb-16">
       <h2 className="mb-6 text-3xl font-bold">Comments ({commentCount})</h2>
 
-      {userId ? (
+      {userId && (isCommentBanned || commentBanCheckFailed) ? (
+        <article className="border-border rounded-2xl border p-6">
+          <p className="font-semibold">
+            {isCommentBanned
+              ? 'You can’t post or reply to comments right now.'
+              : 'Unable to verify whether you can comment right now.'}
+          </p>
+          <p className="text-text-secondary mt-2">
+            {isCommentBanned
+              ? 'You can still read discussions and ask an admin to review this restriction.'
+              : 'Posting is disabled until your comment access can be verified. Please refresh the page.'}
+          </p>
+          {isCommentBanned && (
+            <Link
+              href="/appeal"
+              className="text-accent mt-4 inline-block font-medium hover:underline"
+            >
+              Request a review
+            </Link>
+          )}
+        </article>
+      ) : userId ? (
         <>
           <CommentForm onSubmit={createComment} />
 
@@ -534,6 +658,12 @@ export function CommentSection({ topicId }: CommentSectionProps) {
 
           <div className="h-6" />
         </>
+      )}
+
+      {pinError && (
+        <p role="alert" className="mb-6 text-sm text-red-600">
+          {pinError}
+        </p>
       )}
 
       {comments.length === 0 ? (
@@ -555,6 +685,13 @@ export function CommentSection({ topicId }: CommentSectionProps) {
               onLike={toggleLike}
               onEdit={editComment}
               onDelete={deleteComment}
+              onReport={reportComment}
+              onPin={togglePin}
+              canPin={canPinComments}
+              isCommentBanned={isCommentBanned || commentBanCheckFailed}
+              hasPinnedComment={hasPinnedComment}
+              isPinning={pinningCommentId === comment.id}
+              pinActionPending={pinningCommentId !== null}
             />
           ))}
         </div>

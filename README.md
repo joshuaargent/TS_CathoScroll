@@ -188,13 +188,15 @@ The `/account` and `/bookmarks` pages have two layers of sign-in checks:
 1. The Next.js 16 `src/proxy.ts` layer validates the Supabase session and redirects signed-out requests to `/signin`, preserving the requested local path so sign-in can return the user to it.
 2. The account page repeats the check client-side, and the bookmarks page checks the session on the server before reading user data.
 
-These redirects improve navigation but do not replace authorization. Supabase Row Level Security policies and server-side checks must continue to protect user data and mutations.
+These redirects improve navigation but do not replace authorization. Supabase Row Level Security policies and server-side checks must continue to protect user data and mutations. The moderation dashboard and moderation API routes independently verify the signed-in user's database-backed admin role; hiding admin UI is never treated as authorization.
 
 ### Supabase write-permission hardening
 
 Before deploying the matching application changes, apply the corresponding SQL directly in the Supabase SQL Editor. It removes client write access to profile subscription tiers and comment pin state, while allowing authenticated users to create/update only the profile and comment fields used by the app. New profiles default to the free tier. No Supabase migration files are maintained in this repository.
 
-Comment pin controls are intentionally unavailable until an authenticated server-side admin action is implemented. Existing pinned comments remain visible. Subscription tiers must only be changed by trusted billing/server-side code.
+Comment pinning and moderation use server endpoints and a database-backed `admin_users` role table. The service-role key is used only on the server and must never be exposed in a `NEXT_PUBLIC_*` variable. Add admin membership and the moderation tables, constraints, and comment-ban trigger using the SQL supplied by the project maintainer; no Supabase migration files are maintained in this repository.
+
+Authenticated users can privately report comments. Admins can review and dismiss reports, resolve them, or hide the reported comment. Comment restrictions prevent new comments and replies but do not disable sign-in or other account features. Restricted users can submit one pending appeal; admins can review paginated comment history with reply context and lift the restriction. Subscription tiers must only be changed by trusted billing/server-side code.
 
 | Variable                        | Purpose                                                                                                       |
 | ------------------------------- | ------------------------------------------------------------------------------------------------------------- |
@@ -202,6 +204,7 @@ Comment pin controls are intentionally unavailable until an authenticated server
 | `NEXT_PUBLIC_SUPABASE_URL`      | Required. Supabase project URL.                                                                               |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Required. Supabase publishable/anonymous key used by the client.                                              |
 | `NEXT_PUBLIC_FORMSPREE_FORM_ID` | Optional. Formspree form ID for contact form submissions.                                                     |
+| `SUPABASE_SERVICE_ROLE_KEY`     | Required for server-side comment moderation, reports, and appeals. Keep secret.                               |
 
 Never put Supabase service-role keys or other server secrets in `NEXT_PUBLIC_*` variables.
 
@@ -221,6 +224,8 @@ Never put Supabase service-role keys or other server secrets in `NEXT_PUBLIC_*` 
 - Comments and replies
 - Comment likes
 - Pinned comments
+- Private comment reporting and admin moderation
+- Comment-only restrictions with user appeals
 - Public user profiles
 - Profile statistics
 - Community discussions
@@ -247,6 +252,9 @@ Never put Supabase service-role keys or other server secrets in `NEXT_PUBLIC_*` 
 │   └── web-app-manifest-*.png
 └── src/
     ├── app/
+    │   ├── admin/
+    │   ├── appeal/
+    │   ├── api/
     │   ├── about/
     │   ├── account/
     │   ├── bookmarks/
@@ -267,6 +275,7 @@ Never put Supabase service-role keys or other server secrets in `NEXT_PUBLIC_*` 
     │   ├── sitemap.ts
     │   └── robots.ts
     ├── components/
+    │   ├── admin/
     │   ├── comments/
     │   ├── layout/
     │   ├── providers/
@@ -277,6 +286,7 @@ Never put Supabase service-role keys or other server secrets in `NEXT_PUBLIC_*` 
     │   ├── categories.ts
     │   └── topics.ts
     ├── lib/
+    │   ├── moderation/
     │   ├── supabase/
     │   ├── constants.ts
     │   └── utils.ts

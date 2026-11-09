@@ -8,6 +8,8 @@ import { siteConfig } from '@/lib/constants';
 import { Badge } from '@/components/ui/Badge';
 
 import { topics } from '@/data/topics';
+import { CommentBanControl } from '@/components/admin/CommentBanControl';
+import { createServiceRoleClient } from '@/lib/supabase/admin';
 
 interface Props {
   params: Promise<{
@@ -169,6 +171,9 @@ export default async function ProfilePage({ params }: Props) {
   const { username } = await params;
 
   const supabase = await createClient();
+  const {
+    data: { user: currentUser },
+  } = await supabase.auth.getUser();
 
   const { data: profile } = await supabase
     .from('profiles')
@@ -178,6 +183,43 @@ export default async function ProfilePage({ params }: Props) {
 
   if (!profile) {
     notFound();
+  }
+
+  let canManageCommentBan = false;
+  let isAdmin = false;
+  let activeBan: { reason: string } | null = null;
+
+  if (currentUser) {
+    const { data: adminRole, error: roleError } = await supabase
+      .from('admin_users')
+      .select('user_id')
+      .eq('user_id', currentUser.id)
+      .maybeSingle();
+
+    if (roleError) {
+      console.error('Unable to verify profile moderation access:', roleError.message);
+    } else if (adminRole) {
+      isAdmin = true;
+
+      if (currentUser.id !== profile.id) {
+        canManageCommentBan = true;
+
+        const serviceClient = createServiceRoleClient();
+        const { data: ban, error: banError } = await serviceClient
+          .from('user_comment_bans')
+          .select('reason')
+          .eq('user_id', profile.id)
+          .is('unbanned_at', null)
+          .maybeSingle();
+
+        if (banError) {
+          console.error('Unable to load profile comment restriction:', banError.message);
+          throw new Error('Unable to load moderation details.');
+        }
+
+        activeBan = ban;
+      }
+    }
   }
 
   const [
@@ -301,6 +343,19 @@ export default async function ProfilePage({ params }: Props) {
         </p>
 
         <p className="text-text-secondary mt-6 max-w-3xl text-lg">{profile.bio || 'No bio yet.'}</p>
+
+        {isAdmin && (
+          <Link href="/admin" className="text-accent mt-5 inline-block font-medium hover:underline">
+            Open moderation dashboard
+          </Link>
+        )}
+
+        <CommentBanControl
+          userId={profile.id}
+          activeBan={Boolean(activeBan)}
+          reason={activeBan?.reason}
+          canChangeBan={canManageCommentBan}
+        />
 
         <div className="mt-6">
           <Badge variant="accent" size="lg">
