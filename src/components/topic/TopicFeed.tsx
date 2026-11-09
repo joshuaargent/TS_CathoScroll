@@ -22,6 +22,8 @@ export function TopicFeed({ topics }: TopicFeedProps) {
   // ----------------------------------
 
   useEffect(() => {
+    // Shuffle only when the supplied catalogue changes, then start in the
+    // middle so both previous and next navigation have nearby items available.
     const shuffled = shuffle(topics);
 
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -34,6 +36,7 @@ export function TopicFeed({ topics }: TopicFeedProps) {
   // Navigation
   // ----------------------------------
 
+  // Modulo arithmetic wraps the finite catalogue into a circular feed.
   const nextTopic = () => {
     setTopicIndex((prev) => (prev + 1) % feedTopics.length);
   };

@@ -71,6 +71,8 @@ import { Topic } from '@/types';
 // - Avoid unnecessary repetition.
 // - Aim for a total topic length of roughly 250-450 words.
 
+// Authoritative in-memory topic catalogue used by the feed, search, and static
+// topic routes. Category values must match categories.ts names exactly.
 export const topics: Topic[] = [
   {
     id: '1',

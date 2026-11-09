@@ -413,6 +413,8 @@ export function TopicViewer({
     setIsAnimating(true);
 
     try {
+      // Horizontal movement changes a section of the current topic. Completing
+      // its Scripture slide records topic progress before the viewer resets.
       const width = containerRef.current?.clientWidth ?? window.innerWidth;
 
       await animate(x, direction === 'next' ? -width : width, {
@@ -444,6 +446,8 @@ export function TopicViewer({
     setIsAnimating(true);
 
     try {
+      // Vertical movement changes the topic and always starts the new topic
+      // on its first slide.
       const height = containerRef.current?.clientHeight ?? window.innerHeight;
 
       await animate(y, direction === 'next' ? -height : height, {
@@ -558,6 +562,8 @@ export function TopicViewer({
     const deltaY = event.clientY - startRef.current.y;
 
     if (!axis) {
+      // Lock the gesture to whichever direction moved farther once the
+      // pointer has moved enough to distinguish a swipe from a tap.
       if (Math.abs(deltaX) > 2 || Math.abs(deltaY) > 2) {
         setAxis(Math.abs(deltaX) > Math.abs(deltaY) ? 'x' : 'y');
       }
@@ -602,6 +608,15 @@ export function TopicViewer({
 
     const height = window.innerHeight;
 
+    // AQA-style pseudocode:
+    // IF gesture axis is horizontal THEN
+    //   commit ← distance > 7% of width OR estimated velocity > 25
+    //   IF committed and moved left/right with a slide available THEN move slide
+    //   ELSE return the card to its starting position
+    // ELSE IF gesture axis is vertical THEN
+    //   apply the same rule using height and move between topics
+    // IF both distances are under 10 pixels AND taps are under 300 ms apart
+    //   LIKE current topic
     if (axis === 'x') {
       const threshold = width * 0.07;
 
@@ -631,6 +646,7 @@ export function TopicViewer({
     }
 
     if (wasTap) {
+      // Two taps within 300 ms like the current topic; a single tap does not.
       const now = Date.now();
 
       if (now - lastTapRef.current < 300) {

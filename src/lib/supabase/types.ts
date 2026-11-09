@@ -37,6 +37,8 @@ export interface Comment {
 
   likedByUser: boolean;
 
+  // Built from parent_id after fetching flat database rows; not a separate
+  // stored field. This recursive shape lets the UI render reply branches.
   replies: Comment[];
 
   optimistic?: boolean;

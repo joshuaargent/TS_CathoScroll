@@ -293,7 +293,18 @@ export function randomItem<T>(array: T[]): T {
 }
 
 /**
- * Shuffles an array (Fisher-Yates algorithm)
+ * Returns a shuffled copy using the in-place Fisher-Yates algorithm.
+ *
+ * AQA-style pseudocode:
+ * result ← COPY(array)
+ * FOR i ← LENGTH(result) - 1 DOWNTO 1
+ *   j ← RANDOM INTEGER FROM 0 TO i
+ *   SWAP result[i] AND result[j]
+ * RETURN result
+ *
+ * Each pass fixes one remaining position; choosing j from the unshuffled
+ * prefix avoids the bias caused by swapping each item with any array position.
+ * Time: O(n); extra space: O(n) because the input is copied first.
  */
 export function shuffle<T>(array: T[]): T[] {
   const result = [...array];
@@ -305,7 +316,8 @@ export function shuffle<T>(array: T[]): T[] {
 }
 
 /**
- * Debounces a function
+ * Runs a function only after calls have stopped for the specified delay.
+ * Each call cancels the previous pending invocation.
  */
 export function debounce<T extends (...args: Parameters<T>) => void>(
   func: T,
@@ -320,7 +332,7 @@ export function debounce<T extends (...args: Parameters<T>) => void>(
 }
 
 /**
- * Throttles a function
+ * Limits a function to at most one call per interval.
  */
 export function throttle<T extends (...args: Parameters<T>) => void>(
   func: T,

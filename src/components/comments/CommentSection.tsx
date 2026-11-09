@@ -22,10 +22,41 @@ const fallbackProfile: Profile = {
   subscription_tier: 'free',
 };
 
+/**
+ * Counts every node in the nested comment tree, not just its top-level posts.
+ *
+ * AQA-style pseudocode:
+ * FUNCTION countComments(nodes)
+ *   total ← 0
+ *   FOR EACH node IN nodes
+ *     total ← total + 1 + countComments(node.replies)
+ *   RETURN total
+ * END FUNCTION
+ *
+ * Every comment is visited once (O(n)); recursive call depth is the maximum
+ * reply depth.
+ */
 function countComments(comments: Comment[]): number {
   return comments.reduce((total, comment) => total + 1 + countComments(comment.replies), 0);
 }
 
+/**
+ * Recursively creates a new tree while applying an update only to the node
+ * whose id matches. New arrays/ancestor objects keep React state updates
+ * immutable without changing unrelated comment values.
+ *
+ * AQA-style pseudocode:
+ * FUNCTION updateCommentTree(nodes, targetId, updater)
+ *   updatedNodes ← empty list
+ *   FOR EACH node IN nodes
+ *     IF node.id = targetId THEN
+ *       APPEND updater(node) TO updatedNodes
+ *     ELSE
+ *       APPEND COPY(node, replies = updateCommentTree(node.replies, targetId, updater))
+ *         TO updatedNodes
+ *   RETURN updatedNodes
+ * END FUNCTION
+ */
 function updateCommentTree(
   comments: Comment[],
   commentId: number,
@@ -44,6 +75,8 @@ function updateCommentTree(
 }
 
 function insertReplyIntoTree(comments: Comment[], parentId: number, reply: Comment): Comment[] {
+  // Recursively map each branch, inserting the reply at the start of the
+  // matching parent's child list.
   return comments.map((comment) => {
     if (comment.id === parentId) {
       return {
@@ -59,6 +92,8 @@ function insertReplyIntoTree(comments: Comment[], parentId: number, reply: Comme
   });
 }
 
+// Replaces a temporary client-side id after the insert succeeds, including if
+// the optimistic item is nested inside a reply branch.
 function replaceCommentId(comments: Comment[], tempId: number, realId: number): Comment[] {
   return comments.map((comment) => {
     const updated =
@@ -78,6 +113,7 @@ function replaceCommentId(comments: Comment[], tempId: number, realId: number): 
 }
 
 function cloneAndSortComments(comments: Comment[], sorter: (comments: Comment[]) => void) {
+  // sortComments mutates arrays, so clone the nested state tree before sorting.
   const cloned = structuredClone(comments);
 
   sorter(cloned);
@@ -101,6 +137,9 @@ export function CommentSection({ topicId }: CommentSectionProps) {
   const hasPinnedComment = comments.some((comment) => comment.is_pinned);
 
   const sortComments = useCallback((comments: Comment[]) => {
+    // Apply the same ordering independently at each level: pinned first,
+    // then most-liked, then newest. This function sorts in place; state updates
+    // use cloneAndSortComments to avoid mutating the existing React state tree.
     comments.sort((a, b) => {
       if (a.is_pinned !== b.is_pinned) {
         return a.is_pinned ? -1 : 1;
@@ -183,6 +222,20 @@ export function CommentSection({ topicId }: CommentSectionProps) {
 
     const roots: Comment[] = [];
 
+    // Build every node before linking parents. This lets a reply find its
+    // parent regardless of the order in which the database returned rows.
+    //
+    // AQA-style pseudocode:
+    // FOR EACH row IN commentRows
+    //   node ← COMMENT(row, replies = [])
+    //   map[row.id] ← node
+    // FOR EACH node IN map
+    //   IF node.parent_id = NULL THEN
+    //     APPEND node TO roots
+    //   ELSE IF map CONTAINS node.parent_id THEN
+    //     APPEND node TO map[node.parent_id].replies
+    // Each database row is processed twice, with average O(1) map access, so
+    // constructing the tree takes O(n) time and O(n) additional space.
     commentRows.forEach((row) => {
       map.set(row.id, {
         id: row.id,
@@ -208,6 +261,8 @@ export function CommentSection({ topicId }: CommentSectionProps) {
       });
     });
 
+    // The parent_id field is an adjacency-list representation in storage;
+    // this pass materializes it as the nested tree consumed by CommentCard.
     map.forEach((comment) => {
       if (comment.parent_id === null) {
         roots.push(comment);
@@ -235,6 +290,8 @@ export function CommentSection({ topicId }: CommentSectionProps) {
       return;
     }
 
+    // Show a temporary comment immediately, then replace its temporary id
+    // with the database id; reload the authoritative tree if insertion fails.
     const tempId = -Date.now();
 
     const tempComment: Comment = {
@@ -283,6 +340,8 @@ export function CommentSection({ topicId }: CommentSectionProps) {
       return;
     }
 
+    // Reply creation uses the same optimistic insert/reconcile flow, but first
+    // locates the parent in the nested client-side tree.
     const tempId = -Date.now();
 
     const tempReply: Comment = {
@@ -329,6 +388,8 @@ export function CommentSection({ topicId }: CommentSectionProps) {
   async function editComment(commentId: number, content: string) {
     const editedAt = new Date().toISOString();
 
+    // Update the visible tree immediately; reload it from Supabase if the
+    // persistent update fails so the UI returns to the saved value.
     setComments((prev) =>
       updateCommentTree(prev, commentId, (comment) => ({
         ...comment,
@@ -387,6 +448,8 @@ export function CommentSection({ topicId }: CommentSectionProps) {
 
     const nextPinned = !comment.is_pinned;
 
+    // Pinning changes sort priority, so apply the optimistic update and then
+    // re-sort a cloned tree before displaying it.
     setComments((prev) =>
       cloneAndSortComments(
         updateCommentTree(prev, commentId, (comment) => ({
@@ -412,6 +475,17 @@ export function CommentSection({ topicId }: CommentSectionProps) {
   }
 
   function findComment(comments: Comment[], id: number): Comment | undefined {
+    // Depth-first search: check each comment, then recursively inspect its
+    // replies before moving to the next sibling.
+    //
+    // AQA-style pseudocode:
+    // FUNCTION findComment(nodes, targetId)
+    //   FOR EACH node IN nodes
+    //     IF node.id = targetId THEN RETURN node
+    //     result ← findComment(node.replies, targetId)
+    //     IF result EXISTS THEN RETURN result
+    //   RETURN NOT FOUND
+    // Worst-case time: O(n); recursive call depth is the maximum reply depth.
     for (const comment of comments) {
       if (comment.id === id) {
         return comment;
@@ -438,6 +512,8 @@ export function CommentSection({ topicId }: CommentSectionProps) {
       return;
     }
 
+    // Update the selected node and its like count optimistically; a failed
+    // database mutation is reconciled by reloading the comment tree.
     const wasLiked = comment.likedByUser;
 
     setComments((prev) =>

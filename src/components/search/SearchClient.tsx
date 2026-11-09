@@ -34,6 +34,7 @@ export function SearchClient() {
   const [debouncedQuery, setDebouncedQuery] = useState(query);
 
   useEffect(() => {
+    // Wait briefly after typing before rerunning the local ranking algorithm.
     const timeout = setTimeout(() => {
       setDebouncedQuery(query);
     }, 200);
@@ -42,6 +43,8 @@ export function SearchClient() {
   }, [query]);
 
   useEffect(() => {
+    // Keep the address bar in sync with the immediate input so searches can
+    // be bookmarked and restored on navigation.
     const params = new URLSearchParams(searchParams);
 
     if (query.trim()) {

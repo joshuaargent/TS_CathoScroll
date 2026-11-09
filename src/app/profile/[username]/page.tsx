@@ -32,6 +32,21 @@ function calculateCurrentStreak(dates: string[]) {
     return 0;
   }
 
+  // The algorithm uses dates[0] as the newest activity date. Its caller must
+  // provide the dates in newest-first order.
+  //
+  // AQA-style pseudocode:
+  // IF dates is empty THEN RETURN 0
+  // days ← UNIQUE(DATE-ONLY values from dates)
+  // newest ← date from dates[0]
+  // IF days between newest and today > 1 THEN RETURN 0
+  // streak ← 0
+  // cursor ← newest
+  // WHILE DATE-ONLY(cursor) is in days
+  //   streak ← streak + 1
+  //   cursor ← previous calendar day
+  // RETURN streak
+  // Time and extra space: O(n).
   const uniqueDays = new Set(dates.map((date) => new Date(date).toISOString().split('T')[0]));
 
   const today = new Date();
@@ -72,6 +87,21 @@ function calculateLongestStreak(dates: string[]) {
     return 0;
   }
 
+  // Deduplicate and sort day keys, then find the longest run of consecutive
+  // calendar days by resetting the running count whenever there is a gap.
+  //
+  // AQA-style pseudocode:
+  // days ← SORT ASCENDING(UNIQUE(DATE-ONLY values from dates))
+  // longest ← 1
+  // current ← 1
+  // FOR i ← 1 TO LENGTH(days) - 1
+  //   IF days[i] is exactly one day after days[i - 1] THEN
+  //     current ← current + 1
+  //     longest ← MAX(longest, current)
+  //   ELSE
+  //     current ← 1
+  // RETURN longest
+  // Time: O(n log n) for sorting; extra space: O(n).
   const uniqueDays = [
     ...new Set(dates.map((date) => new Date(date).toISOString().split('T')[0])),
   ].sort();
@@ -182,6 +212,8 @@ export default async function ProfilePage({ params }: Props) {
       })
       .limit(6),
 
+    // calculateCurrentStreak expects newest-first input, but this query has no
+    // explicit ordering; preserve this as a known issue for the later fix pass.
     supabase.from('progress').select('completed_at').eq('user_id', profile.id),
 
     supabase

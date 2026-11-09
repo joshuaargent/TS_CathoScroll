@@ -1,5 +1,34 @@
 import { topics } from '@/data/topics';
 
+/**
+ * Ranks in-memory topics using weighted phrase matches, per-term matches, and
+ * occurrence frequency. Question/category matches intentionally outweigh
+ * matches in supporting text.
+ *
+ * AQA-style pseudocode:
+ * FUNCTION searchTopics(query)
+ *   q ← LOWERCASE(TRIM(query))
+ *   IF q = "" THEN RETURN []
+ *   terms ← SPLIT q ON whitespace
+ *   results ← empty list
+ *   FOR EACH topic IN topics
+ *     score ← 0
+ *     ADD phrase weights for q in question(200), category(120), slug(100),
+ *       answer(80), explanation/catechism/scripture(50), reference(40)
+ *     FOR EACH term IN terms
+ *       ADD field weights: question(50), category(40), slug(30), answer(25),
+ *         explanation/catechism/scripture(15), reference(10)
+ *       ADD 20 per question occurrence, 10 per answer occurrence, and
+ *         5 per occurrence in explanation, catechism, or scripture
+ *     IF score > 0 THEN APPEND (topic, score) TO results
+ *   SORT results by score descending, then question alphabetically
+ *   RETURN results
+ * END FUNCTION
+ *
+ * With N topics, T query terms, and S searchable characters per topic, scoring
+ * is O(N * T * S); sorting R matches costs O(R log R). Alphabetical
+ * tie-breaking keeps equal scores deterministic.
+ */
 export function searchTopics(query: string) {
   const q = query.trim().toLowerCase();
 

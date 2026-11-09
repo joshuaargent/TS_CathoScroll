@@ -44,6 +44,8 @@ export async function middleware(
       }
     );
 
+  // Refresh/validate auth cookies for matched requests; this middleware does
+  // not itself block unauthenticated access to any route.
   await supabase.auth.getUser();
 
   return response;

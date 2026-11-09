@@ -13,6 +13,8 @@ export async function createClient() {
       .NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
+        // Server Components can read request cookies; middleware is responsible
+        // for propagating refreshed auth cookies back to the response.
         getAll() {
           return cookieStore.getAll();
         },

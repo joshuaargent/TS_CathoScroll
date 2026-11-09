@@ -1,5 +1,8 @@
 import { Topic, TopicSlide } from '@/types';
 
+// Convert the structured topic model into the fixed reading order presented
+// by TopicViewer. The Scripture slide is also the point used to record topic
+// completion.
 export function getTopicSlides(
   topic: Topic
 ): TopicSlide[] {

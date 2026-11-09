@@ -148,20 +148,20 @@ export default function AboutPage() {
 
             <article className="border-border rounded-2xl border p-6">
               <Badge variant="accent" size="sm">
-                Premium
+                Premium - planned
               </Badge>
 
               <h3 className="mt-4 text-2xl font-bold">Audio Lessons</h3>
 
               <p className="text-text-secondary mt-3">
-                Listen to narrated versions of topics designed to make learning possible wherever
-                you are.
+                Planned narrated versions of topics will make listening and learning possible
+                wherever you are.
               </p>
             </article>
 
             <article className="border-border rounded-2xl border p-6">
               <Badge variant="accent" size="sm">
-                Premium
+                Planned - Free
               </Badge>
 
               <h3 className="mt-4 text-2xl font-bold">Learning Paths</h3>
@@ -174,7 +174,7 @@ export default function AboutPage() {
 
             <article className="border-border rounded-2xl border p-6">
               <Badge variant="accent" size="sm">
-                Premium
+                Planned - Free
               </Badge>
 
               <h3 className="mt-4 text-2xl font-bold">Quizzes</h3>

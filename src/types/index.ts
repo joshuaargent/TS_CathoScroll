@@ -1,5 +1,5 @@
 // ============================================
-// Core Types for Joshua's Portfolio
+// Core Types for CathoScroll
 // ============================================
 
 // ----- Site Configuration -----
@@ -37,6 +37,8 @@ export interface Topic {
   id: string;
   slug: string;
 
+  // Must match a category name in categories.ts; category slugs are used in URLs,
+  // but topic filtering currently uses this display name.
   category: string;
 
   question: string;

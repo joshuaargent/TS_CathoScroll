@@ -69,6 +69,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   useEffect(() => {
+    // Restore the existing session once, then keep the context synchronized
+    // with sign-in, sign-out, and token-refresh events from Supabase.
     async function initialise() {
       const {
         data: { session },
@@ -102,6 +104,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     return () => {
+      // Prevent the auth listener from retaining this provider after unmount.
       authListener.subscription.unsubscribe();
     };
   }, []);
