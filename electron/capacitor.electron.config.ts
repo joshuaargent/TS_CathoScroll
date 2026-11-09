@@ -1,6 +1,21 @@
 import { defineConfig } from '@capawesome/capacitor-electron/config';
 
 export default defineConfig({
+  csp: {
+    devPolicy: [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline'",
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' https: data: blob:",
+      "font-src 'self' https: data:",
+      "media-src 'self' https: blob:",
+      "connect-src 'self' https: wss:",
+      "object-src 'none'",
+      "frame-src https://www.youtube.com https://www.youtube-nocookie.com",
+      "base-uri 'self'",
+      "form-action 'self' https:",
+    ].join('; '),
+  },
   window: {
     width: 1200,
     height: 800,

@@ -155,7 +155,9 @@ native delivery architecture.
 CathoScroll also has a separate Electron desktop target powered by
 Capawesome's maintained Capacitor Electron platform. It reuses the Capacitor
 web experience and currently loads the hosted CathoScroll website, so it
-requires an internet connection and is not an offline desktop app.
+requires an internet connection and is not an offline desktop app. The hosted
+URL defaults to `https://cathoscroll.vercel.app` and can be overridden with
+`CAPACITOR_SERVER_URL` when launching or packaging the desktop app.
 
 After installing the root dependencies with `npm install`, start the desktop
 app with:
