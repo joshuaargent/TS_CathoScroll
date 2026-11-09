@@ -11,6 +11,7 @@ import { Menu, X, Sun, Moon, User, UserCheck } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { useTheme } from '@/components/providers/ThemeProvider';
 import { useAuth } from '@/components/providers/AuthProvider';
+import { NotificationBell } from '@/components/layout/NotificationBell';
 
 // ============================================
 // Navbar Component
@@ -84,6 +85,7 @@ export function Navbar() {
 
               {/* Toggles */}
               <div className="ml-1 flex items-center gap-1">
+                <NotificationBell />
                 <Button
                   variant="ghost"
                   size="icon"
@@ -211,6 +213,16 @@ export function Navbar() {
                     )}
                   </Link>
                 </div>
+
+                {isAuthenticated && (
+                  <div className="mb-6 flex justify-center">
+                    <NotificationBell
+                      showLabel
+                      onNavigate={() => setMobileMenuState({ open: false, pathname })}
+                      className="border-border bg-bg-card hover:bg-bg-secondary h-auto w-full max-w-xs justify-center gap-2 rounded-lg border px-4 py-2"
+                    />
+                  </div>
+                )}
 
                 <div className="flex items-center justify-center gap-4">
                   <a

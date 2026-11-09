@@ -198,6 +198,8 @@ Comment pinning and moderation use server endpoints and a database-backed `admin
 
 Authenticated users can privately report comments. Admins can review and dismiss reports, resolve them, or hide the reported comment. Comment restrictions prevent new comments, replies, and edits, but do not disable sign-in or other account features; users can still delete their own comments. Admins may optionally hide a user's existing visible comments when applying a restriction, while retaining them in moderation history. Restricted users can submit one pending appeal; admins can review paginated comment history with reply context and lift the restriction. Subscription tiers must only be changed by trusted billing/server-side code.
 
+The notification center is available to signed-in users from the navbar bell. It displays the latest 50 notifications and supports marking one or all as read; the badge shows `1`–`9`, then `9+`, and is hidden when there are no unread notifications. Apply the notification table, owner-only RLS policies, and database notification triggers/functions from the SQL supplied by the project maintainer before enabling this feature. Those database-side handlers create welcome, reply, and moderation notifications transactionally; email notifications are not used.
+
 | Variable                        | Purpose                                                                                                       |
 | ------------------------------- | ------------------------------------------------------------------------------------------------------------- |
 | `NEXT_PUBLIC_SITE_URL`          | Optional. Canonical site URL used for metadata, sitemap, and feed generation. Defaults to the production URL. |
@@ -226,6 +228,7 @@ Never put Supabase service-role keys or other server secrets in `NEXT_PUBLIC_*` 
 - Pinned comments
 - Private comment reporting and admin moderation
 - Comment-only restrictions with user appeals
+- In-app notifications for replies, welcome guidance, and moderation updates
 - Public user profiles
 - Profile statistics
 - Community discussions
