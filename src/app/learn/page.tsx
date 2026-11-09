@@ -61,7 +61,7 @@ export default function LearnPage() {
 
             <article className="border-border rounded-2xl border p-6">
               <Badge variant="accent" size="sm">
-                Free - planned
+                Premium
               </Badge>
 
               <h3 className="mt-4 text-2xl font-bold">Learning Paths</h3>
@@ -74,7 +74,7 @@ export default function LearnPage() {
 
             <article className="border-border rounded-2xl border p-6">
               <Badge variant="accent" size="sm">
-                Free - planned
+                Premium
               </Badge>
 
               <h3 className="mt-4 text-2xl font-bold">Quizzes</h3>
