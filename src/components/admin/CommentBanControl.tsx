@@ -21,6 +21,8 @@ export function CommentBanControl({
   const router = useRouter();
   const [restrictionActive, setRestrictionActive] = useState(activeBan);
   const [moderationReason, setModerationReason] = useState('');
+  const [hideExistingComments, setHideExistingComments] = useState(false);
+  const [restoreHiddenComments, setRestoreHiddenComments] = useState(true);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -38,6 +40,12 @@ export function CommentBanControl({
     setHistoryLoading(true);
 
     try {
+      // Fetch one bounded page and append it to the already loaded history.
+      // AQA-style pseudocode:
+      // GET comments[offset TO offset + pageSize]
+      // APPEND returned comments to history
+      // IF more comments exist THEN store next offset
+      // Each request processes at most 30 comments; total history is loaded on demand.
       const response = await fetch(`/api/admin/users/${userId}/comments?offset=${offset}&limit=30`);
       const result = (await response.json()) as {
         comments?: AdminUserComment[];
@@ -64,6 +72,18 @@ export function CommentBanControl({
   }
 
   async function updateRestriction() {
+    // Apply the restriction and optional content hiding through one database
+    // function so a partial failure cannot leave only one action committed.
+    if (
+      !restrictionActive &&
+      hideExistingComments &&
+      !window.confirm(
+        'Hide all currently visible comments and replies from this user? They will remain in admin history.'
+      )
+    ) {
+      return;
+    }
+
     setError('');
     setSaving(true);
 
@@ -75,6 +95,8 @@ export function CommentBanControl({
           action: restrictionActive ? 'unban' : 'ban',
           userId,
           reason: moderationReason,
+          hideExistingComments,
+          restoreHiddenComments,
         }),
       });
       const result = (await response.json()) as { error?: string; banned?: boolean };
@@ -86,6 +108,8 @@ export function CommentBanControl({
 
       setRestrictionActive(Boolean(result.banned));
       setModerationReason('');
+      setHideExistingComments(false);
+      setRestoreHiddenComments(true);
       router.refresh();
     } catch (requestError) {
       console.error('Unable to update comment restriction:', requestError);
@@ -160,6 +184,39 @@ export function CommentBanControl({
             </div>
           )}
         </div>
+      )}
+      {!restrictionActive && (
+        <label className="mt-4 flex items-start gap-3 text-sm">
+          <input
+            type="checkbox"
+            checked={hideExistingComments}
+            onChange={(event) => setHideExistingComments(event.target.checked)}
+            className="accent-accent mt-1"
+          />
+          <span>
+            <span className="font-medium">Also hide existing comments and replies</span>
+            <span className="text-text-muted mt-1 block">
+              This soft-deletes visible comments from public discussion but keeps them in admin
+              history.
+            </span>
+          </span>
+        </label>
+      )}
+      {restrictionActive && (
+        <label className="mt-4 flex items-start gap-3 text-sm">
+          <input
+            type="checkbox"
+            checked={restoreHiddenComments}
+            onChange={(event) => setRestoreHiddenComments(event.target.checked)}
+            className="accent-accent mt-1"
+          />
+          <span>
+            <span className="font-medium">Restore comments hidden by this restriction</span>
+            <span className="text-text-muted mt-1 block">
+              Only comments that were visible when the restriction was applied can be restored.
+            </span>
+          </span>
+        </label>
       )}
       <label
         htmlFor={`moderation-reason-${userId}`}

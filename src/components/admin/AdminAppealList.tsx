@@ -7,6 +7,7 @@ import type { AdminCommentBanAppeal, AdminUserComment } from '@/lib/moderation/t
 function AppealCard({ appeal }: { appeal: AdminCommentBanAppeal }) {
   const [status, setStatus] = useState(appeal.status);
   const [note, setNote] = useState(appeal.admin_note ?? '');
+  const [restoreHiddenComments, setRestoreHiddenComments] = useState(true);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -20,6 +21,12 @@ function AppealCard({ appeal }: { appeal: AdminCommentBanAppeal }) {
     setError('');
 
     try {
+      // History is loaded in bounded pages so reviewing a prolific account does
+      // not fetch all of its comments in one response.
+      // AQA-style pseudocode:
+      // FETCH comments[offset TO offset + 30]
+      // IF offset = 0 THEN history ← page ELSE APPEND page TO history
+      // SET next offset if another page exists
       const response = await fetch(
         `/api/admin/users/${appeal.user_id}/comments?offset=${offset}&limit=30`
       );
@@ -55,7 +62,7 @@ function AppealCard({ appeal }: { appeal: AdminCommentBanAppeal }) {
       const response = await fetch(`/api/admin/comment-ban-appeals/${appeal.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ decision, note }),
+        body: JSON.stringify({ decision, note, restoreHiddenComments }),
       });
       const result = (await response.json()) as { status?: string; error?: string };
 
@@ -158,6 +165,22 @@ function AppealCard({ appeal }: { appeal: AdminCommentBanAppeal }) {
 
       {status === 'pending' ? (
         <div className="space-y-3">
+          {appeal.status === 'pending' && (
+            <label className="flex items-start gap-3 text-sm">
+              <input
+                type="checkbox"
+                checked={restoreHiddenComments}
+                onChange={(event) => setRestoreHiddenComments(event.target.checked)}
+                className="accent-accent mt-1"
+              />
+              <span>
+                <span className="font-medium">Restore comments hidden by this restriction</span>
+                <span className="text-text-muted mt-1 block">
+                  Only comments that were visible when the restriction was applied can be restored.
+                </span>
+              </span>
+            </label>
+          )}
           <label htmlFor={`appeal-note-${appeal.id}`} className="block text-sm font-medium">
             Private admin note (optional)
           </label>

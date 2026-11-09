@@ -69,6 +69,13 @@ export async function loadCommentReports(
     [...(reporterProfiles ?? []), ...(authorProfiles ?? [])].map((profile) => [profile.id, profile])
   );
   const banByUserId = new Map((activeBans ?? []).map((ban) => [ban.user_id, ban]));
+  // Resolve each report against maps built from its batched comment/profile
+  // queries rather than issuing one database request per report.
+  // AQA-style pseudocode:
+  // FOR EACH report
+  //   FIND comment, reporter and author in maps
+  //   ADD topic and active restriction context
+  // Time is O(r + c + p) on average due to hash-map lookups.
   const reports: AdminCommentReport[] = rows.map((report) => {
     const comment = commentById.get(report.comment_id);
     const author = comment ? (profileById.get(comment.user_id) ?? null) : null;

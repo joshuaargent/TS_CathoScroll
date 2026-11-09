@@ -444,6 +444,7 @@ export function CommentSection({ topicId }: CommentSectionProps) {
 
     if (error) {
       await loadComments();
+      throw new Error('Unable to edit this comment. Your comment access may be restricted.');
     }
   }
 
@@ -624,26 +625,29 @@ export function CommentSection({ topicId }: CommentSectionProps) {
       <h2 className="mb-6 text-3xl font-bold">Comments ({commentCount})</h2>
 
       {userId && (isCommentBanned || commentBanCheckFailed) ? (
-        <article className="border-border rounded-2xl border p-6">
-          <p className="font-semibold">
-            {isCommentBanned
-              ? 'You can’t post or reply to comments right now.'
-              : 'Unable to verify whether you can comment right now.'}
-          </p>
-          <p className="text-text-secondary mt-2">
-            {isCommentBanned
-              ? 'You can still read discussions and ask an admin to review this restriction.'
-              : 'Posting is disabled until your comment access can be verified. Please refresh the page.'}
-          </p>
-          {isCommentBanned && (
-            <Link
-              href="/appeal"
-              className="text-accent mt-4 inline-block font-medium hover:underline"
-            >
-              Request a review
-            </Link>
-          )}
-        </article>
+        <>
+          <article className="border-border rounded-2xl border p-6">
+            <p className="font-semibold">
+              {isCommentBanned
+                ? 'You can’t post or reply to comments right now.'
+                : 'Unable to verify whether you can comment right now.'}
+            </p>
+            <p className="text-text-secondary mt-2">
+              {isCommentBanned
+                ? 'You can still read discussions and ask an admin to review this restriction.'
+                : 'Posting is disabled until your comment access can be verified. Please refresh the page.'}
+            </p>
+            {isCommentBanned && (
+              <Link
+                href="/appeal"
+                className="text-accent mt-4 inline-block font-medium hover:underline"
+              >
+                Request a review
+              </Link>
+            )}
+          </article>
+          <div className="h-6" />
+        </>
       ) : userId ? (
         <>
           <CommentForm onSubmit={createComment} />

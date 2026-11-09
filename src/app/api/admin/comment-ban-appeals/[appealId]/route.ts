@@ -47,7 +47,8 @@ export async function PATCH(request: Request, { params }: RouteContext) {
     !['approve', 'dismiss'].includes(String(body.decision)) ||
     !('note' in body) ||
     (body.note !== null && typeof body.note !== 'string') ||
-    (typeof body.note === 'string' && body.note.length > 1000)
+    (typeof body.note === 'string' && body.note.length > 1000) ||
+    ('restoreHiddenComments' in body && typeof body.restoreHiddenComments !== 'boolean')
   ) {
     return NextResponse.json({ error: 'Invalid appeal decision' }, { status: 400 });
   }
@@ -61,6 +62,9 @@ export async function PATCH(request: Request, { params }: RouteContext) {
     return NextResponse.json({ error: 'Appeal review is not configured' }, { status: 500 });
   }
 
+  const restoreHiddenComments =
+    'restoreHiddenComments' in body && body.restoreHiddenComments === true;
+
   const { data: status, error: reviewError } = await adminClient.rpc(
     'admin_review_comment_ban_appeal',
     {
@@ -68,6 +72,7 @@ export async function PATCH(request: Request, { params }: RouteContext) {
       approve_appeal: body.decision === 'approve',
       reviewer_user_id: user.id,
       review_note: typeof body.note === 'string' ? body.note.trim() || null : null,
+      restore_hidden_comments: restoreHiddenComments,
     }
   );
 

@@ -94,6 +94,8 @@ export function CommentCard({
 
   const [isEditing, setIsEditing] = useState(false);
 
+  const [editError, setEditError] = useState('');
+
   const [showReport, setShowReport] = useState(false);
 
   const [reportReason, setReportReason] = useState('harassment');
@@ -162,14 +164,27 @@ export function CommentCard({
                 initialValue={comment.content}
                 submitLabel="Save"
                 onSubmit={async (content) => {
-                  await onEdit(comment.id, content);
+                  setEditError('');
 
-                  setIsEditing(false);
+                  try {
+                    await onEdit(comment.id, content);
+                    setIsEditing(false);
+                  } catch (error) {
+                    setEditError(
+                      error instanceof Error ? error.message : 'Unable to update this comment.'
+                    );
+                  }
                 }}
                 onCancel={() => setIsEditing(false)}
               />
             ) : (
               <p className="leading-relaxed">{comment.content}</p>
+            )}
+
+            {editError && (
+              <p role="alert" className="mt-3 text-sm text-red-600">
+                {editError}
+              </p>
             )}
 
             <div className="mt-6 flex flex-wrap items-center gap-3 text-sm">
@@ -209,17 +224,19 @@ export function CommentCard({
 
               {isOwner && (
                 <>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowReply(false);
+                  {!isCommentBanned && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowReply(false);
 
-                      setIsEditing(!isEditing);
-                    }}
-                    className="text-text-secondary hover:text-text-primary"
-                  >
-                    Edit
-                  </button>
+                        setIsEditing(!isEditing);
+                      }}
+                      className="text-text-secondary hover:text-text-primary"
+                    >
+                      Edit
+                    </button>
+                  )}
 
                   <button
                     type="button"
