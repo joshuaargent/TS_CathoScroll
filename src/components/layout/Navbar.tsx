@@ -219,7 +219,7 @@ export function Navbar() {
                     <NotificationBell
                       showLabel
                       onNavigate={() => setMobileMenuState({ open: false, pathname })}
-                      className="border-border bg-bg-card hover:bg-bg-secondary h-auto w-full max-w-xs justify-center gap-2 rounded-lg border px-4 py-2"
+                      className="border-border bg-bg-card hover:bg-bg-secondary h-auto w-full max-w-[16rem] justify-center gap-2 rounded-lg border px-4 py-2"
                     />
                   </div>
                 )}

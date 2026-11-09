@@ -78,6 +78,15 @@ function updateCommentTree(
 function insertReplyIntoTree(comments: Comment[], parentId: number, reply: Comment): Comment[] {
   // Recursively map each branch, inserting the reply at the start of the
   // matching parent's child list.
+  //
+  // AQA-style pseudocode:
+  // FUNCTION insertReply(nodes, parentId, reply)
+  //   FOR EACH node IN nodes
+  //     IF node.id = parentId THEN prepend reply to node.replies
+  //     ELSE node.replies ← insertReply(node.replies, parentId, reply)
+  //   RETURN copied nodes
+  // END FUNCTION
+  // The immutable traversal visits each node once: O(n) time and O(n) space.
   return comments.map((comment) => {
     if (comment.id === parentId) {
       return {
@@ -95,6 +104,15 @@ function insertReplyIntoTree(comments: Comment[], parentId: number, reply: Comme
 
 // Replaces a temporary client-side id after the insert succeeds, including if
 // the optimistic item is nested inside a reply branch.
+//
+// AQA-style pseudocode:
+// FUNCTION replaceCommentId(nodes, temporaryId, databaseId)
+//   FOR EACH node IN nodes
+//     IF node.id = temporaryId THEN replace its id and clear optimistic flag
+//     node.replies ← replaceCommentId(node.replies, temporaryId, databaseId)
+//   RETURN copied nodes
+// END FUNCTION
+// Time and additional space are O(n), where n is the total number of comments.
 function replaceCommentId(comments: Comment[], tempId: number, realId: number): Comment[] {
   return comments.map((comment) => {
     const updated =
@@ -126,6 +144,10 @@ export function CommentSection({ topicId }: CommentSectionProps) {
   const [comments, setComments] = useState<Comment[]>([]);
 
   const [loading, setLoading] = useState(true);
+
+  const [commentLoadError, setCommentLoadError] = useState('');
+
+  const [commentActionError, setCommentActionError] = useState('');
 
   const [userId, setUserId] = useState<string | null>(null);
 
@@ -165,6 +187,7 @@ export function CommentSection({ topicId }: CommentSectionProps) {
   }, []);
 
   const loadComments = useCallback(async () => {
+    setCommentLoadError('');
     const supabase = createClient();
 
     const {
@@ -181,19 +204,32 @@ export function CommentSection({ topicId }: CommentSectionProps) {
         ascending: false,
       });
 
+    if (commentsResult.error) {
+      console.error('Unable to load comments:', commentsResult.error.message);
+      setCommentLoadError('Unable to load comments. Please try again.');
+      setLoading(false);
+      return;
+    }
+
     const commentRows = commentsResult.data ?? [];
+    // Restrict the likes query to this topic's comment ids instead of loading
+    // the entire community's likes on every topic page.
+    const commentIds = commentRows.map((row) => row.id);
 
     const userIds = [
       ...new Set([...commentRows.map((row) => row.user_id), user?.id].filter(Boolean)),
     ];
 
     const [likesResult, profilesResult, adminRoleResult, commentBanResult] = await Promise.all([
-      supabase.from('comment_likes').select('comment_id,user_id'),
+      commentIds.length
+        ? supabase.from('comment_likes').select('comment_id,user_id').in('comment_id', commentIds)
+        : Promise.resolve({ data: [], error: null }),
 
       userIds.length
         ? supabase.from('profiles').select('*').in('id', userIds)
         : Promise.resolve({
             data: [],
+            error: null,
           }),
 
       user
@@ -209,6 +245,14 @@ export function CommentSection({ topicId }: CommentSectionProps) {
             .maybeSingle()
         : Promise.resolve({ data: null, error: null }),
     ]);
+
+    if (likesResult.error || profilesResult.error) {
+      const error = likesResult.error ?? profilesResult.error;
+      console.error('Unable to load comment details:', error?.message);
+      setCommentLoadError('Unable to load comments. Please try again.');
+      setLoading(false);
+      return;
+    }
 
     if (adminRoleResult.error) {
       console.error('Unable to verify comment moderation role:', adminRoleResult.error.message);
@@ -229,8 +273,18 @@ export function CommentSection({ topicId }: CommentSectionProps) {
     const profiles = new Map((profilesResult.data ?? []).map((profile) => [profile.id, profile]));
 
     if (user?.id && !profiles.has(user.id)) {
-      const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
 
+      if (error) {
+        console.error('Unable to load your comment profile:', error.message);
+        setCommentLoadError('Unable to load comments. Please try again.');
+        setLoading(false);
+        return;
+      }
       if (data) {
         profiles.set(user.id, data);
       }
@@ -310,6 +364,7 @@ export function CommentSection({ topicId }: CommentSectionProps) {
     sortComments(roots);
 
     setComments(roots);
+    setCommentLoadError('');
 
     setLoading(false);
   }, [topicId, sortComments]);
@@ -362,8 +417,7 @@ export function CommentSection({ topicId }: CommentSectionProps) {
 
     if (error || !data) {
       await loadComments();
-
-      return;
+      throw new Error('Unable to post your comment. Please try again.');
     }
 
     setComments((prev) => replaceCommentId(prev, tempId, data.id));
@@ -412,8 +466,7 @@ export function CommentSection({ topicId }: CommentSectionProps) {
 
     if (error || !data) {
       await loadComments();
-
-      return;
+      throw new Error('Unable to post your reply. Please try again.');
     }
 
     setComments((prev) => replaceCommentId(prev, tempId, data.id));
@@ -453,6 +506,7 @@ export function CommentSection({ topicId }: CommentSectionProps) {
       return;
     }
 
+    setCommentActionError('');
     setComments((prev) =>
       updateCommentTree(prev, commentId, (comment) => ({
         ...comment,
@@ -470,7 +524,9 @@ export function CommentSection({ topicId }: CommentSectionProps) {
       .eq('id', commentId);
 
     if (error) {
+      console.error('Unable to delete comment:', error.message);
       await loadComments();
+      setCommentActionError('Unable to delete this comment. Please try again.');
     }
   }
 
@@ -575,6 +631,7 @@ export function CommentSection({ topicId }: CommentSectionProps) {
 
     // Update the selected node and its like count optimistically; a failed
     // database mutation is reconciled by reloading the comment tree.
+    setCommentActionError('');
     const wasLiked = comment.likedByUser;
 
     setComments((prev) =>
@@ -606,7 +663,9 @@ export function CommentSection({ topicId }: CommentSectionProps) {
     }
 
     if (error) {
+      console.error('Unable to update comment like:', error.message);
       await loadComments();
+      setCommentActionError('Unable to update your like. Please try again.');
     }
   }
 
@@ -670,7 +729,26 @@ export function CommentSection({ topicId }: CommentSectionProps) {
         </p>
       )}
 
-      {comments.length === 0 ? (
+      {commentActionError && (
+        <p role="alert" className="mb-6 text-sm text-red-600">
+          {commentActionError}
+        </p>
+      )}
+
+      {commentLoadError ? (
+        <article className="border-border rounded-2xl border p-6">
+          <p role="alert" className="text-sm text-red-600">
+            {commentLoadError}
+          </p>
+          <button
+            type="button"
+            onClick={() => void loadComments()}
+            className="text-accent mt-3 text-sm font-medium hover:underline"
+          >
+            Try again
+          </button>
+        </article>
+      ) : comments.length === 0 ? (
         <article className="border-border rounded-2xl border p-6">
           <p className="font-medium">No comments yet.</p>
 

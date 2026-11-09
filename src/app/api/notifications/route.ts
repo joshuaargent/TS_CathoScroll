@@ -84,6 +84,9 @@ export async function PATCH(request: Request) {
       ? body.notificationId
       : null;
 
+  // Restrict writes to the authenticated user's unread rows. The database RLS
+  // policy repeats this ownership check and clients only have read_at UPDATE
+  // permission, so the endpoint cannot alter notification content or ownership.
   let updateQuery = supabase
     .from('notifications')
     .update({ read_at: new Date().toISOString() })

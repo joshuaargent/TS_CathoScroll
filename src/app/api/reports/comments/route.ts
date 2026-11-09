@@ -51,6 +51,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Comment reporting is not configured' }, { status: 500 });
   }
 
+  // The database function owns duplicate-report and rate-limit checks so they
+  // run atomically with insertion, rather than relying on race-prone API checks.
   const { error: insertError } = await adminClient.rpc('submit_comment_report', {
     reporter_user_id: user.id,
     target_comment_id: body.commentId,

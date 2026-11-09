@@ -84,6 +84,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'User not found' }, { status: 404 });
   }
 
+  // Ban state and optional comment hiding/restoration are one transaction in
+  // the database function, so they cannot partially succeed.
   const { data, error: moderationError } = await adminClient.rpc('admin_manage_comment_ban', {
     target_user_id: body.userId,
     moderator_user_id: user.id,

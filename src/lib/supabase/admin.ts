@@ -14,6 +14,8 @@ export async function getAdminSession() {
     return { user: null, isAdmin: false, error: null };
   }
 
+  // Resolve the role from the protected database table on every privileged
+  // request; client-side visibility checks are only presentation, not auth.
   const { data, error } = await supabase
     .from('admin_users')
     .select('user_id')

@@ -61,6 +61,8 @@ export async function PATCH(request: Request, { params }: RouteContext) {
     return NextResponse.json({ error: 'Report moderation is not configured' }, { status: 500 });
   }
 
+  // Review status, audit details, and any requested comment hide are handled
+  // atomically by the database function.
   const { data: status, error: reviewError } = await adminClient.rpc(
     'admin_review_comment_report',
     {

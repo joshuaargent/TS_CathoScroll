@@ -22,6 +22,8 @@ export function CommentForm({
 
   const [submitting, setSubmitting] = useState(false);
 
+  const [submitError, setSubmitError] = useState('');
+
   const trimmedContent = content.trim();
 
   async function handleSubmit() {
@@ -30,11 +32,17 @@ export function CommentForm({
     }
 
     setSubmitting(true);
+    setSubmitError('');
 
     try {
       await onSubmit(trimmedContent);
 
       setContent('');
+    } catch (error) {
+      console.error('Unable to submit comment:', error);
+      setSubmitError(
+        error instanceof Error ? error.message : 'Unable to submit your comment. Please try again.'
+      );
     } finally {
       setSubmitting(false);
     }
@@ -65,6 +73,12 @@ export function CommentForm({
           /2000
         </span>
       </div>
+
+      {submitError && (
+        <p role="alert" className="mt-3 text-sm text-red-600">
+          {submitError}
+        </p>
+      )}
 
       <div className="mt-4 flex justify-end gap-3">
         {onCancel && (

@@ -65,6 +65,8 @@ export async function PATCH(request: Request, { params }: RouteContext) {
   const restoreHiddenComments =
     'restoreHiddenComments' in body && body.restoreHiddenComments === true;
 
+  // Appeal decision, restriction change, and optional restoration must commit
+  // together; the database function provides that transaction boundary.
   const { data: status, error: reviewError } = await adminClient.rpc(
     'admin_review_comment_ban_appeal',
     {

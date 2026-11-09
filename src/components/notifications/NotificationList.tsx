@@ -44,6 +44,9 @@ function getNotificationHref(notification: Notification) {
     return '/appeal';
   }
 
+  // Topic ids are stored as text, while the current topic catalogue uses
+  // numeric ids; resolve the id to a known slug rather than building a route
+  // from untrusted database content.
   if (notification.topic_id) {
     const topic = topics.find((item) => String(item.id) === notification.topic_id);
     if (topic) {
@@ -129,6 +132,9 @@ export function NotificationList() {
             : notification
         )
       );
+      // Marking all updates every unread row on the server, including unread
+      // items older than the 50 displayed here. Marking one decrements only if
+      // that item was unread locally; clamp to avoid a negative badge count.
       setUnreadCount((current) =>
         notificationId === 'all'
           ? 0
@@ -186,7 +192,7 @@ export function NotificationList() {
         <article className="border-border rounded-2xl border p-6">
           <p className="text-text-secondary">Loading notifications...</p>
         </article>
-      ) : notifications.length === 0 ? (
+      ) : error ? null : notifications.length === 0 ? (
         <article className="border-border rounded-2xl border p-8 text-center">
           <Bell className="text-text-muted mx-auto h-8 w-8" aria-hidden="true" />
           <h2 className="mt-4 text-xl font-bold">You’re all caught up</h2>

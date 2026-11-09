@@ -12,6 +12,8 @@ export async function loadCommentReports(
     .from('comment_reports')
     .select('id,reporter_id,comment_id,reason,details,status,admin_note,created_at,reviewed_at')
     .order('created_at', { ascending: false })
+    // Supabase range endpoints are inclusive; request one extra row to decide
+    // whether the admin page should render a next-page link.
     .range(offset, offset + pageSize);
 
   if (reportsError) {
@@ -113,6 +115,7 @@ export async function loadCommentBanAppeals(
     .from('comment_ban_appeals')
     .select('id,user_id,ban_id,message,status,admin_note,created_at')
     .order('created_at', { ascending: false })
+    // Fetch one look-ahead row because PostgREST ranges include both endpoints.
     .range(offset, offset + pageSize);
 
   if (appealsError) {
@@ -141,6 +144,8 @@ export async function loadCommentBanAppeals(
 
   const profileById = new Map((profiles ?? []).map((profile) => [profile.id, profile]));
   const banReasonById = new Map((bans ?? []).map((ban) => [ban.id, ban.reason]));
+  // Enrich each appeal with its user and original restriction using indexed
+  // map lookups, avoiding an extra query for every appeal in the page.
   const appeals: AdminCommentBanAppeal[] = rows.map((appeal) => ({
     ...appeal,
     profile: profileById.get(appeal.user_id) ?? null,

@@ -67,6 +67,8 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
     return NextResponse.json({ error: 'Comment pinning is not configured' }, { status: 500 });
   }
 
+  // The RPC serializes pin changes per topic and enforces the single pinned
+  // top-level-comment rule even when admins act concurrently.
   const { error } = await adminClient.rpc('admin_set_comment_pin', {
     target_comment_id: commentId,
     should_pin: body.pinned,
