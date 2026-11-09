@@ -112,7 +112,7 @@ export function NotificationBell({
         className
       )}
     >
-      <Bell className="h-5 w-5" aria-hidden="true" />
+      <Bell className="text-text-primary h-5 w-5" aria-hidden="true" />
       {showLabel && <span className="text-sm font-medium">Notifications</span>}
       {unreadCount > 0 && (
         <span

@@ -16,14 +16,13 @@ export default async function NotificationsPage() {
   return (
     <main className="container py-12">
       <section className="mt-8 mb-10">
-        <p className="text-accent text-sm font-semibold tracking-wider uppercase">Your account</p>
-        <h1 className="mt-2 text-5xl font-extrabold md:text-7xl">Notifications</h1>
+        <h1 className="text-5xl font-extrabold md:text-7xl">Notifications</h1>
         <p className="text-text-secondary mt-4 max-w-2xl text-lg">
           Replies, moderation updates, and other important account messages appear here.
         </p>
       </section>
 
-      <section className="mx-auto max-w-3xl">
+      <section className="max-w-3xl">
         <NotificationList />
       </section>
     </main>
