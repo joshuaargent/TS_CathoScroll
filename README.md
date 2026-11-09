@@ -181,6 +181,15 @@ store-ready release.
 
 Copy `.env.example` to `.env.local` in the project root and fill in the values for your project. `.env.local` is ignored by Git; commit changes to `.env.example` when the required variables change, never your real credentials.
 
+## Authentication and protected pages
+
+The `/account` and `/bookmarks` pages have two layers of sign-in checks:
+
+1. The Next.js 16 `src/proxy.ts` layer validates the Supabase session and redirects signed-out requests to `/signin`, preserving the requested local path so sign-in can return the user to it.
+2. The account page repeats the check client-side, and the bookmarks page checks the session on the server before reading user data.
+
+These redirects improve navigation but do not replace authorization. Supabase Row Level Security policies and server-side checks must continue to protect user data and mutations.
+
 | Variable                        | Purpose                                                                                                       |
 | ------------------------------- | ------------------------------------------------------------------------------------------------------------- |
 | `NEXT_PUBLIC_SITE_URL`          | Optional. Canonical site URL used for metadata, sitemap, and feed generation. Defaults to the production URL. |

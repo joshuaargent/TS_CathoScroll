@@ -55,7 +55,15 @@ export default function SigninPage() {
         return;
       }
 
-      router.replace('/account');
+      const requestedPath = new URLSearchParams(window.location.search).get('next');
+      const destination =
+        requestedPath?.startsWith('/') &&
+        !requestedPath.startsWith('//') &&
+        !requestedPath.includes('\\')
+          ? requestedPath
+          : '/account';
+
+      router.replace(destination);
     } catch {
       setError('Something went wrong. Please try again.');
     } finally {
