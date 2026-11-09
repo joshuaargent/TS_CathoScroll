@@ -16,6 +16,13 @@ const config: CapacitorConfig = {
     cleartext: false,
     errorPath: 'index.html',
   },
+  plugins: {
+    SplashScreen: {
+      launchShowDuration: 500,
+      launchFadeOutDuration: 250,
+      backgroundColor: '#FAF7F2',
+    },
+  },
 };
 
 export default config;

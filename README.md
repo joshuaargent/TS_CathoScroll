@@ -37,9 +37,9 @@ Whether you're exploring Catholicism for the first time, returning to the faith,
 - **Progress tracking** - keep track of completed topics and learning streaks.
 - **Community discussion** - comment, reply, like contributions, and engage with other learners.
 - **Public profiles** - view user profiles, progress, activity, and community contributions.
-- **Structured learning** - planned premium learning paths that guide users through key areas of Catholic teaching.
-- **Audio lessons** - planned narrated audio versions of topics.
-- **Quizzes** - planned premium quizzes designed to reinforce learning and understanding.
+- **Structured learning** - planned learning paths that guide users through key areas of Catholic teaching.
+- **Audio lessons** - planned narrated audio versions of topics; audio will be premium while written topics remain free.
+- **Quizzes** - planned quizzes designed to reinforce learning and understanding.
 - **SEO and discoverability** - sitemap generation, robots rules, metadata, and rich social previews.
 - **RSS feed** - public topic feed available at `/feed.xml`.
 - **Responsive design** - designed to work seamlessly across desktop and mobile devices.
@@ -109,6 +109,12 @@ does not provide offline access to topics or account features.
 The wrapper defaults to `https://cathoscroll.vercel.app`. To point it at a
 different HTTPS deployment, set `CAPACITOR_SERVER_URL` in the environment used
 to run Capacitor commands. Do not set it to an HTTP URL for a production build.
+
+The native projects include branded launch screens. Android fades the launch
+screen out as the app opens; iOS uses its required static launch screen.
+
+This repository does not include a separate native Windows or macOS desktop app.
+The website itself is responsive and can be used on desktop.
 
 **This is a remote-site prototype, not a recommended production configuration.**
 It uses Capacitor's `server.url`, which Capacitor documents as intended for
@@ -240,9 +246,9 @@ Never put Supabase service-role keys or other server secrets in `NEXT_PUBLIC_*` 
 
 ## Future plans
 
-Planned premium features include:
+Planned features include:
 
-- Audio versions of topics.
+- Premium audio versions of topics; written topic content remains free.
 - Structured learning paths.
 - Interactive quizzes.
 - Guided study experiences.
