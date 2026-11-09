@@ -113,9 +113,6 @@ to run Capacitor commands. Do not set it to an HTTP URL for a production build.
 The native projects include branded launch screens. Android fades the launch
 screen out as the app opens; iOS uses its required static launch screen.
 
-This repository does not include a separate native Windows or macOS desktop app.
-The website itself is responsive and can be used on desktop.
-
 **This is a remote-site prototype, not a recommended production configuration.**
 It uses Capacitor's `server.url`, which Capacitor documents as intended for
 live-reload and not production. It is useful for trying the site in native
@@ -152,6 +149,31 @@ the application. Test sign-in, email verification, navigation, and external
 links on real devices. A production Capacitor app should bundle its web assets;
 that would require adapting this server-rendered Next.js app for a compatible
 native delivery architecture.
+
+## Desktop app
+
+CathoScroll also has a separate Electron desktop target powered by
+Capawesome's maintained Capacitor Electron platform. It reuses the Capacitor
+web experience and currently loads the hosted CathoScroll website, so it
+requires an internet connection and is not an offline desktop app.
+
+After installing the root dependencies with `npm install`, start the desktop
+app with:
+
+```bash
+npm run desktop:run
+```
+
+Create a distributable installer for the current operating system with:
+
+```bash
+npm run desktop:package
+```
+
+Installers are written under `electron/dist`. Packaging and signing for each
+operating system should be tested on that OS before release. The hosted-site
+configuration is suitable for development and evaluation, not a final
+store-ready release.
 
 ## Configuration
 
