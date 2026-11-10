@@ -1,7 +1,6 @@
 import { MetadataRoute } from 'next';
 
-import { categories } from '@/data/categories';
-import { topics } from '@/data/topics';
+import { getPublishedCategories, getPublishedTopics } from '@/lib/content';
 import { siteConfig } from '@/lib/constants';
 import { createClient } from '@/lib/supabase/server';
 
@@ -10,7 +9,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const pageUrl = (path: string) => `${baseUrl}${path}`;
 
   const supabase = await createClient();
-  const { data: profiles, error } = await supabase.from('profiles').select('username');
+  const [{ data: profiles, error }, topics, categories] = await Promise.all([
+    supabase.from('profiles').select('username'),
+    getPublishedTopics(),
+    getPublishedCategories(),
+  ]);
 
   if (error) {
     throw error;

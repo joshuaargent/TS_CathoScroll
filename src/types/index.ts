@@ -37,8 +37,7 @@ export interface Topic {
   id: string;
   slug: string;
 
-  // Must match a category name in categories.ts; category slugs are used in URLs,
-  // but topic filtering currently uses this display name.
+  // The display name is resolved from the topic's database category relation.
   category: string;
 
   question: string;
@@ -58,13 +57,16 @@ export interface Topic {
   };
 }
 
+export interface ContentCategory {
+  slug: string;
+  name: string;
+  description: string;
+  orderIndex: number;
+  topicCount?: number;
+}
+
 export interface TopicSlide {
-  type:
-    | 'question'
-    | 'answer'
-    | 'explanation'
-    | 'catechism'
-    | 'scripture';
+  type: 'question' | 'answer' | 'explanation' | 'catechism' | 'scripture';
 
   title: string;
 
@@ -72,7 +74,6 @@ export interface TopicSlide {
 
   reference?: string;
 }
-
 
 // ----- Form Types -----
 export interface ContactForm {

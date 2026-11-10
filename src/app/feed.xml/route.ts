@@ -1,4 +1,4 @@
-import { topics } from '@/data/topics';
+import { getPublishedTopics } from '@/lib/content';
 import { siteConfig } from '@/lib/constants';
 
 function escapeXml(value: string) {
@@ -10,7 +10,8 @@ function escapeXml(value: string) {
     .replaceAll("'", '&apos;');
 }
 
-export function GET() {
+export async function GET() {
+  const topics = await getPublishedTopics();
   const baseUrl = siteConfig.url.replace(/\/+$/, '');
   const items = topics
     .map((topic) => {

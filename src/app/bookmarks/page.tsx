@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 
 import { Badge } from '@/components/ui/Badge';
 
-import { topics } from '@/data/topics';
+import { getPublishedTopicsByIds } from '@/lib/content';
 
 export const metadata: Metadata = {
   title: 'Bookmarks',
@@ -67,21 +67,17 @@ export default async function BookmarksPage() {
       ascending: false,
     });
 
-  const bookmarkedTopics =
-    bookmarks?.flatMap((bookmark) => {
-      const topic = topics.find((topic) => String(topic.id) === String(bookmark.topic_id));
-
-      if (!topic) {
-        return [];
-      }
-
-      return [
-        {
-          ...topic,
-          bookmarkedAt: bookmark.created_at,
-        },
-      ];
-    }) ?? [];
+  const savedBookmarks = bookmarks ?? [];
+  const topics = await getPublishedTopicsByIds(
+    savedBookmarks.map((bookmark) => String(bookmark.topic_id))
+  );
+  const bookmarkByTopicId = new Map(
+    savedBookmarks.map((bookmark) => [String(bookmark.topic_id), bookmark.created_at])
+  );
+  const bookmarkedTopics = topics.map((topic) => ({
+    ...topic,
+    bookmarkedAt: bookmarkByTopicId.get(topic.id) ?? '',
+  }));
 
   return (
     <main className="container py-12">

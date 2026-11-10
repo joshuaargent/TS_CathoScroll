@@ -1,17 +1,12 @@
 import { SearchResultCard } from './SearchResultCard';
+import type { TopicSearchResult } from '@/lib/search';
 
 interface SearchResultsProps {
   query: string;
-  results: {
-    topic: any;
-    score: number;
-  }[];
+  results: TopicSearchResult[];
 }
 
-export function SearchResults({
-  query,
-  results,
-}: SearchResultsProps) {
+export function SearchResults({ query, results }: SearchResultsProps) {
   if (!query) {
     return null;
   }
@@ -19,44 +14,16 @@ export function SearchResults({
   if (results.length === 0) {
     return (
       <section className="mt-8">
-        <div
-          className="
-            rounded-2xl
-            border
-            border-border
-            bg-bg-card
-            p-8
-            text-center
-          "
-        >
-          <h2 className="text-xl font-semibold">
-            No results found
-          </h2>
+        <div className="border-border bg-bg-card rounded-2xl border p-8 text-center">
+          <h2 className="text-xl font-semibold">No results found</h2>
 
-          <p className="mt-2 text-text-secondary">
-            We couldn't find any matching topics.
-          </p>
+          <p className="text-text-secondary mt-2">We couldn't find any matching topics.</p>
 
           <div className="mt-6 flex flex-wrap justify-center gap-2">
-            {[
-              'God',
-              'Prayer',
-              'Mary',
-              'Grace',
-              'Baptism',
-              'Salvation',
-            ].map((term) => (
+            {['God', 'Prayer', 'Mary', 'Grace', 'Baptism', 'Salvation'].map((term) => (
               <span
                 key={term}
-                className="
-                  rounded-full
-                  border
-                  border-border
-                  px-3
-                  py-1
-                  text-sm
-                  text-text-secondary
-                "
+                className="border-border text-text-secondary rounded-full border px-3 py-1 text-sm"
               >
                 {term}
               </span>
@@ -70,26 +37,14 @@ export function SearchResults({
   return (
     <section className="mt-8">
       <div className="mb-4">
-        <h2
-          className="
-            text-sm
-            font-semibold
-            uppercase
-            tracking-wider
-            text-text-muted
-          "
-        >
+        <h2 className="text-text-muted text-sm font-semibold tracking-wider uppercase">
           Search Results
         </h2>
       </div>
 
       <div className="space-y-4">
         {results.map((result) => (
-          <SearchResultCard
-            key={result.topic.slug}
-            topic={result.topic}
-            query={query}
-          />
+          <SearchResultCard key={result.topic.slug} topic={result.topic} query={query} />
         ))}
       </div>
     </section>

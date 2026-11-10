@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 
+import type { Topic } from '@/types';
 import { searchTopics } from '@/lib/search';
 
 import { SearchInput } from './SearchInput';
@@ -22,7 +23,7 @@ const suggestions = [
   'Heaven',
 ];
 
-export function SearchClient() {
+export function SearchClient({ topics }: { topics: Topic[] }) {
   const searchParams = useSearchParams();
 
   const router = useRouter();
@@ -58,7 +59,7 @@ export function SearchClient() {
     });
   }, [query, pathname, router, searchParams]);
 
-  const results = useMemo(() => searchTopics(debouncedQuery), [debouncedQuery]);
+  const results = useMemo(() => searchTopics(debouncedQuery, topics), [debouncedQuery, topics]);
 
   return (
     <div>

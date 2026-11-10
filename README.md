@@ -200,6 +200,12 @@ Authenticated users can privately report comments. Admins can review and dismiss
 
 The notification center is available to signed-in users from the navbar bell. It displays the latest 50 notifications and supports marking one or all as read; the badge shows `1`–`9`, then `9+`, and is hidden when there are no unread notifications. Apply the notification table, owner-only RLS policies, and database notification triggers/functions from the SQL supplied by the project maintainer before enabling this feature. Those database-side handlers create welcome, reply, and moderation notifications transactionally; email notifications are not used.
 
+### Database-backed topics and recommendations
+
+Topics and categories are read from the public `topics` and `categories` tables. The initial catalog has been imported into Supabase; new and updated content should be managed in the database. Topic IDs remain stable because bookmarks, progress, comments, and notifications refer to them.
+
+Signed-in feed recommendations use completed topics (weight 5), bookmarks (4), likes (3), and authored comments (3) to estimate category interest. Candidate scores normalize category interest by the square root of that category's topic count, add direct saved/liked/commented signals, exclude already completed topics where possible, and diversify results so a category does not appear more than twice in a row. Ties preserve database order; if the user has completed every topic, the feed falls back to the full catalog. A security-invoker RPC returns only the current user's aggregated engagement IDs. Signed-out users retain the shuffled feed.
+
 | Variable                        | Purpose                                                                                                       |
 | ------------------------------- | ------------------------------------------------------------------------------------------------------------- |
 | `NEXT_PUBLIC_SITE_URL`          | Optional. Canonical site URL used for metadata, sitemap, and feed generation. Defaults to the production URL. |
@@ -286,9 +292,11 @@ Never put Supabase service-role keys or other server secrets in `NEXT_PUBLIC_*` 
     │   ├── topic/
     │   └── ui/
     ├── data/
-    │   ├── categories.ts
-    │   └── topics.ts
+    │   ├── categories.ts (one-time seed source)
+    │   └── topics.ts (one-time seed source)
     ├── lib/
+    │   ├── content.ts
+    │   ├── recommendations.ts
     │   ├── moderation/
     │   ├── supabase/
     │   ├── constants.ts

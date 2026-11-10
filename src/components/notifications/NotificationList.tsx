@@ -4,14 +4,13 @@ import { Bell, CheckCheck, MessageCircle, ShieldAlert, Sparkles } from 'lucide-r
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 
-import { topics } from '@/data/topics';
-
 interface Notification {
   id: number;
   type: string;
   title: string;
   body: string;
   topic_id: string | null;
+  topic_slug: string | null;
   comment_id: number | null;
   read_at: string | null;
   created_at: string;
@@ -44,14 +43,8 @@ function getNotificationHref(notification: Notification) {
     return '/appeal';
   }
 
-  // Topic ids are stored as text, while the current topic catalogue uses
-  // numeric ids; resolve the id to a known slug rather than building a route
-  // from untrusted database content.
-  if (notification.topic_id) {
-    const topic = topics.find((item) => String(item.id) === notification.topic_id);
-    if (topic) {
-      return `/topic/${topic.slug}#comments`;
-    }
+  if (notification.topic_slug) {
+    return `/topic/${notification.topic_slug}#comments`;
   }
 
   return '/notifications';

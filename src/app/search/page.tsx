@@ -1,4 +1,5 @@
 import { SearchClient } from '@/components/search/SearchClient';
+import { getPublishedTopics } from '@/lib/content';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
@@ -10,23 +11,20 @@ export const metadata: Metadata = {
   },
 };
 
-export default function SearchPage() {
+export default async function SearchPage() {
+  const topics = await getPublishedTopics();
+
   return (
     <main className="container py-12">
       <section className="mb-12">
-        <h1 className="text-5xl font-extrabold md:text-7xl">
-          Search
-        </h1>
+        <h1 className="text-5xl font-extrabold md:text-7xl">Search</h1>
 
-        <p className="mt-4 max-w-2xl text-lg text-text-secondary">
-          Search questions, answers,
-          catechism references, and
-          Scripture throughout
-          CathoScroll.
+        <p className="text-text-secondary mt-4 max-w-2xl text-lg">
+          Search questions, answers, catechism references, and Scripture throughout CathoScroll.
         </p>
       </section>
 
-      <SearchClient />
+      <SearchClient topics={topics} />
     </main>
   );
 }

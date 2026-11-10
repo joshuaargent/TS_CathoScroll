@@ -7,7 +7,7 @@ import { TopicActions } from '@/components/topic/TopicActions';
 
 import { CommentSection } from '@/components/comments/CommentSection';
 
-import { topics } from '@/data/topics';
+import { getPublishedTopicBySlug, getPublishedTopics } from '@/lib/content';
 import { siteConfig } from '@/lib/constants';
 import { Badge } from '@/components/ui/Badge';
 
@@ -15,10 +15,6 @@ interface Props {
   params: Promise<{
     slug: string;
   }>;
-}
-
-export function generateStaticParams() {
-  return topics.map((topic) => ({ slug: topic.slug }));
 }
 
 function getTopicDescription(explanation: string) {
@@ -36,7 +32,7 @@ function getTopicDescription(explanation: string) {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  const topic = topics.find((item) => item.slug === slug);
+  const topic = await getPublishedTopicBySlug(slug);
 
   if (!topic) {
     return {
@@ -83,14 +79,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function TopicPage({ params }: Props) {
   const { slug } = await params;
+  const [topic, topics] = await Promise.all([getPublishedTopicBySlug(slug), getPublishedTopics()]);
 
-  const topicIndex = topics.findIndex((t) => t.slug === slug);
-
-  if (topicIndex === -1) {
+  if (!topic) {
     notFound();
   }
 
-  const topic = topics[topicIndex];
+  const topicIndex = topics.findIndex((item) => item.id === topic.id);
 
   const previousTopic = topicIndex > 0 ? topics[topicIndex - 1] : null;
 

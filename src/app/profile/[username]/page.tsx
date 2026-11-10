@@ -7,7 +7,7 @@ import { siteConfig } from '@/lib/constants';
 
 import { Badge } from '@/components/ui/Badge';
 
-import { topics } from '@/data/topics';
+import { getPublishedTopics, getPublishedTopicsByIds } from '@/lib/content';
 import { CommentBanControl } from '@/components/admin/CommentBanControl';
 import { createServiceRoleClient } from '@/lib/supabase/admin';
 
@@ -185,6 +185,8 @@ export default async function ProfilePage({ params }: Props) {
     notFound();
   }
 
+  const topics = await getPublishedTopics();
+
   let canManageCommentBan = false;
   let isAdmin = false;
   let activeBan: { reason: string } | null = null;
@@ -300,36 +302,25 @@ export default async function ProfilePage({ params }: Props) {
   const progressPercentage =
     topics.length > 0 ? ((completedCount / topics.length) * 100).toFixed(1) : '0';
 
-  const recentTopics = (recentProgressResult.data ?? [])
-    .map((entry) => {
-      const topic = topics.find((topic) => String(topic.id) === String(entry.topic_id));
+  const recentProgress = recentProgressResult.data ?? [];
+  const recentTopicRows = await getPublishedTopicsByIds(
+    recentProgress.map((entry) => String(entry.topic_id))
+  );
+  const recentTopicById = new Map(recentTopicRows.map((topic) => [topic.id, topic]));
+  const recentTopics = recentProgress.flatMap((entry) => {
+    const topic = recentTopicById.get(String(entry.topic_id));
+    return topic ? [{ ...topic, completedAt: entry.completed_at }] : [];
+  });
 
-      if (!topic) {
-        return null;
-      }
-
-      return {
-        ...topic,
-        completedAt: entry.completed_at,
-      };
-    })
-    .filter((topic): topic is NonNullable<typeof topic> => topic !== null);
-
-  const recentComments = (commentsResult.data ?? [])
-    .map((comment) => {
-      const topic = topics.find((topic) => String(topic.id) === String(comment.topic_id));
-
-      if (!topic) {
-        return null;
-      }
-
-      return {
-        ...comment,
-        slug: topic.slug,
-        question: topic.question,
-      };
-    })
-    .filter((comment): comment is NonNullable<typeof comment> => comment !== null);
+  const recentCommentRows = commentsResult.data ?? [];
+  const recentCommentTopics = await getPublishedTopicsByIds(
+    recentCommentRows.map((comment) => String(comment.topic_id))
+  );
+  const recentCommentTopicById = new Map(recentCommentTopics.map((topic) => [topic.id, topic]));
+  const recentComments = recentCommentRows.flatMap((comment) => {
+    const topic = recentCommentTopicById.get(String(comment.topic_id));
+    return topic ? [{ ...comment, slug: topic.slug, question: topic.question }] : [];
+  });
 
   return (
     <main className="container py-12">

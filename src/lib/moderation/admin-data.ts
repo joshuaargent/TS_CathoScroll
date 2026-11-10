@@ -1,4 +1,3 @@
-import { topics } from '@/data/topics';
 import type { AdminCommentBanAppeal, AdminCommentReport } from '@/lib/moderation/types';
 
 const profileFields = 'id,username,display_name';
@@ -46,27 +45,41 @@ export async function loadCommentReports(
   }
 
   const authorIds = [...new Set((comments ?? []).map((comment) => comment.user_id))];
-  const { data: authorProfiles, error: authorProfilesError } = authorIds.length
-    ? await adminClient.from('profiles').select(profileFields).in('id', authorIds)
-    : { data: [], error: null };
+  const topicIds = [...new Set((comments ?? []).map((comment) => String(comment.topic_id)))];
+  const [
+    { data: authorProfiles, error: authorProfilesError },
+    { data: activeBans, error: activeBansError },
+    { data: topicRows, error: topicsError },
+  ] = await Promise.all([
+    authorIds.length
+      ? adminClient.from('profiles').select(profileFields).in('id', authorIds)
+      : Promise.resolve({ data: [], error: null }),
+    authorIds.length
+      ? adminClient
+          .from('user_comment_bans')
+          .select('user_id,reason')
+          .in('user_id', authorIds)
+          .is('unbanned_at', null)
+      : Promise.resolve({ data: [], error: null }),
+    topicIds.length
+      ? adminClient.from('topics').select('id,slug,question').in('id', topicIds)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
 
   if (authorProfilesError) {
     throw new Error(`Unable to load reported-user profiles: ${authorProfilesError.message}`);
   }
 
-  const { data: activeBans, error: activeBansError } = authorIds.length
-    ? await adminClient
-        .from('user_comment_bans')
-        .select('user_id,reason')
-        .in('user_id', authorIds)
-        .is('unbanned_at', null)
-    : { data: [], error: null };
-
   if (activeBansError) {
     throw new Error(`Unable to load reported-user restrictions: ${activeBansError.message}`);
   }
 
+  if (topicsError) {
+    throw new Error(`Unable to load reported-comment topics: ${topicsError.message}`);
+  }
+
   const commentById = new Map((comments ?? []).map((comment) => [comment.id, comment]));
+  const topicById = new Map((topicRows ?? []).map((topic) => [String(topic.id), topic]));
   const profileById = new Map(
     [...(reporterProfiles ?? []), ...(authorProfiles ?? [])].map((profile) => [profile.id, profile])
   );
@@ -80,6 +93,7 @@ export async function loadCommentReports(
   // Time is O(r + c + p) on average due to hash-map lookups.
   const reports: AdminCommentReport[] = rows.map((report) => {
     const comment = commentById.get(report.comment_id);
+    const topic = comment ? topicById.get(String(comment.topic_id)) : null;
     const author = comment ? (profileById.get(comment.user_id) ?? null) : null;
     const activeBan = comment ? banByUserId.get(comment.user_id) : null;
 
@@ -90,11 +104,8 @@ export async function loadCommentReports(
         ? {
             content: comment.content,
             is_deleted: comment.is_deleted,
-            topicTitle:
-              topics.find((topic) => String(topic.id) === String(comment.topic_id))?.question ??
-              'Unknown topic',
-            topicSlug:
-              topics.find((topic) => String(topic.id) === String(comment.topic_id))?.slug ?? null,
+            topicTitle: topic?.question ?? 'Unknown topic',
+            topicSlug: topic?.slug ?? null,
             author,
             isAuthorCommentBanned: Boolean(activeBan),
             authorBanReason: activeBan?.reason ?? null,

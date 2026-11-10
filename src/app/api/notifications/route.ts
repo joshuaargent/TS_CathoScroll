@@ -28,7 +28,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ unreadCount: count ?? 0 });
   }
 
-  const { data: notifications, error: notificationsError } = await supabase
+  const { data: notificationRows, error: notificationsError } = await supabase
     .from('notifications')
     .select('id,type,title,body,topic_id,comment_id,read_at,created_at')
     .eq('user_id', user.id)
@@ -40,8 +40,27 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Unable to load notifications' }, { status: 500 });
   }
 
+  const topicIds = [
+    ...new Set(
+      (notificationRows ?? []).map((notification) => notification.topic_id).filter(Boolean)
+    ),
+  ];
+  const { data: topics, error: topicsError } = topicIds.length
+    ? await supabase.from('topics').select('id,slug').in('id', topicIds)
+    : { data: [], error: null };
+
+  if (topicsError) {
+    console.error('Unable to resolve notification topic links:', topicsError.message);
+    return NextResponse.json({ error: 'Unable to load notifications' }, { status: 500 });
+  }
+
+  const topicSlugById = new Map((topics ?? []).map((topic) => [String(topic.id), topic.slug]));
+
   return NextResponse.json({
-    notifications: notifications ?? [],
+    notifications: (notificationRows ?? []).map((notification) => ({
+      ...notification,
+      topic_slug: notification.topic_id ? (topicSlugById.get(notification.topic_id) ?? null) : null,
+    })),
     unreadCount: count ?? 0,
   });
 }

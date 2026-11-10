@@ -10,27 +10,28 @@ import { TopicViewer } from './TopicViewer';
 
 interface TopicFeedProps {
   topics: Topic[];
+  personalized?: boolean;
 }
 
-export function TopicFeed({ topics }: TopicFeedProps) {
+export function TopicFeed({ topics, personalized = false }: TopicFeedProps) {
   const [feedTopics, setFeedTopics] = useState<Topic[]>(topics);
 
-  const [topicIndex, setTopicIndex] = useState(Math.floor(topics.length / 2));
+  const [topicIndex, setTopicIndex] = useState(personalized ? 0 : Math.floor(topics.length / 2));
 
   // ----------------------------------
   // Initial Feed
   // ----------------------------------
 
   useEffect(() => {
-    // Shuffle only when the supplied catalogue changes, then start in the
-    // middle so both previous and next navigation have nearby items available.
-    const shuffled = shuffle(topics);
+    // Signed-out users get the existing shuffled feed; personalized server
+    // ranking is preserved for signed-in users and starts at its top result.
+    const shuffled = personalized ? topics : shuffle(topics);
 
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setFeedTopics(shuffled);
 
-    setTopicIndex(Math.floor(shuffled.length / 2));
-  }, [topics]);
+    setTopicIndex(personalized ? 0 : Math.floor(shuffled.length / 2));
+  }, [topics, personalized]);
 
   // ----------------------------------
   // Navigation

@@ -1,4 +1,9 @@
-import { topics } from '@/data/topics';
+import type { Topic } from '@/types';
+
+export interface TopicSearchResult {
+  topic: Topic;
+  score: number;
+}
 
 /**
  * Ranks in-memory topics using weighted phrase matches, per-term matches, and
@@ -29,7 +34,7 @@ import { topics } from '@/data/topics';
  * is O(N * T * S); sorting R matches costs O(R log R). Alphabetical
  * tie-breaking keeps equal scores deterministic.
  */
-export function searchTopics(query: string) {
+export function searchTopics(query: string, topics: Topic[]): TopicSearchResult[] {
   const q = query.trim().toLowerCase();
 
   if (!q) {
@@ -165,14 +170,7 @@ export function searchTopics(query: string) {
         score,
       };
     })
-    .filter(
-      (
-        result
-      ): result is {
-        topic: (typeof topics)[number];
-        score: number;
-      } => result !== null
-    )
+    .filter((result): result is TopicSearchResult => result !== null)
     .sort((a, b) => {
       if (b.score !== a.score) {
         return b.score - a.score;

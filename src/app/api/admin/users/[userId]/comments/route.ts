@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 
-import { topics } from '@/data/topics';
 import { createServiceRoleClient, getAdminSession, isValidUuid } from '@/lib/supabase/admin';
 
 interface RouteContext {
@@ -90,6 +89,17 @@ export async function GET(request: Request, { params }: RouteContext) {
   const profileById = new Map((profiles ?? []).map((profile) => [profile.id, profile]));
   const parentById = new Map((parents ?? []).map((parent) => [parent.id, parent]));
   const page = comments ?? [];
+  const topicIds = [...new Set(page.map((comment) => comment.topic_id))];
+  const { data: topicRows, error: topicsError } = topicIds.length
+    ? await adminClient.from('topics').select('id,question').in('id', topicIds)
+    : { data: [], error: null };
+
+  if (topicsError) {
+    console.error('Unable to load comment-history topic names:', topicsError.message);
+    return NextResponse.json({ error: 'Unable to load comment history' }, { status: 500 });
+  }
+
+  const topicTitleById = new Map((topicRows ?? []).map((topic) => [topic.id, topic.question]));
 
   return NextResponse.json({
     comments: page.map((comment) => {
@@ -99,9 +109,7 @@ export async function GET(request: Request, { params }: RouteContext) {
       return {
         ...comment,
         profile: profileById.get(comment.user_id) ?? null,
-        topicTitle:
-          topics.find((topic) => String(topic.id) === String(comment.topic_id))?.question ??
-          'Unknown topic',
+        topicTitle: topicTitleById.get(comment.topic_id) ?? 'Unknown topic',
         parent: parent
           ? {
               content: parent.is_deleted ? '[Deleted comment]' : parent.content,
