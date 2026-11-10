@@ -202,7 +202,11 @@ The notification center is available to signed-in users from the navbar bell. It
 
 ### Database-backed topics and recommendations
 
-Topics and categories are read from the public `topics` and `categories` tables. The initial catalog has been imported into Supabase; new and updated content should be managed in the database. Topic IDs remain stable because bookmarks, progress, comments, and notifications refer to them.
+Topics and categories are read from the public `topics` and `categories` tables. The initial catalog has been imported into Supabase; new and updated content should be managed in the database. Topic IDs and URL slugs remain stable after creation because user activity and external links may refer to them.
+
+Public category and full-catalog queries are cached on the server for five minutes and fetched in stable 500-row pages, so page navigation does not repeatedly read the catalog from Supabase. Individual topic pages and ID lookups use separate tagged cache entries, avoiding a full-catalog read for a single topic or a profile's recent activity. Admin content updates immediately invalidate the shared content cache. This is server-side caching, not a browser-side offline copy; IndexedDB/offline support can be added separately if needed.
+
+Admins can create and edit categories and topics from `/admin/content`, including descriptions, Catechism and Scripture fields, ordering, and publication status. Unpublishing archives content without deleting rows or breaking user activity. Topic IDs and slugs and category slugs are fixed after creation. Admins can grant another user administrator access from that user's profile; role changes are handled server-side and cannot be self-granted through this action.
 
 Signed-in feed recommendations use completed topics (weight 5), bookmarks (4), likes (3), and authored comments (3) to estimate category interest. Candidate scores normalize category interest by the square root of that category's topic count, add direct saved/liked/commented signals, exclude already completed topics where possible, and diversify results so a category does not appear more than twice in a row. Ties preserve database order; if the user has completed every topic, the feed falls back to the full catalog. A security-invoker RPC returns only the current user's aggregated engagement IDs. Signed-out users retain the shuffled feed.
 

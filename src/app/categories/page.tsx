@@ -37,6 +37,8 @@ export const metadata: Metadata = {
   },
 };
 
+export const dynamic = 'force-dynamic';
+
 export default async function CategoriesPage() {
   const [categories, topics] = await Promise.all([getPublishedCategories(), getPublishedTopics()]);
   const topicCounts = new Map<string, number>();

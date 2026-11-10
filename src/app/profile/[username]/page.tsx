@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/Badge';
 
 import { getPublishedTopics, getPublishedTopicsByIds } from '@/lib/content';
 import { CommentBanControl } from '@/components/admin/CommentBanControl';
+import { AdminRoleControl } from '@/components/admin/AdminRoleControl';
 import { createServiceRoleClient } from '@/lib/supabase/admin';
 
 interface Props {
@@ -189,6 +190,7 @@ export default async function ProfilePage({ params }: Props) {
 
   let canManageCommentBan = false;
   let isAdmin = false;
+  let profileIsAdmin = false;
   let activeBan: { reason: string } | null = null;
 
   if (currentUser) {
@@ -207,19 +209,34 @@ export default async function ProfilePage({ params }: Props) {
         canManageCommentBan = true;
 
         const serviceClient = createServiceRoleClient();
-        const { data: ban, error: banError } = await serviceClient
-          .from('user_comment_bans')
-          .select('reason')
-          .eq('user_id', profile.id)
-          .is('unbanned_at', null)
-          .maybeSingle();
+        const [banResult, profileAdminResult] = await Promise.all([
+          serviceClient
+            .from('user_comment_bans')
+            .select('reason')
+            .eq('user_id', profile.id)
+            .is('unbanned_at', null)
+            .maybeSingle(),
+          serviceClient
+            .from('admin_users')
+            .select('user_id')
+            .eq('user_id', profile.id)
+            .maybeSingle(),
+        ]);
 
-        if (banError) {
-          console.error('Unable to load profile comment restriction:', banError.message);
+        if (banResult.error) {
+          console.error('Unable to load profile comment restriction:', banResult.error.message);
           throw new Error('Unable to load moderation details.');
         }
+        if (profileAdminResult.error) {
+          console.error(
+            'Unable to load profile administrator status:',
+            profileAdminResult.error.message
+          );
+          throw new Error('Unable to load administrator details.');
+        }
 
-        activeBan = ban;
+        activeBan = banResult.data;
+        profileIsAdmin = Boolean(profileAdminResult.data);
       }
     }
   }
@@ -346,6 +363,12 @@ export default async function ProfilePage({ params }: Props) {
           activeBan={Boolean(activeBan)}
           reason={activeBan?.reason}
           canChangeBan={canManageCommentBan}
+        />
+
+        <AdminRoleControl
+          userId={profile.id}
+          isAdmin={profileIsAdmin}
+          canManage={isAdmin && currentUser?.id !== profile.id}
         />
 
         <div className="mt-6">
