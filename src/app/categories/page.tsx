@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
 
-import { getPublishedCategories, getPublishedTopics } from '@/lib/content';
+import { getPublishedCategories, getPublishedTopicCount } from '@/lib/content';
 import { siteConfig } from '@/lib/constants';
 import { Badge } from '@/components/ui/Badge';
 
@@ -40,18 +40,10 @@ export const metadata: Metadata = {
 export const dynamic = 'force-dynamic';
 
 export default async function CategoriesPage() {
-  const [categories, topics] = await Promise.all([getPublishedCategories(), getPublishedTopics()]);
-  const topicCounts = new Map<string, number>();
-
-  for (const topic of topics) {
-    topicCounts.set(topic.category, (topicCounts.get(topic.category) ?? 0) + 1);
-  }
-
-  const categoriesMetadata = categories.map((category) => ({
-    ...category,
-    topicCount: topicCounts.get(category.name) ?? 0,
-  }));
-  const totalTopics = topics.length;
+  const [categories, totalTopics] = await Promise.all([
+    getPublishedCategories(),
+    getPublishedTopicCount(),
+  ]);
 
   return (
     <main className="container py-12">
@@ -68,12 +60,12 @@ export default async function CategoriesPage() {
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-        {categoriesMetadata.map((category) => (
+        {categories.map((category) => (
           <Link key={category.slug} href={`/categories/${category.slug}`}>
             <article className="border-border hover:bg-bg-secondary h-full rounded-2xl border p-6 transition-colors">
               <div className="flex items-center justify-between">
                 <Badge variant="accent" size="sm">
-                  {category.topicCount} {category.topicCount === 1 ? 'Topic' : 'Topics'}
+                  Explore topics
                 </Badge>
               </div>
 

@@ -7,7 +7,7 @@ import { siteConfig } from '@/lib/constants';
 
 import { Badge } from '@/components/ui/Badge';
 
-import { getPublishedTopics, getPublishedTopicsByIds } from '@/lib/content';
+import { getPublishedTopicCount, getPublishedTopicsByIds } from '@/lib/content';
 import { CommentBanControl } from '@/components/admin/CommentBanControl';
 import { AdminRoleControl } from '@/components/admin/AdminRoleControl';
 import { createServiceRoleClient } from '@/lib/supabase/admin';
@@ -186,7 +186,7 @@ export default async function ProfilePage({ params }: Props) {
     notFound();
   }
 
-  const topics = await getPublishedTopics();
+  const topicCount = await getPublishedTopicCount();
 
   let canManageCommentBan = false;
   let isAdmin = false;
@@ -317,7 +317,7 @@ export default async function ProfilePage({ params }: Props) {
   const longestStreak = calculateLongestStreak(streakDates);
 
   const progressPercentage =
-    topics.length > 0 ? ((completedCount / topics.length) * 100).toFixed(1) : '0';
+    topicCount > 0 ? ((completedCount / topicCount) * 100).toFixed(1) : '0';
 
   const recentProgress = recentProgressResult.data ?? [];
   const recentTopicRows = await getPublishedTopicsByIds(

@@ -10,6 +10,10 @@ interface CommentFormProps {
   onSubmit: (content: string) => Promise<void>;
 
   onCancel?: () => void;
+
+  disabled?: boolean;
+
+  disabledMessage?: string;
 }
 
 export function CommentForm({
@@ -17,6 +21,8 @@ export function CommentForm({
   submitLabel = 'Post Comment',
   onSubmit,
   onCancel,
+  disabled = false,
+  disabledMessage,
 }: CommentFormProps) {
   const [content, setContent] = useState(initialValue);
 
@@ -27,7 +33,7 @@ export function CommentForm({
   const trimmedContent = content.trim();
 
   async function handleSubmit() {
-    if (!trimmedContent) {
+    if (!trimmedContent || disabled) {
       return;
     }
 
@@ -53,6 +59,7 @@ export function CommentForm({
       <textarea
         value={content}
         onChange={(e) => setContent(e.target.value)}
+        disabled={disabled || submitting}
         maxLength={2000}
         rows={5}
         autoFocus={!!onCancel}
@@ -64,6 +71,12 @@ export function CommentForm({
           }
         }}
       />
+
+      {disabled && disabledMessage && (
+        <p className="text-text-muted mt-2 text-sm" role="status">
+          {disabledMessage}
+        </p>
+      )}
 
       <div className="text-text-muted mt-2 flex items-center justify-between text-xs">
         <span>Ctrl/Cmd + Enter to submit</span>
@@ -94,7 +107,7 @@ export function CommentForm({
 
         <button
           type="button"
-          disabled={submitting || !trimmedContent}
+          disabled={submitting || disabled || !trimmedContent}
           onClick={handleSubmit}
           className="bg-accent hover:bg-accent/90 rounded-xl px-4 py-2 text-white transition-colors disabled:cursor-not-allowed disabled:opacity-50"
         >

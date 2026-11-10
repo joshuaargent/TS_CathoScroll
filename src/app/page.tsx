@@ -1,5 +1,5 @@
 import { TopicFeed } from '@/components/topic/TopicFeed';
-import { getPublishedTopics } from '@/lib/content';
+import { getPublishedTopicPage } from '@/lib/content';
 import { siteConfig } from '@/lib/constants';
 import { recommendTopics } from '@/lib/recommendations';
 import { createClient } from '@/lib/supabase/server';
@@ -40,7 +40,10 @@ export const metadata: Metadata = {
 };
 
 export default async function HomePage() {
-  const [topics, supabase] = await Promise.all([getPublishedTopics(), createClient()]);
+  const [{ topics, nextCursor }, supabase] = await Promise.all([
+    getPublishedTopicPage({ limit: 50 }),
+    createClient(),
+  ]);
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -48,7 +51,7 @@ export default async function HomePage() {
   if (!user) {
     return (
       <div className="h-[calc(100vh-4rem)] overflow-hidden">
-        <TopicFeed topics={topics} />
+        <TopicFeed topics={topics} nextCursor={nextCursor} />
       </div>
     );
   }
@@ -74,7 +77,7 @@ export default async function HomePage() {
 
   return (
     <div className="h-[calc(100vh-4rem)] overflow-hidden">
-      <TopicFeed topics={recommendedTopics} personalized />
+      <TopicFeed topics={recommendedTopics} nextCursor={nextCursor} personalized />
     </div>
   );
 }

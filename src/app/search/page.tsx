@@ -1,5 +1,4 @@
 import { SearchClient } from '@/components/search/SearchClient';
-import { getPublishedTopics } from '@/lib/content';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
@@ -13,9 +12,7 @@ export const metadata: Metadata = {
 
 export const dynamic = 'force-dynamic';
 
-export default async function SearchPage() {
-  const topics = await getPublishedTopics();
-
+export default function SearchPage() {
   return (
     <main className="container py-12">
       <section className="mb-12">
@@ -26,7 +23,7 @@ export default async function SearchPage() {
         </p>
       </section>
 
-      <SearchClient topics={topics} />
+      <SearchClient />
     </main>
   );
 }

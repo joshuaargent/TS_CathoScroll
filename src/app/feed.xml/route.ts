@@ -1,4 +1,4 @@
-import { getPublishedTopics } from '@/lib/content';
+import { getPublishedTopicPage } from '@/lib/content';
 import { siteConfig } from '@/lib/constants';
 
 function escapeXml(value: string) {
@@ -11,7 +11,7 @@ function escapeXml(value: string) {
 }
 
 export async function GET() {
-  const topics = await getPublishedTopics();
+  const { topics } = await getPublishedTopicPage({ limit: 50 });
   const baseUrl = siteConfig.url.replace(/\/+$/, '');
   const items = topics
     .map((topic) => {

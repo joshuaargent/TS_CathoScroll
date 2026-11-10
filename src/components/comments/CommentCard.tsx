@@ -38,6 +38,8 @@ interface CommentCardProps {
   isPinning?: boolean;
 
   pinActionPending?: boolean;
+
+  isOnline?: boolean;
 }
 
 function formatRelativeDate(dateString: string) {
@@ -89,6 +91,7 @@ export function CommentCard({
   hasPinnedComment = false,
   isPinning = false,
   pinActionPending = false,
+  isOnline = true,
 }: CommentCardProps) {
   const [showReply, setShowReply] = useState(false);
 
@@ -176,6 +179,8 @@ export function CommentCard({
                   }
                 }}
                 onCancel={() => setIsEditing(false)}
+                disabled={!isOnline}
+                disabledMessage="You need an internet connection to edit comments."
               />
             ) : (
               <p className="leading-relaxed">{comment.content}</p>
@@ -191,6 +196,7 @@ export function CommentCard({
               <button
                 type="button"
                 onClick={() => onLike(comment.id)}
+                disabled={!isOnline}
                 className={`rounded-full px-3 py-1 text-sm font-medium transition-colors ${
                   comment.likedByUser ? 'bg-accent text-white' : 'bg-accent-light text-accent'
                 }`}
@@ -202,6 +208,7 @@ export function CommentCard({
                 <button
                   type="button"
                   onClick={() => setShowReply(!showReply)}
+                  disabled={!isOnline}
                   className="text-text-secondary hover:text-text-primary"
                 >
                   Reply
@@ -215,6 +222,7 @@ export function CommentCard({
                     setShowReport(!showReport);
                     setReportError('');
                   }}
+                  disabled={!isOnline}
                   className="text-text-secondary hover:text-text-primary inline-flex items-center gap-1"
                 >
                   <Flag className="h-4 w-4" />
@@ -232,6 +240,7 @@ export function CommentCard({
 
                         setIsEditing(!isEditing);
                       }}
+                      disabled={!isOnline}
                       className="text-text-secondary hover:text-text-primary"
                     >
                       Edit
@@ -241,6 +250,7 @@ export function CommentCard({
                   <button
                     type="button"
                     onClick={() => onDelete(comment.id)}
+                    disabled={!isOnline}
                     className="text-text-secondary hover:text-text-primary"
                   >
                     Delete
@@ -269,6 +279,8 @@ export function CommentCard({
                     setShowReply(false);
                   }}
                   onCancel={() => setShowReply(false)}
+                  disabled={!isOnline}
+                  disabledMessage="You need an internet connection to post replies."
                 />
               </div>
             )}
@@ -383,6 +395,7 @@ export function CommentCard({
               hasPinnedComment={hasPinnedComment}
               isPinning={isPinning}
               pinActionPending={pinActionPending}
+              isOnline={isOnline}
             />
           ))}
         </div>

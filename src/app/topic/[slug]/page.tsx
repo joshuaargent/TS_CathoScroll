@@ -7,7 +7,7 @@ import { TopicActions } from '@/components/topic/TopicActions';
 
 import { CommentSection } from '@/components/comments/CommentSection';
 
-import { getPublishedTopicBySlug, getPublishedTopics } from '@/lib/content';
+import { getPublishedTopicBySlug, getPublishedTopicContext } from '@/lib/content';
 import { siteConfig } from '@/lib/constants';
 import { Badge } from '@/components/ui/Badge';
 
@@ -79,21 +79,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function TopicPage({ params }: Props) {
   const { slug } = await params;
-  const [topic, topics] = await Promise.all([getPublishedTopicBySlug(slug), getPublishedTopics()]);
+  const context = await getPublishedTopicContext(slug);
 
-  if (!topic) {
+  if (!context) {
     notFound();
   }
 
-  const topicIndex = topics.findIndex((item) => item.id === topic.id);
-
-  const previousTopic = topicIndex > 0 ? topics[topicIndex - 1] : null;
-
-  const nextTopic = topicIndex < topics.length - 1 ? topics[topicIndex + 1] : null;
-
-  const relatedTopics = topics
-    .filter((t) => t.category === topic.category && t.slug !== topic.slug)
-    .slice(0, 4);
+  const { topic, topicNumber, topicCount, previousTopic, nextTopic, relatedTopics } = context;
 
   return (
     <main className="container py-12">
@@ -103,7 +95,7 @@ export default async function TopicPage({ params }: Props) {
         </Badge>
 
         <div className="text-text-muted mt-4 text-sm tracking-wider uppercase">
-          Topic {topicIndex + 1} of {topics.length}
+          Topic {topicNumber} of {topicCount}
         </div>
 
         <h1 className="mt-4 text-5xl leading-tight font-extrabold md:text-7xl">{topic.question}</h1>

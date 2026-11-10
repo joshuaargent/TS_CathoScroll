@@ -145,6 +145,8 @@ export function CommentSection({ topicId }: CommentSectionProps) {
 
   const [loading, setLoading] = useState(true);
 
+  const [isOnline, setIsOnline] = useState(true);
+
   const [commentLoadError, setCommentLoadError] = useState('');
 
   const [commentActionError, setCommentActionError] = useState('');
@@ -374,7 +376,26 @@ export function CommentSection({ topicId }: CommentSectionProps) {
     void loadComments();
   }, [loadComments]);
 
+  useEffect(() => {
+    function updateOnlineStatus() {
+      setIsOnline(navigator.onLine);
+    }
+
+    updateOnlineStatus();
+    window.addEventListener('online', updateOnlineStatus);
+    window.addEventListener('offline', updateOnlineStatus);
+
+    return () => {
+      window.removeEventListener('online', updateOnlineStatus);
+      window.removeEventListener('offline', updateOnlineStatus);
+    };
+  }, []);
+
   async function createComment(content: string) {
+    if (!navigator.onLine) {
+      throw new Error('You need to be online to post comments.');
+    }
+
     if (!userId || !currentProfile) {
       return;
     }
@@ -424,6 +445,10 @@ export function CommentSection({ topicId }: CommentSectionProps) {
   }
 
   async function createReply(parentId: number, content: string) {
+    if (!navigator.onLine) {
+      throw new Error('You need to be online to post replies.');
+    }
+
     if (!userId || !currentProfile) {
       return;
     }
@@ -473,6 +498,10 @@ export function CommentSection({ topicId }: CommentSectionProps) {
   }
 
   async function editComment(commentId: number, content: string) {
+    if (!navigator.onLine) {
+      throw new Error('You need to be online to edit comments.');
+    }
+
     const editedAt = new Date().toISOString();
 
     // Update the visible tree immediately; reload it from Supabase if the
@@ -709,7 +738,11 @@ export function CommentSection({ topicId }: CommentSectionProps) {
         </>
       ) : userId ? (
         <>
-          <CommentForm onSubmit={createComment} />
+          <CommentForm
+            onSubmit={createComment}
+            disabled={!isOnline}
+            disabledMessage="You need an internet connection to post comments."
+          />
 
           <div className="h-6" />
         </>
@@ -771,6 +804,7 @@ export function CommentSection({ topicId }: CommentSectionProps) {
               onPin={togglePin}
               canPin={canPinComments}
               isCommentBanned={isCommentBanned || commentBanCheckFailed}
+              isOnline={isOnline}
               hasPinnedComment={hasPinnedComment}
               isPinning={pinningCommentId === comment.id}
               pinActionPending={pinningCommentId !== null}
