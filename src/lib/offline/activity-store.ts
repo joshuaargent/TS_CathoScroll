@@ -32,10 +32,16 @@ export interface SnapshotActivity {
   kind: OfflineActivityKind;
 }
 
+export interface OfflineTopicActivity {
+  liked: boolean;
+  bookmarked: boolean;
+  completed: boolean;
+}
+
 const kinds: OfflineActivityKind[] = ['bookmark', 'like', 'progress'];
 
 function assertKey(value: string, name: string) {
-  if (!value || value.trim() !== value) {
+  if (typeof value !== 'string' || !value || value.trim() !== value) {
     throw new Error(`Invalid ${name}.`);
   }
 }
@@ -45,7 +51,9 @@ function assertKind(kind: OfflineActivityKind) {
 }
 
 function revision(value: string): bigint {
-  if (!/^(0|[1-9][0-9]*)$/.test(value)) throw new Error('Invalid offline activity revision.');
+  if (typeof value !== 'string' || !/^(0|[1-9][0-9]*)$/.test(value)) {
+    throw new Error('Invalid offline activity revision.');
+  }
   return BigInt(value);
 }
 
@@ -86,6 +94,10 @@ export class OfflineActivityStore {
           value INTEGER NOT NULL CHECK (value IN (0, 1)),
           PRIMARY KEY (user_id, topic_id, kind)
         )
+      `);
+      await db.execute(`
+        CREATE INDEX IF NOT EXISTS offline_activity_user_kind_value_topic
+        ON offline_activity(user_id, kind, value, topic_id)
       `);
       await db.execute(`
         CREATE TABLE IF NOT EXISTS offline_activity_outbox (
@@ -129,9 +141,16 @@ export class OfflineActivityStore {
           user_id TEXT NOT NULL,
           topic_id TEXT NOT NULL,
           kind TEXT NOT NULL CHECK (kind IN ('bookmark', 'like', 'progress')),
+          value INTEGER NOT NULL DEFAULT 1 CHECK (value IN (0, 1)),
           PRIMARY KEY (user_id, topic_id, kind)
         )
       `);
+      const columns = await db.query('PRAGMA table_info(offline_activity_bootstrap_items)');
+      if (!columns.some((column) => column.name === 'value')) {
+        await db.execute(
+          'ALTER TABLE offline_activity_bootstrap_items ADD COLUMN value INTEGER NOT NULL DEFAULT 1 CHECK (value IN (0, 1))'
+        );
+      }
     });
   }
 
@@ -181,6 +200,83 @@ export class OfflineActivityStore {
       }
       return rows[0].value === 1;
     });
+  }
+
+  async topicActivity(userId: string, topicId: string): Promise<OfflineTopicActivity> {
+    assertKey(userId, 'user ID');
+    assertKey(topicId, 'topic ID');
+    return this.database.transaction(async (db) => {
+      await this.assertInitialized(db, userId);
+      const rows = await db.query(
+        'SELECT kind, value FROM offline_activity WHERE user_id = ? AND topic_id = ?',
+        [userId, topicId]
+      );
+      const state: OfflineTopicActivity = { liked: false, bookmarked: false, completed: false };
+      for (const row of rows) {
+        if (!isActivityKind(row.kind) || (row.value !== 0 && row.value !== 1)) {
+          throw new Error('The offline activity state is invalid.');
+        }
+        const key =
+          row.kind === 'like' ? 'liked' : row.kind === 'bookmark' ? 'bookmarked' : 'completed';
+        state[key] = row.value === 1;
+      }
+      return state;
+    });
+  }
+
+  async listActivity(
+    userId: string,
+    kind: OfflineActivityKind,
+    cursor?: string
+  ): Promise<{ topicIds: string[]; nextCursor: string | null }> {
+    assertKey(userId, 'user ID');
+    assertKind(kind);
+    if (cursor !== undefined) assertKey(cursor, 'activity cursor');
+    return this.database.transaction(async (db) => {
+      await this.assertInitialized(db, userId);
+      const rows = await db.query(
+        `SELECT topic_id FROM offline_activity
+         WHERE user_id = ? AND kind = ? AND value = 1 ${cursor ? 'AND topic_id > ?' : ''}
+         ORDER BY topic_id LIMIT 51`,
+        cursor ? [userId, kind, cursor] : [userId, kind]
+      );
+      const ids = rows.map((row) => {
+        if (typeof row.topic_id !== 'string') throw new Error('Invalid offline activity topic.');
+        assertKey(row.topic_id, 'activity topic');
+        return row.topic_id;
+      });
+      return { topicIds: ids.slice(0, 50), nextCursor: ids.length > 50 ? ids[49] : null };
+    });
+  }
+
+  async pendingCount(userId: string): Promise<number> {
+    assertKey(userId, 'user ID');
+    return this.database.transaction(async (db) => {
+      const rows = await db.query(
+        'SELECT COUNT(*) AS count FROM offline_activity_outbox WHERE user_id = ?',
+        [userId]
+      );
+      const count = rows[0]?.count;
+      if (
+        rows.length !== 1 ||
+        typeof count !== 'number' ||
+        !Number.isSafeInteger(count) ||
+        count < 0
+      ) {
+        throw new Error('Invalid offline activity queue count.');
+      }
+      return count;
+    });
+  }
+
+  private async assertInitialized(db: OfflineTransaction, userId: string): Promise<void> {
+    const rows = await db.query('SELECT revision FROM offline_activity_cursor WHERE user_id = ?', [
+      userId,
+    ]);
+    if (rows.length !== 1 || typeof rows[0].revision !== 'string') {
+      throw new Error('Offline activity must be initialized before reading account state.');
+    }
+    revision(rows[0].revision);
   }
 
   async nextOperation(userId: string): Promise<PendingActivity | null> {
@@ -291,7 +387,11 @@ export class OfflineActivityStore {
   ): Promise<void> {
     assertKey(userId, 'user ID');
     assertKey(snapshotId, 'snapshot ID');
+    if (!Array.isArray(items)) throw new Error('Invalid offline activity snapshot items.');
     for (const item of items) {
+      if (!item || typeof item !== 'object') {
+        throw new Error('Invalid offline activity snapshot item.');
+      }
       assertKey(item.topicId, 'topic ID');
       assertKind(item.kind);
     }
@@ -299,10 +399,49 @@ export class OfflineActivityStore {
       await this.assertBootstrap(db, userId, snapshotId);
       for (const item of items) {
         await db.execute(
-          'INSERT OR IGNORE INTO offline_activity_bootstrap_items VALUES (?, ?, ?)',
+          `INSERT OR IGNORE INTO offline_activity_bootstrap_items (user_id, topic_id, kind, value)
+           VALUES (?, ?, ?, 1)`,
           [userId, item.topicId, item.kind]
         );
       }
+    });
+  }
+
+  async applyBootstrapChanges(
+    userId: string,
+    snapshotId: string,
+    changes: ServerActivity[]
+  ): Promise<void> {
+    assertKey(userId, 'user ID');
+    assertKey(snapshotId, 'snapshot ID');
+    if (!Array.isArray(changes)) throw new Error('Invalid offline activity changes.');
+    for (const change of changes) {
+      if (!change || typeof change !== 'object')
+        throw new Error('Invalid offline activity change.');
+      assertKey(change.topicId, 'topic ID');
+      assertKind(change.kind);
+      if (revision(change.revision) === BigInt(0) || typeof change.value !== 'boolean') {
+        throw new Error('Invalid offline activity change.');
+      }
+    }
+    await this.database.transaction(async (db) => {
+      let previous = revision(await this.assertBootstrap(db, userId, snapshotId));
+      for (const change of changes) {
+        const next = revision(change.revision);
+        if (next !== previous + BigInt(1)) {
+          throw new Error('Offline activity changes are out of order or incomplete.');
+        }
+        await db.execute(
+          `INSERT OR REPLACE INTO offline_activity_bootstrap_items
+           (user_id, topic_id, kind, value) VALUES (?, ?, ?, ?)`,
+          [userId, change.topicId, change.kind, change.value ? 1 : 0]
+        );
+        previous = next;
+      }
+      await db.execute(
+        'UPDATE offline_activity_bootstrap SET revision = ? WHERE user_id = ? AND snapshot_id = ?',
+        [previous.toString(), userId, snapshotId]
+      );
     });
   }
 
@@ -318,7 +457,7 @@ export class OfflineActivityStore {
       if (cursors.length) throw new Error('Offline activity has already been initialized.');
       await db.execute(
         `INSERT INTO offline_activity_server (user_id, topic_id, kind, value, revision)
-         SELECT user_id, topic_id, kind, 1, ?
+         SELECT user_id, topic_id, kind, value, ?
          FROM offline_activity_bootstrap_items WHERE user_id = ?
          ON CONFLICT (user_id, topic_id, kind) DO UPDATE
          SET value = excluded.value, revision = excluded.revision
