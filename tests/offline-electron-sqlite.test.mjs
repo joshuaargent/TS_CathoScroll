@@ -28,13 +28,15 @@ async function fixture(t, server) {
   );
   const electronImport = "import { app } from 'electron';";
   assert.ok(source.includes(electronImport));
-  const script = source.replace(
-    electronImport,
-    `const app = {
+  const script = source
+    .replace("export { CathoSecureStorage } from './secure-storage.mjs';", '')
+    .replace(
+      electronImport,
+      `const app = {
       getPath: () => ${JSON.stringify(userData)},
       getAppPath: () => ${JSON.stringify(directory)}
     };`
-  );
+    );
   const { CathoSQLite } = await import(
     `data:text/javascript;base64,${Buffer.from(script).toString('base64')}`
   );
@@ -56,6 +58,18 @@ test('hosted desktop pages cannot open or query the offline databases', async (t
   await assert.rejects(readFile(path.join(userData, 'databases', 'activity.sqlite')), {
     code: 'ENOENT',
   });
+});
+
+test('a configured Electron development server cannot use the offline database bridge', async (t) => {
+  const { plugin } = await fixture(t);
+  const previous = process.env.CAPACITOR_ELECTRON_DEV_SERVER_URL;
+  process.env.CAPACITOR_ELECTRON_DEV_SERVER_URL = 'http://localhost:3000';
+  try {
+    await assert.rejects(plugin.open({ database: 'activity' }), /hosted desktop wrapper/);
+  } finally {
+    if (previous === undefined) delete process.env.CAPACITOR_ELECTRON_DEV_SERVER_URL;
+    else process.env.CAPACITOR_ELECTRON_DEV_SERVER_URL = previous;
+  }
 });
 
 test('bundled desktop app can use its catalogue and transactional activity database', async (t) => {

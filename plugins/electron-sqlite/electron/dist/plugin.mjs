@@ -4,6 +4,8 @@ import { randomUUID } from 'node:crypto';
 import { DatabaseSync } from 'node:sqlite';
 import { app } from 'electron';
 
+export { CathoSecureStorage } from './secure-storage.mjs';
+
 export class CathoSQLite {
   static __capacitorElectronPlugin = {
     name: 'CathoSQLite',
@@ -16,7 +18,7 @@ export class CathoSQLite {
   }
 
   assertBundled() {
-    if (this.context.config.server?.url) {
+    if (this.context.config.server?.url || process.env.CAPACITOR_ELECTRON_DEV_SERVER_URL) {
       throw new Error('Offline SQLite is unavailable in the hosted desktop wrapper.');
     }
   }

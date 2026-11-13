@@ -26,6 +26,7 @@
     "native:build:local": "npm run offline:database && vite build --config native/vite.config.mts && node scripts/copy-native-catalogue.mjs"
   },
   "dependencies": {
+    "@aparajita/capacitor-secure-storage": "^8.0.1",
     "@capacitor/android": "^8.6.0",
     "@capacitor/core": "^8.6.0",
     "@capacitor/ios": "^8.6.0",
