@@ -1,11 +1,11 @@
-import { createClient as createSupabaseClient } from '@supabase/supabase-js';
+import { createClient as createSupabaseClient, type SupabaseClient } from '@supabase/supabase-js';
 import {
   assertSecureAuthStorageAvailable,
   authStorageKey,
   secureAuthStorage,
 } from './secure-auth-storage';
 
-let client: ReturnType<typeof createSupabaseClient> | undefined;
+let client: SupabaseClient | undefined;
 let secureSessions = false;
 
 export async function initializeNativeAuth(): Promise<void> {
@@ -14,7 +14,7 @@ export async function initializeNativeAuth(): Promise<void> {
   secureSessions = true;
 }
 
-export function createClient() {
+export function createClient(): SupabaseClient {
   if (!client) {
     const url = import.meta.env.NEXT_PUBLIC_SUPABASE_URL;
     const key = import.meta.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;

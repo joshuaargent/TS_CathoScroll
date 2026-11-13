@@ -15,6 +15,7 @@ import Link from 'next/link';
 interface CommentSectionProps {
   topicId: string;
   cache?: Pick<OfflineCommentCache, 'load' | 'save'>;
+  serverActionsAvailable?: boolean;
 }
 
 const fallbackProfile: Profile = {
@@ -143,7 +144,11 @@ function cloneAndSortComments(comments: Comment[], sorter: (comments: Comment[])
   return cloned;
 }
 
-export function CommentSection({ topicId, cache }: CommentSectionProps) {
+export function CommentSection({
+  topicId,
+  cache,
+  serverActionsAvailable = true,
+}: CommentSectionProps) {
   const requestSignIn = useSignInPrompt();
   const [comments, setComments] = useState<Comment[]>([]);
 
@@ -633,6 +638,10 @@ export function CommentSection({ topicId, cache }: CommentSectionProps) {
     if (!canPinComments) {
       return;
     }
+    if (!serverActionsAvailable) {
+      setPinError('Comment moderation is currently available on the website.');
+      return;
+    }
 
     const selectedComment = comments.find((comment) => comment.id === commentId);
 
@@ -679,6 +688,9 @@ export function CommentSection({ topicId, cache }: CommentSectionProps) {
   async function reportComment(commentId: number, reason: string, details: string) {
     if (!navigator.onLine) {
       throw new Error('You need an internet connection to submit a report.');
+    }
+    if (!serverActionsAvailable) {
+      throw new Error('Comment reports are currently available on the website.');
     }
     const response = await fetch('/api/reports/comments', {
       method: 'POST',

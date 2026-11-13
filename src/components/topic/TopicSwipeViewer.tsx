@@ -15,7 +15,12 @@ interface TopicSwipeViewerProps {
   topicIndex: number;
   active?: boolean;
   userId: string | null;
-  currentActivity: TopicActivity | null;
+  currentActivity:
+    | (Omit<TopicActivity, 'likes' | 'comments'> & {
+        likes: number | null;
+        comments: number | null;
+      })
+    | null;
   currentActivityError: boolean;
   actionError: string;
   pendingActions: Set<string>;

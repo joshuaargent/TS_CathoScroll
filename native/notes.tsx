@@ -125,7 +125,7 @@ export function NativeNotes({
       ) : (
         <>
           <p className="text-text-secondary mt-3">
-            Notes are read-only in this preview. Edit them on the website.
+            Notes are read-only in the app. Edit them on the website.
           </p>
           {current.warning && (
             <p role="alert" className="mt-4">

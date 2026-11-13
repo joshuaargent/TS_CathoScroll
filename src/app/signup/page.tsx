@@ -12,19 +12,7 @@ import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 
 import { createClient } from '@/lib/supabase/client';
-
-const RESERVED_USERNAMES = [
-  'admin',
-  'administrator',
-  'support',
-  'help',
-  'owner',
-  'root',
-  'system',
-  'staff',
-  'moderator',
-  'cathoscroll',
-];
+import { usernameError } from '@/lib/username';
 
 export default function SignupPage() {
   const router = useRouter();
@@ -50,20 +38,9 @@ export default function SignupPage() {
 
     const confirmPassword = formData.get('confirmPassword') as string;
 
-    const usernameRegex = /^[a-zA-Z0-9_]{3,20}$/;
-
-    if (RESERVED_USERNAMES.includes(username)) {
-      setError('That username is unavailable.');
-
-      setLoading(false);
-
-      return;
-    }
-
-    if (!usernameRegex.test(username)) {
-      setError(
-        'Username must be 3-20 characters and contain only letters, numbers, and underscores.'
-      );
+    const invalidUsername = usernameError(username);
+    if (invalidUsername) {
+      setError(invalidUsername);
 
       setLoading(false);
 

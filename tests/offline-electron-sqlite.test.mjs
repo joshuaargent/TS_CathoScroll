@@ -6,6 +6,36 @@ import { createRequire } from 'node:module';
 import { DatabaseSync } from 'node:sqlite';
 import { pathToFileURL } from 'node:url';
 import test from 'node:test';
+import ts from 'typescript';
+
+async function loadTypeScript(relativePath) {
+  const source = await readFile(new URL(relativePath, import.meta.url), 'utf8');
+  const compiled = ts.transpileModule(source, {
+    compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
+  }).outputText;
+  return import(`data:text/javascript;base64,${Buffer.from(compiled).toString('base64')}`);
+}
+
+function bridgeDatabase(plugin, database) {
+  return {
+    async transaction(callback) {
+      await plugin.begin({ database });
+      try {
+        const result = await callback({
+          execute: (statement, values = []) => plugin.execute({ database, statement, values }),
+          async query(statement, values = []) {
+            return (await plugin.query({ database, statement, values })).rows;
+          },
+        });
+        await plugin.commit({ database });
+        return result;
+      } catch (error) {
+        await plugin.rollback({ database });
+        throw error;
+      }
+    },
+  };
+}
 
 async function fixture(t, server) {
   const directory = await mkdtemp(path.join(tmpdir(), 'cathoscroll-electron-sqlite-'));
@@ -115,6 +145,42 @@ test('encrypts private activity, survives restart, and refuses missing keys', as
   testVault.set('cathoscroll.auth.v1-activity-db-key', key);
   await unlink(filename);
   await assert.rejects(plugin.open({ database: 'private-activity' }), /database is unavailable/);
+});
+
+test('migrates an existing queue through the encrypted desktop bridge', async (t) => {
+  const { plugin, userData } = await fixture(t);
+  const { OfflineActivityStore } = await loadTypeScript('../src/lib/offline/activity-store.ts');
+  const { migrateLegacyActivity } = await loadTypeScript(
+    '../src/lib/offline/activity-migration.ts'
+  );
+  await plugin.open({ database: 'activity' });
+  await plugin.open({ database: 'private-activity' });
+  const legacy = bridgeDatabase(plugin, 'activity');
+  const encrypted = bridgeDatabase(plugin, 'private-activity');
+  const source = new OfflineActivityStore(legacy);
+  const destination = new OfflineActivityStore(encrypted);
+  await source.initialize();
+  await destination.initialize();
+  await source.setActivity(
+    'synthetic-user',
+    'synthetic-topic',
+    'like',
+    true,
+    'synthetic-operation'
+  );
+  await migrateLegacyActivity(legacy, encrypted);
+  assert.equal(
+    (await destination.nextOperation('synthetic-user')).operationId,
+    'synthetic-operation'
+  );
+  assert.equal(await source.pendingCount('synthetic-user'), 1);
+  const file = await readFile(path.join(userData, 'cathoscroll-sqlite', 'private-activity.sqlite'));
+  assert.equal(file.includes(Buffer.from('synthetic-operation')), false);
+  plugin.databases.get('private-activity').close();
+  plugin.databases.delete('private-activity');
+  await plugin.open({ database: 'private-activity' });
+  await migrateLegacyActivity(legacy, encrypted);
+  assert.equal(await destination.pendingCount('synthetic-user'), 1);
 });
 
 test('a configured Electron development server cannot use the offline database bridge', async (t) => {

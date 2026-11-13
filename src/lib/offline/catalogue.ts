@@ -95,6 +95,36 @@ export class OfflineCatalogue {
     });
   }
 
+  async topicsByIds(ids: string[]): Promise<Topic[]> {
+    if (
+      !Array.isArray(ids) ||
+      ids.length > 50 ||
+      ids.some((id) => typeof id !== 'string' || !id || id.trim() !== id) ||
+      new Set(ids).size !== ids.length
+    ) {
+      throw new Error('Invalid offline topic IDs.');
+    }
+    if (!ids.length) return [];
+    return this.database.transaction(async (db) => {
+      const placeholders = ids.map(() => '?').join(', ');
+      const rows = await db.query(
+        `SELECT ${fields} FROM topics t JOIN categories c ON c.slug = t.category_slug
+         WHERE t.id IN (${placeholders})`,
+        ids
+      );
+      const topics = new Map(
+        rows.map((row) => {
+          const topic = topicFromRow(row);
+          return [topic.id, topic] as const;
+        })
+      );
+      return ids.flatMap((id) => {
+        const topic = topics.get(id);
+        return topic ? [topic] : [];
+      });
+    });
+  }
+
   async category(slug: string): Promise<ContentCategory | null> {
     if (!slug || slug.trim() !== slug) throw new Error('Invalid offline category slug.');
     return this.database.transaction(async (db) => {

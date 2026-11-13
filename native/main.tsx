@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { CommentSection } from '@/components/comments/CommentSection';
 import { TopicFeedCore } from '@/components/topic/TopicFeedCore';
@@ -7,6 +7,12 @@ import { TopicArticle, TopicArticleHeader } from '@/components/topic/TopicArticl
 import { CategoriesPage, CategoryPage, SearchPage } from './catalogue-pages';
 import { NativeNavbar } from './navbar';
 import { NativeAccount } from './account';
+import { NativeBookmarks } from './bookmarks';
+import { NativeTopicActions } from './topic-actions';
+import { NativeSignup } from './signup';
+import { LearnContent } from '@/components/learn/LearnContent';
+import { NativeActivity, type NativeActivityStatus } from './activity';
+import { openPrivateActivity } from './private-activity';
 import { NativeNotes } from './notes';
 import { NativeNoteCache } from './note-cache';
 import {
@@ -16,7 +22,7 @@ import {
 } from './cached-identity';
 import { initializeNativeAuth } from './supabase';
 import { authStorageKey, secureAuthStorage } from './secure-auth-storage';
-import { SignInPromptProvider } from '@/components/providers/SignInPromptProvider';
+import { SignInPromptProvider, useSignInPrompt } from '@/components/providers/SignInPromptProvider';
 import { ThemeProvider } from '@/components/providers/ThemeProvider';
 import { OfflineCatalogue, type CatalogueCursor } from '@/lib/offline/catalogue';
 import { OfflineCommentCache } from '@/lib/offline/comment-cache';
@@ -26,6 +32,8 @@ import { createClient } from '@/lib/supabase/client';
 import { siteConfig } from '@/lib/constants';
 import type { RecommendationCursor } from '@/lib/recommendations';
 import { openNativeDatabases } from '@/lib/offline/native-database';
+import { SupabaseActivityTransport } from '@/lib/offline/supabase-activity-transport';
+import type { OfflineActivityKind, OfflineTopicActivity } from '@/lib/offline/activity-store';
 import type { Topic } from '@/types';
 import './style.css';
 
@@ -33,8 +41,11 @@ type CataloguePage = { topics: Topic[]; nextCursor: CatalogueCursor | null };
 type Route =
   | { kind: 'feed'; pathname: string }
   | { kind: 'search'; pathname: string; query: string }
+  | { kind: 'learn'; pathname: string }
   | { kind: 'categories'; pathname: string }
   | { kind: 'account'; pathname: string }
+  | { kind: 'signup'; pathname: string }
+  | { kind: 'bookmarks'; pathname: string }
   | { kind: 'category'; pathname: string; slug: string }
   | { kind: 'topic'; pathname: string; slug: string; comments: boolean };
 
@@ -44,11 +55,14 @@ function parseRoute(href: string): Route | null {
     if (url.origin !== 'https://native.cathoscroll.invalid') return null;
     const pathname = url.pathname;
     if (pathname === '/') return { kind: 'feed', pathname };
+    if (pathname === '/learn') return { kind: 'learn', pathname };
     if (pathname === '/search') {
       return { kind: 'search', pathname, query: url.searchParams.get('q') ?? '' };
     }
     if (pathname === '/categories') return { kind: 'categories', pathname };
     if (pathname === '/signin' || pathname === '/account') return { kind: 'account', pathname };
+    if (pathname === '/signup') return { kind: 'signup', pathname };
+    if (pathname === '/bookmarks') return { kind: 'bookmarks', pathname };
     const match = /^\/(topic|categories)\/([^/]+)$/.exec(pathname);
     if (!match) return null;
     const slug = decodeURIComponent(match[2]);
@@ -73,6 +87,11 @@ const TopicNavigation = createContext<{
   feedActive: boolean;
   open: (topic: Topic) => void;
   counts: OfflineTopicCountCache | null;
+  userId: string | null;
+  activity: NativeActivity | null;
+  activityStatus: NativeActivityStatus | null;
+  activityVersion: number;
+  retryActivitySetup: () => void;
 } | null>(null);
 
 function NativeViewer(props: {
@@ -91,10 +110,49 @@ function NativeViewer(props: {
     fresh: boolean;
   } | null>(null);
   const [refresh, setRefresh] = useState(0);
+  const [savedActivity, setSavedActivity] = useState<{
+    userId: string;
+    topicId: string;
+    value: OfflineTopicActivity;
+  } | null>(null);
+  const [activityError, setActivityError] = useState(false);
+  const [pendingActions, setPendingActions] = useState(() => new Set<string>());
+  const pendingRef = useRef(new Set<string>());
+  const requestSignIn = useSignInPrompt();
   const navigation = useContext(TopicNavigation);
   if (!navigation?.counts) throw new Error('Native topic navigation is unavailable.');
   const topicId = String(props.topics[props.topicIndex].id);
   const countCache = navigation.counts;
+  const userId = navigation.userId;
+  const accountActivity = navigation.activity;
+  const accountReady =
+    Boolean(userId) &&
+    accountActivity?.userId === userId &&
+    navigation.activityStatus?.userId === userId &&
+    navigation.activityStatus.ready;
+
+  useEffect(() => {
+    let active = true;
+    if (!userId || !accountActivity || !accountReady) return;
+    accountActivity.store.topicActivity(userId, topicId).then(
+      (value) => {
+        if (active) {
+          setSavedActivity({ userId, topicId, value });
+          setActivityError(false);
+        }
+      },
+      (cause: unknown) => {
+        console.error('Unable to load saved account activity:', cause);
+        if (active) {
+          setSavedActivity(null);
+          setActivityError(true);
+        }
+      }
+    );
+    return () => {
+      active = false;
+    };
+  }, [accountActivity, accountReady, userId, topicId, navigation.activityVersion, refresh]);
 
   useEffect(() => {
     let active = true;
@@ -138,7 +196,7 @@ function NativeViewer(props: {
     return () => {
       active = false;
     };
-  }, [countCache, topicId, refresh]);
+  }, [countCache, topicId, refresh, navigation.activityVersion]);
 
   useEffect(() => {
     const update = () => setRefresh((version) => version + 1);
@@ -151,6 +209,44 @@ function NativeViewer(props: {
   }, []);
 
   const currentCounts = counts?.topicId === topicId ? counts : null;
+  const currentSaved =
+    accountReady && savedActivity?.userId === userId && savedActivity.topicId === topicId
+      ? savedActivity.value
+      : null;
+
+  async function changeActivity(kind: OfflineActivityKind, value: boolean, target: string) {
+    if (!userId) {
+      if (kind !== 'progress') requestSignIn(kind === 'like' ? 'like topics' : 'save bookmarks');
+      return;
+    }
+    if (
+      !accountActivity ||
+      target !== topicId ||
+      (kind !== 'progress' && (!accountReady || !currentSaved))
+    ) {
+      setMessage('Connect to set up your saved account activity on this device.');
+      return;
+    }
+    const key = `${kind}:${target}`;
+    if (pendingRef.current.has(key)) return;
+    pendingRef.current.add(key);
+    setPendingActions(new Set(pendingRef.current));
+    setMessage('');
+    try {
+      await accountActivity.set(target, kind, value);
+      setSavedActivity((previous) => {
+        if (!previous || previous.userId !== userId || previous.topicId !== target) return previous;
+        const key = kind === 'like' ? 'liked' : kind === 'bookmark' ? 'bookmarked' : 'completed';
+        return { ...previous, value: { ...previous.value, [key]: value } };
+      });
+    } catch (cause) {
+      console.error(`Unable to save ${kind}:`, cause);
+      setMessage('Unable to save your change on this device. Please try again.');
+    } finally {
+      pendingRef.current.delete(key);
+      setPendingActions(new Set(pendingRef.current));
+    }
+  }
 
   async function shareTopic() {
     setShareMessage(null);
@@ -189,36 +285,64 @@ function NativeViewer(props: {
             : "You're offline. Like and comment counts may not be accurate until you reconnect."}
         </p>
       )}
+      {userId && !accountReady && (
+        <p role="status" className="text-text-secondary px-6 text-xs">
+          {navigation.activityStatus?.userId === userId && navigation.activityStatus.error
+            ? navigation.activityStatus.error
+            : 'Connect to set up your saved account activity on this device.'}
+          {!accountActivity &&
+            navigation.activityStatus?.userId === userId &&
+            navigation.activityStatus.error && (
+              <>
+                {' '}
+                <button type="button" className="underline" onClick={navigation.retryActivitySetup}>
+                  Retry
+                </button>
+              </>
+            )}
+        </p>
+      )}
+      {accountReady && navigation.activityStatus?.error && (
+        <p role="status" className="text-text-secondary px-6 text-xs">
+          {navigation.activityStatus.error}
+        </p>
+      )}
       <div className="min-h-0 flex-1">
         <TopicSwipeViewer
           {...props}
           active={navigation.feedActive}
-          userId={null}
+          userId={userId}
           currentActivity={
-            currentCounts
+            !userId || currentSaved
               ? {
                   topicId,
-                  userId: null,
-                  likes: currentCounts.value.likes,
-                  comments: currentCounts.value.comments,
-                  liked: false,
-                  bookmarked: false,
-                  completed: false,
+                  userId,
+                  likes: currentCounts?.value.likes ?? null,
+                  comments: currentCounts?.value.comments ?? null,
+                  liked: currentSaved?.liked ?? false,
+                  bookmarked: currentSaved?.bookmarked ?? false,
+                  completed: currentSaved?.completed ?? false,
                 }
               : null
           }
-          currentActivityError={false}
+          currentActivityError={Boolean(userId && accountReady && activityError)}
           actionError={[message, countError].filter(Boolean).join(' ')}
-          pendingActions={new Set()}
-          retryActivity={() => setMessage('')}
-          onLike={() => setMessage('Account activity is not available in this preview yet.')}
-          onDoubleTapLike={() =>
-            setMessage('Account activity is not available in this preview yet.')
-          }
-          onBookmark={() => setMessage('Account activity is not available in this preview yet.')}
+          pendingActions={pendingActions}
+          retryActivity={() => {
+            setMessage('');
+            setRefresh((version) => version + 1);
+            accountActivity?.requestSync();
+          }}
+          onLike={() => void changeActivity('like', !currentSaved?.liked, topicId)}
+          onDoubleTapLike={() => void changeActivity('like', true, topicId)}
+          onBookmark={() => void changeActivity('bookmark', !currentSaved?.bookmarked, topicId)}
           onComments={() => navigation.open(props.topics[props.topicIndex])}
           onShare={() => void shareTopic()}
-          onComplete={() => {}}
+          onComplete={(target) => {
+            if (userId && !currentSaved?.completed) {
+              void changeActivity('progress', true, target);
+            }
+          }}
         />
       </div>
     </div>
@@ -230,6 +354,9 @@ function NativeTopicPage({
   cache,
   noteCache,
   userId,
+  activity,
+  activityStatus,
+  activityVersion,
   slug,
   showComments,
 }: {
@@ -237,6 +364,9 @@ function NativeTopicPage({
   cache: OfflineCommentCache;
   noteCache: NativeNoteCache;
   userId: string | null;
+  activity: NativeActivity | null;
+  activityStatus: NativeActivityStatus | null;
+  activityVersion: number;
   slug: string;
   showComments: boolean;
 }) {
@@ -299,12 +429,16 @@ function NativeTopicPage({
       {topic && (
         <>
           <TopicArticleHeader topic={topic} />
-          <p className="text-text-secondary">
-            Account features are not available in this preview yet.
-          </p>
+          <NativeTopicActions
+            topic={topic}
+            userId={userId}
+            activity={activity}
+            status={activityStatus}
+            version={activityVersion}
+          />
           <TopicArticle topic={topic} />
           <NativeNotes userId={userId} topicId={String(topic.id)} cache={noteCache} />
-          <CommentSection topicId={String(topic.id)} cache={cache} />
+          <CommentSection topicId={String(topic.id)} cache={cache} serverActionsAvailable={false} />
         </>
       )}
     </div>
@@ -324,6 +458,10 @@ function App() {
   const [authStatus, setAuthStatus] = useState<'loading' | 'ready' | 'unavailable'>('loading');
   const [checkingAccount, setCheckingAccount] = useState(true);
   const [user, setUser] = useState<CachedIdentity | null>(null);
+  const [activity, setActivity] = useState<NativeActivity | null>(null);
+  const [activityStatus, setActivityStatus] = useState<NativeActivityStatus | null>(null);
+  const [activityVersion, setActivityVersion] = useState(0);
+  const [activityAttempt, setActivityAttempt] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -425,6 +563,59 @@ function App() {
   }, []);
 
   useEffect(() => {
+    if (!user?.id || authStatus !== 'ready') return;
+    const userId = user.id;
+    let active = true;
+    let service: NativeActivity | undefined;
+    const request = () => service?.requestSync();
+    const resume = () => {
+      if (document.visibilityState === 'visible') request();
+    };
+    async function startActivity() {
+      try {
+        const store = await openPrivateActivity();
+        if (!active) return;
+        service = new NativeActivity(
+          userId,
+          store,
+          new SupabaseActivityTransport(createClient()),
+          (status) => {
+            if (active) {
+              setActivityStatus(status);
+              setActivityVersion((version) => version + 1);
+            }
+          },
+          () => navigator.onLine
+        );
+        window.addEventListener('online', request);
+        window.addEventListener('focus', request);
+        document.addEventListener('visibilitychange', resume);
+        await service.start();
+        if (!active) return;
+        setActivity(service);
+      } catch (cause) {
+        console.error('Unable to open saved account activity:', cause);
+        if (active) {
+          setActivityStatus({
+            userId,
+            ready: false,
+            error: 'Saved account activity could not be opened on this device.',
+          });
+        }
+      }
+    }
+    void startActivity();
+    return () => {
+      active = false;
+      window.removeEventListener('online', request);
+      window.removeEventListener('focus', request);
+      document.removeEventListener('visibilitychange', resume);
+      service?.dispose();
+      setActivity((previous) => (previous === service ? null : previous));
+    };
+  }, [user?.id, authStatus, activityAttempt]);
+
+  useEffect(() => {
     function navigate(event: Event) {
       const target =
         event instanceof CustomEvent && typeof event.detail === 'string' ? event.detail : '';
@@ -467,6 +658,11 @@ function App() {
             feedActive: route?.kind === 'feed',
             open: (topic) => openRoute(`/topic/${encodeURIComponent(topic.slug)}#comments`),
             counts: countCache,
+            userId: user?.id ?? null,
+            activity: activity?.userId === user?.id ? activity : null,
+            activityStatus,
+            activityVersion,
+            retryActivitySetup: () => setActivityAttempt((attempt) => attempt + 1),
           }}
         >
           <NativeNavbar pathname={route?.pathname ?? '/'} signedIn={Boolean(user)} />
@@ -501,7 +697,7 @@ function App() {
                   nextCursor={firstPage.nextCursor}
                   personalized={false}
                   loadPage={loadPage}
-                  userId={null}
+                  userId={user?.id ?? null}
                   viewer={NativeViewer}
                 />
               </div>
@@ -520,12 +716,47 @@ function App() {
               />
             )}
             {catalogue && route?.kind === 'categories' && <CategoriesPage catalogue={catalogue} />}
+            {route?.kind === 'learn' && <LearnContent />}
             {route?.kind === 'account' && (
               <NativeAccount
                 user={user}
                 checking={authStatus === 'loading' || checkingAccount}
                 available={authStatus !== 'unavailable'}
                 onSignedIn={() => openRoute('/account')}
+                activity={activity?.userId === user?.id ? activity : null}
+                activityStatus={activityStatus}
+                onRetryActivity={() => setActivityAttempt((attempt) => attempt + 1)}
+              />
+            )}
+            {route?.kind === 'signup' &&
+              (authStatus === 'loading' || checkingAccount ? (
+                <p className="container py-12">Loading account…</p>
+              ) : authStatus === 'unavailable' ? (
+                <p role="alert" className="container py-12">
+                  Account creation is unavailable. Check your connection and try again.
+                </p>
+              ) : user ? (
+                <div className="container py-12">
+                  <p>You are already signed in.</p>
+                  <button
+                    type="button"
+                    className="text-accent mt-4 underline"
+                    onClick={() => openRoute('/account')}
+                  >
+                    Go to account
+                  </button>
+                </div>
+              ) : (
+                <NativeSignup onSignedUp={() => openRoute('/account')} />
+              ))}
+            {catalogue && route?.kind === 'bookmarks' && (
+              <NativeBookmarks
+                key={user?.id ?? 'signed-out'}
+                catalogue={catalogue}
+                userId={user?.id ?? null}
+                activity={activity?.userId === user?.id ? activity : null}
+                status={activityStatus}
+                version={activityVersion}
               />
             )}
             {catalogue && route?.kind === 'category' && (
@@ -538,6 +769,9 @@ function App() {
                 cache={commentCache}
                 noteCache={noteCache}
                 userId={user?.id ?? null}
+                activity={activity?.userId === user?.id ? activity : null}
+                activityStatus={activityStatus}
+                activityVersion={activityVersion}
                 slug={route.slug}
                 showComments={route.comments}
               />

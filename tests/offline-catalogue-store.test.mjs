@@ -100,3 +100,21 @@ test('opens a topic or category by slug without loading the entire catalogue', a
     db.close();
   }
 });
+
+test('loads saved topic IDs in order while allowing missing catalogue items', async () => {
+  const { db, catalogue } = fixture();
+  try {
+    assert.deepEqual(
+      (await catalogue.topicsByIds(['topic-055', 'missing', 'topic-001'])).map((topic) => topic.id),
+      ['topic-055', 'topic-001']
+    );
+    assert.deepEqual(await catalogue.topicsByIds([]), []);
+    await assert.rejects(catalogue.topicsByIds(['topic-001', 'topic-001']), /Invalid/);
+    await assert.rejects(
+      catalogue.topicsByIds(Array.from({ length: 51 }, (_, i) => String(i))),
+      /Invalid/
+    );
+  } finally {
+    db.close();
+  }
+});

@@ -16,6 +16,16 @@ const compiled = ts.transpileModule(source, {
 const { OfflineActivityStore } = await import(
   `data:text/javascript;base64,${Buffer.from(compiled).toString('base64')}`
 );
+const migrationSource = await readFile(
+  new URL('../src/lib/offline/activity-migration.ts', import.meta.url),
+  'utf8'
+);
+const migrationCompiled = ts.transpileModule(migrationSource, {
+  compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
+}).outputText;
+const { migrateLegacyActivity } = await import(
+  `data:text/javascript;base64,${Buffer.from(migrationCompiled).toString('base64')}`
+);
 const syncSource = await readFile(
   new URL('../src/lib/offline/activity-sync.ts', import.meta.url),
   'utf8'
@@ -56,10 +66,23 @@ const transportCompiled = ts.transpileModule(transportSource, {
 const { SupabaseActivityTransport } = await import(
   `data:text/javascript;base64,${Buffer.from(transportCompiled).toString('base64')}`
 );
+const nativeActivitySource = await readFile(
+  new URL('../native/activity.ts', import.meta.url),
+  'utf8'
+);
+const moduleUrl = (code) => `data:text/javascript;base64,${Buffer.from(code).toString('base64')}`;
+const nativeActivityCompiled = ts
+  .transpileModule(nativeActivitySource, {
+    compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
+  })
+  .outputText.replace("'@/lib/offline/activity-bootstrap'", `'${moduleUrl(bootstrapCompiled)}'`)
+  .replace("'@/lib/offline/activity-background-sync'", `'${moduleUrl(backgroundCompiled)}'`)
+  .replace("'@/lib/offline/activity-sync'", `'${moduleUrl(syncCompiled)}'`);
+const { NativeActivity } = await import(moduleUrl(nativeActivityCompiled));
 
 async function waitFor(predicate) {
   for (let attempt = 0; attempt < 100; attempt++) {
-    if (predicate()) return;
+    if (await predicate()) return;
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
   throw new Error('Timed out waiting for background synchronization.');
@@ -110,6 +133,325 @@ async function bootstrap(store, userId = 'alice') {
   await store.beginBootstrap(userId, 'snapshot', '0');
   await store.completeBootstrap(userId, 'snapshot');
 }
+
+test('native account activity bootstraps, queues offline edits and synchronizes on reconnect', async () => {
+  const db = new DatabaseSync(':memory:');
+  const store = new OfflineActivityStore(adapter(db));
+  const events = [];
+  const statuses = [];
+  let online = false;
+  const transport = {
+    async head(userId) {
+      return { userId, revision: String(events.length) };
+    },
+    async snapshot(userId) {
+      return {
+        userId,
+        items: [{ topicId: 'website-topic', kind: 'bookmark', completedAt: null }],
+        nextCursor: null,
+      };
+    },
+    async changes(userId, cursor) {
+      return { userId, changes: events.slice(Number(cursor)), hasMore: false };
+    },
+    async send(operation) {
+      assert.equal(operation.userId, 'alice');
+      const revision = String(events.length + 1);
+      events.push({
+        topicId: operation.topicId,
+        kind: operation.kind,
+        value: operation.value,
+        completedAt: operation.completedAt,
+        revision,
+      });
+      return {
+        userId: operation.userId,
+        operationId: operation.operationId,
+        value: operation.value,
+        completedAt: operation.completedAt,
+        revision,
+      };
+    },
+  };
+  let service;
+  try {
+    await store.initialize();
+    service = new NativeActivity(
+      'alice',
+      store,
+      transport,
+      (status) => statuses.push(status),
+      () => online
+    );
+    await service.start();
+    assert.equal(statuses.at(-1).ready, false);
+    await assert.rejects(service.set('topic', 'like', true), /not ready/);
+    await service.set('early-topic', 'progress', true);
+    assert.equal(await store.pendingCount('alice'), 1);
+    online = true;
+    service.requestSync();
+    await waitFor(() => statuses.at(-1)?.ready === true);
+    assert.equal((await store.topicActivity('alice', 'website-topic')).bookmarked, true);
+    await waitFor(async () => (await store.pendingCount('alice')) === 0);
+    online = false;
+    await service.set('topic', 'like', true);
+    await service.set('topic', 'progress', true);
+    assert.equal(await store.pendingCount('alice'), 2);
+    await assert.rejects(
+      service.signOut(async () => assert.fail('must not sign out')),
+      /need to sync/
+    );
+    online = true;
+    service.requestSync();
+    await waitFor(() => events.length === 3);
+    await waitFor(
+      async () => (await store.pendingCount('alice')) === 0 && (await store.cursor('alice')) === '3'
+    );
+    assert.equal(await store.pendingCount('alice'), 0);
+    assert.deepEqual(
+      events.map((event) => event.kind),
+      ['progress', 'like', 'progress']
+    );
+    assert.equal((await store.topicActivity('alice', 'topic')).completed, true);
+    let signedOut = false;
+    await service.signOut(async () => {
+      signedOut = true;
+    });
+    assert.equal(signedOut, true);
+  } finally {
+    service?.dispose();
+    db.close();
+  }
+});
+
+test('native sign-out waits for an in-flight local write and refuses new edits', async () => {
+  const db = new DatabaseSync(':memory:');
+  const store = new OfflineActivityStore(adapter(db));
+  let release;
+  const gate = new Promise((resolve) => {
+    release = resolve;
+  });
+  let service;
+  try {
+    await store.initialize();
+    await bootstrap(store);
+    const originalSet = store.setActivity.bind(store);
+    store.setActivity = async (...args) => {
+      await gate;
+      return originalSet(...args);
+    };
+    service = new NativeActivity(
+      'alice',
+      store,
+      {},
+      () => {},
+      () => false
+    );
+    await service.start();
+    const write = service.set('topic', 'like', true);
+    const signOut = service.signOut(async () => assert.fail('must not sign out'));
+    await assert.rejects(service.set('other', 'bookmark', true), /not ready/);
+    release();
+    await write;
+    await assert.rejects(signOut, /need to sync/);
+    assert.equal(await store.pendingCount('alice'), 1);
+  } finally {
+    service?.dispose();
+    db.close();
+  }
+});
+
+test('sign-out waits while a completion checks existing progress', async () => {
+  const db = new DatabaseSync(':memory:');
+  const store = new OfflineActivityStore(adapter(db));
+  let release;
+  const gate = new Promise((resolve) => {
+    release = resolve;
+  });
+  let service;
+  try {
+    await store.initialize();
+    await bootstrap(store);
+    const originalGet = store.getActivity.bind(store);
+    store.getActivity = async (...args) => {
+      await gate;
+      return originalGet(...args);
+    };
+    service = new NativeActivity(
+      'alice',
+      store,
+      {},
+      () => {},
+      () => false
+    );
+    await service.start();
+    const write = service.set('topic', 'progress', true);
+    const signOut = service.signOut(async () => assert.fail('must not sign out'));
+    release();
+    await write;
+    await assert.rejects(signOut, /need to sync/);
+    assert.equal((await store.nextOperation('alice')).kind, 'progress');
+  } finally {
+    service?.dispose();
+    db.close();
+  }
+});
+
+test('disposing native activity aborts a first-time bootstrap', async () => {
+  const db = new DatabaseSync(':memory:');
+  const store = new OfflineActivityStore(adapter(db));
+  let observedSignal;
+  const transport = {
+    head(_userId, signal) {
+      observedSignal = signal;
+      return new Promise((_resolve, reject) => {
+        signal.addEventListener('abort', () => reject(signal.reason), { once: true });
+      });
+    },
+  };
+  let service;
+  try {
+    await store.initialize();
+    service = new NativeActivity(
+      'alice',
+      store,
+      transport,
+      () => {},
+      () => true
+    );
+    await service.start();
+    await waitFor(() => Boolean(observedSignal));
+    service.dispose();
+    assert.equal(observedSignal.aborted, true);
+    assert.equal(await store.isBootstrapped('alice'), false);
+  } finally {
+    service?.dispose();
+    db.close();
+  }
+});
+
+test('copies legacy account state and queued operations once without removing the originals', async () => {
+  const legacyDb = new DatabaseSync(':memory:');
+  const privateDb = new DatabaseSync(':memory:');
+  const legacy = adapter(legacyDb);
+  const privateDatabase = adapter(privateDb);
+  const source = new OfflineActivityStore(legacy);
+  const destination = new OfflineActivityStore(privateDatabase);
+  try {
+    await source.initialize();
+    await destination.initialize();
+    await bootstrap(source);
+    await source.setActivity('alice', 'topic', 'like', true, 'first');
+    await source.setActivity('bob', 'other', 'bookmark', true, 'second');
+    await source.setActivity('alice', 'topic', 'progress', true, 'third');
+    await source.applyChanges('alice', [
+      { topicId: 'server-topic', kind: 'like', value: true, revision: '1', completedAt: null },
+    ]);
+    await source.beginBootstrap('bob', 'unfinished', '0');
+    await source.stageBootstrap('bob', 'unfinished', [
+      { topicId: 'staged-topic', kind: 'bookmark', completedAt: null },
+    ]);
+    legacyDb.exec(
+      "UPDATE offline_activity_outbox SET completed_at = NULL WHERE operation_id = 'third'"
+    );
+    await migrateLegacyActivity(legacy, privateDatabase);
+    await migrateLegacyActivity(legacy, privateDatabase);
+    for (const table of [
+      'offline_activity',
+      'offline_activity_outbox',
+      'offline_activity_server',
+      'offline_activity_cursor',
+      'offline_activity_bootstrap',
+      'offline_activity_bootstrap_items',
+    ]) {
+      assert.deepEqual(
+        privateDb.prepare(`SELECT * FROM ${table} ORDER BY rowid`).all(),
+        legacyDb.prepare(`SELECT * FROM ${table} ORDER BY rowid`).all()
+      );
+    }
+    assert.equal(await destination.pendingCount('alice'), 2);
+    assert.equal(await destination.pendingCount('bob'), 1);
+    assert.equal((await destination.nextOperation('alice')).operationId, 'first');
+    assert.equal(await destination.cursor('alice'), '1');
+    assert.equal(
+      legacyDb.prepare('SELECT count(*) AS count FROM offline_activity_outbox').get().count,
+      3
+    );
+  } finally {
+    legacyDb.close();
+    privateDb.close();
+  }
+});
+
+test('copies more than one page and rejects unexpected legacy columns', async () => {
+  const legacyDb = new DatabaseSync(':memory:');
+  const privateDb = new DatabaseSync(':memory:');
+  const legacy = adapter(legacyDb);
+  const privateDatabase = adapter(privateDb);
+  try {
+    await new OfflineActivityStore(legacy).initialize();
+    await new OfflineActivityStore(privateDatabase).initialize();
+    const insert = legacyDb.prepare(
+      'INSERT INTO offline_activity (user_id, topic_id, kind, value) VALUES (?, ?, ?, ?)'
+    );
+    for (let index = 0; index < 251; index++) insert.run('alice', `topic-${index}`, 'like', 1);
+    legacyDb.exec('ALTER TABLE offline_activity ADD COLUMN unexpected TEXT');
+    await assert.rejects(
+      migrateLegacyActivity(legacy, privateDatabase),
+      /Unexpected legacy activity schema/
+    );
+    assert.equal(
+      privateDb.prepare('SELECT count(*) AS count FROM offline_activity').get().count,
+      0
+    );
+    legacyDb.exec('ALTER TABLE offline_activity DROP COLUMN unexpected');
+    await migrateLegacyActivity(legacy, privateDatabase);
+    assert.equal(
+      privateDb.prepare('SELECT count(*) AS count FROM offline_activity').get().count,
+      251
+    );
+  } finally {
+    legacyDb.close();
+    privateDb.close();
+  }
+});
+
+test('rolls back interrupted migration and refuses to overwrite private activity', async () => {
+  const legacyDb = new DatabaseSync(':memory:');
+  const privateDb = new DatabaseSync(':memory:');
+  const legacy = adapter(legacyDb);
+  const privateDatabase = adapter(privateDb);
+  const source = new OfflineActivityStore(legacy);
+  const destination = new OfflineActivityStore(privateDatabase);
+  try {
+    await source.initialize();
+    await destination.initialize();
+    await source.setActivity('alice', 'topic', 'like', true, 'first');
+    privateDb.exec(`
+      CREATE TRIGGER reject_copy BEFORE INSERT ON offline_activity_outbox
+      BEGIN SELECT RAISE(ABORT, 'copy interrupted'); END
+    `);
+    await assert.rejects(migrateLegacyActivity(legacy, privateDatabase), /copy interrupted/);
+    assert.equal(
+      privateDb.prepare('SELECT count(*) AS count FROM offline_activity').get().count,
+      0
+    );
+    assert.equal(await source.pendingCount('alice'), 1);
+    privateDb.exec('DROP TRIGGER reject_copy');
+    await destination.setActivity('bob', 'topic', 'like', true, 'existing');
+    await assert.rejects(
+      migrateLegacyActivity(legacy, privateDatabase),
+      /without a migration marker/
+    );
+    assert.equal(await destination.pendingCount('bob'), 1);
+    privateDb.exec('DELETE FROM offline_activity_outbox; DELETE FROM offline_activity');
+    await migrateLegacyActivity(legacy, privateDatabase);
+    assert.equal(await destination.pendingCount('alice'), 1);
+  } finally {
+    legacyDb.close();
+    privateDb.close();
+  }
+});
 
 test('persists account-scoped activity and ordered operations across restarts', async (t) => {
   const file = await databaseFile(t);

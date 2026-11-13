@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import type { CachedIdentity } from './cached-identity';
 import { SigninForm } from '@/components/auth/SigninForm';
 import { Button } from '@/components/ui/Button';
-import { OfflineActivityStore } from '@/lib/offline/activity-store';
-import { openNativeDatabases } from '@/lib/offline/native-database';
+import type { NativeActivity, NativeActivityStatus } from './activity';
+import { NativeProfileSetup } from './profile-setup';
 import { createClient } from './supabase';
 
 export function NativeAccount({
@@ -11,11 +11,17 @@ export function NativeAccount({
   checking,
   available,
   onSignedIn,
+  activity,
+  activityStatus,
+  onRetryActivity,
 }: {
   user: CachedIdentity | null;
   checking: boolean;
   available: boolean;
   onSignedIn: () => void;
+  activity: NativeActivity | null;
+  activityStatus: NativeActivityStatus | null;
+  onRetryActivity: () => void;
 }) {
   const [online, setOnline] = useState(navigator.onLine);
   const [busy, setBusy] = useState(false);
@@ -39,18 +45,20 @@ export function NativeAccount({
     setBusy(true);
     setError('');
     try {
-      const databases = await openNativeDatabases();
-      const activity = new OfflineActivityStore(databases.activity);
-      await activity.initialize();
-      if ((await activity.pendingCount(user.id)) > 0) {
-        setError('Your saved changes need to sync before you can sign out.');
-        return;
+      if (!activity || activity.userId !== user.id) {
+        throw new Error('Account storage is unavailable. Please try again.');
       }
-      const { error: signOutError } = await createClient().auth.signOut({ scope: 'local' });
-      if (signOutError) throw signOutError;
+      await activity.signOut(async () => {
+        const { error: signOutError } = await createClient().auth.signOut({ scope: 'local' });
+        if (signOutError) throw signOutError;
+      });
     } catch (cause) {
       console.error('Unable to sign out:', cause);
-      setError('Unable to sign out. Please try again.');
+      setError(
+        cause instanceof Error && cause.message.startsWith('Your saved changes')
+          ? cause.message
+          : 'Unable to sign out. Please try again.'
+      );
     } finally {
       setBusy(false);
     }
@@ -69,8 +77,7 @@ export function NativeAccount({
     return online ? (
       <SigninForm
         onSignedIn={onSignedIn}
-        description="Sign in to use your account for online discussion. Bookmarks and progress are not yet available in this preview."
-        allowSignup={false}
+        description="Sign in to keep your bookmarks and learning progress linked to your account."
       />
     ) : (
       <p role="status" className="container py-12">
@@ -82,20 +89,36 @@ export function NativeAccount({
     <div className="container py-12">
       <h1 className="mt-8 text-5xl font-extrabold">Account</h1>
       <p className="text-text-secondary mt-4">{user.email ?? 'Signed in'}</p>
+      <NativeProfileSetup key={user.id} userId={user.id} />
       {!online && (
         <p role="status" className="text-text-secondary mt-4">
           You&apos;re offline. Your saved account is available on this device.
         </p>
       )}
-      <p className="text-text-secondary mt-4">
-        Bookmarks and progress are not yet available in this preview.
-      </p>
+      {activityStatus?.userId === user.id && activityStatus.error && (
+        <p role="status" className="text-text-secondary mt-4">
+          {activityStatus.error}
+          {!activity && (
+            <>
+              {' '}
+              <button type="button" className="text-accent underline" onClick={onRetryActivity}>
+                Retry
+              </button>
+            </>
+          )}
+        </p>
+      )}
+      {(activityStatus?.userId !== user.id || !activityStatus.ready) && (
+        <p role="status" className="text-text-secondary mt-4">
+          Connect to set up your saved account activity on this device.
+        </p>
+      )}
       {error && (
         <p role="alert" className="mt-4">
           {error}
         </p>
       )}
-      <Button className="mt-6" onClick={() => void signOut()} disabled={busy}>
+      <Button className="mt-6" onClick={() => void signOut()} disabled={busy || !activity}>
         {busy ? 'Signing out…' : 'Sign out'}
       </Button>
     </div>
