@@ -26,6 +26,24 @@ const syncCompiled = ts.transpileModule(syncSource, {
 const { OfflineActivitySync } = await import(
   `data:text/javascript;base64,${Buffer.from(syncCompiled).toString('base64')}`
 );
+const backgroundSource = await readFile(
+  new URL('../src/lib/offline/activity-background-sync.ts', import.meta.url),
+  'utf8'
+);
+const backgroundCompiled = ts.transpileModule(backgroundSource, {
+  compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
+}).outputText;
+const { BackgroundActivitySync } = await import(
+  `data:text/javascript;base64,${Buffer.from(backgroundCompiled).toString('base64')}`
+);
+
+async function waitFor(predicate) {
+  for (let attempt = 0; attempt < 100; attempt++) {
+    if (predicate()) return;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  throw new Error('Timed out waiting for background synchronization.');
+}
 
 function adapter(db) {
   let tail = Promise.resolve();
@@ -87,9 +105,9 @@ test('persists account-scoped activity and ordered operations across restarts', 
     assert.equal(await store.getActivity('alice', 'other', 'bookmark'), null);
     assert.equal((await store.nextOperation('alice')).operationId, 'operation-1');
     assert.equal((await store.nextOperation('bob')).operationId, 'operation-2');
-    await assert.rejects(store.acknowledge('alice', 'operation-3'), /first pending/);
-    await assert.rejects(store.acknowledge('bob', 'operation-1'), /first pending/);
-    await store.acknowledge('alice', 'operation-1');
+    await assert.rejects(store.acknowledge('alice', 'operation-3', '1', false), /first pending/);
+    await assert.rejects(store.acknowledge('bob', 'operation-1', '1', true), /first pending/);
+    await store.acknowledge('alice', 'operation-1', '1', true);
     assert.equal((await store.nextOperation('alice')).operationId, 'operation-3');
     assert.equal((await store.nextOperation('bob')).operationId, 'operation-2');
   } finally {
@@ -129,7 +147,12 @@ test('retries the same operation after a lost response and preserves account ord
         lostResponse = false;
         throw new Error('Connection lost');
       }
-      return { operationId: operation.operationId, userId: operation.userId };
+      return {
+        operationId: operation.operationId,
+        userId: operation.userId,
+        revision: operation.operationId === 'first' ? '1' : '2',
+        value: operation.value,
+      };
     });
 
     await assert.rejects(sync.push('alice'), /Connection lost/);
@@ -156,7 +179,7 @@ test('does not acknowledge a mismatched receipt or run concurrent pushes', async
     });
     const sync = new OfflineActivitySync(store, async () => {
       await wait;
-      return { operationId: 'first', userId: 'bob' };
+      return { operationId: 'first', userId: 'bob', revision: '1', value: true };
     });
     const running = sync.push('alice');
     await assert.rejects(sync.push('bob'), /already running/);
@@ -165,5 +188,284 @@ test('does not acknowledge a mismatched receipt or run concurrent pushes', async
     assert.equal((await store.nextOperation('alice')).operationId, 'first');
   } finally {
     db.close();
+  }
+});
+
+test('preserves pending edits and newer server changes across delayed receipts', async (t) => {
+  const file = await databaseFile(t);
+  const db = new DatabaseSync(file);
+  const store = new OfflineActivityStore(adapter(db));
+  try {
+    await store.initialize();
+    await store.setActivity('alice', 'topic', 'bookmark', true, 'first');
+    await store.applyChanges('alice', [
+      { topicId: 'topic', kind: 'bookmark', value: true, revision: '1' },
+      { topicId: 'topic', kind: 'bookmark', value: false, revision: '2' },
+    ]);
+    assert.equal(await store.getActivity('alice', 'topic', 'bookmark'), true);
+    await store.acknowledge('alice', 'first', '1', true);
+    assert.equal(await store.getActivity('alice', 'topic', 'bookmark'), false);
+    assert.equal(await store.cursor('alice'), '2');
+  } finally {
+    db.close();
+  }
+});
+
+test('rejects gaps and rolls back both activity and cursor changes', async (t) => {
+  const file = await databaseFile(t);
+  const db = new DatabaseSync(file);
+  const store = new OfflineActivityStore(adapter(db));
+  try {
+    await store.initialize();
+    await assert.rejects(
+      store.applyChanges('alice', [
+        { topicId: 'topic', kind: 'like', value: true, revision: '1' },
+        { topicId: 'topic', kind: 'like', value: false, revision: '3' },
+      ]),
+      /incomplete/
+    );
+    assert.equal(await store.cursor('alice'), '0');
+    assert.equal(await store.getActivity('alice', 'topic', 'like'), null);
+  } finally {
+    db.close();
+  }
+});
+
+test('pulls bounded account-specific pages and resumes from the committed cursor', async (t) => {
+  const file = await databaseFile(t);
+  const db = new DatabaseSync(file);
+  const store = new OfflineActivityStore(adapter(db));
+  try {
+    await store.initialize();
+    const sync = new OfflineActivitySync(store, async () => {
+      throw new Error('Not used');
+    });
+    const requested = [];
+    const fetch = async (userId, cursor) => {
+      requested.push([userId, cursor]);
+      return {
+        userId,
+        changes: [
+          {
+            topicId: 'topic',
+            kind: 'like',
+            value: cursor === '0',
+            revision: cursor === '0' ? '1' : '2',
+          },
+        ],
+        hasMore: cursor === '0',
+      };
+    };
+    assert.equal(await sync.pull('alice', fetch, 1), 1);
+    assert.equal(await store.cursor('alice'), '1');
+    assert.equal(await sync.pull('alice', fetch), 1);
+    assert.deepEqual(requested, [
+      ['alice', '0'],
+      ['alice', '1'],
+    ]);
+    assert.equal(await store.getActivity('alice', 'topic', 'like'), false);
+    assert.equal(await store.getActivity('bob', 'topic', 'like'), null);
+  } finally {
+    db.close();
+  }
+});
+
+test('rejects pages for another account without advancing the cursor', async (t) => {
+  const file = await databaseFile(t);
+  const db = new DatabaseSync(file);
+  const store = new OfflineActivityStore(adapter(db));
+  try {
+    await store.initialize();
+    const sync = new OfflineActivitySync(store, async () => {
+      throw new Error('Not used');
+    });
+    await assert.rejects(
+      sync.pull('alice', async () => ({
+        userId: 'bob',
+        changes: [{ topicId: 'topic', kind: 'like', value: true, revision: '1' }],
+        hasMore: false,
+      })),
+      /invalid offline activity page/
+    );
+    assert.equal(await store.cursor('alice'), '0');
+    assert.equal(await store.getActivity('alice', 'topic', 'like'), null);
+  } finally {
+    db.close();
+  }
+});
+
+test('bootstraps existing activity atomically while preserving pending edits', async (t) => {
+  const file = await databaseFile(t);
+  const db = new DatabaseSync(file);
+  const store = new OfflineActivityStore(adapter(db));
+  try {
+    await store.initialize();
+    assert.equal(await store.isBootstrapped('alice'), false);
+    await store.setActivity('alice', 'topic-1', 'bookmark', false, 'pending');
+    await store.beginBootstrap('alice', 'snapshot-1', '12');
+    await store.stageBootstrap('alice', 'snapshot-1', [
+      { topicId: 'topic-1', kind: 'bookmark' },
+      { topicId: 'topic-2', kind: 'like' },
+    ]);
+    assert.equal(await store.getActivity('alice', 'topic-2', 'like'), null);
+    await store.completeBootstrap('alice', 'snapshot-1');
+    assert.equal(await store.isBootstrapped('alice'), true);
+    assert.equal(await store.cursor('alice'), '12');
+    assert.equal(await store.getActivity('alice', 'topic-1', 'bookmark'), false);
+    assert.equal(await store.getActivity('alice', 'topic-2', 'like'), true);
+    assert.equal((await store.nextOperation('alice')).operationId, 'pending');
+    await store.applyChanges('alice', [
+      { topicId: 'topic-2', kind: 'like', value: false, revision: '13' },
+    ]);
+    assert.equal(await store.getActivity('alice', 'topic-2', 'like'), false);
+    await assert.rejects(store.beginBootstrap('alice', 'snapshot-2', '13'), /already/);
+  } finally {
+    db.close();
+  }
+});
+
+test('distinguishes an empty initial snapshot from an uninitialized account', async (t) => {
+  const file = await databaseFile(t);
+  const db = new DatabaseSync(file);
+  const store = new OfflineActivityStore(adapter(db));
+  try {
+    await store.initialize();
+    assert.equal(await store.cursor('alice'), '0');
+    assert.equal(await store.isBootstrapped('alice'), false);
+    await store.beginBootstrap('alice', 'snapshot', '0');
+    await store.completeBootstrap('alice', 'snapshot');
+    assert.equal(await store.cursor('alice'), '0');
+    assert.equal(await store.isBootstrapped('alice'), true);
+    assert.equal(await store.isBootstrapped('bob'), false);
+  } finally {
+    db.close();
+  }
+});
+
+test('restarting an interrupted bootstrap rejects pages from the old snapshot', async (t) => {
+  const file = await databaseFile(t);
+  const db = new DatabaseSync(file);
+  const store = new OfflineActivityStore(adapter(db));
+  try {
+    await store.initialize();
+    await store.beginBootstrap('alice', 'old', '2');
+    await store.stageBootstrap('alice', 'old', [{ topicId: 'stale', kind: 'bookmark' }]);
+    await store.beginBootstrap('alice', 'new', '3');
+    await assert.rejects(store.stageBootstrap('alice', 'old', []), /replaced/);
+    await assert.rejects(store.completeBootstrap('alice', 'old'), /replaced/);
+    await store.stageBootstrap('alice', 'new', [{ topicId: 'current', kind: 'like' }]);
+    await store.completeBootstrap('alice', 'new');
+    assert.equal(await store.getActivity('alice', 'stale', 'bookmark'), null);
+    assert.equal(await store.getActivity('alice', 'current', 'like'), true);
+    assert.equal(await store.cursor('alice'), '3');
+    assert.equal(await store.getActivity('bob', 'current', 'like'), null);
+  } finally {
+    db.close();
+  }
+});
+
+test('bootstrap does not overwrite a newer acknowledged server state', async (t) => {
+  const file = await databaseFile(t);
+  const db = new DatabaseSync(file);
+  const store = new OfflineActivityStore(adapter(db));
+  try {
+    await store.initialize();
+    await store.beginBootstrap('alice', 'snapshot', '9');
+    await store.stageBootstrap('alice', 'snapshot', [{ topicId: 'topic', kind: 'like' }]);
+    await store.setActivity('alice', 'topic', 'like', false, 'pending');
+    await store.acknowledge('alice', 'pending', '10', false);
+    await store.completeBootstrap('alice', 'snapshot');
+    assert.equal(await store.getActivity('alice', 'topic', 'like'), false);
+    assert.equal(await store.cursor('alice'), '9');
+  } finally {
+    db.close();
+  }
+});
+
+test('background sync waits for connectivity and retries failed operations', async (t) => {
+  const file = await databaseFile(t);
+  const db = new DatabaseSync(file);
+  const store = new OfflineActivityStore(adapter(db));
+  let online = false;
+  const attempts = [];
+  const errors = [];
+  const recovered = [];
+  let background;
+  try {
+    await store.initialize();
+    await store.setActivity('alice', 'topic', 'like', true, 'operation');
+    const sync = new OfflineActivitySync(store, async (operation) => {
+      attempts.push(operation.operationId);
+      if (attempts.length === 1) throw new Error('Connection interrupted');
+      return {
+        operationId: operation.operationId,
+        userId: operation.userId,
+        revision: '1',
+        value: true,
+      };
+    });
+    background = new BackgroundActivitySync(
+      sync,
+      async (userId) => ({ userId, changes: [], hasMore: false }),
+      () => online,
+      (userId, error) => errors.push([userId, error.message]),
+      (userId) => recovered.push(userId)
+    );
+    background.setUser('alice');
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    assert.deepEqual(attempts, []);
+    online = true;
+    background.requestSync();
+    await waitFor(() => errors.length === 1);
+    assert.equal((await store.nextOperation('alice')).operationId, 'operation');
+    background.requestSync();
+    await waitFor(() => recovered.length === 1);
+    assert.deepEqual(attempts, ['operation', 'operation']);
+    assert.deepEqual(errors, [['alice', 'Connection interrupted']]);
+    assert.deepEqual(recovered, ['alice']);
+    assert.equal(await store.nextOperation('alice'), null);
+  } finally {
+    background?.dispose();
+    db.close();
+  }
+});
+
+test('background sync stops the old account before starting a different one', async () => {
+  const calls = [];
+  let release;
+  const first = new Promise((resolve) => {
+    release = resolve;
+  });
+  const engine = {
+    async push(userId) {
+      calls.push(`push:${userId}`);
+      if (userId === 'alice') await first;
+      return 0;
+    },
+    async pull(userId) {
+      calls.push(`pull:${userId}`);
+      return 0;
+    },
+  };
+  const background = new BackgroundActivitySync(
+    engine,
+    async () => {
+      throw new Error('Not used');
+    },
+    () => true,
+    () => {
+      throw new Error('Unexpected sync error');
+    },
+    () => {}
+  );
+  try {
+    background.setUser('alice');
+    await waitFor(() => calls.includes('push:alice'));
+    background.setUser('bob');
+    release();
+    await waitFor(() => calls.includes('pull:bob'));
+    assert.deepEqual(calls, ['push:alice', 'push:bob', 'pull:bob']);
+  } finally {
+    background.dispose();
   }
 });

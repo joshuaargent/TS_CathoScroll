@@ -1,0 +1,11 @@
+{
+  "name": "@cathoscroll/electron-sqlite",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "capacitor": {
+    "electron": {
+      "src": "electron"
+    }
+  }
+}
