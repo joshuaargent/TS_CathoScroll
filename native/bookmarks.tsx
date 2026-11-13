@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/Badge';
+import { BookmarksHeader, EmptyBookmarks } from '@/components/bookmarks/BookmarksSummary';
 import type { OfflineCatalogue } from '@/lib/offline/catalogue';
 import type { Topic } from '@/types';
 import type { NativeActivity, NativeActivityStatus } from './activity';
@@ -85,10 +86,9 @@ export function NativeBookmarks({
 
   return (
     <div className="container py-12">
-      <div className="mt-8 mb-12">
-        <h1 className="text-5xl font-extrabold md:text-7xl">Bookmarks</h1>
-        <p className="text-text-secondary mt-4 text-lg">Topics you&apos;ve saved for later.</p>
-      </div>
+      <BookmarksHeader
+        count={ready && !loading && !error && !cursor && !missing ? topics.length : undefined}
+      />
       {!userId ? (
         <p>
           Sign in to see your bookmarks.{' '}
@@ -131,9 +131,7 @@ export function NativeBookmarks({
               Some saved topics are not available on this device yet.
             </p>
           )}
-          {!loading && !error && !topics.length && !missing && (
-            <p>No bookmarks yet. Save topics in the feed to see them here.</p>
-          )}
+          {!loading && !error && !topics.length && !missing && <EmptyBookmarks />}
           <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
             {topics.map((topic) => (
               <Link key={topic.id} href={`/topic/${encodeURIComponent(topic.slug)}`}>

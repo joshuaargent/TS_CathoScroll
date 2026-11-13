@@ -3,6 +3,7 @@ import 'server-only';
 import { unstable_cache } from 'next/cache';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import type { ContentCategory, Topic } from '@/types';
+import { topicSearchResultFromDatabase } from '@/lib/search';
 
 export const CONTENT_CACHE_TAG = 'published-content';
 const contentCacheSeconds = 300;
@@ -369,25 +370,7 @@ export async function searchPublishedTopics(
     throw new Error(`Unable to search topics: ${error.message}`);
   }
 
-  return ((data ?? []) as DatabaseTopicSearchResult[]).map((row) => ({
-    topic: {
-      id: row.id,
-      slug: row.slug,
-      category: row.category_name,
-      question: row.question,
-      answer: row.answer,
-      explanation: row.explanation,
-      catechism: {
-        paragraphs: row.catechism_paragraphs ?? [],
-        text: row.catechism_text,
-      },
-      scripture: {
-        reference: row.scripture_reference,
-        text: row.scripture_text,
-      },
-    },
-    score: row.search_score,
-  }));
+  return ((data ?? []) as DatabaseTopicSearchResult[]).map(topicSearchResultFromDatabase);
 }
 
 export async function getPublishedTopicBySlug(slug: string): Promise<Topic | null> {

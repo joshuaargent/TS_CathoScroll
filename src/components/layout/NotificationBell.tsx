@@ -1,12 +1,10 @@
 'use client';
 
-import { Bell } from 'lucide-react';
-import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 
 import { useAuth } from '@/components/providers/AuthProvider';
-import { cn } from '@/lib/utils';
+import { NotificationBellLink } from '@/components/notifications/NotificationBellLink';
 
 interface NotificationBellProps {
   className?: string;
@@ -87,44 +85,13 @@ export function NotificationBell({
     return null;
   }
 
-  // Keep the visual count compact while exposing the exact unread total to
-  // assistive technology.
-  // AQA-style pseudocode:
-  // IF unreadCount = 0 THEN show no badge
-  // ELSE IF unreadCount >= 10 THEN show "9+"
-  // ELSE show unreadCount
-  const badgeLabel = unreadCount >= 10 ? '9+' : String(unreadCount);
-  const accessibleLabel =
-    unreadCount > 0
-      ? `Notifications, ${unreadCount} unread`
-      : hasCountError
-        ? 'Notifications, unread count unavailable'
-        : 'Notifications';
-
   return (
-    <Link
-      href="/notifications"
-      onClick={onNavigate}
-      aria-label={accessibleLabel}
-      title={accessibleLabel}
-      className={cn(
-        'text-text-primary hover:bg-bg-secondary relative inline-flex h-10 w-10 items-center justify-center rounded-lg transition-colors',
-        className
-      )}
-    >
-      <Bell className="text-text-primary h-5 w-5" aria-hidden="true" />
-      {showLabel && <span className="text-sm font-medium">Notifications</span>}
-      {unreadCount > 0 && (
-        <span
-          aria-hidden="true"
-          className={cn(
-            'bg-accent absolute -top-1 -right-1 flex min-h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] leading-none font-bold text-white',
-            showLabel && 'top-0 right-1'
-          )}
-        >
-          {badgeLabel}
-        </span>
-      )}
-    </Link>
+    <NotificationBellLink
+      unreadCount={unreadCount}
+      hasCountError={hasCountError}
+      className={className}
+      showLabel={showLabel}
+      onNavigate={onNavigate}
+    />
   );
 }

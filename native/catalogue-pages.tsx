@@ -1,14 +1,17 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { SearchInput } from '@/components/search/SearchInput';
-import { SearchResultCard } from '@/components/search/SearchResultCard';
+import { SearchResults } from '@/components/search/SearchResults';
+import { SearchSuggestions } from '@/components/search/SearchSuggestions';
 import { Badge } from '@/components/ui/Badge';
+import { topicSearchResultFromDatabase, type TopicSearchResult } from '@/lib/search';
 import {
   OfflineCatalogue,
   type CatalogueCursor,
   type CategoryCursor,
 } from '@/lib/offline/catalogue';
 import type { ContentCategory, Topic } from '@/types';
+import { createClient } from './supabase';
 
 export function CategoriesPage({ catalogue }: { catalogue: OfflineCatalogue }) {
   const [categories, setCategories] = useState<ContentCategory[]>([]);
@@ -119,15 +122,7 @@ export function CategoriesPage({ catalogue }: { catalogue: OfflineCatalogue }) {
   );
 }
 
-function TopicList({
-  catalogue,
-  category,
-  search,
-}: {
-  catalogue: OfflineCatalogue;
-  category?: string;
-  search?: string;
-}) {
+function TopicList({ catalogue, category }: { catalogue: OfflineCatalogue; category?: string }) {
   const [topics, setTopics] = useState<Topic[]>([]);
   const [cursor, setCursor] = useState<CatalogueCursor | null>(null);
   const [loading, setLoading] = useState(true);
@@ -136,7 +131,7 @@ function TopicList({
 
   useEffect(() => {
     let active = true;
-    catalogue.topics({ category, search }).then(
+    catalogue.topics({ category }).then(
       (page) => {
         if (!active) return;
         setTopics(page.topics);
@@ -154,14 +149,14 @@ function TopicList({
     return () => {
       active = false;
     };
-  }, [catalogue, category, search, attempt]);
+  }, [catalogue, category, attempt]);
 
   async function loadMore() {
     if (!cursor || loading) return;
     setLoading(true);
     setError('');
     try {
-      const page = await catalogue.topics({ category, search, cursor });
+      const page = await catalogue.topics({ category, cursor });
       setTopics((previous) => [...previous, ...page.topics]);
       setCursor(page.nextCursor);
     } catch (cause) {
@@ -202,22 +197,18 @@ function TopicList({
       {!loading && !error && !topics.length && (
         <p className="text-text-secondary mt-8">No matching topics found.</p>
       )}
-      <div className={search ? 'mt-8 space-y-4' : 'grid gap-6 md:grid-cols-2'}>
-        {topics.map((topic) =>
-          search ? (
-            <SearchResultCard key={topic.id} topic={topic} query={search} />
-          ) : (
-            <Link
-              key={topic.id}
-              href={`/topic/${encodeURIComponent(topic.slug)}`}
-              className="border-border hover:bg-accent-light/10 block rounded-2xl border p-6 transition-colors"
-            >
-              <h2 className="text-xl leading-snug font-bold">{topic.question}</h2>
-              <p className="text-text-secondary mt-4 leading-relaxed">{topic.answer}</p>
-              <div className="text-accent mt-6 text-sm font-medium">Study Topic →</div>
-            </Link>
-          )
-        )}
+      <div className="grid gap-6 md:grid-cols-2">
+        {topics.map((topic) => (
+          <Link
+            key={topic.id}
+            href={`/topic/${encodeURIComponent(topic.slug)}`}
+            className="border-border hover:bg-accent-light/10 block rounded-2xl border p-6 transition-colors"
+          >
+            <h2 className="text-xl leading-snug font-bold">{topic.question}</h2>
+            <p className="text-text-secondary mt-4 leading-relaxed">{topic.answer}</p>
+            <div className="text-accent mt-6 text-sm font-medium">Study Topic →</div>
+          </Link>
+        ))}
       </div>
       {cursor && !error && (
         <button
@@ -319,10 +310,75 @@ export function SearchPage({
   onQueryChange: (value: string) => void;
 }) {
   const [debounced, setDebounced] = useState(query.trim().slice(0, 120));
+  const [results, setResults] = useState<TopicSearchResult[]>([]);
+  const [resultQuery, setResultQuery] = useState('');
+  const [warning, setWarning] = useState('');
+  const [error, setError] = useState('');
+  const [connectionVersion, setConnectionVersion] = useState(0);
   useEffect(() => {
     const timer = setTimeout(() => setDebounced(query.trim().slice(0, 120)), 200);
     return () => clearTimeout(timer);
   }, [query]);
+  useEffect(() => {
+    const retry = () => setConnectionVersion((value) => value + 1);
+    window.addEventListener('online', retry);
+    window.addEventListener('offline', retry);
+    return () => {
+      window.removeEventListener('online', retry);
+      window.removeEventListener('offline', retry);
+    };
+  }, []);
+  useEffect(() => {
+    if (!debounced) return;
+    let active = true;
+    const controller = new AbortController();
+    async function search() {
+      if (navigator.onLine) {
+        try {
+          const { data, error: searchError } = await createClient()
+            .rpc('search_published_topics', { search_query: debounced, result_limit: 30 })
+            .abortSignal(controller.signal);
+          if (searchError) throw searchError;
+          if (!Array.isArray(data)) throw new Error('Invalid search response.');
+          const onlineResults = data.map(topicSearchResultFromDatabase);
+          if (!active) return;
+          setResults(onlineResults);
+          setResultQuery(debounced);
+          setWarning('');
+          setError('');
+          return;
+        } catch (cause) {
+          if (!active || controller.signal.aborted) return;
+          console.error('Unable to search online:', cause);
+        }
+      }
+      try {
+        const page = await catalogue.topics({ search: debounced });
+        if (!active) return;
+        setResults(page.topics.slice(0, 30).map((topic) => ({ topic, score: 0 })));
+        setResultQuery(debounced);
+        setWarning(
+          navigator.onLine
+            ? 'Online search is unavailable. Showing results from saved topics.'
+            : "You're offline. Showing results from saved topics."
+        );
+        setError('');
+      } catch (cause) {
+        console.error('Unable to search saved topics:', cause);
+        if (!active) return;
+        setResults([]);
+        setResultQuery(debounced);
+        setWarning('');
+        setError('Search is temporarily unavailable. Please try again.');
+      }
+    }
+    void search();
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, [catalogue, debounced, connectionVersion]);
+  const searching = Boolean(debounced) && resultQuery !== debounced;
   return (
     <div className="container py-12">
       <section className="mb-12">
@@ -332,8 +388,28 @@ export function SearchPage({
         </p>
       </section>
       <SearchInput value={query} onChange={onQueryChange} />
-      {query.trim() && debounced && (
-        <TopicList key={debounced} catalogue={catalogue} search={debounced} />
+      {!query && <SearchSuggestions onSelect={onQueryChange} />}
+      {debounced && (
+        <div className="text-text-secondary mt-6 flex items-center justify-between text-sm">
+          <span>
+            {searching
+              ? 'Searching…'
+              : `${results.length}${results.length === 30 ? '+' : ''} results`}
+          </span>
+          <span>Searching for &quot;{debounced}&quot;</span>
+        </div>
+      )}
+      {warning && resultQuery === debounced && (
+        <p role="status" className="text-text-secondary mt-4 text-sm">
+          {warning}
+        </p>
+      )}
+      {error && resultQuery === debounced ? (
+        <p role="alert" className="mt-6 text-sm text-red-600">
+          {error}
+        </p>
+      ) : (
+        <SearchResults query={resultQuery === debounced ? debounced : ''} results={results} />
       )}
     </div>
   );

@@ -8,6 +8,7 @@ import { CategoriesPage, CategoryPage, SearchPage } from './catalogue-pages';
 import { NativeNavbar } from './navbar';
 import { NativeAccount } from './account';
 import { NativeBookmarks } from './bookmarks';
+import { NativeNotifications } from './notifications';
 import { NativeTopicActions } from './topic-actions';
 import { NativeSignup } from './signup';
 import { LearnContent } from '@/components/learn/LearnContent';
@@ -49,6 +50,7 @@ type Route =
   | { kind: 'account'; pathname: string }
   | { kind: 'signup'; pathname: string }
   | { kind: 'bookmarks'; pathname: string }
+  | { kind: 'notifications'; pathname: string }
   | { kind: 'category'; pathname: string; slug: string }
   | { kind: 'topic'; pathname: string; slug: string; comments: boolean };
 
@@ -66,6 +68,7 @@ function parseRoute(href: string): Route | null {
     if (pathname === '/signin' || pathname === '/account') return { kind: 'account', pathname };
     if (pathname === '/signup') return { kind: 'signup', pathname };
     if (pathname === '/bookmarks') return { kind: 'bookmarks', pathname };
+    if (pathname === '/notifications') return { kind: 'notifications', pathname };
     const match = /^\/(topic|categories)\/([^/]+)$/.exec(pathname);
     if (!match) return null;
     const slug = decodeURIComponent(match[2]);
@@ -439,7 +442,12 @@ function NativeTopicPage({
             version={activityVersion}
           />
           <TopicArticle topic={topic} />
-          <NativeNotes userId={userId} topicId={String(topic.id)} cache={noteCache} />
+          <NativeNotes
+            key={`${userId ?? 'anonymous'}:${topic.id}`}
+            userId={userId}
+            topicId={String(topic.id)}
+            cache={noteCache}
+          />
           <CommentSection topicId={String(topic.id)} cache={cache} serverActionsAvailable={false} />
         </>
       )}
@@ -745,7 +753,7 @@ function App() {
             retryActivitySetup: () => setActivityAttempt((attempt) => attempt + 1),
           }}
         >
-          <NativeNavbar pathname={route?.pathname ?? '/'} signedIn={Boolean(user)} />
+          <NativeNavbar pathname={route?.pathname ?? '/'} userId={user?.id ?? null} />
           <main className="pt-16">
             {navigationMessage && (
               <div role="alert" className="bg-bg-card border-border mx-6 rounded-xl border p-4">
@@ -850,6 +858,9 @@ function App() {
                 status={activityStatus}
                 version={activityVersion}
               />
+            )}
+            {route?.kind === 'notifications' && (
+              <NativeNotifications key={user?.id ?? 'signed-out'} userId={user?.id ?? null} />
             )}
             {catalogue && route?.kind === 'category' && (
               <CategoryPage

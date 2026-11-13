@@ -179,8 +179,12 @@ Admins can create and edit categories and topics from `/admin/content`, includin
 
 The website remains server-rendered and Supabase is the online source of truth.
 The bundled Android and Electron apps support offline feed, topic, category and
-local substring search. Local search scans catalogue text and is not optimized
-for very large catalogues.
+local substring search. When online, search uses the website's ranked search RPC;
+if it is unavailable, the app reports the problem and searches saved topics.
+Local search scans catalogue text and is not optimized for very large catalogues.
+The installed Supabase project must have the website's `search_published_topics`
+RPC for ranked search to work. The native app bundles the same font subsets as
+the website, including their Open Font License notices in `native/fonts`.
 
 `npm run native:build` exports the published catalogue using the public
 Supabase configuration from `.env.local` or the environment. The export checks
@@ -188,9 +192,9 @@ server counts and revision before replacing its previous snapshot, and
 `offline:database` verifies its checksum and SQLite integrity. A changing or
 incomplete export fails rather than packaging partial content.
 `native:build:local` uses an existing export and is intended for local testing.
-The Supabase offline sync SQL supplied separately has been installed; scheduled
-pruning still requires separate configuration. RLS stays enabled on the public
-sync tables without granting direct access.
+The Supabase offline sync and scheduled-pruning SQL supplied separately have
+been installed. Monitor the cleanup jobs for successful runs. RLS stays enabled
+on the public sync tables without granting direct access.
 
 The app stages incremental catalogue changes and publishes them atomically. It
 falls back to a checked full snapshot if history expires or a reset is needed.
@@ -215,9 +219,11 @@ Encryption keys are device-specific and excluded from Android backup;
 unsynchronized changes cannot be expected to transfer to another device.
 
 Previously fetched comment discussions and counts can be read offline but may
-be incomplete or stale. Comment writes remain online-only. Existing notes are
-read-only and available offline only after being opened online on that device;
-creating or editing notes, reporting and moderation require the website.
+be incomplete or stale. Comment writes remain online-only. Notes can be edited
+online after the latest note has loaded; notes opened online are cached for
+read-only offline access. Notifications and their unread badge require a
+connection; they are not cached for offline use. Reporting and moderation
+require the website.
 Real-device upgrades, reconnects and packaged desktop releases still need
 end-to-end verification before distribution.
 

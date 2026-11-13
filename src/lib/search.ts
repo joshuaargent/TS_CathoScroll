@@ -5,6 +5,58 @@ export interface TopicSearchResult {
   score: number;
 }
 
+export function topicSearchResultFromDatabase(value: unknown): TopicSearchResult {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('Invalid topic search result.');
+  }
+  const row = value as Record<string, unknown>;
+  const fields = [
+    'id',
+    'slug',
+    'category_name',
+    'question',
+    'answer',
+    'explanation',
+    'catechism_text',
+    'scripture_reference',
+    'scripture_text',
+  ] as const;
+  if (
+    fields.some((field) => typeof row[field] !== 'string') ||
+    typeof row.search_score !== 'number' ||
+    !Number.isFinite(row.search_score) ||
+    (row.catechism_paragraphs !== null &&
+      (!Array.isArray(row.catechism_paragraphs) ||
+        row.catechism_paragraphs.some((paragraph) => typeof paragraph !== 'string')))
+  ) {
+    throw new Error('Invalid topic search result.');
+  }
+  const text = (field: (typeof fields)[number]) => {
+    const result = row[field];
+    if (typeof result !== 'string') throw new Error('Invalid topic search result.');
+    return result;
+  };
+  return {
+    topic: {
+      id: text('id'),
+      slug: text('slug'),
+      category: text('category_name'),
+      question: text('question'),
+      answer: text('answer'),
+      explanation: text('explanation'),
+      catechism: {
+        paragraphs: Array.isArray(row.catechism_paragraphs) ? row.catechism_paragraphs : [],
+        text: text('catechism_text'),
+      },
+      scripture: {
+        reference: text('scripture_reference'),
+        text: text('scripture_text'),
+      },
+    },
+    score: row.search_score,
+  };
+}
+
 /**
  * Ranks in-memory topics using weighted phrase matches, per-term matches, and
  * occurrence frequency. Question/category matches intentionally outweigh

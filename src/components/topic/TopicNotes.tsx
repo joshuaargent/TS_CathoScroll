@@ -6,6 +6,7 @@ import { Loader2 } from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/client';
 import { useSignInPrompt } from '@/components/providers/SignInPromptProvider';
+import { TopicNotesEditor } from './TopicNotesEditor';
 
 interface TopicNotesProps {
   topicId: string;
@@ -118,30 +119,12 @@ export function TopicNotes({ topicId }: TopicNotesProps) {
   }
 
   return (
-    <section className="border-border bg-bg-secondary/30 mb-16 rounded-2xl border p-8">
-      <h2 className="text-3xl font-bold">My Notes</h2>
-
-      <p className="text-text-secondary mt-3">Personal notes for this topic.</p>
-
-      <textarea
-        value={content}
-        onChange={(e) => setContent(e.target.value)}
-        rows={10}
-        className="border-border bg-bg-card mt-6 w-full rounded-xl border p-4"
-        placeholder="Write your notes here..."
-      />
-
-      <div className="mt-4 flex items-center gap-4">
-        <button
-          onClick={saveNote}
-          disabled={saving}
-          className="bg-accent rounded-xl px-6 py-3 text-white"
-        >
-          {saving ? 'Saving...' : 'Save Note'}
-        </button>
-
-        {message && <span className="text-text-secondary text-sm">{message}</span>}
-      </div>
-    </section>
+    <TopicNotesEditor
+      content={content}
+      onChange={setContent}
+      onSave={() => void saveNote()}
+      saving={saving}
+      message={message}
+    />
   );
 }

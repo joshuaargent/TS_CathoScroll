@@ -1,3 +1,10 @@
 @import '../src/app/globals.css';
+@import './fonts/fonts.css';
 @source '../src';
 @source '.';
+
+:root {
+  --font-inter: 'Inter';
+  --font-lora: 'Lora';
+  --font-mono: 'JetBrains Mono';
+}

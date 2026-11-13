@@ -4,7 +4,7 @@ import { Bell, CheckCheck, MessageCircle, ShieldAlert, Sparkles } from 'lucide-r
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 
-interface Notification {
+export interface Notification {
   id: number;
   type: string;
   title: string;
@@ -21,6 +21,31 @@ interface NotificationResponse {
   unreadCount?: number;
   error?: string;
 }
+
+export interface NotificationTransport {
+  load(): Promise<{ notifications: Notification[]; unreadCount: number }>;
+  markAsRead(id: number | 'all'): Promise<void>;
+}
+
+const websiteTransport: NotificationTransport = {
+  async load() {
+    const response = await fetch('/api/notifications', { cache: 'no-store' });
+    const result = (await response.json()) as NotificationResponse;
+    if (!response.ok) throw new Error(result.error ?? 'Unable to load notifications.');
+    return { notifications: result.notifications ?? [], unreadCount: result.unreadCount ?? 0 };
+  },
+  async markAsRead(id) {
+    const response = await fetch('/api/notifications', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(
+        id === 'all' ? { action: 'read_all' } : { action: 'read', notificationId: id }
+      ),
+    });
+    const result = (await response.json()) as { error?: string };
+    if (!response.ok) throw new Error(result.error ?? 'Unable to update notification.');
+  },
+};
 
 function getNotificationIcon(type: string) {
   if (type === 'reply') {
@@ -59,7 +84,11 @@ function formatNotificationDate(dateString: string) {
   });
 }
 
-export function NotificationList() {
+export function NotificationList({
+  transport = websiteTransport,
+}: {
+  transport?: NotificationTransport;
+}) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -70,15 +99,9 @@ export function NotificationList() {
     setError('');
 
     try {
-      const response = await fetch('/api/notifications', { cache: 'no-store' });
-      const result = (await response.json()) as NotificationResponse;
-
-      if (!response.ok) {
-        throw new Error(result.error ?? 'Unable to load notifications.');
-      }
-
-      setNotifications(result.notifications ?? []);
-      setUnreadCount(result.unreadCount ?? 0);
+      const result = await transport.load();
+      setNotifications(result.notifications);
+      setUnreadCount(result.unreadCount);
     } catch (loadError) {
       console.error('Unable to load notifications:', loadError);
       setError(
@@ -89,7 +112,7 @@ export function NotificationList() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [transport]);
 
   useEffect(() => {
     // Load asynchronously so notification state reflects the server-side RLS view.
@@ -102,18 +125,7 @@ export function NotificationList() {
     setError('');
 
     try {
-      const response = await fetch('/api/notifications', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(
-          notificationId === 'all' ? { action: 'read_all' } : { action: 'read', notificationId }
-        ),
-      });
-      const result = (await response.json()) as { error?: string };
-
-      if (!response.ok) {
-        throw new Error(result.error ?? 'Unable to update notification.');
-      }
+      await transport.markAsRead(notificationId);
 
       const readAt = new Date().toISOString();
       // Reconcile the visible list immutably after the server confirms the

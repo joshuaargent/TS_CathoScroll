@@ -4,10 +4,12 @@ import { Menu, Moon, Sun, User, X } from 'lucide-react';
 import { useTheme } from '@/components/providers/ThemeProvider';
 import { mainNav, siteConfig } from '@/lib/constants';
 import { cn } from '@/lib/utils';
+import { NativeNotificationBell } from './notifications';
 
-export function NativeNavbar({ pathname, signedIn }: { pathname: string; signedIn: boolean }) {
+export function NativeNavbar({ pathname, userId }: { pathname: string; userId: string | null }) {
   const [open, setOpen] = useState(false);
   const { theme, toggleTheme } = useTheme();
+  const signedIn = Boolean(userId);
   return (
     <>
       <header className="bg-bg-primary/95 border-border fixed top-0 right-0 left-0 z-[50] border-b backdrop-blur-md">
@@ -35,6 +37,9 @@ export function NativeNavbar({ pathname, signedIn }: { pathname: string; signedI
                   {item.label}
                 </Link>
               ))}
+              {userId && (
+                <NativeNotificationBell key={userId} userId={userId} pathname={pathname} />
+              )}
               <button
                 type="button"
                 onClick={toggleTheme}
@@ -81,6 +86,15 @@ export function NativeNavbar({ pathname, signedIn }: { pathname: string; signedI
                 {item.label}
               </Link>
             ))}
+            {userId && (
+              <NativeNotificationBell
+                key={userId}
+                userId={userId}
+                pathname={pathname}
+                showLabel
+                onNavigate={() => setOpen(false)}
+              />
+            )}
             <button
               type="button"
               onClick={() => {

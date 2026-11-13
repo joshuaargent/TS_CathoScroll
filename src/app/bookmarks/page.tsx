@@ -5,6 +5,7 @@ import type { Metadata } from 'next';
 import { createClient } from '@/lib/supabase/server';
 
 import { Badge } from '@/components/ui/Badge';
+import { BookmarksHeader, EmptyBookmarks } from '@/components/bookmarks/BookmarksSummary';
 
 import { getPublishedTopicsByIds } from '@/lib/content';
 
@@ -81,34 +82,10 @@ export default async function BookmarksPage() {
 
   return (
     <main className="container py-12">
-      <div className="mt-8 mb-12">
-        <h1 className="text-5xl font-extrabold md:text-7xl">Bookmarks</h1>
-
-        <p className="text-text-secondary mt-4 text-lg">Topics you've saved for later.</p>
-
-        <div className="mt-6">
-          <Badge variant="accent" size="lg">
-            {bookmarkedTopics.length} Bookmarked
-            {bookmarkedTopics.length === 1 ? ' Topic' : ' Topics'}
-          </Badge>
-        </div>
-      </div>
+      <BookmarksHeader count={bookmarkedTopics.length} />
 
       {bookmarkedTopics.length === 0 ? (
-        <section className="border-border rounded-2xl border p-12 text-center">
-          <h2 className="text-3xl font-bold">No bookmarks yet</h2>
-
-          <p className="text-text-secondary mx-auto mt-4 max-w-xl">
-            Save topics while browsing the feed and they'll appear here for easy access later.
-          </p>
-
-          <Link
-            href="/"
-            className="text-text-primary hover:text-text-secondary mt-8 inline-flex text-lg font-medium"
-          >
-            Explore the Feed →
-          </Link>
-        </section>
+        <EmptyBookmarks />
       ) : (
         <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
           {bookmarkedTopics.map((topic) => (
