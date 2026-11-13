@@ -5,15 +5,17 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { shuffle } from '@/lib/utils';
 
 import type { TopicPageCursor } from '@/lib/content';
+import type { RecommendationCursor } from '@/lib/recommendations';
 import { Topic } from '@/types';
 
 import { TopicViewer } from './TopicViewer';
 
-interface TopicFeedProps {
+type TopicFeedProps = {
   topics: Topic[];
-  nextCursor: TopicPageCursor | null;
-  personalized?: boolean;
-}
+} & (
+  | { nextCursor: TopicPageCursor | null; personalized?: false }
+  | { nextCursor: RecommendationCursor | null; personalized: true }
+);
 
 export function TopicFeed({
   topics,
@@ -51,15 +53,26 @@ export function TopicFeed({
     setLoadError('');
 
     try {
-      const params = new URLSearchParams({
-        afterOrder: String(nextCursor.orderIndex),
-        afterId: nextCursor.id,
-        limit: '50',
-      });
-      const response = await fetch(`/api/content/topics?${params.toString()}`);
+      let response: Response;
+      if (personalized && 'categories' in nextCursor) {
+        response = await fetch('/api/content/recommendations', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ cursor: nextCursor }),
+        });
+      } else if (!personalized && 'orderIndex' in nextCursor) {
+        const params = new URLSearchParams({
+          afterOrder: String(nextCursor.orderIndex),
+          afterId: nextCursor.id,
+          limit: '50',
+        });
+        response = await fetch(`/api/content/topics?${params.toString()}`);
+      } else {
+        throw new Error('The topic feed cursor is invalid. Refresh the page.');
+      }
       const result = (await response.json()) as {
         topics?: Topic[];
-        nextCursor?: TopicPageCursor | null;
+        nextCursor?: TopicPageCursor | RecommendationCursor | null;
         error?: string;
       };
 
@@ -67,9 +80,15 @@ export function TopicFeed({
         throw new Error(result.error ?? 'Unable to load more topics.');
       }
 
-      const newTopics = result.topics ?? [];
-      setFeedTopics((previous) => [...previous, ...shuffle(newTopics)]);
-      setNextCursor(result.nextCursor ?? null);
+      if (!Array.isArray(result.topics) || result.nextCursor === undefined) {
+        throw new Error('The topic service returned an invalid page.');
+      }
+      const newTopics = result.topics;
+      setFeedTopics((previous) => [
+        ...previous,
+        ...(personalized ? newTopics : shuffle(newTopics)),
+      ]);
+      setNextCursor(result.nextCursor);
     } catch (error) {
       console.error('Unable to load the next topic feed page:', error);
       setLoadError(error instanceof Error ? error.message : 'Unable to load more topics.');
@@ -77,7 +96,7 @@ export function TopicFeed({
       loadingRef.current = false;
       setLoadingMore(false);
     }
-  }, [nextCursor]);
+  }, [nextCursor, personalized]);
 
   // ----------------------------------
   // Navigation

@@ -221,6 +221,28 @@ export async function getPublishedTopicPage(
   return loadPublishedTopicPage(options.cursor, options.categorySlug, options.limit ?? pageSize);
 }
 
+export const getRecentlyCreatedPublishedTopics = unstable_cache(
+  async (): Promise<Topic[]> => {
+    const supabase = createPublicContentClient();
+    const { data, error } = await supabase
+      .from('topics')
+      .select(topicFields)
+      .eq('is_published', true)
+      .eq('category.is_published', true)
+      .order('created_at', { ascending: false, nullsFirst: false })
+      .order('id', { ascending: false })
+      .limit(50);
+
+    if (error) {
+      throw new Error(`Unable to load recent topics: ${error.message}`);
+    }
+
+    return ((data ?? []) as unknown as DatabaseTopic[]).map(mapDatabaseTopic);
+  },
+  ['published-content-recent-topics-v1'],
+  { revalidate: contentCacheSeconds, tags: [CONTENT_CACHE_TAG] }
+);
+
 export async function getPublishedTopicRange(offset: number, limit = 1000): Promise<Topic[]> {
   const safeOffset = Math.max(0, Math.floor(offset));
   const safeLimit = Math.min(Math.max(Math.floor(limit), 1), 40_000);
