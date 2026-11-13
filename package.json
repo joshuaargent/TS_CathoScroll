@@ -20,7 +20,8 @@
     "type-check": "tsc --noEmit",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "offline:export": "node scripts/export-offline-catalogue.mjs"
+    "offline:export": "node scripts/export-offline-catalogue.mjs",
+    "offline:database": "node --disable-warning=ExperimentalWarning scripts/build-offline-database.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.6.0",
