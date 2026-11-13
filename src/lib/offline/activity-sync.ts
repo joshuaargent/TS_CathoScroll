@@ -5,6 +5,7 @@ export interface ActivityReceipt {
   userId: string;
   revision: string;
   value: boolean;
+  completedAt: string | null;
 }
 
 export type SendActivity = (operation: PendingActivity) => Promise<ActivityReceipt>;
@@ -71,7 +72,13 @@ export class OfflineActivitySync {
         throw new Error('The server returned a mismatched offline activity receipt.');
       }
 
-      await this.store.acknowledge(userId, operation.operationId, receipt.revision, receipt.value);
+      await this.store.acknowledge(
+        userId,
+        operation.operationId,
+        receipt.revision,
+        receipt.value,
+        receipt.completedAt
+      );
       sent += 1;
     }
     return sent;

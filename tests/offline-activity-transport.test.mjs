@@ -42,6 +42,7 @@ test('maps activity operations to account-bound RPCs and validates receipts', as
     operationId: 'operation',
     revision: '42',
     value: true,
+    completedAt: null,
   });
   assert.deepEqual(calls, [
     {
@@ -52,6 +53,7 @@ test('maps activity operations to account-bound RPCs and validates receipts', as
         p_topic: 'topic',
         p_kind: 'like',
         p_value: true,
+        p_completed_at: null,
       },
     },
   ]);
@@ -93,4 +95,46 @@ test('rejects invalid snapshots, revisions, and server failures', async () => {
     fixture({ data: null, error: { message: 'Unavailable' } }).transport.head('alice'),
     /Unavailable/
   );
+});
+
+test('transports completion timestamps and rejects missing timestamps', async () => {
+  const timestamp = '2024-01-03T12:30:45.123Z';
+  const operation = {
+    userId: 'alice',
+    operationId: 'complete',
+    topicId: 'topic',
+    kind: 'progress',
+    value: true,
+    completedAt: timestamp,
+  };
+  const { calls, transport } = fixture({
+    data: {
+      userId: 'alice',
+      operationId: 'complete',
+      revision: '3',
+      value: true,
+      completedAt: timestamp,
+    },
+    error: null,
+  });
+  assert.equal((await transport.send(operation)).completedAt, timestamp);
+  assert.equal(calls[0].args.p_completed_at, timestamp);
+  const snapshot = fixture({
+    data: {
+      userId: 'alice',
+      items: [{ topicId: 'topic', kind: 'progress', completedAt: timestamp }],
+      nextCursor: null,
+    },
+    error: null,
+  });
+  assert.equal((await snapshot.transport.snapshot('alice', null)).items[0].completedAt, timestamp);
+  const invalid = fixture({
+    data: {
+      userId: 'alice',
+      changes: [{ topicId: 'topic', kind: 'progress', value: true, revision: '1' }],
+      hasMore: false,
+    },
+    error: null,
+  });
+  await assert.rejects(invalid.transport.changes('alice', '0'), /completion time/);
 });

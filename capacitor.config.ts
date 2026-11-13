@@ -28,7 +28,7 @@ const config: CapacitorConfig = {
     CapacitorSQLite: {
       iosDatabaseLocation: 'Library/CapacitorDatabase',
       iosIsEncryption: false,
-      androidIsEncryption: false,
+      androidIsEncryption: nativeBundle,
     },
   },
 };

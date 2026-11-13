@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { User } from '@supabase/supabase-js';
+import type { CachedIdentity } from './cached-identity';
 import { SigninForm } from '@/components/auth/SigninForm';
 import { Button } from '@/components/ui/Button';
 import { OfflineActivityStore } from '@/lib/offline/activity-store';
@@ -12,7 +12,7 @@ export function NativeAccount({
   available,
   onSignedIn,
 }: {
-  user: User | null;
+  user: CachedIdentity | null;
   checking: boolean;
   available: boolean;
   onSignedIn: () => void;
@@ -82,6 +82,11 @@ export function NativeAccount({
     <div className="container py-12">
       <h1 className="mt-8 text-5xl font-extrabold">Account</h1>
       <p className="text-text-secondary mt-4">{user.email ?? 'Signed in'}</p>
+      {!online && (
+        <p role="status" className="text-text-secondary mt-4">
+          You&apos;re offline. Your saved account is available on this device.
+        </p>
+      )}
       <p className="text-text-secondary mt-4">
         Bookmarks and progress are not yet available in this preview.
       </p>

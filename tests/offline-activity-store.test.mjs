@@ -155,6 +155,81 @@ test('rolls back the visible state if queue insertion fails', async (t) => {
   }
 });
 
+test('preserves completion times through restart, pending edits, receipts and deltas', async (t) => {
+  const file = await databaseFile(t);
+  let db = new DatabaseSync(file);
+  let store = new OfflineActivityStore(adapter(db));
+  const recorded = '2024-01-03T12:30:45.123Z';
+  const earlier = '2024-01-02T09:00:00+00:00';
+  await store.initialize();
+  await bootstrap(store);
+  await store.setActivity('alice', 'topic', 'progress', true, 'complete', recorded);
+  await store.setActivity('alice', 'topic', 'progress', false, 'undo');
+  db.close();
+
+  db = new DatabaseSync(file);
+  store = new OfflineActivityStore(adapter(db));
+  try {
+    await store.initialize();
+    assert.equal((await store.nextOperation('alice')).completedAt, recorded);
+    await store.acknowledge('alice', 'complete', '1', true, earlier);
+    assert.equal((await store.topicActivity('alice', 'topic')).completedAt, null);
+    assert.equal((await store.nextOperation('alice')).operationId, 'undo');
+    await store.acknowledge('alice', 'undo', '2', false);
+    await store.applyChanges('alice', [
+      { topicId: 'topic', kind: 'progress', value: true, revision: '1', completedAt: earlier },
+      { topicId: 'topic', kind: 'progress', value: false, revision: '2', completedAt: null },
+      { topicId: 'topic', kind: 'progress', value: true, revision: '3', completedAt: recorded },
+    ]);
+    assert.equal((await store.topicActivity('alice', 'topic')).completedAt, recorded);
+    await assert.rejects(
+      store.setActivity('alice', 'topic', 'progress', true, 'bad', null),
+      /completion time/
+    );
+    await assert.rejects(
+      store.applyChanges('alice', [
+        { topicId: 'topic', kind: 'progress', value: true, revision: '4', completedAt: null },
+      ]),
+      /completion time/
+    );
+    assert.equal(await store.cursor('alice'), '3');
+  } finally {
+    db.close();
+  }
+});
+
+test('compares equivalent completion times without losing sub-millisecond precision', async () => {
+  const db = new DatabaseSync(':memory:');
+  const store = new OfflineActivityStore(adapter(db));
+  const timestamp = '2024-01-03T12:30:45.123456Z';
+  try {
+    await store.initialize();
+    await bootstrap(store);
+    await store.setActivity('alice', 'topic', 'progress', true, 'first', timestamp);
+    await store.acknowledge('alice', 'first', '1', true, '2024-01-03T12:30:45.123456+00:00');
+    await store.applyChanges('alice', [
+      { topicId: 'topic', kind: 'progress', value: true, revision: '1', completedAt: timestamp },
+    ]);
+    await store.setActivity('alice', 'other', 'progress', true, 'second', timestamp);
+    await store.acknowledge('alice', 'second', '2', true, timestamp);
+    await assert.rejects(
+      store.applyChanges('alice', [
+        {
+          topicId: 'other',
+          kind: 'progress',
+          value: true,
+          revision: '2',
+          completedAt: '2024-01-03T12:30:45.123457Z',
+        },
+      ]),
+      /Conflicting/
+    );
+    assert.equal(await store.cursor('alice'), '1');
+  } finally {
+    db.close();
+  }
+});
+
 test('reads account state and pages saved topics without exposing another account', async () => {
   const db = new DatabaseSync(':memory:');
   const store = new OfflineActivityStore(adapter(db));
@@ -175,6 +250,7 @@ test('reads account state and pages saved topics without exposing another accoun
       liked: true,
       bookmarked: true,
       completed: false,
+      completedAt: null,
     });
     const first = await store.listActivity('alice', 'bookmark');
     const second = await store.listActivity('alice', 'bookmark', first.nextCursor);
@@ -531,7 +607,7 @@ test('reconciles changes during paginated bootstrap before exposing account stat
             }
           : {
               userId,
-              items: [{ topicId: 'future', kind: 'progress' }],
+              items: [{ topicId: 'future', kind: 'progress', completedAt: '2024-01-01T00:00:00Z' }],
               nextCursor: null,
             };
       },
@@ -550,7 +626,15 @@ test('reconciles changes during paginated bootstrap before exposing account stat
         assert.equal(cursor, '6');
         return {
           userId,
-          changes: [{ topicId: 'future', kind: 'progress', value: true, revision: '7' }],
+          changes: [
+            {
+              topicId: 'future',
+              kind: 'progress',
+              value: true,
+              revision: '7',
+              completedAt: '2024-01-02T00:00:00Z',
+            },
+          ],
           hasMore: false,
         };
       },
@@ -560,6 +644,10 @@ test('reconciles changes during paginated bootstrap before exposing account stat
     assert.equal(await store.cursor('alice'), '7');
     assert.equal(await store.getActivity('alice', 'deleted', 'like'), false);
     assert.equal(await store.getActivity('alice', 'future', 'progress'), true);
+    assert.equal(
+      (await store.topicActivity('alice', 'future')).completedAt,
+      '2024-01-02T00:00:00Z'
+    );
     assert.equal(await store.getActivity('alice', 'pending', 'bookmark'), false);
     assert.equal((await store.nextOperation('alice')).operationId, 'pending-operation');
   } finally {
@@ -639,6 +727,38 @@ test('upgrades an interrupted older bootstrap without discarding staged data', a
     await store.completeBootstrap('alice', 'snapshot');
     assert.equal(await store.getActivity('alice', 'topic', 'like'), false);
     assert.equal(await store.cursor('alice'), '1');
+  } finally {
+    db.close();
+  }
+});
+
+test('preserves older queued progress and refuses to publish a snapshot without its time', async () => {
+  const db = new DatabaseSync(':memory:');
+  try {
+    db.exec(`
+      CREATE TABLE offline_activity_outbox (
+        sequence INTEGER PRIMARY KEY AUTOINCREMENT, operation_id TEXT NOT NULL UNIQUE,
+        user_id TEXT NOT NULL, topic_id TEXT NOT NULL, kind TEXT NOT NULL, value INTEGER NOT NULL
+      );
+      INSERT INTO offline_activity_outbox (operation_id, user_id, topic_id, kind, value)
+      VALUES ('old-operation', 'alice', 'topic', 'progress', 1);
+      CREATE TABLE offline_activity_bootstrap_items (
+        user_id TEXT NOT NULL, topic_id TEXT NOT NULL, kind TEXT NOT NULL,
+        PRIMARY KEY (user_id, topic_id, kind)
+      );
+      INSERT INTO offline_activity_bootstrap_items VALUES ('alice', 'topic', 'progress');
+      CREATE TABLE offline_activity_bootstrap (
+        user_id TEXT PRIMARY KEY NOT NULL, snapshot_id TEXT NOT NULL, revision TEXT NOT NULL
+      );
+      INSERT INTO offline_activity_bootstrap VALUES ('alice', 'snapshot', '0');
+    `);
+    const store = new OfflineActivityStore(adapter(db));
+    await store.initialize();
+    assert.equal(await store.pendingCount('alice'), 1);
+    await assert.rejects(store.nextOperation('alice'), /completion time/);
+    await assert.rejects(store.completeBootstrap('alice', 'snapshot'), /completion time/);
+    assert.equal(await store.isBootstrapped('alice'), false);
+    assert.equal(await store.pendingCount('alice'), 1);
   } finally {
     db.close();
   }

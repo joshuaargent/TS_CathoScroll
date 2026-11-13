@@ -2,8 +2,18 @@
 <data-extraction-rules>
     <cloud-backup>
         <exclude domain="sharedpref" path="WSSecureStorageSharedPreferences.xml" />
+        <exclude domain="sharedpref" path="sqlite_encrypted_shared_prefs.xml" />
+        <exclude domain="database" path="private-activitySQLite.db" />
+        <exclude domain="database" path="private-activitySQLite.db-wal" />
+        <exclude domain="database" path="private-activitySQLite.db-shm" />
+        <exclude domain="database" path="private-activitySQLite.db-journal" />
     </cloud-backup>
     <device-transfer>
         <exclude domain="sharedpref" path="WSSecureStorageSharedPreferences.xml" />
+        <exclude domain="sharedpref" path="sqlite_encrypted_shared_prefs.xml" />
+        <exclude domain="database" path="private-activitySQLite.db" />
+        <exclude domain="database" path="private-activitySQLite.db-wal" />
+        <exclude domain="database" path="private-activitySQLite.db-shm" />
+        <exclude domain="database" path="private-activitySQLite.db-journal" />
     </device-transfer>
 </data-extraction-rules>

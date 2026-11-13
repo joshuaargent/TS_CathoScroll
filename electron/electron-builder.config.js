@@ -6,6 +6,7 @@ module.exports = {
     output: 'dist',
     buildResources: 'assets',
   },
+  asarUnpack: ['**/*.node'],
   win: {
     icon: 'assets/icon.ico',
   },

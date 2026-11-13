@@ -47,20 +47,40 @@ function identity(value: unknown, userId: string): string {
   return result;
 }
 
+function completedAt(kind: OfflineActivityKind, value: boolean, timestamp: unknown): string | null {
+  if (kind !== 'progress' || !value) {
+    if (timestamp !== null && timestamp !== undefined) {
+      throw new Error('Invalid offline completion time from server.');
+    }
+    return null;
+  }
+  if (typeof timestamp !== 'string' || Number.isNaN(Date.parse(timestamp))) {
+    throw new Error('Invalid offline completion time from server.');
+  }
+  return timestamp;
+}
+
 function snapshotItem(value: unknown): SnapshotActivity {
   const item = record(value);
-  return { topicId: text(item.topicId), kind: kind(item.kind) };
+  const activityKind = kind(item.kind);
+  return {
+    topicId: text(item.topicId),
+    kind: activityKind,
+    completedAt: completedAt(activityKind, true, item.completedAt),
+  };
 }
 
 function change(value: unknown): ServerActivity {
   const item = record(value);
   if (typeof item.value !== 'boolean')
     throw new Error('Invalid offline activity value from server.');
+  const activityKind = kind(item.kind);
   const result = {
     topicId: text(item.topicId),
-    kind: kind(item.kind),
+    kind: activityKind,
     value: item.value,
     revision: revision(item.revision),
+    completedAt: completedAt(activityKind, item.value, item.completedAt),
   };
   if (result.revision === '0') throw new Error('Invalid offline activity revision from server.');
   return result;
@@ -145,6 +165,7 @@ export class SupabaseActivityTransport implements ActivityBootstrapTransport {
           p_kind: operation.kind,
           p_topic: operation.topicId,
           p_value: operation.value,
+          p_completed_at: completedAt(operation.kind, operation.value, operation.completedAt),
         },
         signal
       )
@@ -163,6 +184,7 @@ export class SupabaseActivityTransport implements ActivityBootstrapTransport {
       operationId,
       revision: receiptRevision,
       value: data.value,
+      completedAt: completedAt(operation.kind, data.value, data.completedAt),
     };
   }
 }

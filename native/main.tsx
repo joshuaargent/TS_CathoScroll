@@ -9,8 +9,13 @@ import { NativeNavbar } from './navbar';
 import { NativeAccount } from './account';
 import { NativeNotes } from './notes';
 import { NativeNoteCache } from './note-cache';
+import {
+  cachedIdentityFromSession,
+  identityAfterAuthEvent,
+  type CachedIdentity,
+} from './cached-identity';
 import { initializeNativeAuth } from './supabase';
-import { secureAuthStorage } from './secure-auth-storage';
+import { authStorageKey, secureAuthStorage } from './secure-auth-storage';
 import { SignInPromptProvider } from '@/components/providers/SignInPromptProvider';
 import { ThemeProvider } from '@/components/providers/ThemeProvider';
 import { OfflineCatalogue, type CatalogueCursor } from '@/lib/offline/catalogue';
@@ -22,7 +27,6 @@ import { siteConfig } from '@/lib/constants';
 import type { RecommendationCursor } from '@/lib/recommendations';
 import { openNativeDatabases } from '@/lib/offline/native-database';
 import type { Topic } from '@/types';
-import type { User } from '@supabase/supabase-js';
 import './style.css';
 
 type CataloguePage = { topics: Topic[]; nextCursor: CatalogueCursor | null };
@@ -319,20 +323,28 @@ function App() {
   const [navigationMessage, setNavigationMessage] = useState('');
   const [authStatus, setAuthStatus] = useState<'loading' | 'ready' | 'unavailable'>('loading');
   const [checkingAccount, setCheckingAccount] = useState(true);
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<CachedIdentity | null>(null);
 
   useEffect(() => {
     let active = true;
     let unsubscribe: (() => void) | undefined;
-    let removeOnlineListener: (() => void) | undefined;
+    let removeConnectivityListeners: (() => void) | undefined;
     async function start() {
       try {
         try {
           await initializeNativeAuth();
+          let cachedIdentity = cachedIdentityFromSession(
+            await secureAuthStorage.getItem(authStorageKey)
+          );
+          if (active && cachedIdentity) {
+            setUser(cachedIdentity);
+            setCheckingAccount(false);
+          }
           const supabase = createClient();
-          const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+          const { data } = supabase.auth.onAuthStateChange((event, session) => {
             if (active) {
-              setUser(session?.user ?? null);
+              cachedIdentity = identityAfterAuthEvent(event, session, cachedIdentity);
+              setUser(cachedIdentity);
               setCheckingAccount(false);
             }
           });
@@ -352,13 +364,29 @@ function App() {
               .catch((cause: unknown) => {
                 console.error('Unable to restore the native account:', cause);
                 if (active) {
-                  setAuthStatus('unavailable');
+                  if (cachedIdentity) {
+                    setUser(cachedIdentity);
+                    setAuthStatus('ready');
+                  } else {
+                    setAuthStatus('unavailable');
+                  }
                   setCheckingAccount(false);
                 }
               });
           };
+          const restoreOfflineIdentity = () => {
+            if (active && cachedIdentity) {
+              setUser(cachedIdentity);
+              setAuthStatus('ready');
+              setCheckingAccount(false);
+            }
+          };
           window.addEventListener('online', verifySession);
-          removeOnlineListener = () => window.removeEventListener('online', verifySession);
+          window.addEventListener('offline', restoreOfflineIdentity);
+          removeConnectivityListeners = () => {
+            window.removeEventListener('online', verifySession);
+            window.removeEventListener('offline', restoreOfflineIdentity);
+          };
           verifySession();
         } catch (cause) {
           console.error('Unable to initialize secure native sign-in:', cause);
@@ -392,7 +420,7 @@ function App() {
     return () => {
       active = false;
       unsubscribe?.();
-      removeOnlineListener?.();
+      removeConnectivityListeners?.();
     };
   }, []);
 

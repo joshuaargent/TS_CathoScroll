@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
+  "dependencies": {
+    "better-sqlite3-multiple-ciphers": "^13.0.3"
+  },
   "capacitor": {
     "electron": {
       "src": "electron"

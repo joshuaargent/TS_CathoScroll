@@ -1,6 +1,6 @@
 import { copyFileSync, existsSync, mkdirSync, renameSync, unlinkSync } from 'node:fs';
 import path from 'node:path';
-import { randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { DatabaseSync } from 'node:sqlite';
 import { app } from 'electron';
 
@@ -15,6 +15,7 @@ export class CathoSQLite {
   constructor(context) {
     this.context = context;
     this.databases = new Map();
+    this.openings = new Map();
   }
 
   assertBundled() {
@@ -25,11 +26,23 @@ export class CathoSQLite {
 
   async open({ database }) {
     this.assertBundled();
-    if (database !== 'catalogue' && database !== 'activity') {
+    if (database !== 'catalogue' && database !== 'activity' && database !== 'private-activity') {
       throw new Error('Invalid offline database name.');
     }
     if (this.databases.has(database)) return;
+    let opening = this.openings.get(database);
+    if (!opening) {
+      opening = this.openDatabase(database);
+      this.openings.set(database, opening);
+    }
+    try {
+      await opening;
+    } finally {
+      if (this.openings.get(database) === opening) this.openings.delete(database);
+    }
+  }
 
+  async openDatabase(database) {
     const directory = path.join(app.getPath('userData'), 'cathoscroll-sqlite');
     mkdirSync(directory, { recursive: true });
     const destination = path.join(directory, `${database}.sqlite`);
@@ -45,9 +58,51 @@ export class CathoSQLite {
         if (existsSync(temporary)) unlinkSync(temporary);
       }
     }
-    const connection = new DatabaseSync(destination);
-    connection.exec('PRAGMA foreign_keys = ON;');
-    this.databases.set(database, connection);
+    if (database === 'private-activity') {
+      const { CathoSecureStorage } = await import('./secure-storage.mjs');
+      const { default: EncryptedDatabase } = await import('better-sqlite3-multiple-ciphers');
+      const storage = new CathoSecureStorage(this.context);
+      const keyName = 'cathoscroll.auth.v1-activity-db-key';
+      const markerName = 'cathoscroll.auth.v1-activity-db-created';
+      let { value: key } = await storage.get({ key: keyName });
+      const { value: marker } = await storage.get({ key: markerName });
+      if (marker !== null && marker !== '1') throw new Error('Invalid private database marker.');
+      if (marker && !existsSync(destination)) {
+        throw new Error('The saved private activity database is unavailable.');
+      }
+      if (key === null) {
+        if (existsSync(destination)) {
+          throw new Error('The private activity encryption key is unavailable.');
+        }
+        key = randomBytes(32).toString('base64');
+        await storage.set({ key: keyName, value: key });
+      }
+      if (!/^[A-Za-z0-9+/]{43}=$/.test(key)) {
+        throw new Error('Invalid private activity encryption key.');
+      }
+      const keyBytes = Buffer.from(key, 'base64');
+      if (keyBytes.length !== 32 || keyBytes.toString('base64') !== key) {
+        throw new Error('Invalid private activity encryption key.');
+      }
+      let connection;
+      try {
+        connection = new EncryptedDatabase(destination);
+        connection.key(keyBytes);
+        connection.prepare('PRAGMA schema_version').get();
+        connection.exec('PRAGMA foreign_keys = ON;');
+        if (!marker) await storage.set({ key: markerName, value: '1' });
+        this.databases.set(database, connection);
+      } catch (error) {
+        connection?.close();
+        throw error;
+      } finally {
+        keyBytes.fill(0);
+      }
+    } else {
+      const connection = new DatabaseSync(destination);
+      connection.exec('PRAGMA foreign_keys = ON;');
+      this.databases.set(database, connection);
+    }
   }
 
   connection(database) {
