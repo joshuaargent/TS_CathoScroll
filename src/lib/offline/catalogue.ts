@@ -44,8 +44,68 @@ const fields = `t.id, t.slug, t.order_index, t.question, t.answer, t.explanation
   t.catechism_paragraphs, t.catechism_text, t.scripture_reference, t.scripture_text,
   c.name AS category_name`;
 
+function categoryFromRow(row: Record<string, unknown>): ContentCategory {
+  return {
+    slug: text(row.slug),
+    name: text(row.name),
+    description: text(row.description),
+    orderIndex: integer(row.order_index),
+  };
+}
+
 export class OfflineCatalogue {
   constructor(private readonly database: OfflineDatabase) {}
+
+  async totals(): Promise<{ categories: number; topics: number }> {
+    return this.database.transaction(async (db) => {
+      const rows = await db.query(
+        'SELECT category_count, topic_count FROM catalogue_metadata WHERE singleton = 1'
+      );
+      if (rows.length !== 1) throw new Error('Offline catalogue metadata is missing.');
+      const categories = integer(rows[0].category_count);
+      const topics = integer(rows[0].topic_count);
+      if (categories < 0 || topics < 0) throw new Error('Invalid offline catalogue counts.');
+      return { categories, topics };
+    });
+  }
+
+  async categoryTopicCount(slug: string): Promise<number> {
+    if (!slug || slug.trim() !== slug) throw new Error('Invalid offline category slug.');
+    return this.database.transaction(async (db) => {
+      const rows = await db.query('SELECT COUNT(*) AS count FROM topics WHERE category_slug = ?', [
+        slug,
+      ]);
+      if (rows.length !== 1) throw new Error('Unable to count offline category topics.');
+      const count = integer(rows[0].count);
+      if (count < 0) throw new Error('Invalid offline category count.');
+      return count;
+    });
+  }
+
+  async topic(slug: string): Promise<Topic | null> {
+    if (!slug || slug.trim() !== slug) throw new Error('Invalid offline topic slug.');
+    return this.database.transaction(async (db) => {
+      const rows = await db.query(
+        `SELECT ${fields} FROM topics t JOIN categories c ON c.slug = t.category_slug
+         WHERE t.slug = ?`,
+        [slug]
+      );
+      if (rows.length > 1) throw new Error('Duplicate offline topic slug.');
+      return rows.length ? topicFromRow(rows[0]) : null;
+    });
+  }
+
+  async category(slug: string): Promise<ContentCategory | null> {
+    if (!slug || slug.trim() !== slug) throw new Error('Invalid offline category slug.');
+    return this.database.transaction(async (db) => {
+      const rows = await db.query(
+        'SELECT slug, name, description, order_index FROM categories WHERE slug = ?',
+        [slug]
+      );
+      if (rows.length > 1) throw new Error('Duplicate offline category slug.');
+      return rows.length ? categoryFromRow(rows[0]) : null;
+    });
+  }
 
   async topics(
     options: {
@@ -115,12 +175,7 @@ export class OfflineCatalogue {
       const page = rows.slice(0, 50);
       const last = page.at(-1);
       return {
-        categories: page.map((row) => ({
-          slug: text(row.slug),
-          name: text(row.name),
-          description: text(row.description),
-          orderIndex: integer(row.order_index),
-        })),
+        categories: page.map(categoryFromRow),
         nextCursor:
           rows.length > 50 && last
             ? { orderIndex: integer(last.order_index), slug: text(last.slug) }

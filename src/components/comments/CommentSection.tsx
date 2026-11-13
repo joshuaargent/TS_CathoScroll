@@ -795,8 +795,9 @@ export function CommentSection({ topicId, cache }: CommentSectionProps) {
 
       {cachedAt && (
         <p role="status" className="text-text-secondary mb-6 text-sm">
-          Showing comments saved on {new Date(cachedAt).toLocaleString()}. They may have changed.
-          Connect to refresh or participate.
+          {isOnline
+            ? 'Comments could not be refreshed. Showing saved comments; they may have changed.'
+            : "You're offline. Showing saved comments; they may have changed. Reconnect to refresh or participate."}
         </p>
       )}
       {cacheWarning && (

@@ -14,10 +14,10 @@ function highlightText(text: string, query: string) {
     return text;
   }
 
-  const regex = new RegExp(`(${query})`, 'gi');
+  const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
 
   return text.split(regex).map((part, index) =>
-    regex.test(part) ? (
+    part.toLowerCase() === query.toLowerCase() ? (
       <mark key={index} className="bg-accent-light rounded px-1">
         {part}
       </mark>

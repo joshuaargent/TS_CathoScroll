@@ -21,6 +21,8 @@ function fixture() {
       question TEXT, answer TEXT, explanation TEXT, catechism_paragraphs TEXT,
       catechism_text TEXT, scripture_reference TEXT, scripture_text TEXT
     );
+    CREATE TABLE catalogue_metadata (singleton INTEGER PRIMARY KEY, category_count INTEGER, topic_count INTEGER);
+    INSERT INTO catalogue_metadata VALUES (1, 1, 55);
     INSERT INTO categories VALUES ('faith', 'Faith', 'Description', 1);
   `);
   const insert = db.prepare('INSERT INTO topics VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
@@ -77,6 +79,23 @@ test('treats search wildcard characters as literal text', async () => {
       ['topic-055']
     );
     assert.equal((await catalogue.topics({ search: '_' })).topics.length, 0);
+  } finally {
+    db.close();
+  }
+});
+
+test('opens a topic or category by slug without loading the entire catalogue', async () => {
+  const { db, catalogue } = fixture();
+  try {
+    assert.equal((await catalogue.topic('topic-055')).question, 'A 100% question');
+    assert.equal((await catalogue.category('faith')).description, 'Description');
+    assert.equal(await catalogue.topic('missing'), null);
+    assert.equal(await catalogue.category('missing'), null);
+    assert.equal(await catalogue.topic("' OR 1=1 --"), null);
+    assert.deepEqual(await catalogue.totals(), { categories: 1, topics: 55 });
+    assert.equal(await catalogue.categoryTopicCount('faith'), 55);
+    assert.equal(await catalogue.categoryTopicCount('missing'), 0);
+    await assert.rejects(catalogue.topic(' '), /Invalid/);
   } finally {
     db.close();
   }
