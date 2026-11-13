@@ -4,6 +4,7 @@ import type { Metadata } from 'next';
 
 import { TopicNotes } from '@/components/topic/TopicNotes';
 import { TopicActions } from '@/components/topic/TopicActions';
+import { TopicArticle, TopicArticleHeader } from '@/components/topic/TopicArticle';
 
 import { CommentSection } from '@/components/comments/CommentSection';
 
@@ -89,53 +90,10 @@ export default async function TopicPage({ params }: Props) {
 
   return (
     <main className="container py-12">
-      <section className="mt-8 mb-16">
-        <Badge variant="accent" size="lg">
-          {topic.category}
-        </Badge>
-
-        <div className="text-text-muted mt-4 text-sm tracking-wider uppercase">
-          Topic {topicNumber} of {topicCount}
-        </div>
-
-        <h1 className="mt-4 text-5xl leading-tight font-extrabold md:text-7xl">{topic.question}</h1>
-
-        <p className="mt-8 max-w-4xl text-2xl leading-relaxed font-semibold md:text-3xl">
-          {topic.answer}
-        </p>
-      </section>
+      <TopicArticleHeader topic={topic} position={{ number: topicNumber, count: topicCount }} />
 
       <TopicActions topicId={String(topic.id)} slug={topic.slug} title={topic.question} />
-
-      <section className="mt-8 mb-16">
-        <h2 className="mb-6 text-3xl font-bold">Explanation</h2>
-
-        <p className="max-w-4xl text-lg leading-relaxed">{topic.explanation}</p>
-      </section>
-
-      <section className="border-border bg-accent-light/10 mb-16 rounded-2xl border p-8">
-        <h2 className="mb-6 text-3xl font-bold">Catechism</h2>
-
-        <p className="text-lg leading-relaxed">{topic.catechism.text}</p>
-
-        <div className="mt-6 flex flex-wrap gap-2">
-          {topic.catechism.paragraphs.map((paragraph) => (
-            <span key={paragraph} className="border-border rounded-full border px-3 py-1 text-sm">
-              CCC {paragraph}
-            </span>
-          ))}
-        </div>
-      </section>
-
-      <section className="border-border mb-16 rounded-2xl border p-8">
-        <h2 className="mb-3 text-3xl font-bold">Scripture</h2>
-
-        <p className="text-text-secondary mb-6 text-sm">{topic.scripture.reference}</p>
-
-        <blockquote className="border-accent border-l-4 pl-6 text-xl italic">
-          {topic.scripture.text}
-        </blockquote>
-      </section>
+      <TopicArticle topic={topic} />
 
       <TopicNotes topicId={String(topic.id)} />
 

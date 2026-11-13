@@ -261,7 +261,7 @@ export function CommentCard({
                 <button
                   type="button"
                   onClick={() => onPin?.(comment.id)}
-                  disabled={pinActionPending}
+                  disabled={!isOnline || pinActionPending}
                   className="text-text-secondary hover:text-text-primary"
                 >
                   {isPinning ? 'Updating...' : comment.is_pinned ? 'Unpin' : 'Pin'}
@@ -290,6 +290,10 @@ export function CommentCard({
                 className="border-border mt-5 space-y-3 rounded-xl border p-4"
                 onSubmit={async (event) => {
                   event.preventDefault();
+                  if (!isOnline) {
+                    setReportError('You need an internet connection to submit a report.');
+                    return;
+                  }
                   setIsReporting(true);
                   setReportError('');
 
@@ -347,6 +351,11 @@ export function CommentCard({
                     {reportError}
                   </p>
                 )}
+                {!isOnline && (
+                  <p role="status" className="text-text-muted text-sm">
+                    You need an internet connection to submit a report.
+                  </p>
+                )}
                 <div className="flex justify-end gap-2">
                   <button
                     type="button"
@@ -358,7 +367,7 @@ export function CommentCard({
                   </button>
                   <button
                     type="submit"
-                    disabled={isReporting}
+                    disabled={isReporting || !isOnline}
                     className="bg-accent rounded-lg px-3 py-2 text-sm text-white disabled:opacity-50"
                   >
                     {isReporting ? 'Sending...' : 'Submit report'}

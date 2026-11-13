@@ -13,6 +13,7 @@ import { TopicProgress } from './TopicProgress';
 interface TopicSwipeViewerProps {
   topics: Topic[];
   topicIndex: number;
+  active?: boolean;
   userId: string | null;
   currentActivity: TopicActivity | null;
   currentActivityError: boolean;
@@ -32,6 +33,7 @@ interface TopicSwipeViewerProps {
 export function TopicSwipeViewer({
   topics,
   topicIndex,
+  active = true,
   userId,
   currentActivity,
   currentActivityError,
@@ -164,6 +166,7 @@ export function TopicSwipeViewer({
 
   useEffect(() => {
     const handleKeyDown = async (event: globalThis.KeyboardEvent) => {
+      if (!active) return;
       if (event.repeat) return;
       if (isAnimating) return;
 
@@ -226,6 +229,7 @@ export function TopicSwipeViewer({
     return () => window.removeEventListener('keydown', handleKeyDown);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
+    active,
     previousSlide,
     nextSlide,
     previousTopic,

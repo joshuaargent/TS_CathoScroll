@@ -370,14 +370,15 @@ export class OfflineActivityStore {
         throw new Error('Invalid offline activity change.');
       }
     }
-    if (!changes.length) return;
-
     await this.database.transaction(async (db) => {
       const cursorRows = await db.query(
         'SELECT revision FROM offline_activity_cursor WHERE user_id = ?',
         [userId]
       );
-      const currentCursor = cursorRows.length ? cursorRows[0].revision : '0';
+      if (cursorRows.length !== 1) {
+        throw new Error('Offline activity must be initialized before applying changes.');
+      }
+      const currentCursor = cursorRows[0].revision;
       if (typeof currentCursor !== 'string') throw new Error('Invalid offline activity cursor.');
       let previous = revision(currentCursor);
       for (const change of changes) {

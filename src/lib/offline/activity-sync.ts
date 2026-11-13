@@ -58,6 +58,9 @@ export class OfflineActivitySync {
   }
 
   private async pushBatch(userId: string, limit: number): Promise<number> {
+    if (!(await this.store.isBootstrapped(userId))) {
+      throw new Error('Offline activity must be initialized before syncing.');
+    }
     let sent = 0;
     while (sent < limit) {
       const operation = await this.store.nextOperation(userId);
@@ -79,6 +82,9 @@ export class OfflineActivitySync {
     fetch: FetchActivity,
     pageLimit: number
   ): Promise<number> {
+    if (!(await this.store.isBootstrapped(userId))) {
+      throw new Error('Offline activity must be initialized before syncing.');
+    }
     let received = 0;
     for (let pageNumber = 0; pageNumber < pageLimit; pageNumber++) {
       const cursor = await this.store.cursor(userId);

@@ -96,10 +96,12 @@ export class BackgroundActivitySync {
       }
     } finally {
       this.running = false;
-      if (this.generation !== generation || this.requested) {
+      if (this.generation !== generation) {
         this.schedule(0);
       } else if (retry) {
         this.schedule(RETRY_DELAY_MS);
+      } else if (this.requested) {
+        this.schedule(0);
       } else if (isCurrent()) {
         this.schedule(POLL_DELAY_MS);
       }

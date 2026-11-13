@@ -86,6 +86,11 @@ async function databaseFile(t) {
   return file;
 }
 
+async function bootstrap(store, userId = 'alice') {
+  await store.beginBootstrap(userId, 'snapshot', '0');
+  await store.completeBootstrap(userId, 'snapshot');
+}
+
 test('persists account-scoped activity and ordered operations across restarts', async (t) => {
   const file = await databaseFile(t);
   let db = new DatabaseSync(file);
@@ -136,6 +141,7 @@ test('retries the same operation after a lost response and preserves account ord
   const store = new OfflineActivityStore(adapter(db));
   try {
     await store.initialize();
+    await bootstrap(store);
     await store.setActivity('alice', 'topic', 'like', true, 'first');
     await store.setActivity('alice', 'topic', 'like', false, 'second');
     await store.setActivity('bob', 'topic', 'like', true, 'other');
@@ -172,6 +178,7 @@ test('does not acknowledge a mismatched receipt or run concurrent pushes', async
   const store = new OfflineActivityStore(adapter(db));
   try {
     await store.initialize();
+    await bootstrap(store);
     await store.setActivity('alice', 'topic', 'bookmark', true, 'first');
     let release;
     const wait = new Promise((resolve) => {
@@ -197,6 +204,7 @@ test('preserves pending edits and newer server changes across delayed receipts',
   const store = new OfflineActivityStore(adapter(db));
   try {
     await store.initialize();
+    await bootstrap(store);
     await store.setActivity('alice', 'topic', 'bookmark', true, 'first');
     await store.applyChanges('alice', [
       { topicId: 'topic', kind: 'bookmark', value: true, revision: '1' },
@@ -217,6 +225,7 @@ test('rejects gaps and rolls back both activity and cursor changes', async (t) =
   const store = new OfflineActivityStore(adapter(db));
   try {
     await store.initialize();
+    await bootstrap(store);
     await assert.rejects(
       store.applyChanges('alice', [
         { topicId: 'topic', kind: 'like', value: true, revision: '1' },
@@ -237,6 +246,7 @@ test('pulls bounded account-specific pages and resumes from the committed cursor
   const store = new OfflineActivityStore(adapter(db));
   try {
     await store.initialize();
+    await bootstrap(store);
     const sync = new OfflineActivitySync(store, async () => {
       throw new Error('Not used');
     });
@@ -276,6 +286,7 @@ test('rejects pages for another account without advancing the cursor', async (t)
   const store = new OfflineActivityStore(adapter(db));
   try {
     await store.initialize();
+    await bootstrap(store);
     const sync = new OfflineActivitySync(store, async () => {
       throw new Error('Not used');
     });
@@ -289,6 +300,41 @@ test('rejects pages for another account without advancing the cursor', async (t)
     );
     assert.equal(await store.cursor('alice'), '0');
     assert.equal(await store.getActivity('alice', 'topic', 'like'), null);
+  } finally {
+    db.close();
+  }
+});
+
+test('does not send or apply activity before the account snapshot completes', async (t) => {
+  const file = await databaseFile(t);
+  const db = new DatabaseSync(file);
+  const store = new OfflineActivityStore(adapter(db));
+  try {
+    await store.initialize();
+    await store.setActivity('alice', 'topic', 'like', true, 'pending');
+    await store.beginBootstrap('alice', 'snapshot', '0');
+    let contacted = false;
+    const sync = new OfflineActivitySync(store, async () => {
+      contacted = true;
+      throw new Error('Unexpected send');
+    });
+    await assert.rejects(sync.push('alice'), /initialized/);
+    await assert.rejects(
+      sync.pull('alice', async () => {
+        contacted = true;
+        throw new Error('Unexpected fetch');
+      }),
+      /initialized/
+    );
+    await assert.rejects(
+      store.applyChanges('alice', [{ topicId: 'other', kind: 'like', value: true, revision: '1' }]),
+      /initialized/
+    );
+    assert.equal(contacted, false);
+    assert.equal(await store.isBootstrapped('alice'), false);
+    assert.equal((await store.nextOperation('alice')).operationId, 'pending');
+    await store.completeBootstrap('alice', 'snapshot');
+    assert.equal(await store.isBootstrapped('alice'), true);
   } finally {
     db.close();
   }
@@ -393,6 +439,7 @@ test('background sync waits for connectivity and retries failed operations', asy
   let background;
   try {
     await store.initialize();
+    await bootstrap(store);
     await store.setActivity('alice', 'topic', 'like', true, 'operation');
     const sync = new OfflineActivitySync(store, async (operation) => {
       attempts.push(operation.operationId);
@@ -427,6 +474,38 @@ test('background sync waits for connectivity and retries failed operations', asy
   } finally {
     background?.dispose();
     db.close();
+  }
+});
+
+test('backs off after an error even when a full batch requested another cycle', async () => {
+  let pushes = 0;
+  const errors = [];
+  const engine = {
+    async push() {
+      pushes++;
+      return 1;
+    },
+    async pull() {
+      throw new Error('Server unavailable');
+    },
+  };
+  const background = new BackgroundActivitySync(
+    engine,
+    async () => {
+      throw new Error('Not used');
+    },
+    () => true,
+    (_userId, error) => errors.push(error.message),
+    () => {}
+  );
+  try {
+    background.setUser('alice');
+    await waitFor(() => errors.length > 0);
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    assert.equal(pushes, 100);
+    assert.deepEqual(errors, ['Server unavailable']);
+  } finally {
+    background.dispose();
   }
 });
 

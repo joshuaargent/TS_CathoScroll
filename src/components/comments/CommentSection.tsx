@@ -1,10 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Comment, Profile } from '../../lib/supabase/types';
 
 import { createClient } from '@/lib/supabase/client';
+import type { OfflineCommentCache } from '@/lib/offline/comment-cache';
 import { useSignInPrompt } from '@/components/providers/SignInPromptProvider';
 
 import { CommentCard } from './CommentCard';
@@ -13,6 +14,7 @@ import Link from 'next/link';
 
 interface CommentSectionProps {
   topicId: string;
+  cache?: Pick<OfflineCommentCache, 'load' | 'save'>;
 }
 
 const fallbackProfile: Profile = {
@@ -141,7 +143,7 @@ function cloneAndSortComments(comments: Comment[], sorter: (comments: Comment[])
   return cloned;
 }
 
-export function CommentSection({ topicId }: CommentSectionProps) {
+export function CommentSection({ topicId, cache }: CommentSectionProps) {
   const requestSignIn = useSignInPrompt();
   const [comments, setComments] = useState<Comment[]>([]);
 
@@ -150,6 +152,8 @@ export function CommentSection({ topicId }: CommentSectionProps) {
   const [isOnline, setIsOnline] = useState(true);
 
   const [commentLoadError, setCommentLoadError] = useState('');
+  const [cachedAt, setCachedAt] = useState<string | null>(null);
+  const [cacheWarning, setCacheWarning] = useState('');
 
   const [commentActionError, setCommentActionError] = useState('');
 
@@ -166,6 +170,7 @@ export function CommentSection({ topicId }: CommentSectionProps) {
   const [pinError, setPinError] = useState('');
 
   const [pinningCommentId, setPinningCommentId] = useState<number | null>(null);
+  const loadVersion = useRef(0);
 
   const commentCount = useMemo(() => countComments(comments), [comments]);
 
@@ -191,191 +196,236 @@ export function CommentSection({ topicId }: CommentSectionProps) {
   }, []);
 
   const loadComments = useCallback(async () => {
+    const version = ++loadVersion.current;
+    const isCurrent = () => version === loadVersion.current;
+    setLoading(true);
     setCommentLoadError('');
-    const supabase = createClient();
+    setCacheWarning('');
+    try {
+      if (cache && !navigator.onLine) throw new Error('Offline');
+      const supabase = createClient();
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
-    setUserId(user?.id ?? null);
+      if (!isCurrent()) return;
+      setUserId(user?.id ?? null);
 
-    const commentsResult = await supabase
-      .from('comments')
-      .select('*')
-      .eq('topic_id', topicId)
-      .order('created_at', {
-        ascending: false,
-      });
-
-    if (commentsResult.error) {
-      console.error('Unable to load comments:', commentsResult.error.message);
-      setCommentLoadError('Unable to load comments. Please try again.');
-      setLoading(false);
-      return;
-    }
-
-    const commentRows = commentsResult.data ?? [];
-    // Restrict the likes query to this topic's comment ids instead of loading
-    // the entire community's likes on every topic page.
-    const commentIds = commentRows.map((row) => row.id);
-
-    const userIds = [
-      ...new Set([...commentRows.map((row) => row.user_id), user?.id].filter(Boolean)),
-    ];
-
-    const [likesResult, profilesResult, adminRoleResult, commentBanResult] = await Promise.all([
-      commentIds.length
-        ? supabase.from('comment_likes').select('comment_id,user_id').in('comment_id', commentIds)
-        : Promise.resolve({ data: [], error: null }),
-
-      userIds.length
-        ? supabase.from('profiles').select('*').in('id', userIds)
-        : Promise.resolve({
-            data: [],
-            error: null,
-          }),
-
-      user
-        ? supabase.from('admin_users').select('user_id').eq('user_id', user.id).maybeSingle()
-        : Promise.resolve({ data: null, error: null }),
-
-      user
-        ? supabase
-            .from('user_comment_bans')
-            .select('id')
-            .eq('user_id', user.id)
-            .is('unbanned_at', null)
-            .maybeSingle()
-        : Promise.resolve({ data: null, error: null }),
-    ]);
-
-    if (likesResult.error || profilesResult.error) {
-      const error = likesResult.error ?? profilesResult.error;
-      console.error('Unable to load comment details:', error?.message);
-      setCommentLoadError('Unable to load comments. Please try again.');
-      setLoading(false);
-      return;
-    }
-
-    if (adminRoleResult.error) {
-      console.error('Unable to verify comment moderation role:', adminRoleResult.error.message);
-      setCanPinComments(false);
-    } else {
-      setCanPinComments(Boolean(adminRoleResult.data));
-    }
-
-    if (commentBanResult.error) {
-      console.error('Unable to check comment restriction:', commentBanResult.error.message);
-      setIsCommentBanned(false);
-      setCommentBanCheckFailed(true);
-    } else {
-      setIsCommentBanned(Boolean(commentBanResult.data));
-      setCommentBanCheckFailed(false);
-    }
-
-    const profiles = new Map((profilesResult.data ?? []).map((profile) => [profile.id, profile]));
-
-    if (user?.id && !profiles.has(user.id)) {
-      const { data, error } = await supabase
-        .from('profiles')
+      const commentsResult = await supabase
+        .from('comments')
         .select('*')
-        .eq('id', user.id)
-        .single();
+        .eq('topic_id', topicId)
+        .order('created_at', {
+          ascending: false,
+        });
 
-      if (error) {
-        console.error('Unable to load your comment profile:', error.message);
-        setCommentLoadError('Unable to load comments. Please try again.');
-        setLoading(false);
-        return;
+      if (!isCurrent()) return;
+      if (commentsResult.error) {
+        throw new Error(`Unable to load comments: ${commentsResult.error.message}`);
       }
-      if (data) {
-        profiles.set(user.id, data);
+
+      const commentRows = commentsResult.data ?? [];
+      // Restrict the likes query to this topic's comment ids instead of loading
+      // the entire community's likes on every topic page.
+      const commentIds = commentRows.map((row) => row.id);
+
+      const userIds = [
+        ...new Set([...commentRows.map((row) => row.user_id), user?.id].filter(Boolean)),
+      ];
+
+      const [likesResult, profilesResult, adminRoleResult, commentBanResult] = await Promise.all([
+        commentIds.length
+          ? supabase.from('comment_likes').select('comment_id,user_id').in('comment_id', commentIds)
+          : Promise.resolve({ data: [], error: null }),
+
+        userIds.length
+          ? supabase.from('profiles').select('*').in('id', userIds)
+          : Promise.resolve({
+              data: [],
+              error: null,
+            }),
+
+        user
+          ? supabase.from('admin_users').select('user_id').eq('user_id', user.id).maybeSingle()
+          : Promise.resolve({ data: null, error: null }),
+
+        user
+          ? supabase
+              .from('user_comment_bans')
+              .select('id')
+              .eq('user_id', user.id)
+              .is('unbanned_at', null)
+              .maybeSingle()
+          : Promise.resolve({ data: null, error: null }),
+      ]);
+
+      if (!isCurrent()) return;
+      if (likesResult.error || profilesResult.error) {
+        const error = likesResult.error ?? profilesResult.error;
+        throw new Error(`Unable to load comment details: ${error?.message}`);
       }
-    }
 
-    if (user?.id) {
-      setCurrentProfile(profiles.get(user.id) ?? null);
-    }
-
-    const likeCounts = new Map<number, number>();
-
-    const likedByUser = new Set<number>();
-
-    (likesResult.data ?? []).forEach((like) => {
-      likeCounts.set(like.comment_id, (likeCounts.get(like.comment_id) ?? 0) + 1);
-
-      if (like.user_id === user?.id) {
-        likedByUser.add(like.comment_id);
+      if (adminRoleResult.error) {
+        console.error('Unable to verify comment moderation role:', adminRoleResult.error.message);
+        setCanPinComments(false);
+      } else {
+        setCanPinComments(Boolean(adminRoleResult.data));
       }
-    });
 
-    const map = new Map<number, Comment>();
+      if (commentBanResult.error) {
+        console.error('Unable to check comment restriction:', commentBanResult.error.message);
+        setIsCommentBanned(false);
+        setCommentBanCheckFailed(true);
+      } else {
+        setIsCommentBanned(Boolean(commentBanResult.data));
+        setCommentBanCheckFailed(false);
+      }
 
-    const roots: Comment[] = [];
+      const profiles = new Map((profilesResult.data ?? []).map((profile) => [profile.id, profile]));
 
-    // Build every node before linking parents. This lets a reply find its
-    // parent regardless of the order in which the database returned rows.
-    //
-    // AQA-style pseudocode:
-    // FOR EACH row IN commentRows
-    //   node ← COMMENT(row, replies = [])
-    //   map[row.id] ← node
-    // FOR EACH node IN map
-    //   IF node.parent_id = NULL THEN
-    //     APPEND node TO roots
-    //   ELSE IF map CONTAINS node.parent_id THEN
-    //     APPEND node TO map[node.parent_id].replies
-    // Each database row is processed twice, with average O(1) map access, so
-    // constructing the tree takes O(n) time and O(n) additional space.
-    commentRows.forEach((row) => {
-      map.set(row.id, {
-        id: row.id,
-        topic_id: row.topic_id,
-        user_id: row.user_id,
-        parent_id: row.parent_id,
-        content: row.content,
-        created_at: row.created_at,
-        edited_at: row.edited_at,
-        is_deleted: row.is_deleted,
-        is_pinned: row.is_pinned,
+      if (user?.id && !profiles.has(user.id)) {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
 
-        profile: profiles.get(row.user_id) ?? {
-          ...fallbackProfile,
-          id: row.user_id,
-        },
+        if (!isCurrent()) return;
+        if (error) {
+          throw new Error(`Unable to load your comment profile: ${error.message}`);
+        }
+        if (data) {
+          profiles.set(user.id, data);
+        }
+      }
 
-        likes: likeCounts.get(row.id) ?? 0,
+      if (user?.id) {
+        setCurrentProfile(profiles.get(user.id) ?? null);
+      }
 
-        likedByUser: likedByUser.has(row.id),
+      const likeCounts = new Map<number, number>();
 
-        replies: [],
+      const likedByUser = new Set<number>();
+
+      (likesResult.data ?? []).forEach((like) => {
+        likeCounts.set(like.comment_id, (likeCounts.get(like.comment_id) ?? 0) + 1);
+
+        if (like.user_id === user?.id) {
+          likedByUser.add(like.comment_id);
+        }
       });
-    });
 
-    // The parent_id field is an adjacency-list representation in storage;
-    // this pass materializes it as the nested tree consumed by CommentCard.
-    map.forEach((comment) => {
-      if (comment.parent_id === null) {
-        roots.push(comment);
+      const map = new Map<number, Comment>();
 
-        return;
+      const roots: Comment[] = [];
+
+      // Build every node before linking parents. This lets a reply find its
+      // parent regardless of the order in which the database returned rows.
+      //
+      // AQA-style pseudocode:
+      // FOR EACH row IN commentRows
+      //   node ← COMMENT(row, replies = [])
+      //   map[row.id] ← node
+      // FOR EACH node IN map
+      //   IF node.parent_id = NULL THEN
+      //     APPEND node TO roots
+      //   ELSE IF map CONTAINS node.parent_id THEN
+      //     APPEND node TO map[node.parent_id].replies
+      // Each database row is processed twice, with average O(1) map access, so
+      // constructing the tree takes O(n) time and O(n) additional space.
+      commentRows.forEach((row) => {
+        map.set(row.id, {
+          id: row.id,
+          topic_id: row.topic_id,
+          user_id: row.user_id,
+          parent_id: row.parent_id,
+          content: row.content,
+          created_at: row.created_at,
+          edited_at: row.edited_at,
+          is_deleted: row.is_deleted,
+          is_pinned: row.is_pinned,
+
+          profile: profiles.get(row.user_id) ?? {
+            ...fallbackProfile,
+            id: row.user_id,
+          },
+
+          likes: likeCounts.get(row.id) ?? 0,
+
+          likedByUser: likedByUser.has(row.id),
+
+          replies: [],
+        });
+      });
+
+      // The parent_id field is an adjacency-list representation in storage;
+      // this pass materializes it as the nested tree consumed by CommentCard.
+      map.forEach((comment) => {
+        if (comment.parent_id === null) {
+          roots.push(comment);
+
+          return;
+        }
+
+        map.get(comment.parent_id)?.replies.push(comment);
+      });
+
+      sortComments(roots);
+
+      setComments(roots);
+      setCachedAt(null);
+      setCommentLoadError('');
+      if (cache) {
+        try {
+          await cache.save(topicId, roots);
+        } catch (error) {
+          console.error('Unable to save comments for offline viewing:', error);
+          if (isCurrent()) setCacheWarning('Comments could not be saved for offline viewing.');
+        }
       }
-
-      map.get(comment.parent_id)?.replies.push(comment);
-    });
-
-    sortComments(roots);
-
-    setComments(roots);
-    setCommentLoadError('');
-
-    setLoading(false);
-  }, [topicId, sortComments]);
+    } catch (error) {
+      if (!isCurrent()) return;
+      if (!(cache && !navigator.onLine)) console.error('Unable to load comments:', error);
+      if (cache) {
+        try {
+          const cached = await cache.load(topicId);
+          if (!isCurrent()) return;
+          if (cached) {
+            setComments(cached.comments);
+            setCachedAt(cached.savedAt);
+            setUserId(null);
+            setCurrentProfile(null);
+            setCanPinComments(false);
+            return;
+          }
+        } catch (cacheError) {
+          if (!isCurrent()) return;
+          console.error('Unable to open saved comments:', cacheError);
+          setCommentLoadError('Unable to open saved comments. Please try again.');
+          return;
+        }
+      }
+      setComments([]);
+      setCachedAt(null);
+      setCommentLoadError(
+        cache && !navigator.onLine
+          ? 'Comments for this topic have not been saved on this device.'
+          : 'Unable to load comments. Please try again.'
+      );
+    } finally {
+      if (isCurrent()) setLoading(false);
+    }
+  }, [topicId, sortComments, cache]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadComments();
+    return () => {
+      // Invalidate every in-flight refresh, not just the first one.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      loadVersion.current++;
+    };
   }, [loadComments]);
 
   useEffect(() => {
@@ -383,15 +433,20 @@ export function CommentSection({ topicId }: CommentSectionProps) {
       setIsOnline(navigator.onLine);
     }
 
+    function handleConnectivityChange() {
+      updateOnlineStatus();
+      if (cache) void loadComments();
+    }
+
     updateOnlineStatus();
-    window.addEventListener('online', updateOnlineStatus);
-    window.addEventListener('offline', updateOnlineStatus);
+    window.addEventListener('online', handleConnectivityChange);
+    window.addEventListener('offline', handleConnectivityChange);
 
     return () => {
-      window.removeEventListener('online', updateOnlineStatus);
-      window.removeEventListener('offline', updateOnlineStatus);
+      window.removeEventListener('online', handleConnectivityChange);
+      window.removeEventListener('offline', handleConnectivityChange);
     };
-  }, []);
+  }, [cache, loadComments]);
 
   async function createComment(content: string) {
     if (!navigator.onLine) {
@@ -444,6 +499,7 @@ export function CommentSection({ topicId }: CommentSectionProps) {
     }
 
     setComments((prev) => replaceCommentId(prev, tempId, data.id));
+    if (cache) await loadComments();
   }
 
   async function createReply(parentId: number, content: string) {
@@ -497,6 +553,7 @@ export function CommentSection({ topicId }: CommentSectionProps) {
     }
 
     setComments((prev) => replaceCommentId(prev, tempId, data.id));
+    if (cache) await loadComments();
   }
 
   async function editComment(commentId: number, content: string) {
@@ -530,9 +587,14 @@ export function CommentSection({ topicId }: CommentSectionProps) {
       await loadComments();
       throw new Error('Unable to edit this comment. Your comment access may be restricted.');
     }
+    if (cache) await loadComments();
   }
 
   async function deleteComment(commentId: number) {
+    if (!navigator.onLine) {
+      setCommentActionError('You need an internet connection to delete comments.');
+      return;
+    }
     if (!window.confirm('Delete this comment?')) {
       return;
     }
@@ -558,10 +620,16 @@ export function CommentSection({ topicId }: CommentSectionProps) {
       console.error('Unable to delete comment:', error.message);
       await loadComments();
       setCommentActionError('Unable to delete this comment. Please try again.');
+    } else if (cache) {
+      await loadComments();
     }
   }
 
   async function togglePin(commentId: number) {
+    if (!navigator.onLine) {
+      setPinError('You need an internet connection to pin comments.');
+      return;
+    }
     if (!canPinComments) {
       return;
     }
@@ -598,6 +666,7 @@ export function CommentSection({ topicId }: CommentSectionProps) {
       if (!response.ok) {
         throw new Error(`Pin request failed with status ${response.status}`);
       }
+      if (cache) await loadComments();
     } catch (error) {
       console.error('Unable to update pinned comment:', error);
       setPinError('Unable to update the pinned comment. Please try again.');
@@ -608,6 +677,9 @@ export function CommentSection({ topicId }: CommentSectionProps) {
   }
 
   async function reportComment(commentId: number, reason: string, details: string) {
+    if (!navigator.onLine) {
+      throw new Error('You need an internet connection to submit a report.');
+    }
     const response = await fetch('/api/reports/comments', {
       method: 'POST',
       headers: {
@@ -650,6 +722,10 @@ export function CommentSection({ topicId }: CommentSectionProps) {
   }
 
   async function toggleLike(commentId: number) {
+    if (!navigator.onLine) {
+      setCommentActionError('You need an internet connection to like comments.');
+      return;
+    }
     if (!userId) {
       requestSignIn('like comments');
       return;
@@ -698,6 +774,8 @@ export function CommentSection({ topicId }: CommentSectionProps) {
       console.error('Unable to update comment like:', error.message);
       await loadComments();
       setCommentActionError('Unable to update your like. Please try again.');
+    } else if (cache) {
+      await loadComments();
     }
   }
 
@@ -715,7 +793,25 @@ export function CommentSection({ topicId }: CommentSectionProps) {
     <section id="comments" className="mb-16">
       <h2 className="mb-6 text-3xl font-bold">Comments ({commentCount})</h2>
 
-      {userId && (isCommentBanned || commentBanCheckFailed) ? (
+      {cachedAt && (
+        <p role="status" className="text-text-secondary mb-6 text-sm">
+          Showing comments saved on {new Date(cachedAt).toLocaleString()}. They may have changed.
+          Connect to refresh or participate.
+        </p>
+      )}
+      {cacheWarning && (
+        <p role="alert" className="mb-6 text-sm text-red-600">
+          {cacheWarning}
+        </p>
+      )}
+
+      {cachedAt || !isOnline ? (
+        <article className="border-border mb-6 rounded-2xl border p-6">
+          <p className="text-text-secondary">
+            You need an internet connection to join the discussion.
+          </p>
+        </article>
+      ) : userId && (isCommentBanned || commentBanCheckFailed) ? (
         <>
           <article className="border-border rounded-2xl border p-6">
             <p className="font-semibold">
@@ -814,7 +910,7 @@ export function CommentSection({ topicId }: CommentSectionProps) {
               onPin={togglePin}
               canPin={canPinComments}
               isCommentBanned={isCommentBanned || commentBanCheckFailed}
-              isOnline={isOnline}
+              isOnline={isOnline && !cachedAt}
               hasPinnedComment={hasPinnedComment}
               isPinning={pinningCommentId === comment.id}
               pinActionPending={pinningCommentId !== null}
