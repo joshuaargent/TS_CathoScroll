@@ -192,7 +192,7 @@ function NativeViewer(props: {
         }
       } catch (error) {
         console.error('Unable to refresh topic counts:', error);
-        if (active) setCountError('Topic counts could not be refreshed.');
+        if (active) setCountError('Topic counts could not be updated and may be out of date.');
       }
     }
     void load();
@@ -279,13 +279,12 @@ function NativeViewer(props: {
           {shareMessage.text}
         </p>
       )}
-      {(!navigator.onLine || (currentCounts && !currentCounts.fresh)) && (
+      {(countError || !navigator.onLine || (currentCounts && !currentCounts.fresh)) && (
         <p role="status" className="text-text-secondary px-6 text-xs">
-          {navigator.onLine
-            ? countError
-              ? 'Counts could not be refreshed and may not be accurate.'
-              : 'Showing saved counts while they update.'
-            : "You're offline. Like and comment counts may not be accurate until you reconnect."}
+          {countError ||
+            (navigator.onLine
+              ? 'Showing saved counts while they update.'
+              : "You're offline. Like and comment counts may not be accurate until you reconnect.")}
         </p>
       )}
       {userId && !accountReady && (
@@ -329,7 +328,7 @@ function NativeViewer(props: {
               : null
           }
           currentActivityError={Boolean(userId && accountReady && activityError)}
-          actionError={[message, countError].filter(Boolean).join(' ')}
+          actionError={message}
           pendingActions={pendingActions}
           retryActivity={() => {
             setMessage('');
@@ -701,7 +700,7 @@ function App() {
       const target =
         event instanceof CustomEvent && typeof event.detail === 'string' ? event.detail : '';
       if (!parseRoute(target)) {
-        setNavigationMessage('This page is not available in the offline preview yet.');
+        setNavigationMessage('This page is not available in the app. Please use the website.');
         return;
       }
       window.history.pushState(null, '', `#${target}`);
@@ -875,7 +874,7 @@ function App() {
             )}
             {!route && (
               <p role="alert" className="px-6">
-                This page is not available in the offline preview yet.
+                This page is not available in the app. Please use the website.
               </p>
             )}
           </main>

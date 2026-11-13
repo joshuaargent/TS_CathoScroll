@@ -3,6 +3,7 @@ import { mkdir, open, rename, unlink } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createClient } from '@supabase/supabase-js';
+import { loadEnv } from 'vite';
 
 const pageSize = 500;
 const topicFields =
@@ -22,6 +23,21 @@ export async function exportOfflineCatalogue(supabase, outputPath) {
   await mkdir(path.dirname(destination), { recursive: true });
 
   try {
+    const { data: counts, error: countError } = await supabase.rpc('offline_catalogue_counts');
+    if (countError) throw new Error(`Unable to check catalogue counts: ${countError.message}`);
+    if (
+      !counts ||
+      typeof counts.revision !== 'string' ||
+      !/^(0|[1-9][0-9]*)$/.test(counts.revision) ||
+      ![counts.categories, counts.topics].every(
+        (value) =>
+          typeof value === 'string' &&
+          /^(0|[1-9][0-9]*)$/.test(value) &&
+          BigInt(value) <= BigInt(Number.MAX_SAFE_INTEGER)
+      )
+    ) {
+      throw new Error('The catalogue count response is invalid.');
+    }
     file = await open(temporary, 'wx');
 
     async function writeRecords(records) {
@@ -117,6 +133,17 @@ export async function exportOfflineCatalogue(supabase, outputPath) {
       cursor = { orderIndex: last.order_index, id: last.id };
     }
 
+    const { data: head, error: headError } = await supabase.rpc('offline_catalogue_head');
+    if (headError) throw new Error(`Unable to check catalogue revision: ${headError.message}`);
+    if (
+      !head ||
+      head.revision !== counts.revision ||
+      categoryCount !== Number(counts.categories) ||
+      topicCount !== Number(counts.topics)
+    ) {
+      throw new Error('The catalogue changed or was incomplete during export. Please retry.');
+    }
+
     const footer = {
       type: 'footer',
       categories: categoryCount,
@@ -142,11 +169,13 @@ export async function exportOfflineCatalogue(supabase, outputPath) {
 }
 
 async function main() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const env = loadEnv('production', process.cwd(), ['NEXT_PUBLIC_']);
+  const url = env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !key) {
     throw new Error('Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY first.');
   }
+  if (new URL(url).protocol !== 'https:') throw new Error('The Supabase URL must use HTTPS.');
 
   const client = createClient(url, key, {
     auth: { autoRefreshToken: false, persistSession: false },

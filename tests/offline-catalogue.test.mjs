@@ -21,11 +21,25 @@ async function temporaryOutput(t) {
   return output;
 }
 
-function fakeSupabase(pages) {
+function fakeSupabase(pages, overrides = {}) {
   const calls = [];
+  const counts = {
+    revision: '1',
+    categories: String(
+      pages.categories.reduce((total, page) => total + (page.data?.length ?? 0), 0)
+    ),
+    topics: String(pages.topics.reduce((total, page) => total + (page.data?.length ?? 0), 0)),
+    ...overrides.counts,
+  };
   return {
     calls,
     client: {
+      async rpc(name) {
+        if (name === 'offline_catalogue_counts') return { data: counts, error: null };
+        if (name === 'offline_catalogue_head')
+          return { data: { revision: overrides.head ?? counts.revision }, error: null };
+        throw new Error(`Unexpected RPC: ${name}`);
+      },
       from(table) {
         const call = { table, filters: [], orders: [] };
         calls.push(call);
@@ -79,6 +93,7 @@ test('exports bounded public pages with a verified footer and keyset cursor', as
     scripture_text: 'Scripture',
     category: { slug: 'faith', name: 'Faith', is_published: true },
   });
+
   const firstTopics = Array.from({ length: 500 }, (_, index) => topic(index + 1));
   const { client, calls } = fakeSupabase({
     categories: [
@@ -121,6 +136,23 @@ test('exports bounded public pages with a verified footer and keyset cursor', as
         call.filters.some(([key, value]) => key === 'category.is_published' && value === true)
       )
   );
+});
+
+test('preserves the previous snapshot when counts or revision change', async (t) => {
+  const output = await temporaryOutput(t);
+  await writeFile(output, 'previous snapshot');
+  for (const overrides of [{ counts: { topics: '1' } }, { head: '2' }]) {
+    const { client } = fakeSupabase(
+      {
+        categories: [{ data: [], error: null }],
+        topics: [{ data: [], error: null }],
+      },
+      overrides
+    );
+    await assert.rejects(exportOfflineCatalogue(client, output), /changed or was incomplete/);
+    assert.equal(await readFile(output, 'utf8'), 'previous snapshot');
+    assert.deepEqual(await readdir(path.dirname(output)), ['catalogue.jsonl']);
+  }
 });
 
 test('does not replace the previous snapshot when export fails', async (t) => {

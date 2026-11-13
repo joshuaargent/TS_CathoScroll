@@ -100,64 +100,31 @@ Open:
 http://localhost:3000
 ```
 
-## Mobile app wrapper
+## Android app
 
-CathoScroll can be packaged for Android and iOS with Capacitor while loading the
-website hosted on Vercel. This thin wrapper requires an internet connection and
-does not provide offline access to topics or account features.
-
-The wrapper defaults to `https://cathoscroll.vercel.app`. To point it at a
-different HTTPS deployment, set `CAPACITOR_SERVER_URL` in the environment used
-to run Capacitor commands. Do not set it to an HTTP URL for a production build.
-
-The native projects include branded launch screens. Android fades the launch
-screen out as the app opens; iOS uses its required static launch screen.
-
-**This is a remote-site prototype, not a recommended production configuration.**
-It uses Capacitor's `server.url`, which Capacitor documents as intended for
-live-reload and not production. It is useful for trying the site in native
-WebViews, but should not be treated as ready for public app-store distribution.
-
-Install the native platform projects once:
+The Android app bundles its interface and published topic catalogue. Install
+dependencies, put the public Supabase URL and anonymous/publishable key in
+`.env.local`, and use Node.js 22.13 or newer. Then build and open the project:
 
 ```bash
-npx cap add android
-npx cap add ios
-```
-
-Generate the native app icons and splash screens from the CathoScroll logo, then
-synchronize Capacitor and open the platform project:
-
-```bash
-npm run assets:generate
-npm run cap:sync
 npm run cap:open:android
-npm run cap:open:ios
 ```
 
-The source logo is `assets/logo.png`; generated iOS and Android assets are checked
-in with their respective native projects. Run the asset generator again whenever
-the source artwork changes.
+This exports a fresh catalogue, builds the app and synchronizes Android before
+opening Android Studio. Build the APK or app bundle there. `npm run cap:sync`
+also builds and synchronizes Android and Electron. Rebuild and synchronize
+after native code or catalogue changes; a Vercel deployment alone does not
+update the bundled interface. Sign upgrades with the same Android signing key
+as the installed app. The iOS project is not part of this release.
 
-Android builds require Android Studio and its Android SDK. iOS builds require
-macOS and Xcode. Re-run `npm run cap:sync` after changing Capacitor configuration
-or native plugins. Ordinary website changes continue to deploy through Vercel
-and do not require rebuilding the native wrapper.
-
-The local `www/index.html` is only an offline/error message; it does not cache
-the application. Test sign-in, email verification, navigation, and external
-links on real devices. A production Capacitor app should bundle its web assets;
-that would require adapting this server-rendered Next.js app for a compatible
-native delivery architecture.
+The source logo is `assets/logo.png`; regenerate native artwork with
+`npm run assets:generate` if it changes.
 
 ## Desktop app
 
-CathoScroll also has a separate Electron desktop target powered by
-Capawesome's maintained Capacitor Electron platform. It reuses the Capacitor
-web experience and currently loads the hosted CathoScroll website, so it
-requires an internet connection and is not an offline desktop app. The hosted
-URL defaults to `https://cathoscroll.vercel.app` and can be overridden with
-`CAPACITOR_SERVER_URL` when launching or packaging the desktop app.
+CathoScroll has a bundled Electron desktop target powered by Capawesome's
+Capacitor Electron platform. It uses the same offline catalogue and account
+sync as Android. Configure the public Supabase values as described above.
 
 After installing the root dependencies with `npm install`, start the desktop
 app with:
@@ -172,10 +139,10 @@ Create a distributable installer for the current operating system with:
 npm run desktop:package
 ```
 
-Installers are written under `electron/dist`. Packaging and signing for each
-operating system should be tested on that OS before release. The hosted-site
-configuration is suitable for development and evaluation, not a final
-store-ready release.
+Both commands export a fresh catalogue and synchronize Electron before running
+or packaging it. Installers are written under `electron/dist`. Packaging,
+signing, upgrades, and online/offline account flows must be tested on each
+target OS before release.
 
 ## Configuration
 
@@ -208,27 +175,51 @@ Public category, topic-detail, topic-page, topic-count, and topic-by-ID reads us
 
 Admins can create and edit categories and topics from `/admin/content`, including descriptions, Catechism and Scripture fields, ordering, and publication status. Unpublishing archives content without deleting rows or breaking user activity. Topic IDs and slugs and category slugs are fixed after creation. Admins can grant another user administrator access from that user's profile; role changes are handled server-side and cannot be self-granted through this action.
 
-### Offline app direction
+### Offline apps and synchronization
 
-The website remains a server-rendered Next.js application and continues to use Supabase as its online source of truth. The default Capacitor and Electron wrappers load the hosted website and are not offline-capable. The experimental opt-in native build bundles a SQLite catalogue and uses the same feed, swipe viewer, topic text and comment cards as the website. The native build also provides offline category browsing, search, topic links, sharing and back navigation. Account activity and catalogue refresh require server RPCs that have not been deployed. Other features remain incomplete, so the native build must not yet be used as a production replacement.
+The website remains server-rendered and Supabase is the online source of truth.
+The bundled Android and Electron apps support offline feed, topic, category and
+local substring search. Local search scans catalogue text and is not optimized
+for very large catalogues.
 
-`npm run offline:export` exports published categories and topics into the ignored `build/offline/catalogue.jsonl`, using the public Supabase URL and anonymous key in the process environment. The line-oriented export is paged, has a checksum footer, and replaces the previous export only after a successful run. Changes during export still require reconciliation by a future content-sync protocol.
+`npm run native:build` exports the published catalogue using the public
+Supabase configuration from `.env.local` or the environment. The export checks
+server counts and revision before replacing its previous snapshot, and
+`offline:database` verifies its checksum and SQLite integrity. A changing or
+incomplete export fails rather than packaging partial content.
+`native:build:local` uses an existing export and is intended for local testing.
+The Supabase offline sync SQL supplied separately has been installed; scheduled
+pruning still requires separate configuration. RLS stays enabled on the public
+sync tables without granting direct access.
 
-With Node.js 22.13 or newer, `npm run offline:database` converts that snapshot into `build/offline/catalogue.sqlite`. It verifies the snapshot checksum, counts and category references, builds browse indexes, checks SQLite integrity, and replaces an existing database only after success. `npm run native:build` exports and bundles a fresh snapshot; `npm run native:build:local` uses an existing export. Set `CATHOSCROLL_NATIVE_BUNDLE=1` when synchronizing a native platform to try the experimental build. On Android, a new catalogue is copied and checked before it is published; existing databases are not replaced, including copies interrupted by older builds. Electron now stores its databases outside Chromium's managed `databases` directory; at startup it copies any remaining legacy databases to the new location without overwriting existing copies. Data already removed by Chromium cannot be recovered by this migration. The existing catalogue and activity databases are unencrypted. When account activity opens, legacy activity is copied transactionally into a separate encrypted database; the original unencrypted copy is retained to avoid data loss. The encrypted database's device-specific key and Android database are excluded from backup; unsynchronized changes must not be expected to transfer to another device. The hosted Electron wrapper cannot access the preview's local SQLite bridge.
+The app stages incremental catalogue changes and publishes them atomically. It
+falls back to a checked full snapshot if history expires or a reset is needed.
+Interrupted updates leave the previous catalogue intact. The catalogue checksum
+and timestamp describe the original bundled import, while counts reflect the
+current local catalogue.
 
-The native catalogue refresh stages bounded, revision-ordered changes and atomically applies them after confirming the server revision has not changed. It falls back to a paginated full snapshot when change history is unavailable, a reset is required, or the incremental backlog exceeds its limit. Full snapshots check server-supplied counts and revisions before publication. Interrupted downloads or concurrent content changes leave the previous catalogue intact and are retried; staging requires additional local storage. The refresh requires server revision triggers and the `offline_catalogue_head`, `offline_catalogue_counts` and `offline_catalogue_changes` RPCs, which are not deployed; until then the app shows the saved catalogue and an update message. The experimental server draft includes bounded pruning of old revision history, but scheduling and deployment have not been established; the protocol must not be deployed as-is. The catalogue metadata checksum and export timestamp describe the original bundled import, while its counts reflect the currently published local catalogue.
+Account activity is stored in a separate encrypted database and synchronized
+when connected. Bootstrap and history-expiry recovery stage snapshots before
+publication, preserving pending edits. The server acknowledges device
+sequences to safely discard older write receipts. A rejected unavailable topic
+is retained and reported without blocking later edits. Legacy activity is
+copied transactionally into encrypted storage; its unencrypted original is
+retained. Existing catalogue databases are not overwritten on upgrade.
+Electron copies legacy databases out of Chromium's managed directory when
+possible, but cannot recover data Chromium already removed.
 
-Offline category and topic lists are keyset-paginated. The preview's local search uses literal substring matching rather than the website's ranking and scans the catalogue text; it is not yet suitable for a very large catalogue.
+Sign-in, sign-up and profile changes require a connection. Sessions use
+Android Keystore-backed storage or Electron's operating-system secure storage.
+Signing out requires a connection and is blocked while activity is queued.
+Encryption keys are device-specific and excluded from Android backup;
+unsynchronized changes cannot be expected to transfer to another device.
 
-When the preview is built with `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`, viewing a topic online saves its like and comment counts, and opening its comments saves the retrieved discussion on the device. Previously saved counts and comments remain readable offline and are labeled with their save time; they may be stale, including after moderation. Topics that have never been fetched cannot show these details offline. Comment writes remain online-only. The cache excludes deleted comment text, profile biographies and account-specific like state. The current website comment query may return only the server's configured maximum rows, so the preview does not guarantee every comment is cached.
-
-The native feed, topic bookmark button and bookmarks page use encrypted account activity. On first setup, bootstrap stages a paginated snapshot, then replays contiguous changes through a server revision captured after the snapshot, before publishing it locally. Once initialized, edits are saved locally and a background scheduler pushes queued operations and pulls account changes. If the server reports that an activity cursor is outside retained history, a replacement snapshot is staged and published atomically while pending edits remain available. A confirmed unavailable-topic rejection is retained in the encrypted database, reported to the user, and does not block later queued changes. Pending edits remain queued, and progress completion times are retained through snapshots, queued operations and updates. Older queued progress without a completion time is preserved but cannot be synchronized automatically. The transport expects authenticated account-bound RPCs for the activity head, snapshot, changes and `offline_apply_activity_v2` idempotent writes; production RPCs have not been deployed, so first-time account activity setup and synchronization will fail until the server protocol is ready and installed. The experimental write protocol uses a durable device ID and sequence: after the device commits a receipt locally, its next write acknowledges it, allowing the server to discard older receipts while rejecting delayed retries. An idle device retains its most recent receipt. The protocol must capture direct website writes and deletions. The experimental draft supports bounded pruning of old events but has no scheduled maintenance and is not ready to deploy. Comments require a connection to participate; reporting and moderation currently require the website.
-
-The preview displays existing notes read-only on topic pages. Notes opened online are cached for later offline viewing; notes not yet opened on the device require a connection. Note content and its account/topic identifiers are encrypted in SQLite with a key protected by native secure storage. Note edits and creation are not available in the preview.
-
-The native build supports account creation and sign-in, keeping the session using Android Keystore-backed encryption or Electron's operating-system secure storage, rejecting insecure web fallback. If email confirmation is required, the user confirms via email, returns to the app and signs in; a missing profile can then be completed with an available username. This does not depend on inserting a profile before an authenticated session exists. Profile fields can be edited online and are cached in the encrypted activity database for read-only access offline. Email and password changes require an online verified session; email changes may require confirmation. When offline, the saved identity can open that account's locally cached notes even if the access token has expired; server access still requires a valid session and is retried on reconnection. Signing out requires a connection and is blocked if the account has queued activity. Android excludes encrypted preferences from backup because the Keystore key is device-specific. A missing key is reported rather than silently overwriting the saved data. The hosted Android wrapper does not register the secure storage or SQLite plugins; the hosted Electron wrapper cannot use its corresponding bridges. These safeguards do not encrypt the separate legacy activity database.
-
-The intended replacement is one online-first native app with offline capabilities integrated into the same interface. Cached aggregate counts can be stale; account edits should sync automatically, while moderation and other actions requiring current server state must remain online-only.
+Previously fetched comment discussions and counts can be read offline but may
+be incomplete or stale. Comment writes remain online-only. Existing notes are
+read-only and available offline only after being opened online on that device;
+creating or editing notes, reporting and moderation require the website.
+Real-device upgrades, reconnects and packaged desktop releases still need
+end-to-end verification before distribution.
 
 Signed-in feed recommendations require the `get_my_recommendation_page` RPC and supporting indexes supplied separately for Supabase. It aggregates each user's completed topics (weight 5), bookmarks (4), likes (3), and distinct commented topics (3) across the published catalogue into category preferences. For each category, a weight of `1 + sqrt(preference)` reduces the effect of very large histories while allowing every category to be explored. The RPC takes the next unfinished topic from indexed category streams, selecting the category with the smallest `served / weight` and avoiding three consecutive topics from the same category when alternatives exist. This approximates a globally personalized ranking without loading or sorting the whole catalogue. The per-category cursor and preference snapshot are carried across pages; a refresh picks up changed preferences. Progress is checked as pages load, and content edits or unpublishing can change subsequent results. If every topic is complete, the initial page falls back to completed topics. The cursor is limited to 200 published categories and 64 KiB; the RPC rejects larger catalogues explicitly. Recommendation responses are private and uncached. Signed-out users retain the shuffled feed.
 
