@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import config from './capacitor.electron.config';
+import { migrateLegacyOfflineDatabases } from './offline-migration';
 
 const embeddedConfig: { server?: { url?: string } } = JSON.parse(
   readFileSync(join(app.getAppPath(), 'generated', 'capacitor.config.json'), 'utf8')
@@ -19,4 +20,11 @@ if (embeddedConfig.server?.url) {
   process.env.CAPACITOR_ELECTRON_DEV_SERVER_URL ??= parsedServerUrl.toString();
 }
 
-createCapacitorElectronApp(config);
+if (app.requestSingleInstanceLock()) {
+  if (!embeddedConfig.server?.url && !process.env.CAPACITOR_ELECTRON_DEV_SERVER_URL) {
+    migrateLegacyOfflineDatabases(app.getPath('userData'));
+  }
+  createCapacitorElectronApp(config);
+} else {
+  app.quit();
+}

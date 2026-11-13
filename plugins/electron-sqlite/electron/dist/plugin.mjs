@@ -30,7 +30,7 @@ export class CathoSQLite {
     }
     if (this.databases.has(database)) return;
 
-    const directory = path.join(app.getPath('userData'), 'databases');
+    const directory = path.join(app.getPath('userData'), 'cathoscroll-sqlite');
     mkdirSync(directory, { recursive: true });
     const destination = path.join(directory, `${database}.sqlite`);
     if (database === 'catalogue' && !existsSync(destination)) {

@@ -6,6 +6,11 @@ import { TopicSwipeViewer } from '@/components/topic/TopicSwipeViewer';
 import { TopicArticle, TopicArticleHeader } from '@/components/topic/TopicArticle';
 import { CategoriesPage, CategoryPage, SearchPage } from './catalogue-pages';
 import { NativeNavbar } from './navbar';
+import { NativeAccount } from './account';
+import { NativeNotes } from './notes';
+import { NativeNoteCache } from './note-cache';
+import { initializeNativeAuth } from './supabase';
+import { secureAuthStorage } from './secure-auth-storage';
 import { SignInPromptProvider } from '@/components/providers/SignInPromptProvider';
 import { ThemeProvider } from '@/components/providers/ThemeProvider';
 import { OfflineCatalogue, type CatalogueCursor } from '@/lib/offline/catalogue';
@@ -17,6 +22,7 @@ import { siteConfig } from '@/lib/constants';
 import type { RecommendationCursor } from '@/lib/recommendations';
 import { openNativeDatabases } from '@/lib/offline/native-database';
 import type { Topic } from '@/types';
+import type { User } from '@supabase/supabase-js';
 import './style.css';
 
 type CataloguePage = { topics: Topic[]; nextCursor: CatalogueCursor | null };
@@ -24,6 +30,7 @@ type Route =
   | { kind: 'feed'; pathname: string }
   | { kind: 'search'; pathname: string; query: string }
   | { kind: 'categories'; pathname: string }
+  | { kind: 'account'; pathname: string }
   | { kind: 'category'; pathname: string; slug: string }
   | { kind: 'topic'; pathname: string; slug: string; comments: boolean };
 
@@ -37,6 +44,7 @@ function parseRoute(href: string): Route | null {
       return { kind: 'search', pathname, query: url.searchParams.get('q') ?? '' };
     }
     if (pathname === '/categories') return { kind: 'categories', pathname };
+    if (pathname === '/signin' || pathname === '/account') return { kind: 'account', pathname };
     const match = /^\/(topic|categories)\/([^/]+)$/.exec(pathname);
     if (!match) return null;
     const slug = decodeURIComponent(match[2]);
@@ -216,11 +224,15 @@ function NativeViewer(props: {
 function NativeTopicPage({
   catalogue,
   cache,
+  noteCache,
+  userId,
   slug,
   showComments,
 }: {
   catalogue: OfflineCatalogue;
   cache: OfflineCommentCache;
+  noteCache: NativeNoteCache;
+  userId: string | null;
   slug: string;
   showComments: boolean;
 }) {
@@ -287,6 +299,7 @@ function NativeTopicPage({
             Account features are not available in this preview yet.
           </p>
           <TopicArticle topic={topic} />
+          <NativeNotes userId={userId} topicId={String(topic.id)} cache={noteCache} />
           <CommentSection topicId={String(topic.id)} cache={cache} />
         </>
       )}
@@ -299,27 +312,76 @@ function App() {
   const [firstPage, setFirstPage] = useState<CataloguePage | null>(null);
   const [commentCache, setCommentCache] = useState<OfflineCommentCache | null>(null);
   const [countCache, setCountCache] = useState<OfflineTopicCountCache | null>(null);
+  const [noteCache, setNoteCache] = useState<NativeNoteCache | null>(null);
   const [href, setHref] = useState(currentHref);
   const route = parseRoute(href);
   const [error, setError] = useState('');
   const [navigationMessage, setNavigationMessage] = useState('');
+  const [authStatus, setAuthStatus] = useState<'loading' | 'ready' | 'unavailable'>('loading');
+  const [checkingAccount, setCheckingAccount] = useState(true);
+  const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
     let active = true;
+    let unsubscribe: (() => void) | undefined;
+    let removeOnlineListener: (() => void) | undefined;
     async function start() {
       try {
+        try {
+          await initializeNativeAuth();
+          const supabase = createClient();
+          const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+            if (active) {
+              setUser(session?.user ?? null);
+              setCheckingAccount(false);
+            }
+          });
+          unsubscribe = () => data.subscription.unsubscribe();
+          if (!active) {
+            unsubscribe();
+            return;
+          }
+          setAuthStatus('ready');
+          const verifySession = () => {
+            void supabase.auth
+              .getSession()
+              .then(({ error: sessionError }) => {
+                if (sessionError) throw sessionError;
+                if (active) setAuthStatus('ready');
+              })
+              .catch((cause: unknown) => {
+                console.error('Unable to restore the native account:', cause);
+                if (active) {
+                  setAuthStatus('unavailable');
+                  setCheckingAccount(false);
+                }
+              });
+          };
+          window.addEventListener('online', verifySession);
+          removeOnlineListener = () => window.removeEventListener('online', verifySession);
+          verifySession();
+        } catch (cause) {
+          console.error('Unable to initialize secure native sign-in:', cause);
+          if (active) {
+            setAuthStatus('unavailable');
+            setCheckingAccount(false);
+          }
+        }
         const databases = await openNativeDatabases();
         const localCatalogue = new OfflineCatalogue(databases.catalogue);
         const localComments = new OfflineCommentCache(databases.activity);
         const localCounts = new OfflineTopicCountCache(databases.activity);
+        const localNotes = new NativeNoteCache(databases.activity, secureAuthStorage);
         await localComments.initialize();
         await localCounts.initialize();
+        await localNotes.initialize();
         const page = await localCatalogue.topics();
         if (active) {
           setFirstPage(page);
           setCatalogue(localCatalogue);
           setCommentCache(localComments);
           setCountCache(localCounts);
+          setNoteCache(localNotes);
         }
       } catch (cause) {
         console.error('Unable to open the offline catalogue:', cause);
@@ -329,6 +391,8 @@ function App() {
     void start();
     return () => {
       active = false;
+      unsubscribe?.();
+      removeOnlineListener?.();
     };
   }, []);
 
@@ -377,7 +441,7 @@ function App() {
             counts: countCache,
           }}
         >
-          <NativeNavbar pathname={route?.pathname ?? '/'} />
+          <NativeNavbar pathname={route?.pathname ?? '/'} signedIn={Boolean(user)} />
           <main className="pt-16">
             {navigationMessage && (
               <div role="alert" className="bg-bg-card border-border mx-6 rounded-xl border p-4">
@@ -428,14 +492,24 @@ function App() {
               />
             )}
             {catalogue && route?.kind === 'categories' && <CategoriesPage catalogue={catalogue} />}
+            {route?.kind === 'account' && (
+              <NativeAccount
+                user={user}
+                checking={authStatus === 'loading' || checkingAccount}
+                available={authStatus !== 'unavailable'}
+                onSignedIn={() => openRoute('/account')}
+              />
+            )}
             {catalogue && route?.kind === 'category' && (
               <CategoryPage key={route.slug} catalogue={catalogue} slug={route.slug} />
             )}
-            {catalogue && commentCache && route?.kind === 'topic' && (
+            {catalogue && commentCache && noteCache && route?.kind === 'topic' && (
               <NativeTopicPage
                 key={route.slug}
                 catalogue={catalogue}
                 cache={commentCache}
+                noteCache={noteCache}
+                userId={user?.id ?? null}
                 slug={route.slug}
                 showComments={route.comments}
               />

@@ -5,7 +5,7 @@ import { useTheme } from '@/components/providers/ThemeProvider';
 import { mainNav, siteConfig } from '@/lib/constants';
 import { cn } from '@/lib/utils';
 
-export function NativeNavbar({ pathname }: { pathname: string }) {
+export function NativeNavbar({ pathname, signedIn }: { pathname: string; signedIn: boolean }) {
   const [open, setOpen] = useState(false);
   const { theme, toggleTheme } = useTheme();
   return (
@@ -44,8 +44,8 @@ export function NativeNavbar({ pathname }: { pathname: string }) {
                 {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
               </button>
               <Link
-                href="/signin"
-                aria-label="Sign In"
+                href={signedIn ? '/account' : '/signin'}
+                aria-label={signedIn ? 'Account' : 'Sign In'}
                 className="hover:bg-bg-secondary rounded-lg p-2"
               >
                 <User className="h-5 w-5" />
@@ -92,11 +92,11 @@ export function NativeNavbar({ pathname }: { pathname: string }) {
               {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
             </button>
             <Link
-              href="/signin"
+              href={signedIn ? '/account' : '/signin'}
               onClick={() => setOpen(false)}
               className="border-border mt-4 rounded-lg border px-4 py-3 text-center"
             >
-              Sign In
+              {signedIn ? 'Account' : 'Sign In'}
             </Link>
           </nav>
         </div>

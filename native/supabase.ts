@@ -1,6 +1,18 @@
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
+import {
+  assertSecureAuthStorageAvailable,
+  authStorageKey,
+  secureAuthStorage,
+} from './secure-auth-storage';
 
 let client: ReturnType<typeof createSupabaseClient> | undefined;
+let secureSessions = false;
+
+export async function initializeNativeAuth(): Promise<void> {
+  if (client) throw new Error('Native authentication must be initialized before the client.');
+  await assertSecureAuthStorageAvailable();
+  secureSessions = true;
+}
 
 export function createClient() {
   if (!client) {
@@ -10,7 +22,12 @@ export function createClient() {
       throw new Error('Public HTTPS Supabase configuration is required for online features.');
     }
     client = createSupabaseClient(url, key, {
-      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+      auth: {
+        persistSession: secureSessions,
+        autoRefreshToken: secureSessions,
+        detectSessionInUrl: false,
+        ...(secureSessions && { storage: secureAuthStorage, storageKey: authStorageKey }),
+      },
     });
   }
   return client;

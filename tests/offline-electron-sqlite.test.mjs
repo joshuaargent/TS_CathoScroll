@@ -55,7 +55,7 @@ test('hosted desktop pages cannot open or query the offline databases', async (t
     plugin.query({ database: 'activity', statement: 'SELECT 1' }),
     /hosted desktop wrapper/
   );
-  await assert.rejects(readFile(path.join(userData, 'databases', 'activity.sqlite')), {
+  await assert.rejects(readFile(path.join(userData, 'cathoscroll-sqlite', 'activity.sqlite')), {
     code: 'ENOENT',
   });
 });
