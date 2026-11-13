@@ -16,6 +16,7 @@ interface DesktopSQLite {
 }
 
 const desktop = registerPlugin<DesktopSQLite>('CathoSQLite');
+const androidCatalogueAsset = registerPlugin<{ prepare(): Promise<void> }>('CathoCatalogueAsset');
 
 interface Connection {
   execute(statement: string, values: Value[]): Promise<void>;
@@ -128,7 +129,11 @@ async function initializeNativeDatabases(): Promise<NativeDatabases> {
     throw new Error('Offline SQLite is available only in the native apps.');
   }
   await CapacitorSQLite.checkConnectionsConsistency({ dbNames: [], openModes: [] });
-  await CapacitorSQLite.copyFromAssets({ overwrite: false });
+  if (platform === 'android') {
+    await androidCatalogueAsset.prepare();
+  } else {
+    await CapacitorSQLite.copyFromAssets({ overwrite: false });
+  }
   for (const database of ['catalogue', 'activity'] as const) {
     await CapacitorSQLite.createConnection({
       database,

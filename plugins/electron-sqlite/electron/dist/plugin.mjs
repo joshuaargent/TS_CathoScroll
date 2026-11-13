@@ -15,7 +15,14 @@ export class CathoSQLite {
     this.databases = new Map();
   }
 
+  assertBundled() {
+    if (this.context.config.server?.url) {
+      throw new Error('Offline SQLite is unavailable in the hosted desktop wrapper.');
+    }
+  }
+
   async open({ database }) {
+    this.assertBundled();
     if (database !== 'catalogue' && database !== 'activity') {
       throw new Error('Invalid offline database name.');
     }
@@ -42,6 +49,7 @@ export class CathoSQLite {
   }
 
   connection(database) {
+    this.assertBundled();
     const connection = this.databases.get(database);
     if (!connection) throw new Error('Offline database is not open.');
     return connection;
