@@ -25,6 +25,8 @@ import { authStorageKey, secureAuthStorage } from './secure-auth-storage';
 import { SignInPromptProvider, useSignInPrompt } from '@/components/providers/SignInPromptProvider';
 import { ThemeProvider } from '@/components/providers/ThemeProvider';
 import { OfflineCatalogue, type CatalogueCursor } from '@/lib/offline/catalogue';
+import { CatalogueRefresh } from '@/lib/offline/catalogue-refresh';
+import { SupabaseCatalogueTransport } from '@/lib/offline/supabase-catalogue-transport';
 import { OfflineCommentCache } from '@/lib/offline/comment-cache';
 import { OfflineTopicCountCache, type CachedTopicCounts } from '@/lib/offline/topic-count-cache';
 import { loadTopicActivity } from '@/lib/topic-activity';
@@ -448,6 +450,9 @@ function NativeTopicPage({
 function App() {
   const [catalogue, setCatalogue] = useState<OfflineCatalogue | null>(null);
   const [firstPage, setFirstPage] = useState<CataloguePage | null>(null);
+  const [catalogueRefresh, setCatalogueRefresh] = useState<CatalogueRefresh | null>(null);
+  const [catalogueVersion, setCatalogueVersion] = useState(0);
+  const [catalogueMessage, setCatalogueMessage] = useState('');
   const [commentCache, setCommentCache] = useState<OfflineCommentCache | null>(null);
   const [countCache, setCountCache] = useState<OfflineTopicCountCache | null>(null);
   const [noteCache, setNoteCache] = useState<NativeNoteCache | null>(null);
@@ -548,6 +553,17 @@ function App() {
           setCommentCache(localComments);
           setCountCache(localCounts);
           setNoteCache(localNotes);
+          try {
+            setCatalogueRefresh(
+              new CatalogueRefresh(
+                databases.catalogue,
+                new SupabaseCatalogueTransport(createClient())
+              )
+            );
+          } catch (cause) {
+            console.error('Unable to set up topic updates:', cause);
+            setCatalogueMessage("Couldn't update topics. Showing saved topics.");
+          }
         }
       } catch (cause) {
         console.error('Unable to open the offline catalogue:', cause);
@@ -561,6 +577,70 @@ function App() {
       removeConnectivityListeners?.();
     };
   }, []);
+
+  useEffect(() => {
+    if (!catalogueRefresh || !catalogue) return;
+    const service = catalogueRefresh;
+    const localCatalogue = catalogue;
+    let active = true;
+    let lastAttempt = 0;
+    let running = false;
+    let retryAfterReconnect = false;
+    let uiNeedsReload = false;
+    const controller = new AbortController();
+    async function refresh() {
+      if (!active || running || !navigator.onLine || Date.now() - lastAttempt < 30000) return;
+      lastAttempt = Date.now();
+      running = true;
+      try {
+        await service.initialize();
+        if (await service.refresh(controller.signal)) uiNeedsReload = true;
+        if (uiNeedsReload) {
+          const page = await localCatalogue.topics();
+          if (!active) return;
+          setFirstPage(page);
+          setCatalogueVersion((version) => version + 1);
+          uiNeedsReload = false;
+        }
+        if (active) setCatalogueMessage('');
+      } catch (cause) {
+        if (!active || controller.signal.aborted) return;
+        console.error('Unable to update saved topics:', cause);
+        setCatalogueMessage("Couldn't update topics. Showing saved topics.");
+      } finally {
+        running = false;
+        if (active && retryAfterReconnect) {
+          retryAfterReconnect = false;
+          lastAttempt = 0;
+          void refresh();
+        }
+      }
+    }
+    const request = () => {
+      void refresh();
+    };
+    const reconnect = () => {
+      lastAttempt = 0;
+      if (running) retryAfterReconnect = true;
+      else request();
+    };
+    const resume = () => {
+      if (document.visibilityState === 'visible') request();
+    };
+    window.addEventListener('online', reconnect);
+    window.addEventListener('focus', request);
+    document.addEventListener('visibilitychange', resume);
+    const timer = window.setInterval(request, 5 * 60 * 1000);
+    request();
+    return () => {
+      active = false;
+      controller.abort();
+      window.clearInterval(timer);
+      window.removeEventListener('online', reconnect);
+      window.removeEventListener('focus', request);
+      document.removeEventListener('visibilitychange', resume);
+    };
+  }, [catalogueRefresh, catalogue]);
 
   useEffect(() => {
     if (!user?.id || authStatus !== 'ready') return;
@@ -684,6 +764,11 @@ function App() {
                 {error}
               </p>
             )}
+            {catalogueMessage && (
+              <p role="status" className="text-text-secondary px-6 text-sm">
+                {catalogueMessage}
+              </p>
+            )}
             {!error && !firstPage && (
               <p role="status" className="px-6">
                 Loading topics…
@@ -699,11 +784,13 @@ function App() {
                   loadPage={loadPage}
                   userId={user?.id ?? null}
                   viewer={NativeViewer}
+                  preservePositionOnUpdate
                 />
               </div>
             )}
             {catalogue && route?.kind === 'search' && (
               <SearchPage
+                key={catalogueVersion}
                 catalogue={catalogue}
                 query={route.query}
                 onQueryChange={(query) => {
@@ -715,7 +802,9 @@ function App() {
                 }}
               />
             )}
-            {catalogue && route?.kind === 'categories' && <CategoriesPage catalogue={catalogue} />}
+            {catalogue && route?.kind === 'categories' && (
+              <CategoriesPage key={catalogueVersion} catalogue={catalogue} />
+            )}
             {route?.kind === 'learn' && <LearnContent />}
             {route?.kind === 'account' && (
               <NativeAccount
@@ -751,7 +840,7 @@ function App() {
               ))}
             {catalogue && route?.kind === 'bookmarks' && (
               <NativeBookmarks
-                key={user?.id ?? 'signed-out'}
+                key={`${user?.id ?? 'signed-out'}-${catalogueVersion}`}
                 catalogue={catalogue}
                 userId={user?.id ?? null}
                 activity={activity?.userId === user?.id ? activity : null}
@@ -760,11 +849,15 @@ function App() {
               />
             )}
             {catalogue && route?.kind === 'category' && (
-              <CategoryPage key={route.slug} catalogue={catalogue} slug={route.slug} />
+              <CategoryPage
+                key={`${route.slug}-${catalogueVersion}`}
+                catalogue={catalogue}
+                slug={route.slug}
+              />
             )}
             {catalogue && commentCache && noteCache && route?.kind === 'topic' && (
               <NativeTopicPage
-                key={route.slug}
+                key={`${route.slug}-${catalogueVersion}`}
                 catalogue={catalogue}
                 cache={commentCache}
                 noteCache={noteCache}

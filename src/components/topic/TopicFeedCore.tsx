@@ -24,6 +24,7 @@ type TopicFeedCoreProps = {
   loadPage: (cursor: FeedCursor) => Promise<FeedPage>;
   userId: string | null;
   viewer: ComponentType<ViewerProps>;
+  preservePositionOnUpdate?: boolean;
 };
 
 export function TopicFeedCore({
@@ -33,6 +34,7 @@ export function TopicFeedCore({
   loadPage,
   userId,
   viewer: Viewer,
+  preservePositionOnUpdate = false,
 }: TopicFeedCoreProps) {
   const [feedTopics, setFeedTopics] = useState<Topic[]>(topics);
 
@@ -41,6 +43,12 @@ export function TopicFeedCore({
   const [loadingMore, setLoadingMore] = useState(false);
   const [loadError, setLoadError] = useState('');
   const loadingRef = useRef(false);
+  const generationRef = useRef(0);
+  const currentTopicId = useRef<string | null>(null);
+
+  useEffect(() => {
+    currentTopicId.current = feedTopics[topicIndex]?.id ?? null;
+  }, [feedTopics, topicIndex]);
 
   // ----------------------------------
   // Initial Feed
@@ -50,22 +58,33 @@ export function TopicFeedCore({
     // Signed-out users get the existing shuffled feed; personalized server
     // ranking is preserved for signed-in users and starts at its top result.
     const shuffled = personalized ? topics : shuffle(topics);
+    const previousIndex = preservePositionOnUpdate
+      ? shuffled.findIndex((topic) => topic.id === currentTopicId.current)
+      : -1;
+    generationRef.current += 1;
+    loadingRef.current = false;
 
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setFeedTopics(shuffled);
 
-    setTopicIndex(personalized ? 0 : Math.floor(shuffled.length / 2));
+    setTopicIndex(
+      previousIndex >= 0 ? previousIndex : personalized ? 0 : Math.floor(shuffled.length / 2)
+    );
     setNextCursor(initialCursor);
-  }, [topics, initialCursor, personalized]);
+    setLoadingMore(false);
+    setLoadError('');
+  }, [topics, initialCursor, personalized, preservePositionOnUpdate]);
 
   const loadMoreTopics = useCallback(async () => {
     if (!nextCursor || loadingRef.current) return;
     loadingRef.current = true;
+    const generation = generationRef.current;
     setLoadingMore(true);
     setLoadError('');
 
     try {
       const result = await loadPage(nextCursor);
+      if (generation !== generationRef.current) return;
       const newTopics = result.topics;
       setFeedTopics((previous) => [
         ...previous,
@@ -73,11 +92,14 @@ export function TopicFeedCore({
       ]);
       setNextCursor(result.nextCursor);
     } catch (error) {
+      if (generation !== generationRef.current) return;
       console.error('Unable to load the next topic feed page:', error);
       setLoadError(error instanceof Error ? error.message : 'Unable to load more topics.');
     } finally {
-      loadingRef.current = false;
-      setLoadingMore(false);
+      if (generation === generationRef.current) {
+        loadingRef.current = false;
+        setLoadingMore(false);
+      }
     }
   }, [nextCursor, personalized, loadPage]);
 
