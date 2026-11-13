@@ -21,4 +21,12 @@ module.exports = {
     // Platform runtime + plugins, prepared by `capacitor-electron vendor`.
     { from: 'vendor/node_modules', to: 'node_modules' },
   ],
+  nsis: {
+    artifactName: '${productName}-${version}.${ext}',
+  },
+  publish: {
+    provider: 'github',
+    owner: 'joshuaargent',
+    repo: 'CathoScroll',
+  },
 };
