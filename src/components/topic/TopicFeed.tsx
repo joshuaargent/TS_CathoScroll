@@ -12,6 +12,7 @@ import { TopicViewer } from './TopicViewer';
 
 type TopicFeedProps = {
   topics: Topic[];
+  userId: string | null;
 } & (
   | { nextCursor: TopicPageCursor | null; personalized?: false }
   | { nextCursor: RecommendationCursor | null; personalized: true }
@@ -21,6 +22,7 @@ export function TopicFeed({
   topics,
   nextCursor: initialCursor,
   personalized = false,
+  userId,
 }: TopicFeedProps) {
   const [feedTopics, setFeedTopics] = useState<Topic[]>(topics);
 
@@ -143,6 +145,7 @@ export function TopicFeed({
       <TopicViewer
         topics={feedTopics}
         topicIndex={topicIndex}
+        initialUserId={userId}
         onNextTopic={nextTopic}
         onPreviousTopic={previousTopic}
       />

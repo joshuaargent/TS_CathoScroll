@@ -19,9 +19,11 @@ interface TopicCardProps {
 
   onComments?: () => void;
 
-  likes?: number;
+  likes?: number | null;
 
-  comments?: number;
+  comments?: number | null;
+
+  interactionsDisabled?: boolean;
 
   isLiked?: boolean;
 
@@ -41,6 +43,7 @@ export function TopicCard({
   isLiked = false,
   isBookmarked = false,
   onBookmark,
+  interactionsDisabled = false,
 }: TopicCardProps) {
   const contentLength = content.length;
 
@@ -96,8 +99,11 @@ export function TopicCard({
             onPointerDown={(e) => e.stopPropagation()}
             onTouchStart={(e) => e.stopPropagation()}
             onClick={onLike}
+            disabled={interactionsDisabled}
+            aria-label={isLiked ? 'Unlike topic' : 'Like topic'}
+            aria-pressed={isLiked}
             className={cn(
-              'flex h-11 items-center gap-2 rounded-full px-4 transition-colors',
+              'flex h-11 items-center gap-2 rounded-full px-4 transition-colors disabled:cursor-not-allowed disabled:opacity-50',
               isLiked
                 ? 'bg-accent-light text-accent'
                 : 'text-text-muted hover:bg-bg-secondary hover:text-text-primary'
@@ -105,7 +111,7 @@ export function TopicCard({
           >
             <Heart className={cn('h-5 w-5', isLiked && 'fill-current')} />
 
-            <span className="text-xs font-medium">{likes}</span>
+            <span className="text-xs font-medium">{likes ?? '–'}</span>
           </button>
 
           <button
@@ -117,7 +123,7 @@ export function TopicCard({
           >
             <MessageCircle className="h-5 w-5" />
 
-            <span className="text-xs font-medium">{comments}</span>
+            <span className="text-xs font-medium">{comments ?? '–'}</span>
           </button>
 
           <button
@@ -125,9 +131,11 @@ export function TopicCard({
             onPointerDown={(e) => e.stopPropagation()}
             onTouchStart={(e) => e.stopPropagation()}
             onClick={onBookmark}
-            aria-label="Bookmark topic"
+            disabled={interactionsDisabled}
+            aria-label={isBookmarked ? 'Remove bookmark' : 'Bookmark topic'}
+            aria-pressed={isBookmarked}
             className={cn(
-              'flex h-11 w-11 items-center justify-center rounded-full transition-colors',
+              'flex h-11 w-11 items-center justify-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-50',
               isBookmarked
                 ? 'bg-accent-light text-accent'
                 : 'text-text-muted hover:bg-bg-secondary hover:text-text-primary'

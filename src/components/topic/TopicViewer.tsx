@@ -13,6 +13,7 @@ import { flushSync } from 'react-dom';
 import { Heart } from 'lucide-react';
 
 import { Topic } from '@/types';
+import { loadTopicActivity, type TopicActivity } from '@/lib/topic-activity';
 import { getTopicSlides } from '@/lib/topicSlides';
 
 import { TopicCard } from './TopicCard';
@@ -21,6 +22,7 @@ import { TopicProgress } from './TopicProgress';
 interface TopicViewerProps {
   topics: Topic[];
   topicIndex: number;
+  initialUserId: string | null;
 
   onNextTopic?: () => void;
   onPreviousTopic?: () => void;
@@ -29,10 +31,13 @@ interface TopicViewerProps {
 export function TopicViewer({
   topics,
   topicIndex,
+  initialUserId,
   onNextTopic,
   onPreviousTopic,
 }: TopicViewerProps) {
   const router = useRouter();
+
+  const supabase = useMemo(() => createClient(), []);
 
   const [slideIndex, setSlideIndex] = useState(0);
 
@@ -69,126 +74,118 @@ export function TopicViewer({
 
   const [isAnimating, setIsAnimating] = useState(false);
 
-  const [likedTopics, setLikedTopics] = useState(() => new Set<string>());
-
   const [showHeart, setShowHeart] = useState(false);
 
-  const [likeCounts, setLikeCounts] = useState<Record<string, number>>({});
-
-  const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});
-
-  const [bookmarks, setBookmarks] = useState(() => new Set<string>());
-
-  const [completedTopics, setCompletedTopics] = useState(() => new Set<string>());
-
-  const [userId, setUserId] = useState<string | null>(null);
+  const [userId, setUserId] = useState(initialUserId);
+  const [activity, setActivity] = useState<TopicActivity | null>(null);
+  const [activityError, setActivityError] = useState<{
+    topicId: string;
+    userId: string | null;
+  } | null>(null);
+  const [actionError, setActionError] = useState('');
+  const [refreshVersion, setRefreshVersion] = useState(0);
+  const [pendingActions, setPendingActions] = useState(() => new Set<string>());
+  const pendingRef = useRef(new Set<string>());
 
   const currentSlide = slides[slideIndex];
 
-  const isBookmarked = bookmarks.has(currentTopicId);
-
-  const bookmarksLoaded = useRef(false);
+  const currentActivity =
+    activity?.topicId === currentTopicId && activity.userId === userId ? activity : null;
+  const currentActivityError =
+    activityError?.topicId === currentTopicId && activityError.userId === userId;
 
   const interactionVisible = !isAnimating;
 
   useEffect(() => {
-    if (bookmarksLoaded.current) {
-      return;
-    }
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUserId(session?.user.id ?? null);
+    });
+    return () => subscription.unsubscribe();
+  }, [supabase]);
 
-    bookmarksLoaded.current = true;
+  useEffect(() => {
+    let active = true;
 
-    async function loadUserData() {
-      const supabase = createClient();
+    // Discard the previous selection before actions can use stale user state.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setActivity(null);
+    setActivityError(null);
 
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user) {
-        setLikedTopics(new Set());
-        setBookmarks(new Set());
-        setCompletedTopics(new Set());
-        return;
+    async function loadActivity() {
+      try {
+        const result = await loadTopicActivity(supabase, currentTopicId, userId);
+        if (active) {
+          setActivity(result);
+          setActivityError(null);
+        }
+      } catch (error) {
+        console.error('Unable to load topic activity:', error);
+        if (active) {
+          setActivity(null);
+          setActivityError({ topicId: currentTopicId, userId });
+        }
       }
-
-      const [bookmarksResult, progressResult, likesResult] = await Promise.all([
-        supabase.from('bookmarks').select('topic_id').eq('user_id', user.id),
-
-        supabase.from('progress').select('topic_id').eq('user_id', user.id),
-
-        supabase.from('topic_likes').select('topic_id').eq('user_id', user.id),
-      ]);
-
-      setLikedTopics(new Set(likesResult.data?.map((like) => String(like.topic_id)) ?? []));
-
-      setBookmarks(
-        new Set(bookmarksResult.data?.map((bookmark) => String(bookmark.topic_id)) ?? [])
-      );
-
-      setCompletedTopics(
-        new Set(progressResult.data?.map((progress) => String(progress.topic_id)) ?? [])
-      );
-
-      setUserId(user.id);
     }
 
-    loadUserData();
-  }, []);
-
-  useEffect(() => {
-    async function loadLikeCounts() {
-      const supabase = createClient();
-
-      const { data } = await supabase.from('topic_likes').select('topic_id');
-
-      const counts: Record<string, number> = {};
-
-      data?.forEach((like) => {
-        const id = String(like.topic_id);
-
-        counts[id] = (counts[id] ?? 0) + 1;
-      });
-
-      setLikeCounts(counts);
-    }
-
-    loadLikeCounts();
-  }, []);
-
-  useEffect(() => {
-    async function loadCommentCounts() {
-      const supabase = createClient();
-
-      const { data } = await supabase
-        .from('comments')
-        .select('topic_id,is_deleted')
-        .eq('is_deleted', false);
-
-      const counts: Record<string, number> = {};
-
-      data?.forEach((comment) => {
-        const id = String(comment.topic_id);
-
-        counts[id] = (counts[id] ?? 0) + 1;
-      });
-
-      setCommentCounts(counts);
-    }
-
-    loadCommentCounts();
-  }, []);
+    void loadActivity();
+    return () => {
+      active = false;
+    };
+  }, [supabase, currentTopicId, userId, refreshVersion]);
 
   const previousSlide = slideIndex > 0 ? slides[slideIndex - 1] : null;
 
   const nextSlide = slideIndex < slides.length - 1 ? slides[slideIndex + 1] : null;
+
+  async function mutateActivity(
+    action: 'like' | 'bookmark' | 'progress',
+    topicId: string,
+    actorId: string,
+    mutation: () => PromiseLike<{ error: { message: string } | null }>
+  ) {
+    const key = `${action}:${topicId}`;
+    if (pendingRef.current.has(key)) return;
+    pendingRef.current.add(key);
+    setPendingActions(new Set(pendingRef.current));
+    setActionError('');
+
+    try {
+      const { error } = await mutation();
+      if (error) throw new Error(error.message);
+
+      // Reload after the write so a late read cannot overwrite its result.
+      setActivity((previous) =>
+        previous?.topicId === topicId && previous.userId === actorId ? null : previous
+      );
+      setRefreshVersion((previous) => previous + 1);
+    } catch (error) {
+      console.error(`Unable to update topic ${action}:`, error);
+      setActionError(
+        `Unable to update ${action === 'progress' ? 'your progress' : `your ${action}`}. Please try again.`
+      );
+    } finally {
+      pendingRef.current.delete(key);
+      setPendingActions(new Set(pendingRef.current));
+    }
+  }
 
   const likeTopic = async () => {
     if (isAnimating) {
       return;
     }
 
-    if (likedTopics.has(currentTopicId)) {
+    if (!userId) {
+      router.push('/signin');
+      return;
+    }
+
+    if (
+      !currentActivity ||
+      currentActivity.liked ||
+      pendingRef.current.has(`like:${currentTopicId}`)
+    ) {
       return;
     }
 
@@ -202,133 +199,34 @@ export function TopicViewer({
   };
 
   const toggleLike = async () => {
-    const supabase = createClient();
-
     if (!userId) {
       router.push('/signin');
 
       return;
     }
 
-    const currentlyLiked = likedTopics.has(currentTopicId);
+    if (!currentActivity) return;
 
-    if (currentlyLiked) {
-      setLikedTopics((prev) => {
-        const next = new Set(prev);
-
-        next.delete(currentTopicId);
-
-        return next;
-      });
-
-      setLikeCounts((prev) => ({
-        ...prev,
-        [currentTopicId]: Math.max(0, (prev[currentTopicId] ?? 1) - 1),
-      }));
-
-      await supabase
-        .from('topic_likes')
-        .delete()
-        .eq('user_id', userId)
-        .eq('topic_id', currentTopicId);
-
-      return;
-    }
-
-    setLikedTopics((prev) => {
-      const next = new Set(prev);
-
-      next.add(currentTopicId);
-
-      return next;
-    });
-
-    setLikeCounts((prev) => ({
-      ...prev,
-      [currentTopicId]: (prev[currentTopicId] ?? 0) + 1,
-    }));
-
-    const { error } = await supabase.from('topic_likes').insert({
-      user_id: userId,
-      topic_id: currentTopicId,
-    });
-
-    if (error) {
-      setLikedTopics((prev) => {
-        const next = new Set(prev);
-
-        next.delete(currentTopicId);
-
-        return next;
-      });
-
-      setLikeCounts((prev) => ({
-        ...prev,
-        [currentTopicId]: Math.max(0, (prev[currentTopicId] ?? 1) - 1),
-      }));
-    }
+    await mutateActivity('like', currentTopicId, userId, () =>
+      currentActivity.liked
+        ? supabase.from('topic_likes').delete().eq('user_id', userId).eq('topic_id', currentTopicId)
+        : supabase.from('topic_likes').insert({ user_id: userId, topic_id: currentTopicId })
+    );
   };
 
   const toggleBookmark = async () => {
-    const supabase = createClient();
-
     if (!userId) {
       router.push('/signin');
       return;
     }
 
-    const currentlyBookmarked = bookmarks.has(currentTopicId);
+    if (!currentActivity) return;
 
-    if (currentlyBookmarked) {
-      setBookmarks((prev) => {
-        const next = new Set(prev);
-
-        next.delete(currentTopicId);
-
-        return next;
-      });
-
-      const { error } = await supabase
-        .from('bookmarks')
-        .delete()
-        .eq('user_id', userId)
-        .eq('topic_id', currentTopicId);
-
-      if (error) {
-        setBookmarks((prev) => {
-          const next = new Set(prev);
-
-          next.add(currentTopicId);
-
-          return next;
-        });
-      }
-
-      return;
-    }
-
-    setBookmarks((prev) => {
-      const next = new Set(prev);
-
-      next.add(currentTopicId);
-
-      return next;
-    });
-
-    const { error } = await supabase.from('bookmarks').insert({
-      user_id: userId,
-      topic_id: currentTopicId,
-    });
-
-    if (error) {
-      setBookmarks((prev) => {
-        const next = new Set(prev);
-
-        next.delete(currentTopicId);
-
-        return next;
-      });
-    }
+    await mutateActivity('bookmark', currentTopicId, userId, () =>
+      currentActivity.bookmarked
+        ? supabase.from('bookmarks').delete().eq('user_id', userId).eq('topic_id', currentTopicId)
+        : supabase.from('bookmarks').insert({ user_id: userId, topic_id: currentTopicId })
+    );
   };
 
   const openComments = () => {
@@ -358,39 +256,15 @@ export function TopicViewer({
       return;
     }
 
-    if (completedTopics.has(topicId)) {
+    if (currentActivity?.topicId === topicId && currentActivity.completed) {
       return;
     }
 
-    setCompletedTopics((prev) => {
-      const next = new Set(prev);
-
-      next.add(topicId);
-
-      return next;
-    });
-
-    const supabase = createClient();
-
-    const { error } = await supabase.from('progress').upsert(
-      {
-        user_id: userId,
-        topic_id: topicId,
-      },
-      {
-        onConflict: 'user_id,topic_id',
-      }
+    await mutateActivity('progress', topicId, userId, () =>
+      supabase
+        .from('progress')
+        .upsert({ user_id: userId, topic_id: topicId }, { onConflict: 'user_id,topic_id' })
     );
-
-    if (error) {
-      setCompletedTopics((prev) => {
-        const next = new Set(prev);
-
-        next.delete(topicId);
-
-        return next;
-      });
-    }
   };
 
   const springHome = () => {
@@ -534,7 +408,17 @@ export function TopicViewer({
 
     return () => window.removeEventListener('keydown', handleKeyDown);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [previousSlide, nextSlide, previousTopic, nextTopic, isAnimating]);
+  }, [
+    previousSlide,
+    nextSlide,
+    previousTopic,
+    nextTopic,
+    isAnimating,
+    currentActivity,
+    userId,
+    onNextTopic,
+    onPreviousTopic,
+  ]);
 
   const handlePointerDown = (event: React.PointerEvent) => {
     setIsDragging(true);
@@ -666,6 +550,23 @@ export function TopicViewer({
 
   return (
     <div className="flex h-full flex-col">
+      {(currentActivityError || actionError) && (
+        <div role="alert" className="bg-bg-primary px-6 py-2 text-sm text-red-600">
+          {currentActivityError && (
+            <>
+              Unable to load topic activity.{' '}
+              <button
+                type="button"
+                className="underline"
+                onClick={() => setRefreshVersion((previous) => previous + 1)}
+              >
+                Retry
+              </button>
+            </>
+          )}
+          {actionError && <p>{actionError}</p>}
+        </div>
+      )}
       <div className="px-6 pt-4 pb-4">
         <TopicProgress current={slideIndex} total={slides.length} />
       </div>
@@ -735,17 +636,19 @@ export function TopicViewer({
               title={currentSlide.title}
               content={currentSlide.content}
               reference={currentSlide.reference}
-              isLiked={interactionVisible && likedTopics.has(currentTopicId)}
-
-              likes={interactionVisible ? (likeCounts[currentTopicId] ?? 0) : 0}
-
-              comments={commentCounts[currentTopicId] ?? 0}
+              isLiked={interactionVisible && Boolean(currentActivity?.liked)}
+              likes={interactionVisible ? (currentActivity?.likes ?? null) : null}
+              comments={currentActivity?.comments ?? null}
               onComments={openComments}
-
               onLike={toggleLike}
-              isBookmarked={interactionVisible && isBookmarked}
+              isBookmarked={interactionVisible && Boolean(currentActivity?.bookmarked)}
               onBookmark={toggleBookmark}
               onShare={shareTopic}
+              interactionsDisabled={
+                (Boolean(userId) && !currentActivity) ||
+                pendingActions.has(`like:${currentTopicId}`) ||
+                pendingActions.has(`bookmark:${currentTopicId}`)
+              }
             />
           </div>
 

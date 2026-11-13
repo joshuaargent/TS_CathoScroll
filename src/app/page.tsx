@@ -49,7 +49,7 @@ export default async function HomePage() {
     const { topics, nextCursor } = await getPublishedTopicPage({ limit: 50 });
     return (
       <div className="h-[calc(100vh-4rem)] overflow-hidden">
-        <TopicFeed topics={topics} nextCursor={nextCursor} />
+        <TopicFeed topics={topics} nextCursor={nextCursor} userId={null} />
       </div>
     );
   }
@@ -58,7 +58,7 @@ export default async function HomePage() {
 
   return (
     <div className="h-[calc(100vh-4rem)] overflow-hidden">
-      <TopicFeed topics={topics} nextCursor={nextCursor} personalized />
+      <TopicFeed topics={topics} nextCursor={nextCursor} userId={user.id} personalized />
     </div>
   );
 }
