@@ -7,9 +7,21 @@ const source = await readFile(
   new URL('../src/lib/offline/supabase-catalogue-transport.ts', import.meta.url),
   'utf8'
 );
-const compiled = ts.transpileModule(source, {
+const timeoutSource = await readFile(
+  new URL('../src/lib/offline/request-timeout.ts', import.meta.url),
+  'utf8'
+);
+const timeoutCompiled = ts.transpileModule(timeoutSource, {
   compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
 }).outputText;
+const compiled = ts
+  .transpileModule(source, {
+    compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
+  })
+  .outputText.replace(
+    "'./request-timeout'",
+    `'data:text/javascript;base64,${Buffer.from(timeoutCompiled).toString('base64')}'`
+  );
 const { SupabaseCatalogueTransport } = await import(
   `data:text/javascript;base64,${Buffer.from(compiled).toString('base64')}`
 );

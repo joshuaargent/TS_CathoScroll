@@ -1,5 +1,5 @@
 import type { OfflineActivityStore, SnapshotActivity } from './activity-store';
-import type { ActivityPage } from './activity-sync';
+import { ActivityResetRequired, type ActivityPage } from './activity-sync';
 
 export interface ActivityHead {
   userId: string;
@@ -39,20 +39,21 @@ export async function bootstrapActivity(
   transport: ActivityBootstrapTransport,
   userId: string,
   snapshotId: string,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  replaceExisting = false
 ): Promise<void> {
   if (!userId || userId.trim() !== userId || !snapshotId || snapshotId.trim() !== snapshotId) {
     throw new Error('Invalid offline activity bootstrap identity.');
   }
   signal?.throwIfAborted();
-  if (await store.isBootstrapped(userId)) {
+  if ((await store.isBootstrapped(userId)) && !replaceExisting) {
     throw new Error('Offline activity has already been initialized.');
   }
   signal?.throwIfAborted();
   const head = await transport.head(userId, signal);
   const start = checkHead(head, userId);
   signal?.throwIfAborted();
-  await store.beginBootstrap(userId, snapshotId, start.toString());
+  await store.beginBootstrap(userId, snapshotId, start.toString(), replaceExisting);
 
   let cursor: string | null = null;
   const seen = new Set<string>();
@@ -89,12 +90,22 @@ export async function bootstrapActivity(
     const page = await transport.changes(userId, applied.toString(), signal);
     signal?.throwIfAborted();
     if (
+      page?.userId === userId &&
+      page.resetRequired === true &&
+      Array.isArray(page.changes) &&
+      page.changes.length === 0 &&
+      page.hasMore === false
+    ) {
+      throw new ActivityResetRequired();
+    }
+    if (
       !page ||
       page.userId !== userId ||
       !Array.isArray(page.changes) ||
       page.changes.length === 0 ||
       page.changes.length > 500 ||
-      typeof page.hasMore !== 'boolean'
+      typeof page.hasMore !== 'boolean' ||
+      (page.resetRequired !== undefined && page.resetRequired !== false)
     ) {
       throw new Error('Invalid offline activity changes page.');
     }

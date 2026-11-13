@@ -10,11 +10,27 @@ const tables = [
     columns: ['sequence', 'operation_id', 'user_id', 'topic_id', 'kind', 'value', 'completed_at'],
   },
   {
+    name: 'offline_activity_rejections',
+    columns: [
+      'operation_id',
+      'user_id',
+      'topic_id',
+      'kind',
+      'value',
+      'completed_at',
+      'reason',
+      'notified',
+    ],
+  },
+  {
     name: 'offline_activity_server',
     columns: ['user_id', 'topic_id', 'kind', 'value', 'revision', 'completed_at'],
   },
   { name: 'offline_activity_cursor', columns: ['user_id', 'revision'] },
-  { name: 'offline_activity_bootstrap', columns: ['user_id', 'snapshot_id', 'revision'] },
+  {
+    name: 'offline_activity_bootstrap',
+    columns: ['user_id', 'snapshot_id', 'revision', 'base_cursor'],
+  },
   {
     name: 'offline_activity_bootstrap_items',
     columns: ['user_id', 'topic_id', 'kind', 'value', 'completed_at'],

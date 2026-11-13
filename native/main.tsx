@@ -12,6 +12,7 @@ import { NativeTopicActions } from './topic-actions';
 import { NativeSignup } from './signup';
 import { LearnContent } from '@/components/learn/LearnContent';
 import { NativeActivity, type NativeActivityStatus } from './activity';
+import { NativeActivityAlert } from './activity-alert';
 import { openPrivateActivity } from './private-activity';
 import { NativeNotes } from './notes';
 import { NativeNoteCache } from './note-cache';
@@ -763,6 +764,9 @@ function App() {
               <p role="alert" className="px-6">
                 {error}
               </p>
+            )}
+            {activity && user && activity.userId === user.id && (
+              <NativeActivityAlert key={user.id} activity={activity} version={activityVersion} />
             )}
             {catalogueMessage && (
               <p role="status" className="text-text-secondary px-6 text-sm">

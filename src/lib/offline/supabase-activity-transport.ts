@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { withNetworkTimeout } from './request-timeout';
 import type {
   ActivityBootstrapTransport,
   ActivityHead,
@@ -10,7 +11,7 @@ import type {
   ServerActivity,
   SnapshotActivity,
 } from './activity-store';
-import type { ActivityPage, ActivityReceipt } from './activity-sync';
+import type { ActivityPage, ActivityResult } from './activity-sync';
 
 function record(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
@@ -96,7 +97,9 @@ export class SupabaseActivityTransport implements ActivityBootstrapTransport {
   ): Promise<unknown> {
     signal?.throwIfAborted();
     const request = this.client.rpc(name, args);
-    const result = await (signal ? request.abortSignal(signal) : request);
+    const result = await withNetworkTimeout(signal, async (requestSignal) =>
+      request.abortSignal(requestSignal)
+    );
     signal?.throwIfAborted();
     if (result.error) {
       throw new Error(`Offline activity request failed: ${result.error.message}`, {
@@ -144,7 +147,9 @@ export class SupabaseActivityTransport implements ActivityBootstrapTransport {
     if (
       !Array.isArray(data.changes) ||
       data.changes.length > 500 ||
-      typeof data.hasMore !== 'boolean'
+      typeof data.hasMore !== 'boolean' ||
+      (data.resetRequired !== undefined && typeof data.resetRequired !== 'boolean') ||
+      (data.resetRequired === true && (data.hasMore || data.changes.length !== 0))
     ) {
       throw new Error('Invalid offline activity changes from server.');
     }
@@ -152,10 +157,11 @@ export class SupabaseActivityTransport implements ActivityBootstrapTransport {
       userId: identity(data.userId, userId),
       changes: data.changes.map(change),
       hasMore: data.hasMore,
+      ...(data.resetRequired === true ? { resetRequired: true } : {}),
     };
   }
 
-  async send(operation: PendingActivity, signal?: AbortSignal): Promise<ActivityReceipt> {
+  async send(operation: PendingActivity, signal?: AbortSignal): Promise<ActivityResult> {
     const data = record(
       await this.rpc(
         'offline_apply_activity',
@@ -170,17 +176,27 @@ export class SupabaseActivityTransport implements ActivityBootstrapTransport {
         signal
       )
     );
-    if (typeof data.value !== 'boolean' || data.value !== operation.value) {
-      throw new Error('Offline activity server receipt value does not match.');
-    }
     const operationId = text(data.operationId);
     if (operationId !== operation.operationId) {
       throw new Error('Offline activity server operation does not match.');
     }
+    const userId = identity(data.userId, operation.userId);
+    if (data.status === 'rejected') {
+      if (data.reason !== 'topic_unavailable' || !operation.value) {
+        throw new Error('Invalid offline activity rejection from server.');
+      }
+      return { userId, operationId, status: 'rejected', reason: 'topic_unavailable' };
+    }
+    if (data.status !== undefined && data.status !== 'applied') {
+      throw new Error('Invalid offline activity receipt status.');
+    }
+    if (typeof data.value !== 'boolean' || data.value !== operation.value) {
+      throw new Error('Offline activity server receipt value does not match.');
+    }
     const receiptRevision = revision(data.revision);
     if (receiptRevision === '0') throw new Error('Invalid offline activity receipt revision.');
     return {
-      userId: identity(data.userId, operation.userId),
+      userId,
       operationId,
       revision: receiptRevision,
       value: data.value,

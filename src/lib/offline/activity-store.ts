@@ -149,6 +149,22 @@ export class OfflineActivityStore {
         ON offline_activity_outbox(user_id, sequence)
       `);
       await db.execute(`
+        CREATE TABLE IF NOT EXISTS offline_activity_rejections (
+          operation_id TEXT PRIMARY KEY NOT NULL,
+          user_id TEXT NOT NULL,
+          topic_id TEXT NOT NULL,
+          kind TEXT NOT NULL CHECK (kind IN ('bookmark', 'like', 'progress')),
+          value INTEGER NOT NULL CHECK (value IN (0, 1)),
+          completed_at TEXT,
+          reason TEXT NOT NULL CHECK (reason = 'topic_unavailable'),
+          notified INTEGER NOT NULL DEFAULT 0 CHECK (notified IN (0, 1))
+        )
+      `);
+      await db.execute(`
+        CREATE INDEX IF NOT EXISTS offline_activity_rejections_user_notified
+        ON offline_activity_rejections(user_id, notified)
+      `);
+      await db.execute(`
         CREATE TABLE IF NOT EXISTS offline_activity_server (
           user_id TEXT NOT NULL,
           topic_id TEXT NOT NULL,
@@ -169,7 +185,8 @@ export class OfflineActivityStore {
         CREATE TABLE IF NOT EXISTS offline_activity_bootstrap (
           user_id TEXT PRIMARY KEY NOT NULL,
           snapshot_id TEXT NOT NULL,
-          revision TEXT NOT NULL
+          revision TEXT NOT NULL,
+          base_cursor TEXT
         )
       `);
       await db.execute(`
@@ -187,6 +204,10 @@ export class OfflineActivityStore {
         await db.execute(
           'ALTER TABLE offline_activity_bootstrap_items ADD COLUMN value INTEGER NOT NULL DEFAULT 1 CHECK (value IN (0, 1))'
         );
+      }
+      const bootstrapColumns = await db.query('PRAGMA table_info(offline_activity_bootstrap)');
+      if (!bootstrapColumns.some((column) => column.name === 'base_cursor')) {
+        await db.execute('ALTER TABLE offline_activity_bootstrap ADD COLUMN base_cursor TEXT');
       }
       for (const table of [
         'offline_activity',
@@ -348,6 +369,64 @@ export class OfflineActivityStore {
     });
   }
 
+  async rejectUnavailableTopic(userId: string, operationId: string): Promise<void> {
+    assertKey(userId, 'user ID');
+    assertKey(operationId, 'operation ID');
+    await this.database.transaction(async (db) => {
+      const rows = await db.query(
+        `SELECT operation_id, user_id, topic_id, kind, value, completed_at FROM offline_activity_outbox
+         WHERE user_id = ? ORDER BY sequence LIMIT 1`,
+        [userId]
+      );
+      if (rows.length !== 1 || rows[0].operation_id !== operationId) {
+        throw new Error('Only the first pending operation can be rejected.');
+      }
+      const operation = parseActivity(rows[0]);
+      if (!operation.value) throw new Error('Invalid unavailable topic rejection.');
+      await db.execute(
+        `INSERT INTO offline_activity_rejections
+         (operation_id, user_id, topic_id, kind, value, completed_at, reason)
+         VALUES (?, ?, ?, ?, ?, ?, 'topic_unavailable')`,
+        [operation.operationId, userId, operation.topicId, operation.kind, 1, operation.completedAt]
+      );
+      await db.execute(
+        'DELETE FROM offline_activity_outbox WHERE user_id = ? AND operation_id = ?',
+        [userId, operationId]
+      );
+      await this.refreshVisibleState(db, userId, operation.topicId, operation.kind, true);
+    });
+  }
+
+  async unnotifiedRejectionCount(userId: string): Promise<number> {
+    assertKey(userId, 'user ID');
+    return this.database.transaction(async (db) => {
+      const rows = await db.query(
+        'SELECT COUNT(*) AS count FROM offline_activity_rejections WHERE user_id = ? AND notified = 0',
+        [userId]
+      );
+      const count = rows[0]?.count;
+      if (
+        rows.length !== 1 ||
+        typeof count !== 'number' ||
+        !Number.isSafeInteger(count) ||
+        count < 0
+      ) {
+        throw new Error('Invalid offline activity rejection count.');
+      }
+      return count;
+    });
+  }
+
+  async dismissRejections(userId: string): Promise<void> {
+    assertKey(userId, 'user ID');
+    await this.database.transaction(async (db) => {
+      await db.execute(
+        'UPDATE offline_activity_rejections SET notified = 1 WHERE user_id = ? AND notified = 0',
+        [userId]
+      );
+    });
+  }
+
   async acknowledge(
     userId: string,
     operationId: string,
@@ -421,7 +500,12 @@ export class OfflineActivityStore {
     });
   }
 
-  async beginBootstrap(userId: string, snapshotId: string, startRevision: string): Promise<void> {
+  async beginBootstrap(
+    userId: string,
+    snapshotId: string,
+    startRevision: string,
+    replaceExisting = false
+  ): Promise<void> {
     assertKey(userId, 'user ID');
     assertKey(snapshotId, 'snapshot ID');
     revision(startRevision);
@@ -430,13 +514,22 @@ export class OfflineActivityStore {
         'SELECT revision FROM offline_activity_cursor WHERE user_id = ?',
         [userId]
       );
-      if (cursors.length) throw new Error('Offline activity has already been initialized.');
+      if (cursors.length > 1 || (cursors.length && typeof cursors[0].revision !== 'string')) {
+        throw new Error('The offline activity cursor is invalid.');
+      }
+      if (cursors.length && !replaceExisting) {
+        throw new Error('Offline activity has already been initialized.');
+      }
+      const baseCursor = cursors.length ? String(cursors[0].revision) : null;
+      if (baseCursor !== null && revision(startRevision) < revision(baseCursor)) {
+        throw new Error('Offline activity revision went backwards.');
+      }
       await db.execute('DELETE FROM offline_activity_bootstrap_items WHERE user_id = ?', [userId]);
-      await db.execute('INSERT OR REPLACE INTO offline_activity_bootstrap VALUES (?, ?, ?)', [
-        userId,
-        snapshotId,
-        startRevision,
-      ]);
+      await db.execute(
+        `INSERT OR REPLACE INTO offline_activity_bootstrap
+         (user_id, snapshot_id, revision, base_cursor) VALUES (?, ?, ?, ?)`,
+        [userId, snapshotId, startRevision, baseCursor]
+      );
     });
   }
 
@@ -516,7 +609,20 @@ export class OfflineActivityStore {
         'SELECT revision FROM offline_activity_cursor WHERE user_id = ?',
         [userId]
       );
-      if (cursors.length) throw new Error('Offline activity has already been initialized.');
+      const bootstrap = await db.query(
+        'SELECT base_cursor FROM offline_activity_bootstrap WHERE user_id = ? AND snapshot_id = ?',
+        [userId, snapshotId]
+      );
+      if (bootstrap.length !== 1) throw new Error('Offline activity bootstrap is unavailable.');
+      const baseCursor = bootstrap[0].base_cursor;
+      if (
+        (baseCursor !== null && typeof baseCursor !== 'string') ||
+        (baseCursor === null && cursors.length !== 0) ||
+        (typeof baseCursor === 'string' &&
+          (cursors.length !== 1 || cursors[0].revision !== baseCursor))
+      ) {
+        throw new Error('Offline activity changed during bootstrap.');
+      }
       const missingCompletionTimes = await db.query(
         `SELECT 1 FROM offline_activity_bootstrap_items
          WHERE user_id = ? AND kind = 'progress' AND value = 1 AND completed_at IS NULL LIMIT 1`,
@@ -524,6 +630,20 @@ export class OfflineActivityStore {
       );
       if (missingCompletionTimes.length) {
         throw new Error('The saved activity snapshot is missing a completion time.');
+      }
+      if (baseCursor !== null) {
+        await db.execute(
+          `DELETE FROM offline_activity_server
+           WHERE user_id = ? AND (
+             length(revision) < length(?) OR (length(revision) = length(?) AND revision <= ?)
+           ) AND NOT EXISTS (
+             SELECT 1 FROM offline_activity_bootstrap_items staged
+             WHERE staged.user_id = offline_activity_server.user_id
+               AND staged.topic_id = offline_activity_server.topic_id
+               AND staged.kind = offline_activity_server.kind
+           )`,
+          [userId, startRevision, startRevision, startRevision]
+        );
       }
       await db.execute(
         `INSERT INTO offline_activity_server (user_id, topic_id, kind, value, revision, completed_at)
@@ -536,6 +656,22 @@ export class OfflineActivityStore {
                 AND excluded.revision >= offline_activity_server.revision)`,
         [startRevision, userId]
       );
+      if (baseCursor !== null) {
+        await db.execute(
+          `DELETE FROM offline_activity WHERE user_id = ?
+           AND NOT EXISTS (
+             SELECT 1 FROM offline_activity_server server
+             WHERE server.user_id = offline_activity.user_id
+               AND server.topic_id = offline_activity.topic_id AND server.kind = offline_activity.kind
+           )
+           AND NOT EXISTS (
+             SELECT 1 FROM offline_activity_outbox pending
+             WHERE pending.user_id = offline_activity.user_id
+               AND pending.topic_id = offline_activity.topic_id AND pending.kind = offline_activity.kind
+           )`,
+          [userId]
+        );
+      }
       await db.execute(
         `INSERT OR REPLACE INTO offline_activity (user_id, topic_id, kind, value, completed_at)
          SELECT server.user_id, server.topic_id, server.kind,
@@ -552,7 +688,7 @@ export class OfflineActivityStore {
          FROM offline_activity_server server WHERE server.user_id = ?`,
         [userId]
       );
-      await db.execute('INSERT INTO offline_activity_cursor VALUES (?, ?)', [
+      await db.execute('INSERT OR REPLACE INTO offline_activity_cursor VALUES (?, ?)', [
         userId,
         startRevision,
       ]);
@@ -656,7 +792,8 @@ export class OfflineActivityStore {
     db: OfflineTransaction,
     userId: string,
     topicId: string,
-    kind: OfflineActivityKind
+    kind: OfflineActivityKind,
+    allowMissingServer = false
   ): Promise<void> {
     const pending = await db.query(
       `SELECT value, completed_at FROM offline_activity_outbox
@@ -669,6 +806,13 @@ export class OfflineActivityStore {
           'SELECT value, completed_at FROM offline_activity_server WHERE user_id = ? AND topic_id = ? AND kind = ?',
           [userId, topicId, kind]
         );
+    if (!server.length && allowMissingServer) {
+      await db.execute(
+        'DELETE FROM offline_activity WHERE user_id = ? AND topic_id = ? AND kind = ?',
+        [userId, topicId, kind]
+      );
+      return;
+    }
     if (server.length !== 1 || (server[0].value !== 0 && server[0].value !== 1)) {
       throw new Error('Unable to reconcile offline activity state.');
     }

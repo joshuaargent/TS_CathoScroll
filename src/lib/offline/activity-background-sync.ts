@@ -79,7 +79,7 @@ export class BackgroundActivitySync {
       await this.initialize?.(userId, signal);
       let sent = 0;
       while (sent < MAX_OPERATIONS && isCurrent()) {
-        const count = await this.sync.push(userId, 1);
+        const count = await this.sync.push(userId, 1, signal);
         if (!count) break;
         sent += count;
       }
@@ -88,7 +88,7 @@ export class BackgroundActivitySync {
       let pages = 0;
       let received = 0;
       while (pages < MAX_PAGES && isCurrent()) {
-        const count = await this.sync.pull(userId, this.fetch, 1);
+        const count = await this.sync.pull(userId, this.fetch, 1, signal);
         if (!count) break;
         received += count;
         pages++;

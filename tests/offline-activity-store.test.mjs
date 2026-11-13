@@ -50,9 +50,14 @@ const bootstrapSource = await readFile(
   new URL('../src/lib/offline/activity-bootstrap.ts', import.meta.url),
   'utf8'
 );
-const bootstrapCompiled = ts.transpileModule(bootstrapSource, {
-  compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
-}).outputText;
+const bootstrapCompiled = ts
+  .transpileModule(bootstrapSource, {
+    compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
+  })
+  .outputText.replace(
+    "'./activity-sync'",
+    `'data:text/javascript;base64,${Buffer.from(syncCompiled).toString('base64')}'`
+  );
 const { bootstrapActivity } = await import(
   `data:text/javascript;base64,${Buffer.from(bootstrapCompiled).toString('base64')}`
 );
@@ -60,9 +65,21 @@ const transportSource = await readFile(
   new URL('../src/lib/offline/supabase-activity-transport.ts', import.meta.url),
   'utf8'
 );
-const transportCompiled = ts.transpileModule(transportSource, {
+const timeoutSource = await readFile(
+  new URL('../src/lib/offline/request-timeout.ts', import.meta.url),
+  'utf8'
+);
+const timeoutCompiled = ts.transpileModule(timeoutSource, {
   compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
 }).outputText;
+const transportCompiled = ts
+  .transpileModule(transportSource, {
+    compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
+  })
+  .outputText.replace(
+    "'./request-timeout'",
+    `'data:text/javascript;base64,${Buffer.from(timeoutCompiled).toString('base64')}'`
+  );
 const { SupabaseActivityTransport } = await import(
   `data:text/javascript;base64,${Buffer.from(transportCompiled).toString('base64')}`
 );
@@ -133,6 +150,365 @@ async function bootstrap(store, userId = 'alice') {
   await store.beginBootstrap(userId, 'snapshot', '0');
   await store.completeBootstrap(userId, 'snapshot');
 }
+
+test('archives unavailable-topic rejections and continues syncing later changes', async () => {
+  const db = new DatabaseSync(':memory:');
+  try {
+    const store = new OfflineActivityStore(adapter(db));
+    await store.initialize();
+    await bootstrap(store);
+    await bootstrap(store, 'bob');
+    await store.setActivity('alice', 'removed', 'like', true, 'rejected');
+    await store.setActivity('alice', 'removed', 'like', false, 'later');
+    await store.setActivity('alice', 'available', 'bookmark', true, 'saved');
+    await store.setActivity('bob', 'removed', 'like', true, 'bob-pending');
+    const sent = [];
+    const sync = new OfflineActivitySync(store, async (operation) => {
+      sent.push(operation.operationId);
+      if (operation.operationId === 'rejected') {
+        return {
+          status: 'rejected',
+          reason: 'topic_unavailable',
+          userId: operation.userId,
+          operationId: operation.operationId,
+        };
+      }
+      return {
+        userId: operation.userId,
+        operationId: operation.operationId,
+        revision: String(sent.length),
+        value: operation.value,
+        completedAt: null,
+      };
+    });
+    assert.equal(await sync.push('alice'), 3);
+    assert.deepEqual(sent, ['rejected', 'later', 'saved']);
+    assert.equal(await store.pendingCount('alice'), 0);
+    assert.equal(await store.pendingCount('bob'), 1);
+    assert.equal(await store.getActivity('alice', 'removed', 'like'), false);
+    assert.equal(await store.getActivity('alice', 'available', 'bookmark'), true);
+    assert.equal(await store.unnotifiedRejectionCount('alice'), 1);
+    assert.equal(await store.unnotifiedRejectionCount('bob'), 0);
+    await store.dismissRejections('alice');
+    assert.equal(await store.unnotifiedRejectionCount('alice'), 0);
+    assert.equal(
+      db.prepare('SELECT COUNT(*) AS count FROM offline_activity_rejections').get().count,
+      1
+    );
+  } finally {
+    db.close();
+  }
+});
+
+test('rejected activity is removed from the visible state only after its archive commits', async () => {
+  const db = new DatabaseSync(':memory:');
+  try {
+    const store = new OfflineActivityStore(adapter(db));
+    await store.initialize();
+    await bootstrap(store);
+    await store.setActivity('alice', 'removed', 'bookmark', true, 'pending');
+    db.exec(`CREATE TRIGGER reject_archive BEFORE INSERT ON offline_activity_rejections
+      BEGIN SELECT RAISE(ABORT, 'archive failed'); END;`);
+    await assert.rejects(store.rejectUnavailableTopic('alice', 'pending'), /archive failed/);
+    assert.equal(await store.pendingCount('alice'), 1);
+    assert.equal(await store.getActivity('alice', 'removed', 'bookmark'), true);
+    db.exec('DROP TRIGGER reject_archive');
+    await assert.rejects(store.rejectUnavailableTopic('alice', 'wrong'), /first pending/);
+    await store.rejectUnavailableTopic('alice', 'pending');
+    assert.equal(await store.pendingCount('alice'), 0);
+    assert.equal(await store.getActivity('alice', 'removed', 'bookmark'), null);
+    assert.equal(await store.unnotifiedRejectionCount('alice'), 1);
+  } finally {
+    db.close();
+  }
+});
+
+test('rebootstrap replaces server state atomically while preserving queued edits', async () => {
+  const db = new DatabaseSync(':memory:');
+  try {
+    const store = new OfflineActivityStore(adapter(db));
+    await store.initialize();
+    await bootstrap(store);
+    await store.applyChanges('alice', [
+      { topicId: 'removed', kind: 'like', value: true, revision: '1', completedAt: null },
+      { topicId: 'pending', kind: 'like', value: true, revision: '2', completedAt: null },
+    ]);
+    await store.setActivity('alice', 'pending', 'like', false, 'pending-change');
+    await store.setActivity('alice', 'new-local', 'bookmark', true, 'new-change');
+    await store.beginBootstrap('alice', 'replacement', '5', true);
+    await store.stageBootstrap('alice', 'replacement', [
+      { topicId: 'server-new', kind: 'bookmark', completedAt: null },
+      { topicId: 'pending', kind: 'like', completedAt: null },
+    ]);
+    assert.equal(await store.getActivity('alice', 'removed', 'like'), true);
+    assert.equal(await store.getActivity('alice', 'server-new', 'bookmark'), null);
+    await store.completeBootstrap('alice', 'replacement');
+    assert.equal(await store.getActivity('alice', 'removed', 'like'), null);
+    assert.equal(await store.getActivity('alice', 'server-new', 'bookmark'), true);
+    assert.equal(await store.getActivity('alice', 'pending', 'like'), false);
+    assert.equal(await store.getActivity('alice', 'new-local', 'bookmark'), true);
+    assert.equal(await store.pendingCount('alice'), 2);
+    assert.equal(await store.cursor('alice'), '5');
+  } finally {
+    db.close();
+  }
+});
+
+test('rebootstrap cannot overwrite an advanced cursor and can restart safely', async () => {
+  const db = new DatabaseSync(':memory:');
+  try {
+    const store = new OfflineActivityStore(adapter(db));
+    await store.initialize();
+    await bootstrap(store);
+    await store.beginBootstrap('alice', 'old', '2', true);
+    await store.stageBootstrap('alice', 'old', [
+      { topicId: 'snapshot', kind: 'like', completedAt: null },
+    ]);
+    await store.applyChanges('alice', [
+      { topicId: 'newer', kind: 'like', value: true, revision: '1', completedAt: null },
+    ]);
+    await assert.rejects(store.completeBootstrap('alice', 'old'), /changed during bootstrap/);
+    assert.equal(await store.cursor('alice'), '1');
+    assert.equal(await store.getActivity('alice', 'newer', 'like'), true);
+    assert.equal(await store.getActivity('alice', 'snapshot', 'like'), null);
+    await assert.rejects(store.beginBootstrap('alice', 'backwards', '0', true), /went backwards/);
+    await store.beginBootstrap('alice', 'new', '2', true);
+    await store.stageBootstrap('alice', 'new', [
+      { topicId: 'snapshot', kind: 'like', completedAt: null },
+    ]);
+    await store.completeBootstrap('alice', 'new');
+    assert.equal(await store.getActivity('alice', 'newer', 'like'), null);
+    assert.equal(await store.getActivity('alice', 'snapshot', 'like'), true);
+  } finally {
+    db.close();
+  }
+});
+
+test('expired activity cursors request a fresh snapshot without advancing local state', async () => {
+  const db = new DatabaseSync(':memory:');
+  try {
+    const store = new OfflineActivityStore(adapter(db));
+    await store.initialize();
+    await bootstrap(store);
+    const sync = new OfflineActivitySync(store, async () => {
+      throw new Error('not used');
+    });
+    await assert.rejects(
+      sync.pull('alice', async () => ({
+        userId: 'alice',
+        changes: [],
+        hasMore: false,
+        resetRequired: true,
+      })),
+      { name: 'ActivityResetRequired' }
+    );
+    assert.equal(await store.cursor('alice'), '0');
+    await store.setActivity('alice', 'queued', 'bookmark', true, 'queued-operation');
+    const transport = {
+      async head(userId) {
+        return { userId, revision: '10' };
+      },
+      async snapshot(userId) {
+        return {
+          userId,
+          items: [{ topicId: 'remote', kind: 'like', completedAt: null }],
+          nextCursor: null,
+        };
+      },
+      async changes() {
+        throw new Error('No changes expected');
+      },
+    };
+    await bootstrapActivity(store, transport, 'alice', 'replacement', undefined, true);
+    assert.equal(await store.cursor('alice'), '10');
+    assert.equal(await store.getActivity('alice', 'remote', 'like'), true);
+    assert.equal(await store.getActivity('alice', 'queued', 'bookmark'), true);
+    assert.equal(await store.pendingCount('alice'), 1);
+  } finally {
+    db.close();
+  }
+});
+
+test('cancelling an in-flight write keeps its operation queued for idempotent retry', async () => {
+  const db = new DatabaseSync(':memory:');
+  try {
+    const store = new OfflineActivityStore(adapter(db));
+    await store.initialize();
+    await bootstrap(store);
+    await store.setActivity('alice', 'topic', 'like', true, 'operation');
+    let release;
+    let started;
+    const waiting = new Promise((resolve) => {
+      started = resolve;
+    });
+    const response = new Promise((resolve) => {
+      release = resolve;
+    });
+    const sync = new OfflineActivitySync(store, async (operation, signal) => {
+      assert.ok(signal);
+      started();
+      await response;
+      return {
+        userId: operation.userId,
+        operationId: operation.operationId,
+        revision: '1',
+        value: true,
+        completedAt: null,
+      };
+    });
+    const controller = new AbortController();
+    const pending = sync.push('alice', 1, controller.signal);
+    await waiting;
+    controller.abort();
+    release();
+    await assert.rejects(pending, { name: 'AbortError' });
+    assert.equal((await store.nextOperation('alice')).operationId, 'operation');
+    assert.equal(await store.getActivity('alice', 'topic', 'like'), true);
+  } finally {
+    db.close();
+  }
+});
+
+test('a retention reset during snapshot replay leaves the existing account state unchanged', async () => {
+  const db = new DatabaseSync(':memory:');
+  try {
+    const store = new OfflineActivityStore(adapter(db));
+    await store.initialize();
+    await bootstrap(store);
+    await store.applyChanges('alice', [
+      { topicId: 'old', kind: 'like', value: true, revision: '1', completedAt: null },
+    ]);
+    let heads = 0;
+    const transport = {
+      async head(userId) {
+        return { userId, revision: heads++ === 0 ? '3' : '4' };
+      },
+      async snapshot(userId) {
+        return {
+          userId,
+          items: [{ topicId: 'new', kind: 'like', completedAt: null }],
+          nextCursor: null,
+        };
+      },
+      async changes(userId) {
+        return { userId, changes: [], hasMore: false, resetRequired: true };
+      },
+    };
+    await assert.rejects(
+      bootstrapActivity(store, transport, 'alice', 'interrupted', undefined, true),
+      { name: 'ActivityResetRequired' }
+    );
+    assert.equal(await store.cursor('alice'), '1');
+    assert.equal(await store.getActivity('alice', 'old', 'like'), true);
+    assert.equal(await store.getActivity('alice', 'new', 'like'), null);
+  } finally {
+    db.close();
+  }
+});
+
+test('legacy migration preserves rejected operations and their notification state', async () => {
+  const sourceDb = new DatabaseSync(':memory:');
+  const targetDb = new DatabaseSync(':memory:');
+  try {
+    const source = adapter(sourceDb);
+    const target = adapter(targetDb);
+    const oldStore = new OfflineActivityStore(source);
+    const newStore = new OfflineActivityStore(target);
+    await oldStore.initialize();
+    await newStore.initialize();
+    await bootstrap(oldStore);
+    await oldStore.setActivity('alice', 'removed', 'like', true, 'reject');
+    await oldStore.rejectUnavailableTopic('alice', 'reject');
+    await migrateLegacyActivity(source, target);
+    assert.equal(await newStore.unnotifiedRejectionCount('alice'), 1);
+    assert.equal(
+      targetDb.prepare('SELECT operation_id FROM offline_activity_rejections').get().operation_id,
+      'reject'
+    );
+  } finally {
+    sourceDb.close();
+    targetDb.close();
+  }
+});
+
+test('native activity refreshes an expired cursor and preserves changes made during refresh', async () => {
+  const db = new DatabaseSync(':memory:');
+  let native;
+  try {
+    const store = new OfflineActivityStore(adapter(db));
+    await store.initialize();
+    await bootstrap(store);
+    await store.applyChanges('alice', [
+      { topicId: 'old', kind: 'like', value: true, revision: '1', completedAt: null },
+    ]);
+    let releaseSnapshot;
+    let reachedSnapshot;
+    const snapshotStarted = new Promise((resolve) => {
+      reachedSnapshot = resolve;
+    });
+    const snapshotReleased = new Promise((resolve) => {
+      releaseSnapshot = resolve;
+    });
+    const events = [];
+    const statuses = [];
+    const transport = {
+      async head(userId) {
+        return { userId, revision: '3' };
+      },
+      async snapshot(userId) {
+        reachedSnapshot();
+        await snapshotReleased;
+        return {
+          userId,
+          items: [{ topicId: 'remote', kind: 'bookmark', completedAt: null }],
+          nextCursor: null,
+        };
+      },
+      async changes(userId, cursor) {
+        if (cursor === '1') return { userId, changes: [], hasMore: false, resetRequired: true };
+        return { userId, changes: cursor === '3' ? events : [], hasMore: false };
+      },
+      async send(operation) {
+        events.push({
+          topicId: operation.topicId,
+          kind: operation.kind,
+          value: operation.value,
+          revision: '4',
+          completedAt: operation.completedAt,
+        });
+        return {
+          userId: operation.userId,
+          operationId: operation.operationId,
+          value: operation.value,
+          revision: '4',
+          completedAt: operation.completedAt,
+        };
+      },
+    };
+    native = new NativeActivity(
+      'alice',
+      store,
+      transport,
+      (status) => statuses.push(status),
+      () => true
+    );
+    await native.start();
+    await waitFor(() => statuses.some((status) => status.error.includes('needs to refresh')));
+    native.requestSync();
+    await snapshotStarted;
+    await native.set('queued', 'like', true);
+    assert.equal(await store.getActivity('alice', 'old', 'like'), true);
+    releaseSnapshot();
+    await waitFor(async () => (await store.cursor('alice')) === '4');
+    assert.equal(await store.getActivity('alice', 'old', 'like'), null);
+    assert.equal(await store.getActivity('alice', 'remote', 'bookmark'), true);
+    assert.equal(await store.getActivity('alice', 'queued', 'like'), true);
+    assert.equal(await store.pendingCount('alice'), 0);
+  } finally {
+    native?.dispose();
+    db.close();
+  }
+});
 
 test('native account activity bootstraps, queues offline edits and synchronizes on reconnect', async () => {
   const db = new DatabaseSync(':memory:');
@@ -1148,54 +1524,59 @@ test('bootstraps and synchronizes two devices with a lost write response', async
     return change;
   }
   const client = {
-    async rpc(name, args) {
-      const userId = args.p_user;
-      if (userId !== 'alice') return { error: { message: 'Account does not match' }, data: null };
-      if (name === 'offline_activity_head') {
-        return { data: { userId, revision: String(events.length) }, error: null };
-      }
-      if (name === 'offline_activity_snapshot') {
-        const items = [...state.entries()]
-          .filter(([, value]) => value)
-          .map(([key]) => {
-            const [kind, topicId] = key.split(':');
-            return { kind, topicId };
-          });
-        if (modifyDuringSnapshot) {
-          modifyDuringSnapshot = false;
-          recordChange('like', 'topic', false);
-        }
-        return { data: { userId, items, nextCursor: null }, error: null };
-      }
-      if (name === 'offline_activity_changes') {
-        return {
-          data: {
-            userId,
-            changes: events.filter((change) => BigInt(change.revision) > BigInt(args.p_after)),
-            hasMore: false,
-          },
-          error: null,
-        };
-      }
-      if (name === 'offline_apply_activity') {
-        let receipt = receipts.get(args.p_operation);
-        if (!receipt) {
-          const change = recordChange(args.p_kind, args.p_topic, args.p_value);
-          receipt = {
-            userId,
-            operationId: args.p_operation,
-            revision: change.revision,
-            value: args.p_value,
-          };
-          receipts.set(args.p_operation, receipt);
-        }
-        if (loseResponse) {
-          loseResponse = false;
-          throw new Error('Connection interrupted after commit');
-        }
-        return { data: receipt, error: null };
-      }
-      throw new Error(`Unexpected RPC: ${name}`);
+    rpc(name, args) {
+      return {
+        abortSignal: async () => {
+          const userId = args.p_user;
+          if (userId !== 'alice')
+            return { error: { message: 'Account does not match' }, data: null };
+          if (name === 'offline_activity_head') {
+            return { data: { userId, revision: String(events.length) }, error: null };
+          }
+          if (name === 'offline_activity_snapshot') {
+            const items = [...state.entries()]
+              .filter(([, value]) => value)
+              .map(([key]) => {
+                const [kind, topicId] = key.split(':');
+                return { kind, topicId };
+              });
+            if (modifyDuringSnapshot) {
+              modifyDuringSnapshot = false;
+              recordChange('like', 'topic', false);
+            }
+            return { data: { userId, items, nextCursor: null }, error: null };
+          }
+          if (name === 'offline_activity_changes') {
+            return {
+              data: {
+                userId,
+                changes: events.filter((change) => BigInt(change.revision) > BigInt(args.p_after)),
+                hasMore: false,
+              },
+              error: null,
+            };
+          }
+          if (name === 'offline_apply_activity') {
+            let receipt = receipts.get(args.p_operation);
+            if (!receipt) {
+              const change = recordChange(args.p_kind, args.p_topic, args.p_value);
+              receipt = {
+                userId,
+                operationId: args.p_operation,
+                revision: change.revision,
+                value: args.p_value,
+              };
+              receipts.set(args.p_operation, receipt);
+            }
+            if (loseResponse) {
+              loseResponse = false;
+              throw new Error('Connection interrupted after commit');
+            }
+            return { data: receipt, error: null };
+          }
+          throw new Error(`Unexpected RPC: ${name}`);
+        },
+      };
     },
   };
   try {

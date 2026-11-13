@@ -3,7 +3,11 @@ import {
   type ActivityBootstrapTransport,
 } from '@/lib/offline/activity-bootstrap';
 import { BackgroundActivitySync } from '@/lib/offline/activity-background-sync';
-import { OfflineActivitySync, type ActivityReceipt } from '@/lib/offline/activity-sync';
+import {
+  ActivityResetRequired,
+  OfflineActivitySync,
+  type ActivityResult,
+} from '@/lib/offline/activity-sync';
 import type {
   OfflineActivityKind,
   OfflineActivityStore,
@@ -11,7 +15,7 @@ import type {
 } from '@/lib/offline/activity-store';
 
 type Transport = ActivityBootstrapTransport & {
-  send(operation: PendingActivity): Promise<ActivityReceipt>;
+  send(operation: PendingActivity, signal?: AbortSignal): Promise<ActivityResult>;
 };
 
 export type NativeActivityStatus = {
@@ -26,6 +30,7 @@ export class NativeActivity {
   private disposed = false;
   private signingOut = false;
   private ready = false;
+  private rebootstrapRequired = false;
   private error = '';
 
   constructor(
@@ -35,16 +40,22 @@ export class NativeActivity {
     private readonly onChange: (status: NativeActivityStatus) => void,
     isOnline: () => boolean
   ) {
-    const sync = new OfflineActivitySync(store, (operation) => transport.send(operation));
+    const sync = new OfflineActivitySync(store, (operation, signal) =>
+      transport.send(operation, signal)
+    );
     this.scheduler = new BackgroundActivitySync(
       sync,
-      (user, cursor) => transport.changes(user, cursor),
+      (user, cursor, signal) => transport.changes(user, cursor, signal),
       isOnline,
       (_user, cause) => {
-        console.error('Unable to synchronize account activity:', cause);
-        this.error = this.ready
-          ? 'Your account changes could not be synchronized. They are saved on this device.'
-          : 'Account activity could not be set up. Saved progress remains on this device; check your connection and try again.';
+        if (cause instanceof ActivityResetRequired) this.rebootstrapRequired = true;
+        else console.error('Unable to synchronize account activity:', cause);
+        this.error =
+          cause instanceof ActivityResetRequired
+            ? 'Your account activity needs to refresh. Saved changes remain on this device.'
+            : this.ready
+              ? 'Your account changes could not be synchronized. They are saved on this device.'
+              : 'Account activity could not be set up. Saved progress remains on this device; check your connection and try again.';
         this.notify();
       },
       () => {
@@ -52,8 +63,16 @@ export class NativeActivity {
         this.notify();
       },
       async (user, signal) => {
-        if (!(await store.isBootstrapped(user))) {
-          await bootstrapActivity(store, transport, user, crypto.randomUUID(), signal);
+        if (this.rebootstrapRequired || !(await store.isBootstrapped(user))) {
+          await bootstrapActivity(
+            store,
+            transport,
+            user,
+            crypto.randomUUID(),
+            signal,
+            this.rebootstrapRequired
+          );
+          this.rebootstrapRequired = false;
         }
         signal.throwIfAborted();
         if (!this.ready) {
