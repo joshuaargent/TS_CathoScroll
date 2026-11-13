@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { withNetworkTimeout } from './request-timeout';
 import type {
   CatalogueCategoryRecord,
+  CatalogueChangePage,
   CatalogueRefreshTransport,
   CatalogueTopicRecord,
 } from './catalogue-refresh';
@@ -31,6 +32,36 @@ function count(value: unknown): number {
     throw new Error('Invalid catalogue count from server.');
   }
   return Number(result);
+}
+
+function changeCategory(value: unknown): CatalogueCategoryRecord {
+  const row = record(value);
+  return {
+    slug: text(row.slug),
+    name: text(row.name),
+    description: text(row.description),
+    orderIndex: order(row.orderIndex),
+  };
+}
+
+function changeTopic(value: unknown): CatalogueTopicRecord {
+  const row = record(value);
+  if (!Array.isArray(row.catechismParagraphs)) {
+    throw new Error('Invalid catechism paragraphs from server.');
+  }
+  return {
+    id: text(row.id),
+    slug: text(row.slug),
+    categorySlug: text(row.categorySlug),
+    orderIndex: order(row.orderIndex),
+    question: text(row.question),
+    answer: text(row.answer),
+    explanation: text(row.explanation),
+    catechismParagraphs: row.catechismParagraphs.map(text),
+    catechismText: text(row.catechismText),
+    scriptureReference: text(row.scriptureReference),
+    scriptureText: text(row.scriptureText),
+  };
 }
 
 export class SupabaseCatalogueTransport implements CatalogueRefreshTransport {
@@ -64,6 +95,50 @@ export class SupabaseCatalogueTransport implements CatalogueRefreshTransport {
       categories: count(result.categories),
       topics: count(result.topics),
     };
+  }
+
+  async changes(
+    after: string,
+    through: string,
+    signal?: AbortSignal
+  ): Promise<CatalogueChangePage> {
+    signal?.throwIfAborted();
+    const request = this.client.rpc('offline_catalogue_changes', {
+      p_after: after,
+      p_through: through,
+    });
+    const { data, error } = await withNetworkTimeout(signal, async (requestSignal) =>
+      request.abortSignal(requestSignal)
+    );
+    if (error) throw new Error(`Unable to update topics: ${error.message}`, { cause: error });
+    signal?.throwIfAborted();
+    const page = record(data);
+    if (
+      !Array.isArray(page.changes) ||
+      page.changes.length > 100 ||
+      typeof page.hasMore !== 'boolean' ||
+      typeof page.resetRequired !== 'boolean' ||
+      (page.resetRequired && (page.hasMore || page.changes.length))
+    )
+      throw new Error('Invalid catalogue changes from server.');
+    const changes = page.changes.map((value) => {
+      const item = record(value);
+      const revision = text(item.revision);
+      const key = text(item.key);
+      if (item.kind === 'category') {
+        return { revision, key, kind: 'category' as const, value: changeCategory(item.value) };
+      }
+      if (item.kind === 'topic') {
+        return {
+          revision,
+          key,
+          kind: 'topic' as const,
+          value: item.value === null ? null : changeTopic(item.value),
+        };
+      }
+      throw new Error('Invalid catalogue change kind from server.');
+    });
+    return { changes, hasMore: page.hasMore, resetRequired: page.resetRequired };
   }
 
   async categories(after: string | null, signal?: AbortSignal): Promise<CatalogueCategoryRecord[]> {

@@ -89,6 +89,9 @@ function fixture() {
     async topics(after) {
       return topics.filter((row) => !after || row.id > after).slice(0, 100);
     },
+    async changes() {
+      return { changes: [], hasMore: false, resetRequired: true };
+    },
   };
   return {
     db,
@@ -237,6 +240,211 @@ test('rolls back publication if replacing the catalogue fails', async () => {
     db.exec('DROP TRIGGER reject_refresh');
     assert.equal(await service.refresh(), true);
     assert.equal(db.prepare('SELECT COUNT(*) AS count FROM topics').get().count, 205);
+  } finally {
+    db.close();
+  }
+});
+
+test('applies bounded incremental changes atomically, including slug swaps and removals', async () => {
+  const { db, adapter, transport, topics, setRevision } = fixture();
+  try {
+    const service = new CatalogueRefresh(adapter, transport);
+    await service.initialize();
+    assert.equal(await service.refresh(), true);
+    const changes = [
+      {
+        revision: '2',
+        kind: 'category',
+        key: 'faith',
+        value: { slug: 'faith', name: 'Updated faith', description: 'Updated', orderIndex: 2 },
+      },
+      {
+        revision: '3',
+        kind: 'topic',
+        key: 'topic-000',
+        value: { ...topics[0], slug: 'topic-001', question: 'Updated question' },
+      },
+      {
+        revision: '4',
+        kind: 'topic',
+        key: 'topic-001',
+        value: { ...topics[1], slug: 'topic-000' },
+      },
+      { revision: '5', kind: 'topic', key: 'topic-002', value: null },
+      {
+        revision: '6',
+        kind: 'topic',
+        key: 'new-topic',
+        value: { ...topics[2], id: 'new-topic', slug: 'new-topic' },
+      },
+    ];
+    setRevision('6');
+    let calls = 0;
+    transport.counts = async () => {
+      throw new Error('Unexpected full snapshot');
+    };
+    transport.categories = async () => {
+      throw new Error('Unexpected category download');
+    };
+    transport.topics = async () => {
+      throw new Error('Unexpected topic download');
+    };
+    transport.changes = async (after, through) => {
+      calls++;
+      assert.equal(through, '6');
+      assert.equal(
+        db.prepare("SELECT question FROM topics WHERE id='topic-000'").get().question,
+        'topic-000'
+      );
+      const page = changes.filter((change) => BigInt(change.revision) > BigInt(after)).slice(0, 2);
+      return { changes: page, hasMore: page.at(-1).revision !== through, resetRequired: false };
+    };
+    assert.equal(await service.refresh(), true);
+    assert.equal(calls, 3);
+    assert.equal(
+      db.prepare("SELECT name FROM categories WHERE slug='faith'").get().name,
+      'Updated faith'
+    );
+    assert.equal(
+      db.prepare("SELECT question FROM topics WHERE id='topic-000'").get().question,
+      'Updated question'
+    );
+    assert.equal(
+      db.prepare("SELECT slug FROM topics WHERE id='topic-001'").get().slug,
+      'topic-000'
+    );
+    assert.equal(db.prepare("SELECT COUNT(*) AS n FROM topics WHERE id='topic-002'").get().n, 0);
+    assert.equal(db.prepare("SELECT COUNT(*) AS n FROM topics WHERE id='new-topic'").get().n, 1);
+    assert.equal(db.prepare('SELECT topic_count FROM catalogue_metadata').get().topic_count, 205);
+    assert.equal(db.prepare('SELECT revision FROM catalogue_sync_state').get().revision, '6');
+  } finally {
+    db.close();
+  }
+});
+
+test('leaves the previous catalogue intact when incremental pages are interrupted, invalid or superseded', async () => {
+  const { db, adapter, transport, topics, setRevision } = fixture();
+  try {
+    const service = new CatalogueRefresh(adapter, transport);
+    await service.initialize();
+    await service.refresh();
+    setRevision('3');
+    const change = {
+      revision: '2',
+      kind: 'topic',
+      key: 'topic-000',
+      value: { ...topics[0], question: 'Changed' },
+    };
+    transport.changes = async (after) => {
+      if (after === '1') return { changes: [change], hasMore: true, resetRequired: false };
+      throw new Error('Network failed');
+    };
+    await assert.rejects(service.refresh(), /Network failed/);
+    assert.equal(
+      db.prepare("SELECT question FROM topics WHERE id='topic-000'").get().question,
+      'topic-000'
+    );
+    assert.equal(db.prepare('SELECT revision FROM catalogue_sync_state').get().revision, '1');
+    transport.changes = async () => ({
+      changes: [{ ...change, revision: '3' }],
+      hasMore: false,
+      resetRequired: false,
+    });
+    await assert.rejects(service.refresh(), /out of order/);
+    transport.changes = async (after) => {
+      if (after === '1') return { changes: [change], hasMore: true, resetRequired: false };
+      setRevision('4');
+      return {
+        changes: [{ revision: '3', kind: 'topic', key: 'topic-001', value: null }],
+        hasMore: false,
+        resetRequired: false,
+      };
+    };
+    await assert.rejects(service.refresh(), /changed during/);
+    assert.equal(
+      db.prepare("SELECT question FROM topics WHERE id='topic-000'").get().question,
+      'topic-000'
+    );
+    assert.equal(db.prepare('SELECT revision FROM catalogue_sync_state').get().revision, '1');
+  } finally {
+    db.close();
+  }
+});
+
+test('uses a fresh snapshot when the change history is no longer available', async () => {
+  const { db, adapter, transport, topics, setRevision } = fixture();
+  try {
+    const service = new CatalogueRefresh(adapter, transport);
+    await service.initialize();
+    await service.refresh();
+    topics.splice(0, 1);
+    setRevision('2');
+    assert.equal(await service.refresh(), true);
+    assert.equal(db.prepare('SELECT COUNT(*) AS n FROM topics').get().n, 204);
+    assert.equal(db.prepare('SELECT revision FROM catalogue_sync_state').get().revision, '2');
+  } finally {
+    db.close();
+  }
+});
+
+test('rolls back incremental publication when a topic references a missing category', async () => {
+  const { db, adapter, transport, topics, setRevision } = fixture();
+  try {
+    const service = new CatalogueRefresh(adapter, transport);
+    await service.initialize();
+    await service.refresh();
+    db.exec('PRAGMA foreign_keys = OFF');
+    setRevision('2');
+    transport.changes = async () => ({
+      changes: [
+        {
+          revision: '2',
+          kind: 'topic',
+          key: 'topic-000',
+          value: { ...topics[0], categorySlug: 'missing' },
+        },
+      ],
+      hasMore: false,
+      resetRequired: false,
+    });
+    await assert.rejects(service.refresh(), /no published category/);
+    assert.equal(
+      db.prepare("SELECT category_slug FROM topics WHERE id='topic-000'").get().category_slug,
+      'faith'
+    );
+    assert.equal(db.prepare('SELECT revision FROM catalogue_sync_state').get().revision, '1');
+  } finally {
+    db.close();
+  }
+});
+
+test('falls back to a snapshot when the incremental page limit is reached', async () => {
+  const { db, adapter, transport, topics, setRevision } = fixture();
+  try {
+    const service = new CatalogueRefresh(adapter, transport);
+    await service.initialize();
+    await service.refresh();
+    setRevision('102');
+    let pages = 0;
+    transport.changes = async (after) => {
+      pages++;
+      return {
+        changes: [
+          {
+            revision: String(Number(after) + 1),
+            kind: 'topic',
+            key: topics[0].id,
+            value: topics[0],
+          },
+        ],
+        hasMore: true,
+        resetRequired: false,
+      };
+    };
+    assert.equal(await service.refresh(), true);
+    assert.equal(pages, 100);
+    assert.equal(db.prepare('SELECT revision FROM catalogue_sync_state').get().revision, '102');
+    assert.equal(db.prepare('SELECT COUNT(*) AS n FROM topics').get().n, 205);
   } finally {
     db.close();
   }

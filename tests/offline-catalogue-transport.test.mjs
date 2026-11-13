@@ -81,8 +81,8 @@ function fixture() {
     return builder;
   }
   const client = {
-    rpc(name) {
-      calls.push([name, 'rpc']);
+    rpc(name, ...args) {
+      calls.push([name, 'rpc', ...args]);
       return request(name);
     },
     from(name) {
@@ -120,6 +120,72 @@ test('reads revision and counts and requests only published keyset pages', async
   assert.ok(
     calls.some(([name, method, field]) => name === 'topics' && method === 'order' && field === 'id')
   );
+});
+
+test('parses incremental changes and passes revision bounds to the RPC', async () => {
+  const { transport, responses, calls } = fixture();
+  const topic = {
+    id: 'one',
+    slug: 'one',
+    categorySlug: 'faith',
+    orderIndex: 1,
+    question: 'Question',
+    answer: 'Answer',
+    explanation: '',
+    catechismParagraphs: [],
+    catechismText: '',
+    scriptureReference: '',
+    scriptureText: '',
+  };
+  responses.offline_catalogue_changes = {
+    changes: [
+      {
+        revision: '2',
+        kind: 'category',
+        key: 'faith',
+        value: { slug: 'faith', name: 'Faith', description: '', orderIndex: 1 },
+      },
+      { revision: '3', kind: 'topic', key: 'one', value: topic },
+      { revision: '4', kind: 'topic', key: 'removed', value: null },
+    ],
+    hasMore: false,
+    resetRequired: false,
+  };
+  assert.deepEqual(await transport.changes('1', '4'), responses.offline_catalogue_changes);
+  assert.ok(
+    calls.some(
+      ([name, method, args]) =>
+        name === 'offline_catalogue_changes' &&
+        method === 'rpc' &&
+        args.p_after === '1' &&
+        args.p_through === '4'
+    )
+  );
+  responses.offline_catalogue_changes = { changes: [], hasMore: false, resetRequired: true };
+  assert.deepEqual(await transport.changes('1', '4'), responses.offline_catalogue_changes);
+});
+
+test('rejects malformed incremental responses and propagates cancellation', async () => {
+  const { transport, responses } = fixture();
+  for (const response of [
+    { changes: [], hasMore: true, resetRequired: true },
+    {
+      changes: [{ revision: '2', kind: 'unknown', key: 'x', value: null }],
+      hasMore: false,
+      resetRequired: false,
+    },
+    {
+      changes: [{ revision: '2', kind: 'topic', key: 'x', value: {} }],
+      hasMore: false,
+      resetRequired: false,
+    },
+  ]) {
+    responses.offline_catalogue_changes = response;
+    await assert.rejects(transport.changes('1', '2'), /Invalid/);
+  }
+  const controller = new AbortController();
+  controller.abort();
+  await assert.rejects(transport.changes('1', '2', controller.signal), { name: 'AbortError' });
 });
 
 test('rejects invalid counts, unpublished categories and aborted requests', async () => {

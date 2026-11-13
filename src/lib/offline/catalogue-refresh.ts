@@ -21,11 +21,22 @@ export interface CatalogueTopicRecord {
   scriptureText: string;
 }
 
+export type CatalogueChange =
+  | { revision: string; kind: 'category'; key: string; value: CatalogueCategoryRecord }
+  | { revision: string; kind: 'topic'; key: string; value: CatalogueTopicRecord | null };
+
+export interface CatalogueChangePage {
+  changes: CatalogueChange[];
+  hasMore: boolean;
+  resetRequired: boolean;
+}
+
 export interface CatalogueRefreshTransport {
   head(signal?: AbortSignal): Promise<string>;
   counts(signal?: AbortSignal): Promise<{ revision: string; categories: number; topics: number }>;
   categories(after: string | null, signal?: AbortSignal): Promise<CatalogueCategoryRecord[]>;
   topics(after: string | null, signal?: AbortSignal): Promise<CatalogueTopicRecord[]>;
+  changes(after: string, through: string, signal?: AbortSignal): Promise<CatalogueChangePage>;
 }
 
 const pageSize = 100;
@@ -113,6 +124,20 @@ export class CatalogueRefresh {
         scripture_reference TEXT NOT NULL,
         scripture_text TEXT NOT NULL
       )`);
+      await db.execute(`CREATE TABLE IF NOT EXISTS catalogue_delta_topics (
+        id TEXT PRIMARY KEY NOT NULL,
+        slug TEXT,
+        category_slug TEXT,
+        order_index INTEGER,
+        question TEXT,
+        answer TEXT,
+        explanation TEXT,
+        catechism_paragraphs TEXT,
+        catechism_text TEXT,
+        scripture_reference TEXT,
+        scripture_text TEXT,
+        deleted INTEGER NOT NULL CHECK (deleted IN (0, 1))
+      )`);
     });
   }
 
@@ -142,6 +167,14 @@ export class CatalogueRefresh {
     if (saved !== null && BigInt(revision) < BigInt(saved)) {
       throw new Error('The catalogue revision went backwards.');
     }
+    if (saved !== null) {
+      const updated = await this.refreshChanges(saved, revision, signal);
+      if (updated) return true;
+    }
+    return this.refreshFullSnapshot(revision, signal);
+  }
+
+  private async refreshFullSnapshot(revision: string, signal?: AbortSignal): Promise<boolean> {
     const counts = await this.transport.counts(signal);
     if (
       !counts ||
@@ -157,6 +190,7 @@ export class CatalogueRefresh {
     await this.database.transaction(async (db) => {
       await db.execute('DELETE FROM catalogue_staged_topics');
       await db.execute('DELETE FROM catalogue_staged_categories');
+      await db.execute('DELETE FROM catalogue_delta_topics');
       await db.execute('INSERT OR REPLACE INTO catalogue_sync_staging VALUES (1, ?)', [snapshotId]);
     });
 
@@ -197,6 +231,146 @@ export class CatalogueRefresh {
       await db.execute('INSERT OR REPLACE INTO catalogue_sync_state VALUES (1, ?)', [revision]);
       await db.execute('DELETE FROM catalogue_staged_topics');
       await db.execute('DELETE FROM catalogue_staged_categories');
+      await db.execute(
+        'DELETE FROM catalogue_sync_staging WHERE singleton = 1 AND snapshot_id = ?',
+        [snapshotId]
+      );
+    });
+    return true;
+  }
+
+  private async refreshChanges(
+    saved: string,
+    through: string,
+    signal?: AbortSignal
+  ): Promise<boolean> {
+    const snapshotId = crypto.randomUUID();
+    await this.database.transaction(async (db) => {
+      await db.execute('DELETE FROM catalogue_staged_categories');
+      await db.execute('DELETE FROM catalogue_delta_topics');
+      await db.execute('INSERT OR REPLACE INTO catalogue_sync_staging VALUES (1, ?)', [snapshotId]);
+    });
+
+    let cursor = BigInt(saved);
+    const barrier = BigInt(through);
+    for (let pageNumber = 0; cursor < barrier && pageNumber < 100; pageNumber++) {
+      signal?.throwIfAborted();
+      const page = await this.transport.changes(cursor.toString(), through, signal);
+      signal?.throwIfAborted();
+      if (
+        !page ||
+        !Array.isArray(page.changes) ||
+        page.changes.length > pageSize ||
+        typeof page.hasMore !== 'boolean' ||
+        typeof page.resetRequired !== 'boolean' ||
+        (page.resetRequired && (page.hasMore || page.changes.length !== 0))
+      )
+        throw new Error('Invalid catalogue changes page.');
+      if (page.resetRequired) return false;
+      if (!page.changes.length) throw new Error('The catalogue changes are incomplete.');
+      for (const change of page.changes) {
+        if (
+          !change ||
+          !validRevision(change.revision) ||
+          BigInt(change.revision) !== cursor + BigInt(1)
+        ) {
+          throw new Error('The catalogue changes are out of order or incomplete.');
+        }
+        cursor += BigInt(1);
+        if (cursor > barrier || !validKey(change.key)) throw new Error('Invalid catalogue change.');
+        if (change.kind === 'category') {
+          checkCategory(change.value);
+          if (change.value.slug !== change.key) throw new Error('Invalid category change key.');
+        } else if (change.kind === 'topic') {
+          if (change.value !== null) {
+            checkTopic(change.value);
+            if (change.value.id !== change.key) throw new Error('Invalid topic change key.');
+          }
+        } else {
+          throw new Error('Invalid catalogue change kind.');
+        }
+      }
+      if (page.hasMore !== cursor < barrier) throw new Error('Invalid catalogue changes cursor.');
+      await this.database.transaction(async (db) => {
+        await this.assertSnapshot(db, snapshotId);
+        for (const change of page.changes) {
+          if (change.kind === 'category') {
+            const value = change.value;
+            await db.execute(
+              `INSERT INTO catalogue_staged_categories VALUES (?, ?, ?, ?)
+               ON CONFLICT(slug) DO UPDATE SET name = excluded.name,
+               description = excluded.description, order_index = excluded.order_index`,
+              [value.slug, value.name, value.description, value.orderIndex]
+            );
+          } else {
+            const value = change.value;
+            await db.execute(
+              `INSERT OR REPLACE INTO catalogue_delta_topics
+               (id, slug, category_slug, order_index, question, answer, explanation,
+                catechism_paragraphs, catechism_text, scripture_reference, scripture_text, deleted)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              [
+                change.key,
+                value?.slug ?? null,
+                value?.categorySlug ?? null,
+                value?.orderIndex ?? null,
+                value?.question ?? null,
+                value?.answer ?? null,
+                value?.explanation ?? null,
+                value ? JSON.stringify(value.catechismParagraphs) : null,
+                value?.catechismText ?? null,
+                value?.scriptureReference ?? null,
+                value?.scriptureText ?? null,
+                value ? 0 : 1,
+              ]
+            );
+          }
+        }
+      });
+    }
+    if (cursor < barrier) return false;
+    const finalRevision = await this.transport.head(signal);
+    if (finalRevision !== through) {
+      throw new Error('The catalogue changed during its update. It will be retried.');
+    }
+    signal?.throwIfAborted();
+    await this.database.transaction(async (db) => {
+      await this.assertSnapshot(db, snapshotId);
+      const current = await db.query(
+        'SELECT revision FROM catalogue_sync_state WHERE singleton = 1'
+      );
+      if (current.length !== 1 || current[0].revision !== saved) {
+        throw new Error('The catalogue update was superseded.');
+      }
+      const metadata = await db.query(
+        'SELECT singleton FROM catalogue_metadata WHERE singleton = 1'
+      );
+      if (metadata.length !== 1) throw new Error('Offline catalogue metadata is missing.');
+      await db.execute(`INSERT INTO categories (slug, name, description, order_index)
+        SELECT slug, name, description, order_index FROM catalogue_staged_categories WHERE true
+        ON CONFLICT(slug) DO UPDATE SET name = excluded.name, description = excluded.description,
+          order_index = excluded.order_index`);
+      const invalid = await db.query(`
+        SELECT 1 FROM catalogue_delta_topics t
+        LEFT JOIN categories c ON c.slug = t.category_slug
+        WHERE t.deleted = 0 AND c.slug IS NULL LIMIT 1
+      `);
+      if (invalid.length) throw new Error('A catalogue topic has no published category.');
+      await db.execute('DELETE FROM topics WHERE id IN (SELECT id FROM catalogue_delta_topics)');
+      await db.execute(`INSERT INTO topics (
+        id, slug, category_slug, order_index, question, answer, explanation,
+        catechism_paragraphs, catechism_text, scripture_reference, scripture_text
+      ) SELECT id, slug, category_slug, order_index, question, answer, explanation,
+        catechism_paragraphs, catechism_text, scripture_reference, scripture_text
+        FROM catalogue_delta_topics WHERE deleted = 0`);
+      await db.execute(`UPDATE catalogue_metadata SET
+        category_count = (SELECT COUNT(*) FROM categories),
+        topic_count = (SELECT COUNT(*) FROM topics) WHERE singleton = 1`);
+      await db.execute('UPDATE catalogue_sync_state SET revision = ? WHERE singleton = 1', [
+        through,
+      ]);
+      await db.execute('DELETE FROM catalogue_staged_categories');
+      await db.execute('DELETE FROM catalogue_delta_topics');
       await db.execute(
         'DELETE FROM catalogue_sync_staging WHERE singleton = 1 AND snapshot_id = ?',
         [snapshotId]
