@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 
 import { createClient } from '@/lib/supabase/client';
+import { useSignInPrompt } from '@/components/providers/SignInPromptProvider';
 
 import { animate, motion, useMotionValue } from 'framer-motion';
 
@@ -36,6 +37,7 @@ export function TopicViewer({
   onPreviousTopic,
 }: TopicViewerProps) {
   const router = useRouter();
+  const requestSignIn = useSignInPrompt();
 
   const supabase = useMemo(() => createClient(), []);
 
@@ -177,7 +179,7 @@ export function TopicViewer({
     }
 
     if (!userId) {
-      router.push('/signin');
+      requestSignIn('like topics');
       return;
     }
 
@@ -200,7 +202,7 @@ export function TopicViewer({
 
   const toggleLike = async () => {
     if (!userId) {
-      router.push('/signin');
+      requestSignIn('like topics');
 
       return;
     }
@@ -216,7 +218,7 @@ export function TopicViewer({
 
   const toggleBookmark = async () => {
     if (!userId) {
-      router.push('/signin');
+      requestSignIn('save bookmarks');
       return;
     }
 

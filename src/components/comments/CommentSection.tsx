@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Comment, Profile } from '../../lib/supabase/types';
 
 import { createClient } from '@/lib/supabase/client';
+import { useSignInPrompt } from '@/components/providers/SignInPromptProvider';
 
 import { CommentCard } from './CommentCard';
 import { CommentForm } from './CommentForm';
@@ -141,6 +142,7 @@ function cloneAndSortComments(comments: Comment[], sorter: (comments: Comment[])
 }
 
 export function CommentSection({ topicId }: CommentSectionProps) {
+  const requestSignIn = useSignInPrompt();
   const [comments, setComments] = useState<Comment[]>([]);
 
   const [loading, setLoading] = useState(true);
@@ -649,6 +651,7 @@ export function CommentSection({ topicId }: CommentSectionProps) {
 
   async function toggleLike(commentId: number) {
     if (!userId) {
+      requestSignIn('like comments');
       return;
     }
 
@@ -750,6 +753,13 @@ export function CommentSection({ topicId }: CommentSectionProps) {
         <>
           <article className="border-border rounded-2xl border p-6">
             <p className="text-text-secondary">Sign in to join the discussion.</p>
+            <button
+              type="button"
+              onClick={() => requestSignIn('join the discussion')}
+              className="text-accent mt-3 font-medium hover:underline"
+            >
+              Sign in
+            </button>
           </article>
 
           <div className="h-6" />

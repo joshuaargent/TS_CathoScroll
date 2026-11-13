@@ -19,7 +19,8 @@
     "lint:fix": "eslint . --fix",
     "type-check": "tsc --noEmit",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "offline:export": "node scripts/export-offline-catalogue.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.6.0",

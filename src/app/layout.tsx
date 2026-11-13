@@ -5,6 +5,7 @@ import { Navbar } from '@/components/layout/Navbar';
 import { ConditionalFooter } from '@/components/layout/ConditionalFooter';
 import { ThemeProvider } from '@/components/providers/ThemeProvider';
 import { AuthProvider } from '@/components/providers/AuthProvider';
+import { SignInPromptProvider } from '@/components/providers/SignInPromptProvider';
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import './globals.css';
@@ -140,11 +141,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
         <ThemeProvider>
           <AuthProvider>
-            <Navbar />
-            <main className="flex-1">{children}</main>
-            <ConditionalFooter />
-            <Analytics />
-            <SpeedInsights />
+            <SignInPromptProvider>
+              <Navbar />
+              <main className="flex-1">{children}</main>
+              <ConditionalFooter />
+              <Analytics />
+              <SpeedInsights />
+            </SignInPromptProvider>
           </AuthProvider>
         </ThemeProvider>
       </body>

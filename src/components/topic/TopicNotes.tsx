@@ -2,17 +2,17 @@
 
 import { useEffect, useState } from 'react';
 
-import Link from 'next/link';
-
 import { Loader2 } from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/client';
+import { useSignInPrompt } from '@/components/providers/SignInPromptProvider';
 
 interface TopicNotesProps {
   topicId: string;
 }
 
 export function TopicNotes({ topicId }: TopicNotesProps) {
+  const requestSignIn = useSignInPrompt();
   const [loading, setLoading] = useState(true);
 
   const [saving, setSaving] = useState(false);
@@ -106,9 +106,13 @@ export function TopicNotes({ topicId }: TopicNotesProps) {
 
         <p className="text-text-secondary mt-4">Sign in to create personal notes for this topic.</p>
 
-        <Link href="/signin" className="text-accent mt-6 inline-flex font-medium">
+        <button
+          type="button"
+          onClick={() => requestSignIn('write personal notes')}
+          className="text-accent mt-6 inline-flex font-medium"
+        >
           Sign In →
-        </Link>
+        </button>
       </section>
     );
   }
