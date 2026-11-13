@@ -41,6 +41,9 @@ test('maps activity operations to account-bound RPCs and validates receipts', as
   const operation = {
     userId: 'alice',
     operationId: 'operation',
+    deviceId: 'device',
+    sequence: '2',
+    acknowledgedSequence: '1',
     topicId: 'topic',
     kind: 'like',
     value: true,
@@ -58,10 +61,13 @@ test('maps activity operations to account-bound RPCs and validates receipts', as
   });
   assert.deepEqual(calls, [
     {
-      name: 'offline_apply_activity',
+      name: 'offline_apply_activity_v2',
       args: {
         p_user: 'alice',
         p_operation: 'operation',
+        p_device: 'device',
+        p_sequence: '2',
+        p_acknowledged: '1',
         p_topic: 'topic',
         p_kind: 'like',
         p_value: true,
@@ -74,6 +80,12 @@ test('maps activity operations to account-bound RPCs and validates receipts', as
     error: null,
   });
   await assert.rejects(mismatch.transport.send(operation), /account/);
+  const invalidSequence = fixture({ data: null, error: null });
+  await assert.rejects(
+    invalidSequence.transport.send({ ...operation, acknowledgedSequence: '2' }),
+    /device sequence/
+  );
+  assert.equal(invalidSequence.calls.length, 0);
 });
 
 test('rejects invalid snapshots, revisions, and server failures', async () => {
@@ -114,6 +126,9 @@ test('transports completion timestamps and rejects missing timestamps', async ()
   const operation = {
     userId: 'alice',
     operationId: 'complete',
+    deviceId: 'device',
+    sequence: '1',
+    acknowledgedSequence: '0',
     topicId: 'topic',
     kind: 'progress',
     value: true,
@@ -156,6 +171,9 @@ test('accepts only account-bound unavailable-topic rejections for positive opera
   const operation = {
     userId: 'alice',
     operationId: 'operation',
+    deviceId: 'device',
+    sequence: '1',
+    acknowledgedSequence: '0',
     topicId: 'topic',
     kind: 'like',
     value: true,

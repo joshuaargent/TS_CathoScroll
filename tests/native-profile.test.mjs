@@ -14,8 +14,14 @@ const username = compile(
 const profile = compile(
   await readFile(new URL('../native/profile.ts', import.meta.url), 'utf8')
 ).replace("'@/lib/username'", `'${asUrl(username)}'`);
-const { getNativeProfileStatus, createNativeProfile, readNativeProfile, updateNativeProfile } =
-  await import(asUrl(profile));
+const {
+  getNativeProfileStatus,
+  createNativeProfile,
+  readNativeProfile,
+  updateNativeProfile,
+  updateNativeEmail,
+  updateNativePassword,
+} = await import(asUrl(profile));
 
 function fixture({
   actor = 'alice',
@@ -24,21 +30,38 @@ function fixture({
   updateError = null,
   updateMissing = false,
   concurrent = false,
+  authUpdateError = null,
+  authUpdatedUser = undefined,
 } = {}) {
   let hasProfile = existing;
   const inserts = [];
   const updates = [];
+  const authUpdates = [];
   return {
     inserts,
     updates,
+    authUpdates,
     client: {
       auth: {
         async getUser() {
           return {
             data: {
-              user: actor ? { id: actor, user_metadata: { username: '  Alice_1  ' } } : null,
+              user: actor
+                ? {
+                    id: actor,
+                    email: 'alice@example.com',
+                    user_metadata: { username: '  Alice_1  ' },
+                  }
+                : null,
             },
             error: null,
+          };
+        },
+        async updateUser(value) {
+          authUpdates.push(value);
+          return {
+            data: { user: authUpdatedUser === undefined ? { id: actor } : authUpdatedUser },
+            error: authUpdateError,
           };
         },
       },
@@ -98,6 +121,7 @@ test('requires a verified account and creates a missing profile after confirmati
     exists: false,
     suggestedUsername: 'alice_1',
   });
+
   assert.equal(await createNativeProfile(client, 'alice', ' Alice_1 '), 'created');
   assert.deepEqual(inserts, [{ id: 'alice', username: 'alice_1', display_name: 'alice_1' }]);
   const wrongAccount = fixture({ actor: 'bob' });
@@ -106,6 +130,50 @@ test('requires a verified account and creates a missing profile after confirmati
     /Account does not match/
   );
   assert.equal(wrongAccount.inserts.length, 0);
+});
+
+test('updates email and password only for the verified account', async () => {
+  const { client, authUpdates } = fixture();
+  await updateNativeEmail(client, 'alice', ' NEW@EXAMPLE.COM ');
+  await updateNativePassword(client, 'alice', 'correct horse', 'correct horse');
+  assert.deepEqual(authUpdates, [{ email: 'new@example.com' }, { password: 'correct horse' }]);
+
+  const wrongAccount = fixture({ actor: 'bob' });
+  await assert.rejects(
+    updateNativeEmail(wrongAccount.client, 'alice', 'new@example.com'),
+    /Account does not match/
+  );
+  await assert.rejects(
+    updateNativePassword(wrongAccount.client, 'alice', 'password1', 'password1'),
+    /Account does not match/
+  );
+  assert.equal(wrongAccount.authUpdates.length, 0);
+
+  const failure = fixture({ authUpdateError: new Error('Reauthentication required') });
+  await assert.rejects(
+    updateNativePassword(failure.client, 'alice', 'password1', 'password1'),
+    /Reauthentication required/
+  );
+  const missing = fixture({ authUpdatedUser: null });
+  await assert.rejects(
+    updateNativeEmail(missing.client, 'alice', 'new@example.com'),
+    /not confirmed/
+  );
+});
+
+test('rejects invalid account security changes before sending them', async () => {
+  const { client, authUpdates } = fixture();
+  await assert.rejects(updateNativeEmail(client, 'alice', ' '), /valid email/);
+  await assert.rejects(
+    updateNativeEmail(client, 'alice', ' ALICE@example.com '),
+    /already your email/
+  );
+  await assert.rejects(updateNativePassword(client, 'alice', 'short', 'short'), /at least 8/);
+  await assert.rejects(
+    updateNativePassword(client, 'alice', 'password1', 'password2'),
+    /do not match/
+  );
+  assert.equal(authUpdates.length, 0);
 });
 
 test('reads and updates only the verified account profile', async () => {

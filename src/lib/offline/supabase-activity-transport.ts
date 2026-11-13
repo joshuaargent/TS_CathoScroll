@@ -162,12 +162,20 @@ export class SupabaseActivityTransport implements ActivityBootstrapTransport {
   }
 
   async send(operation: PendingActivity, signal?: AbortSignal): Promise<ActivityResult> {
+    const sequence = revision(operation.sequence);
+    const acknowledgedSequence = revision(operation.acknowledgedSequence);
+    if (BigInt(sequence) <= BigInt(acknowledgedSequence)) {
+      throw new Error('Invalid offline activity device sequence.');
+    }
     const data = record(
       await this.rpc(
-        'offline_apply_activity',
+        'offline_apply_activity_v2',
         {
           p_user: operation.userId,
           p_operation: operation.operationId,
+          p_device: text(operation.deviceId),
+          p_sequence: sequence,
+          p_acknowledged: acknowledgedSequence,
           p_kind: operation.kind,
           p_topic: operation.topicId,
           p_value: operation.value,

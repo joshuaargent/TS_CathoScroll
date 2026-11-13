@@ -4,6 +4,7 @@ import { SigninForm } from '@/components/auth/SigninForm';
 import { Button } from '@/components/ui/Button';
 import type { NativeActivity, NativeActivityStatus } from './activity';
 import { NativeProfileSetup } from './profile-setup';
+import { NativeAccountSecurity } from './account-security';
 import { createClient } from './supabase';
 
 export function NativeAccount({
@@ -90,6 +91,7 @@ export function NativeAccount({
       <h1 className="mt-8 text-5xl font-extrabold">Account</h1>
       <p className="text-text-secondary mt-4">{user.email ?? 'Signed in'}</p>
       <NativeProfileSetup key={user.id} userId={user.id} />
+      <NativeAccountSecurity key={user.id} userId={user.id} />
       {!online && (
         <p role="status" className="text-text-secondary mt-4">
           You&apos;re offline. Your saved account is available on this device.

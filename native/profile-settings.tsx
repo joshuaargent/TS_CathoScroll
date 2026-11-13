@@ -188,9 +188,6 @@ export function NativeProfileSettings({ userId }: { userId: string }) {
       <Button type="submit" disabled={disabled}>
         {busy ? 'Saving…' : 'Save profile'}
       </Button>
-      <p className="text-text-secondary text-sm">
-        To change your email or password, use the website.
-      </p>
     </form>
   );
 }

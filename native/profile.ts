@@ -97,3 +97,31 @@ export async function updateNativeProfile(
   if (!data || data.id !== userId) throw new Error('Account profile was not updated.');
   return { status: 'saved', profile: updated };
 }
+
+export async function updateNativeEmail(
+  client: SupabaseClient,
+  userId: string,
+  email: string
+): Promise<void> {
+  const cleaned = email.trim().toLowerCase();
+  if (!cleaned || cleaned.length > 254) throw new Error('Enter a valid email address.');
+  const user = await authenticatedUser(client, userId);
+  if (user.email?.toLowerCase() === cleaned) throw new Error('This is already your email address.');
+  const { data, error } = await client.auth.updateUser({ email: cleaned });
+  if (error) throw error;
+  if (!data.user || data.user.id !== userId) throw new Error('Account update was not confirmed.');
+}
+
+export async function updateNativePassword(
+  client: SupabaseClient,
+  userId: string,
+  password: string,
+  confirmation: string
+): Promise<void> {
+  if (password.length < 8) throw new Error('Password must be at least 8 characters.');
+  if (password !== confirmation) throw new Error('Passwords do not match.');
+  await authenticatedUser(client, userId);
+  const { data, error } = await client.auth.updateUser({ password });
+  if (error) throw error;
+  if (!data.user || data.user.id !== userId) throw new Error('Account update was not confirmed.');
+}

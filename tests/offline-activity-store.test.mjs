@@ -996,9 +996,15 @@ test('retries the same operation after a lost response and preserves account ord
     await store.setActivity('alice', 'topic', 'like', false, 'second');
     await store.setActivity('bob', 'topic', 'like', true, 'other');
     const sent = [];
+    const attempts = [];
     let lostResponse = true;
     const sync = new OfflineActivitySync(store, async (operation) => {
       sent.push(operation.operationId);
+      attempts.push({
+        deviceId: operation.deviceId,
+        sequence: operation.sequence,
+        acknowledgedSequence: operation.acknowledgedSequence,
+      });
       if (lostResponse) {
         lostResponse = false;
         throw new Error('Connection lost');
@@ -1015,6 +1021,9 @@ test('retries the same operation after a lost response and preserves account ord
     assert.equal((await store.nextOperation('alice')).operationId, 'first');
     assert.equal(await sync.push('alice'), 2);
     assert.deepEqual(sent, ['first', 'first', 'second']);
+    assert.deepEqual(attempts[0], attempts[1]);
+    assert.equal(attempts[2].deviceId, attempts[0].deviceId);
+    assert.equal(attempts[2].acknowledgedSequence, attempts[0].sequence);
     assert.equal(await store.nextOperation('alice'), null);
     assert.equal((await store.nextOperation('bob')).operationId, 'other');
   } finally {
@@ -1507,6 +1516,63 @@ test('rejects repeated snapshot cursors without making a partial account visible
   }
 });
 
+test('persists per-account acknowledgement sequences when operations are accepted or rejected', async () => {
+  const db = new DatabaseSync(':memory:');
+  const store = new OfflineActivityStore(adapter(db));
+  try {
+    await store.initialize();
+    await store.setActivity('alice', 'topic', 'like', true, 'first');
+    await store.setActivity('bob', 'topic', 'like', true, 'other');
+    await store.setActivity('alice', 'topic', 'bookmark', true, 'second');
+    const first = await store.nextOperation('alice');
+    const other = await store.nextOperation('bob');
+    assert.equal(first.acknowledgedSequence, '0');
+    assert.equal(other.acknowledgedSequence, '0');
+    assert.equal(first.deviceId, other.deviceId);
+    await store.acknowledge('alice', 'first', '1', true);
+    const second = await store.nextOperation('alice');
+    assert.equal(second.deviceId, first.deviceId);
+    assert.equal(second.acknowledgedSequence, first.sequence);
+    assert.equal((await store.nextOperation('bob')).acknowledgedSequence, '0');
+    await store.rejectUnavailableTopic('alice', 'second');
+    await store.setActivity('alice', 'topic', 'like', false, 'third');
+    const reopened = new OfflineActivityStore(adapter(db));
+    await reopened.initialize();
+    const third = await reopened.nextOperation('alice');
+    assert.equal(third.deviceId, first.deviceId);
+    assert.equal(third.acknowledgedSequence, second.sequence);
+    assert.ok(BigInt(third.sequence) > BigInt(second.sequence));
+  } finally {
+    db.close();
+  }
+});
+
+test('keeps an operation queued if its device acknowledgement cannot be persisted', async () => {
+  const db = new DatabaseSync(':memory:');
+  const store = new OfflineActivityStore(adapter(db));
+  try {
+    await store.initialize();
+    await store.setActivity('alice', 'topic', 'like', true, 'first');
+    db.exec(`CREATE TRIGGER reject_device_ack BEFORE INSERT ON offline_activity_acknowledgements
+      BEGIN SELECT RAISE(ABORT, 'acknowledgement write failed'); END;`);
+    await assert.rejects(
+      store.acknowledge('alice', 'first', '1', true),
+      /acknowledgement write failed/
+    );
+    assert.equal((await store.nextOperation('alice')).operationId, 'first');
+    db.exec('DROP TRIGGER reject_device_ack');
+    await store.acknowledge('alice', 'first', '1', true);
+    assert.equal(await store.nextOperation('alice'), null);
+    await store.setActivity('alice', 'topic', 'like', false, 'second');
+    db.exec('DELETE FROM offline_activity_device');
+    await assert.rejects(store.nextOperation('alice'), /device sequence/);
+    await assert.rejects(new OfflineActivityStore(adapter(db)).initialize(), /device identity/);
+    assert.equal(await store.pendingCount('alice'), 1);
+  } finally {
+    db.close();
+  }
+});
+
 test('bootstraps and synchronizes two devices with a lost write response', async () => {
   const firstDb = new DatabaseSync(':memory:');
   const secondDb = new DatabaseSync(':memory:');
@@ -1556,7 +1622,7 @@ test('bootstraps and synchronizes two devices with a lost write response', async
               error: null,
             };
           }
-          if (name === 'offline_apply_activity') {
+          if (name === 'offline_apply_activity_v2') {
             let receipt = receipts.get(args.p_operation);
             if (!receipt) {
               const change = recordChange(args.p_kind, args.p_topic, args.p_value);

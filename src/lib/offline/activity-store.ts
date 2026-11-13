@@ -15,6 +15,9 @@ export interface OfflineDatabase {
 export interface PendingActivity {
   operationId: string;
   userId: string;
+  deviceId: string;
+  sequence: string;
+  acknowledgedSequence: string;
   topicId: string;
   kind: OfflineActivityKind;
   value: boolean;
@@ -93,7 +96,9 @@ function sameCompletionTime(left: string | null, right: string | null): boolean 
   return Date.parse(left) === Date.parse(right) && subMilliseconds(left) === subMilliseconds(right);
 }
 
-function parseActivity(row: Record<string, unknown>): PendingActivity {
+type ActivityOperation = Omit<PendingActivity, 'deviceId' | 'sequence' | 'acknowledgedSequence'>;
+
+function parseActivity(row: Record<string, unknown>): ActivityOperation {
   const { operation_id, user_id, topic_id, kind, value, completed_at } = row;
   if (
     typeof operation_id !== 'string' ||
@@ -147,6 +152,37 @@ export class OfflineActivityStore {
       await db.execute(`
         CREATE INDEX IF NOT EXISTS offline_activity_outbox_user_sequence
         ON offline_activity_outbox(user_id, sequence)
+      `);
+      const deviceTables = await db.query(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'offline_activity_device'"
+      );
+      await db.execute(`
+        CREATE TABLE IF NOT EXISTS offline_activity_device (
+          singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
+          device_id TEXT NOT NULL
+        )
+      `);
+      if (!deviceTables.length) {
+        await db.execute('INSERT INTO offline_activity_device VALUES (1, ?)', [
+          crypto.randomUUID(),
+        ]);
+      }
+      const devices = await db.query('SELECT singleton, device_id FROM offline_activity_device');
+      if (
+        devices.length !== 1 ||
+        devices[0].singleton !== 1 ||
+        typeof devices[0].device_id !== 'string' ||
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+          devices[0].device_id
+        )
+      ) {
+        throw new Error('The offline activity device identity is invalid.');
+      }
+      await db.execute(`
+        CREATE TABLE IF NOT EXISTS offline_activity_acknowledgements (
+          user_id TEXT PRIMARY KEY NOT NULL,
+          sequence INTEGER NOT NULL CHECK (sequence > 0)
+        )
       `);
       await db.execute(`
         CREATE TABLE IF NOT EXISTS offline_activity_rejections (
@@ -361,11 +397,32 @@ export class OfflineActivityStore {
     assertKey(userId, 'user ID');
     return this.database.transaction(async (db) => {
       const rows = await db.query(
-        `SELECT operation_id, user_id, topic_id, kind, value, completed_at
-         FROM offline_activity_outbox WHERE user_id = ? ORDER BY sequence LIMIT 1`,
+        `SELECT outbox.operation_id, outbox.user_id, outbox.topic_id, outbox.kind,
+                outbox.value, outbox.completed_at, CAST(outbox.sequence AS TEXT) AS sequence,
+                (SELECT device_id FROM offline_activity_device WHERE singleton = 1) AS device_id,
+                CAST(COALESCE(ack.sequence, 0) AS TEXT) AS acknowledged_sequence
+         FROM offline_activity_outbox outbox
+         LEFT JOIN offline_activity_acknowledgements ack ON ack.user_id = outbox.user_id
+         WHERE outbox.user_id = ? ORDER BY outbox.sequence LIMIT 1`,
         [userId]
       );
-      return rows.length ? parseActivity(rows[0]) : null;
+      if (!rows.length) return null;
+      const { device_id, sequence, acknowledged_sequence } = rows[0];
+      if (
+        typeof device_id !== 'string' ||
+        typeof sequence !== 'string' ||
+        typeof acknowledged_sequence !== 'string' ||
+        revision(sequence) <= revision(acknowledged_sequence)
+      ) {
+        throw new Error('The offline activity device sequence is invalid.');
+      }
+      assertKey(device_id, 'activity device ID');
+      return {
+        ...parseActivity(rows[0]),
+        deviceId: device_id,
+        sequence,
+        acknowledgedSequence: acknowledged_sequence,
+      };
     });
   }
 
@@ -374,7 +431,7 @@ export class OfflineActivityStore {
     assertKey(operationId, 'operation ID');
     await this.database.transaction(async (db) => {
       const rows = await db.query(
-        `SELECT operation_id, user_id, topic_id, kind, value, completed_at FROM offline_activity_outbox
+        `SELECT operation_id, user_id, topic_id, kind, value, completed_at, CAST(sequence AS TEXT) AS sequence FROM offline_activity_outbox
          WHERE user_id = ? ORDER BY sequence LIMIT 1`,
         [userId]
       );
@@ -393,6 +450,7 @@ export class OfflineActivityStore {
         'DELETE FROM offline_activity_outbox WHERE user_id = ? AND operation_id = ?',
         [userId, operationId]
       );
+      await this.recordAcknowledgement(db, userId, rows[0].sequence);
       await this.refreshVisibleState(db, userId, operation.topicId, operation.kind, true);
     });
   }
@@ -441,7 +499,7 @@ export class OfflineActivityStore {
     }
     await this.database.transaction(async (db) => {
       const rows = await db.query(
-        `SELECT operation_id, user_id, topic_id, kind, value, completed_at FROM offline_activity_outbox
+        `SELECT operation_id, user_id, topic_id, kind, value, completed_at, CAST(sequence AS TEXT) AS sequence FROM offline_activity_outbox
          WHERE user_id = ? ORDER BY sequence LIMIT 1`,
         [userId]
       );
@@ -464,8 +522,37 @@ export class OfflineActivityStore {
         'DELETE FROM offline_activity_outbox WHERE operation_id = ? AND user_id = ?',
         [operationId, userId]
       );
+      await this.recordAcknowledgement(db, userId, rows[0].sequence);
       await this.refreshVisibleState(db, userId, operation.topicId, operation.kind);
     });
+  }
+
+  private async recordAcknowledgement(
+    db: OfflineTransaction,
+    userId: string,
+    sequence: unknown
+  ): Promise<void> {
+    if (typeof sequence !== 'string' || revision(sequence) === BigInt(0)) {
+      throw new Error('The offline activity device sequence is invalid.');
+    }
+    const previous = await db.query(
+      'SELECT CAST(sequence AS TEXT) AS sequence FROM offline_activity_acknowledgements WHERE user_id = ?',
+      [userId]
+    );
+    if (
+      previous.length > 1 ||
+      (previous.length === 1 &&
+        (typeof previous[0].sequence !== 'string' ||
+          revision(previous[0].sequence) >= revision(sequence)))
+    ) {
+      throw new Error('The offline activity acknowledgement is out of order.');
+    }
+    await db.execute(
+      `INSERT INTO offline_activity_acknowledgements (user_id, sequence)
+       VALUES (?, CAST(? AS INTEGER)) ON CONFLICT(user_id) DO UPDATE
+       SET sequence = excluded.sequence WHERE excluded.sequence > sequence`,
+      [userId, sequence]
+    );
   }
 
   async cursor(userId: string): Promise<string> {
