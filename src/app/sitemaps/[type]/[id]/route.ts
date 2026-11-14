@@ -14,9 +14,10 @@ interface RouteContext {
 
 export async function GET(_request: Request, { params }: RouteContext) {
   const { type, id } = await params;
-  const page = Number(id);
+  const pageStr = id.replace(/\.xml$/, '');
+  const page = Number(pageStr);
 
-  if (!['topics', 'profiles'].includes(type) || !/^\d+$/.test(id) || !Number.isSafeInteger(page)) {
+  if (!['topics', 'profiles'].includes(type) || !/^\d+$/.test(pageStr) || !Number.isSafeInteger(page)) {
     return new Response('Not found.', { status: 404 });
   }
 
@@ -54,4 +55,4 @@ export async function GET(_request: Request, { params }: RouteContext) {
       headers: { 'Cache-Control': 'no-store' },
     });
   }
-}
+}   
