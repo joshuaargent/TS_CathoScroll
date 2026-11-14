@@ -7,7 +7,7 @@ import { SiteConfig, NavItem } from '@/types';
 export const siteConfig: SiteConfig = {
   name: 'CathoScroll',
   description: 'Learn Catholic teaching one swipe at a time',
-  url: process.env.NEXT_PUBLIC_SITE_URL || 'https://joshuaargent.vercel.app',
+  url: process.env.NEXT_PUBLIC_SITE_URL || 'https://www.cathoscroll.com',
   ogImage: '/web-app-manifest-512x512.png',
   links: {
     email: 'argentjackjoshua@gmail.com',

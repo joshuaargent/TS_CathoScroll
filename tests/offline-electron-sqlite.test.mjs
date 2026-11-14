@@ -94,7 +94,7 @@ async function fixture(t, server) {
 }
 
 test('hosted desktop pages cannot open or query the offline databases', async (t) => {
-  const { plugin, userData } = await fixture(t, 'https://cathoscroll.vercel.app');
+  const { plugin, userData } = await fixture(t, 'https://www.cathoscroll.com');
   await assert.rejects(plugin.open({ database: 'catalogue' }), /hosted desktop wrapper/);
   await assert.rejects(plugin.open({ database: 'activity' }), /hosted desktop wrapper/);
   await assert.rejects(plugin.open({ database: 'private-activity' }), /hosted desktop wrapper/);

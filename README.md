@@ -6,7 +6,7 @@
 
 Explore Catholic theology, Scripture, Church history, apologetics, prayer, and doctrine through a modern educational experience designed to make learning the faith more accessible and engaging.
 
-[![Website](https://img.shields.io/badge/Website-cathoscroll.vercel.app-0D9488?style=for-the-badge&logo=vercel&logoColor=white)](https://cathoscroll.vercel.app)
+[![Website](https://img.shields.io/badge/Website-www.cathoscroll.com-0D9488?style=for-the-badge&logo=vercel&logoColor=white)](https://www.cathoscroll.com)
 [![GitHub](https://img.shields.io/badge/GitHub-joshuaargent-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/joshuaargent)
 
 <br />
@@ -233,13 +233,13 @@ Signed-in feed recommendations require the `get_my_recommendation_page` RPC and 
 
 The feed viewer requests exact like and visible-comment counts and the signed-in user's activity for the current topic only. It does not download the full likes, comments, bookmarks, or progress tables. Exact counts still require database work proportional to the matching rows; very popular topics may eventually need maintained aggregate counters. Recommendation quality and query performance should be measured with real usage rather than assumed to match large commercial recommendation systems.
 
-| Variable                        | Purpose                                                                                                       |
-| ------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `NEXT_PUBLIC_SITE_URL`          | Optional. Canonical site URL used for metadata, sitemap, and feed generation. Defaults to the production URL. |
-| `NEXT_PUBLIC_SUPABASE_URL`      | Required. Supabase project URL.                                                                               |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Required. Supabase publishable/anonymous key used by the client.                                              |
-| `NEXT_PUBLIC_FORMSPREE_FORM_ID` | Optional. Formspree form ID for contact form submissions.                                                     |
-| `SUPABASE_SERVICE_ROLE_KEY`     | Required for server-side comment moderation, reports, and appeals. Keep secret.                               |
+| Variable                        | Purpose                                                                                                              |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `NEXT_PUBLIC_SITE_URL`          | Optional. Canonical site URL used for metadata, sitemap, and feed generation. Defaults to `https://cathoscroll.com`. |
+| `NEXT_PUBLIC_SUPABASE_URL`      | Required. Supabase project URL.                                                                                      |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Required. Supabase publishable/anonymous key used by the client.                                                     |
+| `NEXT_PUBLIC_FORMSPREE_FORM_ID` | Optional. Formspree form ID for contact form submissions.                                                            |
+| `SUPABASE_SERVICE_ROLE_KEY`     | Required for server-side comment moderation, reports, and appeals. Keep secret.                                      |
 
 Never put Supabase service-role keys or other server secrets in `NEXT_PUBLIC_*` variables.
 
