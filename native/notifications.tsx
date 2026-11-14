@@ -1,8 +1,80 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { NotificationBellLink } from '@/components/notifications/NotificationBellLink';
 import { NotificationList } from '@/components/notifications/NotificationList';
 import { createClient } from './supabase';
 import { notificationTransport } from './notification-operations';
+import { NotificationCache } from './notification-cache';
+import { NativeNotificationService } from './notification-service';
+import { openPrivateActivityDatabase } from '@/lib/offline/native-database';
+import { secureAuthStorage } from './secure-auth-storage';
+
+type NotificationState = {
+  userId: string;
+  service: NativeNotificationService | null;
+  error: string;
+};
+const NotificationContext = createContext<NotificationState | null>(null);
+
+export function NativeNotificationsProvider({
+  userId,
+  children,
+}: {
+  userId: string | null;
+  children: React.ReactNode;
+}) {
+  const [state, setState] = useState<NotificationState | null>(null);
+  useEffect(() => {
+    if (!userId) return;
+    const accountId = userId;
+    let active = true;
+    let service: NativeNotificationService | null = null;
+    const request = () => {
+      if (!service) return;
+      void service.sync().catch((error: unknown) => {
+        console.error('Unable to synchronize notification changes:', error);
+      });
+    };
+    async function start() {
+      try {
+        const cache = new NotificationCache(await openPrivateActivityDatabase(secureAuthStorage));
+        await cache.initialize();
+        if (!active) return;
+        service = new NativeNotificationService(
+          accountId,
+          cache,
+          notificationTransport(createClient(), accountId)
+        );
+        setState({ userId: accountId, service, error: '' });
+        request();
+      } catch (error) {
+        console.error('Unable to open saved notifications:', error);
+        if (active)
+          setState({
+            userId: accountId,
+            service: null,
+            error: 'Saved notifications could not be opened.',
+          });
+      }
+    }
+    void start();
+    window.addEventListener('online', request);
+    window.addEventListener('focus', request);
+    const timer = window.setInterval(request, 60_000);
+    return () => {
+      active = false;
+      window.removeEventListener('online', request);
+      window.removeEventListener('focus', request);
+      window.clearInterval(timer);
+    };
+  }, [userId]);
+
+  const current = state?.userId === userId ? state : null;
+  return <NotificationContext.Provider value={current}>{children}</NotificationContext.Provider>;
+}
+
+export function useNativeNotifications() {
+  return useContext(NotificationContext);
+}
 
 export function NativeNotificationBell({
   userId,
@@ -15,22 +87,30 @@ export function NativeNotificationBell({
   showLabel?: boolean;
   onNavigate?: () => void;
 }) {
-  const transport = useMemo(() => notificationTransport(createClient(), userId), [userId]);
+  const state = useNativeNotifications();
+  const transport = state?.userId === userId ? state.service : null;
+  const storageError = state?.error;
   const [unreadCount, setUnreadCount] = useState(0);
   const [hasCountError, setHasCountError] = useState(false);
+  const requestVersion = useRef(0);
   const refresh = useCallback(async () => {
+    const version = ++requestVersion.current;
     try {
+      if (!transport) throw new Error(storageError || 'Saved notifications are loading.');
       const count = await transport.unreadCount();
+      if (version !== requestVersion.current) return;
       setUnreadCount(count);
       setHasCountError(false);
     } catch (error) {
+      if (version !== requestVersion.current) return;
       console.error('Unable to refresh notification count:', error);
       setHasCountError(true);
     }
-  }, [transport]);
+  }, [transport, storageError]);
 
   useEffect(() => {
     let active = true;
+    const versions = requestVersion;
     const request = () => {
       if (active) void refresh();
     };
@@ -43,6 +123,7 @@ export function NativeNotificationBell({
     window.addEventListener('cathoscroll:notifications-changed', request);
     return () => {
       active = false;
+      versions.current++;
       window.clearInterval(interval);
       window.removeEventListener('focus', request);
       window.removeEventListener('online', request);
@@ -66,10 +147,8 @@ export function NativeNotificationBell({
 }
 
 export function NativeNotifications({ userId }: { userId: string | null }) {
-  const transport = useMemo(
-    () => (userId ? notificationTransport(createClient(), userId) : null),
-    [userId]
-  );
+  const state = useNativeNotifications();
+  const transport = state?.userId === userId ? state.service : null;
   return (
     <div className="container py-12">
       <section className="mt-8 mb-10">
@@ -79,10 +158,14 @@ export function NativeNotifications({ userId }: { userId: string | null }) {
         </p>
       </section>
       <section className="max-w-3xl">
-        {transport ? (
-          <NotificationList transport={transport} />
-        ) : (
+        {!userId ? (
           <p>Sign in to view notifications.</p>
+        ) : transport ? (
+          <NotificationList transport={transport} />
+        ) : state?.error ? (
+          <p role="alert">{state.error}</p>
+        ) : (
+          <p role="status">Loading notifications...</p>
         )}
       </section>
     </div>

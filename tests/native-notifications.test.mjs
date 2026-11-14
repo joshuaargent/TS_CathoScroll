@@ -44,6 +44,10 @@ function client(userId = 'user-1') {
           state.filters.push([field, value]);
           return this;
         },
+        lte(field, value) {
+          state.filters.push([field, '<=', value]);
+          return this;
+        },
         order(field, options) {
           state.order = [field, options];
           return this;
@@ -91,6 +95,12 @@ test('loads and updates only the verified account notifications', async () => {
   assert.deepEqual(api.queries.at(-1).filters, [
     ['user_id', 'user-1'],
     ['read_at', null],
+  ]);
+  await transport.syncRead(10, true);
+  assert.deepEqual(api.queries.at(-1).filters, [
+    ['user_id', 'user-1'],
+    ['read_at', null],
+    ['id', '<=', 10],
   ]);
 });
 

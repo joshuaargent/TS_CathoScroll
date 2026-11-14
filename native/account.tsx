@@ -6,6 +6,7 @@ import type { NativeActivity, NativeActivityStatus } from './activity';
 import { NativeProfileSetup } from './profile-setup';
 import { NativeAccountSecurity } from './account-security';
 import { createClient } from './supabase';
+import { useNativeNotifications } from './notifications';
 
 export function NativeAccount({
   user,
@@ -27,6 +28,7 @@ export function NativeAccount({
   const [online, setOnline] = useState(navigator.onLine);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const notifications = useNativeNotifications();
   useEffect(() => {
     const update = () => setOnline(navigator.onLine);
     window.addEventListener('online', update);
@@ -50,6 +52,10 @@ export function NativeAccount({
         throw new Error('Account storage is unavailable. Please try again.');
       }
       await activity.signOut(async () => {
+        if (!notifications?.service || notifications.userId !== user.id) {
+          throw new Error('Account storage is unavailable. Please try again.');
+        }
+        await notifications.service.ensureNoPending();
         const { error: signOutError } = await createClient().auth.signOut({ scope: 'local' });
         if (signOutError) throw signOutError;
       });
@@ -92,11 +98,6 @@ export function NativeAccount({
       <p className="text-text-secondary mt-4">{user.email ?? 'Signed in'}</p>
       <NativeProfileSetup key={user.id} userId={user.id} />
       <NativeAccountSecurity key={user.id} userId={user.id} />
-      {!online && (
-        <p role="status" className="text-text-secondary mt-4">
-          You&apos;re offline. Your saved account is available on this device.
-        </p>
-      )}
       {activityStatus?.userId === user.id && activityStatus.error && (
         <p role="status" className="text-text-secondary mt-4">
           {activityStatus.error}

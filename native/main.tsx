@@ -8,7 +8,8 @@ import { CategoriesPage, CategoryPage, SearchPage } from './catalogue-pages';
 import { NativeNavbar } from './navbar';
 import { NativeAccount } from './account';
 import { NativeBookmarks } from './bookmarks';
-import { NativeNotifications } from './notifications';
+import { NativeNotifications, NativeNotificationsProvider } from './notifications';
+import { OfflineIndicator } from './offline-indicator';
 import { NativeTopicActions } from './topic-actions';
 import { NativeSignup } from './signup';
 import { LearnContent } from '@/components/learn/LearnContent';
@@ -167,7 +168,8 @@ function NativeViewer(props: {
       try {
         const cached = await countCache.load(topicId);
         if (!active) return;
-        setCounts(cached ? { topicId, value: cached, fresh: false } : null);
+        if (cached) setCounts({ topicId, value: cached, fresh: false });
+        else if (!navigator.onLine) setCounts(null);
       } catch (error) {
         console.error('Unable to load cached topic counts:', error);
         if (active) setCountError('Saved topic counts could not be loaded.');
@@ -195,7 +197,10 @@ function NativeViewer(props: {
         }
       } catch (error) {
         console.error('Unable to refresh topic counts:', error);
-        if (active) setCountError('Topic counts could not be updated and may be out of date.');
+        if (active) {
+          setCounts((previous) => (previous?.topicId === topicId ? previous : null));
+          setCountError('Topic counts could not be updated and may be out of date.');
+        }
       }
     }
     void load();
@@ -282,12 +287,9 @@ function NativeViewer(props: {
           {shareMessage.text}
         </p>
       )}
-      {(countError || !navigator.onLine || (currentCounts && !currentCounts.fresh)) && (
+      {countError && navigator.onLine && (
         <p role="status" className="text-text-secondary px-6 text-xs">
-          {countError ||
-            (navigator.onLine
-              ? 'Showing saved counts while they update.'
-              : "You're offline. Like and comment counts may not be accurate until you reconnect.")}
+          {countError}
         </p>
       )}
       {userId && !accountReady && (
@@ -330,6 +332,7 @@ function NativeViewer(props: {
                 }
               : null
           }
+          displayCounts={counts?.value ?? null}
           currentActivityError={Boolean(userId && accountReady && activityError)}
           actionError={message}
           pendingActions={pendingActions}
@@ -741,155 +744,163 @@ function App() {
   return (
     <ThemeProvider>
       <SignInPromptProvider>
-        <TopicNavigation.Provider
-          value={{
-            feedActive: route?.kind === 'feed',
-            open: (topic) => openRoute(`/topic/${encodeURIComponent(topic.slug)}#comments`),
-            counts: countCache,
-            userId: user?.id ?? null,
-            activity: activity?.userId === user?.id ? activity : null,
-            activityStatus,
-            activityVersion,
-            retryActivitySetup: () => setActivityAttempt((attempt) => attempt + 1),
-          }}
-        >
-          <NativeNavbar pathname={route?.pathname ?? '/'} userId={user?.id ?? null} />
-          <main className="pt-16">
-            {navigationMessage && (
-              <div role="alert" className="bg-bg-card border-border mx-6 rounded-xl border p-4">
-                {navigationMessage}{' '}
-                <button
-                  type="button"
-                  className="text-accent underline"
-                  onClick={() => setNavigationMessage('')}
-                >
-                  Dismiss
-                </button>
-              </div>
-            )}
-            {error && (
-              <p role="alert" className="px-6">
-                {error}
-              </p>
-            )}
-            {activity && user && activity.userId === user.id && (
-              <NativeActivityAlert key={user.id} activity={activity} version={activityVersion} />
-            )}
-            {catalogueMessage && (
-              <p role="status" className="text-text-secondary px-6 text-sm">
-                {catalogueMessage}
-              </p>
-            )}
-            {!error && !firstPage && (
-              <p role="status" className="px-6">
-                Loading topics…
-              </p>
-            )}
-            {firstPage && !firstPage.topics.length && <p className="px-6">No topics available.</p>}
-            {firstPage && firstPage.topics.length > 0 && (
-              <div className="h-[calc(100vh-4rem)] overflow-hidden" hidden={route?.kind !== 'feed'}>
-                <TopicFeedCore
-                  topics={firstPage.topics}
-                  nextCursor={firstPage.nextCursor}
-                  personalized={false}
-                  loadPage={loadPage}
-                  userId={user?.id ?? null}
-                  viewer={NativeViewer}
-                  preservePositionOnUpdate
-                />
-              </div>
-            )}
-            {catalogue && route?.kind === 'search' && (
-              <SearchPage
-                key={catalogueVersion}
-                catalogue={catalogue}
-                query={route.query}
-                onQueryChange={(query) => {
-                  const params = new URLSearchParams();
-                  if (query) params.set('q', query);
-                  const next = `/search${params.size ? `?${params}` : ''}`;
-                  window.history.replaceState(null, '', `#${next}`);
-                  setHref(next);
-                }}
-              />
-            )}
-            {catalogue && route?.kind === 'categories' && (
-              <CategoriesPage key={catalogueVersion} catalogue={catalogue} />
-            )}
-            {route?.kind === 'learn' && <LearnContent />}
-            {route?.kind === 'account' && (
-              <NativeAccount
-                user={user}
-                checking={authStatus === 'loading' || checkingAccount}
-                available={authStatus !== 'unavailable'}
-                onSignedIn={() => openRoute('/account')}
-                activity={activity?.userId === user?.id ? activity : null}
-                activityStatus={activityStatus}
-                onRetryActivity={() => setActivityAttempt((attempt) => attempt + 1)}
-              />
-            )}
-            {route?.kind === 'signup' &&
-              (authStatus === 'loading' || checkingAccount ? (
-                <p className="container py-12">Loading account…</p>
-              ) : authStatus === 'unavailable' ? (
-                <p role="alert" className="container py-12">
-                  Account creation is unavailable. Check your connection and try again.
-                </p>
-              ) : user ? (
-                <div className="container py-12">
-                  <p>You are already signed in.</p>
+        <NativeNotificationsProvider userId={user?.id ?? null}>
+          <TopicNavigation.Provider
+            value={{
+              feedActive: route?.kind === 'feed',
+              open: (topic) => openRoute(`/topic/${encodeURIComponent(topic.slug)}#comments`),
+              counts: countCache,
+              userId: user?.id ?? null,
+              activity: activity?.userId === user?.id ? activity : null,
+              activityStatus,
+              activityVersion,
+              retryActivitySetup: () => setActivityAttempt((attempt) => attempt + 1),
+            }}
+          >
+            <NativeNavbar pathname={route?.pathname ?? '/'} userId={user?.id ?? null} />
+            <main className="pt-16">
+              {navigationMessage && (
+                <div role="alert" className="bg-bg-card border-border mx-6 rounded-xl border p-4">
+                  {navigationMessage}{' '}
                   <button
                     type="button"
-                    className="text-accent mt-4 underline"
-                    onClick={() => openRoute('/account')}
+                    className="text-accent underline"
+                    onClick={() => setNavigationMessage('')}
                   >
-                    Go to account
+                    Dismiss
                   </button>
                 </div>
-              ) : (
-                <NativeSignup onSignedUp={() => openRoute('/account')} />
-              ))}
-            {catalogue && route?.kind === 'bookmarks' && (
-              <NativeBookmarks
-                key={`${user?.id ?? 'signed-out'}-${catalogueVersion}`}
-                catalogue={catalogue}
-                userId={user?.id ?? null}
-                activity={activity?.userId === user?.id ? activity : null}
-                status={activityStatus}
-                version={activityVersion}
-              />
-            )}
-            {route?.kind === 'notifications' && (
-              <NativeNotifications key={user?.id ?? 'signed-out'} userId={user?.id ?? null} />
-            )}
-            {catalogue && route?.kind === 'category' && (
-              <CategoryPage
-                key={`${route.slug}-${catalogueVersion}`}
-                catalogue={catalogue}
-                slug={route.slug}
-              />
-            )}
-            {catalogue && commentCache && noteCache && route?.kind === 'topic' && (
-              <NativeTopicPage
-                key={`${route.slug}-${catalogueVersion}`}
-                catalogue={catalogue}
-                cache={commentCache}
-                noteCache={noteCache}
-                userId={user?.id ?? null}
-                activity={activity?.userId === user?.id ? activity : null}
-                activityStatus={activityStatus}
-                activityVersion={activityVersion}
-                slug={route.slug}
-                showComments={route.comments}
-              />
-            )}
-            {!route && (
-              <p role="alert" className="px-6">
-                This page is not available in the app. Please use the website.
-              </p>
-            )}
-          </main>
-        </TopicNavigation.Provider>
+              )}
+              {error && (
+                <p role="alert" className="px-6">
+                  {error}
+                </p>
+              )}
+              {activity && user && activity.userId === user.id && (
+                <NativeActivityAlert key={user.id} activity={activity} version={activityVersion} />
+              )}
+              {catalogueMessage && navigator.onLine && (
+                <p role="status" className="text-text-secondary px-6 text-sm">
+                  {catalogueMessage}
+                </p>
+              )}
+              {!error && !firstPage && (
+                <p role="status" className="px-6">
+                  Loading topics…
+                </p>
+              )}
+              {firstPage && !firstPage.topics.length && (
+                <p className="px-6">No topics available.</p>
+              )}
+              {firstPage && firstPage.topics.length > 0 && (
+                <div
+                  className="h-[calc(100vh-4rem)] overflow-hidden"
+                  hidden={route?.kind !== 'feed'}
+                >
+                  <TopicFeedCore
+                    topics={firstPage.topics}
+                    nextCursor={firstPage.nextCursor}
+                    personalized={false}
+                    loadPage={loadPage}
+                    userId={user?.id ?? null}
+                    viewer={NativeViewer}
+                    preservePositionOnUpdate
+                  />
+                </div>
+              )}
+              {catalogue && route?.kind === 'search' && (
+                <SearchPage
+                  key={catalogueVersion}
+                  catalogue={catalogue}
+                  query={route.query}
+                  onQueryChange={(query) => {
+                    const params = new URLSearchParams();
+                    if (query) params.set('q', query);
+                    const next = `/search${params.size ? `?${params}` : ''}`;
+                    window.history.replaceState(null, '', `#${next}`);
+                    setHref(next);
+                  }}
+                />
+              )}
+              {catalogue && route?.kind === 'categories' && (
+                <CategoriesPage key={catalogueVersion} catalogue={catalogue} />
+              )}
+              {route?.kind === 'learn' && <LearnContent />}
+              {route?.kind === 'account' && (
+                <NativeAccount
+                  user={user}
+                  checking={authStatus === 'loading' || checkingAccount}
+                  available={authStatus !== 'unavailable'}
+                  onSignedIn={() => openRoute('/account')}
+                  activity={activity?.userId === user?.id ? activity : null}
+                  activityStatus={activityStatus}
+                  onRetryActivity={() => setActivityAttempt((attempt) => attempt + 1)}
+                />
+              )}
+              {route?.kind === 'signup' &&
+                (authStatus === 'loading' || checkingAccount ? (
+                  <p className="container py-12">Loading account…</p>
+                ) : authStatus === 'unavailable' ? (
+                  <p role="alert" className="container py-12">
+                    Account creation is unavailable. Check your connection and try again.
+                  </p>
+                ) : user ? (
+                  <div className="container py-12">
+                    <p>You are already signed in.</p>
+                    <button
+                      type="button"
+                      className="text-accent mt-4 underline"
+                      onClick={() => openRoute('/account')}
+                    >
+                      Go to account
+                    </button>
+                  </div>
+                ) : (
+                  <NativeSignup onSignedUp={() => openRoute('/account')} />
+                ))}
+              {catalogue && route?.kind === 'bookmarks' && (
+                <NativeBookmarks
+                  key={`${user?.id ?? 'signed-out'}-${catalogueVersion}`}
+                  catalogue={catalogue}
+                  userId={user?.id ?? null}
+                  activity={activity?.userId === user?.id ? activity : null}
+                  status={activityStatus}
+                  version={activityVersion}
+                />
+              )}
+              {route?.kind === 'notifications' && (
+                <NativeNotifications key={user?.id ?? 'signed-out'} userId={user?.id ?? null} />
+              )}
+              {catalogue && route?.kind === 'category' && (
+                <CategoryPage
+                  key={`${route.slug}-${catalogueVersion}`}
+                  catalogue={catalogue}
+                  slug={route.slug}
+                />
+              )}
+              {catalogue && commentCache && noteCache && route?.kind === 'topic' && (
+                <NativeTopicPage
+                  key={`${route.slug}-${catalogueVersion}`}
+                  catalogue={catalogue}
+                  cache={commentCache}
+                  noteCache={noteCache}
+                  userId={user?.id ?? null}
+                  activity={activity?.userId === user?.id ? activity : null}
+                  activityStatus={activityStatus}
+                  activityVersion={activityVersion}
+                  slug={route.slug}
+                  showComments={route.comments}
+                />
+              )}
+              {!route && (
+                <p role="alert" className="px-6">
+                  This page is not available in the app. Please use the website.
+                </p>
+              )}
+            </main>
+            <OfflineIndicator />
+          </TopicNavigation.Provider>
+        </NativeNotificationsProvider>
       </SignInPromptProvider>
     </ThemeProvider>
   );

@@ -9,7 +9,10 @@ type NotificationRow = Omit<Notification, 'topic_slug'>;
 export function notificationTransport(
   client: SupabaseClient,
   userId: string
-): NotificationTransport & { unreadCount(): Promise<number> } {
+): NotificationTransport & {
+  unreadCount(): Promise<number>;
+  syncRead(cutoff: number, all: boolean): Promise<void>;
+} {
   async function checkAccount() {
     if (!navigator.onLine) throw new Error('Connect to view and update notifications.');
     const { data, error } = await client.auth.getUser();
@@ -27,6 +30,19 @@ export function notificationTransport(
     if (error) throw error;
     if (count === null) throw new Error('Unable to load the unread notification count.');
     return count;
+  }
+
+  async function updateRead(id: number, all: boolean, requireMatch: boolean) {
+    await checkAccount();
+    let query = client
+      .from('notifications')
+      .update({ read_at: new Date().toISOString() })
+      .eq('user_id', userId)
+      .is('read_at', null);
+    query = all ? query.lte('id', id) : query.eq('id', id);
+    const { data, error } = await query.select('id');
+    if (error) throw error;
+    if (requireMatch && !data?.length) throw new Error('Notification not found.');
   }
 
   return {
@@ -56,16 +72,18 @@ export function notificationTransport(
       };
     },
     async markAsRead(id) {
-      await checkAccount();
-      let query = client
-        .from('notifications')
-        .update({ read_at: new Date().toISOString() })
-        .eq('user_id', userId)
-        .is('read_at', null);
-      if (id !== 'all') query = query.eq('id', id);
-      const { data, error } = await query.select('id');
-      if (error) throw error;
-      if (id !== 'all' && !data?.length) throw new Error('Notification not found.');
+      if (id === 'all') {
+        await checkAccount();
+        const { error } = await client
+          .from('notifications')
+          .update({ read_at: new Date().toISOString() })
+          .eq('user_id', userId)
+          .is('read_at', null);
+        if (error) throw error;
+      } else {
+        await updateRead(id, false, true);
+      }
     },
+    syncRead: (cutoff, all) => updateRead(cutoff, all, false),
   };
 }

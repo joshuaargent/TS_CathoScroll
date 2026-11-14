@@ -22,6 +22,7 @@ interface TopicSwipeViewerProps {
       })
     | null;
   currentActivityError: boolean;
+  displayCounts?: { likes: number | null; comments: number | null } | null;
   actionError: string;
   pendingActions: Set<string>;
   retryActivity: () => void;
@@ -42,6 +43,7 @@ export function TopicSwipeViewer({
   userId,
   currentActivity,
   currentActivityError,
+  displayCounts,
   actionError,
   pendingActions,
   retryActivity,
@@ -459,8 +461,8 @@ export function TopicSwipeViewer({
               content={currentSlide.content}
               reference={currentSlide.reference}
               isLiked={interactionVisible && Boolean(currentActivity?.liked)}
-              likes={interactionVisible ? (currentActivity?.likes ?? null) : null}
-              comments={currentActivity?.comments ?? null}
+              likes={currentActivity?.likes ?? displayCounts?.likes ?? null}
+              comments={currentActivity?.comments ?? displayCounts?.comments ?? null}
               onComments={onComments}
               onLike={onLike}
               isBookmarked={interactionVisible && Boolean(currentActivity?.bookmarked)}

@@ -358,9 +358,7 @@ export function SearchPage({
         setResults(page.topics.slice(0, 30).map((topic) => ({ topic, score: 0 })));
         setResultQuery(debounced);
         setWarning(
-          navigator.onLine
-            ? 'Online search is unavailable. Showing results from saved topics.'
-            : "You're offline. Showing results from saved topics."
+          navigator.onLine ? 'Online search is unavailable. Showing results from saved topics.' : ''
         );
         setError('');
       } catch (cause) {

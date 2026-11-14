@@ -2,7 +2,7 @@
 
 import { Bell, CheckCheck, MessageCircle, ShieldAlert, Sparkles } from 'lucide-react';
 import Link from 'next/link';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 export interface Notification {
   id: number;
@@ -94,15 +94,19 @@ export function NotificationList({
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<number | 'all' | null>(null);
   const [error, setError] = useState('');
+  const loadVersion = useRef(0);
 
   const loadNotifications = useCallback(async () => {
+    const version = ++loadVersion.current;
     setError('');
 
     try {
       const result = await transport.load();
+      if (version !== loadVersion.current) return;
       setNotifications(result.notifications);
       setUnreadCount(result.unreadCount);
     } catch (loadError) {
+      if (version !== loadVersion.current) return;
       console.error('Unable to load notifications:', loadError);
       setError(
         loadError instanceof Error
@@ -110,17 +114,25 @@ export function NotificationList({
           : 'Unable to load notifications. Please retry.'
       );
     } finally {
-      setLoading(false);
+      if (version === loadVersion.current) setLoading(false);
     }
   }, [transport]);
 
   useEffect(() => {
+    const versions = loadVersion;
     // Load asynchronously so notification state reflects the server-side RLS view.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadNotifications();
+    const reconnect = () => void loadNotifications();
+    window.addEventListener('online', reconnect);
+    return () => {
+      versions.current++;
+      window.removeEventListener('online', reconnect);
+    };
   }, [loadNotifications]);
 
   async function markAsRead(notificationId: number | 'all') {
+    loadVersion.current++;
     setSavingId(notificationId);
     setError('');
 

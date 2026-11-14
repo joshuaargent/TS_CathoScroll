@@ -104,11 +104,6 @@ export function NativeBookmarks({
         </p>
       ) : (
         <>
-          {!navigator.onLine && (
-            <p role="status" className="text-text-secondary mb-6">
-              You&apos;re offline. Your saved changes will sync when you reconnect.
-            </p>
-          )}
           {loading && !topics.length && <p role="status">Loading bookmarks…</p>}
           {error && (
             <p role="alert">

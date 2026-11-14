@@ -64,9 +64,8 @@ export function TopicViewer({
   useEffect(() => {
     let active = true;
 
-    // Discard the previous selection before actions can use stale user state.
+    // Actions only use activity for the currently selected topic and account.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setActivity(null);
     setActivityError(null);
 
     async function loadActivity() {
@@ -198,6 +197,7 @@ export function TopicViewer({
       topicIndex={topicIndex}
       userId={userId}
       currentActivity={currentActivity}
+      displayCounts={currentActivityError ? null : activity}
       currentActivityError={Boolean(currentActivityError)}
       actionError={actionError}
       pendingActions={pendingActions}

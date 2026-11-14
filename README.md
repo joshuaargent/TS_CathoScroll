@@ -221,9 +221,11 @@ unsynchronized changes cannot be expected to transfer to another device.
 Previously fetched comment discussions and counts can be read offline but may
 be incomplete or stale. Comment writes remain online-only. Notes can be edited
 online after the latest note has loaded; notes opened online are cached for
-read-only offline access. Notifications and their unread badge require a
-connection; they are not cached for offline use. Reporting and moderation
-require the website.
+read-only offline access. The latest 50 notifications and their unread count
+are stored in the encrypted account database. Notifications must first be
+loaded online; read changes made offline are queued and synced after reconnect.
+Marking all as read offline covers notifications known to that device, not
+notifications received afterwards. Reporting and moderation require the website.
 Real-device upgrades, reconnects and packaged desktop releases still need
 end-to-end verification before distribution.
 
