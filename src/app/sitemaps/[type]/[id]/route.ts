@@ -17,7 +17,7 @@ export async function GET(_request: Request, { params }: RouteContext) {
   const pageStr = id.replace(/\.xml$/, '');
   const page = Number(pageStr);
 
-  if (!['topics', 'profiles'].includes(type) || !/^\d+$/.test(pageStr) || !Number.isSafeInteger(page)) {
+  if (!['topics', 'profiles', 'static'].includes(type) || !/^\d+$/.test(pageStr) || !Number.isSafeInteger(page)) {
     return new Response('Not found.', { status: 404 });
   }
 
@@ -25,13 +25,12 @@ export async function GET(_request: Request, { params }: RouteContext) {
     const baseUrl = siteConfig.url.replace(/\/+$/, '');
     let urls: string[];
 
-    if (type === 'topics') {
+    if (type === 'static') {
+      const categories = await getPublishedCategories();
+      urls = getSitemapCategoriesXml(categories);
+    } else if (type === 'topics') {
       const topics = await getPublishedTopicRange(page * sitemapUrlsPerFile, sitemapUrlsPerFile);
       urls = topics.map((topic) => `${baseUrl}/topic/${encodeURIComponent(topic.slug)}`);
-      if (page === 0) {
-        const categories = await getPublishedCategories();
-        urls.push(...getSitemapCategoriesXml(categories));
-      }
     } else {
       const profiles = await getPublicProfileRange(page * sitemapUrlsPerFile, sitemapUrlsPerFile);
       urls = profiles.map((username) => `${baseUrl}/profile/${encodeURIComponent(username)}`);

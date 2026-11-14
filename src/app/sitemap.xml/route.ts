@@ -14,6 +14,7 @@ export async function GET() {
     const topicSitemaps = Math.max(1, Math.ceil(topicCount / sitemapUrlsPerFile));
     const profileSitemaps = Math.ceil(profileCount / sitemapUrlsPerFile);
     const sitemapUrls = [
+      `${baseUrl}/sitemaps/static/0.xml`,
       ...Array.from(
         { length: topicSitemaps },
         (_, page) => `${baseUrl}/sitemaps/topics/${page}.xml`
