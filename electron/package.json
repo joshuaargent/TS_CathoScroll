@@ -2,7 +2,7 @@
   "name": "cathoscroll-electron",
   "productName": "CathoScroll",
   "private": true,
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Learn Catholic teaching one swipe at a time",
   "author": "Joshua Argent",
   "main": "build/main.js",

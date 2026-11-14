@@ -15,9 +15,13 @@ const compiled = ts.transpileModule(source, {
 async function fixture(t, options = {}) {
   const calls = [];
   const values = new Map(options.values ?? []);
+  const connections = new Set();
   let secret = options.secret ?? null;
+  let failOpen = options.failOpen ?? null;
   const sqlite = {
-    async checkConnectionsConsistency() {},
+    async checkConnectionsConsistency() {
+      connections.clear();
+    },
     async isDatabase() {
       return { result: options.exists ?? false };
     },
@@ -25,19 +29,28 @@ async function fixture(t, options = {}) {
       return { result: secret !== null };
     },
     async checkEncryptionSecret({ passphrase }) {
+      assert.equal(connections.size, 0, 'checking the secret would close active connections');
+      calls.push('checkSecret');
       return { result: passphrase === secret };
     },
     async setEncryptionSecret({ passphrase }) {
+      assert.equal(connections.size, 0, 'setting the secret would close active connections');
       calls.push('setSecret');
       secret = passphrase;
     },
     async createConnection(args) {
+      connections.add(args.database);
       calls.push(['create', args]);
     },
     async open(args) {
       calls.push(['open', args]);
+      if (args.database === failOpen) {
+        failOpen = null;
+        throw new Error('test open failure');
+      }
     },
     async closeConnection(args) {
+      connections.delete(args.database);
       calls.push(['close', args]);
     },
   };
@@ -80,6 +93,41 @@ async function fixture(t, options = {}) {
   };
   return { databaseModule, storage, sqlite, values, calls };
 }
+
+test('closes partial Android connections before retrying database startup', async (t) => {
+  const { databaseModule, calls, storage } = await fixture(t, { failOpen: 'activity' });
+  await assert.rejects(databaseModule.openNativeDatabases(storage), /test open failure/);
+  assert.deepEqual(
+    calls
+      .filter((call) => Array.isArray(call) && call[0] === 'close')
+      .map((call) => call[1].database),
+    ['activity', 'catalogue']
+  );
+  await databaseModule.openNativeDatabases(storage);
+  assert.equal(calls.filter((call) => Array.isArray(call) && call[0] === 'create').length, 4);
+});
+
+test('prepares Android encryption before opening public databases, including after sign-in', async (t) => {
+  const { databaseModule, storage, calls } = await fixture(t);
+  await databaseModule.openNativeDatabases(storage);
+  const opened = calls.findIndex((call) => Array.isArray(call) && call[0] === 'create');
+  assert.ok(calls.indexOf('setSecret') < opened);
+  await databaseModule.openPrivateActivityDatabase(storage);
+  assert.equal(calls.filter((call) => call === 'setSecret').length, 1);
+  assert.equal(calls.filter((call) => call === 'checkSecret').length, 0);
+
+  const existing = await fixture(t, {
+    secret: 'a'.repeat(64),
+    values: [['cathoscroll.auth.v1-activity-db-key', 'a'.repeat(64)]],
+  });
+  await existing.databaseModule.openNativeDatabases(existing.storage);
+  assert.ok(
+    existing.calls.indexOf('checkSecret') <
+      existing.calls.findIndex((call) => Array.isArray(call) && call[0] === 'create')
+  );
+  await existing.databaseModule.openPrivateActivityDatabase(existing.storage);
+  assert.equal(existing.calls.filter((call) => call === 'checkSecret').length, 1);
+});
 
 test('creates an encrypted Android activity connection once and protects its key', async (t) => {
   const { databaseModule, storage, values, calls } = await fixture(t);

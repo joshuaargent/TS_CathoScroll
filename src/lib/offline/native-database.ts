@@ -105,6 +105,10 @@ export interface NativeDatabases {
 
 let opening: Promise<NativeDatabases> | undefined;
 let privateOpening: Promise<OfflineDatabase> | undefined;
+let privatePreparationFailure: { error: unknown } | null = null;
+
+const privateKeyName = 'cathoscroll.auth.v1-activity-db-key';
+const privateMarkerName = 'cathoscroll.auth.v1-activity-db-created';
 
 interface PrivateKeyStorage {
   getItem(key: string): Promise<string | null>;
@@ -124,7 +128,7 @@ export function openPrivateActivityDatabase(storage: PrivateKeyStorage): Promise
 async function initializePrivateActivityDatabase(
   storage: PrivateKeyStorage
 ): Promise<OfflineDatabase> {
-  await openNativeDatabases();
+  await openNativeDatabases(storage);
   const platform = Capacitor.getPlatform();
   const database = 'private-activity';
   if (platform === 'electron') {
@@ -134,32 +138,7 @@ async function initializePrivateActivityDatabase(
   if (platform !== 'android') {
     throw new Error('Encrypted activity is available only on Android and desktop.');
   }
-  const exists = (await CapacitorSQLite.isDatabase({ database })).result;
-  const secretStored = (await CapacitorSQLite.isSecretStored()).result;
-  if (typeof exists !== 'boolean' || typeof secretStored !== 'boolean') {
-    throw new Error('Invalid encrypted database status.');
-  }
-  const keyName = 'cathoscroll.auth.v1-activity-db-key';
-  const markerName = 'cathoscroll.auth.v1-activity-db-created';
-  let key = await storage.getItem(keyName);
-  const marker = await storage.getItem(markerName);
-  if (marker !== null && marker !== '1') throw new Error('Invalid private database marker.');
-  if (marker && !exists) throw new Error('The saved private activity database is unavailable.');
-  if (key === null) {
-    if (exists || secretStored)
-      throw new Error('The private activity encryption key is unavailable.');
-    key = Array.from(crypto.getRandomValues(new Uint8Array(32)), (byte) =>
-      byte.toString(16).padStart(2, '0')
-    ).join('');
-    await storage.setItem(keyName, key);
-  }
-  if (!/^[a-f0-9]{64}$/.test(key)) throw new Error('Invalid private activity encryption key.');
-  if (secretStored) {
-    const matches = (await CapacitorSQLite.checkEncryptionSecret({ passphrase: key })).result;
-    if (matches !== true) throw new Error('The private activity encryption key does not match.');
-  } else {
-    await CapacitorSQLite.setEncryptionSecret({ passphrase: key });
-  }
+  if (privatePreparationFailure) throw privatePreparationFailure.error;
   await CapacitorSQLite.createConnection({
     database,
     version: 1,
@@ -169,7 +148,7 @@ async function initializePrivateActivityDatabase(
   });
   try {
     await CapacitorSQLite.open({ database });
-    if (!marker) await storage.setItem(markerName, '1');
+    if (!(await storage.getItem(privateMarkerName))) await storage.setItem(privateMarkerName, '1');
   } catch (error) {
     try {
       await CapacitorSQLite.closeConnection({ database, readonly: false });
@@ -181,9 +160,36 @@ async function initializePrivateActivityDatabase(
   return new NativeDatabase(mobileConnection(database));
 }
 
-export function openNativeDatabases(): Promise<NativeDatabases> {
+async function preparePrivateActivitySecret(storage: PrivateKeyStorage): Promise<void> {
+  const exists = (await CapacitorSQLite.isDatabase({ database: 'private-activity' })).result;
+  const secretStored = (await CapacitorSQLite.isSecretStored()).result;
+  if (typeof exists !== 'boolean' || typeof secretStored !== 'boolean') {
+    throw new Error('Invalid encrypted database status.');
+  }
+  let key = await storage.getItem(privateKeyName);
+  const marker = await storage.getItem(privateMarkerName);
+  if (marker !== null && marker !== '1') throw new Error('Invalid private database marker.');
+  if (marker && !exists) throw new Error('The saved private activity database is unavailable.');
+  if (key === null) {
+    if (exists || secretStored)
+      throw new Error('The private activity encryption key is unavailable.');
+    key = Array.from(crypto.getRandomValues(new Uint8Array(32)), (byte) =>
+      byte.toString(16).padStart(2, '0')
+    ).join('');
+    await storage.setItem(privateKeyName, key);
+  }
+  if (!/^[a-f0-9]{64}$/.test(key)) throw new Error('Invalid private activity encryption key.');
+  if (secretStored) {
+    const matches = (await CapacitorSQLite.checkEncryptionSecret({ passphrase: key })).result;
+    if (matches !== true) throw new Error('The private activity encryption key does not match.');
+  } else {
+    await CapacitorSQLite.setEncryptionSecret({ passphrase: key });
+  }
+}
+
+export function openNativeDatabases(storage: PrivateKeyStorage): Promise<NativeDatabases> {
   if (!opening) {
-    opening = initializeNativeDatabases().catch((error: unknown) => {
+    opening = initializeNativeDatabases(storage).catch((error: unknown) => {
       opening = undefined;
       throw error;
     });
@@ -191,7 +197,7 @@ export function openNativeDatabases(): Promise<NativeDatabases> {
   return opening;
 }
 
-async function initializeNativeDatabases(): Promise<NativeDatabases> {
+async function initializeNativeDatabases(storage: PrivateKeyStorage): Promise<NativeDatabases> {
   const platform = Capacitor.getPlatform();
   if (platform === 'electron') {
     await desktop.open({ database: 'catalogue' });
@@ -207,18 +213,44 @@ async function initializeNativeDatabases(): Promise<NativeDatabases> {
   await CapacitorSQLite.checkConnectionsConsistency({ dbNames: [], openModes: [] });
   if (platform === 'android') {
     await androidCatalogueAsset.prepare();
+    try {
+      // These plugin methods close every SQLite connection, so run them before
+      // opening the catalogue and activity databases.
+      await preparePrivateActivitySecret(storage);
+      privatePreparationFailure = null;
+    } catch (error) {
+      privatePreparationFailure = { error };
+      console.error('Unable to prepare encrypted account storage:', error);
+    }
   } else {
     await CapacitorSQLite.copyFromAssets({ overwrite: false });
   }
-  for (const database of ['catalogue', 'activity'] as const) {
-    await CapacitorSQLite.createConnection({
-      database,
-      version: 1,
-      encrypted: false,
-      mode: 'no-encryption',
-      readonly: false,
-    });
-    await CapacitorSQLite.open({ database });
+  const created: Array<'catalogue' | 'activity'> = [];
+  try {
+    for (const database of ['catalogue', 'activity'] as const) {
+      await CapacitorSQLite.createConnection({
+        database,
+        version: 1,
+        encrypted: false,
+        mode: 'no-encryption',
+        readonly: false,
+      });
+      created.push(database);
+      await CapacitorSQLite.open({ database });
+    }
+  } catch (error) {
+    const cleanupErrors: unknown[] = [];
+    for (const database of created.reverse()) {
+      try {
+        await CapacitorSQLite.closeConnection({ database, readonly: false });
+      } catch (cleanupError) {
+        cleanupErrors.push(cleanupError);
+      }
+    }
+    if (cleanupErrors.length) {
+      throw new AggregateError([error, ...cleanupErrors], 'Unable to close offline databases.');
+    }
+    throw error;
   }
   return {
     catalogue: new NativeDatabase(mobileConnection('catalogue')),

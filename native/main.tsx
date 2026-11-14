@@ -478,87 +478,33 @@ function App() {
   const [activityStatus, setActivityStatus] = useState<NativeActivityStatus | null>(null);
   const [activityVersion, setActivityVersion] = useState(0);
   const [activityAttempt, setActivityAttempt] = useState(0);
+  const retryStartup = useRef<() => void>(() => {});
 
   useEffect(() => {
     let active = true;
+    let openingContent = false;
     let unsubscribe: (() => void) | undefined;
     let removeConnectivityListeners: (() => void) | undefined;
-    async function start() {
+    async function openContent() {
+      if (!active || openingContent) return;
+      openingContent = true;
+      let failure = 'Unable to open app storage. Please try again.';
       try {
-        try {
-          await initializeNativeAuth();
-          let cachedIdentity = cachedIdentityFromSession(
-            await secureAuthStorage.getItem(authStorageKey)
-          );
-          if (active && cachedIdentity) {
-            setUser(cachedIdentity);
-            setCheckingAccount(false);
-          }
-          const supabase = createClient();
-          const { data } = supabase.auth.onAuthStateChange((event, session) => {
-            if (active) {
-              cachedIdentity = identityAfterAuthEvent(event, session, cachedIdentity);
-              setUser(cachedIdentity);
-              setCheckingAccount(false);
-            }
-          });
-          unsubscribe = () => data.subscription.unsubscribe();
-          if (!active) {
-            unsubscribe();
-            return;
-          }
-          setAuthStatus('ready');
-          const verifySession = () => {
-            void supabase.auth
-              .getSession()
-              .then(({ error: sessionError }) => {
-                if (sessionError) throw sessionError;
-                if (active) setAuthStatus('ready');
-              })
-              .catch((cause: unknown) => {
-                console.error('Unable to restore the native account:', cause);
-                if (active) {
-                  if (cachedIdentity) {
-                    setUser(cachedIdentity);
-                    setAuthStatus('ready');
-                  } else {
-                    setAuthStatus('unavailable');
-                  }
-                  setCheckingAccount(false);
-                }
-              });
-          };
-          const restoreOfflineIdentity = () => {
-            if (active && cachedIdentity) {
-              setUser(cachedIdentity);
-              setAuthStatus('ready');
-              setCheckingAccount(false);
-            }
-          };
-          window.addEventListener('online', verifySession);
-          window.addEventListener('offline', restoreOfflineIdentity);
-          removeConnectivityListeners = () => {
-            window.removeEventListener('online', verifySession);
-            window.removeEventListener('offline', restoreOfflineIdentity);
-          };
-          verifySession();
-        } catch (cause) {
-          console.error('Unable to initialize secure native sign-in:', cause);
-          if (active) {
-            setAuthStatus('unavailable');
-            setCheckingAccount(false);
-          }
-        }
-        const databases = await openNativeDatabases();
+        const databases = await openNativeDatabases(secureAuthStorage);
         const localCatalogue = new OfflineCatalogue(databases.catalogue);
         const localComments = new OfflineCommentCache(databases.activity);
         const localCounts = new OfflineTopicCountCache(databases.activity);
         const localNotes = new NativeNoteCache(databases.activity, secureAuthStorage);
+        failure = 'Unable to open saved comments. Please try again.';
         await localComments.initialize();
+        failure = 'Unable to open saved topic counts. Please try again.';
         await localCounts.initialize();
+        failure = 'Unable to open saved notes. Please try again.';
         await localNotes.initialize();
+        failure = 'Unable to open saved topics. Please try again.';
         const page = await localCatalogue.topics();
         if (active) {
+          setError('');
           setFirstPage(page);
           setCatalogue(localCatalogue);
           setCommentCache(localComments);
@@ -577,13 +523,84 @@ function App() {
           }
         }
       } catch (cause) {
-        console.error('Unable to open the offline catalogue:', cause);
-        if (active) setError('Unable to open the offline catalogue. Please restart the app.');
+        console.error(failure, cause);
+        if (active) setError(failure);
+      } finally {
+        openingContent = false;
       }
+    }
+    async function start() {
+      try {
+        await initializeNativeAuth();
+        let cachedIdentity = cachedIdentityFromSession(
+          await secureAuthStorage.getItem(authStorageKey)
+        );
+        if (active && cachedIdentity) {
+          setUser(cachedIdentity);
+          setCheckingAccount(false);
+        }
+        const supabase = createClient();
+        const { data } = supabase.auth.onAuthStateChange((event, session) => {
+          if (active) {
+            cachedIdentity = identityAfterAuthEvent(event, session, cachedIdentity);
+            setUser(cachedIdentity);
+            setCheckingAccount(false);
+          }
+        });
+        unsubscribe = () => data.subscription.unsubscribe();
+        if (!active) {
+          unsubscribe();
+          return;
+        }
+        setAuthStatus('ready');
+        const verifySession = () => {
+          void supabase.auth
+            .getSession()
+            .then(({ error: sessionError }) => {
+              if (sessionError) throw sessionError;
+              if (active) setAuthStatus('ready');
+            })
+            .catch((cause: unknown) => {
+              console.error('Unable to restore the native account:', cause);
+              if (active) {
+                if (cachedIdentity) {
+                  setUser(cachedIdentity);
+                  setAuthStatus('ready');
+                } else {
+                  setAuthStatus('unavailable');
+                }
+                setCheckingAccount(false);
+              }
+            });
+        };
+        const restoreOfflineIdentity = () => {
+          if (active && cachedIdentity) {
+            setUser(cachedIdentity);
+            setAuthStatus('ready');
+            setCheckingAccount(false);
+          }
+        };
+        window.addEventListener('online', verifySession);
+        window.addEventListener('offline', restoreOfflineIdentity);
+        removeConnectivityListeners = () => {
+          window.removeEventListener('online', verifySession);
+          window.removeEventListener('offline', restoreOfflineIdentity);
+        };
+        verifySession();
+      } catch (cause) {
+        console.error('Unable to initialize secure native sign-in:', cause);
+        if (active) {
+          setAuthStatus('unavailable');
+          setCheckingAccount(false);
+        }
+      }
+      retryStartup.current = () => void openContent();
+      await openContent();
     }
     void start();
     return () => {
       active = false;
+      retryStartup.current = () => {};
       unsubscribe?.();
       removeConnectivityListeners?.();
     };
@@ -773,7 +790,14 @@ function App() {
               )}
               {error && (
                 <p role="alert" className="px-6">
-                  {error}
+                  {error}{' '}
+                  <button
+                    type="button"
+                    className="text-accent underline"
+                    onClick={() => retryStartup.current()}
+                  >
+                    Retry
+                  </button>
                 </p>
               )}
               {activity && user && activity.userId === user.id && (

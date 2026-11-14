@@ -16,7 +16,7 @@ export function openPrivateActivity(): Promise<OfflineActivityStore> {
 }
 
 async function initialize(): Promise<OfflineActivityStore> {
-  const legacy = (await openNativeDatabases()).activity;
+  const legacy = (await openNativeDatabases(secureAuthStorage)).activity;
   const database = await openPrivateActivityDatabase(secureAuthStorage);
   const legacyStore = new OfflineActivityStore(legacy);
   const privateStore = new OfflineActivityStore(database);
