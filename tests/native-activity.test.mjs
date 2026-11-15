@@ -10,7 +10,7 @@ const compiled = ts
   })
   .outputText
   .replace(
-    "import { bootstrapActivity } from '@/lib/offline/activity-bootstrap';",
+    /import \{\s*bootstrapActivity,?\s*\} from ['"]@\/lib\/offline\/activity-bootstrap['"];?/,
     'const bootstrapActivity = async () => {};'
   )
   .replace(
@@ -23,7 +23,7 @@ const compiled = ts
     }`
   )
   .replace(
-    "import { ActivityResetRequired, OfflineActivitySync } from '@/lib/offline/activity-sync';",
+    /import \{\s*ActivityResetRequired,\s*OfflineActivitySync,?\s*\} from ['"]@\/lib\/offline\/activity-sync['"];?/,
     `class ActivityResetRequired extends Error {}
     class OfflineActivitySync {}`
   );
