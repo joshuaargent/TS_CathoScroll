@@ -257,24 +257,26 @@ Never put Supabase service-role keys or other server secrets in `NEXT_PUBLIC_*` 
 ## Native page parity and offline behaviour
 
 The website and Android/Electron apps render the same shared
-`AccountPageView` component, including the loading skeleton, field order,
-labels, membership panel, public-profile link, and save/sign-out controls.
-Platform-specific adapters own authentication, validation, persistence, and
-offline policy. The native account adapter reads its profile from Supabase
-when connected and uses the encrypted per-device profile cache for read-only
-display when offline. Membership is always treated as live data; the app does
-not present an old cached tier as current. Profile, email, password, sign-in,
-and sign-out changes require a connection and are never silently queued.
+`AccountPageView`, `PublicProfileView`, `CategoriesGrid`, and
+`CategoryTopicGrid` components. These keep the account, public profile,
+category, and topic-card layouts aligned while platform adapters own
+authentication, data loading, navigation, and offline policy. Profile streak
+calculations and bookmark card/date formatting are shared as well.
 
-The website and native app also share `NavbarView` and the bookmark card grid
-and saved-date formatter. The native app supplies its own notification bell,
-navigation handling, and offline activity data without duplicating those
-shared visual components. Bookmark save timestamps are cached locally after
-the app has loaded the online bookmark list, and timestamps for bookmarks
-created on the device are recorded immediately. An older server bookmark that
-has never been refreshed by the app may not have its original save date while
-offline; the activity snapshot protocol does not currently include bookmark
-creation timestamps.
+The native account adapter reads its profile from Supabase when connected and
+uses the encrypted per-device profile cache for read-only display when
+offline. Membership is always treated as live data; the app does not present
+an old cached tier as current. Profile, email, password, sign-in, and sign-out
+changes require a connection and are never silently queued.
+
+The website and native app also share `NavbarView`. The native app supplies
+its own notification bell, navigation handling, and offline activity data
+without duplicating the shared visual component. Bookmark save timestamps are
+cached locally after the app has loaded the online bookmark list, and
+timestamps for bookmarks created on the device are recorded immediately. An
+older server bookmark that has never been refreshed by the app may not have
+its original save date while offline; the activity snapshot protocol does not
+currently include bookmark creation timestamps.
 
 The native router also renders the website's shared About, FAQ, Contact,
 Privacy, Terms, and Cookies page components. The contact form uses the optional
