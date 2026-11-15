@@ -14,8 +14,34 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  validate-source:
+    name: Validate source, tests and types
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install project dependencies
+        run: npm ci
+
+      - name: Run unit tests
+        run: npm test
+
+      - name: Run ESLint
+        run: npm run lint
+
+      - name: Run TypeScript checks
+        run: npm run type-check
+
   build-desktop:
     name: Validate ${{ matrix.name }}
+    needs: validate-source
     strategy:
       fail-fast: false
       max-parallel: 4
@@ -100,6 +126,7 @@ jobs:
 
   build-android:
     name: Validate Android release APK
+    needs: validate-source
     runs-on: ubuntu-latest
     steps:
       - name: Check out source
@@ -135,7 +162,7 @@ jobs:
 
       - name: Build unsigned release APK for compile validation
         working-directory: android
-        run: bash ./gradlew --no-daemon --stacktrace assembleRelease
+        run: bash ./gradlew --no-daemon --stacktrace testReleaseUnitTest assembleRelease
 
       - name: Verify APK output
         shell: bash
