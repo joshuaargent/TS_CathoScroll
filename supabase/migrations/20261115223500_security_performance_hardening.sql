@@ -28,6 +28,41 @@ REVOKE INSERT, UPDATE, DELETE ON TABLE public.categories, public.topics
   FROM authenticated;
 DROP POLICY IF EXISTS categories_admin_manage ON public.categories;
 DROP POLICY IF EXISTS topics_admin_manage ON public.topics;
+DROP POLICY IF EXISTS categories_published_or_admin_read ON public.categories;
+DROP POLICY IF EXISTS topics_published_or_admin_read ON public.topics;
+
+CREATE POLICY categories_public_read_anon
+  ON public.categories FOR SELECT TO anon
+  USING (is_published);
+CREATE POLICY categories_public_or_admin_read_authenticated
+  ON public.categories FOR SELECT TO authenticated
+  USING (is_published OR public.is_cathoscroll_content_admin());
+
+CREATE POLICY topics_public_read_anon
+  ON public.topics FOR SELECT TO anon
+  USING (
+    is_published
+    AND EXISTS (
+      SELECT 1
+      FROM public.categories AS category
+      WHERE category.slug = topics.category_slug
+        AND category.is_published = true
+    )
+  );
+CREATE POLICY topics_public_or_admin_read_authenticated
+  ON public.topics FOR SELECT TO authenticated
+  USING (
+    public.is_cathoscroll_content_admin()
+    OR (
+      is_published
+      AND EXISTS (
+        SELECT 1
+        FROM public.categories AS category
+        WHERE category.slug = topics.category_slug
+          AND category.is_published = true
+      )
+    )
+  );
 
 -- These operations have no client-side use and no corresponding RLS policy.
 REVOKE DELETE ON TABLE public.comments, public.profiles
@@ -60,6 +95,27 @@ $function$;
 REVOKE ALL ON FUNCTION public.get_own_subscription_tier()
   FROM PUBLIC, anon, service_role;
 GRANT EXECUTE ON FUNCTION public.get_own_subscription_tier()
+  TO authenticated;
+
+-- This helper only reads the caller's own admin_users row. SECURITY INVOKER is
+-- sufficient because authenticated users already have a self-only SELECT policy.
+CREATE OR REPLACE FUNCTION public.is_cathoscroll_content_admin()
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY INVOKER
+SET search_path = ''
+AS $function$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.admin_users
+    WHERE user_id = (SELECT auth.uid())
+  )
+$function$;
+
+REVOKE ALL ON FUNCTION public.is_cathoscroll_content_admin()
+  FROM PUBLIC, anon, service_role;
+GRANT EXECUTE ON FUNCTION public.is_cathoscroll_content_admin()
   TO authenticated;
 
 -- Policies that only compare a row to auth.uid() should evaluate the auth
