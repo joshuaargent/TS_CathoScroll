@@ -245,7 +245,11 @@ export function CommentSection({
 
       const commentRows = (commentsResult.data ?? []) as CommentFeedRow[];
       const userIds = [
-        ...new Set([...commentRows.map((row) => row.user_id), user?.id].filter(Boolean)),
+        ...new Set(
+          [...commentRows.map((row) => row.user_id), user?.id].filter(
+            (id): id is string => Boolean(id)
+          )
+        ),
       ];
 
       const [profilesResult, adminRoleResult, commentBanResult] = await Promise.all([
