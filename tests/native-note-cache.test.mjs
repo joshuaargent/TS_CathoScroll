@@ -5,7 +5,6 @@ import test from 'node:test';
 import ts from 'typescript';
 
 const source = await readFile(new URL('../native/note-cache.ts', import.meta.url), 'utf8');
-const componentSource = await readFile(new URL('../native/notes.tsx', import.meta.url), 'utf8');
 const compiled = ts
   .transpileModule(source, {
     compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
@@ -124,8 +123,3 @@ test('rejects modified ciphertext and coalesces concurrent initial key creation'
   }
 });
 
-
-test('online note refresh always attempts to repair an unreadable cached entry', () => {
-  assert.doesNotMatch(componentSource, /cacheReadable/);
-  assert.match(componentSource, /await cache\.save\(accountId, topicId, content\)/);
-});

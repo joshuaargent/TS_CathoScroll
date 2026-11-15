@@ -45,6 +45,14 @@ const nextConfig: NextConfig = {
         source: '/(.*)',
         headers: [
           {
+            key: 'Strict-Transport-Security',
+            value: 'max-age=31536000',
+          },
+          {
+            key: 'Content-Security-Policy-Report-Only',
+            value: "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'unsafe-inline' https://va.vercel-scripts.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://vitals.vercel-insights.com https://va.vercel-scripts.com; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com; media-src 'self' blob: https:; worker-src 'self' blob:; manifest-src 'self'; upgrade-insecure-requests",
+          },
+          {
             key: 'X-Content-Type-Options',
             value: 'nosniff',
           },

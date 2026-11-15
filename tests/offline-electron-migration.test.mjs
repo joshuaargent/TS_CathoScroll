@@ -251,3 +251,27 @@ test('treats a device identity without user activity as an empty destination', a
     result.close();
   }
 });
+
+
+test('quarantines orphaned SQLite sidecars before publishing a replacement after interruption', async (t) => {
+  const directory = await fixture(t);
+  const source = path.join(directory, 'databases', 'activity.sqlite');
+  const destination = path.join(directory, 'cathoscroll-sqlite', 'activity.sqlite');
+  createDatabase(source, 'valid legacy activity');
+  await mkdir(path.dirname(destination));
+  const damagedMain = Buffer.from('damaged destination main file');
+  await writeFile(destination + '.corrupt-interrupted', damagedMain);
+  await writeFile(destination + '-journal', 'stale rollback journal');
+
+  // Simulate termination after the original main file was moved to its backup
+  // but before its rollback journal was moved alongside it.
+  migrateLegacyOfflineDatabases(directory);
+
+  assert.equal(readValue(destination), 'valid legacy activity');
+  assert.equal(existsSync(destination + '-journal'), false);
+  const files = await readdir(path.dirname(destination));
+  const orphan = files.find((name) => name.startsWith('activity.sqlite.orphan-') && name.endsWith('-journal'));
+  assert.ok(orphan);
+  assert.equal(await readFile(path.join(path.dirname(destination), orphan), 'utf8'), 'stale rollback journal');
+  assert.deepEqual(await readFile(destination + '.corrupt-interrupted'), damagedMain);
+});

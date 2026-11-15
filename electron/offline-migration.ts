@@ -154,6 +154,37 @@ function restoreDamagedDatabase(moved: Array<[string, string]>): void {
   }
 }
 
+function preserveOrphanSidecars(file: string): void {
+  if (existsSync(file)) return;
+  const moved: Array<[string, string]> = [];
+  const token = randomUUID();
+  try {
+    for (const suffix of sqliteSidecars) {
+      const original = file + suffix;
+      if (!existsSync(original)) continue;
+      const preserved = `${file}.orphan-${token}${suffix}`;
+      renameSync(original, preserved);
+      moved.push([original, preserved]);
+    }
+  } catch (error) {
+    const restoreErrors: unknown[] = [];
+    for (const [original, preserved] of moved.reverse()) {
+      try {
+        renameSync(preserved, original);
+      } catch (restoreError) {
+        restoreErrors.push(restoreError);
+      }
+    }
+    if (restoreErrors.length) {
+      throw new AggregateError(
+        [error, ...restoreErrors],
+        'Unable to preserve or restore orphaned SQLite sidecars.'
+      );
+    }
+    throw error;
+  }
+}
+
 function preserveCatalogueFallbackFiles(source: string, destination: string): void {
   const moved: Array<[string, string]> = [];
   try {
@@ -229,6 +260,11 @@ export function migrateLegacyOfflineDatabases(
   for (const name of ['catalogue', 'activity']) {
     const source = join(legacyDirectory, `${name}.sqlite`);
     const destination = join(directory, `${name}.sqlite`);
+    // If a previous process stopped after moving a database's main file but
+    // before moving its sidecars, quarantine those orphaned files before any
+    // replacement can be published at the original path.
+    preserveOrphanSidecars(source);
+    preserveOrphanSidecars(destination);
     const sourceExists = existsSync(source);
     const destinationExists = existsSync(destination);
 
