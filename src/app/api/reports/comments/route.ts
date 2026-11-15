@@ -1,26 +1,48 @@
 import { NextResponse } from 'next/server';
 
-import { createServiceRoleClient, getAuthenticatedUser, isSameOrigin } from '@/lib/supabase/admin';
+import {
+  createServiceRoleClient,
+  getAuthenticatedUserFromRequest,
+  isSameOriginOrNativeRequest,
+  nativeApiCorsHeaders,
+} from '@/lib/supabase/admin';
 
 const reportReasons = ['harassment', 'hate_speech', 'spam', 'inappropriate', 'other'] as const;
 
+function respond(request: Request, body: unknown, status = 200) {
+  return NextResponse.json(body, { status, headers: nativeApiCorsHeaders(request) });
+}
+
+export function OPTIONS(request: Request) {
+  const headers = nativeApiCorsHeaders(request);
+  if (!headers.has('Access-Control-Allow-Origin')) {
+    return new NextResponse(null, { status: 403 });
+  }
+  return new NextResponse(null, { status: 204, headers });
+}
+
 export async function POST(request: Request) {
-  if (!isSameOrigin(request)) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  if (!isSameOriginOrNativeRequest(request)) {
+    return respond(request, { error: 'Forbidden' }, 403);
   }
 
-  const { user } = await getAuthenticatedUser();
-
+  let authenticated;
+  try {
+    authenticated = await getAuthenticatedUserFromRequest(request);
+  } catch (error) {
+    console.error('Unable to verify comment report identity:', error);
+    return respond(request, { error: 'Unable to verify your account' }, 500);
+  }
+  const { user } = authenticated;
   if (!user) {
-    return NextResponse.json({ error: 'Sign in to report a comment' }, { status: 401 });
+    return respond(request, { error: 'Sign in to report a comment' }, 401);
   }
 
   let body: unknown;
-
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    return respond(request, { error: 'Invalid JSON body' }, 400);
   }
 
   if (
@@ -37,22 +59,20 @@ export async function POST(request: Request) {
       ((body.details !== null && typeof body.details !== 'string') ||
         (typeof body.details === 'string' && body.details.length > 1000)))
   ) {
-    return NextResponse.json({ error: 'Invalid report details' }, { status: 400 });
+    return respond(request, { error: 'Invalid report details' }, 400);
   }
 
   const details = 'details' in body && typeof body.details === 'string' ? body.details : null;
 
   let adminClient;
-
   try {
     adminClient = createServiceRoleClient();
   } catch (error) {
     console.error('Comment reporting is not configured:', error);
-    return NextResponse.json({ error: 'Comment reporting is not configured' }, { status: 500 });
+    return respond(request, { error: 'Comment reporting is not configured' }, 500);
   }
 
-  // The database function owns duplicate-report and rate-limit checks so they
-  // run atomically with insertion, rather than relying on race-prone API checks.
+  // Keep duplicate-report and rate-limit checks inside the database transaction.
   const { error: insertError } = await adminClient.rpc('submit_comment_report', {
     reporter_user_id: user.id,
     target_comment_id: body.commentId,
@@ -62,30 +82,20 @@ export async function POST(request: Request) {
 
   if (insertError) {
     if (insertError.code === 'P0002') {
-      return NextResponse.json({ error: 'Comment not found' }, { status: 404 });
+      return respond(request, { error: 'Comment not found' }, 404);
     }
-
     if (insertError.code === '22023') {
-      return NextResponse.json({ error: 'You cannot report your own comment' }, { status: 400 });
+      return respond(request, { error: 'You cannot report your own comment' }, 400);
     }
-
     if (insertError.code === 'P0001') {
-      return NextResponse.json(
-        { error: 'You have reached the limit of 10 reports in 24 hours' },
-        { status: 429 }
-      );
+      return respond(request, { error: 'You have reached the limit of 10 reports in 24 hours' }, 429);
     }
-
     if (insertError.code === '23505') {
-      return NextResponse.json(
-        { error: 'You already have an open report for this comment' },
-        { status: 409 }
-      );
+      return respond(request, { error: 'You already have an open report for this comment' }, 409);
     }
-
     console.error('Unable to submit comment report:', insertError.message);
-    return NextResponse.json({ error: 'Unable to submit report' }, { status: 500 });
+    return respond(request, { error: 'Unable to submit report' }, 500);
   }
 
-  return NextResponse.json({ submitted: true }, { status: 201 });
+  return respond(request, { submitted: true }, 201);
 }
