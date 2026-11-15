@@ -443,68 +443,82 @@ export default function DownloadContent({
             About the Downloads
           </h2>
 
-          <div className="border-border rounded-2xl border p-8">
-            <div className="space-y-8">
-              <div>
-                <h3 className="text-lg font-semibold">Updates</h3>
-                <ul className="text-text-secondary mt-3 list-disc space-y-2 pl-6 leading-relaxed">
-                  <li>
-                    <strong className="text-text-primary">Windows:</strong>{' '}
-                    Checks for updates when launched, downloads them in the
-                    background, and installs them after the app is closed.
-                  </li>
-                  <li>
-                    <strong className="text-text-primary">Linux AppImage:</strong>{' '}
-                    Installs downloaded updates after the app is closed.
-                    DEB updates require system authentication when the
-                    downloaded installer is run.
-                  </li>
-                  <li>
-                    <strong className="text-text-primary">macOS:</strong>{' '}
-                    Checks for newer releases on launch and links to the
-                    download page. Updates are installed manually.
-                  </li>
-                  <li>
-                    <strong className="text-text-primary">Android:</strong>{' '}
-                    Checks GitHub Releases on launch, prompts when a newer
-                    signed APK is available, then downloads it and opens
-                    Android's installer. You must approve the installation;
-                    Android may also ask you to allow installs from
-                    CathoScroll in system settings.
-                  </li>
-                </ul>
-              </div>
+          <div className="border-border space-y-8 rounded-2xl border p-8">
+            <p className="text-text-secondary leading-relaxed">
+              CathoScroll release builds are available for Android, Windows,
+              Linux, and macOS. The download buttons above are populated
+              automatically from the latest published GitHub release.
+            </p>
 
-              <div>
-                <h3 className="text-lg font-semibold">Important Android installation note</h3>
-                <p className="text-text-secondary mt-3 leading-relaxed">
-                  The first production-signed APK cannot install over an
-                  older debug-signed build. If you currently use a debug
-                  build, connect to the internet and allow pending account
-                  activity to sync before uninstalling it. Uninstalling
-                  removes device-only data. Then install the production APK.
-                  Future production-signed releases can update normally.
-                  Keep your Android release keystore and passwords backed
-                  up securely; every future APK must use the same signing key.
-                </p>
-              </div>
+            <div>
+              <h3 className="text-xl font-semibold">How updates work</h3>
+              <ul className="text-text-secondary mt-4 list-disc space-y-3 pl-6 leading-relaxed">
+                <li>
+                  <strong>Windows:</strong> Checks for updates when the app
+                  launches, downloads them in the background, and installs
+                  them after the app is closed.
+                </li>
+                <li>
+                  <strong>Linux AppImage:</strong> Checks for and downloads
+                  updates automatically, then applies them after the app is
+                  closed. The DEB package downloads updates separately and
+                  requires system authentication when its installer runs.
+                </li>
+                <li>
+                  <strong>macOS:</strong> Checks for a newer release when the
+                  app launches and displays an update notice linking to this
+                  download page. Updates must be downloaded and installed
+                  manually.
+                </li>
+                <li>
+                  <strong>Android:</strong> Checks GitHub Releases when the app
+                  launches, prompts when a newer signed APK is available,
+                  downloads it, and opens Android's installer. You must approve
+                  the installation and may need to allow installs from
+                  CathoScroll in Android settings.
+                </li>
+              </ul>
+            </div>
 
-              <div>
-                <h3 className="text-lg font-semibold">macOS security</h3>
-                <p className="text-text-secondary mt-3 leading-relaxed">
-                  macOS builds are unsigned. On first launch, Gatekeeper may
-                  require you to Control-click the app and choose Open.
-                </p>
-              </div>
-
-              <p className="text-text-secondary leading-relaxed">
-                CathoScroll release builds are available for Android,
-                Windows, Linux and macOS. Only install applications
-                downloaded from this official CathoScroll website.
+            <div>
+              <h3 className="text-xl font-semibold">
+                Important: installing the production Android app
+              </h3>
+              <p className="text-text-secondary mt-3 leading-relaxed">
+                The first production-signed APK cannot install over an older
+                debug-signed build. If you have a debug-signed version
+                installed, connect to the internet and allow pending account
+                activity to sync before uninstalling it. Uninstalling removes
+                device-only data. After uninstalling the old build, install
+                the production APK. Future production-signed releases can
+                update normally.
+              </p>
+              <p className="text-text-secondary mt-3 leading-relaxed">
+                Keep your Android release keystore and passwords backed up
+                securely. Every future production APK must use the same
+                signing key or Android will reject the update.
               </p>
             </div>
 
-            <div className="mt-6">
+            <div>
+              <h3 className="text-xl font-semibold">macOS security notice</h3>
+              <p className="text-text-secondary mt-3 leading-relaxed">
+                CathoScroll macOS builds are unsigned. Gatekeeper may block
+                the first launch; if that happens, Control-click the app and
+                choose <strong>Open</strong> to confirm that you want to run it.
+              </p>
+            </div>
+
+            <div>
+              <h3 className="text-xl font-semibold">Download safely</h3>
+              <p className="text-text-secondary mt-3 leading-relaxed">
+                Use the download buttons on this page or the official
+                CathoScroll GitHub Releases page. Do not install packages
+                from unofficial mirrors or third-party download sites.
+              </p>
+            </div>
+
+            <div>
               <Button asChild variant="outline">
                 <a
                   href={releasesUrl}
