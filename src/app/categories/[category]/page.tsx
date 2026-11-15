@@ -11,6 +11,7 @@ import {
 import { siteConfig } from '@/lib/constants';
 
 import { Badge } from '@/components/ui/Badge';
+import { CategoryTopicGrid } from '@/components/categories/CategoryTopicGrid';
 
 interface Props {
   params: Promise<{
@@ -128,21 +129,7 @@ export default async function CategoryPage({ params, searchParams }: Props) {
       {/* Topics */}
 
       <section>
-        <div className="grid gap-6 md:grid-cols-2">
-          {categoryTopics.map((topic) => (
-            <Link
-              key={topic.id}
-              href={`/topic/${topic.slug}`}
-              className="border-border hover:bg-accent-light/10 block rounded-2xl border p-6 transition-colors"
-            >
-              <h2 className="text-xl leading-snug font-bold">{topic.question}</h2>
-
-              <p className="text-text-secondary mt-4 leading-relaxed">{topic.answer}</p>
-
-              <div className="text-accent mt-6 text-sm font-medium">Study Topic →</div>
-            </Link>
-          ))}
-        </div>
+        <CategoryTopicGrid topics={categoryTopics} />
       </section>
 
       {/* Bottom Navigation */}
