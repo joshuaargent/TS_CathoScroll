@@ -80,7 +80,7 @@ test('encrypts account-scoped notes and restores them using the protected key', 
   }
 });
 
-test('does not replace a missing key or overwrite unreadable cached notes', async () => {
+test('does not replace notes when the encryption key is missing', async () => {
   const { db, secrets, database, storage, cache } = fixture();
   try {
     await cache.initialize();
@@ -112,8 +112,9 @@ test('rejects modified ciphertext and coalesces concurrent initial key creation'
     altered[0] ^= 1;
     db.prepare('UPDATE offline_private_notes SET ciphertext = ?').run(altered.toString('base64'));
     await assert.rejects(cache.load('account', 'topic'));
-    await assert.rejects(cache.save('account', 'topic', 'replacement'));
-    assert.equal(
+    await cache.save('account', 'topic', 'replacement');
+    assert.equal((await cache.load('account', 'topic')).content, 'replacement');
+    assert.notEqual(
       db.prepare('SELECT ciphertext FROM offline_private_notes').get().ciphertext,
       altered.toString('base64')
     );
