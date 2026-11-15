@@ -220,13 +220,9 @@ export function CommentSection({
       if (!isCurrent()) return;
       setUserId(user?.id ?? null);
 
-      const commentsResult = await supabase
-        .from('comment_feed')
-        .select('id,topic_id,user_id,parent_id,content,created_at,edited_at,is_deleted,is_pinned')
-        .eq('topic_id', topicId)
-        .order('created_at', {
-          ascending: false,
-        });
+      const commentsResult = await supabase.rpc('get_topic_comment_feed', {
+        p_topic_id: topicId,
+      });
 
       if (!isCurrent()) return;
       if (commentsResult.error) {
