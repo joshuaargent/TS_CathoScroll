@@ -7,6 +7,7 @@ import type { Topic } from '@/types';
 import { createClient } from './supabase';
 import { siteConfig } from '@/lib/constants';
 import { notifyNativeStatus, clearNativeStatusNotice } from './offline-indicator';
+import { NativeProfileSkeleton } from './skeletons';
 
 type ProfileData = {
   id: string;
@@ -257,9 +258,7 @@ export function NativePublicProfile({
   if (!profile) {
     return (
       <div className="container py-12">
-        <p className="text-text-secondary mt-8">
-          {loading ? 'Loading public profile…' : 'Profile not found.'}
-        </p>
+        {loading ? <NativeProfileSkeleton /> : <p className="text-text-secondary">Profile not found.</p>}
       </div>
     );
   }
