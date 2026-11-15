@@ -108,7 +108,7 @@ export function NavbarView({
                 {showDownloadLink && (
                   <Link href="/download" aria-label="Download CathoScroll">
                     <Button variant="ghost" size="icon">
-                      <Download className="text-text-primary h-5 w-5" />
+                      <Download className="h-5 w-5 text-white" />
                     </Button>
                   </Link>
                 )}
@@ -198,7 +198,6 @@ export function NavbarView({
               </div>
 
               {/* Mobile Menu Footer */}
-              {/* Mobile Menu Footer */}
               <div className="border-border mt-8 border-t pt-8">
                 {/* Download */}
                 {showDownloadLink && (
@@ -206,10 +205,10 @@ export function NavbarView({
                     <Link
                       href="/download"
                       onClick={() => setMobileMenuState({ open: false, pathname })}
-                      className="border-border bg-bg-card text-text-primary hover:bg-bg-secondary inline-flex h-auto w-full max-w-[16rem] items-center justify-center gap-2 rounded-lg border px-4 py-2 font-medium transition-all duration-200"
+                      className="border-border bg-bg-card hover:bg-bg-secondary inline-flex h-10 items-center justify-center gap-2 rounded-lg border px-4 py-2 font-medium text-white transition-colors"
                     >
                       <Download className="h-4 w-4" />
-                      <span>Download CathoScroll</span>
+                      <span>Download</span>
                     </Link>
                   </div>
                 )}
@@ -221,7 +220,7 @@ export function NavbarView({
                       showLabel: true,
                       onNavigate: () => setMobileMenuState({ open: false, pathname }),
                       className:
-                        'border-border bg-bg-card hover:bg-bg-secondary h-auto w-full max-w-[16rem] justify-center gap-2 rounded-lg border px-4 py-2',
+                        'border-border bg-bg-card hover:bg-bg-secondary !h-10 !w-auto justify-center gap-2 rounded-lg border px-4 py-2 font-medium !text-white transition-colors',
                     })}
                   </div>
                 )}
