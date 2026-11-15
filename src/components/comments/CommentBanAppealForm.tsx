@@ -5,7 +5,13 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Textarea } from '@/components/ui/Textarea';
 
-export function CommentBanAppealForm() {
+export type CommentBanAppealSubmitter = (message: string) => Promise<void>;
+
+export function CommentBanAppealForm({
+  submitter,
+}: {
+  submitter?: CommentBanAppealSubmitter;
+}) {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [submitted, setSubmitted] = useState(false);
@@ -13,28 +19,30 @@ export function CommentBanAppealForm() {
 
   async function submitAppeal(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (isSubmitting) return;
     setError('');
     setIsSubmitting(true);
 
     try {
-      const response = await fetch('/api/comment-ban/appeal', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ message }),
-      });
-      const result = (await response.json()) as { error?: string };
-
-      if (!response.ok) {
-        setError(result.error ?? 'Unable to submit your request.');
-        return;
+      if (submitter) {
+        await submitter(message);
+      } else {
+        const response = await fetch('/api/comment-ban/appeal', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message }),
+        });
+        const result = (await response.json()) as { error?: string };
+        if (!response.ok) throw new Error(result.error ?? 'Unable to submit your request.');
       }
-
       setSubmitted(true);
     } catch (submitError) {
       console.error('Unable to submit comment-ban appeal:', submitError);
-      setError('Unable to submit your request. Please try again.');
+      setError(
+        submitError instanceof Error
+          ? submitError.message
+          : 'Unable to submit your request. Please try again.'
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -72,10 +80,7 @@ export function CommentBanAppealForm() {
         </div>
       </div>
       {error && (
-        <p
-          role="alert"
-          className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700"
-        >
+        <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
           {error}
         </p>
       )}
@@ -87,7 +92,7 @@ export function CommentBanAppealForm() {
         size="lg"
         className="w-full"
         isLoading={isSubmitting}
-        disabled={message.trim().length < 20}
+        disabled={message.trim().length < 20 || isSubmitting}
       >
         {isSubmitting ? 'Submitting...' : 'Submit review request'}
       </Button>
