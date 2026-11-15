@@ -10,6 +10,7 @@ import { CommentBanControl } from '@/components/admin/CommentBanControl';
 import { AdminRoleControl } from '@/components/admin/AdminRoleControl';
 import { createServiceRoleClient } from '@/lib/supabase/admin';
 import { PublicProfileView } from '@/components/profile/PublicProfileView';
+import { calculateStreaks } from '@/lib/profile-metrics';
 
 interface Props {
   params: Promise<{
@@ -27,108 +28,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       canonical: new URL(`/profile/${encodeURIComponent(username)}`, siteConfig.url).toString(),
     },
   };
-}
-
-function calculateCurrentStreak(dates: string[]) {
-  if (!dates.length) {
-    return 0;
-  }
-
-  // The algorithm uses dates[0] as the newest activity date. Its caller must
-  // provide the dates in newest-first order.
-  //
-  // AQA-style pseudocode:
-  // IF dates is empty THEN RETURN 0
-  // days ← UNIQUE(DATE-ONLY values from dates)
-  // newest ← date from dates[0]
-  // IF days between newest and today > 1 THEN RETURN 0
-  // streak ← 0
-  // cursor ← newest
-  // WHILE DATE-ONLY(cursor) is in days
-  //   streak ← streak + 1
-  //   cursor ← previous calendar day
-  // RETURN streak
-  // Time and extra space: O(n).
-  const uniqueDays = new Set(dates.map((date) => new Date(date).toISOString().split('T')[0]));
-
-  const today = new Date();
-
-  today.setHours(0, 0, 0, 0);
-
-  const newest = new Date(dates[0]);
-
-  newest.setHours(0, 0, 0, 0);
-
-  const gap = Math.floor((today.getTime() - newest.getTime()) / (1000 * 60 * 60 * 24));
-
-  if (gap > 1) {
-    return 0;
-  }
-
-  let streak = 0;
-
-  const cursor = new Date(newest);
-
-  while (true) {
-    const key = cursor.toISOString().split('T')[0];
-
-    if (!uniqueDays.has(key)) {
-      break;
-    }
-
-    streak++;
-
-    cursor.setDate(cursor.getDate() - 1);
-  }
-
-  return streak;
-}
-
-function calculateLongestStreak(dates: string[]) {
-  if (!dates.length) {
-    return 0;
-  }
-
-  // Deduplicate and sort day keys, then find the longest run of consecutive
-  // calendar days by resetting the running count whenever there is a gap.
-  //
-  // AQA-style pseudocode:
-  // days ← SORT ASCENDING(UNIQUE(DATE-ONLY values from dates))
-  // longest ← 1
-  // current ← 1
-  // FOR i ← 1 TO LENGTH(days) - 1
-  //   IF days[i] is exactly one day after days[i - 1] THEN
-  //     current ← current + 1
-  //     longest ← MAX(longest, current)
-  //   ELSE
-  //     current ← 1
-  // RETURN longest
-  // Time: O(n log n) for sorting; extra space: O(n).
-  const uniqueDays = [
-    ...new Set(dates.map((date) => new Date(date).toISOString().split('T')[0])),
-  ].sort();
-
-  let longest = 1;
-
-  let current = 1;
-
-  for (let i = 1; i < uniqueDays.length; i++) {
-    const previous = new Date(uniqueDays[i - 1]);
-
-    const next = new Date(uniqueDays[i]);
-
-    const diff = Math.floor((next.getTime() - previous.getTime()) / (1000 * 60 * 60 * 24));
-
-    if (diff === 1) {
-      current++;
-
-      longest = Math.max(longest, current);
-    } else {
-      current = 1;
-    }
-  }
-
-  return longest;
 }
 
 export default async function ProfilePage({ params }: Props) {
@@ -236,9 +135,11 @@ export default async function ProfilePage({ params }: Props) {
       })
       .limit(6),
 
-    // calculateCurrentStreak expects newest-first input, but this query has no
-    // explicit ordering; preserve this as a known issue for the later fix pass.
-    supabase.from('progress').select('completed_at').eq('user_id', profile.id),
+    supabase
+      .from('progress')
+      .select('completed_at')
+      .eq('user_id', profile.id)
+      .order('completed_at', { ascending: false }),
 
     supabase
       .from('comments')
@@ -275,9 +176,7 @@ export default async function ProfilePage({ params }: Props) {
 
   const streakDates = (streakResult.data ?? []).map((row) => row.completed_at);
 
-  const currentStreak = calculateCurrentStreak(streakDates);
-
-  const longestStreak = calculateLongestStreak(streakDates);
+  const { current: currentStreak, longest: longestStreak } = calculateStreaks(streakDates);
 
   const progressPercentage =
     topicCount > 0 ? ((completedCount / topicCount) * 100).toFixed(1) : '0';
