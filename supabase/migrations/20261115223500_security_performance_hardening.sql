@@ -86,7 +86,7 @@ CREATE POLICY comment_likes_select_own
   USING (user_id = auth.uid());
 CREATE POLICY topic_likes_select_own
   ON public.topic_likes FOR SELECT TO authenticated
-  USING (user_id = (SELECT auth.uid()));
+  USING (user_id = auth.uid());
 
 -- Profiles are public only through the fields used by public profile pages,
 -- comments and account UI. Membership and account timestamps are private.
