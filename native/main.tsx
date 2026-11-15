@@ -10,6 +10,7 @@ import { NativeAccount } from './account';
 import { NativePublicProfile } from './public-profile';
 import { NativeBookmarks } from './bookmarks';
 import { NativeAdmin } from './admin';
+import { NativeAppeal } from './appeal';
 import { NativeNotifications, NativeNotificationsProvider } from './notifications';
 import { OfflineIndicator, clearNativeStatusNotice, notifyNativeStatus } from './offline-indicator';
 import { NativeTopicActions } from './topic-actions';
@@ -136,6 +137,7 @@ type Route =
   | { kind: 'about' | 'faq' | 'contact' | 'privacy' | 'terms' | 'cookies'; pathname: string }
   | { kind: 'signup'; pathname: string }
   | { kind: 'bookmarks'; pathname: string }
+  | { kind: 'appeal'; pathname: string }
   | { kind: 'notifications'; pathname: string }
   | { kind: 'admin'; pathname: string; section: 'dashboard' | 'reports' | 'appeals' | 'content'; page: number }
   | { kind: 'category'; pathname: string; slug: string }
@@ -162,6 +164,7 @@ function parseRoute(href: string): Route | null {
     if (pathname === '/signin' || pathname === '/account') return { kind: 'account', pathname };
     if (pathname === '/signup') return { kind: 'signup', pathname };
     if (pathname === '/bookmarks') return { kind: 'bookmarks', pathname };
+    if (pathname === '/appeal') return { kind: 'appeal', pathname };
     if (pathname === '/notifications') return { kind: 'notifications', pathname };
     if (pathname === '/admin') {
       const page = Number(url.searchParams.get('page') ?? '0');
@@ -1195,6 +1198,13 @@ function App() {
                   activity={activity?.userId === user?.id ? activity : null}
                   status={activityStatus}
                   version={activityVersion}
+                />
+              )}
+              {route?.kind === 'appeal' && (
+                <NativeAppeal
+                  key={user?.id ?? 'signed-out'}
+                  userId={user?.id ?? null}
+                  onRequireSignIn={() => openRoute('/signin?next=%2Fappeal')}
                 />
               )}
               {route?.kind === 'notifications' && (
