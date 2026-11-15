@@ -71,7 +71,7 @@ export function NativeAccount({
     } else {
       clearNativeStatusNotice('signin-offline');
     }
-  }, [user?.id, online]);
+  }, [user, online]);
 
   useEffect(() => {
     if (!available) {
