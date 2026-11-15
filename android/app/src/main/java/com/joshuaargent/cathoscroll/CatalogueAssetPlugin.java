@@ -33,22 +33,15 @@ public class CatalogueAssetPlugin extends Plugin {
     @PluginMethod
     public void removeLegacyActivity(PluginCall call) {
         File database = getContext().getDatabasePath("activitySQLite.db");
-        getContext().deleteDatabase("activitySQLite.db");
-        String[] suffixes = {"-wal", "-shm", "-journal"};
-        for (String suffix : suffixes) {
-            File sidecar = new File(database.getAbsolutePath() + suffix);
-            if (sidecar.exists() && !sidecar.delete()) {
-                call.reject("Unable to remove the migrated plaintext activity database.", new IOException(
-                    "Unable to delete " + sidecar.getName()
-                ));
-                return;
-            }
+        try {
+            LegacyActivityCleanup.remove(
+                database,
+                () -> getContext().deleteDatabase("activitySQLite.db")
+            );
+            call.resolve();
+        } catch (IOException error) {
+            call.reject("Unable to remove the migrated plaintext activity database.", error);
         }
-        if (database.exists() && !database.delete()) {
-            call.reject("Unable to remove the migrated plaintext activity database.");
-            return;
-        }
-        call.resolve();
     }
 
     private static void validate(File file) throws IOException {
