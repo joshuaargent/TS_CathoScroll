@@ -69,12 +69,17 @@ export async function checkApiRateLimit({
       return { allowed: false, retryAfterSeconds: 60, unavailable: true };
     }
 
-    return result.allowed
-      ? { allowed: true, retryAfterSeconds: 0 }
-      : {
-          allowed: false,
-          retryAfterSeconds: Math.max(1, Math.ceil(result.retry_after_seconds)),
-        };
+    if (result.allowed) return { allowed: true, retryAfterSeconds: 0 };
+
+    const retryAfterSeconds = Math.max(1, Math.ceil(result.retry_after_seconds));
+    console.warn('API rate limit exceeded:', {
+      scope,
+      keyFingerprint: keyHash.slice(0, 12),
+      limit,
+      windowSeconds,
+      retryAfterSeconds,
+    });
+    return { allowed: false, retryAfterSeconds };
   } catch (error) {
     console.error('API rate limiting is not configured:', error);
     return { allowed: false, retryAfterSeconds: 60, unavailable: true };
