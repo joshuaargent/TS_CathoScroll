@@ -66,7 +66,8 @@ export default function AccountSecurityPage() {
     if (tokenPayload) {
       try {
         const normalizedPayload = tokenPayload.replace(/-/g, '+').replace(/_/g, '/');
-        const claims = JSON.parse(atob(normalizedPayload)) as { aal?: unknown; amr?: unknown };
+        const paddedPayload = normalizedPayload.padEnd(Math.ceil(normalizedPayload.length / 4) * 4, '=');
+        const claims = JSON.parse(atob(paddedPayload)) as { aal?: unknown; amr?: unknown };
         hasTotpAssurance =
           claims.aal === 'aal2' &&
           Array.isArray(claims.amr) &&
