@@ -45,7 +45,7 @@ export async function getAuthenticatedUserFromRequest(request: Request) {
     global: { headers: { Authorization: `Bearer ${token}` } },
   });
   const { data, error } = await supabase.auth.getUser(token);
-  if (error) return { supabase, user: null };
+  if (error) return { supabase, user: null, accessToken: token };
   return { supabase, user: data.user, accessToken: token };
 }
 
