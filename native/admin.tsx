@@ -183,7 +183,7 @@ export function NativeAdmin({
                 View all reports
               </a>
             </div>
-            <AdminReportList reports={reports} adminUserId={adminUserId} fetcher={fetcher} />
+            <AdminReportList reports={reports} adminUserId={adminUserId} fetcher={fetcher} onChange={() => setAttempt((value) => value + 1)} />
           </section>
           <section>
             <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
