@@ -36,8 +36,17 @@ final class CatalogueInstaller {
                 if (!destination.renameTo(backup)) {
                     throw new IOException("Unable to preserve the damaged offline catalogue.", invalidCatalogue);
                 }
-                removeSidecars(destination);
-                installReplacement(destination, backup, source, validator, publisher, directory);
+                try {
+                    removeSidecars(destination);
+                    installReplacement(destination, backup, source, validator, publisher, directory);
+                } catch (IOException repairError) {
+                    if (!destination.exists() && backup.exists() && !backup.renameTo(destination)) {
+                        repairError.addSuppressed(new IOException(
+                            "Unable to restore the previous catalogue after a failed repair."
+                        ));
+                    }
+                    throw repairError;
+                }
                 return;
             }
         }
