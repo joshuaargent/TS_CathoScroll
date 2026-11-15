@@ -93,9 +93,31 @@ jobs:
           iconutil -c icns electron/assets/iconset -o electron/assets/icon.icns
           rm -rf electron/assets/iconset
 
+      - name: Validate macOS signing and notarisation credentials
+        if: matrix.platform == 'mac'
+        shell: bash
+        env:
+          MAC_CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+          MAC_CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: |
+          set -euo pipefail
+          test -n "$MAC_CSC_LINK" || { echo "Missing MAC_CSC_LINK Actions secret"; exit 1; }
+          test -n "$MAC_CSC_KEY_PASSWORD" || { echo "Missing MAC_CSC_KEY_PASSWORD Actions secret"; exit 1; }
+          test -n "$APPLE_API_KEY" || { echo "Missing APPLE_API_KEY Actions secret"; exit 1; }
+          test -n "$APPLE_API_KEY_ID" || { echo "Missing APPLE_API_KEY_ID Actions secret"; exit 1; }
+          test -n "$APPLE_API_ISSUER" || { echo "Missing APPLE_API_ISSUER Actions secret"; exit 1; }
+
       - name: Package and publish desktop application
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
         run: npm --prefix electron run pack -- --${{ matrix.platform }} --${{ matrix.architecture }} --publish onTag
 
       - name: Upload platform build outputs for verification
