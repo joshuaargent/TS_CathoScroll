@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import {
   createServiceRoleClient,
   getAuthenticatedUserFromRequest,
+  hasTotpAssuranceInAccessToken,
   isSameOrigin,
   nativeApiCorsHeaders,
 } from '@/lib/supabase/admin';
@@ -81,14 +82,14 @@ export async function POST(request: Request) {
       );
     }
 
-    const { data: assurance, error: assuranceError } =
-      await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-    if (assuranceError) {
-      console.error('Unable to verify administrator MFA assurance:', assuranceError.message);
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError) {
+      console.error('Unable to load administrator MFA session:', sessionError.message);
       return respond(request, { error: 'Unable to verify authenticator status.' }, 503);
     }
-    if (assurance.currentLevel !== 'aal2' || assurance.nextLevel !== 'aal2') {
-      return respond(request, { error: 'Verify your authenticator code before enabling enforcement.' }, 403);
+    const accessToken = sessionData.session?.access_token;
+    if (!accessToken || !hasTotpAssuranceInAccessToken(accessToken)) {
+      return respond(request, { error: 'Verify a TOTP authenticator code before enabling enforcement.' }, 403);
     }
 
     const serviceClient = createServiceRoleClient();
