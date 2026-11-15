@@ -131,6 +131,7 @@ export class OfflineActivityStore {
           kind TEXT NOT NULL CHECK (kind IN ('bookmark', 'like', 'progress')),
           value INTEGER NOT NULL CHECK (value IN (0, 1)),
           completed_at TEXT,
+          bookmark_saved_at TEXT,
           PRIMARY KEY (user_id, topic_id, kind)
         )
       `);
@@ -256,6 +257,11 @@ export class OfflineActivityStore {
           await db.execute(`ALTER TABLE ${table} ADD COLUMN completed_at TEXT`);
         }
       }
+      // Keep the original bookmark creation time locally; old databases are upgraded in place.
+      const activityColumns = await db.query('PRAGMA table_info(offline_activity)');
+      if (!activityColumns.some((column) => column.name === 'bookmark_saved_at')) {
+        await db.execute('ALTER TABLE offline_activity ADD COLUMN bookmark_saved_at TEXT');
+      }
     });
   }
 
@@ -273,12 +279,14 @@ export class OfflineActivityStore {
     assertKind(kind);
     if (typeof value !== 'boolean') throw new Error('Invalid offline activity value.');
     completionTime(kind, value, completedAt);
+    const bookmarkSavedAt = kind === 'bookmark' && value ? new Date().toISOString() : null;
 
     await this.database.transaction(async (db) => {
       await db.execute(
-        `INSERT OR REPLACE INTO offline_activity (user_id, topic_id, kind, value, completed_at)
-         VALUES (?, ?, ?, ?, ?)`,
-        [userId, topicId, kind, value ? 1 : 0, completedAt]
+        `INSERT OR REPLACE INTO offline_activity
+         (user_id, topic_id, kind, value, completed_at, bookmark_saved_at)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [userId, topicId, kind, value ? 1 : 0, completedAt, bookmarkSavedAt]
       );
       await db.execute(
         `INSERT INTO offline_activity_outbox (operation_id, user_id, topic_id, kind, value, completed_at)
@@ -338,28 +346,71 @@ export class OfflineActivityStore {
     });
   }
 
+  async recordBookmarkTimestamps(
+    userId: string,
+    bookmarks: Array<{ topicId: string; savedAt: string }>
+  ): Promise<void> {
+    assertKey(userId, 'user ID');
+    for (const bookmark of bookmarks) {
+      assertKey(bookmark.topicId, 'bookmark topic ID');
+      if (typeof bookmark.savedAt !== 'string' || Number.isNaN(Date.parse(bookmark.savedAt))) {
+        throw new Error('Invalid bookmark saved time.');
+      }
+    }
+    await this.database.transaction(async (db) => {
+      for (const bookmark of bookmarks) {
+        await db.execute(
+          `UPDATE offline_activity SET bookmark_saved_at = ?
+           WHERE user_id = ? AND topic_id = ? AND kind = 'bookmark' AND value = 1`,
+          [bookmark.savedAt, userId, bookmark.topicId]
+        );
+      }
+    });
+  }
+
   async listActivity(
     userId: string,
     kind: OfflineActivityKind,
     cursor?: string
-  ): Promise<{ topicIds: string[]; nextCursor: string | null }> {
+  ): Promise<{
+    topicIds: string[];
+    items: Array<{ topicId: string; savedAt: string | null }>;
+    nextCursor: string | null;
+  }> {
     assertKey(userId, 'user ID');
     assertKind(kind);
     if (cursor !== undefined) assertKey(cursor, 'activity cursor');
     return this.database.transaction(async (db) => {
       await this.assertInitialized(db, userId);
       const rows = await db.query(
-        `SELECT topic_id FROM offline_activity
+        `SELECT topic_id, bookmark_saved_at FROM offline_activity
          WHERE user_id = ? AND kind = ? AND value = 1 ${cursor ? 'AND topic_id > ?' : ''}
          ORDER BY topic_id LIMIT 51`,
         cursor ? [userId, kind, cursor] : [userId, kind]
       );
+      const items = rows.slice(0, 50).map((row) => {
+        if (typeof row.topic_id !== 'string') throw new Error('Invalid offline activity topic.');
+        assertKey(row.topic_id, 'activity topic');
+        const savedAt = row.bookmark_saved_at;
+        if (kind === 'bookmark' && savedAt !== null && savedAt !== undefined &&
+            (typeof savedAt !== 'string' || Number.isNaN(Date.parse(savedAt)))) {
+          throw new Error('Invalid offline bookmark saved time.');
+        }
+        return {
+          topicId: row.topic_id,
+          savedAt: kind === 'bookmark' && typeof savedAt === 'string' ? savedAt : null,
+        };
+      });
       const ids = rows.map((row) => {
         if (typeof row.topic_id !== 'string') throw new Error('Invalid offline activity topic.');
         assertKey(row.topic_id, 'activity topic');
         return row.topic_id;
       });
-      return { topicIds: ids.slice(0, 50), nextCursor: ids.length > 50 ? ids[49] : null };
+      return {
+        topicIds: ids.slice(0, 50),
+        items,
+        nextCursor: ids.length > 50 ? ids[49] : null,
+      };
     });
   }
 
@@ -904,10 +955,19 @@ export class OfflineActivityStore {
       throw new Error('Unable to reconcile offline activity state.');
     }
     const completedAt = completionTime(kind, server[0].value === 1, server[0].completed_at);
+    const existingBookmark = kind === 'bookmark' && server[0].value === 1
+      ? await db.query(
+          `SELECT bookmark_saved_at FROM offline_activity
+           WHERE user_id = ? AND topic_id = ? AND kind = 'bookmark'`,
+          [userId, topicId]
+        )
+      : [];
+    const bookmarkSavedAt = existingBookmark[0]?.bookmark_saved_at ?? null;
     await db.execute(
       `INSERT OR REPLACE INTO offline_activity
-      (user_id, topic_id, kind, value, completed_at) VALUES (?, ?, ?, ?, ?)`,
-      [userId, topicId, kind, server[0].value, completedAt]
+      (user_id, topic_id, kind, value, completed_at, bookmark_saved_at)
+      VALUES (?, ?, ?, ?, ?, ?)`,
+      [userId, topicId, kind, server[0].value, completedAt, bookmarkSavedAt]
     );
   }
 }
