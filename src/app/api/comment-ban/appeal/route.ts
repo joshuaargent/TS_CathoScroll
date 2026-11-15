@@ -7,7 +7,7 @@ import {
   nativeApiCorsHeaders,
 } from '@/lib/supabase/admin';
 import { readBoundedJson } from '@/lib/http/read-json';
-import { checkApiRateLimit, rateLimitResponseHeaders } from '@/lib/security/api-rate-limit';
+import { checkApiRateLimit, checkTrustedIpRateLimit, rateLimitResponseHeaders } from '@/lib/security/api-rate-limit';
 
 function respond(request: Request, body: unknown, status = 200, extraHeaders?: HeadersInit) {
   const headers = nativeApiCorsHeaders(request);
@@ -114,6 +114,16 @@ export async function POST(request: Request) {
       { error: rateLimit.unavailable ? 'Appeals are temporarily unavailable' : 'Please wait before submitting another appeal.' },
       rateLimit.unavailable ? 503 : 429,
       rateLimitResponseHeaders(rateLimit.retryAfterSeconds)
+    );
+  }
+
+  const ipRateLimit = await checkTrustedIpRateLimit(request, 'appeal:submit:ip', 5, 600);
+  if (ipRateLimit && !ipRateLimit.allowed) {
+    return respond(
+      request,
+      { error: ipRateLimit.unavailable ? 'Appeals are temporarily unavailable' : 'Too many appeals have been submitted from this network. Please wait.' },
+      ipRateLimit.unavailable ? 503 : 429,
+      rateLimitResponseHeaders(ipRateLimit.retryAfterSeconds)
     );
   }
 
