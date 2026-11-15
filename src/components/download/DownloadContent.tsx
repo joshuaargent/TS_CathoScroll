@@ -333,15 +333,14 @@ export default function DownloadContent({
             </p>
 
             <p className="text-text-secondary mt-4 leading-relaxed">
-              Windows and Linux desktop apps check for updates when
-              launched, download available updates in the background,
-              and install them after the app is closed. macOS updates
-              currently require a manual download because the app is
-              not code-signed. Android updates are distributed as signed
-              APKs; download the latest APK and approve Android's
-              installer prompt. After the first migration from a
-              debug-signed build, release APKs can update the installed
-              app without uninstalling it.
+              Windows, Linux, and signed macOS desktop apps check for
+              updates when launched, download available updates in the
+              background, and install them after the app is closed.
+              Android updates are distributed as signed APKs; download
+              the latest APK and approve Android's installer prompt.
+              After the first migration from a debug-signed build,
+              release APKs can update the installed app without
+              uninstalling it.
             </p>
 
             <div className="mt-6">
