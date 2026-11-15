@@ -18,7 +18,7 @@ env:
   RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
 
 concurrency:
-  group: cathoscroll-release-${{ inputs.release_tag || github.ref }}
+  group: cathoscroll-release-${{ inputs.release_tag || github.ref_name }}
   cancel-in-progress: false
 
 jobs:
@@ -29,7 +29,7 @@ jobs:
       - name: Check out tagged source
         uses: actions/checkout@v7
         with:
-          ref: ${{ inputs.release_tag || github.ref }}
+          ref: refs/tags/${{ inputs.release_tag || github.ref_name }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v7
@@ -77,7 +77,7 @@ jobs:
       - name: Check out tagged source
         uses: actions/checkout@v7
         with:
-          ref: ${{ inputs.release_tag || github.ref }}
+          ref: refs/tags/${{ inputs.release_tag || github.ref_name }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v7
@@ -148,7 +148,7 @@ jobs:
       - name: Check out tagged source
         uses: actions/checkout@v7
         with:
-          ref: ${{ inputs.release_tag || github.ref }}
+          ref: refs/tags/${{ inputs.release_tag || github.ref_name }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v7
@@ -275,7 +275,7 @@ jobs:
           # electron-builder no longer publishes per-platform. Create the draft
           # once, then upload the complete, verified set from this single job.
           if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
-            gh release create "$RELEASE_TAG" --draft --title "CathoScroll $RELEASE_TAG" --generate-notes
+            gh release create "$RELEASE_TAG" --verify-tag --draft --title "CathoScroll $RELEASE_TAG" --generate-notes
           fi
 
           gh release upload "$RELEASE_TAG" \
