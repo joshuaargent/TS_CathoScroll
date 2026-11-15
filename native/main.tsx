@@ -563,6 +563,7 @@ function App() {
 
   useEffect(() => {
     if (!catalogue || authStatus !== 'ready') return;
+    const localCatalogue = catalogue;
     let active = true;
     let controller: AbortController | null = null;
 
@@ -571,7 +572,7 @@ function App() {
       controller = new AbortController();
       try {
         if (!navigator.onLine) {
-          const page = await catalogue.topics();
+          const page = await localCatalogue.topics();
           if (!active) return;
           setFirstPage(page);
           setFeedPersonalized(false);
@@ -679,7 +680,7 @@ function App() {
   }, [catalogueMessage]);
 
   useEffect(() => {
-    const message = activityStatus?.userId === user?.id ? activityStatus.error : '';
+    const message = activityStatus && activityStatus.userId === user?.id ? activityStatus.error : '';
     if (!message) {
       clearNativeStatusNotice('account-activity');
       return;
@@ -951,7 +952,6 @@ function App() {
     }
     function restore() {
       setHref(currentHref());
-      setNavigationMessage('');
       window.scrollTo(0, 0);
     }
     function interceptInternalLinks(event: MouseEvent) {
