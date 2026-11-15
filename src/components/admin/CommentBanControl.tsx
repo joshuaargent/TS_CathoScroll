@@ -21,6 +21,12 @@ export function CommentBanControl({
 }: CommentBanControlProps) {
   const [restrictionActive, setRestrictionActive] = useState(activeBan);
   const [currentReason, setCurrentReason] = useState(reason ?? '');
+  useEffect(() => {
+    setRestrictionActive(activeBan);
+    setCurrentReason(reason ?? '');
+  }, [activeBan, reason]);
+
+
   const [moderationReason, setModerationReason] = useState('');
   const [hideExistingComments, setHideExistingComments] = useState(false);
   const [restoreHiddenComments, setRestoreHiddenComments] = useState(true);
