@@ -852,9 +852,15 @@ function App() {
         await service.initialize();
         if (await service.refresh(controller.signal)) uiNeedsReload = true;
         if (uiNeedsReload) {
-          const page = await localCatalogue.topics();
+          // A catalogue refresh updates the offline browse cache, not the live
+          // personalized feed. Replacing its first page would also mismatch
+          // the server-owned recommendation cursor used by subsequent pages.
+          if (!feedPersonalized) {
+            const page = await localCatalogue.topics();
+            if (!active) return;
+            setFirstPage(page);
+          }
           if (!active) return;
-          setFirstPage(page);
           setCatalogueVersion((version) => version + 1);
           uiNeedsReload = false;
         }
@@ -896,7 +902,7 @@ function App() {
       window.removeEventListener('focus', request);
       document.removeEventListener('visibilitychange', resume);
     };
-  }, [catalogueRefresh, catalogue]);
+  }, [catalogueRefresh, catalogue, feedPersonalized]);
 
   useEffect(() => {
     if (!user?.id || authStatus !== 'ready') return;
