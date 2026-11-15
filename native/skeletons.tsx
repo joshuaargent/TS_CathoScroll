@@ -3,10 +3,6 @@ import { Skeleton, SkeletonCard } from '@/components/ui/Skeleton';
 export function NativeGridSkeleton({ label }: { label: string }) {
   return (
     <section role="status" aria-label={label} aria-busy="true">
-      <div className="mb-8 space-y-3">
-        <Skeleton className="h-8 w-48" />
-        <Skeleton className="h-4 w-72 max-w-full" />
-      </div>
       <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
         {Array.from({ length: 6 }, (_, index) => (
           <SkeletonCard key={index} />
