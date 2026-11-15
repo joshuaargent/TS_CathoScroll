@@ -51,7 +51,17 @@ async function fixture(t, server) {
   const assets = path.join(bundle, 'assets', 'databases');
   await mkdir(assets, { recursive: true });
   const catalogue = new DatabaseSync(path.join(assets, 'catalogue.db'));
-  catalogue.exec("CREATE TABLE topics (id TEXT); INSERT INTO topics VALUES ('bundled');");
+  catalogue.exec(`
+    CREATE TABLE topics (id TEXT);
+    INSERT INTO topics VALUES ('bundled');
+    CREATE TABLE catalogue_metadata (
+      singleton INTEGER PRIMARY KEY,
+      format INTEGER NOT NULL,
+      category_count INTEGER NOT NULL,
+      topic_count INTEGER NOT NULL
+    );
+    INSERT INTO catalogue_metadata VALUES (1, 1, 0, 1);
+  `);
   catalogue.close();
 
   const source = await readFile(
