@@ -111,7 +111,7 @@ function getPlatformAssets(
 }
 
 function renderInlineMarkdown(value: string): ReactNode[] {
-  return value.split(/(\\*\\*[^*]+\\*\\*)/g).map((part, index) => {
+  return value.split(/(\*\*[^*]+\*\*)/g).map((part, index) => {
     if (part.startsWith('**') && part.endsWith('**')) {
       return <strong key={index}>{part.slice(2, -2)}</strong>;
     }
@@ -121,7 +121,7 @@ function renderInlineMarkdown(value: string): ReactNode[] {
 }
 
 function ReleaseNotes({ body }: { body: string }) {
-  const lines = body.replace(/\\r\\n/g, '\\n').split('\\n');
+  const lines = body.replace(/\r\n/g, '\n').split('\n');
   const blocks: Array<
     | { type: 'heading'; level: number; content: string }
     | { type: 'paragraph'; content: string }
@@ -136,7 +136,7 @@ function ReleaseNotes({ body }: { body: string }) {
       continue;
     }
 
-    const heading = line.match(/^(#{1,3})\\s+(.+)$/);
+    const heading = line.match(/^(#{1,3})\s+(.+)$/);
     if (heading) {
       blocks.push({
         type: 'heading',
@@ -147,11 +147,11 @@ function ReleaseNotes({ body }: { body: string }) {
       continue;
     }
 
-    if (/^[-*]\\s+/.test(line)) {
+    if (/^[-*]\s+/.test(line)) {
       const items: string[] = [];
 
-      while (index < lines.length && /^\\s*[-*]\\s+/.test(lines[index])) {
-        items.push(lines[index].trim().replace(/^[-*]\\s+/, ''));
+      while (index < lines.length && /^\s*[-*]\s+/.test(lines[index])) {
+        items.push(lines[index].trim().replace(/^[-*]\s+/, ''));
         index++;
       }
 
@@ -165,8 +165,8 @@ function ReleaseNotes({ body }: { body: string }) {
     while (
       index < lines.length &&
       lines[index].trim() &&
-      !/^\\s*#{1,3}\\s+/.test(lines[index]) &&
-      !/^\\s*[-*]\\s+/.test(lines[index])
+      !/^\s*#{1,3}\s+/.test(lines[index]) &&
+      !/^\s*[-*]\s+/.test(lines[index])
     ) {
       paragraph.push(lines[index].trim());
       index++;
