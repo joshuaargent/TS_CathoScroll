@@ -122,7 +122,7 @@ async function updateRole(request: Request, userId: string, grant: boolean) {
     console.error('Unable to change administrator role:', error.message);
     return respond(request, { error: 'Unable to change administrator access.' }, { status: 500 });
   }
-  return respond(request, data);
+  return respond(request, { success: true, isAdmin: grant, changed: data?.changed === 1 });
 }
 
 export async function POST(request: Request, { params }: RouteContext) {
