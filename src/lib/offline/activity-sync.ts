@@ -100,6 +100,13 @@ export class OfflineActivitySync {
       signal?.throwIfAborted();
       const receipt = await this.send(operation, signal);
       signal?.throwIfAborted();
+      if (
+        receipt.status !== undefined &&
+        receipt.status !== 'applied' &&
+        receipt.status !== 'rejected'
+      ) {
+        throw new Error('The server returned an invalid offline activity receipt status.');
+      }
       if (receipt.operationId !== operation.operationId || receipt.userId !== userId) {
         throw new Error('The server returned a mismatched offline activity receipt.');
       }
