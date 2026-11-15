@@ -133,7 +133,7 @@ export function NativeNotificationBell({
       setHasCountError(true);
       notifyNativeStatus('Your unread notification count could not be loaded.', {
         id: 'notification-count:' + userId,
-        action: { label: 'Retry', onClick: () => void refresh() },
+        action: { label: 'Retry', onClick: () => window.dispatchEvent(new Event('cathoscroll:notifications-changed')) },
       });
     }
   }, [transport, storageError, userId]);
