@@ -728,6 +728,7 @@ export function CommentSection({
     }
 
     setComments((prev) => replaceCommentId(prev, tempId, data.id));
+    setTotalCommentCount((previous) => (previous === null ? null : previous + 1));
     if (cache) await loadComments();
   }
 
@@ -786,6 +787,7 @@ export function CommentSection({
     }
 
     setComments((prev) => replaceCommentId(prev, tempId, data.id));
+    setTotalCommentCount((previous) => (previous === null ? null : previous + 1));
     if (cache) await loadComments();
   }
 
@@ -1183,6 +1185,27 @@ export function CommentSection({
               pinActionPending={pinningCommentId !== null}
             />
           ))}
+        </div>
+      )}
+
+      {hasMoreComments && isOnline && !cachedAt && (
+        <div className="mt-6 flex flex-col items-center gap-3">
+          <p className="text-text-secondary text-sm">
+            Showing {countComments(comments)} of {commentCount} comments
+          </p>
+          {loadMoreError && (
+            <p role="alert" className="text-sm text-red-600">
+              {loadMoreError}
+            </p>
+          )}
+          <button
+            type="button"
+            onClick={() => void loadMoreComments()}
+            disabled={loadingMoreComments}
+            className="border-border hover:bg-surface-secondary rounded-full border px-5 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {loadingMoreComments ? 'Loading more comments…' : 'Load more comments'}
+          </button>
         </div>
       )}
     </section>
