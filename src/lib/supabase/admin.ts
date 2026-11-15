@@ -56,9 +56,16 @@ async function adminMfaSatisfied(supabase: Awaited<ReturnType<typeof createClien
   if (enforcementError) throw new Error(enforcementError.message);
   if (enforced !== true) return true;
 
-  const { data, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+  const [{ data, error }, { data: factorData, error: factorError }] = await Promise.all([
+    supabase.auth.mfa.getAuthenticatorAssuranceLevel(),
+    supabase.auth.mfa.listFactors(),
+  ]);
   if (error) throw new Error(error.message);
-  return data.currentLevel === 'aal2';
+  if (factorError) throw new Error(factorError.message);
+  const hasVerifiedFactor = [...(factorData.totp ?? []), ...(factorData.phone ?? [])].some(
+    (factor) => factor.status === 'verified'
+  );
+  return data.currentLevel === 'aal2' && data.nextLevel === 'aal2' && hasVerifiedFactor;
 }
 
 export async function getAdminSessionFromRequest(request: Request) {
