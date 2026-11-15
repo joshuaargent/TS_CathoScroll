@@ -148,14 +148,12 @@ export function NativeAccount({
 
         clearNativeStatusNotice('account-profile-load:' + userId);
         try {
-          const { data: membership, error: membershipError } = await client
-            .from('profiles')
-            .select('subscription_tier')
-            .eq('id', userId)
-            .maybeSingle();
+          const { data: membership, error: membershipError } = await client.rpc(
+            'get_own_subscription_tier'
+          );
           if (membershipError) throw membershipError;
           if (active) {
-            setSubscriptionTier(membership?.subscription_tier ?? 'free');
+            setSubscriptionTier(typeof membership === 'string' ? membership : 'free');
             setMembershipUserId(userId);
             clearNativeStatusNotice('account-membership');
           }
