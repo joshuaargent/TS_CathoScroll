@@ -527,6 +527,7 @@ SELECT
 FROM public.comments AS comment;
 
 REVOKE SELECT ON TABLE public.comments FROM anon, authenticated;
+REVOKE SELECT (content) ON TABLE public.comments FROM anon, authenticated;
 GRANT SELECT (
   id,
   topic_id,
