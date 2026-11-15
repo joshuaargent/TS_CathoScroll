@@ -144,7 +144,7 @@ export class CathoSQLite {
       try {
         validateCatalogue(destination);
         return;
-      } catch (error) {
+      } catch {
         // The catalogue is a rebuildable public-content cache. Preserve the
         // damaged file until a validated replacement is ready to publish.
         const backup = `${destination}.corrupt-${randomUUID()}`;
