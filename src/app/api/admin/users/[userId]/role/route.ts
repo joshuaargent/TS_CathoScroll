@@ -105,6 +105,9 @@ export async function GET(request: Request, { params }: RouteContext) {
 }
 
 async function updateRole(request: Request, userId: string, grant: boolean) {
+  if (!isSameOriginOrNativeRequest(request)) {
+    return respond(request, { error: 'Forbidden' }, { status: 403 });
+  }
   if (!isValidUuid(userId)) return respond(request, { error: 'Invalid user id' }, { status: 400 });
   const auth = await authorize(request, true);
   if ('response' in auth) return auth.response;
