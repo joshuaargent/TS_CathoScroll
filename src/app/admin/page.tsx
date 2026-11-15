@@ -40,7 +40,7 @@ export default async function AdminPage() {
             View all reports
           </Link>
         </div>
-        <AdminReportList reports={reports} adminUserId={user.id} />
+        <AdminReportListClient reports={reports} adminUserId={user.id} />
       </section>
 
       <section>
