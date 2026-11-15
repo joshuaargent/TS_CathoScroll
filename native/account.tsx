@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/Button';
+import { NativeSignin } from './signin';
+import { secureAuthStorage } from './secure-auth-storage';
 import { Input } from '@/components/ui/Input';
 import type { CachedIdentity } from './cached-identity';
 import type { NativeActivity } from './activity';
@@ -75,7 +77,7 @@ export function NativeAccount({
     setLoading(true);
     async function loadAccount() {
       try {
-        const database = await openPrivateActivityDatabase();
+        const database = await openPrivateActivityDatabase(secureAuthStorage);
         const profileCache = new NativeProfileCache(database);
         await profileCache.initialize();
         const cached = await profileCache.load(accountId);
@@ -261,16 +263,10 @@ export function NativeAccount({
   if (checking || loading && !profile) return <p className="container py-12">Loading account…</p>;
   if (!user) {
     return online ? (
-      <div className="container py-12">
-        <h1 className="text-5xl font-extrabold md:text-7xl">Account</h1>
-        <p className="text-text-secondary mt-4 text-lg">
-          Manage your public profile, account details, and password.
-        </p>
-        <p className="text-text-secondary mt-8">Sign in to access your account.</p>
-        <button type="button" className="text-accent mt-4 underline" onClick={onSignedIn}>
-          Sign in
-        </button>
-      </div>
+      <NativeSignin
+        onSignedIn={onSignedIn}
+        description="Sign in to keep your bookmarks and learning progress linked to your account."
+      />
     ) : null;
   }
 
