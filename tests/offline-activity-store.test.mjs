@@ -1881,6 +1881,9 @@ test('orders offline bookmarks by saved time and paginates with a stable date/to
       });
     }
     await store.recordBookmarkTimestamps('alice', timestamps);
+    db.prepare(
+      "UPDATE offline_activity SET bookmark_saved_at = 'not-a-date' WHERE user_id = 'alice' AND topic_id = 'topic-000' AND kind = 'bookmark'"
+    ).run();
     const first = await store.listActivity('alice', 'bookmark');
     const second = await store.listActivity('alice', 'bookmark', first.nextCursor);
     assert.equal(first.topicIds.length, 50);
@@ -1888,6 +1891,7 @@ test('orders offline bookmarks by saved time and paginates with a stable date/to
     assert.equal(first.topicIds[0], 'topic-054');
     assert.equal(first.topicIds[49], 'topic-005');
     assert.deepEqual(second.topicIds, ['topic-004', 'topic-003', 'topic-002', 'topic-001', 'topic-000']);
+    assert.equal(second.items[4].savedAt, null);
     assert.equal(second.nextCursor, null);
   } finally {
     db.close();
