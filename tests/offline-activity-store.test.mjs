@@ -1810,6 +1810,17 @@ test('preserves bookmark save timestamps for offline display and upgrades existi
       serverSavedAt
     );
 
+    // A server snapshot refresh must not erase the locally cached created_at value.
+    await store.beginBootstrap('alice', 'replacement-snapshot', '0', true);
+    await store.stageBootstrap('alice', 'replacement-snapshot', [
+      { topicId: 'topic-a', kind: 'bookmark', completedAt: null },
+    ]);
+    await store.completeBootstrap('alice', 'replacement-snapshot');
+    assert.equal(
+      (await store.listActivity('alice', 'bookmark')).items[0].savedAt,
+      serverSavedAt
+    );
+
     await store.setActivity('alice', 'topic-b', 'bookmark', true, 'bookmark-b');
     await store.setActivity('alice', 'topic-a', 'bookmark', false, 'remove-a');
     const afterChanges = await store.listActivity('alice', 'bookmark');
