@@ -9,6 +9,10 @@ export const metadata: Metadata = {
   alternates: {
     canonical: new URL('/learn', siteConfig.url).toString(),
   },
+  robots: {
+    index: false,
+    follow: true,
+  },
 };
 
 export default function LearnPage() {
