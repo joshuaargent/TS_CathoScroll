@@ -406,6 +406,130 @@ test('a retention reset during snapshot replay leaves the existing account state
   }
 });
 
+test('pending activity changes expose the latest queued bookmark value per topic', async () => {
+  const db = new DatabaseSync(':memory:');
+  try {
+    const store = new OfflineActivityStore(adapter(db));
+    await store.initialize();
+    await bootstrap(store);
+    await store.setActivity('alice', 'restore', 'bookmark', true, 'first-save');
+    await store.setActivity('alice', 'restore', 'bookmark', false, 'remove');
+    await store.setActivity('alice', 'restore', 'bookmark', true, 'save-again');
+    await store.setActivity('alice', 'remove', 'bookmark', true, 'save-then-remove');
+    await store.setActivity('alice', 'remove', 'bookmark', false, 'final-remove');
+
+    const changes = await store.pendingChanges('alice', 'bookmark');
+    assert.deepEqual(changes.map(({ topicId, value }) => ({ topicId, value })), [
+      { topicId: 'restore', value: true },
+      { topicId: 'remove', value: false },
+    ]);
+    assert.equal(typeof changes[0].savedAt, 'string');
+  } finally {
+    db.close();
+  }
+});
+
+test('legacy migration preserves comment, count and encrypted note caches', async () => {
+  const sourceDb = new DatabaseSync(':memory:');
+  const targetDb = new DatabaseSync(':memory:');
+  try {
+    const source = adapter(sourceDb);
+    const target = adapter(targetDb);
+    const oldStore = new OfflineActivityStore(source);
+    const newStore = new OfflineActivityStore(target);
+    await oldStore.initialize();
+    await newStore.initialize();
+    await bootstrap(oldStore);
+    sourceDb.exec(`
+      CREATE TABLE offline_comment_cache (
+        topic_id TEXT PRIMARY KEY NOT NULL,
+        comments TEXT NOT NULL,
+        saved_at TEXT NOT NULL
+      );
+      CREATE TABLE offline_topic_counts (
+        topic_id TEXT PRIMARY KEY NOT NULL,
+        likes INTEGER NOT NULL,
+        comments INTEGER NOT NULL,
+        saved_at TEXT NOT NULL
+      );
+      CREATE TABLE offline_private_notes (
+        note_key TEXT PRIMARY KEY NOT NULL,
+        nonce TEXT NOT NULL,
+        ciphertext TEXT NOT NULL
+      );
+    `);
+    sourceDb.prepare('INSERT INTO offline_comment_cache VALUES (?, ?, ?)').run(
+      'topic-one', '[{"id":1}]', '2026-11-15T10:00:00.000Z'
+    );
+    sourceDb.prepare('INSERT INTO offline_topic_counts VALUES (?, ?, ?, ?)').run(
+      'topic-one', 12, 4, '2026-11-15T10:00:00.000Z'
+    );
+    sourceDb.prepare('INSERT INTO offline_private_notes VALUES (?, ?, ?)').run(
+      'opaque-note-key', 'opaque-nonce', 'encrypted-ciphertext'
+    );
+
+    await migrateLegacyActivity(source, target);
+    assert.equal(
+      targetDb.prepare('SELECT comments FROM offline_comment_cache WHERE topic_id = ?').get('topic-one').comments,
+      '[{"id":1}]'
+    );
+    assert.equal(
+      targetDb.prepare('SELECT likes FROM offline_topic_counts WHERE topic_id = ?').get('topic-one').likes,
+      12
+    );
+    assert.equal(
+      targetDb.prepare('SELECT ciphertext FROM offline_private_notes WHERE note_key = ?').get('opaque-note-key').ciphertext,
+      'encrypted-ciphertext'
+    );
+  } finally {
+    sourceDb.close();
+    targetDb.close();
+  }
+});
+
+test('a completed activity migration merges caches written by older app versions', async () => {
+  const sourceDb = new DatabaseSync(':memory:');
+  const targetDb = new DatabaseSync(':memory:');
+  try {
+    const source = adapter(sourceDb);
+    const target = adapter(targetDb);
+    const oldStore = new OfflineActivityStore(source);
+    const newStore = new OfflineActivityStore(target);
+    await oldStore.initialize();
+    await newStore.initialize();
+    await bootstrap(oldStore);
+    sourceDb.exec(`CREATE TABLE offline_private_notes (
+      note_key TEXT PRIMARY KEY NOT NULL,
+      nonce TEXT NOT NULL,
+      ciphertext TEXT NOT NULL
+    )`);
+    sourceDb.prepare('INSERT INTO offline_private_notes VALUES (?, ?, ?)').run(
+      'existing', 'nonce-old', 'cipher-old'
+    );
+    await migrateLegacyActivity(source, target);
+
+    sourceDb.prepare('INSERT INTO offline_private_notes VALUES (?, ?, ?)').run(
+      'added-later', 'nonce-new', 'cipher-new'
+    );
+    targetDb.prepare('INSERT INTO offline_private_notes VALUES (?, ?, ?)').run(
+      'existing', 'nonce-private', 'cipher-private'
+    );
+    await migrateLegacyActivity(source, target);
+
+    assert.equal(
+      targetDb.prepare('SELECT ciphertext FROM offline_private_notes WHERE note_key = ?').get('existing').ciphertext,
+      'cipher-private'
+    );
+    assert.equal(
+      targetDb.prepare('SELECT ciphertext FROM offline_private_notes WHERE note_key = ?').get('added-later').ciphertext,
+      'cipher-new'
+    );
+  } finally {
+    sourceDb.close();
+    targetDb.close();
+  }
+});
+
 test('legacy migration preserves rejected operations and their notification state', async () => {
   const sourceDb = new DatabaseSync(':memory:');
   const targetDb = new DatabaseSync(':memory:');
