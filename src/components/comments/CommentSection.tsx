@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Comment, Profile } from '../../lib/supabase/types';
 
@@ -227,7 +227,8 @@ export function CommentSection({
   const loadVersion = useRef(0);
   const loadMoreInFlight = useRef(false);
 
-  const commentCount = totalCommentCount ?? countComments(comments);
+  const loadedCommentCount = useMemo(() => countComments(comments), [comments]);
+  const commentCount = totalCommentCount ?? loadedCommentCount;
 
   const hasPinnedComment = comments.some((comment) => comment.is_pinned);
 
@@ -1189,7 +1190,7 @@ export function CommentSection({
       {hasMoreComments && isOnline && !cachedAt && (
         <div className="mt-6 flex flex-col items-center gap-3">
           <p className="text-text-secondary text-sm">
-            Showing {countComments(comments)} of {commentCount} comments
+            Showing {loadedCommentCount} of {commentCount} comments
           </p>
           {loadMoreError && (
             <p role="alert" className="text-sm text-red-600">
