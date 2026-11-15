@@ -21,6 +21,9 @@ export default defineConfig(({ command, mode }) => {
     // ContactPage is shared with Next.js and reads this public build-time value.
     define: {
       'process.env.NEXT_PUBLIC_FORMSPREE_FORM_ID': JSON.stringify(env.NEXT_PUBLIC_FORMSPREE_FORM_ID ?? ''),
+      'process.env.NEXT_PUBLIC_SITE_URL': JSON.stringify(
+        env.NEXT_PUBLIC_SITE_URL ?? 'https://www.cathoscroll.com'
+      ),
     },
     base: './',
     resolve: {
