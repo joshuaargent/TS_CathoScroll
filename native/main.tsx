@@ -1104,6 +1104,7 @@ function App() {
               {route?.kind === 'learn' && <LearnContent />}
               {route?.kind === 'account' && (
                 <NativeAccount
+                  key={user?.id ?? 'signed-out'}
                   user={user}
                   checking={authStatus === 'loading' || checkingAccount}
                   available={authStatus !== 'unavailable'}
