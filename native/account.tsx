@@ -89,6 +89,7 @@ export function NativeAccount({
           const cached = await profileCache.load(userId);
           if (!active) return;
           cache.current = profileCache;
+          clearNativeStatusNotice('account-profile-cache:' + userId);
           if (cached) {
             setProfile(cached);
             setProfileUserId(userId);
@@ -150,6 +151,7 @@ export function NativeAccount({
             clearNativeStatusNotice('account-membership');
           }
         } catch (membershipCause) {
+          setMembershipUserId(null);
           console.error('Unable to load account membership:', membershipCause);
           if (active) {
             notifyNativeStatus('Your membership details could not be loaded.', {
@@ -162,6 +164,7 @@ export function NativeAccount({
         console.error('Unable to load account details:', cause);
         if (!active) return;
         setVerified(false);
+        setMembershipUserId(null);
         setProfileUserId(userId);
         notifyNativeStatus('Some account details could not be refreshed. Cached details remain available where possible.', {
           id: 'account-profile-load:' + userId,
@@ -198,10 +201,11 @@ export function NativeAccount({
         throw new Error('Display name must be at least 2 characters.');
       }
       if (profile.bio.length > 250) throw new Error('Bio cannot exceed 250 characters.');
-      if (newPassword && newPassword.length < 8) {
+      const passwordChanged = Boolean(newPassword.trim());
+      if (passwordChanged && newPassword.length < 8) {
         throw new Error('Password must be at least 8 characters.');
       }
-      if (newPassword && newPassword !== confirmPassword) {
+      if (passwordChanged && newPassword !== confirmPassword) {
         throw new Error('Passwords do not match.');
       }
       if (!email.trim() || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email.trim())) {
@@ -246,7 +250,9 @@ export function NativeAccount({
         }
       }
 
-      if (newPassword) {
+      // Profile, email, and password are separate Supabase mutations; report
+      // partial success accurately instead of implying the whole form rolled back.
+      if (passwordChanged) {
         try {
           await updateNativePassword(client, user.id, newPassword, confirmPassword);
           setNewPassword('');
