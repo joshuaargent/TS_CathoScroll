@@ -39,6 +39,7 @@ export function NativeAccount({
       clearNativeStatusNotice('account-membership');
       return;
     }
+    const accountId = user.id;
     let active = true;
     async function loadMembership() {
       if (!navigator.onLine) return;
@@ -46,12 +47,12 @@ export function NativeAccount({
         const { data, error: profileError } = await createClient()
           .from('profiles')
           .select('subscription_tier')
-          .eq('id', user.id)
+          .eq('id', accountId)
           .maybeSingle();
         if (profileError) throw profileError;
         if (active) {
           setSubscriptionTier(data?.subscription_tier ?? 'free');
-          setMembershipUserId(user.id);
+          setMembershipUserId(accountId);
         }
         clearNativeStatusNotice('account-membership');
       } catch (cause) {
