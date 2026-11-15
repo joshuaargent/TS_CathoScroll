@@ -1,5 +1,6 @@
 import { getRecentlyCreatedPublishedTopics } from '@/lib/content';
 import { siteConfig } from '@/lib/constants';
+import { checkTrustedIpRateLimit, rateLimitResponseHeaders } from '@/lib/security/api-rate-limit';
 
 function escapeXml(value: string) {
   return value
@@ -10,7 +11,18 @@ function escapeXml(value: string) {
     .replaceAll("'", '&apos;');
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+  const rateLimit = await checkTrustedIpRateLimit(request, 'feed:ip', 60, 60);
+  if (rateLimit && !rateLimit.allowed) {
+    return new Response('Too many feed requests.', {
+      status: rateLimit.unavailable ? 503 : 429,
+      headers: {
+        'Cache-Control': 'private, no-store',
+        ...rateLimitResponseHeaders(rateLimit.retryAfterSeconds),
+      },
+    });
+  }
+
   const topics = await getRecentlyCreatedPublishedTopics();
   const baseUrl = siteConfig.url.replace(/\/+$/, '');
   const items = topics
