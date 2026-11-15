@@ -259,7 +259,7 @@ jobs:
         run: |
           set -euo pipefail
           assets="$(gh release view "$GITHUB_REF_NAME" --json assets --jq '.assets[].name')"
-          printf '%s\\n' "$assets"
+          printf '%s\n' "$assets"
           for expected in '.exe' '.AppImage' '.deb' '.dmg' '.zip' 'latest.yml' 'latest-linux.yml'; do
             if ! grep -Fq "$expected" <<<"$assets"; then
               echo "Missing published desktop release asset matching: $expected"
