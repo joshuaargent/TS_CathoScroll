@@ -12,6 +12,63 @@ import {
 } from '@/lib/offline/catalogue';
 import type { ContentCategory, Topic } from '@/types';
 import { createClient } from './supabase';
+import { notifyNativeStatus, clearNativeStatusNotice } from './offline-indicator';
+
+type OnlineTopicRow = {
+  id: string;
+  slug: string;
+  order_index: number;
+  question: string;
+  answer: string;
+  explanation: string;
+  catechism_paragraphs: string[] | null;
+  catechism_text: string;
+  scripture_reference: string;
+  scripture_text: string;
+  category: { name: string } | Array<{ name: string }> | null;
+};
+
+async function loadOnlineTopics(category?: string, cursor?: CatalogueCursor | null) {
+  let query = createClient()
+    .from('topics')
+    .select('id,slug,order_index,question,answer,explanation,catechism_paragraphs,catechism_text,scripture_reference,scripture_text,category:categories!inner(name,slug,is_published)')
+    .eq('is_published', true)
+    .eq('category.is_published', true)
+    .order('order_index', { ascending: true })
+    .order('id', { ascending: true })
+    .limit(31);
+  if (category) query = query.eq('category.slug', category);
+  if (cursor) {
+    query = query.or(
+      'order_index.gt.' + cursor.orderIndex +
+      ',and(order_index.eq.' + cursor.orderIndex + ',id.gt.' + cursor.id + ')'
+    );
+  }
+  const { data, error } = await query;
+  if (error) throw error;
+  const rows = (data ?? []) as unknown as OnlineTopicRow[];
+  const hasMore = rows.length > 30;
+  const pageRows = hasMore ? rows.slice(0, 30) : rows;
+  const topics = pageRows.map((row) => {
+    const relation = Array.isArray(row.category) ? row.category[0] : row.category;
+    return {
+      id: row.id,
+      slug: row.slug,
+      category: relation?.name ?? '',
+      question: row.question,
+      answer: row.answer,
+      explanation: row.explanation,
+      catechism: { paragraphs: row.catechism_paragraphs ?? [], text: row.catechism_text },
+      scripture: { reference: row.scripture_reference, text: row.scripture_text },
+    } satisfies Topic;
+  });
+  const last = pageRows.at(-1);
+  return {
+    topics,
+    nextCursor: hasMore && last ? { orderIndex: last.order_index, id: last.id } : null,
+  };
+}
+
 
 export function CategoriesPage({ catalogue }: { catalogue: OfflineCatalogue }) {
   const [categories, setCategories] = useState<ContentCategory[]>([]);
@@ -23,22 +80,69 @@ export function CategoriesPage({ catalogue }: { catalogue: OfflineCatalogue }) {
 
   useEffect(() => {
     let active = true;
-    Promise.all([catalogue.categories(), catalogue.totals()]).then(
-      ([page, counts]) => {
-        if (!active) return;
-        setCategories(page.categories);
-        setTotals(counts);
-        setCursor(page.nextCursor);
-        setLoading(false);
-      },
-      (cause: unknown) => {
-        console.error('Unable to load offline categories:', cause);
-        if (active) {
-          setError('Unable to load categories. Please try again.');
-          setLoading(false);
+    async function load() {
+      try {
+        if (navigator.onLine) {
+          try {
+            const client = createClient();
+            const [categoryResult, topicResult] = await Promise.all([
+              client.from('categories')
+                .select('slug,name,description,order_index')
+                .eq('is_published', true)
+                .order('order_index', { ascending: true })
+                .order('slug', { ascending: true }),
+              client.from('topics')
+                .select('id,category:categories!inner(is_published)', { count: 'exact', head: true })
+                .eq('is_published', true)
+                .eq('category.is_published', true),
+            ]);
+            if (categoryResult.error) throw categoryResult.error;
+            if (topicResult.error) throw topicResult.error;
+            if (!active) return;
+            setCategories((categoryResult.data ?? []).map((category) => ({
+              slug: category.slug,
+              name: category.name,
+              description: category.description,
+              orderIndex: category.order_index,
+            })));
+            setTotals({ categories: categoryResult.data?.length ?? 0, topics: topicResult.count ?? 0 });
+            setCursor(null);
+            clearNativeStatusNotice('categories-fallback');
+          } catch (onlineError) {
+            console.error('Unable to load live categories:', onlineError);
+            const [page, counts] = await Promise.all([catalogue.categories(), catalogue.totals()]);
+            if (!active) return;
+            setCategories(page.categories);
+            setTotals(counts);
+            setCursor(page.nextCursor);
+            notifyNativeStatus('Live categories are unavailable. Showing saved categories.', {
+              id: 'categories-fallback',
+              action: { label: 'Retry', onClick: () => setAttempt((value) => value + 1) },
+            });
+          }
+        } else {
+          const [page, counts] = await Promise.all([catalogue.categories(), catalogue.totals()]);
+          if (!active) return;
+          setCategories(page.categories);
+          setTotals(counts);
+          setCursor(page.nextCursor);
+          clearNativeStatusNotice('categories-fallback');
         }
+        clearNativeStatusNotice('categories-load');
+        setError('');
+        setLoading(false);
+      } catch (cause) {
+        console.error('Unable to load categories:', cause);
+        if (!active) return;
+        setError('Unable to load categories. Please try again.');
+        notifyNativeStatus('Unable to load categories. Please try again.', {
+          id: 'categories-load',
+          action: { label: 'Retry', onClick: () => { setError(''); setLoading(true); setAttempt((value) => value + 1); } },
+        });
+        setLoading(false);
       }
-    );
+    }
+    void load();
     return () => {
       active = false;
     };
@@ -55,6 +159,10 @@ export function CategoriesPage({ catalogue }: { catalogue: OfflineCatalogue }) {
     } catch (cause) {
       console.error('Unable to load more offline categories:', cause);
       setError('Unable to load more categories. Please try again.');
+      notifyNativeStatus('Unable to load more categories. Please try again.', {
+        id: 'categories-more',
+        action: { label: 'Retry', onClick: () => void loadMore() },
+      });
     } finally {
       setLoading(false);
     }
@@ -74,26 +182,7 @@ export function CategoriesPage({ catalogue }: { catalogue: OfflineCatalogue }) {
         )}
       </div>
       {loading && !categories.length && <p role="status">Loading categories…</p>}
-      {error && (
-        <p role="alert">
-          {error}{' '}
-          <button
-            type="button"
-            className="text-accent underline"
-            onClick={() => {
-              if (cursor) {
-                void loadMore();
-              } else {
-                setLoading(true);
-                setError('');
-                setAttempt((value) => value + 1);
-              }
-            }}
-          >
-            Retry
-          </button>
-        </p>
-      )}
+
       <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
         {categories.map((category) => (
           <Link key={category.slug} href={`/categories/${encodeURIComponent(category.slug)}`}>
@@ -131,24 +220,43 @@ function TopicList({ catalogue, category }: { catalogue: OfflineCatalogue; categ
 
   useEffect(() => {
     let active = true;
-    catalogue.topics({ category }).then(
-      (page) => {
+    async function load() {
+      try {
+        let page: { topics: Topic[]; nextCursor: CatalogueCursor | null };
+        if (navigator.onLine) {
+          try {
+            page = await loadOnlineTopics(category);
+            clearNativeStatusNotice('category-topics-fallback:' + (category ?? 'all'));
+          } catch (onlineError) {
+            console.error('Unable to load live topics:', onlineError);
+            page = await catalogue.topics({ category });
+            notifyNativeStatus('Live topics are temporarily unavailable. Showing saved topics.', {
+              id: 'category-topics-fallback:' + (category ?? 'all'),
+              action: { label: 'Retry', onClick: () => setAttempt((value) => value + 1) },
+            });
+          }
+        } else {
+          page = await catalogue.topics({ category });
+        }
         if (!active) return;
         setTopics(page.topics);
         setCursor(page.nextCursor);
+        setError('');
+        clearNativeStatusNotice('category-topics:' + (category ?? 'all'));
         setLoading(false);
-      },
-      (cause: unknown) => {
-        console.error('Unable to load offline topics:', cause);
-        if (active) {
-          setError('Unable to load topics. Please try again.');
-          setLoading(false);
-        }
+      } catch (cause) {
+        console.error('Unable to load topics:', cause);
+        if (!active) return;
+        setError('Unable to load topics. Please try again.');
+        notifyNativeStatus('Unable to load topics. Please try again.', {
+          id: 'category-topics:' + (category ?? 'all'),
+          action: { label: 'Retry', onClick: () => { setError(''); setLoading(true); setAttempt((value) => value + 1); } },
+        });
+        setLoading(false);
       }
-    );
-    return () => {
-      active = false;
-    };
+    }
+    void load();
+    return () => { active = false; };
   }, [catalogue, category, attempt]);
 
   async function loadMore() {
@@ -156,12 +264,32 @@ function TopicList({ catalogue, category }: { catalogue: OfflineCatalogue; categ
     setLoading(true);
     setError('');
     try {
-      const page = await catalogue.topics({ category, cursor });
+      let page: { topics: Topic[]; nextCursor: CatalogueCursor | null };
+      if (navigator.onLine) {
+        try {
+          page = await loadOnlineTopics(category, cursor);
+          clearNativeStatusNotice('category-topics-fallback:' + (category ?? 'all'));
+        } catch (onlineError) {
+          console.error('Unable to load more live topics:', onlineError);
+          page = await catalogue.topics({ category, cursor });
+          notifyNativeStatus('Live topics are temporarily unavailable. Showing saved topics.', {
+            id: 'category-topics-fallback:' + (category ?? 'all'),
+            action: { label: 'Retry', onClick: () => void loadMore() },
+          });
+        }
+      } else {
+        page = await catalogue.topics({ category, cursor });
+      }
       setTopics((previous) => [...previous, ...page.topics]);
       setCursor(page.nextCursor);
+      clearNativeStatusNotice('category-topics-more:' + (category ?? 'all'));
     } catch (cause) {
-      console.error('Unable to load more offline topics:', cause);
+      console.error('Unable to load more topics:', cause);
       setError('Unable to load more topics. Please try again.');
+      notifyNativeStatus('Unable to load more topics. Please try again.', {
+        id: 'category-topics-more:' + (category ?? 'all'),
+        action: { label: 'Retry', onClick: () => void loadMore() },
+      });
     } finally {
       setLoading(false);
     }
@@ -174,26 +302,7 @@ function TopicList({ catalogue, category }: { catalogue: OfflineCatalogue; categ
           Loading topics…
         </p>
       )}
-      {error && (
-        <p role="alert" className="mt-8">
-          {error}{' '}
-          <button
-            type="button"
-            className="text-accent underline"
-            onClick={() => {
-              if (cursor) {
-                void loadMore();
-              } else {
-                setLoading(true);
-                setError('');
-                setAttempt((value) => value + 1);
-              }
-            }}
-          >
-            Retry
-          </button>
-        </p>
-      )}
+
       {!loading && !error && !topics.length && (
         <p className="text-text-secondary mt-8">No matching topics found.</p>
       )}
@@ -232,21 +341,70 @@ export function CategoryPage({ catalogue, slug }: { catalogue: OfflineCatalogue;
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     let active = true;
-    Promise.all([catalogue.category(slug), catalogue.categoryTopicCount(slug)]).then(
-      ([result, count]) => {
+    async function load() {
+      try {
+        let result: ContentCategory | null;
+        let count: number;
+        if (navigator.onLine) {
+          try {
+            const client = createClient();
+            const [categoryResult, countResult] = await Promise.all([
+              client.from('categories')
+                .select('slug,name,description,order_index')
+                .eq('slug', slug)
+                .eq('is_published', true)
+                .maybeSingle(),
+              client.from('topics')
+                .select('id,category:categories!inner(slug,is_published)', { count: 'exact', head: true })
+                .eq('is_published', true)
+                .eq('category.is_published', true)
+                .eq('category.slug', slug),
+            ]);
+            if (categoryResult.error) throw categoryResult.error;
+            if (countResult.error) throw countResult.error;
+            result = categoryResult.data ? {
+              slug: categoryResult.data.slug,
+              name: categoryResult.data.name,
+              description: categoryResult.data.description,
+              orderIndex: categoryResult.data.order_index,
+            } : null;
+            count = countResult.count ?? 0;
+            clearNativeStatusNotice('category-page-fallback:' + slug);
+          } catch (onlineError) {
+            console.error('Unable to load live category:', onlineError);
+            [result, count] = await Promise.all([
+              catalogue.category(slug),
+              catalogue.categoryTopicCount(slug),
+            ]);
+            notifyNativeStatus('Live category details are unavailable. Showing saved information.', {
+              id: 'category-page-fallback:' + slug,
+              action: { label: 'Retry', onClick: () => setAttempt((value) => value + 1) },
+            });
+          }
+        } else {
+          [result, count] = await Promise.all([
+            catalogue.category(slug),
+            catalogue.categoryTopicCount(slug),
+          ]);
+        }
         if (!active) return;
         setCategory(result);
         setTopicCount(count);
+        setError('');
+        clearNativeStatusNotice('category-page:' + slug);
         setLoading(false);
-      },
-      (cause: unknown) => {
-        console.error('Unable to load offline category:', cause);
-        if (active) {
-          setError('Unable to load this category. Please try again.');
-          setLoading(false);
-        }
+      } catch (cause) {
+        console.error('Unable to load category:', cause);
+        if (!active) return;
+        setError('Unable to load this category. Please try again.');
+        notifyNativeStatus('Unable to load this category. Please try again.', {
+          id: 'category-page:' + slug,
+          action: { label: 'Retry', onClick: () => { setError(''); setLoading(true); setAttempt((value) => value + 1); } },
+        });
+        setLoading(false);
       }
-    );
+    }
+    void load();
     return () => {
       active = false;
     };
@@ -261,22 +419,7 @@ export function CategoryPage({ catalogue, slug }: { catalogue: OfflineCatalogue;
           Loading category…
         </p>
       )}
-      {error && (
-        <p role="alert" className="mt-8">
-          {error}{' '}
-          <button
-            type="button"
-            className="text-accent underline"
-            onClick={() => {
-              setError('');
-              setLoading(true);
-              setAttempt((value) => value + 1);
-            }}
-          >
-            Retry
-          </button>
-        </p>
-      )}
+
       {!loading && !error && !category && <p className="mt-8">Category not found.</p>}
       {category && (
         <>
@@ -312,7 +455,6 @@ export function SearchPage({
   const [debounced, setDebounced] = useState(query.trim().slice(0, 120));
   const [results, setResults] = useState<TopicSearchResult[]>([]);
   const [resultQuery, setResultQuery] = useState('');
-  const [warning, setWarning] = useState('');
   const [error, setError] = useState('');
   const [connectionVersion, setConnectionVersion] = useState(0);
   useEffect(() => {
@@ -329,7 +471,14 @@ export function SearchPage({
     };
   }, []);
   useEffect(() => {
-    if (!debounced) return;
+    if (!debounced) {
+      setResults([]);
+      setResultQuery('');
+      setError('');
+      clearNativeStatusNotice('search-fallback');
+      clearNativeStatusNotice('search-error');
+      return;
+    }
     let active = true;
     const controller = new AbortController();
     async function search() {
@@ -344,8 +493,9 @@ export function SearchPage({
           if (!active) return;
           setResults(onlineResults);
           setResultQuery(debounced);
-          setWarning('');
           setError('');
+          clearNativeStatusNotice('search-fallback');
+          clearNativeStatusNotice('search-error');
           return;
         } catch (cause) {
           if (!active || controller.signal.aborted) return;
@@ -357,17 +507,23 @@ export function SearchPage({
         if (!active) return;
         setResults(page.topics.slice(0, 30).map((topic) => ({ topic, score: 0 })));
         setResultQuery(debounced);
-        setWarning(
-          navigator.onLine ? 'Online search is unavailable. Showing results from saved topics.' : ''
-        );
         setError('');
+        if (navigator.onLine) {
+          notifyNativeStatus('Online search is unavailable. Showing results from saved topics.', { id: 'search-fallback' });
+        } else {
+          clearNativeStatusNotice('search-fallback');
+        }
+        clearNativeStatusNotice('search-error');
       } catch (cause) {
         console.error('Unable to search saved topics:', cause);
         if (!active) return;
         setResults([]);
         setResultQuery(debounced);
-        setWarning('');
         setError('Search is temporarily unavailable. Please try again.');
+        notifyNativeStatus('Search is temporarily unavailable. Please try again.', {
+          id: 'search-error',
+          action: { label: 'Retry', onClick: () => setConnectionVersion((value) => value + 1) },
+        });
       }
     }
     void search();
@@ -397,18 +553,7 @@ export function SearchPage({
           <span>Searching for &quot;{debounced}&quot;</span>
         </div>
       )}
-      {warning && resultQuery === debounced && (
-        <p role="status" className="text-text-secondary mt-4 text-sm">
-          {warning}
-        </p>
-      )}
-      {error && resultQuery === debounced ? (
-        <p role="alert" className="mt-6 text-sm text-red-600">
-          {error}
-        </p>
-      ) : (
-        <SearchResults query={resultQuery === debounced ? debounced : ''} results={results} />
-      )}
+      {!error && <SearchResults query={resultQuery === debounced ? debounced : ''} results={results} />}
     </div>
   );
 }
