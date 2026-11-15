@@ -329,6 +329,9 @@ export function CategoryPage({ catalogue, slug }: { catalogue: OfflineCatalogue;
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     let active = true;
+    const retry = () => setAttempt((value) => value + 1);
+    window.addEventListener('online', retry);
+    window.addEventListener('offline', retry);
     async function load() {
       try {
         let result: ContentCategory | null;
@@ -356,6 +359,7 @@ export function CategoryPage({ catalogue, slug }: { catalogue: OfflineCatalogue;
             if (categoryResult.error) throw categoryResult.error;
             if (countResult.error) throw countResult.error;
             if (navigationResult.error) throw navigationResult.error;
+            if (!active) return;
             setNavigationCategories((navigationResult.data ?? []).map((item) => ({
               slug: item.slug,
               name: item.name,
@@ -377,6 +381,7 @@ export function CategoryPage({ catalogue, slug }: { catalogue: OfflineCatalogue;
               catalogue.categoryTopicCount(slug),
               catalogue.categories(),
             ]);
+            if (!active) return;
             result = savedCategory;
             count = savedCount;
             setNavigationCategories(savedCategories.categories);
@@ -391,6 +396,7 @@ export function CategoryPage({ catalogue, slug }: { catalogue: OfflineCatalogue;
             catalogue.categoryTopicCount(slug),
             catalogue.categories(),
           ]);
+          if (!active) return;
           result = savedCategory;
           count = savedCount;
           setNavigationCategories(savedCategories.categories);
@@ -415,6 +421,8 @@ export function CategoryPage({ catalogue, slug }: { catalogue: OfflineCatalogue;
     void load();
     return () => {
       active = false;
+      window.removeEventListener('online', retry);
+      window.removeEventListener('offline', retry);
     };
   }, [catalogue, slug, attempt]);
   const categoryIndex = navigationCategories.findIndex((item) => item.slug === slug);
