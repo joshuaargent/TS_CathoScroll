@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
 import { NativeSignin } from './signin';
 import { secureAuthStorage } from './secure-auth-storage';
@@ -39,6 +40,7 @@ export function NativeAccount({
   const [verified, setVerified] = useState(false);
   const [profileExists, setProfileExists] = useState(true);
   const [profile, setProfile] = useState<CachedProfile | null>(null);
+  const [profileUserId, setProfileUserId] = useState<string | null>(null);
   const [email, setEmail] = useState(user?.email ?? '');
   const [subscriptionTier, setSubscriptionTier] = useState('free');
   const [membershipUserId, setMembershipUserId] = useState<string | null>(null);
@@ -66,6 +68,7 @@ export function NativeAccount({
     if (!user) {
       clearNativeStatusNotice('account-membership');
       setProfile(null);
+      setProfileUserId(null);
       setMembershipUserId(null);
       setLoading(false);
       return;
@@ -83,7 +86,10 @@ export function NativeAccount({
         const cached = await profileCache.load(accountId);
         if (!active) return;
         cache.current = profileCache;
-        if (cached) setProfile(cached);
+        if (cached) {
+          setProfile(cached);
+          setProfileUserId(accountId);
+        }
 
         if (!navigator.onLine) {
           setVerified(false);
@@ -105,6 +111,7 @@ export function NativeAccount({
         }
         if (!active) return;
         setProfile(latest);
+        setProfileUserId(accountId);
         setProfileExists(status.exists);
         setVerified(true);
         setError('');
@@ -118,17 +125,27 @@ export function NativeAccount({
           });
         }
 
-        const { data: membership, error: membershipError } = await client
-          .from('profiles')
-          .select('subscription_tier')
-          .eq('id', accountId)
-          .maybeSingle();
-        if (membershipError) throw membershipError;
-        if (active) {
-          setSubscriptionTier(membership?.subscription_tier ?? 'free');
-          setMembershipUserId(accountId);
-          clearNativeStatusNotice('account-membership');
-          clearNativeStatusNotice('account-profile-load:' + accountId);
+        clearNativeStatusNotice('account-profile-load:' + accountId);
+        try {
+          const { data: membership, error: membershipError } = await client
+            .from('profiles')
+            .select('subscription_tier')
+            .eq('id', accountId)
+            .maybeSingle();
+          if (membershipError) throw membershipError;
+          if (active) {
+            setSubscriptionTier(membership?.subscription_tier ?? 'free');
+            setMembershipUserId(accountId);
+            clearNativeStatusNotice('account-membership');
+          }
+        } catch (membershipCause) {
+          console.error('Unable to load account membership:', membershipCause);
+          if (active) {
+            notifyNativeStatus('Your membership details could not be loaded.', {
+              id: 'account-membership',
+              action: { label: 'Retry', onClick: () => setAttempt((value) => value + 1) },
+            });
+          }
         }
       } catch (cause) {
         console.error('Unable to load account details:', cause);
@@ -158,7 +175,7 @@ export function NativeAccount({
 
   async function saveChanges(event: React.FormEvent) {
     event.preventDefault();
-    if (!user || !profile || !verified || !navigator.onLine || busy) return;
+    if (!user || profileUserId !== user.id || !profile || !verified || !navigator.onLine || busy) return;
     setBusy(true);
     setError('');
     setMessage('');
@@ -270,7 +287,8 @@ export function NativeAccount({
     ) : null;
   }
 
-  const canSave = online && verified && Boolean(profile) && !busy;
+  const currentProfile = profileUserId === user.id ? profile : null;
+  const canSave = online && verified && Boolean(currentProfile) && !busy;
   return (
     <main className="container py-12">
       <div className="mt-8 mb-10">
@@ -289,50 +307,52 @@ export function NativeAccount({
                 This is how people will see you on CathoScroll.
               </p>
             </div>
-            {profile?.username && (
-              <a
-                href={'/profile/' + encodeURIComponent(profile.username)}
-                className="inline-flex items-center justify-center rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white"
-              >
-                View Public Profile
-              </a>
+            {currentProfile?.username && (
+              <Link href={'/profile/' + encodeURIComponent(currentProfile.username)}>
+                <Button
+                  size="sm"
+                  style={{ color: '#ffffff' }}
+                >
+                  View Public Profile
+                </Button>
+              </Link>
             )}
           </div>
         </section>
 
-        {!profile && (
+        {!currentProfile && (
           <p role="status" className="text-text-secondary">
             Your saved profile is unavailable. Connect to load your account details.
           </p>
         )}
-        {profile && (
+        {currentProfile && (
           <section className="space-y-6">
             <Input
               label="Display Name"
-              value={profile.displayName}
+              value={currentProfile.displayName}
               disabled={!canSave}
-              onChange={(event) => setProfile({ ...profile, displayName: event.target.value })}
+              onChange={(event) => setProfile({ ...currentProfile, displayName: event.target.value })}
             />
             <Input
               label="Username"
-              value={profile.username}
+              value={currentProfile.username}
               disabled={!canSave}
-              onChange={(event) => setProfile({ ...profile, username: event.target.value })}
+              onChange={(event) => setProfile({ ...currentProfile, username: event.target.value })}
               hint="3-20 characters. Used for your public profile URL."
             />
             <div className="space-y-1.5">
               <label className="text-text-primary text-sm font-medium" htmlFor="account-bio">Bio</label>
               <textarea
                 id="account-bio"
-                value={profile.bio}
+                value={currentProfile.bio}
                 maxLength={250}
                 disabled={!canSave}
-                onChange={(event) => setProfile({ ...profile, bio: event.target.value })}
+                onChange={(event) => setProfile({ ...currentProfile, bio: event.target.value })}
                 rows={5}
                 className="border-border bg-bg-card w-full rounded-lg border p-4"
                 placeholder="Tell people a little about yourself..."
               />
-              <p className="text-text-muted text-sm">{profile.bio.length}/250</p>
+              <p className="text-text-muted text-sm">{currentProfile.bio.length}/250</p>
             </div>
           </section>
         )}
