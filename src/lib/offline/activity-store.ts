@@ -383,6 +383,7 @@ export class OfflineActivityStore {
     return this.database.transaction(async (db) => {
       await this.assertInitialized(db, userId);
       let rows: Record<string, unknown>[];
+      const bookmarkSort = "COALESCE(CASE WHEN julianday(bookmark_saved_at) IS NOT NULL THEN bookmark_saved_at END, '')";
       let bookmarkCursor: { savedAt: string; topicId: string } | null = null;
       if (kind === 'bookmark' && cursor) {
         try {
@@ -409,9 +410,9 @@ export class OfflineActivityStore {
           `SELECT topic_id, bookmark_saved_at FROM offline_activity
            WHERE user_id = ? AND kind = ? AND value = 1
            ${bookmarkCursor
-             ? "AND (COALESCE(bookmark_saved_at, '') < ? OR (COALESCE(bookmark_saved_at, '') = ? AND topic_id < ?))"
+             ? `AND (${bookmarkSort} < ? OR (${bookmarkSort} = ? AND topic_id < ?))`
              : ''}
-           ORDER BY COALESCE(bookmark_saved_at, '') DESC, topic_id DESC LIMIT 51`,
+           ORDER BY ${bookmarkSort} DESC, topic_id DESC LIMIT 51`,
           bookmarkCursor
             ? [userId, kind, bookmarkCursor.savedAt, bookmarkCursor.savedAt, bookmarkCursor.topicId]
             : [userId, kind]
@@ -448,7 +449,11 @@ export class OfflineActivityStore {
         nextCursor: rows.length > 50 && last
           ? kind === 'bookmark'
             ? JSON.stringify({
-                savedAt: typeof last.bookmark_saved_at === 'string' ? last.bookmark_saved_at : '',
+                savedAt:
+                  typeof last.bookmark_saved_at === 'string' &&
+                  !Number.isNaN(Date.parse(last.bookmark_saved_at))
+                    ? last.bookmark_saved_at
+                    : '',
                 topicId: last.topic_id,
               })
             : ids[ids.length - 1]
