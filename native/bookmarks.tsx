@@ -148,6 +148,9 @@ export function NativeBookmarks({
     void load();
     return () => {
       epoch.current++;
+      clearNativeStatusNotice('bookmarks:' + savedUserId);
+      clearNativeStatusNotice('bookmarks-online:' + savedUserId);
+      clearNativeStatusNotice('bookmarks-more:' + savedUserId);
       window.removeEventListener('online', reconnect);
       window.removeEventListener('offline', reconnect);
     };
