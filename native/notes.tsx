@@ -5,6 +5,7 @@ import { TopicNotesEditor } from '@/components/topic/TopicNotesEditor';
 import type { CachedNote, NativeNoteCache } from './note-cache';
 import { saveNativeNote } from './note-operations';
 import { createClient } from './supabase';
+import { notifyNativeStatus, clearNativeStatusNotice } from './offline-indicator';
 
 type NoteState = {
   userId: string;
@@ -129,6 +130,33 @@ export function NativeNotes({
   }, [cache, topicId, userId, attempt]);
 
   const current = state?.userId === userId && state.topicId === topicId ? state : null;
+
+  useEffect(() => {
+    if (!userId || !current?.warning) {
+      if (userId) clearNativeStatusNotice('note-status:' + userId + ':' + topicId);
+      return;
+    }
+    notifyNativeStatus(current.warning, {
+      id: 'note-status:' + userId + ':' + topicId,
+      action: { label: 'Retry', onClick: () => setAttempt((value) => value + 1) },
+    });
+    return () => clearNativeStatusNotice('note-status:' + userId + ':' + topicId);
+  }, [userId, topicId, current?.warning]);
+
+  useEffect(() => {
+    const noticeId = userId ? 'note-offline:' + userId + ':' + topicId : '';
+    if (!userId || (current?.verified && navigator.onLine)) {
+      if (noticeId) clearNativeStatusNotice(noticeId);
+      return;
+    }
+    if (!navigator.onLine || current?.verified === false) {
+      notifyNativeStatus('Connect to view the latest note and make changes.', { id: noticeId });
+    }
+    return () => {
+      if (noticeId) clearNativeStatusNotice(noticeId);
+    };
+  }, [userId, topicId, current?.verified]);
+
   async function save() {
     if (!userId || !current?.verified || !navigator.onLine || saving) return;
     const savedContent = draft.current;
@@ -186,25 +214,8 @@ export function NativeNotes({
         onSave={() => void save()}
         saving={saving}
         disabled={!current.verified || !navigator.onLine}
-        notice={
-          !current.verified || !navigator.onLine
-            ? 'Connect to view the latest note and make changes.'
-            : undefined
-        }
         message={message}
       />
-      {current.warning && (
-        <p role="alert" className="mb-6">
-          {current.warning}{' '}
-          <button
-            type="button"
-            className="text-accent underline"
-            onClick={() => setAttempt((n) => n + 1)}
-          >
-            Retry
-          </button>
-        </p>
-      )}
     </>
   );
 }
