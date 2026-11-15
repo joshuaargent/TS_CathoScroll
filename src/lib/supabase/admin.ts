@@ -49,7 +49,7 @@ export async function getAuthenticatedUserFromRequest(request: Request) {
   return { supabase, user: data.user, accessToken: token };
 }
 
-function hasTotpAssuranceInAccessToken(accessToken: string): boolean {
+export function hasTotpAssuranceInAccessToken(accessToken: string): boolean {
   try {
     const payload = accessToken.split('.')[1];
     if (!payload) return false;
