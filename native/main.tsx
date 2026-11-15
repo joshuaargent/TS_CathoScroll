@@ -1103,7 +1103,7 @@ function App() {
           >
             <NativeNavbar pathname={route?.pathname ?? '/'} userId={user?.id ?? null} />
             <main className="native-content pt-16">
-              {!error && !firstPage && (
+              {route?.kind === 'feed' && !error && !firstPage && (
                 <NativeFeedSkeleton />
               )}
               {firstPage && !firstPage.topics.length && (
