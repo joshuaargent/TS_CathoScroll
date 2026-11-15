@@ -110,7 +110,7 @@ export function NativeAdmin({
           setAppeals(result.items as AdminCommentBanAppeal[]);
           setReports([]);
         }
-        setAdminUserId(result.adminUserId ?? userId);
+        setAdminUserId(result.adminUserId ?? userId ?? '');
         setHasNext(Boolean(result.hasNext));
       } catch (cause) {
         console.error('Unable to load native moderation tools:', cause);
