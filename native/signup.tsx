@@ -1,8 +1,5 @@
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
-import { Eye, EyeOff, Loader2 } from 'lucide-react';
-import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
+import { SignupFormView } from '@/components/auth/SignupFormView';
 import { usernameError } from '@/lib/username';
 import { createClient } from './supabase';
 import { notifyNativeStatus, clearNativeStatusNotice } from './offline-indicator';
@@ -79,115 +76,16 @@ export function NativeSignup({ onSignedUp }: { onSignedUp: () => void }) {
   }
 
   return (
-    <div className="container py-12">
-      <div className="mt-8 mb-10">
-        <h1 className="text-5xl font-extrabold md:text-7xl">Join CathoScroll</h1>
-        <p className="text-text-secondary mt-4 max-w-2xl text-lg">
-          Start your learning journey with CathoScroll.
-        </p>
-      </div>
-      {confirmation ? (
-        <div role="status" className="border-border rounded-2xl border p-6">
-          <p>
-            Check your email for a confirmation link. After confirming, return to the app and sign
-            in to finish setting up your profile.
-          </p>
-          <Link href="/signin" className="text-accent mt-4 inline-block underline">
-            Go to sign in
-          </Link>
-        </div>
-      ) : (
-        <form onSubmit={(event) => void submit(event)} className="space-y-6">
-          <div className="border-border rounded-2xl border p-6">
-            <p className="text-text-secondary">
-              Free accounts include saved bookmarks, learning progress, and access to community
-              features.
-            </p>
-          </div>
-          <Input
-            label="Username"
-            name="username"
-            type="text"
-            hint="3-20 characters. Letters, numbers and underscores only."
-            disabled={loading}
-            required
-          />
-          <Input
-            label="Email"
-            name="email"
-            type="email"
-            autoComplete="email"
-            disabled={loading}
-            required
-          />
-          <div className="relative">
-            <Input
-              label="Password"
-              name="password"
-              type={showPassword ? 'text' : 'password'}
-              autoComplete="new-password"
-              hint="Minimum 8 characters."
-              disabled={loading}
-              required
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              aria-label={showPassword ? 'Hide password' : 'Show password'}
-              className="text-text-muted hover:text-text-primary absolute top-[38px] right-3"
-            >
-              {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-            </button>
-          </div>
-          <div className="relative">
-            <Input
-              label="Confirm Password"
-              name="confirmPassword"
-              type={showConfirmation ? 'text' : 'password'}
-              autoComplete="new-password"
-              disabled={loading}
-              required
-            />
-            <button
-              type="button"
-              onClick={() => setShowConfirmation(!showConfirmation)}
-              aria-label={
-                showConfirmation ? 'Hide confirmation password' : 'Show confirmation password'
-              }
-              className="text-text-muted hover:text-text-primary absolute top-[38px] right-3"
-            >
-              {showConfirmation ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-            </button>
-          </div>
-          {error && (
-            <p role="alert" className="text-sm text-red-600">
-              {error}
-            </p>
-          )}
-          <Button
-            type="submit"
-            size="lg"
-            className="w-full"
-            disabled={loading || !online}
-            style={{ color: '#fff' }}
-          >
-            {loading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Creating Account…
-              </>
-            ) : (
-              'Create Account'
-            )}
-          </Button>
-          <p className="text-text-secondary text-center text-sm">
-            Already have an account?{' '}
-            <Link href="/signin" className="text-accent font-medium hover:underline">
-              Sign In
-            </Link>
-          </p>
-        </form>
-      )}
-    </div>
+    <SignupFormView
+      loading={loading}
+      error={error}
+      online={online}
+      confirmation={confirmation}
+      showPassword={showPassword}
+      showConfirmPassword={showConfirmation}
+      onTogglePassword={() => setShowPassword((value) => !value)}
+      onToggleConfirmPassword={() => setShowConfirmation((value) => !value)}
+      onSubmit={(event) => void submit(event)}
+    />
   );
 }
