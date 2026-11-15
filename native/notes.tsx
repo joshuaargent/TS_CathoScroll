@@ -40,6 +40,7 @@ export function NativeNotes({
   const [message, setMessage] = useState('');
   const dirty = useRef(false);
   const draft = useRef('');
+  const identity = useRef({ userId, topicId });
   const requestSignIn = useSignInPrompt();
 
   useEffect(() => {
@@ -53,7 +54,18 @@ export function NativeNotes({
   }, []);
 
   useEffect(() => {
-    if (!userId) return;
+    // A draft belongs to exactly one account/topic pair. Reset it before any
+    // asynchronous read so navigation or account switching cannot carry it over.
+    identity.current = { userId, topicId };
+    dirty.current = false;
+    draft.current = '';
+    setContent('');
+    setMessage('');
+    setSaving(false);
+    if (!userId) {
+      setState(null);
+      return;
+    }
     let active = true;
     const accountId = userId;
     async function load() {
@@ -159,24 +171,32 @@ export function NativeNotes({
 
   async function save() {
     if (!userId || !current?.verified || !navigator.onLine || saving) return;
+    const target = { userId, topicId };
     const savedContent = draft.current;
+    const isCurrent = () =>
+      identity.current.userId === target.userId && identity.current.topicId === target.topicId;
     setSaving(true);
     setMessage('');
     try {
-      await saveNativeNote(createClient(), userId, topicId, savedContent);
+      await saveNativeNote(createClient(), target.userId, target.topicId, savedContent);
+      if (!isCurrent()) return;
       dirty.current = draft.current !== savedContent;
       setMessage('Saved successfully.');
       try {
-        await cache.save(userId, topicId, savedContent);
+        await cache.save(target.userId, target.topicId, savedContent);
       } catch (error) {
         console.error('Unable to save note for offline viewing:', error);
-        setMessage('Saved online, but this note could not be saved for offline viewing.');
+        if (isCurrent()) {
+          setMessage('Saved online, but this note could not be saved for offline viewing.');
+        }
       }
     } catch (error) {
       console.error('Unable to save note:', error);
-      setMessage('Unable to save your note. Check your connection and try again.');
+      if (isCurrent()) {
+        setMessage('Unable to save your note. Check your connection and try again.');
+      }
     } finally {
-      setSaving(false);
+      if (isCurrent()) setSaving(false);
     }
   }
 
