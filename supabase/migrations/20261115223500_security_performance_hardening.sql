@@ -32,7 +32,7 @@ DROP POLICY IF EXISTS topics_admin_manage ON public.topics;
 -- These operations have no client-side use and no corresponding RLS policy.
 REVOKE DELETE ON TABLE public.comments, public.profiles
   FROM anon, authenticated;
-REVOKE UPDATE ON TABLE public.bookmarks, public.comment_likes
+REVOKE UPDATE ON TABLE public.bookmarks, public.comment_likes, public.topic_likes
   FROM authenticated;
 
 -- Profiles are public only through the fields used by public profile pages,
