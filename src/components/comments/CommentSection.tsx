@@ -21,6 +21,20 @@ interface CommentSectionProps {
   supabaseClient?: SupabaseClient;
 }
 
+interface CommentFeedRow {
+  id: number;
+  topic_id: string;
+  user_id: string;
+  parent_id: number | null;
+  content: string;
+  created_at: string;
+  edited_at: string | null;
+  is_deleted: boolean;
+  is_pinned: boolean;
+  likes: number;
+  liked_by_user: boolean;
+}
+
 const fallbackProfile: Pick<Profile, 'id' | 'username' | 'display_name' | 'bio'> = {
   id: '',
   username: 'unknown',
@@ -229,7 +243,7 @@ export function CommentSection({
         throw new Error(`Unable to load comments: ${commentsResult.error.message}`);
       }
 
-      const commentRows = commentsResult.data ?? [];
+      const commentRows = (commentsResult.data ?? []) as CommentFeedRow[];
       const userIds = [
         ...new Set([...commentRows.map((row) => row.user_id), user?.id].filter(Boolean)),
       ];
