@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { CachedIdentity } from './cached-identity';
-import { SigninForm } from '@/components/auth/SigninForm';
+import { NativeSignin } from './signin';
 import { Button } from '@/components/ui/Button';
 import type { NativeActivity, NativeActivityStatus } from './activity';
 import { NativeProfileSetup } from './profile-setup';
@@ -141,7 +141,7 @@ export function NativeAccount({
   if (checking) return <p className="container py-12">Loading account…</p>;
   if (!user) {
     return online ? (
-      <SigninForm
+      <NativeSignin
         onSignedIn={onSignedIn}
         description="Sign in to keep your bookmarks and learning progress linked to your account."
       />
