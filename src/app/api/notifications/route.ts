@@ -2,11 +2,21 @@ import { NextResponse } from 'next/server';
 
 import { getAuthenticatedUser, isSameOrigin } from '@/lib/supabase/admin';
 import { readBoundedJson } from '@/lib/http/read-json';
+import { checkApiRateLimit, rateLimitResponseHeaders } from '@/lib/security/api-rate-limit';
 
 function respond(body: unknown, init?: ResponseInit) {
   const headers = new Headers(init?.headers);
   headers.set('Cache-Control', 'private, no-store');
   return NextResponse.json(body, { ...init, headers });
+}
+
+async function enforceUserLimit(userId: string, scope: string, limit: number) {
+  return checkApiRateLimit({
+    scope,
+    identifier: userId,
+    limit,
+    windowSeconds: 60,
+  });
 }
 
 export async function GET(request: Request) {
@@ -16,10 +26,18 @@ export async function GET(request: Request) {
     return respond({ error: 'Authentication required' }, { status: 401 });
   }
 
+  const rateLimit = await enforceUserLimit(user.id, 'notifications:read', 60);
+  if (!rateLimit.allowed) {
+    return respond(
+      { error: rateLimit.unavailable ? 'Notifications are temporarily unavailable' : 'Too many notification requests. Please wait.' },
+      {
+        status: rateLimit.unavailable ? 503 : 429,
+        headers: rateLimitResponseHeaders(rateLimit.retryAfterSeconds),
+      }
+    );
+  }
+
   const countOnly = new URL(request.url).searchParams.get('countOnly') === '1';
-  // Keep the bell request cheap: it asks Postgres for an exact unread count
-  // without returning notification rows. The page request loads only the
-  // newest 50 rows; both queries are scoped by the user's RLS-protected id.
   const { count, error: countError } = await supabase
     .from('notifications')
     .select('id', { count: 'exact', head: true })
@@ -83,6 +101,17 @@ export async function PATCH(request: Request) {
     return respond({ error: 'Authentication required' }, { status: 401 });
   }
 
+  const rateLimit = await enforceUserLimit(user.id, 'notifications:write', 30);
+  if (!rateLimit.allowed) {
+    return respond(
+      { error: rateLimit.unavailable ? 'Notifications are temporarily unavailable' : 'Too many notification updates. Please wait.' },
+      {
+        status: rateLimit.unavailable ? 503 : 429,
+        headers: rateLimitResponseHeaders(rateLimit.retryAfterSeconds),
+      }
+    );
+  }
+
   const parsed = await readBoundedJson(request, 1024);
   if (!parsed.ok) return respond({ error: parsed.error }, { status: parsed.status });
   const body = parsed.value;
@@ -106,9 +135,6 @@ export async function PATCH(request: Request) {
       ? body.notificationId
       : null;
 
-  // Restrict writes to the authenticated user's unread rows. The database RLS
-  // policy repeats this ownership check and clients only have read_at UPDATE
-  // permission, so the endpoint cannot alter notification content or ownership.
   let updateQuery = supabase
     .from('notifications')
     .update({ read_at: new Date().toISOString() })
