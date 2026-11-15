@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { NotificationBellLink } from '@/components/notifications/NotificationBellLink';
 import { NotificationList } from '@/components/notifications/NotificationList';
+import { NotificationsPageView } from '@/components/notifications/NotificationsPageView';
 import { createClient } from './supabase';
 import { notificationTransport } from './notification-operations';
 import { NotificationCache } from './notification-cache';
@@ -180,22 +181,14 @@ export function NativeNotifications({ userId }: { userId: string | null }) {
   const state = useNativeNotifications();
   const transport = state?.userId === userId ? state.service : null;
   return (
-    <div className="container py-12">
-      <section className="mt-8 mb-10">
-        <h1 className="text-5xl font-extrabold md:text-7xl">Notifications</h1>
-        <p className="text-text-secondary mt-4 max-w-2xl text-lg">
-          Replies, moderation updates, and other important account messages appear here.
-        </p>
-      </section>
-      <section className="max-w-3xl">
-        {!userId ? (
-          <p>Sign in to view notifications.</p>
-        ) : transport ? (
-          <NotificationList transport={transport} />
-        ) : (
-          <p role="status">Loading notifications...</p>
-        )}
-      </section>
-    </div>
+    <NotificationsPageView>
+      {!userId ? (
+        <p>Sign in to view notifications.</p>
+      ) : transport ? (
+        <NotificationList transport={transport} />
+      ) : (
+        <p role="status">Loading notifications...</p>
+      )}
+    </NotificationsPageView>
   );
 }
