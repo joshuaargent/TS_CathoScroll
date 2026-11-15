@@ -11,7 +11,7 @@ import {
 function respond(request: Request, body: unknown, init?: ResponseInit) {
   const headers = nativeApiCorsHeaders(request);
   new Headers(init?.headers).forEach((value, key) => headers.set(key, value));
-  return respond(request, body, { ...init, headers });
+  return NextResponse.json(body, { ...init, headers });
 }
 
 export function OPTIONS(request: Request) {
