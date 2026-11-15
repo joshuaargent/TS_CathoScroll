@@ -582,6 +582,28 @@ type NativeMfaGateState =
   | { kind: 'setup' }
   | { kind: 'verify'; factorId: string; challengeId: string | null };
 
+function hasNativeTotpAssurance(accessToken: string): boolean {
+  try {
+    const payload = accessToken.split('.')[1];
+    if (!payload) return false;
+    const normalizedPayload = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const claims = JSON.parse(atob(normalizedPayload)) as { aal?: unknown; amr?: unknown };
+    return (
+      claims.aal === 'aal2' &&
+      Array.isArray(claims.amr) &&
+      claims.amr.some(
+        (entry) =>
+          typeof entry === 'object' &&
+          entry !== null &&
+          'method' in entry &&
+          entry.method === 'totp'
+      )
+    );
+  } catch {
+    return false;
+  }
+}
+
 function NativeMfaGate({ userId }: { userId: string | null }) {
   const [gate, setGate] = useState<NativeMfaGateState | null>(null);
   const [code, setCode] = useState('');
@@ -635,7 +657,7 @@ function NativeMfaGate({ userId }: { userId: string | null }) {
     if (assuranceError) throw assuranceError;
     if (factorsError) throw factorsError;
 
-    if (assurance.currentLevel === 'aal2' && assurance.nextLevel === 'aal2') {
+    if (assurance.currentLevel === 'aal2' && assurance.nextLevel === 'aal2' && hasNativeTotpAssurance(accessToken)) {
       setGate(null);
       setError('');
       setMessage('');
