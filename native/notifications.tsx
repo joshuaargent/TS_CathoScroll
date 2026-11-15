@@ -26,6 +26,12 @@ export function NativeNotificationsProvider({
   const [state, setState] = useState<NotificationState | null>(null);
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
+    if (!state || state.userId === userId) return;
+    clearNativeStatusNotice('notifications-storage:' + state.userId);
+    clearNativeStatusNotice('notifications-sync:' + state.userId);
+    setState(null);
+  }, [userId, state?.userId]);
+  useEffect(() => {
     if (!userId) return;
     const accountId = userId;
     let active = true;
