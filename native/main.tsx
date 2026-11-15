@@ -1102,7 +1102,7 @@ function App() {
             }}
           >
             <NativeNavbar pathname={route?.pathname ?? '/'} userId={user?.id ?? null} />
-            <main className="pt-16">
+            <main className="native-content pt-16">
               {!error && !firstPage && (
                 <p role="status" className="px-6">
                   Loading topics…
