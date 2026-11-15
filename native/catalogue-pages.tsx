@@ -7,16 +7,15 @@ import { SearchInput } from '@/components/search/SearchInput';
 import { SearchResults } from '@/components/search/SearchResults';
 import { SearchSuggestions } from '@/components/search/SearchSuggestions';
 import { Badge } from '@/components/ui/Badge';
-import { siteConfig } from '@/lib/constants';
 import { NativeGridSkeleton, NativeTopicSkeleton } from './skeletons';
-import type { TopicSearchResult } from '@/lib/search';
+import { topicSearchResultFromDatabase, type TopicSearchResult } from '@/lib/search';
 import {
   OfflineCatalogue,
   type CatalogueCursor,
   type CategoryCursor,
 } from '@/lib/offline/catalogue';
 import type { ContentCategory, Topic } from '@/types';
-import { createClient } from './supabase';
+import { createClient, createPublicClient } from './supabase';
 import { notifyNativeStatus, clearNativeStatusNotice } from './offline-indicator';
 
 type OnlineTopicRow = {
@@ -532,24 +531,12 @@ export function SearchPage({
     async function search() {
       if (navigator.onLine) {
         try {
-          const searchUrl = new URL('/api/content/search', siteConfig.url);
-          searchUrl.searchParams.set('q', debounced);
-          const response = await globalThis.fetch(searchUrl, {
-            signal: controller.signal,
-            headers: { Accept: 'application/json' },
-            cache: 'no-store',
-          });
-          const payload = (await response.json()) as {
-            results?: TopicSearchResult[];
-            error?: string;
-          };
-          if (!response.ok) {
-            throw new Error(payload.error ?? `Online search failed with status ${response.status}.`);
-          }
-          if (!Array.isArray(payload.results)) {
-            throw new Error('The online search service returned an invalid response.');
-          }
-          const onlineResults = payload.results;
+          const { data, error: searchError } = await createPublicClient()
+            .rpc('search_published_topics', { search_query: debounced, result_limit: 30 })
+            .abortSignal(controller.signal);
+          if (searchError) throw searchError;
+          if (!Array.isArray(data)) throw new Error('Invalid search response.');
+          const onlineResults = data.map(topicSearchResultFromDatabase);
           if (!active) return;
           setResults(onlineResults);
           setResultQuery(debounced);
