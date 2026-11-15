@@ -202,6 +202,7 @@ export default async function ProfilePage({ params }: Props) {
   });
 
   return (
+    <main>
     <PublicProfileView
       profile={{
         id: profile.id,
@@ -235,5 +236,6 @@ export default async function ProfilePage({ params }: Props) {
         </>
       }
     />
+    </main>
   );
 }
