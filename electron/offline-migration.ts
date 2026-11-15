@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import {
   closeSync,
+  copyFileSync,
   existsSync,
   fsyncSync,
   mkdirSync,
@@ -12,16 +13,89 @@ import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 
 function validateDatabase(file: string): void {
-  // Open read-write so SQLite can roll back a hot journal before we classify
-  // the database. A read-only quick_check can leave recovery sidecars pending.
-  const database = new DatabaseSync(file);
+  // Read-only validation must happen first: opening a corrupt database
+  // read-write can discard or alter its SQLite sidecars before we have saved
+  // them. A valid hot rollback journal is recovered only after a snapshot.
+  const readOnly = new DatabaseSync(file, { readOnly: true });
   try {
-    const result = database.prepare('PRAGMA quick_check(1)').get();
+    const result = readOnly.prepare('PRAGMA quick_check(1)').get();
     if (result?.quick_check !== 'ok') {
       throw new Error('The database did not pass its integrity check.');
     }
   } finally {
-    database.close();
+    readOnly.close();
+  }
+
+  if (!existsSync(file + '-journal')) return;
+
+  const token = randomUUID();
+  const originals = [file, ...sqliteSidecars.map((suffix) => file + suffix)];
+  const snapshots: Array<[string, string]> = [];
+  try {
+    for (const original of originals) {
+      if (!existsSync(original)) continue;
+      const snapshot = `${original}.validation-${token}`;
+      copyFileSync(original, snapshot);
+      syncFile(snapshot);
+      snapshots.push([original, snapshot]);
+    }
+  } catch (error) {
+    for (const [, snapshot] of snapshots) {
+      try {
+        unlinkSync(snapshot);
+      } catch {
+        // Preserve the original error; the original database is still untouched.
+      }
+    }
+    throw error;
+  }
+
+  try {
+    const writable = new DatabaseSync(file);
+    try {
+      const result = writable.prepare('PRAGMA quick_check(1)').get();
+      if (result?.quick_check !== 'ok') {
+        throw new Error('The database did not pass its recovery integrity check.');
+      }
+    } finally {
+      writable.close();
+    }
+  } catch (error) {
+    const snapshotByOriginal = new Map(snapshots);
+    const restoreErrors: unknown[] = [];
+    for (const original of originals) {
+      try {
+        const snapshot = snapshotByOriginal.get(original);
+        if (snapshot) copyFileSync(snapshot, original);
+        else if (existsSync(original)) unlinkSync(original);
+      } catch (restoreError) {
+        restoreErrors.push(restoreError);
+      }
+    }
+    if (restoreErrors.length) {
+      throw new AggregateError(
+        [error, ...restoreErrors],
+        'SQLite rollback-journal validation failed and the original database could not be fully restored.'
+      );
+    }
+    for (const [, snapshot] of snapshots) {
+      try {
+        unlinkSync(snapshot);
+      } catch {
+        // A stale validation copy is harmless; preserve the original failure.
+      }
+    }
+    throw error;
+  }
+
+  // Recovery succeeded. The validated database is now authoritative; discard
+  // the temporary snapshots, not the recovered database or any remaining WAL.
+  for (const [, snapshot] of snapshots) {
+    try {
+      unlinkSync(snapshot);
+    } catch {
+      // Keep an orphaned snapshot rather than failing a successful recovery.
+    }
   }
 }
 
