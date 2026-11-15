@@ -10,7 +10,6 @@ import { CommentBanControl } from '@/components/admin/CommentBanControl';
 import { AdminRoleControlClient } from '@/components/admin/AdminRoleControlClient';
 import { createServiceRoleClient } from '@/lib/supabase/admin';
 import { PublicProfileView } from '@/components/profile/PublicProfileView';
-import { calculateStreaks, countLikesReceived } from '@/lib/profile-metrics';
 
 interface Props {
   params: Promise<{
@@ -103,99 +102,42 @@ export default async function ProfilePage({ params }: Props) {
     }
   }
 
-  const [
-    progressResult,
-    bookmarksResult,
-    recentProgressResult,
-    streakResult,
-    commentsResult,
-    commentCountResult,
-  ] = await Promise.all([
-    supabase
-      .from('progress')
-      .select('topic_id', {
-        count: 'exact',
-      })
-      .eq('user_id', profile.id),
-
-    supabase
-      .from('bookmarks')
-      .select('topic_id', {
-        count: 'exact',
-      })
-      .eq('user_id', profile.id),
-
-    supabase
-      .from('progress')
-      .select('topic_id, completed_at')
-      .eq('user_id', profile.id)
-      .order('completed_at', {
-        ascending: false,
-      })
-      .limit(6),
-
-    supabase
-      .from('progress')
-      .select('completed_at')
-      .eq('user_id', profile.id)
-      .order('completed_at', { ascending: false }),
-
-    supabase
-      .from('comments')
-      .select('id,topic_id,content,created_at,is_deleted')
-      .eq('user_id', profile.id)
-      .eq('is_deleted', false)
-      .order('created_at', {
-        ascending: false,
-      })
-      .limit(6),
-
-    supabase
-      .from('comments')
-      .select('id', {
-        count: 'exact',
-      })
-      .eq('user_id', profile.id)
-      .eq('is_deleted', false),
-
-  ]);
-
-  const completedCount = progressResult.count ?? 0;
-
-  const bookmarkCount = bookmarksResult.count ?? 0;
-
-  const commentCount = commentCountResult.count ?? 0;
-
-  const likesReceived = await countLikesReceived(
-    async (offset, limit) => {
-      const { data, error } = await supabase
-        .from('comments')
-        .select('id')
-        .eq('user_id', profile.id)
-        .eq('is_deleted', false)
-        .order('id', { ascending: true })
-        .range(offset, offset + limit - 1);
-      if (error) throw error;
-      return (data ?? []).map((comment) => comment.id);
-    },
-    async (commentIds) => {
-      const { count, error } = await supabase
-        .from('comment_likes')
-        .select('comment_id', { count: 'exact', head: true })
-        .in('comment_id', commentIds);
-      if (error) throw error;
-      return count ?? 0;
-    }
+  const { data: metricsData, error: metricsError } = await supabase.rpc(
+    'get_public_profile_metrics',
+    { p_profile_id: profile.id }
   );
+  if (metricsError) {
+    console.error('Unable to load public profile metrics:', metricsError.message);
+    throw new Error('Unable to load profile activity.');
+  }
 
-  const streakDates = (streakResult.data ?? []).map((row) => row.completed_at);
+  const metrics = (metricsData ?? {}) as {
+    completed_count?: number;
+    bookmark_count?: number;
+    comment_count?: number;
+    likes_received?: number;
+    current_streak?: number;
+    longest_streak?: number;
+    recent_progress?: Array<{ topic_id: string; completed_at: string }>;
+    recent_comments?: Array<{
+      id: number;
+      topic_id: string;
+      content: string;
+      created_at: string;
+    }>;
+  };
 
-  const { current: currentStreak, longest: longestStreak } = calculateStreaks(streakDates);
+  const completedCount = Number(metrics.completed_count ?? 0);
+  const bookmarkCount = Number(metrics.bookmark_count ?? 0);
+  const commentCount = Number(metrics.comment_count ?? 0);
+  const likesReceived = Number(metrics.likes_received ?? 0);
+  const currentStreak = Number(metrics.current_streak ?? 0);
+  const longestStreak = Number(metrics.longest_streak ?? 0);
 
   const progressPercentage =
     topicCount > 0 ? ((completedCount / topicCount) * 100).toFixed(1) : '0';
 
-  const recentProgress = recentProgressResult.data ?? [];
+  const recentProgress = metrics.recent_progress ?? [];
   const recentTopicRows = await getPublishedTopicsByIds(
     recentProgress.map((entry) => String(entry.topic_id))
   );
@@ -205,7 +147,7 @@ export default async function ProfilePage({ params }: Props) {
     return topic ? [{ ...topic, completedAt: entry.completed_at }] : [];
   });
 
-  const recentCommentRows = commentsResult.data ?? [];
+  const recentCommentRows = metrics.recent_comments ?? [];
   const recentCommentTopics = await getPublishedTopicsByIds(
     recentCommentRows.map((comment) => String(comment.topic_id))
   );
