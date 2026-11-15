@@ -23,9 +23,9 @@ if (embeddedConfig.server?.url) {
 
 if (app.requestSingleInstanceLock()) {
   app.whenReady().then(() => {
-    // macOS automatic updates require a Developer ID-signed application.
-    // Keep macOS updates disabled until CathoScroll can be signed and notarised.
-    if (!app.isPackaged || process.platform === 'darwin') return;
+    // Every production desktop build uses electron-updater. macOS release
+    // builds are Developer ID-signed and notarised by the release workflow.
+    if (!app.isPackaged) return;
 
     autoUpdater.autoDownload = true;
     autoUpdater.autoInstallOnAppQuit = true;
