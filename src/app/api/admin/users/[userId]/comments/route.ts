@@ -18,15 +18,7 @@ export function OPTIONS(request: Request) {
 function respond(request: Request, body: unknown, init?: ResponseInit) {
   const headers = nativeApiCorsHeaders(request);
   new Headers(init?.headers).forEach((value, key) => headers.set(key, value));
-  return respond(request, body, { ...init, headers });
-}
-
-export function OPTIONS(request: Request) {
-  const headers = nativeApiCorsHeaders(request);
-  if (!headers.has('Access-Control-Allow-Origin')) {
-    return new NextResponse(null, { status: 403 });
-  }
-  return new NextResponse(null, { status: 204, headers });
+  return NextResponse.json(body, { ...init, headers });
 }
 
 export async function GET(request: Request, { params }: RouteContext) {
