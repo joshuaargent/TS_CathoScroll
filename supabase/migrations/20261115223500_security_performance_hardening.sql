@@ -38,6 +38,8 @@ REVOKE UPDATE ON TABLE public.bookmarks, public.comment_likes, public.topic_like
 -- Profiles are public only through the fields used by public profile pages,
 -- comments and account UI. Membership and account timestamps are private.
 REVOKE SELECT ON TABLE public.profiles FROM anon, authenticated;
+REVOKE SELECT (subscription_tier, created_at, updated_at)
+  ON TABLE public.profiles FROM anon, authenticated;
 GRANT SELECT (id, username, display_name, bio)
   ON TABLE public.profiles TO anon, authenticated;
 
