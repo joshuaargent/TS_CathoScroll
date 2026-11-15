@@ -17,6 +17,9 @@ jobs:
     name: Build ${{ matrix.name }}
     strategy:
       fail-fast: false
+      # electron-builder uploads every platform to the same draft GitHub Release.
+      # Serialise these jobs to avoid concurrent draft-release creation/update races.
+      max-parallel: 1
       matrix:
         include:
           - name: Windows x64
