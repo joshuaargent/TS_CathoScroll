@@ -71,14 +71,13 @@ export default function AccountSecurityPage() {
       method: 'GET',
       cache: 'no-store',
     });
-    if (response.ok) {
-      const status = (await response.json()) as {
-        isOwner?: boolean;
-        enforcementEnabled?: boolean;
-      };
-      setIsOwner(status.isOwner === true);
-      setEnforcementEnabled(status.enforcementEnabled === true);
-    }
+    if (!response.ok) throw new Error('Unable to load administrator MFA enforcement status.');
+    const status = (await response.json()) as {
+      isOwner?: boolean;
+      enforcementEnabled?: boolean;
+    };
+    setIsOwner(status.isOwner === true);
+    setEnforcementEnabled(status.enforcementEnabled === true);
   }, []);
 
   useEffect(() => {
@@ -192,7 +191,6 @@ export default function AccountSecurityPage() {
           ? 'Authenticator verified. Add a backup authenticator or securely save the setup key, then enable enforcement below.'
           : 'Authenticator verified. This account is ready to be granted administrator access by the owner.'
       );
-      await refreshSecurityState();
     } catch (cause) {
       console.error('Unable to verify authenticator code:', cause);
       setError(cause instanceof Error ? cause.message : 'Unable to verify authenticator code.');
@@ -245,7 +243,8 @@ export default function AccountSecurityPage() {
           <>
             <p className="text-text-secondary mt-3 text-sm">
               Use an authenticator such as 1Password, Microsoft Authenticator, Google Authenticator,
-              or Aegis. Keep access to the authenticator secure; do not share its secret or codes.
+              or Aegis. Store the setup key in a password manager before verifying it so you can
+              restore the authenticator if you lose your device. Do not share the key or codes.
             </p>
 
             {enforcementEnabled && (
@@ -287,7 +286,7 @@ export default function AccountSecurityPage() {
                 )}
                 <button
                   type="button"
-                  disabled={busy}
+                  disabled={busy || assurance?.currentLevel !== 'aal2'}
                   onClick={() => void beginEnrollment()}
                   className="border-border mt-2 rounded-xl border px-4 py-2.5 text-sm font-semibold hover:bg-bg-secondary disabled:opacity-50"
                 >
