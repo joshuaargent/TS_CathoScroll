@@ -104,7 +104,7 @@ export default async function ProfilePage({ params }: Props) {
 
   const { data: metricsData, error: metricsError } = await supabase.rpc(
     'get_public_profile_metrics',
-    { p_profile_id: profile.id }
+    { p_profile_id: profile.id, p_timezone: 'UTC' }
   );
   if (metricsError) {
     console.error('Unable to load public profile metrics:', metricsError.message);
