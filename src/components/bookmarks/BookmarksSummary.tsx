@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { Badge } from '@/components/ui/Badge';
+import type { Topic } from '@/types';
 
 export function BookmarksHeader({ count }: { count?: number }) {
   return (
@@ -31,5 +32,46 @@ export function EmptyBookmarks() {
         Explore the Feed →
       </Link>
     </section>
+  );
+}
+
+export function formatSavedDate(dateString?: string) {
+  if (!dateString) return '';
+  const savedDate = new Date(dateString);
+  if (Number.isNaN(savedDate.getTime())) return '';
+  const today = new Date();
+  const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const startOfSaved = new Date(savedDate.getFullYear(), savedDate.getMonth(), savedDate.getDate());
+  const difference = Math.floor((startOfToday.getTime() - startOfSaved.getTime()) / 86_400_000);
+  if (difference === 0) return 'Saved today';
+  if (difference === 1) return 'Saved yesterday';
+  if (difference > 1 && difference < 7) return 'Saved ' + difference + ' days ago';
+  return 'Saved ' + savedDate.toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+}
+
+export function BookmarksGrid({
+  topics,
+}: {
+  topics: Array<Topic & { bookmarkedAt?: string }>;
+}) {
+  return (
+    <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+      {topics.map((topic) => (
+        <Link key={topic.id} href={`/topic/${encodeURIComponent(topic.slug)}`}>
+          <article className="border-border hover:bg-bg-secondary h-full rounded-2xl border p-6 transition-colors">
+            <Badge variant="accent" size="sm">{topic.category}</Badge>
+            <h2 className="mt-4 text-xl leading-tight font-bold">{topic.question}</h2>
+            <p className="text-text-secondary mt-3 line-clamp-3">{topic.answer}</p>
+            {topic.bookmarkedAt && (
+              <p className="text-text-muted mt-6 text-sm">{formatSavedDate(topic.bookmarkedAt)}</p>
+            )}
+          </article>
+        </Link>
+      ))}
+    </div>
   );
 }
