@@ -16,7 +16,7 @@ function respond(request: Request, body: unknown, init?: ResponseInit) {
   return NextResponse.json(body, { ...init, headers });
 }
 
-async function authorize(request: Request, userId: string, mutation: boolean) {
+async function authorize(request: Request, mutation: boolean) {
   const { user, isAdmin, error: roleError } = await getAdminSessionFromRequest(request);
   if (!user) return { response: respond(request, { error: 'Authentication required' }, { status: 401 }) };
   if (roleError) {
@@ -78,7 +78,7 @@ export async function GET(request: Request, { params }: RouteContext) {
   const { userId } = await params;
   if (!isValidUuid(userId)) return respond(request, { error: 'Invalid user id' }, { status: 400 });
 
-  const auth = await authorize(request, userId, false);
+  const auth = await authorize(request, false);
   if ('response' in auth) return auth.response;
 
   const [profileResult, banResult, adminResult] = await Promise.all([
@@ -106,7 +106,7 @@ export async function GET(request: Request, { params }: RouteContext) {
 
 async function updateRole(request: Request, userId: string, grant: boolean) {
   if (!isValidUuid(userId)) return respond(request, { error: 'Invalid user id' }, { status: 400 });
-  const auth = await authorize(request, userId, true);
+  const auth = await authorize(request, true);
   if ('response' in auth) return auth.response;
   if (!auth.isOwner) return respond(request, { error: 'Only the CathoScroll owner can manage administrator access.' }, { status: 403 });
   if (userId === auth.user.id) return respond(request, { error: 'You cannot change your own administrator access.' }, { status: 400 });
