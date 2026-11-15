@@ -132,6 +132,9 @@ export async function POST(request: Request) {
   });
 
   if (insertError) {
+    if (insertError.code === 'P0001') {
+      return respond(request, { error: 'You have reached the appeal submission limit. Please try again later.' }, 429);
+    }
     if (insertError.code === '23505') {
       return respond(request, { error: 'You already have an appeal waiting for review' }, 409);
     }
