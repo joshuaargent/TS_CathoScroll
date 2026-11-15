@@ -70,7 +70,7 @@ Repeat for the `.p8` file, changing the path. Paste the clipboard contents into 
 
 ## 5. What the release workflow does
 
-For both Intel and Apple Silicon release jobs, the workflow:
+The single universal macOS release build includes both Intel and Apple Silicon architectures. The workflow:
 
 - imports the Developer ID certificate using electron-builder's `CSC_LINK` and `CSC_KEY_PASSWORD`;
 - signs the application with the Developer ID Application identity;
