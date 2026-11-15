@@ -471,6 +471,178 @@ export function CommentSection({
     }
   }, [topicId, sortComments, cache, getClient]);
 
+  const loadMoreComments = useCallback(async () => {
+    const cursor = nextCommentCursor;
+    if (
+      !cursor ||
+      loadingMoreComments ||
+      loadMoreInFlight.current ||
+      !isOnline ||
+      cachedAt
+    ) {
+      return;
+    }
+
+    loadMoreInFlight.current = true;
+    setLoadingMoreComments(true);
+    setLoadMoreError('');
+    const version = loadVersion.current;
+
+    try {
+      const supabase = getClient();
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+      if (userError) throw userError;
+      if (version !== loadVersion.current) return;
+
+      const { data, error } = await supabase.rpc('get_topic_comment_page', {
+        p_topic_id: topicId,
+        p_before_created_at: cursor.created_at,
+        p_before_id: cursor.id,
+        p_limit: 50,
+      });
+      if (error) throw error;
+      const page = data as CommentPageResult | null;
+      if (!page) throw new Error('The next comment page response was empty.');
+      if (version !== loadVersion.current) return;
+
+      const existingFlat = flattenCommentTree(comments);
+      const profiles = new Map<
+        string,
+        Pick<Profile, 'id' | 'username' | 'display_name' | 'bio'>
+      >();
+      existingFlat.forEach((comment) => profiles.set(comment.user_id, comment.profile));
+      if (user?.id && currentProfile) profiles.set(user.id, currentProfile);
+
+      const userIds = [
+        ...new Set(
+          page.comments
+            .map((row) => row.user_id)
+            .filter((id): id is string => Boolean(id))
+        ),
+      ].filter((id) => !profiles.has(id));
+
+      const [profilesResult, adminRoleResult, commentBanResult] = await Promise.all([
+        userIds.length
+          ? supabase.from('profiles').select('id,username,display_name,bio').in('id', userIds)
+          : Promise.resolve({ data: [], error: null }),
+        user
+          ? supabase.from('admin_users').select('user_id').eq('user_id', user.id).maybeSingle()
+          : Promise.resolve({ data: null, error: null }),
+        user
+          ? supabase
+              .from('user_comment_bans')
+              .select('id')
+              .eq('user_id', user.id)
+              .is('unbanned_at', null)
+              .maybeSingle()
+          : Promise.resolve({ data: null, error: null }),
+      ]);
+
+      if (!isCurrentLoad()) return;
+      if (profilesResult.error) throw profilesResult.error;
+
+      (profilesResult.data ?? []).forEach((profile) => profiles.set(profile.id, profile));
+
+      if (adminRoleResult.error) {
+        console.error('Unable to verify comment moderation role:', adminRoleResult.error.message);
+        setCanPinComments(false);
+      } else {
+        setCanPinComments(Boolean(adminRoleResult.data));
+      }
+
+      if (commentBanResult.error) {
+        console.error('Unable to check comment restriction:', commentBanResult.error.message);
+        setIsCommentBanned(false);
+        setCommentBanCheckFailed(true);
+      } else {
+        setIsCommentBanned(Boolean(commentBanResult.data));
+        setCommentBanCheckFailed(false);
+      }
+
+      const nodes = new Map<number, Comment>();
+      existingFlat.forEach((comment) => {
+        nodes.set(comment.id, { ...comment, replies: [] });
+      });
+
+      page.comments.forEach((row) => {
+        const previous = nodes.get(row.id);
+        nodes.set(row.id, {
+          id: row.id,
+          topic_id: row.topic_id,
+          user_id: row.user_id,
+          parent_id: row.parent_id,
+          content: row.content,
+          created_at: row.created_at,
+          edited_at: row.edited_at,
+          is_deleted: row.is_deleted,
+          is_pinned: row.is_pinned,
+          profile:
+            profiles.get(row.user_id) ??
+            previous?.profile ?? {
+              ...fallbackProfile,
+              id: row.user_id,
+            },
+          likes: Number(row.likes ?? 0),
+          likedByUser: Boolean(row.liked_by_user),
+          replies: [],
+          ...(previous?.optimistic ? { optimistic: true } : {}),
+        });
+      });
+
+      const mergedRoots: Comment[] = [];
+      nodes.forEach((comment) => {
+        if (comment.parent_id === null) {
+          mergedRoots.push(comment);
+          return;
+        }
+        nodes.get(comment.parent_id)?.replies.push(comment);
+      });
+
+      sortComments(mergedRoots);
+      setComments(mergedRoots);
+      setUserId(user?.id ?? null);
+      setCurrentProfile(user?.id ? profiles.get(user.id) ?? null : null);
+      setHasMoreComments(Boolean(page.has_more));
+      setNextCommentCursor(page.next_cursor ?? null);
+      setTotalCommentCount(Number(page.total_count ?? mergedRoots.length));
+
+      if (cache) {
+        try {
+          await cache.save(topicId, mergedRoots);
+        } catch (cacheError) {
+          console.error('Unable to update saved comments:', cacheError);
+          setCacheWarning('Comments could not be saved for offline viewing.');
+        }
+      }
+    } catch (error) {
+      if (version === loadVersion.current) {
+        console.error('Unable to load more comments:', error);
+        setLoadMoreError('Unable to load more comments. Please try again.');
+      }
+    } finally {
+      loadMoreInFlight.current = false;
+      if (version === loadVersion.current) setLoadingMoreComments(false);
+    }
+
+    function isCurrentLoad() {
+      return version === loadVersion.current;
+    }
+  }, [
+    nextCommentCursor,
+    loadingMoreComments,
+    isOnline,
+    cachedAt,
+    getClient,
+    topicId,
+    comments,
+    currentProfile,
+    sortComments,
+    cache,
+  ]);
+
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadComments();
