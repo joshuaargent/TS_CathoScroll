@@ -200,6 +200,12 @@ CREATE TABLE IF NOT EXISTS catho_private.user_action_limits (
   appeal_count integer NOT NULL DEFAULT 0 CHECK (appeal_count >= 0)
 );
 
+ALTER TABLE catho_private.user_action_limits
+  ADD COLUMN IF NOT EXISTS recommendation_window_started_at timestamptz;
+ALTER TABLE catho_private.user_action_limits
+  ADD COLUMN IF NOT EXISTS recommendation_count integer NOT NULL DEFAULT 0
+  CHECK (recommendation_count >= 0);
+
 ALTER TABLE catho_private.user_action_limits ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON TABLE catho_private.user_action_limits
   FROM PUBLIC, anon, authenticated, service_role;
@@ -609,3 +615,53 @@ GRANT SELECT (
   is_deleted,
   is_pinned
 ) ON TABLE public.comments TO anon, authenticated;
+
+
+-- Recommendations are generated through a server route, so enforce a
+-- per-account request limit there using the same private atomic counter row.
+CREATE OR REPLACE FUNCTION public.consume_recommendation_rate_limit(p_user_id uuid)
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $function$
+DECLARE
+  now_at timestamptz := pg_catalog.clock_timestamp();
+  request_count integer;
+BEGIN
+  IF p_user_id IS NULL THEN
+    RAISE EXCEPTION 'User ID is required' USING ERRCODE = '22023';
+  END IF;
+
+  INSERT INTO catho_private.user_action_limits (user_id)
+  VALUES (p_user_id)
+  ON CONFLICT (user_id) DO NOTHING;
+
+  PERFORM 1
+  FROM catho_private.user_action_limits
+  WHERE user_id = p_user_id
+  FOR UPDATE;
+
+  UPDATE catho_private.user_action_limits
+  SET
+    recommendation_count = CASE
+      WHEN recommendation_window_started_at IS NULL
+        OR recommendation_window_started_at <= now_at - interval '1 minute' THEN 1
+      ELSE LEAST(recommendation_count + 1, 61)
+    END,
+    recommendation_window_started_at = CASE
+      WHEN recommendation_window_started_at IS NULL
+        OR recommendation_window_started_at <= now_at - interval '1 minute' THEN now_at
+      ELSE recommendation_window_started_at
+    END
+  WHERE user_id = p_user_id
+  RETURNING recommendation_count INTO request_count;
+
+  RETURN request_count <= 60;
+END
+$function$;
+
+REVOKE ALL ON FUNCTION public.consume_recommendation_rate_limit(uuid)
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.consume_recommendation_rate_limit(uuid)
+  TO service_role;
