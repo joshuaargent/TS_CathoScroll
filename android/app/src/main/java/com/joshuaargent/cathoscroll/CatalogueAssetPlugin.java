@@ -60,18 +60,34 @@ public class CatalogueAssetPlugin extends Plugin {
             if (!integrity.moveToFirst() || !"ok".equals(integrity.getString(0)) || integrity.moveToNext()) {
                 throw new IOException("The bundled catalogue failed its integrity check.");
             }
-            try (Cursor metadata = database.rawQuery(
-                "SELECT format, category_count, topic_count FROM catalogue_metadata WHERE singleton = 1",
-                null
-            )) {
+            try (
+                Cursor categories = database.rawQuery(
+                    "SELECT slug, name, description, order_index FROM categories LIMIT 0",
+                    null
+                );
+                Cursor topics = database.rawQuery(
+                    "SELECT id, slug, category_slug, order_index, question, answer, explanation, catechism_paragraphs, catechism_text, scripture_reference, scripture_text FROM topics LIMIT 0",
+                    null
+                );
+                Cursor metadata = database.rawQuery(
+                    "SELECT format, category_count, topic_count FROM catalogue_metadata WHERE singleton = 1",
+                    null
+                );
+                Cursor categoryCount = database.rawQuery("SELECT COUNT(*) FROM categories", null);
+                Cursor topicCount = database.rawQuery("SELECT COUNT(*) FROM topics", null)
+            ) {
                 if (
                     !metadata.moveToFirst() ||
                     metadata.getInt(0) != 1 ||
                     metadata.getLong(1) < 0 ||
                     metadata.getLong(2) < 0 ||
-                    metadata.moveToNext()
+                    metadata.moveToNext() ||
+                    !categoryCount.moveToFirst() ||
+                    categoryCount.getLong(0) != metadata.getLong(1) ||
+                    !topicCount.moveToFirst() ||
+                    topicCount.getLong(0) != metadata.getLong(2)
                 ) {
-                    throw new IOException("The bundled catalogue metadata is invalid.");
+                    throw new IOException("The bundled catalogue metadata or row counts are invalid.");
                 }
             }
         } catch (SQLiteException error) {
