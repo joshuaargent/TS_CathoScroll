@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { AdminAppealList } from '@/components/admin/AdminAppealList';
+import { AdminContentManager, type AdminContentCategory, type AdminContentTopic } from '@/components/admin/AdminContentManager';
 import { AdminNavigation } from '@/components/admin/AdminNavigation';
 import { AdminReportList } from '@/components/admin/AdminReportList';
 import type { AdminCommentBanAppeal, AdminCommentReport } from '@/lib/moderation/types';
 import { siteConfig } from '@/lib/constants';
 import { createClient } from './supabase';
 
-type AdminSection = 'dashboard' | 'reports' | 'appeals';
+type AdminSection = 'dashboard' | 'reports' | 'appeals' | 'content';
 
 type AdminResponse = {
   adminUserId?: string;
@@ -14,6 +15,8 @@ type AdminResponse = {
   appeals?: AdminCommentBanAppeal[];
   items?: AdminCommentReport[] | AdminCommentBanAppeal[];
   hasNext?: boolean;
+  categories?: AdminContentCategory[];
+  topics?: AdminContentTopic[];
   error?: string;
 };
 
@@ -30,6 +33,8 @@ export function NativeAdmin({
   const [appeals, setAppeals] = useState<AdminCommentBanAppeal[]>([]);
   const [adminUserId, setAdminUserId] = useState('');
   const [hasNext, setHasNext] = useState(false);
+  const [categories, setCategories] = useState<AdminContentCategory[]>([]);
+  const [topics, setTopics] = useState<AdminContentTopic[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [attempt, setAttempt] = useState(0);
@@ -67,7 +72,9 @@ export function NativeAdmin({
     async function load() {
       try {
         const params = new URLSearchParams({ section, page: String(page) });
-        const response = await fetcher(`/api/admin/native?${params.toString()}`);
+        const response = section === 'content'
+          ? await fetcher('/api/admin/content')
+          : await fetcher(`/api/admin/native?${params.toString()}`);
         const result = (await response.json()) as AdminResponse;
         if (!response.ok) {
           throw new Error(
@@ -78,7 +85,15 @@ export function NativeAdmin({
           );
         }
         if (!active) return;
-        if (section === 'dashboard') {
+        if (section === 'content') {
+          if (!Array.isArray(result.categories) || !Array.isArray(result.topics)) {
+            throw new Error('The content library returned invalid data.');
+          }
+          setCategories(result.categories);
+          setTopics(result.topics);
+          setReports([]);
+          setAppeals([]);
+        } else if (section === 'dashboard') {
           if (!Array.isArray(result.reports) || !Array.isArray(result.appeals)) {
             throw new Error('The moderation dashboard returned invalid data.');
           }
@@ -134,7 +149,7 @@ export function NativeAdmin({
         </p>
       </div>
       <div className="mt-8">
-        <AdminNavigation showContent={false} />
+        <AdminNavigation />
       </div>
 
       {loading && <p role="status">Loading moderation data…</p>}
@@ -180,6 +195,15 @@ export function NativeAdmin({
             <AdminAppealList appeals={appeals} fetcher={fetcher} />
           </section>
         </>
+      )}
+
+      {!loading && !error && section === 'content' && (
+        <AdminContentManager
+          categories={categories}
+          topics={topics}
+          fetcher={fetcher}
+          onSaved={() => setAttempt((value) => value + 1)}
+        />
       )}
 
       {!loading && !error && section === 'reports' && (
