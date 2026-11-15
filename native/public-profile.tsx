@@ -76,7 +76,6 @@ function completedLabel(value: string): string {
 
 export function NativePublicProfile({
   username,
-  username,
 }: {
   username: string;
 }) {
@@ -220,7 +219,7 @@ export function NativePublicProfile({
     return () => {
       active = false;
     };
-  }, [username, catalogue, attempt]);
+  }, [username, attempt]);
 
   return (
     <div className="container py-12">
