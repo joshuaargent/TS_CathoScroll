@@ -115,7 +115,14 @@ opening Android Studio. Build the APK or app bundle there. `npm run cap:sync`
 also builds and synchronizes Android and Electron. Rebuild and synchronize
 after native code or catalogue changes; a Vercel deployment alone does not
 update the bundled interface. Sign upgrades with the same Android signing key
-as the installed app. The iOS project is not part of this release.
+as the installed app. The GitHub release workflow uses the long-lived
+keystore stored in the `ANDROID_KEYSTORE_BASE64` Actions secret; back up the
+original keystore and its passwords securely and never regenerate it. Losing
+or replacing this key prevents in-place updates and requires users to
+uninstall and reinstall the app. The first production-signed release also
+cannot update an older debug-signed installation: sync queued account
+activity while online, uninstall the debug build, then install the signed APK.
+The iOS project is not part of this release.
 
 The source logo is `assets/logo.png`; regenerate native artwork with
 `npm run assets:generate` if it changes.
