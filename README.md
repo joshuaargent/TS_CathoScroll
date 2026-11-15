@@ -254,6 +254,72 @@ The feed viewer requests exact like and visible-comment counts and the signed-in
 
 Never put Supabase service-role keys or other server secrets in `NEXT_PUBLIC_*` variables.
 
+## Native page parity and offline behaviour
+
+The Android and Electron apps use the same account-page field order, headings,
+membership panel, public-profile link, validation rules, and save/sign-out
+actions as the website. The native account page reads its profile from Supabase
+when connected and uses the encrypted per-device profile cache for read-only
+display when offline. Membership is always treated as live data; the app does
+not present an old cached tier as current. Profile, email, password, sign-in,
+and sign-out changes require a connection and are never silently queued.
+
+The native router also renders the website's shared About, FAQ, Contact,
+Privacy, Terms, and Cookies page components. The contact form uses the optional
+`NEXT_PUBLIC_FORMSPREE_FORM_ID` value at native build time; if it is not
+configured, the page displays its fallback contact details.
+
+Online comment discussions use the native secure Supabase session. Comment
+likes, posts, replies, edits, and deletes use Supabase directly. Private
+comment reports and administrator comment pinning use the website API over
+HTTPS with the user's access token; the service-role key remains server-only.
+Native API CORS is restricted to the local Capacitor origins
+(`capacitor://localhost`, `http://localhost`, and `https://localhost`).
+The administrative report/appeal dashboard and account restriction workflows
+remain website-only. Comment reporting, pinning, and all comment writes require
+an internet connection; cached discussions are read-only and may be stale.
+
+### Offline reliability rules
+
+- Treat `navigator.onLine` only as a connectivity hint. Every online request
+  must still handle timeouts, authentication expiry, server errors, and
+  connectivity loss between the check and the request.
+- Keep cached catalogue, profile, comments, notifications, and account activity
+  scoped to the correct signed-in user. Never show one account's private cache
+  after an account switch.
+- Keep queued likes, bookmarks, and progress in the encrypted activity store.
+  Do not clear the outbox on sign-out, account changes, failed sync, or an
+  unavailable topic; require successful synchronization before signing out.
+- Treat account credentials, profile edits, email changes, password changes,
+  comment writes, reports, and moderation as online-only operations. Disable
+  them offline and explain why rather than pretending they will sync later.
+- If optional local cache storage fails while online, continue using the live
+  service. A broken local cache must not take down online account, catalogue,
+  or comment access.
+- When a live read fails, show the last valid cached copy where one exists and
+  label it as potentially stale. Never replace a valid cache with an incomplete
+  response.
+- On reconnect, retry interrupted refreshes and queued activity without
+  starting duplicate concurrent syncs. A retry must not apply the same
+  operation twice; server operation IDs and acknowledged sequence numbers
+  provide idempotent recovery.
+- Keep global connection, cache, and synchronization warnings in the bottom
+  status popup. Keep field validation and action-specific failures beside the
+  control that needs attention.
+
+### Release verification plan
+
+Before publishing a release, run unit tests, ESLint, TypeScript, Android APK
+compilation, and Windows, Linux, and universal macOS packaging checks. Then
+perform real-device tests for: cold start offline; first launch without a
+catalogue or secure database; sign-in and sign-out with queued activity;
+network loss during feed pagination and profile saves; reconnect during an
+active sync; expired sessions; account switching; unavailable/unpublished
+topics; comment cache refresh failures; report rate limits; and Android update
+download/install recovery. Desktop first-run, update, and Gatekeeper flows
+must also be checked on their respective operating systems. CI packaging is
+not a substitute for these device-level checks.
+
 ## Features
 
 ### Learning Experience
