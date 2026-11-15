@@ -462,6 +462,54 @@ export class OfflineActivityStore {
     });
   }
 
+  async pendingChanges(
+    userId: string,
+    kind: OfflineActivityKind
+  ): Promise<Array<{ topicId: string; value: boolean; savedAt: string | null }>> {
+    assertKey(userId, 'user ID');
+    assertKind(kind);
+    return this.database.transaction(async (db) => {
+      await this.assertInitialized(db, userId);
+      const rows = await db.query(
+        `SELECT outbox.topic_id, outbox.value, activity.bookmark_saved_at
+         FROM offline_activity_outbox outbox
+         LEFT JOIN offline_activity activity
+           ON activity.user_id = outbox.user_id
+          AND activity.topic_id = outbox.topic_id
+          AND activity.kind = outbox.kind
+         WHERE outbox.user_id = ? AND outbox.kind = ?
+           AND outbox.sequence = (
+             SELECT MAX(latest.sequence) FROM offline_activity_outbox latest
+             WHERE latest.user_id = outbox.user_id
+               AND latest.kind = outbox.kind
+               AND latest.topic_id = outbox.topic_id
+           )
+         ORDER BY outbox.sequence`,
+        [userId, kind]
+      );
+      return rows.map((row) => {
+        if (
+          typeof row.topic_id !== 'string' ||
+          (row.value !== 0 && row.value !== 1)
+        ) {
+          throw new Error('Invalid pending offline activity change.');
+        }
+        assertKey(row.topic_id, 'pending activity topic');
+        const savedAt = row.bookmark_saved_at;
+        return {
+          topicId: row.topic_id,
+          value: row.value === 1,
+          savedAt:
+            kind === 'bookmark' &&
+            typeof savedAt === 'string' &&
+            !Number.isNaN(Date.parse(savedAt))
+              ? savedAt
+              : null,
+        };
+      });
+    });
+  }
+
   async pendingCount(userId: string): Promise<number> {
     assertKey(userId, 'user ID');
     return this.database.transaction(async (db) => {
