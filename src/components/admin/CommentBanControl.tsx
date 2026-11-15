@@ -10,6 +10,7 @@ interface CommentBanControlProps {
   reason?: string | null;
   canChangeBan: boolean;
   fetcher?: typeof fetch;
+  onChange?: () => void;
 }
 
 export function CommentBanControl({
@@ -18,6 +19,7 @@ export function CommentBanControl({
   reason,
   canChangeBan,
   fetcher = fetch,
+  onChange,
 }: CommentBanControlProps) {
   const [restrictionActive, setRestrictionActive] = useState(activeBan);
   const [currentReason, setCurrentReason] = useState(reason ?? '');
@@ -116,6 +118,7 @@ export function CommentBanControl({
       setRestrictionActive(Boolean(result.banned));
       setCurrentReason(result.banned ? moderationReason.trim() : '');
       setModerationReason('');
+      onChange?.();
       setHideExistingComments(false);
       setRestoreHiddenComments(true);
     } catch (requestError) {
