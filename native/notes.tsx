@@ -36,8 +36,12 @@ export function NativeNotes({
   const [state, setState] = useState<NoteState | null>(null);
   const [attempt, setAttempt] = useState(0);
   const [content, setContent] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState('');
+  const [savingState, setSavingState] = useState({ userId, topicId, value: false });
+  const saving = savingState.userId === userId && savingState.topicId === topicId && savingState.value;
+  const [messageState, setMessageState] = useState({ userId, topicId, value: '' });
+  const message = messageState.userId === userId && messageState.topicId === topicId
+    ? messageState.value
+    : '';
   const dirty = useRef(false);
   const draft = useRef('');
   const identity = useRef({ userId, topicId });
@@ -59,10 +63,7 @@ export function NativeNotes({
     identity.current = { userId, topicId };
     dirty.current = false;
     draft.current = '';
-    setContent('');
-    setMessage('');
-    setSaving(false);
-    setState(null);
+
   }, [userId, topicId]);
 
   useEffect(() => {
@@ -179,28 +180,28 @@ export function NativeNotes({
     const savedContent = draft.current;
     const isCurrent = () =>
       identity.current.userId === target.userId && identity.current.topicId === target.topicId;
-    setSaving(true);
-    setMessage('');
+    setSavingState({ ...target, value: true });
+    setMessageState({ ...target, value: '' });
     try {
       await saveNativeNote(createClient(), target.userId, target.topicId, savedContent);
       if (!isCurrent()) return;
       dirty.current = draft.current !== savedContent;
-      setMessage('Saved successfully.');
+      setMessageState({ ...target, value: 'Saved successfully.' });
       try {
         await cache.save(target.userId, target.topicId, savedContent);
       } catch (error) {
         console.error('Unable to save note for offline viewing:', error);
         if (isCurrent()) {
-          setMessage('Saved online, but this note could not be saved for offline viewing.');
+          setMessageState({ ...target, value: 'Saved online, but this note could not be saved for offline viewing.' });
         }
       }
     } catch (error) {
       console.error('Unable to save note:', error);
       if (isCurrent()) {
-        setMessage('Unable to save your note. Check your connection and try again.');
+        setMessageState({ ...target, value: 'Unable to save your note. Check your connection and try again.' });
       }
     } finally {
-      if (isCurrent()) setSaving(false);
+      if (isCurrent()) setSavingState({ ...target, value: false });
     }
   }
 
