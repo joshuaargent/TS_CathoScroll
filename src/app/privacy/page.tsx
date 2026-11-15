@@ -1,9 +1,11 @@
-import { createPageMetadata } from '@/lib/seo';
 import Link from 'next/link';
+import { createPageMetadata } from '@/lib/seo';
 
-export const metadata = createPageMetadata(
-  {"title":"Privacy","description":"Learn how CathoScroll collects, uses, and protects your personal information.","path":"/privacy"}
-);
+export const metadata = createPageMetadata({
+  title: "Privacy",
+  description: "Learn how CathoScroll collects, uses, and protects your personal information.",
+  path: "/privacy",
+});
 
 export default function PrivacyPage() {
   return (
