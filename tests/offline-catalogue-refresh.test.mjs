@@ -97,6 +97,7 @@ function fixture() {
     db,
     adapter,
     transport,
+    categories,
     topics,
     setRevision(value) {
       revision = value;
@@ -280,12 +281,13 @@ test('applies bounded incremental changes atomically, including slug swaps and r
     ];
     setRevision('6');
     let calls = 0;
-    transport.counts = async () => {
-      throw new Error('Unexpected full snapshot');
-    };
-    transport.categories = async () => {
-      throw new Error('Unexpected category download');
-    };
+    transport.counts = async () => ({
+      revision: '6',
+      categories: 1,
+      topics: 205,
+    });
+    transport.categories = async (after) =>
+      after ? [] : [{ slug: 'faith', name: 'Faith', description: '', orderIndex: 1 }];
     transport.topics = async () => {
       throw new Error('Unexpected topic download');
     };
@@ -317,6 +319,36 @@ test('applies bounded incremental changes atomically, including slug swaps and r
     assert.equal(db.prepare("SELECT COUNT(*) AS n FROM topics WHERE id='new-topic'").get().n, 1);
     assert.equal(db.prepare('SELECT topic_count FROM catalogue_metadata').get().topic_count, 205);
     assert.equal(db.prepare('SELECT revision FROM catalogue_sync_state').get().revision, '6');
+  } finally {
+    db.close();
+  }
+});
+
+test('falls back to a full snapshot when a category is unpublished or replaced', async () => {
+  const { db, adapter, transport, categories, topics, setRevision } = fixture();
+  try {
+    const service = new CatalogueRefresh(adapter, transport);
+    await service.initialize();
+    assert.equal(await service.refresh(), true);
+
+    categories.splice(0, 1, {
+      slug: 'replacement',
+      name: 'Replacement',
+      description: 'Published replacement',
+      orderIndex: 2,
+    });
+    for (const topic of topics) topic.categorySlug = 'replacement';
+    setRevision('2');
+    transport.changes = async () => {
+      throw new Error('A category tombstone is not available in the incremental feed.');
+    };
+
+    assert.equal(await service.refresh(), true);
+    assert.equal(db.prepare('SELECT COUNT(*) AS count FROM categories').get().count, 1);
+    assert.equal(db.prepare("SELECT COUNT(*) AS count FROM categories WHERE slug = 'faith'").get().count, 0);
+    assert.equal(db.prepare("SELECT COUNT(*) AS count FROM categories WHERE slug = 'replacement'").get().count, 1);
+    assert.equal(db.prepare("SELECT COUNT(*) AS count FROM topics WHERE category_slug = 'replacement'").get().count, 205);
+    assert.equal(db.prepare('SELECT revision FROM catalogue_sync_state').get().revision, '2');
   } finally {
     db.close();
   }
