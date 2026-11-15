@@ -1077,7 +1077,7 @@ function App() {
                   hidden={route?.kind !== 'feed'}
                 >
                   <TopicFeedCore
-                    key={`${feedPersonalized ? 'personalized' : 'catalogue'}-${catalogueVersion}`}
+                    key={feedPersonalized ? 'personalized' : 'catalogue'}
                     topics={firstPage.topics}
                     nextCursor={firstPage.nextCursor}
                     personalized={feedPersonalized}
