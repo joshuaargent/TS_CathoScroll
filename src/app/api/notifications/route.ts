@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server';
 
-import { getAuthenticatedUserFromRequest, isSameOriginOrNativeRequest, nativeApiCorsHeaders } from '@/lib/supabase/admin';
+import {
+  getAuthenticatedUserFromRequest,
+  isSameOriginOrNativeRequest,
+  nativeApiCorsHeaders,
+} from '@/lib/supabase/admin';
 import { readBoundedJson } from '@/lib/http/read-json';
 import { checkApiRateLimit, rateLimitResponseHeaders } from '@/lib/security/api-rate-limit';
 
@@ -29,14 +33,12 @@ export function OPTIONS(request: Request) {
 
 export async function GET(request: Request) {
   const { supabase, user } = await getAuthenticatedUserFromRequest(request);
-
-  if (!user) {
-    return respond(request, { error: 'Authentication required' }, { status: 401 });
-  }
+  if (!user) return respond(request, { error: 'Authentication required' }, { status: 401 });
 
   const rateLimit = await enforceUserLimit(user.id, 'notifications:read', 60);
   if (!rateLimit.allowed) {
     return respond(
+      request,
       { error: rateLimit.unavailable ? 'Notifications are temporarily unavailable' : 'Too many notification requests. Please wait.' },
       {
         status: rateLimit.unavailable ? 503 : 429,
@@ -56,10 +58,7 @@ export async function GET(request: Request) {
     console.error('Unable to load unread notification count:', countError.message);
     return respond(request, { error: 'Unable to load notifications' }, { status: 500 });
   }
-
-  if (countOnly) {
-    return respond(request, { unreadCount: count ?? 0 });
-  }
+  if (countOnly) return respond(request, { unreadCount: count ?? 0 });
 
   const { data: notificationRows, error: notificationsError } = await supabase
     .from('notifications')
@@ -70,7 +69,7 @@ export async function GET(request: Request) {
 
   if (notificationsError) {
     console.error('Unable to load notifications:', notificationsError.message);
-    return respond({ error: 'Unable to load notifications' }, { status: 500 });
+    return respond(request, { error: 'Unable to load notifications' }, { status: 500 });
   }
 
   const topicIds = [
@@ -84,11 +83,10 @@ export async function GET(request: Request) {
 
   if (topicsError) {
     console.error('Unable to resolve notification topic links:', topicsError.message);
-    return respond({ error: 'Unable to load notifications' }, { status: 500 });
+    return respond(request, { error: 'Unable to load notifications' }, { status: 500 });
   }
 
   const topicSlugById = new Map((topics ?? []).map((topic) => [String(topic.id), topic.slug]));
-
   return respond(request, {
     notifications: (notificationRows ?? []).map((notification) => ({
       ...notification,
@@ -100,18 +98,16 @@ export async function GET(request: Request) {
 
 export async function PATCH(request: Request) {
   if (!isSameOriginOrNativeRequest(request)) {
-    return respond({ error: 'Forbidden' }, { status: 403 });
+    return respond(request, { error: 'Forbidden' }, { status: 403 });
   }
 
-  const { supabase, user } = await getAuthenticatedUser();
-
-  if (!user) {
-    return respond({ error: 'Authentication required' }, { status: 401 });
-  }
+  const { supabase, user } = await getAuthenticatedUserFromRequest(request);
+  if (!user) return respond(request, { error: 'Authentication required' }, { status: 401 });
 
   const rateLimit = await enforceUserLimit(user.id, 'notifications:write', 30);
   if (!rateLimit.allowed) {
     return respond(
+      request,
       { error: rateLimit.unavailable ? 'Notifications are temporarily unavailable' : 'Too many notification updates. Please wait.' },
       {
         status: rateLimit.unavailable ? 503 : 429,
@@ -121,7 +117,9 @@ export async function PATCH(request: Request) {
   }
 
   const parsed = await readBoundedJson(request, 1024);
-  if (!parsed.ok) return respond({ error: parsed.error }, { status: parsed.status });
+  if (!parsed.ok) {
+    return respond(request, { error: parsed.error }, { status: parsed.status });
+  }
   const body = parsed.value;
 
   if (
@@ -135,7 +133,7 @@ export async function PATCH(request: Request) {
         !Number.isSafeInteger(body.notificationId) ||
         body.notificationId < 1))
   ) {
-    return respond({ error: 'Invalid notification update' }, { status: 400 });
+    return respond(request, { error: 'Invalid notification update' }, { status: 400 });
   }
 
   const targetNotificationId =
@@ -154,14 +152,13 @@ export async function PATCH(request: Request) {
   }
 
   const { data, error } = await updateQuery.select('id');
-
   if (error) {
     console.error('Unable to mark notifications as read:', error.message);
-    return respond({ error: 'Unable to update notifications' }, { status: 500 });
+    return respond(request, { error: 'Unable to update notifications' }, { status: 500 });
   }
 
   if (body.action === 'read' && targetNotificationId !== null && (!data || data.length === 0)) {
-    return respond({ error: 'Notification not found' }, { status: 404 });
+    return respond(request, { error: 'Notification not found' }, { status: 404 });
   }
 
   return respond(request, { updated: data?.length ?? 0 });
