@@ -36,6 +36,21 @@ const tables = [
     name: 'offline_activity_bootstrap_items',
     columns: ['user_id', 'topic_id', 'kind', 'value', 'completed_at'],
   },
+  {
+    name: 'offline_comment_cache',
+    columns: ['topic_id', 'comments', 'saved_at'],
+    optional: true,
+  },
+  {
+    name: 'offline_topic_counts',
+    columns: ['topic_id', 'likes', 'comments', 'saved_at'],
+    optional: true,
+  },
+  {
+    name: 'offline_private_notes',
+    columns: ['note_key', 'nonce', 'ciphertext'],
+    optional: true,
+  },
 ] as const;
 
 type Value = string | number | null;
@@ -47,6 +62,7 @@ async function copyTable(
 ) {
   const schema = await source.query(`PRAGMA table_info(${table.name})`);
   const names = schema.map((column) => column.name);
+  if (names.length === 0 && 'optional' in table && table.optional) return;
   const optionalColumns = 'optionalColumns' in table ? table.optionalColumns : [];
   const presentOptionalColumns = optionalColumns.filter((column) => names.includes(column));
   const allowedColumns = [...table.columns, ...optionalColumns];
@@ -106,6 +122,22 @@ export async function migrateLegacyActivity(
           version INTEGER NOT NULL
         )
       `);
+      await destination.execute(`CREATE TABLE IF NOT EXISTS offline_comment_cache (
+        topic_id TEXT PRIMARY KEY NOT NULL,
+        comments TEXT NOT NULL,
+        saved_at TEXT NOT NULL
+      )`);
+      await destination.execute(`CREATE TABLE IF NOT EXISTS offline_topic_counts (
+        topic_id TEXT PRIMARY KEY NOT NULL,
+        likes INTEGER NOT NULL CHECK (likes >= 0),
+        comments INTEGER NOT NULL CHECK (comments >= 0),
+        saved_at TEXT NOT NULL
+      )`);
+      await destination.execute(`CREATE TABLE IF NOT EXISTS offline_private_notes (
+        note_key TEXT PRIMARY KEY NOT NULL,
+        nonce TEXT NOT NULL,
+        ciphertext TEXT NOT NULL
+      )`);
       const marker = await destination.query('SELECT id, version FROM offline_activity_migration');
       if (marker.length) {
         if (marker.length !== 1 || marker[0].id !== 1 || marker[0].version !== 1) {
