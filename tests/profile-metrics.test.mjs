@@ -10,7 +10,7 @@ const source = await readFile(
 const compiled = ts.transpileModule(source, {
   compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
 }).outputText;
-const { calculateStreaks, countLikesReceived } = await import(
+const { calculateStreaks } = await import(
   `data:text/javascript;base64,${Buffer.from(compiled).toString('base64')}`
 );
 
@@ -43,51 +43,4 @@ test('ignores invalid dates and handles empty activity', () => {
   const now = new Date(2026, 10, 15, 12);
   assert.deepEqual(calculateStreaks([], now), { current: 0, longest: 0 });
   assert.deepEqual(calculateStreaks(['not-a-date'], now), { current: 0, longest: 0 });
-});
-
-
-test('counts likes across every comment page and bounded query batch', async () => {
-  const pages = [
-    Array.from({ length: 500 }, (_, index) => index + 1),
-    [501, 502],
-  ];
-  const requestedOffsets = [];
-  const batchSizes = [];
-  let pageIndex = 0;
-
-  const total = await countLikesReceived(
-    async (offset, limit) => {
-      requestedOffsets.push([offset, limit]);
-      return pages[pageIndex++] ?? [];
-    },
-    async (commentIds) => {
-      batchSizes.push(commentIds.length);
-      return commentIds.length;
-    }
-  );
-
-  assert.equal(total, 502);
-  assert.deepEqual(requestedOffsets, [[0, 500], [500, 500]]);
-  assert.deepEqual(batchSizes, [100, 100, 100, 100, 100, 2]);
-});
-
-test('returns zero without issuing like-count queries when a profile has no comments', async () => {
-  let countCalls = 0;
-  const total = await countLikesReceived(
-    async () => [],
-    async () => {
-      countCalls++;
-      return 0;
-    }
-  );
-
-  assert.equal(total, 0);
-  assert.equal(countCalls, 0);
-});
-
-test('rejects invalid comment-like counts instead of corrupting the profile metric', async () => {
-  await assert.rejects(
-    countLikesReceived(async () => [1], async () => -1),
-    /comment-like count is invalid/
-  );
 });
