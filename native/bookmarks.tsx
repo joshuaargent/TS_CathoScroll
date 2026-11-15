@@ -4,7 +4,23 @@ import { Badge } from '@/components/ui/Badge';
 import { BookmarksHeader, EmptyBookmarks } from '@/components/bookmarks/BookmarksSummary';
 import type { OfflineCatalogue } from '@/lib/offline/catalogue';
 import type { Topic } from '@/types';
+import { createClient } from './supabase';
 import type { NativeActivity, NativeActivityStatus } from './activity';
+import { notifyNativeStatus, clearNativeStatusNotice } from './offline-indicator';
+
+function formatSavedDate(dateString?: string) {
+  if (!dateString) return '';
+  const savedDate = new Date(dateString);
+  if (Number.isNaN(savedDate.getTime())) return '';
+  const today = new Date();
+  const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const startOfSaved = new Date(savedDate.getFullYear(), savedDate.getMonth(), savedDate.getDate());
+  const difference = Math.floor((startOfToday.getTime() - startOfSaved.getTime()) / 86_400_000);
+  if (difference === 0) return 'Saved today';
+  if (difference === 1) return 'Saved yesterday';
+  if (difference > 1 && difference < 7) return 'Saved ' + difference + ' days ago';
+  return 'Saved ' + savedDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+}
 
 export function NativeBookmarks({
   catalogue,
@@ -19,7 +35,7 @@ export function NativeBookmarks({
   status: NativeActivityStatus | null;
   version: number;
 }) {
-  const [topics, setTopics] = useState<Topic[]>([]);
+  const [topics, setTopics] = useState<Array<Topic & { bookmarkedAt?: string }>>([]);
   const [cursor, setCursor] = useState<string | null>(null);
   const [missing, setMissing] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -37,20 +53,94 @@ export function NativeBookmarks({
     if (!userId || !activity || !ready) return;
     const savedUserId = userId;
     const savedActivity = activity;
+    const reconnect = () => setAttempt((value) => value + 1);
+    window.addEventListener('online', reconnect);
+    window.addEventListener('offline', reconnect);
     async function load() {
       try {
-        const page = await savedActivity.store.listActivity(savedUserId, 'bookmark');
-        const savedTopics = await catalogue.topicsByIds(page.topicIds);
+        let savedTopics: Array<Topic & { bookmarkedAt?: string }>;
+        let nextCursor: string | null = null;
+        let hasMissing = false;
+        if (navigator.onLine) {
+          try {
+            const client = createClient();
+            const { data: bookmarks, error: bookmarkError } = await client
+              .from('bookmarks')
+              .select('topic_id,created_at')
+              .eq('user_id', savedUserId)
+              .order('created_at', { ascending: false });
+            if (bookmarkError) throw bookmarkError;
+            const ids = (bookmarks ?? []).map((bookmark) => String(bookmark.topic_id));
+            const { data: topicRows, error: topicsError } = ids.length
+              ? await client
+                  .from('topics')
+                  .select('id,slug,question,answer,explanation,catechism_paragraphs,catechism_text,scripture_reference,scripture_text,category:categories!inner(name,is_published)')
+                  .in('id', ids)
+                  .eq('is_published', true)
+                  .eq('category.is_published', true)
+              : { data: [], error: null };
+            if (topicsError) throw topicsError;
+            const mapped = new Map((topicRows ?? []).map((row) => {
+              const relation = Array.isArray(row.category) ? row.category[0] : row.category;
+              const topic: Topic = {
+                id: row.id,
+                slug: row.slug,
+                category: relation?.name ?? '',
+                question: row.question,
+                answer: row.answer,
+                explanation: row.explanation,
+                catechism: { paragraphs: row.catechism_paragraphs ?? [], text: row.catechism_text },
+                scripture: { reference: row.scripture_reference, text: row.scripture_text },
+              };
+              return [String(topic.id), topic] as const;
+            }));
+            savedTopics = (bookmarks ?? []).flatMap((bookmark) => {
+              const topic = mapped.get(String(bookmark.topic_id));
+              return topic ? [{ ...topic, bookmarkedAt: bookmark.created_at }] : [];
+            });
+            hasMissing = savedTopics.length !== ids.length;
+            clearNativeStatusNotice('bookmarks-online:' + savedUserId);
+          } catch (onlineError) {
+            console.error('Unable to load live bookmarks:', onlineError);
+            const page = await savedActivity.store.listActivity(savedUserId, 'bookmark');
+            const offlineTopics = await catalogue.topicsByIds(page.topicIds);
+            savedTopics = offlineTopics;
+            nextCursor = page.nextCursor;
+            hasMissing = offlineTopics.length !== page.topicIds.length;
+            notifyNativeStatus('Live bookmarks are unavailable. Showing saved bookmarks from this device.', {
+              id: 'bookmarks-online:' + savedUserId,
+              action: { label: 'Retry', onClick: () => setAttempt((value) => value + 1) },
+            });
+          }
+        } else {
+          const page = await savedActivity.store.listActivity(savedUserId, 'bookmark');
+          const offlineTopics = await catalogue.topicsByIds(page.topicIds);
+          savedTopics = offlineTopics;
+          nextCursor = page.nextCursor;
+          hasMissing = offlineTopics.length !== page.topicIds.length;
+        }
         if (epoch.current !== current) return;
         setTopics(savedTopics);
-        setCursor(page.nextCursor);
-        setMissing(savedTopics.length !== page.topicIds.length);
+        setCursor(nextCursor);
+        setMissing(hasMissing);
         setError('');
+        clearNativeStatusNotice('bookmarks:' + savedUserId);
         setLoading(false);
       } catch (cause) {
         console.error('Unable to load saved bookmarks:', cause);
         if (epoch.current === current) {
           setError('Unable to load your bookmarks. Please try again.');
+          notifyNativeStatus('Unable to load your bookmarks. Please try again.', {
+            id: 'bookmarks:' + savedUserId,
+            action: {
+              label: 'Retry',
+              onClick: () => {
+                setError('');
+                setLoading(true);
+                setAttempt((value) => value + 1);
+              },
+            },
+          });
           setLoading(false);
         }
       }
@@ -58,6 +148,8 @@ export function NativeBookmarks({
     void load();
     return () => {
       epoch.current++;
+      window.removeEventListener('online', reconnect);
+      window.removeEventListener('offline', reconnect);
     };
   }, [catalogue, userId, activity, ready, version, attempt]);
 
@@ -76,8 +168,13 @@ export function NativeBookmarks({
       setMissing((previous) => previous || savedTopics.length !== page.topicIds.length);
     } catch (cause) {
       console.error('Unable to load more saved bookmarks:', cause);
-      if (current === generation.current)
+      if (current === generation.current) {
         setError('Unable to load more bookmarks. Please try again.');
+        notifyNativeStatus('Unable to load more bookmarks. Please try again.', {
+          id: 'bookmarks-more:' + userId,
+          action: { label: 'Retry', onClick: () => void loadMore() },
+        });
+      }
     } finally {
       busy.current = false;
       if (current === generation.current) setLoading(false);
@@ -97,30 +194,11 @@ export function NativeBookmarks({
           </Link>
         </p>
       ) : !ready ? (
-        <p role="status">
-          {status?.userId === userId && status.error
-            ? status.error
-            : 'Connect to set up your saved account activity on this device.'}
-        </p>
+        <p role="status">Connect to set up your saved account activity on this device.</p>
       ) : (
         <>
           {loading && !topics.length && <p role="status">Loading bookmarks…</p>}
-          {error && (
-            <p role="alert">
-              {error}{' '}
-              <button
-                type="button"
-                className="text-accent underline"
-                onClick={() => {
-                  setLoading(true);
-                  setError('');
-                  setAttempt((value) => value + 1);
-                }}
-              >
-                Retry
-              </button>
-            </p>
-          )}
+
           {missing && (
             <p role="status" className="text-text-secondary mb-6">
               Some saved topics are not available on this device yet.
@@ -136,6 +214,9 @@ export function NativeBookmarks({
                   </Badge>
                   <h2 className="mt-4 text-xl leading-tight font-bold">{topic.question}</h2>
                   <p className="text-text-secondary mt-3 line-clamp-3">{topic.answer}</p>
+                  {topic.bookmarkedAt && (
+                    <p className="text-text-muted mt-6 text-sm">{formatSavedDate(topic.bookmarkedAt)}</p>
+                  )}
                 </article>
               </Link>
             ))}
