@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
 import { NativeSignin } from './signin';
@@ -27,12 +28,14 @@ export function NativeAccount({
   checking,
   available,
   onSignedIn,
+  onSignedOut,
   activity,
 }: {
   user: CachedIdentity | null;
   checking: boolean;
   available: boolean;
   onSignedIn: () => void;
+  onSignedOut: () => void;
   activity: NativeActivity | null;
 }) {
   const [online, setOnline] = useState(navigator.onLine);
@@ -298,6 +301,7 @@ export function NativeAccount({
         const { error: signOutError } = await createClient().auth.signOut({ scope: 'local' });
         if (signOutError) throw signOutError;
       });
+      onSignedOut();
     } catch (cause) {
       console.error('Unable to sign out:', cause);
       setSignOutError(
@@ -486,10 +490,24 @@ export function NativeAccount({
         )}
         <div className="flex flex-wrap gap-4">
           <Button type="submit" disabled={!canSave} size="lg" style={{ color: '#ffffff' }}>
-            {busy ? 'Saving…' : 'Save Changes'}
+            {busy ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              'Save Changes'
+            )}
           </Button>
           <Button type="button" variant="secondary" size="lg" disabled={signingOut || !online} onClick={() => void signOut()}>
-            {signingOut ? 'Signing Out…' : 'Sign Out'}
+            {signingOut ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Signing Out...
+              </>
+            ) : (
+              'Sign Out'
+            )}
           </Button>
         </div>
         {signOutError && <p role="alert" className="text-sm text-red-600">{signOutError}</p>}
