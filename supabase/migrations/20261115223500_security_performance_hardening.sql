@@ -157,6 +157,9 @@ CREATE INDEX IF NOT EXISTS bookmarks_user_cursor_idx
 CREATE INDEX IF NOT EXISTS comments_topic_parent_order_idx
   ON public.comments (topic_id, parent_id, is_pinned DESC, created_at DESC, id DESC);
 
+CREATE INDEX IF NOT EXISTS comments_topic_created_idx
+  ON public.comments (topic_id, created_at DESC, id DESC);
+
 CREATE INDEX IF NOT EXISTS comments_user_visible_created_idx
   ON public.comments (user_id, created_at DESC)
   WHERE is_deleted = false;
