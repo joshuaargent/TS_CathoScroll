@@ -1871,17 +1871,24 @@ test('orders offline bookmarks by saved time and paginates with a stable date/to
     const store = new OfflineActivityStore(adapter(db));
     await store.initialize();
     await bootstrap(store);
-    for (const topicId of ['older', 'newest', 'middle']) {
+    const timestamps = [];
+    for (let index = 0; index < 55; index++) {
+      const topicId = `topic-${String(index).padStart(3, '0')}`;
       await store.setActivity('alice', topicId, 'bookmark', true, 'bookmark-' + topicId);
+      timestamps.push({
+        topicId,
+        savedAt: new Date(Date.UTC(2026, 10, 1 + index, 10)).toISOString(),
+      });
     }
-    await store.recordBookmarkTimestamps('alice', [
-      { topicId: 'older', savedAt: '2026-11-10T10:00:00.000Z' },
-      { topicId: 'newest', savedAt: '2026-11-12T10:00:00.000Z' },
-      { topicId: 'middle', savedAt: '2026-11-11T10:00:00.000Z' },
-    ]);
-    const page = await store.listActivity('alice', 'bookmark');
-    assert.deepEqual(page.topicIds, ['newest', 'middle', 'older']);
-    assert.equal(page.nextCursor, null);
+    await store.recordBookmarkTimestamps('alice', timestamps);
+    const first = await store.listActivity('alice', 'bookmark');
+    const second = await store.listActivity('alice', 'bookmark', first.nextCursor);
+    assert.equal(first.topicIds.length, 50);
+    assert.equal(second.topicIds.length, 5);
+    assert.equal(first.topicIds[0], 'topic-054');
+    assert.equal(first.topicIds[49], 'topic-005');
+    assert.deepEqual(second.topicIds, ['topic-004', 'topic-003', 'topic-002', 'topic-001', 'topic-000']);
+    assert.equal(second.nextCursor, null);
   } finally {
     db.close();
   }
