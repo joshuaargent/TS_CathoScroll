@@ -66,9 +66,11 @@ export function BookmarksGrid({
             <Badge variant="accent" size="sm">{topic.category}</Badge>
             <h2 className="mt-4 text-xl leading-tight font-bold">{topic.question}</h2>
             <p className="text-text-secondary mt-3 line-clamp-3">{topic.answer}</p>
-            {topic.bookmarkedAt && (
-              <p className="text-text-muted mt-6 text-sm">{formatSavedDate(topic.bookmarkedAt)}</p>
-            )}
+            <p className="text-text-muted mt-6 text-sm">
+              {topic.bookmarkedAt
+                ? formatSavedDate(topic.bookmarkedAt)
+                : 'Saved date unavailable offline'}
+            </p>
           </article>
         </Link>
       ))}
