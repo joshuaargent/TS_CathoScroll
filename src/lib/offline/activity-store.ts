@@ -811,7 +811,8 @@ export class OfflineActivityStore {
         );
       }
       await db.execute(
-        `INSERT OR REPLACE INTO offline_activity (user_id, topic_id, kind, value, completed_at)
+        `INSERT OR REPLACE INTO offline_activity
+         (user_id, topic_id, kind, value, completed_at, bookmark_saved_at)
          SELECT server.user_id, server.topic_id, server.kind,
            COALESCE((SELECT pending.value FROM offline_activity_outbox pending
              WHERE pending.user_id = server.user_id AND pending.topic_id = server.topic_id
@@ -822,7 +823,10 @@ export class OfflineActivityStore {
              (SELECT pending.completed_at FROM offline_activity_outbox pending
               WHERE pending.user_id = server.user_id AND pending.topic_id = server.topic_id
                 AND pending.kind = server.kind ORDER BY pending.sequence DESC LIMIT 1)
-           ELSE server.completed_at END
+           ELSE server.completed_at END,
+           (SELECT existing.bookmark_saved_at FROM offline_activity existing
+            WHERE existing.user_id = server.user_id AND existing.topic_id = server.topic_id
+              AND existing.kind = server.kind)
          FROM offline_activity_server server WHERE server.user_id = ?`,
         [userId]
       );
