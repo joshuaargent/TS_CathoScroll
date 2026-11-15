@@ -38,6 +38,7 @@ public final class AndroidUpdateChecker {
     private AndroidUpdateChecker() {}
 
     public static void checkForUpdates(Activity activity) {
+        if (hasPendingDownload(activity)) return;
         EXECUTOR.execute(() -> {
             HttpURLConnection connection = null;
             try {
@@ -64,7 +65,8 @@ public final class AndroidUpdateChecker {
                 if (release.optBoolean("draft", false) || release.optBoolean("prerelease", false)) return;
 
                 String latestVersion = release.optString("tag_name", "").replaceFirst("^v", "");
-                String currentVersion = BuildConfig.VERSION_NAME;
+                String currentVersion = activity.getPackageManager()
+                    .getPackageInfo(activity.getPackageName(), 0).versionName;
                 if (!isStableVersion(latestVersion) || !isStableVersion(currentVersion)
                     || !isNewerVersion(latestVersion, currentVersion)) return;
 
@@ -231,6 +233,35 @@ public final class AndroidUpdateChecker {
             if (latestPart < currentPart) return false;
         }
         return false;
+    }
+
+    private static boolean hasPendingDownload(Activity activity) {
+        SharedPreferences preferences = activity.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        long pendingId = preferences.getLong(PENDING_DOWNLOAD_ID, -1L);
+        if (pendingId == -1L) return false;
+
+        DownloadManager manager = (DownloadManager) activity.getSystemService(Context.DOWNLOAD_SERVICE);
+        try (Cursor cursor = manager.query(new DownloadManager.Query().setFilterById(pendingId))) {
+            if (cursor == null || !cursor.moveToFirst()) {
+                clearPendingDownload(preferences);
+                return false;
+            }
+
+            int status = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS));
+            if (status == DownloadManager.STATUS_PENDING
+                || status == DownloadManager.STATUS_RUNNING
+                || status == DownloadManager.STATUS_PAUSED
+                || status == DownloadManager.STATUS_SUCCESSFUL) {
+                return true;
+            }
+
+            clearPendingDownload(preferences);
+            return false;
+        } catch (Exception error) {
+            android.util.Log.w("CathoScrollUpdates", "Unable to inspect the pending Android update download.", error);
+            // Fail closed: do not enqueue duplicate downloads if DownloadManager cannot be queried.
+            return true;
+        }
     }
 
     private static void clearPendingDownload(SharedPreferences preferences) {
