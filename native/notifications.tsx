@@ -9,6 +9,7 @@ import { NativeNotificationService } from './notification-service';
 import { openPrivateActivityDatabase } from '@/lib/offline/native-database';
 import { secureAuthStorage } from './secure-auth-storage';
 import { notifyNativeStatus, clearNativeStatusNotice } from './offline-indicator';
+import { NativeNotificationsSkeleton } from './skeletons';
 
 type NotificationState = {
   userId: string;
@@ -187,7 +188,7 @@ export function NativeNotifications({ userId }: { userId: string | null }) {
       ) : transport ? (
         <NotificationList transport={transport} />
       ) : (
-        <p role="status">Loading notifications...</p>
+        <NativeNotificationsSkeleton />
       )}
     </NotificationsPageView>
   );
