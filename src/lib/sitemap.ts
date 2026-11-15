@@ -20,6 +20,7 @@ export function getSitemapCategoriesXml(categories: { slug: string }[]) {
     '/',
     '/categories',
     '/learn',
+    '/download',
     '/about',
     '/faq',
     '/contact',
