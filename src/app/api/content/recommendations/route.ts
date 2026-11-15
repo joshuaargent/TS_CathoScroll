@@ -29,6 +29,11 @@ export async function POST(request: Request) {
   }
   const body = parsed.value;
 
+
+  if (!body || typeof body !== 'object' || !('cursor' in body) || !body.cursor) {
+    return NextResponse.json({ error: 'Invalid recommendation cursor.' }, { status: 400, headers });
+  }
+
   let rateLimitClient;
   try {
     rateLimitClient = createServiceRoleClient();
@@ -56,10 +61,6 @@ export async function POST(request: Request) {
       { error: 'You have requested recommendations too frequently. Please try again in a minute.' },
       { status: 429, headers: { ...headers, 'Retry-After': '60' } }
     );
-  }
-
-  if (!body || typeof body !== 'object' || !('cursor' in body) || !body.cursor) {
-    return NextResponse.json({ error: 'Invalid recommendation cursor.' }, { status: 400, headers });
   }
 
   try {
