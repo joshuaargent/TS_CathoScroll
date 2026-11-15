@@ -1,10 +1,8 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import {
-  AdminReportList,
-  type AdminCommentReport,
-} from './AdminReportList';
+import { AdminReportList } from './AdminReportList';
+import type { AdminCommentReport } from '@/lib/moderation/types';
 
 export function AdminReportListClient({
   reports,
