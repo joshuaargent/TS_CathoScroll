@@ -76,7 +76,34 @@ export function NativeBookmarks({
               .eq('user_id', savedUserId)
               .order('created_at', { ascending: false });
             if (bookmarkError) throw bookmarkError;
-            const ids = (bookmarks ?? []).map((bookmark) => String(bookmark.topic_id));
+            // Reconcile the server snapshot with the latest queued local operation
+            // for each topic. This keeps offline additions visible and prevents
+            // pending removals from reappearing while the outbox is retrying.
+            const effectiveBookmarks = new Map(
+              (bookmarks ?? []).map((bookmark) => [
+                String(bookmark.topic_id),
+                { topic_id: String(bookmark.topic_id), created_at: bookmark.created_at },
+              ])
+            );
+            const pendingChanges = await savedActivity.store.pendingChanges(savedUserId, 'bookmark');
+            for (const change of pendingChanges) {
+              if (change.value) {
+                const existing = effectiveBookmarks.get(change.topicId);
+                effectiveBookmarks.set(change.topicId, {
+                  topic_id: change.topicId,
+                  created_at: existing?.created_at ?? change.savedAt ?? new Date().toISOString(),
+                });
+              } else {
+                effectiveBookmarks.delete(change.topicId);
+              }
+            }
+            const orderedBookmarks = [...effectiveBookmarks.values()].sort((a, b) => {
+              const dateDifference = Date.parse(b.created_at) - Date.parse(a.created_at);
+              return Number.isNaN(dateDifference) || dateDifference === 0
+                ? a.topic_id.localeCompare(b.topic_id)
+                : dateDifference;
+            });
+            const ids = orderedBookmarks.map((bookmark) => String(bookmark.topic_id));
             // Cache authoritative server timestamps so the same labels survive an offline restart.
             try {
               await savedActivity.store.recordBookmarkTimestamps(
@@ -116,11 +143,11 @@ export function NativeBookmarks({
               };
               return [String(topic.id), topic] as const;
             }));
-            savedTopics = (bookmarks ?? []).flatMap((bookmark) => {
+            savedTopics = orderedBookmarks.flatMap((bookmark) => {
               const topic = mapped.get(String(bookmark.topic_id));
               return topic ? [{ ...topic, bookmarkedAt: bookmark.created_at }] : [];
             });
-            hasMissing = savedTopics.length !== ids.length;
+            hasMissing = savedTopics.length !== orderedBookmarks.length;
             clearNativeStatusNotice('bookmarks-online:' + savedUserId);
           } catch (onlineError) {
             console.error('Unable to load live bookmarks:', onlineError);
