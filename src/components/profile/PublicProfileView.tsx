@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react';
-import Link from 'next/link';
 import { Badge } from '@/components/ui/Badge';
 import type { Topic } from '@/types';
 
@@ -80,9 +79,9 @@ export function PublicProfileView({
         </p>
         <p className="text-text-secondary mt-6 max-w-3xl text-lg">{profile.bio || 'No bio yet.'}</p>
         {showAdminLink && (
-          <Link href="/admin" className="text-accent mt-5 inline-block font-medium hover:underline">
+          <a href="/admin" className="text-accent mt-5 inline-block font-medium hover:underline">
             Open moderation dashboard
-          </Link>
+          </a>
         )}
         {moderationControls}
         <div className="mt-6">
@@ -131,7 +130,7 @@ export function PublicProfileView({
         ) : (
           <div className="grid gap-6">
             {recentComments.map((comment) => (
-              <Link key={comment.id} href={`/topic/${encodeURIComponent(comment.slug)}#comments`}>
+              <a key={comment.id} href={`/topic/${encodeURIComponent(comment.slug)}#comments`}>
                 <article className="border-border hover:bg-bg-secondary rounded-2xl border p-6 transition-colors">
                   <p className="font-semibold">{comment.question}</p>
                   <p className="text-text-secondary mt-3 line-clamp-3">{comment.content}</p>
@@ -143,7 +142,7 @@ export function PublicProfileView({
                     })}
                   </p>
                 </article>
-              </Link>
+              </a>
             ))}
           </div>
         )}
@@ -158,13 +157,13 @@ export function PublicProfileView({
         ) : (
           <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
             {recentTopics.map((topic) => (
-              <Link key={topic.slug} href={`/topic/${encodeURIComponent(topic.slug)}`}>
+              <a key={topic.slug} href={`/topic/${encodeURIComponent(topic.slug)}`}>
                 <article className="border-border hover:bg-bg-secondary h-full rounded-2xl border p-6 transition-colors">
                   <Badge variant="accent" size="sm">{topic.category}</Badge>
                   <h3 className="mt-4 text-2xl font-bold">{topic.question}</h3>
                   <p className="text-text-secondary mt-4 text-sm">{formatCompletedDate(topic.completedAt)}</p>
                 </article>
-              </Link>
+              </a>
             ))}
           </div>
         )}
