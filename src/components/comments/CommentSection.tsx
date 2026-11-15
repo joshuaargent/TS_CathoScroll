@@ -35,6 +35,18 @@ interface CommentFeedRow {
   liked_by_user: boolean;
 }
 
+interface CommentPageCursor {
+  created_at: string;
+  id: number;
+}
+
+interface CommentPageResult {
+  comments: CommentFeedRow[];
+  has_more: boolean;
+  next_cursor: CommentPageCursor | null;
+  total_count: number;
+}
+
 const fallbackProfile: Pick<Profile, 'id' | 'username' | 'display_name' | 'bio'> = {
   id: '',
   username: 'unknown',
@@ -159,6 +171,21 @@ function cloneAndSortComments(comments: Comment[], sorter: (comments: Comment[])
   return cloned;
 }
 
+function flattenCommentTree(comments: Comment[]): Comment[] {
+  const flattened: Comment[] = [];
+
+  function visit(nodes: Comment[]) {
+    nodes.forEach((comment) => {
+      const { replies, ...commentWithoutReplies } = comment;
+      flattened.push({ ...commentWithoutReplies, replies: [] });
+      visit(replies);
+    });
+  }
+
+  visit(comments);
+  return flattened;
+}
+
 export function CommentSection({
   topicId,
   cache,
@@ -168,6 +195,11 @@ export function CommentSection({
   const requestSignIn = useSignInPrompt();
   const getClient = useCallback(() => supabaseClient ?? createClient(), [supabaseClient]);
   const [comments, setComments] = useState<Comment[]>([]);
+  const [hasMoreComments, setHasMoreComments] = useState(false);
+  const [nextCommentCursor, setNextCommentCursor] = useState<CommentPageCursor | null>(null);
+  const [loadingMoreComments, setLoadingMoreComments] = useState(false);
+  const [loadMoreError, setLoadMoreError] = useState('');
+  const [totalCommentCount, setTotalCommentCount] = useState<number | null>(null);
 
   const [loading, setLoading] = useState(true);
 
@@ -193,8 +225,9 @@ export function CommentSection({
 
   const [pinningCommentId, setPinningCommentId] = useState<number | null>(null);
   const loadVersion = useRef(0);
+  const loadMoreInFlight = useRef(false);
 
-  const commentCount = useMemo(() => countComments(comments), [comments]);
+  const commentCount = totalCommentCount ?? countComments(comments);
 
   const hasPinnedComment = comments.some((comment) => comment.is_pinned);
 
