@@ -22,7 +22,7 @@ export async function GET(request: Request) {
       getPublishedTopicCount(),
       getPublicProfileCount(),
     ]);
-    const baseUrl = siteConfig.url.replace(/\\/+$/, '');
+    const baseUrl = siteConfig.url.replace(/\/+$/, '');
     const topicSitemaps = Math.max(1, Math.ceil(topicCount / sitemapUrlsPerFile));
     const profileSitemaps = Math.ceil(profileCount / sitemapUrlsPerFile);
     const sitemapUrls = [
