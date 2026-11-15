@@ -67,10 +67,7 @@ export function NativeNotes({
   }, [userId, topicId]);
 
   useEffect(() => {
-    if (!userId) {
-      setState(null);
-      return;
-    }
+    if (!userId) return;
     let active = true;
     const accountId = userId;
     async function load() {
