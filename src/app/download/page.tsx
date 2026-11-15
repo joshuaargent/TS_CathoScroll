@@ -36,7 +36,7 @@ export const metadata: Metadata = {
     ],
   },
   twitter: {
-    card: 'summary_large_image',
+    card: 'summary',
     title: 'Download CathoScroll for Android, Windows, Mac & Linux',
     description:
       'Get the official CathoScroll app for Android, Windows, macOS and Linux.',
