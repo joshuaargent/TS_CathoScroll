@@ -13,6 +13,12 @@ import { NativeNotifications, NativeNotificationsProvider } from './notification
 import { OfflineIndicator, clearNativeStatusNotice, notifyNativeStatus } from './offline-indicator';
 import { NativeTopicActions } from './topic-actions';
 import { NativeSignup } from './signup';
+import AboutPage from '@/app/about/page';
+import FAQPage from '@/app/faq/page';
+import ContactPage from '@/app/contact/page';
+import PrivacyPage from '@/app/privacy/page';
+import TermsPage from '@/app/terms/page';
+import CookiesPage from '@/app/cookies/page';
 import { LearnContent } from '@/components/learn/LearnContent';
 import { NativeActivity, type NativeActivityStatus } from './activity';
 import { openPrivateActivity } from './private-activity';
@@ -126,6 +132,7 @@ type Route =
   | { kind: 'learn'; pathname: string }
   | { kind: 'categories'; pathname: string }
   | { kind: 'account'; pathname: string }
+  | { kind: 'about' | 'faq' | 'contact' | 'privacy' | 'terms' | 'cookies'; pathname: string }
   | { kind: 'signup'; pathname: string }
   | { kind: 'bookmarks'; pathname: string }
   | { kind: 'notifications'; pathname: string }
@@ -139,6 +146,12 @@ function parseRoute(href: string): Route | null {
     if (url.origin !== 'https://native.cathoscroll.invalid') return null;
     const pathname = url.pathname;
     if (pathname === '/') return { kind: 'feed', pathname };
+    if (pathname === '/about') return { kind: 'about', pathname };
+    if (pathname === '/faq') return { kind: 'faq', pathname };
+    if (pathname === '/contact') return { kind: 'contact', pathname };
+    if (pathname === '/privacy') return { kind: 'privacy', pathname };
+    if (pathname === '/terms') return { kind: 'terms', pathname };
+    if (pathname === '/cookies') return { kind: 'cookies', pathname };
     if (pathname === '/learn') return { kind: 'learn', pathname };
     if (pathname === '/search') {
       return { kind: 'search', pathname, query: url.searchParams.get('q') ?? '' };
@@ -1075,6 +1088,12 @@ function App() {
               {catalogue && route?.kind === 'categories' && (
                 <CategoriesPage key={catalogueVersion} catalogue={catalogue} />
               )}
+              {route?.kind === 'about' && <AboutPage />}
+              {route?.kind === 'faq' && <FAQPage />}
+              {route?.kind === 'contact' && <ContactPage />}
+              {route?.kind === 'privacy' && <PrivacyPage />}
+              {route?.kind === 'terms' && <TermsPage />}
+              {route?.kind === 'cookies' && <CookiesPage />}
               {route?.kind === 'learn' && <LearnContent />}
               {route?.kind === 'account' && (
                 <NativeAccount
