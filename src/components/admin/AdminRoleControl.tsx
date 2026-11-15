@@ -1,16 +1,16 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 
 interface AdminRoleControlProps {
   userId: string;
   isAdmin: boolean;
   canManage: boolean;
+  fetcher?: typeof fetch;
+  onChange?: () => void;
 }
 
-export function AdminRoleControl({ userId, isAdmin, canManage }: AdminRoleControlProps) {
-  const router = useRouter();
+export function AdminRoleControl({ userId, isAdmin, canManage, fetcher = fetch, onChange }: AdminRoleControlProps) {
   const [admin, setAdmin] = useState(isAdmin);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -29,7 +29,7 @@ export function AdminRoleControl({ userId, isAdmin, canManage }: AdminRoleContro
     setBusy(true);
     setError('');
     try {
-      const response = await fetch(`/api/admin/users/${userId}/role`, { method: 'POST' });
+      const response = await fetcher(`/api/admin/users/${userId}/role`, { method: 'POST' });
       const result = (await response.json()) as { error?: string; isAdmin?: boolean };
       if (!response.ok) {
         setError(result.error ?? 'Unable to grant administrator access.');
@@ -37,7 +37,7 @@ export function AdminRoleControl({ userId, isAdmin, canManage }: AdminRoleContro
       }
 
       setAdmin(Boolean(result.isAdmin));
-      router.refresh();
+      onChange?.();
     } catch (requestError) {
       console.error('Unable to grant administrator access:', requestError);
       setError('Unable to grant administrator access. Please try again.');
