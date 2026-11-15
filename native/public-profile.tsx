@@ -32,7 +32,6 @@ export function NativePublicProfile({
   const [bookmarkCount, setBookmarkCount] = useState(0);
   const [commentCount, setCommentCount] = useState(0);
   const [likesReceived, setLikesReceived] = useState(0);
-  const [topicCount, setTopicCount] = useState(0);
   const [progressPercent, setProgressPercent] = useState('0');
   const [currentStreak, setCurrentStreak] = useState(0);
   const [longestStreak, setLongestStreak] = useState(0);
@@ -142,7 +141,6 @@ export function NativePublicProfile({
         setBookmarkCount(bookmarkResult.count ?? 0);
         setCommentCount(commentCountResult.count ?? 0);
         setLikesReceived(received);
-        setTopicCount(totalTopics);
         setProgressPercent(totalTopics > 0 ? ((done / totalTopics) * 100).toFixed(1) : '0');
         setCurrentStreak(calculated.current);
         setLongestStreak(calculated.longest);
