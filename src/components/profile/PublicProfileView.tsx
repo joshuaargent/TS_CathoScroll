@@ -39,8 +39,8 @@ export function formatCompletedDate(dateString: string) {
 }
 
 /**
- * Shared public-profile presentation. Web-only moderation controls are injected
- * by the website; native adapters provide the same public data without admin UI.
+ * Shared public-profile presentation. Web and native adapters inject their own
+ * authenticated moderation controls while keeping the public profile UI shared.
  */
 export function PublicProfileView({
   profile,
