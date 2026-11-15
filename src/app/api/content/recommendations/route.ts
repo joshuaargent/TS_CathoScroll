@@ -29,8 +29,13 @@ export async function POST(request: Request) {
   }
   const body = parsed.value;
 
-
-  if (!body || typeof body !== 'object' || !('cursor' in body) || !body.cursor) {
+  if (
+    !body ||
+    typeof body !== 'object' ||
+    !('cursor' in body) ||
+    typeof body.cursor !== 'string' ||
+    !body.cursor
+  ) {
     return NextResponse.json({ error: 'Invalid recommendation cursor.' }, { status: 400, headers });
   }
 
