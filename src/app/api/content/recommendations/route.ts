@@ -35,16 +35,17 @@ export async function POST(request: Request) {
   }
   const body = parsed.value;
 
+  if (!body || typeof body !== 'object') {
+    return respond(request, { error: 'Invalid recommendation cursor.' }, 400);
+  }
+  const cursorValue = 'cursor' in body ? body.cursor : null;
   if (
-    !body ||
-    typeof body !== 'object' ||
-    ('cursor' in body &&
-      body.cursor !== null &&
-      (typeof body.cursor !== 'string' || body.cursor.length > 512))
+    cursorValue !== null &&
+    (typeof cursorValue !== 'string' || cursorValue.length < 1 || cursorValue.length > 512)
   ) {
     return respond(request, { error: 'Invalid recommendation cursor.' }, 400);
   }
-  const cursor = 'cursor' in body ? body.cursor ?? null : null;
+  const cursor: string | null = typeof cursorValue === 'string' ? cursorValue : null;
 
   const rateLimit = await checkApiRateLimit({
     scope: 'recommendations:user',
