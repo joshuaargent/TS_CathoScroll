@@ -104,6 +104,17 @@ export function NativeProfileSkeleton() {
   );
 }
 
+export function NativeAppealSkeleton() {
+  return (
+    <section role="status" aria-label="Loading appeal details" aria-busy="true" className="space-y-4">
+      <Skeleton className="h-7 w-48" />
+      <Skeleton className="h-5 w-full" />
+      <Skeleton className="h-5 w-4/5" />
+      <Skeleton className="h-28 w-full" variant="rectangular" />
+    </section>
+  );
+}
+
 export function NativeNotificationsSkeleton() {
   return (
     <div role="status" aria-label="Loading notifications" aria-busy="true" className="space-y-4">
