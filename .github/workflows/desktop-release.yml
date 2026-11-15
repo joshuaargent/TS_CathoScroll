@@ -43,10 +43,10 @@ jobs:
 
     steps:
       - name: Check out tagged source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -99,7 +99,7 @@ jobs:
         run: npm --prefix electron run pack -- --${{ matrix.platform }} --${{ matrix.architecture }} --publish onTag
 
       - name: Upload platform build outputs for verification
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.name }}
           path: electron/dist/*
@@ -111,22 +111,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out tagged source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
 
       - name: Set up Java
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '21'
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
 
       - name: Validate release configuration
         shell: bash
@@ -192,7 +194,7 @@ jobs:
           "$apksigner_path" verify --verbose --print-certs "$apk"
 
       - name: Upload Android APK
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: Android APK
           path: android/app/build/outputs/apk/release/CathoScroll-*.apk
@@ -207,7 +209,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download all platform build outputs
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: release-assets
           merge-multiple: true
