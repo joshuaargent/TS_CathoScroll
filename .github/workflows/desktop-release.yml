@@ -23,7 +23,7 @@ jobs:
       matrix:
         include:
           - name: Windows x64
-            runner: windows-latest
+            runner: windows-2022
             platform: win
             architecture: x64
           - name: Linux x64
@@ -80,14 +80,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p electron/assets/iconset
-          for size in 16 32 128 256 512; do
-            double=$((size * 2))
-            sips -z "$size" "$size" assets/logo.png --out "electron/assets/iconset/icon_${size}x${size}.png" >/dev/null
-            sips -z "$double" "$double" assets/logo.png --out "electron/assets/iconset/icon_${size}x${size}@2x.png" >/dev/null
-          done
-          iconutil -c icns electron/assets/iconset -o electron/assets/icon.icns
-          rm -rf electron/assets/iconset
+          mkdir -p electron/assets
+          sips -s format icns assets/logo.png --out electron/assets/icon.icns >/dev/null
+          test -s electron/assets/icon.icns
 
       - name: Package and publish desktop application
         env:
