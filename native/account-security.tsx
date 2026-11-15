@@ -14,10 +14,6 @@ export function NativeAccountSecurity({ userId, currentEmail }: { userId: string
   const [error, setError] = useState('');
 
   useEffect(() => {
-    setEmail(currentEmail);
-  }, [currentEmail]);
-
-  useEffect(() => {
     const update = () => setOnline(navigator.onLine);
     window.addEventListener('online', update);
     window.addEventListener('offline', update);
