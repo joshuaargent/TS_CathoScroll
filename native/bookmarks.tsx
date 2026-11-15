@@ -33,6 +33,18 @@ export function NativeBookmarks({
   );
 
   useEffect(() => {
+    const noticeId = userId ? 'bookmarks-setup:' + userId : '';
+    if (!userId || ready || navigator.onLine) {
+      if (noticeId) clearNativeStatusNotice(noticeId);
+      return;
+    }
+    notifyNativeStatus('Connect to set up your saved bookmarks on this device.', {
+      id: noticeId,
+    });
+    return () => clearNativeStatusNotice(noticeId);
+  }, [userId, ready]);
+
+  useEffect(() => {
     const epoch = generation;
     const current = ++epoch.current;
     if (!userId || !activity || !ready) return;
@@ -211,7 +223,7 @@ export function NativeBookmarks({
           </Link>
         </p>
       ) : !ready ? (
-        <p role="status">Connect to set up your saved account activity on this device.</p>
+        <p role="status">Preparing your saved bookmarks...</p>
       ) : (
         <>
           {loading && !topics.length && <p role="status">Loading bookmarks…</p>}
