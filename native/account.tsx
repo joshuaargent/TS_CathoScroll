@@ -41,7 +41,8 @@ export function NativeAccount({
   const [profileExists, setProfileExists] = useState(true);
   const [profile, setProfile] = useState<CachedProfile | null>(null);
   const [profileUserId, setProfileUserId] = useState<string | null>(null);
-  const [email, setEmail] = useState(user?.email ?? '');
+  const [emailState, setEmailState] = useState({ userId: user?.id ?? null, value: user?.email ?? '' });
+  const email = emailState.userId === user?.id ? emailState.value : user?.email ?? '';
   const [subscriptionTier, setSubscriptionTier] = useState('free');
   const [membershipUserId, setMembershipUserId] = useState<string | null>(null);
   const [newPassword, setNewPassword] = useState('');
@@ -75,10 +76,8 @@ export function NativeAccount({
       return;
     }
     const userId: string = accountId;
-    const accountEmail = user?.email ?? '';
     let active = true;
     cache.current = null;
-    setEmail(accountEmail);
     clearNativeStatusNotice('account-membership');
     async function loadAccount() {
       try {
@@ -368,7 +367,7 @@ export function NativeAccount({
         previous && profileUserId === user.id ? { ...previous, bio: value } : previous
       )}
       onEmailChange={(value) => {
-        setEmail(value);
+        setEmailState({ userId: user.id, value });
         setEmailChangeRequested(false);
       }}
       onNewPasswordChange={setNewPassword}
