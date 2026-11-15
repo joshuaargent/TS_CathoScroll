@@ -167,15 +167,82 @@ export class CatalogueRefresh {
     if (saved !== null && BigInt(revision) < BigInt(saved)) {
       throw new Error('The catalogue revision went backwards.');
     }
+
+    const counts = await this.transport.counts(signal);
+    if (
+      !counts ||
+      counts.revision !== revision ||
+      !Number.isSafeInteger(counts.categories) ||
+      counts.categories < 0 ||
+      !Number.isSafeInteger(counts.topics) ||
+      counts.topics < 0
+    ) {
+      throw new Error('Invalid or changed catalogue counts.');
+    }
+
     if (saved !== null) {
+      const [categorySetMatches, localCounts] = await Promise.all([
+        this.publishedCategoriesMatch(counts.categories, signal),
+        this.database.transaction(async (db) =>
+          db.query('SELECT category_count, topic_count FROM catalogue_metadata WHERE singleton = 1')
+        ),
+      ]);
+      if (
+        !categorySetMatches ||
+        localCounts.length !== 1 ||
+        localCounts[0].category_count !== counts.categories ||
+        localCounts[0].topic_count !== counts.topics
+      ) {
+        // The incremental feed has no category tombstone. Compare the complete
+        // published category set and counts so deleted/unpublished categories
+        // cannot remain visible indefinitely in an otherwise valid delta cache.
+        return this.refreshFullSnapshot(revision, signal, counts);
+      }
       const updated = await this.refreshChanges(saved, revision, signal);
       if (updated) return true;
     }
-    return this.refreshFullSnapshot(revision, signal);
+    return this.refreshFullSnapshot(revision, signal, counts);
   }
 
-  private async refreshFullSnapshot(revision: string, signal?: AbortSignal): Promise<boolean> {
-    const counts = await this.transport.counts(signal);
+  private async publishedCategoriesMatch(
+    expectedCount: number,
+    signal?: AbortSignal
+  ): Promise<boolean> {
+    const localRows = await this.database.transaction((db) =>
+      db.query(
+        'SELECT slug, name, description, order_index FROM categories ORDER BY slug'
+      )
+    );
+    const local = localRows.map((row) => ({
+      slug: row.slug,
+      name: row.name,
+      description: row.description,
+      orderIndex: row.order_index,
+    }));
+    const remote: CatalogueCategoryRecord[] = [];
+    let cursor: string | null = null;
+    for (;;) {
+      signal?.throwIfAborted();
+      const page = await this.transport.categories(cursor, signal);
+      if (!Array.isArray(page) || page.length > pageSize) {
+        throw new Error('Invalid category page while checking the published catalogue.');
+      }
+      page.forEach(checkCategory);
+      remote.push(...page);
+      if (remote.length > expectedCount) return false;
+      if (page.length < pageSize) break;
+      cursor = page[page.length - 1].slug;
+    }
+    if (remote.length !== expectedCount || local.length !== expectedCount) return false;
+    return JSON.stringify(remote) === JSON.stringify(local);
+  }
+
+  private async refreshFullSnapshot(
+    revision: string,
+    signal?: AbortSignal,
+    knownCounts?: { revision: string; categories: number; topics: number }
+  ): Promise<boolean> {
+    const counts = knownCounts ?? await this.transport.counts(signal);
     if (
       !counts ||
       counts.revision !== revision ||
