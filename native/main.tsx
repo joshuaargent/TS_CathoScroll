@@ -587,7 +587,8 @@ function hasNativeTotpAssurance(accessToken: string): boolean {
     const payload = accessToken.split('.')[1];
     if (!payload) return false;
     const normalizedPayload = payload.replace(/-/g, '+').replace(/_/g, '/');
-    const claims = JSON.parse(atob(normalizedPayload)) as { aal?: unknown; amr?: unknown };
+    const paddedPayload = normalizedPayload.padEnd(Math.ceil(normalizedPayload.length / 4) * 4, '=');
+    const claims = JSON.parse(atob(paddedPayload)) as { aal?: unknown; amr?: unknown };
     return (
       claims.aal === 'aal2' &&
       Array.isArray(claims.amr) &&
