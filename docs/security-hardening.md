@@ -1,0 +1,133 @@
+# CathoScroll security hardening reference
+
+**Updated:** 15 November 2026  
+**Scope:** Website, API, Supabase database, moderation and native administrator access.
+
+This is an operational reference, not an executable SQL script or a database migration. The Supabase schema and security changes are managed directly in the connected Supabase project, as requested. No migration files are used.
+
+## Database security
+
+The live Supabase project has:
+
+- Row Level Security enabled on every public table.
+- Restricted grants for sensitive profile, comment and like data.
+- No direct anonymous or authenticated SELECT access to comment content.
+- No direct anonymous or authenticated SELECT access to profile subscription-tier fields.
+- Public profile reads restricted to explicitly public fields.
+- Raw comment/topic liker identities restricted; public counts and the current viewer's like state are returned through bounded RPCs.
+- Notification updates restricted to `read_at`; a database trigger prevents content/ownership changes, client-controlled timestamps and marking read notifications unread.
+- Fixed `search_path` on privileged functions, explicit execution grants and private-schema placement for internal helpers.
+
+Important RPCs include:
+
+- `get_own_subscription_tier`
+- `get_topic_comment_page`
+- `get_topic_like_state`
+- `get_public_profile_metrics`
+- `get_my_recommendation_page`
+- `is_cathoscroll_content_admin` (SECURITY INVOKER wrapper over a private SECURITY DEFINER helper)
+- `admin_user_has_verified_totp`
+- Owner-only administrator role, MFA-enforcement and audit functions.
+
+Private/internal tables intentionally have no direct API policies. Their access is through restricted server-side functions or triggers.
+
+## Database-enforced mutation limits
+
+| Operation | Limit |
+|---|---:|
+| Comment creation, replies and edits | 5 / 10 minutes, 20 / hour, 60 / day |
+| Comment likes | 180 / hour |
+| Topic likes | 180 / hour |
+| Bookmark changes | 120 / hour |
+| Progress changes | 300 / hour |
+| Comment-ban appeals | 3 / 24 hours |
+| Direct recommendation RPC | 30 / minute |
+
+These checks run in PostgreSQL and therefore also protect direct Supabase clients that bypass Next.js routes.
+
+## Shared API rate limiting
+
+Server routes use a shared PostgreSQL counter rather than in-memory process state. Counters use atomic updates and HMAC-keyed identifiers; raw client IP addresses are not stored. IP limits use the Vercel-provided `x-real-ip` header only when running on Vercel.
+
+- Public search: 30 / minute / IP.
+- Public topic pagination: 120 / minute / IP.
+- Feed and sitemap: 60 / minute / IP.
+- Comment reports: database user limit plus IP abuse limit.
+- Appeals: database daily limit plus user/IP cooldowns.
+- Notifications: per-user read/write limits.
+- Recommendations: per-user API limit plus the direct-RPC database limit.
+- Administrator operations: stricter per-admin limits, with separate read and mutation policies.
+
+API rate-limit responses include `Retry-After` where applicable.
+
+## Comment invariants
+
+Database triggers enforce:
+
+- Caller owns the new comment; the author cannot be spoofed.
+- The topic is published.
+- A reply's parent exists, is in the same topic and is not deleted.
+- Maximum reply depth is enforced independently of the UI.
+- Content is non-empty and no longer than 2,000 characters.
+- Ownership, topic, parent and moderation fields cannot be spoofed.
+- Banned users cannot create or edit comments.
+- Timestamps and edit state are server-controlled.
+
+The website loads comments in 50-row cursor pages. Like counts and the current viewer's like state are aggregated in the same RPC. Pinned roots and reply ancestry are preserved.
+
+## Profiles and bookmarks
+
+- Public profile statistics are calculated by a bounded aggregate RPC instead of transferring full completion and comment histories to the application server.
+- Public profile queries select explicit public fields.
+- Bookmark pages use stable keyset pagination, 50 records per page, with associated topics loaded in bounded batches.
+- Sitemap pages are checked against actual published-content counts before database work.
+
+## Administrator security
+
+- Administrator APIs and protected pages use server-side administrator checks.
+- The owner alone can grant or revoke administrator roles.
+- A target account must have a verified TOTP factor before it can be granted administrator access.
+- Moderation, role and security actions are written to an append-only audit table; only the owner can view the paginated audit log.
+- Account Security provides TOTP enrollment, backup-factor setup and enforcement activation.
+- Enforcement checks AAL2 and a TOTP authentication method in API authorization and the database admin RLS helper.
+- Native administrator access has a TOTP challenge gate.
+
+**Current state:** administrator MFA enforcement remains disabled. The current owner must enroll and verify a TOTP factor, securely save the setup secret or add a backup authenticator, then enable enforcement at `/account/security`. The database refuses activation until every current administrator has a verified TOTP factor.
+
+## API and browser protections
+
+- JSON request bodies are bounded before parsing; limits vary by route.
+- User-specific notification, recommendation and administrator responses use private/no-store caching.
+- CSP is configured in report-only mode with a bounded, rate-limited report collector.
+- HSTS and a restrictive Permissions Policy are configured.
+- Obsolete `X-XSS-Protection` was removed.
+- XML feeds and sitemaps retain escaping protections.
+
+CSP enforcement and production response-header verification still require a successful deployed browser/preview check.
+
+## Automated security checks
+
+The repository has a recurring GitHub workflow for:
+
+- `npm audit` on root and Electron dependency trees.
+- CodeQL extended JavaScript/TypeScript analysis.
+- Gitleaks full-history secret scanning.
+
+The dependency tree currently has a known low-severity `deepmerge` advisory in the legacy Workbox build chain; no patched release was available at the time of this update. The vulnerable `serialize-javascript`, `minimatch` and `uuid` transitive versions are pinned to patched releases through package overrides. The dependency audit must pass on both lockfiles before release.
+
+## Validation and limitations
+
+Rollback-only live-database tests exercised 1,001-comment pagination, cursor progression, reply ancestry, moderation/depth checks, notification column restrictions, recommendation limits, TOTP RLS assurance and audit-log immutability. Test fixtures were rolled back; no test comments, notifications or audit rows remain.
+
+Not yet completed:
+
+- Owner TOTP enrollment and enforcement activation.
+- Supabase Auth dashboard verification for password policy, CAPTCHA and provider rate limits.
+- Leaked-password protection (available on Supabase Pro and above).
+- Browser verification of CSP and deployed headers; Vercel preview deployments are currently blocked by the account's deployment/build quota.
+- Physical Android and Electron device regression tests.
+- Disposable Supabase integration suite and independent penetration testing.
+- Admin content-editor pagination; it currently loads catalogue data in batches.
+- Long-term cached profile-stat summaries if activity volumes grow substantially.
+
+The database hardening was applied before the application changes in PR #7 were merged. The current `main` branch still contains legacy direct profile/comment queries and must not be deployed against the hardened schema. Merge and deploy the compatibility changes before relying on the updated website.
