@@ -4,6 +4,11 @@ import { useSignInPrompt } from '@/components/providers/SignInPromptProvider';
 import { TopicNotesEditor } from '@/components/topic/TopicNotesEditor';
 import type { CachedNote, NativeNoteCache } from './note-cache';
 import { saveNativeNote } from './note-operations';
+import {
+  nativeNoteSaveKey,
+  updateNativeNoteSaveState,
+  type NativeNoteSaveState,
+} from './note-save-state';
 import { createClient } from './supabase';
 import { notifyNativeStatus, clearNativeStatusNotice } from './offline-indicator';
 
@@ -36,8 +41,8 @@ export function NativeNotes({
   const [state, setState] = useState<NoteState | null>(null);
   const [attempt, setAttempt] = useState(0);
   const [content, setContent] = useState('');
-  const [savingState, setSavingState] = useState({ userId, topicId, value: false });
-  const saving = savingState.userId === userId && savingState.topicId === topicId && savingState.value;
+  const [savingState, setSavingState] = useState<NativeNoteSaveState>({});
+  const saving = userId ? Boolean(savingState[nativeNoteSaveKey(userId, topicId)]) : false;
   const [messageState, setMessageState] = useState({ userId, topicId, value: '' });
   const message = messageState.userId === userId && messageState.topicId === topicId
     ? messageState.value
@@ -177,7 +182,7 @@ export function NativeNotes({
     const savedContent = draft.current;
     const isCurrent = () =>
       identity.current.userId === target.userId && identity.current.topicId === target.topicId;
-    setSavingState({ ...target, value: true });
+    setSavingState((previous) => updateNativeNoteSaveState(previous, target.userId, target.topicId, true));
     setMessageState({ ...target, value: '' });
     try {
       await saveNativeNote(createClient(), target.userId, target.topicId, savedContent);
@@ -198,9 +203,8 @@ export function NativeNotes({
         setMessageState({ ...target, value: 'Unable to save your note. Check your connection and try again.' });
       }
     } finally {
-      // The state is identity-keyed, so clearing the old operation cannot
-      // change the loading state of whichever topic is currently visible.
-      setSavingState({ ...target, value: false });
+      // Remove only this account/topic operation; other in-flight saves remain visible.
+      setSavingState((previous) => updateNativeNoteSaveState(previous, target.userId, target.topicId, false));
     }
   }
 
