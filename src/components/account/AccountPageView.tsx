@@ -36,7 +36,7 @@ export type AccountPageViewProps = {
 
 export function AccountPageSkeleton() {
   return (
-    <main className="container py-12">
+    <div className="container py-12">
       <div className="mt-8 mb-10">
         <Skeleton className="h-16 w-64" />
         <Skeleton className="mt-4 h-6 w-96" />
@@ -65,7 +65,7 @@ export function AccountPageSkeleton() {
           <Skeleton className="h-12 w-32" />
         </div>
       </div>
-    </main>
+    </div>
   );
 }
 
@@ -77,7 +77,7 @@ export function AccountPageView(props: AccountPageViewProps) {
   if (props.loading) return <AccountPageSkeleton />;
 
   return (
-    <main className="container py-12">
+    <div className="container py-12">
       <div className="mt-8 mb-10">
         <h1 className="text-5xl font-extrabold md:text-7xl">Account</h1>
         <p className="text-text-secondary mt-4 text-lg">
@@ -206,6 +206,6 @@ export function AccountPageView(props: AccountPageViewProps) {
         </div>
         {props.signOutError && <p role="alert" className="text-sm text-red-600">{props.signOutError}</p>}
       </form>
-    </main>
+    </div>
   );
 }
