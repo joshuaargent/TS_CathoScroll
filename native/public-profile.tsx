@@ -15,7 +15,7 @@ type ProfileData = {
 
 type RecentCompletion = { topic_id: string; completed_at: string };
 type RecentComment = {
-  id: string;
+  id: number;
   topic_id: string;
   content: string;
   created_at: string;
