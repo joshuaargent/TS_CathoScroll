@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { createServiceRoleClient, getAdminSessionFromRequest, isSameOriginOrNativeRequest, nativeApiCorsHeaders } from '@/lib/supabase/admin';
 import { readBoundedJson } from '@/lib/http/read-json';
+import { checkApiRateLimit, rateLimitResponseHeaders } from '@/lib/security/api-rate-limit';
 
 interface RouteContext {
   params: Promise<{ appealId: string }>;
@@ -40,6 +41,20 @@ export async function PATCH(request: Request, { params }: RouteContext) {
 
   if (!isAdmin) {
     return respond(request, { error: 'Forbidden' }, { status: 403 });
+  }
+
+  const rateLimit = await checkApiRateLimit({
+    scope: 'admin:moderation',
+    identifier: user.id,
+    limit: 10,
+    windowSeconds: 60,
+  });
+  if (!rateLimit.allowed) {
+    return respond(
+      request,
+      { error: rateLimit.unavailable ? 'Administrator services are temporarily unavailable' : 'Too many administrator requests. Please wait.' },
+      { status: rateLimit.unavailable ? 503 : 429, headers: rateLimitResponseHeaders(rateLimit.retryAfterSeconds) }
+    );
   }
 
   const { appealId: appealIdParam } = await params;
