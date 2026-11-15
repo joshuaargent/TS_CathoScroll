@@ -1083,8 +1083,6 @@ function App() {
                   available={authStatus !== 'unavailable'}
                   onSignedIn={() => openRoute('/account')}
                   activity={activity?.userId === user?.id ? activity : null}
-                  activityStatus={activityStatus}
-                  onRetryActivity={() => setActivityAttempt((attempt) => attempt + 1)}
                 />
               )}
               {route?.kind === 'signup' &&
