@@ -9,7 +9,9 @@ import {
 } from '@/lib/supabase/admin';
 
 function respond(request: Request, body: unknown, status = 200) {
-  return NextResponse.json(body, { status, headers: nativeApiCorsHeaders(request) });
+  const headers = nativeApiCorsHeaders(request);
+  headers.set('Cache-Control', 'no-store');
+  return NextResponse.json(body, { status, headers });
 }
 
 export function OPTIONS(request: Request) {
