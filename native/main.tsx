@@ -1119,8 +1119,8 @@ function App() {
               {route?.kind === 'notifications' && (
                 <NativeNotifications key={user?.id ?? 'signed-out'} userId={user?.id ?? null} />
               )}
-              {catalogue && route?.kind === 'profile' && (
-                <NativePublicProfile key={route.username} username={route.username} catalogue={catalogue} />
+              {route?.kind === 'profile' && (
+                <NativePublicProfile key={route.username} username={route.username} />
               )}
               {catalogue && route?.kind === 'category' && (
                 <CategoryPage
