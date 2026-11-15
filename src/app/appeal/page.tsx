@@ -1,7 +1,17 @@
+import type { Metadata } from 'next';
+
 import { redirect } from 'next/navigation';
 
 import { CommentBanAppealPageView } from '@/components/comments/CommentBanAppealPageView';
 import { createClient } from '@/lib/supabase/server';
+
+export const metadata: Metadata = {
+  title: 'Appeal',
+  robots: {
+    index: false,
+    follow: false,
+  },
+};
 
 export default async function CommentBanAppealPage() {
   const supabase = await createClient();
