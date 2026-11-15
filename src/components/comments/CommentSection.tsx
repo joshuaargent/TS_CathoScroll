@@ -285,8 +285,9 @@ export function CommentSection({
       const page = commentsResult.data as CommentPageResult | null;
       if (!page) throw new Error('The comment page response was empty.');
       const commentRows = page.comments ?? [];
-      setHasMoreComments(Boolean(page.has_more));
-      setNextCommentCursor(page.next_cursor ?? null);
+      const nextCursor = page.next_cursor ?? null;
+      setHasMoreComments(Boolean(page.has_more && nextCursor));
+      setNextCommentCursor(nextCursor);
       setTotalCommentCount(Number(page.total_count ?? commentRows.length));
       const userIds = [
         ...new Set(
@@ -518,9 +519,9 @@ export function CommentSection({
 
       const userIds = [
         ...new Set(
-          page.comments
-            .map((row) => row.user_id)
-            .filter((id): id is string => Boolean(id))
+          [...page.comments.map((row) => row.user_id), user?.id].filter(
+            (id): id is string => Boolean(id)
+          )
         ),
       ].filter((id) => !profiles.has(id));
 
@@ -605,8 +606,9 @@ export function CommentSection({
       setComments(mergedRoots);
       setUserId(user?.id ?? null);
       setCurrentProfile(user?.id ? profiles.get(user.id) ?? null : null);
-      setHasMoreComments(Boolean(page.has_more));
-      setNextCommentCursor(page.next_cursor ?? null);
+      const nextCursor = page.next_cursor ?? null;
+      setHasMoreComments(Boolean(page.has_more && nextCursor));
+      setNextCommentCursor(nextCursor);
       setTotalCommentCount(Number(page.total_count ?? mergedRoots.length));
 
       if (cache) {
