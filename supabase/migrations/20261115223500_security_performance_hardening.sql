@@ -786,7 +786,7 @@ BEGIN
     JOIN public.comments AS parent
       ON parent.id = ancestors.parent_id
      AND parent.topic_id = p_topic_id
-    WHERE ancestors.depth < 5
+    WHERE ancestors.depth < 10
   ),
   raw_rows AS (
     SELECT
