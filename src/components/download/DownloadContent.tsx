@@ -1,52 +1,71 @@
-import Link from 'next/link';
-import { Apple, Download, ExternalLink, Monitor, Smartphone, Terminal } from 'lucide-react';
 
-type ReleaseAsset = {
+import Link from 'next/link';
+import {
+  Apple,
+  Download,
+  ExternalLink,
+  Monitor,
+  Smartphone,
+  Terminal,
+} from 'lucide-react';
+
+import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
+
+export interface GitHubReleaseAsset {
   name: string;
   browser_download_url: string;
   size: number;
-};
+  content_type: string;
+}
 
-type Release = {
-  name?: string | null;
-  tag_name?: string | null;
-  html_url?: string | null;
-  published_at?: string | null;
-  assets?: ReleaseAsset[] | null;
-};
+export interface GitHubRelease {
+  tag_name: string;
+  name: string | null;
+  html_url: string;
+  published_at: string | null;
+  body: string | null;
+  assets: GitHubReleaseAsset[];
+  prerelease: boolean;
+  draft: boolean;
+}
 
-type DownloadContentProps = {
-  release: Release | null;
-};
+interface DownloadContentProps {
+  release: GitHubRelease | null;
+}
 
 const platforms = [
   {
     name: 'Android',
-    description: 'Install CathoScroll directly on your Android device.',
+    description:
+      'Install CathoScroll directly on your Android device.',
+    formats: 'APK',
     extensions: ['.apk'],
     icon: Smartphone,
-    formats: 'APK',
   },
   {
     name: 'Windows',
-    description: 'The desktop application for Windows.',
+    description:
+      'Download the CathoScroll desktop application for Windows.',
+    formats: 'EXE or MSI',
     extensions: ['.exe', '.msi'],
     icon: Monitor,
-    formats: 'EXE or MSI',
   },
   {
     name: 'Linux',
-    description: 'The desktop application for Linux distributions.',
+    description:
+      'Download the CathoScroll desktop application for Linux.',
+    formats: 'AppImage, DEB or RPM',
     extensions: ['.appimage', '.deb', '.rpm'],
     icon: Terminal,
-    formats: 'AppImage, DEB or RPM',
   },
   {
     name: 'macOS',
-    description: 'The desktop application for Mac.',
+    description:
+      'Download the CathoScroll desktop application for Mac.',
+    formats: 'DMG or ZIP',
     extensions: ['.dmg', '.zip'],
     icon: Apple,
-    formats: 'DMG or ZIP',
   },
 ];
 
@@ -67,153 +86,245 @@ function formatFileSize(bytes: number): string {
   return `${size.toFixed(unit === 0 ? 0 : 1)} ${units[unit]}`;
 }
 
-function getPlatformAssets(assets: ReleaseAsset[], extensions: string[]): ReleaseAsset[] {
+function getPlatformAssets(
+  assets: GitHubReleaseAsset[],
+  extensions: string[]
+): GitHubReleaseAsset[] {
   return assets.filter((asset) => {
     const fileName = asset.name.toLowerCase();
 
-    return extensions.some((extension) => fileName.endsWith(extension));
+    return extensions.some((extension) =>
+      fileName.endsWith(extension)
+    );
   });
 }
 
-export default function DownloadContent({ release }: DownloadContentProps) {
-  const assets = release?.assets ?? [];
-  const version = release?.tag_name ?? release?.name ?? 'Latest release';
+export default function DownloadContent({
+  release,
+}: DownloadContentProps) {
+  const version = release?.tag_name ?? null;
 
   const releasesUrl =
-    release?.html_url ?? 'https://github.com/joshuaargent/TS_CathoScroll/releases';
+    release?.html_url ??
+    'https://github.com/joshuaargent/TS_CathoScroll/releases';
 
   return (
-    <main className="container py-12">
-      <section className="mx-auto max-w-5xl">
-        <header className="mb-12 text-center">
-          <span className="bg-accent/10 text-accent mb-4 inline-flex items-center rounded-full px-3 py-1 text-sm font-medium">
-            CathoScroll downloads
-          </span>
+    <div className="container py-12">
+      <div className="mt-12 mb-16">
+        <h1 className="text-5xl font-extrabold md:text-7xl">
+          Download CathoScroll
+        </h1>
 
-          <h1 className="mb-4 text-4xl font-bold tracking-tight sm:text-5xl">
-            Download CathoScroll
-          </h1>
+        <p className="text-text-secondary mt-6 max-w-3xl text-xl">
+          Take CathoScroll with you. Download the application for
+          your device and explore Catholic teaching wherever you are.
+        </p>
 
-          <p className="text-text-secondary mx-auto max-w-2xl text-lg">
-            Access Catholic content, discussions and resources across your devices.
+        {release && (
+          <div className="mt-6">
+            <Badge variant="accent" size="sm">
+              Latest version: {version}
+            </Badge>
+          </div>
+        )}
+      </div>
+
+      <div className="space-y-16">
+        <section>
+          <h2 className="mb-6 text-3xl font-bold">
+            Choose Your Platform
+          </h2>
+
+          <p className="text-text-secondary mb-6 leading-relaxed">
+            Choose the version that matches your device. Available
+            installers are detected automatically from the latest
+            published GitHub release.
           </p>
 
-          <p className="text-text-secondary mt-4 text-sm">
-            Latest version: <span className="font-semibold">{version}</span>
-          </p>
-        </header>
+          {!release && (
+            <div className="border-border mb-6 rounded-2xl border p-6">
+              <Badge variant="default" size="sm">
+                Release information unavailable
+              </Badge>
 
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          {platforms.map((platform) => {
-            const Icon = platform.icon;
+              <h3 className="mt-4 text-xl font-bold">
+                Unable to retrieve the latest release
+              </h3>
 
-            const platformAssets = getPlatformAssets(assets, platform.extensions);
-
-            const available = platformAssets.length > 0;
-
-            return (
-              <article
-                key={platform.name}
-                className={`border-border flex flex-col rounded-2xl border p-6 ${
-                  available ? 'bg-background' : 'bg-background opacity-60'
-                }`}
-              >
-                <div className="mb-5 flex items-start justify-between gap-2">
-                  <div
-                    className={`flex h-12 w-12 items-center justify-center rounded-xl ${
-                      available ? 'bg-accent/10 text-accent' : 'bg-accent/10 text-text-secondary'
-                    }`}
-                  >
-                    <Icon size={24} />
-                  </div>
-
-                  <span
-                    className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                      available ? 'bg-accent/10 text-accent' : 'bg-accent/10 text-text-secondary'
-                    }`}
-                  >
-                    {available ? 'Available' : 'Coming soon'}
-                  </span>
-                </div>
-
-                <h2 className="mb-2 text-xl font-semibold">{platform.name}</h2>
-
-                <p className="text-text-secondary mb-5 min-h-12 text-sm leading-relaxed">
-                  {platform.description}
-                </p>
-
-                <p className="text-text-secondary mb-5 text-xs">Formats: {platform.formats}</p>
-
-                <div className="mt-auto space-y-3">
-                  {available ? (
-                    platformAssets.map((asset) => (
-                      <a
-                        key={asset.name}
-                        href={asset.browser_download_url}
-                        className="bg-accent flex w-full items-center justify-between gap-2 rounded-xl px-3 py-3 text-sm font-semibold text-white transition-opacity hover:opacity-90"
-                      >
-                        <span className="flex min-w-0 items-center gap-2">
-                          <Download size={17} className="shrink-0" />
-
-                          <span className="truncate">{asset.name}</span>
-                        </span>
-
-                        <span className="shrink-0 text-xs opacity-80">
-                          {formatFileSize(asset.size)}
-                        </span>
-                      </a>
-                    ))
-                  ) : (
-                    <div
-                      aria-disabled="true"
-                      className="border-border text-text-secondary flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-xl border px-3 py-3 text-sm font-medium"
-                    >
-                      <Download size={17} />
-                      Not available yet
-                    </div>
-                  )}
-                </div>
-              </article>
-            );
-          })}
-        </div>
-
-        <section className="border-border mt-10 rounded-2xl border p-6">
-          <div className="flex items-start gap-4">
-            <div className="bg-accent/10 text-accent flex h-10 w-10 shrink-0 items-center justify-center rounded-xl">
-              <Monitor size={21} />
-            </div>
-
-            <div>
-              <h2 className="mb-2 text-lg font-semibold">About the downloads</h2>
-
-              <p className="text-text-secondary mb-4 text-sm leading-relaxed">
-                CathoScroll is being made available across mobile and desktop platforms. Desktop
-                downloads will appear here as their installers are published. Available versions are
-                detected automatically from the latest GitHub release.
+              <p className="text-text-secondary mt-3 leading-relaxed">
+                The GitHub release information could not be retrieved.
+                Platform availability cannot currently be verified.
+                Please try again later or view the releases directly
+                on GitHub.
               </p>
 
-              <a
-                href={releasesUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-accent inline-flex items-center gap-2 text-sm font-medium hover:underline"
-              >
-                View all GitHub releases
-                <ExternalLink size={15} />
-              </a>
+              <div className="mt-6">
+                <Button asChild variant="outline">
+                  <a
+                    href="https://github.com/joshuaargent/TS_CathoScroll/releases"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    View GitHub Releases
+                    <ExternalLink size={16} />
+                  </a>
+                </Button>
+              </div>
+            </div>
+          )}
+
+          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+            {platforms.map((platform) => {
+              const Icon = platform.icon;
+
+              const platformAssets = release
+                ? getPlatformAssets(
+                    release.assets,
+                    platform.extensions
+                  )
+                : [];
+
+              const available = platformAssets.length > 0;
+
+              return (
+                <article
+                  key={platform.name}
+                  className={`border-border flex h-full flex-col rounded-2xl border p-6 ${
+                    available ? '' : 'opacity-60'
+                  }`}
+                >
+                  <div className="mb-5 flex items-center justify-between gap-2">
+                    <div className="bg-accent-light text-accent flex h-12 w-12 items-center justify-center rounded-xl">
+                      <Icon size={24} />
+                    </div>
+
+                    <Badge
+                      variant={
+                        available ? 'accent' : 'default'
+                      }
+                      size="sm"
+                    >
+                      {!release
+                        ? 'Unknown'
+                        : available
+                          ? 'Available'
+                          : 'Coming Soon'}
+                    </Badge>
+                  </div>
+
+                  <h3 className="text-2xl font-bold">
+                    {platform.name}
+                  </h3>
+
+                  <p className="text-text-secondary mt-3 leading-relaxed">
+                    {platform.description}
+                  </p>
+
+                  <p className="text-text-secondary mt-4 text-sm">
+                    Formats: {platform.formats}
+                  </p>
+
+                  <div className="mt-auto space-y-3 pt-6">
+                    {available ? (
+                      platformAssets.map((asset) => (
+                        <Button
+                          key={asset.name}
+                          asChild
+                          size="md"
+                          className="w-full justify-between"
+                        >
+                          <a href={asset.browser_download_url}>
+                            <span className="flex min-w-0 items-center gap-2">
+                              <Download
+                                size={17}
+                                className="shrink-0"
+                              />
+
+                              <span className="truncate">
+                                {asset.name}
+                              </span>
+                            </span>
+
+                            <span className="shrink-0 text-xs opacity-80">
+                              {formatFileSize(asset.size)}
+                            </span>
+                          </a>
+                        </Button>
+                      ))
+                    ) : (
+                      <Button
+                        disabled
+                        size="md"
+                        className="w-full"
+                        leftIcon={<Download size={17} />}
+                      >
+                        {!release
+                          ? 'Unavailable'
+                          : 'Not available yet'}
+                      </Button>
+                    )}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </section>
+
+        <section>
+          <h2 className="mb-6 text-3xl font-bold">
+            About the Downloads
+          </h2>
+
+          <div className="border-border rounded-2xl border p-8">
+            <p className="text-text-secondary leading-relaxed">
+              CathoScroll is available across mobile and desktop
+              platforms. Android and Windows installers are currently
+              published, with Linux and macOS versions planned.
+            </p>
+
+            <p className="text-text-secondary mt-4 leading-relaxed">
+              Download availability is determined by the files
+              published in the latest GitHub release. New installers
+              will automatically appear here when published.
+            </p>
+
+            <div className="mt-6">
+              <Button asChild variant="outline">
+                <a
+                  href={releasesUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  View GitHub Release
+                  <ExternalLink size={16} />
+                </a>
+              </Button>
             </div>
           </div>
         </section>
 
-        <div className="text-text-secondary mt-8 text-center text-sm">
-          Need help? Visit the{' '}
-          <Link href="/contact" className="text-accent font-medium hover:underline">
-            contact page
-          </Link>
-          .
-        </div>
-      </section>
-    </main>
+        <section>
+          <h2 className="mb-6 text-3xl font-bold">
+            Need Help?
+          </h2>
+
+          <p className="text-text-secondary leading-relaxed">
+            If you experience problems downloading or installing
+            CathoScroll, get in touch.
+          </p>
+
+          <div className="mt-6">
+            <Link href="/contact">
+              <Button
+                size="lg"
+                style={{ color: '#ffffff' }}
+              >
+                Contact Us
+              </Button>
+            </Link>
+          </div>
+        </section>
+      </div>
+    </div>
   );
 }
