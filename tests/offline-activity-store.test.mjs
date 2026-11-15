@@ -719,6 +719,8 @@ test('copies legacy account state and queued operations once without removing th
     await bootstrap(source);
     await source.setActivity('alice', 'topic', 'like', true, 'first');
     await source.setActivity('bob', 'other', 'bookmark', true, 'second');
+    const savedAt = '2026-11-14T10:30:00.000Z';
+    await source.recordBookmarkTimestamps('bob', [{ topicId: 'other', savedAt }]);
     await source.setActivity('alice', 'topic', 'progress', true, 'third');
     await source.applyChanges('alice', [
       { topicId: 'server-topic', kind: 'like', value: true, revision: '1', completedAt: null },
@@ -747,6 +749,12 @@ test('copies legacy account state and queued operations once without removing th
     }
     assert.equal(await destination.pendingCount('alice'), 2);
     assert.equal(await destination.pendingCount('bob'), 1);
+    assert.equal(
+      privateDb.prepare(
+        "SELECT bookmark_saved_at FROM offline_activity WHERE user_id = 'bob' AND topic_id = 'other' AND kind = 'bookmark'"
+      ).get().bookmark_saved_at,
+      savedAt
+    );
     assert.equal((await destination.nextOperation('alice')).operationId, 'first');
     assert.equal(await destination.cursor('alice'), '1');
     assert.equal(
