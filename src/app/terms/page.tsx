@@ -1,9 +1,11 @@
-import { createPageMetadata } from '@/lib/seo';
 import Link from 'next/link';
+import { createPageMetadata } from '@/lib/seo';
 
-export const metadata = createPageMetadata(
-  {"title":"Terms","description":"Terms and conditions for using CathoScroll.","path":"/terms"}
-);
+export const metadata = createPageMetadata({
+  title: "Terms",
+  description: "Terms and conditions for using CathoScroll.",
+  path: "/terms",
+});
 
 export default function TermsPage() {
   return (
