@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { PublicProfileView } from '@/components/profile/PublicProfileView';
 import { CommentBanControl } from '@/components/admin/CommentBanControl';
 import { AdminRoleControl } from '@/components/admin/AdminRoleControl';
-import { calculateStreaks } from '@/lib/profile-metrics';
+import { calculateStreaks, countLikesReceived } from '@/lib/profile-metrics';
 import type { Topic } from '@/types';
 import { createClient } from './supabase';
 import { siteConfig } from '@/lib/constants';
@@ -196,16 +196,27 @@ export function NativePublicProfile({
           const topic = commentById.get(String(comment.topic_id));
           return topic ? [{ ...comment, slug: topic.slug, question: topic.question }] : [];
         });
-        const commentIds = comments.map((comment) => comment.id);
-        let received = 0;
-        if (commentIds.length) {
-          const { count, error: likesError } = await supabase
-            .from('comment_likes')
-            .select('comment_id', { count: 'exact', head: true })
-            .in('comment_id', commentIds);
-          if (likesError) throw likesError;
-          received = count ?? 0;
-        }
+        const received = await countLikesReceived(
+          async (offset, limit) => {
+            const { data, error } = await supabase
+              .from('comments')
+              .select('id')
+              .eq('user_id', profileData.id)
+              .eq('is_deleted', false)
+              .order('id', { ascending: true })
+              .range(offset, offset + limit - 1);
+            if (error) throw error;
+            return (data ?? []).map((comment) => comment.id);
+          },
+          async (commentIds) => {
+            const { count, error } = await supabase
+              .from('comment_likes')
+              .select('comment_id', { count: 'exact', head: true })
+              .in('comment_id', commentIds);
+            if (error) throw error;
+            return count ?? 0;
+          }
+        );
         if (!active) return;
         const totalTopics = topicCountResult.count ?? 0;
         const done = progressResult.count ?? 0;
