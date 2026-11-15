@@ -10,9 +10,17 @@ function validateCatalogue(file) {
   const database = new DatabaseSync(file);
   try {
     const integrity = database.prepare('PRAGMA quick_check(1)').get()?.quick_check;
+    database.prepare(
+      'SELECT slug, name, description, order_index FROM categories LIMIT 0'
+    ).all();
+    database.prepare(
+      'SELECT id, slug, category_slug, order_index, question, answer, explanation, catechism_paragraphs, catechism_text, scripture_reference, scripture_text FROM topics LIMIT 0'
+    ).all();
     const metadata = database
       .prepare('SELECT format, category_count, topic_count FROM catalogue_metadata WHERE singleton = 1')
       .get();
+    const categoryCount = database.prepare('SELECT COUNT(*) AS count FROM categories').get()?.count;
+    const topicCount = database.prepare('SELECT COUNT(*) AS count FROM topics').get()?.count;
     if (
       integrity !== 'ok' ||
       !metadata ||
@@ -20,7 +28,9 @@ function validateCatalogue(file) {
       !Number.isSafeInteger(metadata.category_count) ||
       metadata.category_count < 0 ||
       !Number.isSafeInteger(metadata.topic_count) ||
-      metadata.topic_count < 0
+      metadata.topic_count < 0 ||
+      categoryCount !== metadata.category_count ||
+      topicCount !== metadata.topic_count
     ) {
       throw new Error('The offline catalogue failed validation.');
     }
