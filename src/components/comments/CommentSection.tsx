@@ -221,7 +221,7 @@ export function CommentSection({
       setUserId(user?.id ?? null);
 
       const commentsResult = await supabase
-        .from('comments')
+        .from('comment_feed')
         .select('id,topic_id,user_id,parent_id,content,created_at,edited_at,is_deleted,is_pinned')
         .eq('topic_id', topicId)
         .order('created_at', {
@@ -500,7 +500,7 @@ export function CommentSection({
         content,
         parent_id: null,
       })
-      .select()
+      .select('id')
       .single();
 
     if (error || !data) {
@@ -554,7 +554,7 @@ export function CommentSection({
         parent_id: parentId,
         content,
       })
-      .select()
+      .select('id')
       .single();
 
     if (error || !data) {
