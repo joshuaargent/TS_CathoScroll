@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 
 
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 import { AccountPageView } from '@/components/account/AccountPageView';
 
@@ -254,6 +255,24 @@ export default function AccountPage() {
       }}
       onSignOut={() => void signOut()}
     />
+    <section className="container mt-6">
+      <div className="border-border bg-bg-secondary/40 rounded-2xl border p-5">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 className="font-bold">Account security</h2>
+            <p className="text-text-secondary mt-1 text-sm">
+              Set up an authenticator app and manage administrator sign-in verification.
+            </p>
+          </div>
+          <Link
+            href="/account/security"
+            className="border-border rounded-xl border px-4 py-2.5 text-sm font-semibold hover:bg-bg-secondary"
+          >
+            Security settings
+          </Link>
+        </div>
+      </div>
+    </section>
     </main>
   );
 }
