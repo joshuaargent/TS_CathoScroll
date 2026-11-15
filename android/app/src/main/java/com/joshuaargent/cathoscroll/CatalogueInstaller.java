@@ -20,15 +20,42 @@ final class CatalogueInstaller {
 
     static synchronized void install(File destination, Source source, Validator validator, Publisher publisher)
         throws IOException {
-        if (destination.exists()) return;
-
         File directory = destination.getParentFile();
         if (directory == null || (!directory.isDirectory() && !directory.mkdirs() && !directory.isDirectory())) {
             throw new IOException("Unable to create the catalogue database directory.");
         }
 
+        if (destination.exists()) {
+            try {
+                validator.validate(destination);
+                return;
+            } catch (IOException invalidCatalogue) {
+                // The catalogue contains public content only. Keep a recoverable
+                // copy until a validated replacement has been published.
+                File backup = new File(directory, destination.getName() + ".corrupt-" + System.nanoTime());
+                if (!destination.renameTo(backup)) {
+                    throw new IOException("Unable to preserve the damaged offline catalogue.", invalidCatalogue);
+                }
+                removeSidecars(destination);
+                installReplacement(destination, backup, source, validator, publisher, directory);
+                return;
+            }
+        }
+
+        installReplacement(destination, null, source, validator, publisher, directory);
+    }
+
+    private static void installReplacement(
+        File destination,
+        File backup,
+        Source source,
+        Validator validator,
+        Publisher publisher,
+        File directory
+    ) throws IOException {
         File temporary = File.createTempFile("catalogue-copy-", ".tmp", directory);
         Throwable failure = null;
+        boolean published = false;
         try {
             try (InputStream input = source.open(); FileOutputStream output = new FileOutputStream(temporary)) {
                 byte[] buffer = new byte[16384];
@@ -41,6 +68,7 @@ final class CatalogueInstaller {
             }
             validator.validate(temporary);
             publisher.publish(temporary, destination);
+            published = true;
         } catch (IOException | RuntimeException | Error error) {
             failure = error;
             throw error;
@@ -49,6 +77,27 @@ final class CatalogueInstaller {
                 IOException cleanupError = new IOException("Unable to remove the temporary catalogue copy.");
                 if (failure != null) failure.addSuppressed(cleanupError);
                 else throw cleanupError;
+            }
+            if (backup != null) {
+                if (published) {
+                    if (backup.exists() && !backup.delete()) {
+                        // A stale corrupt backup is harmless and must not invalidate
+                        // the successfully published catalogue.
+                    }
+                } else if (!destination.exists() && backup.exists() && !backup.renameTo(destination)) {
+                    IOException restoreError = new IOException("Unable to restore the previous catalogue after a failed repair.");
+                    if (failure != null) failure.addSuppressed(restoreError);
+                    else throw restoreError;
+                }
+            }
+        }
+    }
+
+    private static void removeSidecars(File database) throws IOException {
+        for (String suffix : new String[] {"-wal", "-shm", "-journal"}) {
+            File sidecar = new File(database.getAbsolutePath() + suffix);
+            if (sidecar.exists() && !sidecar.delete()) {
+                throw new IOException("Unable to remove a damaged catalogue sidecar.");
             }
         }
     }
