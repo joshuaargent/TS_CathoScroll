@@ -81,7 +81,7 @@ export function SignupFormView({
                 type={showPassword ? 'text' : 'password'}
                 placeholder="Create a password"
                 autoComplete="new-password"
-                hint="Minimum 8 characters."
+                hint="Minimum 12 characters."
                 disabled={loading || !online}
                 required
               />
