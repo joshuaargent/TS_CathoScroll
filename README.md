@@ -257,8 +257,9 @@ Never put Supabase service-role keys or other server secrets in `NEXT_PUBLIC_*` 
 ## Native page parity and offline behaviour
 
 The website and Android/Electron apps render the same shared
-`AccountPageView`, `PublicProfileView`, `CategoriesGrid`, and
-`CategoryTopicGrid` components. These keep the account, public profile,
+`AccountPageView`, `PublicProfileView`, `CategoriesGrid`,
+`CategoryTopicGrid`, `CategoryBottomNavigation`, `SigninForm`, and
+`SignupFormView` components. These keep the account, public profile,
 category, and topic-card layouts aligned while platform adapters own
 authentication, data loading, navigation, and offline policy. Profile streak
 calculations and bookmark card/date formatting are shared as well.
