@@ -277,6 +277,11 @@ CREATE TABLE IF NOT EXISTS catho_private.user_action_limits (
 );
 
 ALTER TABLE catho_private.user_action_limits
+  ADD COLUMN IF NOT EXISTS topic_like_window_started_at timestamptz;
+ALTER TABLE catho_private.user_action_limits
+  ADD COLUMN IF NOT EXISTS topic_like_count integer NOT NULL DEFAULT 0
+  CHECK (topic_like_count >= 0);
+ALTER TABLE catho_private.user_action_limits
   ADD COLUMN IF NOT EXISTS recommendation_window_started_at timestamptz;
 ALTER TABLE catho_private.user_action_limits
   ADD COLUMN IF NOT EXISTS recommendation_count integer NOT NULL DEFAULT 0
@@ -320,6 +325,9 @@ BEGIN
       maximum_count := 20;
     ELSIF TG_TABLE_NAME = 'comment_likes' THEN
       action_name := 'comment_like';
+      maximum_count := 180;
+    ELSIF TG_TABLE_NAME = 'topic_likes' THEN
+      action_name := 'topic_like';
       maximum_count := 180;
     ELSE
       RAISE EXCEPTION 'Unsupported rate-limited action';
@@ -367,6 +375,21 @@ BEGIN
       END
     WHERE user_id = actor
     RETURNING comment_like_count INTO current_count;
+  ELSIF action_name = 'topic_like' THEN
+    UPDATE catho_private.user_action_limits
+    SET
+      topic_like_count = CASE
+        WHEN topic_like_window_started_at IS NULL
+          OR topic_like_window_started_at <= now_at - interval '1 hour' THEN 1
+        ELSE LEAST(topic_like_count + 1, maximum_count + 1)
+      END,
+      topic_like_window_started_at = CASE
+        WHEN topic_like_window_started_at IS NULL
+          OR topic_like_window_started_at <= now_at - interval '1 hour' THEN now_at
+        ELSE topic_like_window_started_at
+      END
+    WHERE user_id = actor
+    RETURNING topic_like_count INTO current_count;
   ELSE
     UPDATE catho_private.user_action_limits
     SET
@@ -405,6 +428,12 @@ CREATE TRIGGER comments_enforce_user_rate_limit
 DROP TRIGGER IF EXISTS comment_likes_enforce_user_rate_limit ON public.comment_likes;
 CREATE TRIGGER comment_likes_enforce_user_rate_limit
   BEFORE INSERT ON public.comment_likes
+  FOR EACH ROW
+  EXECUTE FUNCTION catho_private.enforce_user_action_rate_limit();
+
+DROP TRIGGER IF EXISTS topic_likes_enforce_user_rate_limit ON public.topic_likes;
+CREATE TRIGGER topic_likes_enforce_user_rate_limit
+  BEFORE INSERT ON public.topic_likes
   FOR EACH ROW
   EXECUTE FUNCTION catho_private.enforce_user_action_rate_limit();
 
