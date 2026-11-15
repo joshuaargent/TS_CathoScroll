@@ -49,6 +49,19 @@ export async function getAuthenticatedUserFromRequest(request: Request) {
   return { supabase, user: data.user };
 }
 
+async function adminMfaSatisfied(supabase: Awaited<ReturnType<typeof createClient>>) {
+  const serviceClient = createServiceRoleClient();
+  const { data: enforced, error: enforcementError } = await serviceClient.rpc(
+    'admin_mfa_enforcement_enabled'
+  );
+  if (enforcementError) throw new Error(enforcementError.message);
+  if (enforced !== true) return true;
+
+  const { data, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+  if (error) throw new Error(error.message);
+  return data.currentLevel === 'aal2';
+}
+
 export async function getAdminSessionFromRequest(request: Request) {
   const { supabase, user } = await getAuthenticatedUserFromRequest(request);
   if (!user) return { user: null, isAdmin: false, error: null };
@@ -57,11 +70,29 @@ export async function getAdminSessionFromRequest(request: Request) {
     .select('user_id')
     .eq('user_id', user.id)
     .maybeSingle();
-  return {
-    user,
-    isAdmin: Boolean(data),
-    error: error ? new Error(error.message) : null,
-  };
+  if (error) {
+    return { user, isAdmin: false, error: new Error(error.message), mfaRequired: false };
+  }
+  if (!data) {
+    return { user, isAdmin: false, error: null, mfaRequired: false };
+  }
+
+  try {
+    const mfaSatisfied = await adminMfaSatisfied(supabase);
+    return {
+      user,
+      isAdmin: mfaSatisfied,
+      error: null,
+      mfaRequired: !mfaSatisfied,
+    };
+  } catch (mfaError) {
+    return {
+      user,
+      isAdmin: false,
+      error: mfaError instanceof Error ? mfaError : new Error('Unable to verify administrator MFA'),
+      mfaRequired: false,
+    };
+  }
 }
 
 export async function getAdminSession() {
@@ -82,11 +113,29 @@ export async function getAdminSession() {
     .eq('user_id', user.id)
     .maybeSingle();
 
-  return {
-    user,
-    isAdmin: Boolean(data),
-    error: error ? new Error(error.message) : null,
-  };
+  if (error) {
+    return { user, isAdmin: false, error: new Error(error.message), mfaRequired: false };
+  }
+  if (!data) {
+    return { user, isAdmin: false, error: null, mfaRequired: false };
+  }
+
+  try {
+    const mfaSatisfied = await adminMfaSatisfied(supabase);
+    return {
+      user,
+      isAdmin: mfaSatisfied,
+      error: null,
+      mfaRequired: !mfaSatisfied,
+    };
+  } catch (mfaError) {
+    return {
+      user,
+      isAdmin: false,
+      error: mfaError instanceof Error ? mfaError : new Error('Unable to verify administrator MFA'),
+      mfaRequired: false,
+    };
+  }
 }
 
 export function createServiceRoleClient() {
