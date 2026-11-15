@@ -209,13 +209,21 @@ Interrupted updates leave the previous catalogue intact. The catalogue checksum
 and timestamp describe the original bundled import, while counts reflect the
 current local catalogue.
 
-Account activity is stored in a separate encrypted database and synchronized
-when connected. Bootstrap and history-expiry recovery stage snapshots before
-publication, preserving pending edits. The server acknowledges device
-sequences to safely discard older write receipts. A rejected unavailable topic
-is retained and reported without blocking later edits. Legacy activity is
-copied transactionally into encrypted storage; its unencrypted original is
-retained. Existing catalogue databases are not overwritten on upgrade.
+Account activity, cached comments, topic counts, and encrypted note records are
+stored in the encrypted private database. Bootstrap and history-expiry recovery
+stage snapshots before publication, preserving pending edits. The server
+acknowledges device sequences to safely discard older write receipts. A rejected
+unavailable topic is retained and reported without blocking later edits.
+Legacy activity and cache tables are copied transactionally, then the encrypted
+database is checked for integrity and its migration marker is verified before
+the plaintext database and SQLite sidecars are removed. Android backup and
+device-transfer rules exclude both current and legacy private activity files.
+Electron removes both legacy activity database locations after verification;
+if cleanup fails, the private store remains usable and cleanup is retried on the
+next launch. Existing catalogue databases are checked on startup; a damaged
+catalogue is rebuilt from a validated bundled snapshot without touching private
+user data. Incremental catalogue refreshes compare the published category set
+so unpublished or deleted categories cannot remain in the offline cache.
 Electron copies legacy databases out of Chromium's managed directory when
 possible, but cannot recover data Chromium already removed.
 
