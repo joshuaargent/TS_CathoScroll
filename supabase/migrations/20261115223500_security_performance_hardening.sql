@@ -510,21 +510,45 @@ GRANT EXECUTE ON FUNCTION public.get_public_profile_metrics(uuid, text)
 
 
 -- Deleted or moderation-hidden comments are rendered as tombstones in the UI.
--- Do not let clients retrieve their original text directly from the base table.
--- The owner-rights view exposes an empty string for deleted content while
--- retaining the identifiers needed to keep reply trees intact.
-CREATE OR REPLACE VIEW public.comment_feed AS
-SELECT
-  comment.id,
-  comment.topic_id,
-  comment.user_id,
-  comment.parent_id,
-  CASE WHEN comment.is_deleted THEN ''::text ELSE comment.content END AS content,
-  comment.created_at,
-  comment.edited_at,
-  comment.is_deleted,
-  comment.is_pinned
-FROM public.comments AS comment;
+-- The RPC returns the same public comment shape but never returns deleted text.
+CREATE OR REPLACE FUNCTION public.get_topic_comment_feed(p_topic_id text)
+RETURNS TABLE (
+  id bigint,
+  topic_id text,
+  user_id uuid,
+  parent_id bigint,
+  content text,
+  created_at timestamptz,
+  edited_at timestamptz,
+  is_deleted boolean,
+  is_pinned boolean
+)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $function$
+  SELECT
+    comment.id,
+    comment.topic_id,
+    comment.user_id,
+    comment.parent_id,
+    CASE WHEN comment.is_deleted THEN ''::text ELSE comment.content END,
+    comment.created_at,
+    comment.edited_at,
+    comment.is_deleted,
+    comment.is_pinned
+  FROM public.comments AS comment
+  WHERE p_topic_id IS NOT NULL
+    AND pg_catalog.length(p_topic_id) BETWEEN 1 AND 100
+    AND comment.topic_id = p_topic_id
+  ORDER BY comment.created_at DESC, comment.id DESC
+$function$;
+
+REVOKE ALL ON FUNCTION public.get_topic_comment_feed(text)
+  FROM PUBLIC, service_role;
+GRANT EXECUTE ON FUNCTION public.get_topic_comment_feed(text)
+  TO anon, authenticated;
 
 REVOKE SELECT ON TABLE public.comments FROM anon, authenticated;
 REVOKE SELECT (content) ON TABLE public.comments FROM anon, authenticated;
@@ -538,4 +562,3 @@ GRANT SELECT (
   is_deleted,
   is_pinned
 ) ON TABLE public.comments TO anon, authenticated;
-GRANT SELECT ON TABLE public.comment_feed TO anon, authenticated;
