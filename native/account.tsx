@@ -63,7 +63,7 @@ export function NativeAccount({
     }
     void loadMembership();
     return () => { active = false; };
-  }, [user?.id, online]);
+  }, [user, online]);
 
   useEffect(() => {
     if (!user && !online) {
@@ -93,7 +93,7 @@ export function NativeAccount({
     } else if (activityStatus?.userId === user.id && activityStatus.ready) {
       clearNativeStatusNotice('account-activity-setup');
     }
-  }, [user?.id, activityStatus, activity, onRetryActivity]);
+  }, [user, activityStatus, activity, onRetryActivity]);
 
   useEffect(() => {
     const update = () => setOnline(navigator.onLine);
