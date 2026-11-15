@@ -240,7 +240,7 @@ read-only offline access. The latest 50 notifications and their unread count
 are stored in the encrypted account database. Notifications must first be
 loaded online; read changes made offline are queued and synced after reconnect.
 Marking all as read offline covers notifications known to that device, not
-notifications received afterwards. Reporting and moderation require the website.
+notifications received afterwards. Reporting and moderation require an internet connection; native administrators can use the same moderation workflows as the website.
 Real-device upgrades, reconnects and packaged desktop releases still need
 end-to-end verification before distribution. Windows NSIS and Linux AppImage
 updates download in the background and install on app exit. Linux DEB updates
@@ -300,9 +300,15 @@ Native API CORS is restricted to the local Capacitor and Electron origins
 (`capacitor://localhost`, `capacitor-electron://localhost`, `http://localhost`,
 and `https://localhost`). The matching website API deployment must be live before
 the native app release is distributed.
-The administrative report/appeal dashboard and account restriction workflows
-remain website-only. Comment reporting, pinning, and all comment writes require
-an internet connection; cached discussions are read-only and may be stale.
+The native router also exposes the admin dashboard, reports, appeals,
+comment restrictions, and content library. These routes reuse the website's
+admin navigation, report list, appeal list, comment restriction controls, and
+content editor. Native requests use the signed-in user's bearer token and are
+independently authorized against the database-backed `admin_users` role on the
+server; no service-role credentials are shipped in the app. Admin reads and
+mutations remain online-only. Comment reporting, pinning, and all comment
+writes require an internet connection; cached discussions are read-only and
+may be stale.
 
 ### Offline reliability rules
 
