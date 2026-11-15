@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 import type { User, Session } from '@supabase/supabase-js';
 
@@ -48,9 +48,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const supabase = useMemo(() => createClient(), []);
+  const profileRequest = useRef(0);
 
   const loadProfile = useCallback(async (userId: string) => {
+    const requestId = ++profileRequest.current;
     const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).single();
+    if (requestId !== profileRequest.current) return;
 
     if (error) {
       setProfile(null);
@@ -82,6 +85,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (currentSession?.user) {
           await loadProfile(currentSession.user.id);
+        } else {
+          profileRequest.current++;
+          setProfile(null);
         }
       } catch (cause) {
         console.error('Unable to restore the authentication session:', cause);
@@ -104,6 +110,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (nextSession?.user) {
         void loadProfile(nextSession.user.id);
       } else {
+        profileRequest.current++;
         setProfile(null);
       }
       setLoading(false);
@@ -111,6 +118,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     return () => {
       active = false;
+      profileRequest.current++;
       // Prevent the auth listener from retaining this provider after unmount.
       authListener.subscription.unsubscribe();
     };
