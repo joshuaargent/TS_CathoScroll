@@ -1,0 +1,137 @@
+name: Desktop Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: cathoscroll-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-desktop:
+    name: Build ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows x64
+            runner: windows-latest
+            platform: win
+            architecture: x64
+          - name: Linux x64
+            runner: ubuntu-latest
+            platform: linux
+            architecture: x64
+          - name: macOS Intel
+            runner: macos-26-intel
+            platform: mac
+            architecture: x64
+          - name: macOS Apple Silicon
+            runner: macos-26
+            platform: mac
+            architecture: arm64
+
+    runs-on: ${{ matrix.runner }}
+
+    steps:
+      - name: Check out tagged source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Verify release versions
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const root = require('./package.json');
+          const electron = require('./electron/package.json');
+          const tagVersion = process.env.GITHUB_REF_NAME.replace(/^v/, '');
+
+          if (!/^\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?$/.test(tagVersion)) {
+            throw new Error(`Invalid release tag: ${process.env.GITHUB_REF_NAME}`);
+          }
+          if (root.version !== tagVersion || electron.version !== tagVersion) {
+            throw new Error(
+              `Release version mismatch: tag=${tagVersion}, root=${root.version}, electron=${electron.version}`
+            );
+          }
+          console.log(`Building CathoScroll ${tagVersion}`);
+          NODE
+
+      - name: Install project dependencies
+        run: npm ci
+
+      - name: Build native app and export offline catalogue
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+        run: npm run cap:sync:electron
+
+      - name: Create macOS application icon
+        if: matrix.platform == 'mac'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p electron/assets/iconset
+          for size in 16 32 128 256 512; do
+            double=$((size * 2))
+            sips -z "$size" "$size" assets/logo.png --out "electron/assets/iconset/icon_${size}x${size}.png" >/dev/null
+            sips -z "$double" "$double" assets/logo.png --out "electron/assets/iconset/icon_${size}x${size}@2x.png" >/dev/null
+          done
+          iconutil -c icns electron/assets/iconset -o electron/assets/icon.icns
+          rm -rf electron/assets/iconset
+
+      - name: Package Electron application
+        run: npm --prefix electron run pack -- --${{ matrix.platform }} --${{ matrix.architecture }} --publish never
+
+      - name: Upload platform installers
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: electron/dist/*
+          if-no-files-found: error
+          retention-days: 7
+
+  publish-release:
+    name: Publish GitHub Release
+    needs: build-desktop
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all platform installers and update metadata
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - name: Verify release assets exist
+        run: |
+          set -euo pipefail
+          find release-assets -maxdepth 1 -type f -print
+          test -n "$(find release-assets -maxdepth 1 -type f -name '*.exe' -print -quit)"
+          test -n "$(find release-assets -maxdepth 1 -type f -name '*.AppImage' -print -quit)"
+          test -n "$(find release-assets -maxdepth 1 -type f -name '*.deb' -print -quit)"
+          test -n "$(find release-assets -maxdepth 1 -type f -name '*.dmg' -print -quit)"
+          test -n "$(find release-assets -maxdepth 1 -type f -name '*.zip' -print -quit)"
+          test -n "$(find release-assets -maxdepth 1 -type f -name 'latest.yml' -print -quit)"
+          test -n "$(find release-assets -maxdepth 1 -type f -name 'latest-linux.yml' -print -quit)"
+
+      - name: Publish versioned release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: CathoScroll ${{ github.ref_name }}
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+          fail_on_unmatched_files: true
+          files: release-assets/*
