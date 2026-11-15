@@ -70,6 +70,17 @@ export function NativePublicProfile({
 
 
   useEffect(() => {
+    const client = createClient();
+    const { data } = client.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED') {
+        setModeration(null);
+        setAttempt((value) => value + 1);
+      }
+    });
+    return () => data.subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
     let active = true;
     const noticeId = `public-profile:${username}`;
     const retry = () => setAttempt((value) => value + 1);
@@ -108,7 +119,10 @@ export function NativePublicProfile({
             );
             if (moderationResponse.ok) {
               moderationData = await moderationResponse.json();
-            } else if (moderationResponse.status !== 403) {
+              clearNativeStatusNotice(`profile-moderation:${username}`);
+            } else if (moderationResponse.status === 403) {
+              clearNativeStatusNotice(`profile-moderation:${username}`);
+            } else {
               const result = (await moderationResponse.json()) as { error?: string };
               throw new Error(result.error ?? 'Unable to load profile moderation controls.');
             }
