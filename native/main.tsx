@@ -15,7 +15,7 @@ import { NativeNotifications, NativeNotificationsProvider } from './notification
 import { OfflineIndicator, clearNativeStatusNotice, notifyNativeStatus } from './offline-indicator';
 import { NativeTopicActions } from './topic-actions';
 import { NativeSignup } from './signup';
-import { NativeTopicSkeleton } from './skeletons';
+import { NativeArticleSkeleton, NativeFeedSkeleton } from './skeletons';
 import { AccountPageSkeleton } from '@/components/account/AccountPageView';
 import AboutPage from '@/app/about/page';
 import FAQPage from '@/app/faq/page';
@@ -545,7 +545,7 @@ function NativeTopicPage({
         ← Explore Feed
       </button>
       {loading && (
-        <NativeTopicSkeleton label="Loading topic" />
+        <NativeArticleSkeleton />
       )}
       {!loading && !error && !topic && <p className="mt-8">Topic not found.</p>}
       {topic && (
@@ -1104,7 +1104,7 @@ function App() {
             <NativeNavbar pathname={route?.pathname ?? '/'} userId={user?.id ?? null} />
             <main className="native-content pt-16">
               {!error && !firstPage && (
-                <div className="container py-12"><NativeTopicSkeleton label="Loading topics" /></div>
+                <NativeFeedSkeleton />
               )}
               {firstPage && !firstPage.topics.length && (
                 <p className="px-6">No topics available.</p>
