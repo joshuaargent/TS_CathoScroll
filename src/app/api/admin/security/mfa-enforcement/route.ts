@@ -38,8 +38,7 @@ export async function GET(request: Request) {
   try {
     const { user } = await getAuthenticatedUserFromRequest(request);
     if (!user) return respond(request, { error: 'Authentication required' }, 401);
-    const status = await loadOwnerStatus(user.id);
-    return respond(request, status);
+    return respond(request, await loadOwnerStatus(user.id));
   } catch (error) {
     console.error('Unable to load administrator MFA settings:', error);
     return respond(request, { error: 'Unable to load security settings.' }, 500);
@@ -51,7 +50,7 @@ export async function POST(request: Request) {
 
   try {
     const { supabase, user } = await getAuthenticatedUserFromRequest(request);
-    if (!user) return respond({ error: 'Authentication required' }, 401);
+    if (!user) return respond(request, { error: 'Authentication required' }, 401);
 
     const rateLimit = await checkApiRateLimit({
       scope: 'admin:mfa:enable',
@@ -61,6 +60,7 @@ export async function POST(request: Request) {
     });
     if (!rateLimit.allowed) {
       return respond(
+        request,
         { error: rateLimit.unavailable ? 'Security settings are temporarily unavailable' : 'Too many security-setting requests. Please wait.' },
         rateLimit.unavailable ? 503 : 429,
         rateLimitResponseHeaders(rateLimit.retryAfterSeconds)
@@ -71,10 +71,10 @@ export async function POST(request: Request) {
       await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
     if (assuranceError) {
       console.error('Unable to verify administrator MFA assurance:', assuranceError.message);
-      return respond({ error: 'Unable to verify authenticator status.' }, 503);
+      return respond(request, { error: 'Unable to verify authenticator status.' }, 503);
     }
-    if (assurance.currentLevel !== 'aal2') {
-      return respond({ error: 'Verify your authenticator code before enabling enforcement.' }, 403);
+    if (assurance.currentLevel !== 'aal2' || assurance.nextLevel !== 'aal2') {
+      return respond(request, { error: 'Verify your authenticator code before enabling enforcement.' }, 403);
     }
 
     const serviceClient = createServiceRoleClient();
@@ -84,22 +84,28 @@ export async function POST(request: Request) {
     );
     if (ownerError) {
       console.error('Unable to verify administrator owner:', ownerError.message);
-      return respond({ error: 'Unable to verify owner permissions.' }, 503);
+      return respond(request, { error: 'Unable to verify owner permissions.' }, 503);
     }
-    if (isOwner !== true) return respond({ error: 'Only the CathoScroll owner can enable administrator MFA enforcement.' }, 403);
+    if (isOwner !== true) {
+      return respond(request, { error: 'Only the CathoScroll owner can enable administrator MFA enforcement.' }, 403);
+    }
 
     const { data, error } = await serviceClient.rpc('enable_admin_mfa_enforcement', {
       p_actor_user_id: user.id,
     });
     if (error) {
-      if (error.code === '23514') return respond({ error: 'Verify a TOTP authenticator before enabling enforcement.' }, 409);
-      if (error.code === '42501') return respond({ error: 'Only the CathoScroll owner can enable administrator MFA enforcement.' }, 403);
+      if (error.code === '23514') {
+        return respond(request, { error: 'Verify a TOTP authenticator before enabling enforcement.' }, 409);
+      }
+      if (error.code === '42501') {
+        return respond(request, { error: 'Only the CathoScroll owner can enable administrator MFA enforcement.' }, 403);
+      }
       console.error('Unable to enable administrator MFA enforcement:', error.message);
-      return respond({ error: 'Unable to enable administrator MFA enforcement.' }, 500);
+      return respond(request, { error: 'Unable to enable administrator MFA enforcement.' }, 500);
     }
     return respond(request, { enabled: data === true });
   } catch (error) {
     console.error('Unable to enable administrator MFA enforcement:', error);
-    return respond({ error: 'Unable to enable administrator MFA enforcement.' }, 500);
+    return respond(request, { error: 'Unable to enable administrator MFA enforcement.' }, 500);
   }
 }
