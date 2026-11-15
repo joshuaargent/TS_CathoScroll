@@ -34,14 +34,23 @@ export function NativeBookmarks({
 
   useEffect(() => {
     const noticeId = userId ? 'bookmarks-setup:' + userId : '';
-    if (!userId || ready || navigator.onLine) {
+    const update = () => {
+      if (!userId || ready || navigator.onLine) {
+        if (noticeId) clearNativeStatusNotice(noticeId);
+        return;
+      }
+      notifyNativeStatus('Connect to set up your saved bookmarks on this device.', {
+        id: noticeId,
+      });
+    };
+    update();
+    window.addEventListener('online', update);
+    window.addEventListener('offline', update);
+    return () => {
+      window.removeEventListener('online', update);
+      window.removeEventListener('offline', update);
       if (noticeId) clearNativeStatusNotice(noticeId);
-      return;
-    }
-    notifyNativeStatus('Connect to set up your saved bookmarks on this device.', {
-      id: noticeId,
-    });
-    return () => clearNativeStatusNotice(noticeId);
+    };
   }, [userId, ready]);
 
   useEffect(() => {
