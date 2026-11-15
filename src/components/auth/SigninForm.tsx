@@ -85,7 +85,7 @@ export function SigninForm({
             value={password}
             placeholder="Enter your password"
             autoComplete="current-password"
-            disabled={loading}
+            disabled={loading || !online}
             onChange={(event) => setPassword(event.target.value)}
             required
           />
