@@ -75,6 +75,7 @@ export function NativeAccount({
       clearNativeStatusNotice('account-membership');
       return;
     }
+    const userId: string = accountId;
     let active = true;
     cache.current = null;
     clearNativeStatusNotice('account-membership');
@@ -85,33 +86,33 @@ export function NativeAccount({
           const database = await openPrivateActivityDatabase(secureAuthStorage);
           profileCache = new NativeProfileCache(database);
           await profileCache.initialize();
-          const cached = await profileCache.load(accountId);
+          const cached = await profileCache.load(userId);
           if (!active) return;
           cache.current = profileCache;
           if (cached) {
             setProfile(cached);
-            setProfileUserId(accountId);
+            setProfileUserId(userId);
           }
         } catch (cacheCause) {
           // Cloud account access must remain available if optional offline storage is damaged.
           console.error('Unable to open the offline profile cache:', cacheCause);
           if (active) {
             notifyNativeStatus('Offline account details are unavailable on this device.', {
-              id: 'account-profile-cache:' + accountId,
+              id: 'account-profile-cache:' + userId,
             });
           }
         }
         if (!navigator.onLine) {
           setVerified(false);
-          setProfileUserId(accountId);
+          setProfileUserId(userId);
           return;
         }
 
         const client = createClient();
-        const status = await getNativeProfileStatus(client, accountId);
+        const status = await getNativeProfileStatus(client, userId);
         let latest: CachedProfile;
         if (status.exists) {
-          latest = await readNativeProfile(client, accountId);
+          latest = await readNativeProfile(client, userId);
         } else {
           latest = {
             username: status.suggestedUsername,
@@ -121,31 +122,31 @@ export function NativeAccount({
         }
         if (!active) return;
         setProfile(latest);
-        setProfileUserId(accountId);
+        setProfileUserId(userId);
         setProfileExists(status.exists);
         setVerified(true);
         setError('');
         try {
           if (!profileCache) throw new Error('Profile cache is unavailable.');
-          await profileCache.save(accountId, latest);
+          await profileCache.save(userId, latest);
         } catch (cause) {
           console.error('Unable to cache account profile:', cause);
           notifyNativeStatus('Your account profile could not be saved for offline viewing.', {
-            id: 'account-profile-cache:' + accountId,
+            id: 'account-profile-cache:' + userId,
           });
         }
 
-        clearNativeStatusNotice('account-profile-load:' + accountId);
+        clearNativeStatusNotice('account-profile-load:' + userId);
         try {
           const { data: membership, error: membershipError } = await client
             .from('profiles')
             .select('subscription_tier')
-            .eq('id', accountId)
+            .eq('id', userId)
             .maybeSingle();
           if (membershipError) throw membershipError;
           if (active) {
             setSubscriptionTier(membership?.subscription_tier ?? 'free');
-            setMembershipUserId(accountId);
+            setMembershipUserId(userId);
             clearNativeStatusNotice('account-membership');
           }
         } catch (membershipCause) {
@@ -161,9 +162,9 @@ export function NativeAccount({
         console.error('Unable to load account details:', cause);
         if (!active) return;
         setVerified(false);
-        setProfileUserId(accountId);
+        setProfileUserId(userId);
         notifyNativeStatus('Some account details could not be refreshed. Cached details remain available where possible.', {
-          id: 'account-profile-load:' + accountId,
+          id: 'account-profile-load:' + userId,
           action: { label: 'Retry', onClick: () => setAttempt((value) => value + 1) },
         });
       }
