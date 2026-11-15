@@ -3,7 +3,6 @@ import { NextResponse } from 'next/server';
 import {
   createServiceRoleClient,
   getAdminSessionFromRequest,
-  isSameOriginOrNativeRequest,
   nativeApiCorsHeaders,
 } from '@/lib/supabase/admin';
 import { checkApiRateLimit, rateLimitResponseHeaders } from '@/lib/security/api-rate-limit';
