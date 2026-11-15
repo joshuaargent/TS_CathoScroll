@@ -15,7 +15,12 @@ import { NativeNotifications, NativeNotificationsProvider } from './notification
 import { OfflineIndicator, clearNativeStatusNotice, notifyNativeStatus } from './offline-indicator';
 import { NativeTopicActions } from './topic-actions';
 import { NativeSignup } from './signup';
-import { NativeArticleSkeleton, NativeFeedSkeleton } from './skeletons';
+import {
+  NativeArticleSkeleton,
+  NativeCategorySkeleton,
+  NativeFeedSkeleton,
+  NativeGridSkeleton,
+} from './skeletons';
 import { AccountPageSkeleton } from '@/components/account/AccountPageView';
 import AboutPage from '@/app/about/page';
 import FAQPage from '@/app/faq/page';
@@ -1106,6 +1111,23 @@ function App() {
               {route?.kind === 'feed' && !error && !firstPage && (
                 <NativeFeedSkeleton />
               )}
+              {!error && route?.kind === 'search' && !catalogue && (
+                <NativeGridSkeleton label="Loading search" />
+              )}
+              {!error && route?.kind === 'categories' && !catalogue && (
+                <NativeCategorySkeleton label="Loading categories" />
+              )}
+              {!error && route?.kind === 'bookmarks' && !catalogue && (
+                <NativeGridSkeleton label="Loading bookmarks" />
+              )}
+              {!error && route?.kind === 'category' && !catalogue && (
+                <NativeCategorySkeleton label="Loading category" />
+              )}
+              {!error &&
+                route?.kind === 'topic' &&
+                (!catalogue || !commentCache || !noteCache) && (
+                  <NativeArticleSkeleton />
+                )}
               {firstPage && !firstPage.topics.length && (
                 <p className="px-6">No topics available.</p>
               )}
