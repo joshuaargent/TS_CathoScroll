@@ -179,7 +179,7 @@ jobs:
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
           CATHOSCROLL_VERSION: ${{ github.ref_name }}
           ANDROID_VERSION_CODE: ${{ github.run_number }}
-        run: ./gradlew --no-daemon --stacktrace assembleRelease
+        run: bash ./gradlew --no-daemon --stacktrace assembleRelease
 
       - name: Verify APK output and signing certificate
         shell: bash
