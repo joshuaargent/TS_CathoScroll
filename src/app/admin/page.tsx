@@ -17,16 +17,7 @@ export default async function AdminPage() {
     console.error('Unable to verify owner-only dashboard links:', ownerError.message);
   }
   const ownerCanViewAudit = isOwner === true;
-  /* remove old concurrent query block */
-  const unusedPlaceholder = null;
-  void unusedPlaceholder;
-  const ignored = null;
-  void ignored;
-  const oldBlock = null;
-  void oldBlock;
-  /* end placeholder */
-  const __old = [
-  ];
+
 
   return (
     <main className="container py-12">
