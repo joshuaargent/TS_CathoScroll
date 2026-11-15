@@ -26,8 +26,6 @@ async function loadOwnerStatus(userId: string) {
 }
 
 export async function GET(request: Request) {
-  if (!isSameOrigin(request)) return respond({ error: 'Forbidden' }, 403);
-
   try {
     const { user } = await getAuthenticatedUserFromRequest(request);
     if (!user) return respond({ error: 'Authentication required' }, 401);
