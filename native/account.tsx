@@ -77,6 +77,7 @@ export function NativeAccount({
     }
     const accountId = user.id;
     let active = true;
+    cache.current = null;
     setEmail(user.email ?? '');
     setEmailChangeRequested(false);
     setVerified(false);
@@ -310,7 +311,7 @@ export function NativeAccount({
   if (!available) return null;
   if (checking || (loading && (!user || profileUserId !== user.id))) {
     return (
-      <main className="container py-12">
+      <div className="container py-12">
         <div className="mt-8 mb-10">
           <Skeleton className="h-16 w-64" />
           <Skeleton className="mt-4 h-6 w-96" />
@@ -339,7 +340,7 @@ export function NativeAccount({
             <Skeleton className="h-12 w-32" />
           </div>
         </div>
-      </main>
+      </div>
     );
   }
   if (!user) {
