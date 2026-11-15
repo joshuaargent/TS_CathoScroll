@@ -80,7 +80,7 @@ public class CatalogueAssetPlugin extends Plugin {
     }
 
     private static void publish(File temporary, File destination) throws IOException {
-        if (destination.exists()) return;
+        if (destination.exists()) throw new IOException("Catalogue destination unexpectedly exists.");
         try {
             Os.rename(temporary.getAbsolutePath(), destination.getAbsolutePath());
         } catch (ErrnoException error) {
