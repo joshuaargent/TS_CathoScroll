@@ -195,15 +195,21 @@ export default function AccountPage() {
   }
 
   async function signOut() {
+    if (signingOut) return;
     setSigningOut(true);
-
-    const supabase = createClient();
-
-    await supabase.auth.signOut();
-
-    router.refresh();
-
-    router.replace('/');
+    setError('');
+    try {
+      const supabase = createClient();
+      const { error: signOutError } = await supabase.auth.signOut();
+      if (signOutError) throw signOutError;
+      router.refresh();
+      router.replace('/');
+    } catch (cause) {
+      console.error('Unable to sign out:', cause);
+      setError('Unable to sign out. Please try again.');
+    } finally {
+      setSigningOut(false);
+    }
   }
 
   return (
