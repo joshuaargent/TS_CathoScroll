@@ -954,11 +954,33 @@ function App() {
       setNavigationMessage('');
       window.scrollTo(0, 0);
     }
+    function interceptInternalLinks(event: MouseEvent) {
+      if (
+        event.defaultPrevented ||
+        event.button !== 0 ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.shiftKey ||
+        event.altKey
+      ) return;
+      const target = event.target;
+      const anchor = target instanceof Element ? target.closest('a[href]') : null;
+      if (!(anchor instanceof HTMLAnchorElement)) return;
+      if ((anchor.target && anchor.target !== '_self') || anchor.hasAttribute('download')) return;
+      const destination = new URL(anchor.href, window.location.href);
+      if (destination.origin !== window.location.origin || destination.pathname.startsWith('/api/')) return;
+      event.preventDefault();
+      const next = destination.pathname + destination.search + destination.hash;
+      window.dispatchEvent(new CustomEvent('cathoscroll:navigate', { detail: next }));
+    }
+
     window.addEventListener('cathoscroll:navigate', navigate);
     window.addEventListener('popstate', restore);
+    document.addEventListener('click', interceptInternalLinks, true);
     return () => {
       window.removeEventListener('cathoscroll:navigate', navigate);
       window.removeEventListener('popstate', restore);
+      document.removeEventListener('click', interceptInternalLinks, true);
     };
   }, []);
 
