@@ -19,6 +19,7 @@ import {
   updateNativePassword,
   updateNativeProfile,
 } from './profile';
+import { usernameError } from '@/lib/username';
 
 export function NativeAccount({
   user,
@@ -80,17 +81,27 @@ export function NativeAccount({
     setLoading(true);
     async function loadAccount() {
       try {
-        const database = await openPrivateActivityDatabase(secureAuthStorage);
-        const profileCache = new NativeProfileCache(database);
-        await profileCache.initialize();
-        const cached = await profileCache.load(accountId);
-        if (!active) return;
-        cache.current = profileCache;
-        if (cached) {
-          setProfile(cached);
-          setProfileUserId(accountId);
+        let profileCache: NativeProfileCache | null = null;
+        try {
+          const database = await openPrivateActivityDatabase(secureAuthStorage);
+          profileCache = new NativeProfileCache(database);
+          await profileCache.initialize();
+          const cached = await profileCache.load(accountId);
+          if (!active) return;
+          cache.current = profileCache;
+          if (cached) {
+            setProfile(cached);
+            setProfileUserId(accountId);
+          }
+        } catch (cacheCause) {
+          // Cloud account access must remain available if optional offline storage is damaged.
+          console.error('Unable to open the offline profile cache:', cacheCause);
+          if (active) {
+            notifyNativeStatus('Offline account details are unavailable on this device.', {
+              id: 'account-profile-cache:' + accountId,
+            });
+          }
         }
-
         if (!navigator.onLine) {
           setVerified(false);
           setLoading(false);
@@ -117,6 +128,7 @@ export function NativeAccount({
         setError('');
         setLoading(false);
         try {
+          if (!profileCache) throw new Error('Profile cache is unavailable.');
           await profileCache.save(accountId, latest);
         } catch (cause) {
           console.error('Unable to cache account profile:', cause);
@@ -180,6 +192,22 @@ export function NativeAccount({
     setError('');
     setMessage('');
     try {
+      const usernameValidation = usernameError(profile.username.trim().toLowerCase());
+      if (usernameValidation) throw new Error(usernameValidation);
+      if (profile.displayName.trim().length < 2) {
+        throw new Error('Display name must be at least 2 characters.');
+      }
+      if (profile.bio.length > 250) throw new Error('Bio cannot exceed 250 characters.');
+      if (newPassword && newPassword.length < 8) {
+        throw new Error('Password must be at least 8 characters.');
+      }
+      if (newPassword && newPassword !== confirmPassword) {
+        throw new Error('Passwords do not match.');
+      }
+      if (email.trim() && !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email.trim())) {
+        throw new Error('Enter a valid email address.');
+      }
+
       const client = createClient();
       if (!profileExists) {
         const created = await createNativeProfile(client, user.id, profile.username);
