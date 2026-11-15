@@ -129,7 +129,7 @@ export function OfflineIndicator({
         </div>
         {!online && (
           <p className="text-text-secondary mt-2 text-sm leading-relaxed">
-            Changes you make will be synced when you go back online.
+            Some saved activity will sync when you reconnect. Account and security changes require an internet connection.
           </p>
         )}
         {notices.length > 0 && (
