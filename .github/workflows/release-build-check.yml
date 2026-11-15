@@ -31,15 +31,10 @@ jobs:
             platform: linux
             architecture: x64
             extension: AppImage
-          - name: macOS Intel
-            runner: macos-26-intel
-            platform: mac
-            architecture: x64
-            extension: dmg
-          - name: macOS Apple Silicon
+          - name: macOS Universal
             runner: macos-26
             platform: mac
-            architecture: arm64
+            architecture: universal
             extension: dmg
 
     runs-on: ${{ matrix.runner }}
