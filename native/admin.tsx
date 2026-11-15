@@ -211,7 +211,7 @@ export function NativeAdmin({
 
       {!loading && !error && section === 'reports' && (
         <>
-          <AdminReportList reports={reports} adminUserId={adminUserId} fetcher={fetcher} />
+          <AdminReportList reports={reports} adminUserId={adminUserId} fetcher={fetcher} onChange={() => setAttempt((value) => value + 1)} />
           <div className="mt-8 flex justify-between">
             {page > 0 ? (
               <a href={`/admin/reports?page=${page - 1}`} className="border-border rounded-lg border px-4 py-2 text-sm">
