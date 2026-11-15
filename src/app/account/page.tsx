@@ -15,6 +15,8 @@ export default function AccountPage() {
 
   const [loading, setLoading] = useState(true);
 
+  const [loadFailed, setLoadFailed] = useState(false);
+
   const [saving, setSaving] = useState(false);
 
   const [signingOut, setSigningOut] = useState(false);
@@ -39,42 +41,46 @@ export default function AccountPage() {
 
   useEffect(() => {
     async function loadAccount() {
-      const supabase = createClient();
+      setError('');
+      setLoadFailed(false);
+      try {
+        const supabase = createClient();
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
+        if (userError) throw userError;
 
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+        if (!user) {
+          router.replace('/signin');
+          return;
+        }
 
-      if (!user) {
-        router.replace('/signin');
-        return;
-      }
+        setEmail(user.email ?? '');
 
-      setEmail(user.email ?? '');
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+        if (profileError) throw profileError;
+        if (!profile) throw new Error('Account profile is missing.');
 
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single();
-
-      if (profile) {
         setDisplayName(profile.display_name ?? '');
-
         setUsername(profile.username ?? '');
-
         setBio(profile.bio ?? '');
-
         setSubscriptionTier(profile.subscription_tier ?? 'free');
+      } catch (cause) {
+        console.error('Unable to load account:', cause);
+        setLoadFailed(true);
+        setError('Unable to load your account details. Refresh the page to try again.');
+      } finally {
+        setLoading(false);
       }
-
-      setLoading(false);
     }
 
-    loadAccount();
+    void loadAccount();
   }, [router]);
 
   async function saveProfile() {
+    if (loadFailed || saving) return;
     setSaving(true);
 
     setError('');
@@ -225,9 +231,9 @@ export default function AccountPage() {
       membershipLabel={subscriptionTier}
       saving={saving}
       signingOut={signingOut}
-      saveDisabled={false}
-      profileFieldsDisabled={false}
-      accountSettingsDisabled={false}
+      saveDisabled={loadFailed}
+      profileFieldsDisabled={loadFailed}
+      accountSettingsDisabled={loadFailed}
       signOutDisabled={false}
       error={error}
       message={message}
