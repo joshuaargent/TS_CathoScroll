@@ -142,17 +142,7 @@ async function initializePrivateActivityDatabase(
   if (platform !== 'android') {
     throw new Error('Encrypted activity is available only on Android and desktop.');
   }
-  if (privatePreparationFailure) {
-    try {
-      // Secure storage can be temporarily unavailable during startup. Retry
-      // key verification when the private store is explicitly requested.
-      await preparePrivateActivitySecret(storage);
-      privatePreparationFailure = null;
-    } catch (error) {
-      privatePreparationFailure = { error };
-      throw error;
-    }
-  }
+  if (privatePreparationFailure) throw privatePreparationFailure.error;
   await CapacitorSQLite.createConnection({
     database,
     version: 1,
