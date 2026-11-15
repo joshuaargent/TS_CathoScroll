@@ -289,7 +289,7 @@ export function NativeAccount({
   }
 
   async function signOut() {
-    if (!user || signingOut) return;
+    if (!user || signingOut || busy) return;
     if (!navigator.onLine) {
       setSignOutError('Connect to the internet before signing out.');
       return;
