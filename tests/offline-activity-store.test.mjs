@@ -1893,3 +1893,31 @@ test('orders offline bookmarks by saved time and paginates with a stable date/to
     db.close();
   }
 });
+
+
+test('ignores a corrupt optional bookmark timestamp without breaking offline activity', async () => {
+  const db = new DatabaseSync(':memory:');
+  try {
+    const store = new OfflineActivityStore(adapter(db));
+    await store.initialize();
+    await bootstrap(store);
+    await store.setActivity('alice', 'topic-a', 'bookmark', true, 'bookmark-a');
+    db.prepare(
+      "UPDATE offline_activity SET bookmark_saved_at = 'not-a-date' WHERE user_id = 'alice' AND topic_id = 'topic-a' AND kind = 'bookmark'"
+    ).run();
+
+    const page = await store.listActivity('alice', 'bookmark');
+    assert.deepEqual(page.topicIds, ['topic-a']);
+    assert.equal(page.items[0].savedAt, null);
+
+    await store.beginBootstrap('alice', 'corrupt-date-refresh', '0', true);
+    await store.stageBootstrap('alice', 'corrupt-date-refresh', [
+      { topicId: 'topic-a', kind: 'bookmark', completedAt: null },
+    ]);
+    await store.completeBootstrap('alice', 'corrupt-date-refresh');
+    assert.deepEqual((await store.listActivity('alice', 'bookmark')).topicIds, ['topic-a']);
+    assert.equal((await store.listActivity('alice', 'bookmark')).items[0].savedAt, null);
+  } finally {
+    db.close();
+  }
+});
