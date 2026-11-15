@@ -37,14 +37,12 @@ module.exports = {
     icon: 'assets/icon.icns',
     category: 'public.app-category.education',
     target: ['dmg', 'zip'],
-    // Release builds provide Developer ID signing and App Store Connect
-    // notarisation credentials. Pull-request builds intentionally omit them.
-    notarize: Boolean(process.env.APPLE_API_KEY),
+    // CathoScroll is distributed unsigned; macOS update notices link to the
+    // website so users can download and install the new DMG manually.
+    identity: null,
+    notarize: false,
     artifactName: '${productName}-${version}-${arch}.${ext}',
   },
-  // If notarisation credentials are present, signing is mandatory. This makes
-  // a misconfigured production macOS release fail instead of shipping unsigned.
-  forceCodeSigning: Boolean(process.env.APPLE_API_KEY),
   publish: {
     provider: 'github',
     owner: 'joshuaargent',
