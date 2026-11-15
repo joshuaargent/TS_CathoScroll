@@ -1,35 +1,49 @@
 import { NextResponse } from 'next/server';
 
-import { createServiceRoleClient, getAdminSession, isSameOrigin } from '@/lib/supabase/admin';
+import { createServiceRoleClient, getAdminSessionFromRequest, isSameOriginOrNativeRequest, nativeApiCorsHeaders } from '@/lib/supabase/admin';
 
 interface RouteContext {
   params: Promise<{ reportId: string }>;
 }
 
+function respond(request: Request, body: unknown, init?: ResponseInit) {
+  const headers = nativeApiCorsHeaders(request);
+  new Headers(init?.headers).forEach((value, key) => headers.set(key, value));
+  return respond(request, body, { ...init, headers });
+}
+
+export function OPTIONS(request: Request) {
+  const headers = nativeApiCorsHeaders(request);
+  if (!headers.has('Access-Control-Allow-Origin')) {
+    return new NextResponse(null, { status: 403 });
+  }
+  return new NextResponse(null, { status: 204, headers });
+}
+
 export async function PATCH(request: Request, { params }: RouteContext) {
-  if (!isSameOrigin(request)) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  if (!isSameOriginOrNativeRequest(request)) {
+    return respond(request, { error: 'Forbidden' }, { status: 403 });
   }
 
-  const { user, isAdmin, error: roleError } = await getAdminSession();
+  const { user, isAdmin, error: roleError } = await getAdminSessionFromRequest(request);
 
   if (!user) {
-    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    return respond(request, { error: 'Authentication required' }, { status: 401 });
   }
 
   if (roleError) {
     console.error('Unable to verify report moderator:', roleError.message);
-    return NextResponse.json({ error: 'Unable to verify admin access' }, { status: 500 });
+    return respond(request, { error: 'Unable to verify admin access' }, { status: 500 });
   }
 
   if (!isAdmin) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    return respond(request, { error: 'Forbidden' }, { status: 403 });
   }
 
   const { reportId: reportIdParam } = await params;
 
   if (!/^[1-9]\d*$/.test(reportIdParam) || !Number.isSafeInteger(Number(reportIdParam))) {
-    return NextResponse.json({ error: 'Invalid report id' }, { status: 400 });
+    return respond(request, { error: 'Invalid report id' }, { status: 400 });
   }
 
   let body: unknown;
@@ -37,7 +51,7 @@ export async function PATCH(request: Request, { params }: RouteContext) {
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    return respond(request, { error: 'Invalid JSON body' }, { status: 400 });
   }
 
   if (
@@ -49,7 +63,7 @@ export async function PATCH(request: Request, { params }: RouteContext) {
     (body.note !== null && typeof body.note !== 'string') ||
     (typeof body.note === 'string' && body.note.length > 1000)
   ) {
-    return NextResponse.json({ error: 'Invalid moderation action' }, { status: 400 });
+    return respond(request, { error: 'Invalid moderation action' }, { status: 400 });
   }
 
   let adminClient;
@@ -58,7 +72,7 @@ export async function PATCH(request: Request, { params }: RouteContext) {
     adminClient = createServiceRoleClient();
   } catch (error) {
     console.error('Report moderation is not configured:', error);
-    return NextResponse.json({ error: 'Report moderation is not configured' }, { status: 500 });
+    return respond(request, { error: 'Report moderation is not configured' }, { status: 500 });
   }
 
   // Review status, audit details, and any requested comment hide are handled
@@ -75,16 +89,16 @@ export async function PATCH(request: Request, { params }: RouteContext) {
 
   if (reviewError) {
     if (reviewError.code === 'P0002') {
-      return NextResponse.json({ error: 'Report not found' }, { status: 404 });
+      return respond(request, { error: 'Report not found' }, { status: 404 });
     }
 
     if (reviewError.code === '23505') {
-      return NextResponse.json({ error: 'This report has already been reviewed' }, { status: 409 });
+      return respond(request, { error: 'This report has already been reviewed' }, { status: 409 });
     }
 
     console.error('Unable to update comment report:', reviewError.message);
-    return NextResponse.json({ error: 'Unable to update report' }, { status: 500 });
+    return respond(request, { error: 'Unable to update report' }, { status: 500 });
   }
 
-  return NextResponse.json({ status });
+  return respond(request, { status });
 }
