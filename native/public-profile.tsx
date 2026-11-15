@@ -171,11 +171,11 @@ export function NativePublicProfile({
 
   if (!profile) {
     return (
-      <main className="container py-12">
+      <div className="container py-12">
         <p className="text-text-secondary mt-8">
           {loading ? 'Loading public profile…' : 'Profile not found.'}
         </p>
-      </main>
+      </div>
     );
   }
 
