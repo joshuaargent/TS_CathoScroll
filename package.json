@@ -7,6 +7,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "test": "node --test tests/*.test.mjs",
     "postinstall": "npm --prefix electron ci",
     "cap:sync": "npm run native:build && cap sync android && cap sync @capawesome/capacitor-electron",
     "cap:sync:electron": "npm run native:build && cap sync @capawesome/capacitor-electron",
