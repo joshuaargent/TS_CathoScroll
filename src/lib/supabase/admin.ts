@@ -70,7 +70,7 @@ async function adminMfaSatisfied(supabase: Awaited<ReturnType<typeof createClien
 
 export async function getAdminSessionFromRequest(request: Request) {
   const { supabase, user } = await getAuthenticatedUserFromRequest(request);
-  if (!user) return { user: null, isAdmin: false, error: null };
+  if (!user) return { user: null, isAdmin: false, error: null, mfaRequired: false };
   const { data, error } = await supabase
     .from('admin_users')
     .select('user_id')
@@ -108,7 +108,7 @@ export async function getAdminSession() {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return { user: null, isAdmin: false, error: null };
+    return { user: null, isAdmin: false, error: null, mfaRequired: false };
   }
 
   // Resolve the role from the protected database table on every privileged
