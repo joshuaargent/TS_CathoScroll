@@ -182,13 +182,15 @@ jobs:
           set -euo pipefail
           apk="android/app/build/outputs/apk/release/CathoScroll-${GITHUB_REF_NAME#v}.apk"
           test -s "$apk"
-          apksigner verify --verbose --print-certs "$apk"
+          apksigner_path="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          test -x "$apksigner_path"
+          "$apksigner_path" verify --verbose --print-certs "$apk"
 
       - name: Upload Android APK
         uses: actions/upload-artifact@v4
         with:
           name: Android APK
-          path: android/app/build/outputs/apk/release/CathoScroll-${{ github.ref_name }}.apk
+          path: android/app/build/outputs/apk/release/CathoScroll-*.apk
           if-no-files-found: error
           retention-days: 7
 
