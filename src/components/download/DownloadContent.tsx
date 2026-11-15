@@ -1,4 +1,3 @@
-
 import Link from 'next/link';
 import {
   Apple,
@@ -38,32 +37,28 @@ interface DownloadContentProps {
 const platforms = [
   {
     name: 'Android',
-    description:
-      'Install CathoScroll directly on your Android device.',
+    description: 'Install CathoScroll directly on your Android device.',
     formats: 'APK',
     extensions: ['.apk'],
     icon: Smartphone,
   },
   {
     name: 'Windows',
-    description:
-      'Download the CathoScroll desktop application for Windows.',
+    description: 'Download the CathoScroll desktop application for Windows.',
     formats: 'EXE',
     extensions: ['.exe'],
     icon: Monitor,
   },
   {
     name: 'Linux',
-    description:
-      'Download the CathoScroll desktop application for Linux.',
+    description: 'Download the CathoScroll desktop application for Linux.',
     formats: 'AppImage or DEB',
     extensions: ['.appimage', '.deb'],
     icon: Terminal,
   },
   {
     name: 'macOS',
-    description:
-      'Download the CathoScroll desktop application for Mac.',
+    description: 'Download the CathoScroll desktop application for Mac.',
     formats: 'DMG or ZIP',
     extensions: ['.dmg', '.zip'],
     icon: Apple,
@@ -94,9 +89,7 @@ function getPlatformAssets(
   return assets.filter((asset) => {
     const fileName = asset.name.toLowerCase();
 
-    return extensions.some((extension) =>
-      fileName.endsWith(extension)
-    );
+    return extensions.some((extension) => fileName.endsWith(extension));
   });
 }
 
@@ -158,10 +151,7 @@ export default function DownloadContent({
               </p>
 
               <div className="mt-6">
-                <Button
-                  asChild
-                  variant="outline"
-                >
+                <Button asChild variant="outline">
                   <a
                     href={releasesUrl}
                     target="_blank"
@@ -180,10 +170,7 @@ export default function DownloadContent({
               const Icon = platform.icon;
 
               const platformAssets = release
-                ? getPlatformAssets(
-                    release.assets,
-                    platform.extensions
-                  )
+                ? getPlatformAssets(release.assets, platform.extensions)
                 : [];
 
               const available = platformAssets.length > 0;
@@ -239,14 +226,8 @@ export default function DownloadContent({
                             aria-label={`Download ${asset.name} for ${platform.name}`}
                           >
                             <span className="flex min-w-0 items-center gap-2">
-                              <Download
-                                size={17}
-                                className="shrink-0"
-                              />
-
-                              <span className="truncate">
-                                {asset.name}
-                              </span>
+                              <Download size={17} className="shrink-0" />
+                              <span className="truncate">{asset.name}</span>
                             </span>
 
                             <span className="shrink-0 text-xs opacity-80">
@@ -262,9 +243,7 @@ export default function DownloadContent({
                         className="w-full"
                         leftIcon={<Download size={17} />}
                       >
-                        {!release
-                          ? 'Unavailable'
-                          : 'Coming Soon'}
+                        {!release ? 'Unavailable' : 'Coming Soon'}
                       </Button>
                     )}
                   </div>
@@ -328,19 +307,20 @@ export default function DownloadContent({
           <div className="border-border rounded-2xl border p-8">
             <p className="text-text-secondary leading-relaxed">
               CathoScroll release builds target Android, Windows, Linux, and
-              macOS. Available downloads are detected
-              automatically from the latest published GitHub release.
+              macOS. Available downloads are detected automatically from
+              the latest published GitHub release.
             </p>
 
             <p className="text-text-secondary mt-4 leading-relaxed">
-              Windows, Linux, and signed macOS desktop apps check for
-              updates when launched, download available updates in the
-              background, and install them after the app is closed.
-              Android updates are distributed as signed APKs; download
-              the latest APK and approve Android's installer prompt.
-              After the first migration from a debug-signed build,
-              release APKs can update the installed app without
-              uninstalling it.
+              Windows and Linux desktop apps check for updates when launched,
+              download available updates in the background, and install them
+              after the app is closed. macOS checks for a newer release on
+              launch and displays an update notice with a link to the
+              download page; macOS updates are installed manually. Android
+              updates are distributed as signed APKs; download the latest APK
+              and approve Android's installer prompt. After the first
+              migration from a debug-signed build, release APKs can update
+              the installed app without uninstalling it.
             </p>
 
             <div className="mt-6">
@@ -370,10 +350,7 @@ export default function DownloadContent({
 
           <div className="mt-6">
             <Link href="/contact">
-              <Button
-                size="lg"
-                style={{ color: '#ffffff' }}
-              >
+              <Button size="lg" style={{ color: '#ffffff' }}>
                 Contact Us
               </Button>
             </Link>
