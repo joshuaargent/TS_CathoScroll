@@ -118,6 +118,7 @@ export default function SignupPage() {
   }
 
   return (
+    <main>
     <SignupFormView
       loading={loading}
       error={error}
@@ -129,5 +130,6 @@ export default function SignupPage() {
       onToggleConfirmPassword={() => setShowConfirmPassword((value) => !value)}
       onSubmit={(event) => void handleSubmit(event)}
     />
+    </main>
   );
 }
