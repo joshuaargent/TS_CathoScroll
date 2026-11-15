@@ -5,6 +5,7 @@ import {
 } from '@/lib/content';
 import { getSitemapCategoriesXml, sitemapUrlsPerFile, xmlEscape } from '@/lib/sitemap';
 import { siteConfig } from '@/lib/constants';
+import { checkTrustedIpRateLimit, rateLimitResponseHeaders } from '@/lib/security/api-rate-limit';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,7 +13,18 @@ interface RouteContext {
   params: Promise<{ type: string; id: string }>;
 }
 
-export async function GET(_request: Request, { params }: RouteContext) {
+export async function GET(request: Request, { params }: RouteContext) {
+  const rateLimit = await checkTrustedIpRateLimit(request, 'sitemap:segment:ip', 60, 60);
+  if (rateLimit && !rateLimit.allowed) {
+    return new Response('Too many sitemap requests.', {
+      status: rateLimit.unavailable ? 503 : 429,
+      headers: {
+        'Cache-Control': 'private, no-store',
+        ...rateLimitResponseHeaders(rateLimit.retryAfterSeconds),
+      },
+    });
+  }
+
   const { type, id } = await params;
   const pageStr = id.replace(/\.xml$/, '');
   const page = Number(pageStr);
