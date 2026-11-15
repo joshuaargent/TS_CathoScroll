@@ -39,7 +39,7 @@ async function loadOnlineTopics(category?: string, cursor?: CatalogueCursor | nu
     .eq('category.is_published', true)
     .order('order_index', { ascending: true })
     .order('id', { ascending: true })
-    .limit(31);
+    .limit(51);
   if (category) query = query.eq('category.slug', category);
   if (cursor) {
     query = query.or(
@@ -50,8 +50,8 @@ async function loadOnlineTopics(category?: string, cursor?: CatalogueCursor | nu
   const { data, error } = await query;
   if (error) throw error;
   const rows = (data ?? []) as unknown as OnlineTopicRow[];
-  const hasMore = rows.length > 30;
-  const pageRows = hasMore ? rows.slice(0, 30) : rows;
+  const hasMore = rows.length > 50;
+  const pageRows = hasMore ? rows.slice(0, 50) : rows;
   const topics = pageRows.map((row) => {
     const relation = Array.isArray(row.category) ? row.category[0] : row.category;
     return {
@@ -305,17 +305,19 @@ function TopicList({ catalogue, category }: { catalogue: OfflineCatalogue; categ
       {!loading && !error && !topics.length && (
         <p className="text-text-secondary mt-8">No matching topics found.</p>
       )}
-      <CategoryTopicGrid topics={topics} />
       {cursor && !error && (
-        <button
-          type="button"
-          onClick={() => void loadMore()}
-          disabled={loading}
-          className="border-border hover:bg-bg-secondary mt-8 rounded-xl border px-5 py-3 text-sm font-medium"
-        >
-          {loading ? 'Loading…' : 'Load more topics'}
-        </button>
+        <div className="mt-8 flex justify-center">
+          <button
+            type="button"
+            onClick={() => void loadMore()}
+            disabled={loading}
+            className="border-border hover:bg-bg-secondary rounded-xl border px-5 py-3 text-sm font-medium"
+          >
+            {loading ? 'Loading…' : 'Load more topics'}
+          </button>
+        </div>
       )}
+      <CategoryTopicGrid topics={topics} />
     </>
   );
 }
@@ -433,9 +435,6 @@ export function CategoryPage({ catalogue, slug }: { catalogue: OfflineCatalogue;
 
   return (
     <div className="container py-12">
-      <Link href="/categories" className="text-accent">
-        ← Categories
-      </Link>
       {loading && (
         <p role="status" className="mt-8">
           Loading category…
