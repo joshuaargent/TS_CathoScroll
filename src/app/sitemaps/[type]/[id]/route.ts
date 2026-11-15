@@ -1,9 +1,11 @@
 import {
+  getPublicProfileCount,
   getPublicProfileRange,
   getPublishedCategories,
+  getPublishedTopicCount,
   getPublishedTopicRange,
 } from '@/lib/content';
-import { getSitemapCategoriesXml, sitemapUrlsPerFile, xmlEscape } from '@/lib/sitemap';
+import { getSitemapCategoriesXml, isSitemapPageInRange, sitemapUrlsPerFile, xmlEscape } from '@/lib/sitemap';
 import { siteConfig } from '@/lib/constants';
 import { checkTrustedIpRateLimit, rateLimitResponseHeaders } from '@/lib/security/api-rate-limit';
 
@@ -38,12 +40,23 @@ export async function GET(request: Request, { params }: RouteContext) {
     let urls: string[];
 
     if (type === 'static') {
+      if (!isSitemapPageInRange(page, 1, sitemapUrlsPerFile)) {
+        return new Response('Not found.', { status: 404 });
+      }
       const categories = await getPublishedCategories();
       urls = getSitemapCategoriesXml(categories);
     } else if (type === 'topics') {
+      const totalItems = await getPublishedTopicCount();
+      if (!isSitemapPageInRange(page, totalItems)) {
+        return new Response('Not found.', { status: 404 });
+      }
       const topics = await getPublishedTopicRange(page * sitemapUrlsPerFile, sitemapUrlsPerFile);
       urls = topics.map((topic) => `${baseUrl}/topic/${encodeURIComponent(topic.slug)}`);
     } else {
+      const totalItems = await getPublicProfileCount();
+      if (!isSitemapPageInRange(page, totalItems)) {
+        return new Response('Not found.', { status: 404 });
+      }
       const profiles = await getPublicProfileRange(page * sitemapUrlsPerFile, sitemapUrlsPerFile);
       urls = profiles.map((username) => `${baseUrl}/profile/${encodeURIComponent(username)}`);
     }
