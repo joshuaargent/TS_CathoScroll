@@ -90,10 +90,12 @@ jobs:
           iconutil -c icns electron/assets/iconset -o electron/assets/icon.icns
           rm -rf electron/assets/iconset
 
-      - name: Package Electron application
-        run: npm --prefix electron run pack -- --${{ matrix.platform }} --${{ matrix.architecture }} --publish never
+      - name: Package and publish desktop application
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm --prefix electron run pack -- --${{ matrix.platform }} --${{ matrix.architecture }} --publish onTag
 
-      - name: Upload platform installers
+      - name: Upload platform build outputs for verification
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.name }}
@@ -176,7 +178,7 @@ jobs:
           ANDROID_VERSION_CODE: ${{ github.run_number }}
         run: ./gradlew --no-daemon --stacktrace assembleRelease
 
-      - name: Verify APK output
+      - name: Verify APK output and signing certificate
         shell: bash
         run: |
           set -euo pipefail
@@ -195,19 +197,19 @@ jobs:
           retention-days: 7
 
   publish-release:
-    name: Publish GitHub Release
+    name: Finalise GitHub Release
     needs:
       - build-desktop
       - build-android
     runs-on: ubuntu-latest
     steps:
-      - name: Download all platform installers and update metadata
+      - name: Download all platform build outputs
         uses: actions/download-artifact@v4
         with:
           path: release-assets
           merge-multiple: true
 
-      - name: Verify release assets exist
+      - name: Verify local release outputs
         shell: bash
         run: |
           set -euo pipefail
@@ -217,11 +219,25 @@ jobs:
           test -n "$(find release-assets -maxdepth 1 -type f -name '*.deb' -print -quit)"
           test -n "$(find release-assets -maxdepth 1 -type f -name '*.dmg' -print -quit)"
           test -n "$(find release-assets -maxdepth 1 -type f -name '*.zip' -print -quit)"
-          test -n "$(find release-assets -maxdepth 1 -type f -name 'latest.yml' -print -quit)"
-          test -n "$(find release-assets -maxdepth 1 -type f -name 'latest-linux.yml' -print -quit)"
           test -n "$(find release-assets -maxdepth 1 -type f -name 'CathoScroll-*.apk' -print -quit)"
 
-      - name: Publish versioned release
+      - name: Verify desktop installers and update metadata were published
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          assets="$(gh release view "$GITHUB_REF_NAME" --json assets --jq '.assets[].name')"
+          printf '%s\n' "$assets"
+          for expected in '.exe' '.AppImage' '.deb' '.dmg' '.zip' 'latest.yml' 'latest-linux.yml'; do
+            if ! grep -Fq "$expected" <<<"$assets"; then
+              echo "Missing published desktop release asset matching: $expected"
+              exit 1
+            fi
+          done
+
+      - name: Attach Android APK and publish release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
@@ -230,4 +246,4 @@ jobs:
           draft: false
           prerelease: false
           fail_on_unmatched_files: true
-          files: release-assets/*
+          files: release-assets/CathoScroll-*.apk
