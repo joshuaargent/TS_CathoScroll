@@ -7,24 +7,24 @@ export function AdminNavigation({ showContent = true }: { showContent?: boolean 
       >
         Dashboard
       </a>
-      <Link
+      <a
         href="/admin/reports"
         className="border-border hover:bg-bg-secondary rounded-lg border px-4 py-2 text-sm"
       >
         All reports
-      </Link>
-      <Link
+      </a>
+      <a
         href="/admin/appeals"
         className="border-border hover:bg-bg-secondary rounded-lg border px-4 py-2 text-sm"
       >
         Comment-ban appeals
-      </Link>
-      <Link
+      </a>
+      <a
         href="/admin/content"
         className="border-border hover:bg-bg-secondary rounded-lg border px-4 py-2 text-sm"
       >
         Content library
-      </Link>
+      </a>
     </nav>
   );
 }
