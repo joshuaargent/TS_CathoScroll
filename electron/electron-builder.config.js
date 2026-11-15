@@ -42,6 +42,10 @@ module.exports = {
     identity: null,
     notarize: false,
     artifactName: '${productName}-${version}-${arch}.${ext}',
+    // The sqlite package ships both macOS prebuilds in each architecture's
+    // package tree. They are identical across the x64 and arm64 staging apps,
+    // so preserve the shared arm64 prebuild instead of trying to lipo-merge it.
+    x64ArchFiles: '**/better-sqlite3-multiple-ciphers/prebuilds/darwin-arm64.node',
   },
   publish: {
     provider: 'github',
