@@ -207,6 +207,7 @@ export default function AccountPage() {
   }
 
   return (
+    <main>
     <AccountPageView
       loading={loading}
       displayName={displayName}
@@ -236,5 +237,6 @@ export default function AccountPage() {
       }}
       onSignOut={() => void signOut()}
     />
+    </main>
   );
 }
