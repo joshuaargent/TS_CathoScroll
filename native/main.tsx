@@ -779,6 +779,14 @@ function NativeMfaGate({ userId }: { userId: string | null }) {
         )}
         {error && <p role="alert" className="mt-4 text-sm text-red-600">{error}</p>}
         {message && <p role="status" className="mt-4 text-sm">{message}</p>}
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => void createClient().auth.signOut()}
+          className="border-border mt-4 w-full rounded-xl border px-4 py-3 text-sm font-semibold"
+        >
+          Sign out
+        </button>
       </section>
     </div>
   );
