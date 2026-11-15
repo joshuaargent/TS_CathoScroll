@@ -1119,6 +1119,7 @@ function App() {
                   checking={authStatus === 'loading' || checkingAccount}
                   available={authStatus !== 'unavailable'}
                   onSignedIn={() => openRoute('/account')}
+                  onSignedOut={() => openRoute('/')}
                   activity={activity?.userId === user?.id ? activity : null}
                 />
               )}
