@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 import type { AdminUserComment } from '@/lib/moderation/types';
 
@@ -23,10 +23,6 @@ export function CommentBanControl({
 }: CommentBanControlProps) {
   const [restrictionActive, setRestrictionActive] = useState(activeBan);
   const [currentReason, setCurrentReason] = useState(reason ?? '');
-  useEffect(() => {
-    setRestrictionActive(activeBan);
-    setCurrentReason(reason ?? '');
-  }, [activeBan, reason]);
 
 
   const [moderationReason, setModerationReason] = useState('');
