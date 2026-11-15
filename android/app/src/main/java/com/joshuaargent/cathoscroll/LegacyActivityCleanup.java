@@ -5,7 +5,7 @@ import java.io.IOException;
 
 final class LegacyActivityCleanup {
     interface DatabaseDeleter {
-        boolean deleteDatabase();
+        boolean deleteDatabase() throws IOException;
     }
 
     static void remove(File database, DatabaseDeleter deleter) throws IOException {
