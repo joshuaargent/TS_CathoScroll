@@ -1,14 +1,11 @@
 import Link from 'next/link';
-import type { Metadata } from 'next';
-import { siteConfig } from '@/lib/constants';
+import { createPageMetadata } from '@/lib/seo';
 
-export const metadata: Metadata = {
-  title: 'Cookies',
-  description: 'How CathoScroll uses cookies and similar technologies.',
-  alternates: {
-    canonical: new URL('/cookies', siteConfig.url).toString(),
-  },
-};
+export const metadata = createPageMetadata({
+  title: "Cookies",
+  description: "How CathoScroll uses cookies and similar technologies.",
+  path: "/cookies",
+});
 
 export default function CookiesPage() {
   return (

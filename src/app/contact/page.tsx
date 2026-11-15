@@ -1,4 +1,4 @@
-import { Metadata } from 'next';
+import { createPageMetadata } from '@/lib/seo';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -22,13 +22,11 @@ const socialLinks = {
 
 const FORMSPREE_FORM_ID = process.env.NEXT_PUBLIC_FORMSPREE_FORM_ID;
 
-export const metadata: Metadata = {
-  title: 'Contact',
-  description: 'Contact CathoScroll for support, feedback, bug reports, and topic suggestions.',
-  alternates: {
-    canonical: new URL('/contact', siteConfig.url).toString(),
-  },
-};
+export const metadata = createPageMetadata({
+  title: "Contact",
+  description: "Contact CathoScroll for support, feedback, bug reports, and topic suggestions.",
+  path: "/contact",
+});
 
 export default function ContactPage() {
   return (
