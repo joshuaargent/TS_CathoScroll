@@ -256,13 +256,25 @@ Never put Supabase service-role keys or other server secrets in `NEXT_PUBLIC_*` 
 
 ## Native page parity and offline behaviour
 
-The Android and Electron apps use the same account-page field order, headings,
-membership panel, public-profile link, validation rules, and save/sign-out
-actions as the website. The native account page reads its profile from Supabase
+The website and Android/Electron apps render the same shared
+`AccountPageView` component, including the loading skeleton, field order,
+labels, membership panel, public-profile link, and save/sign-out controls.
+Platform-specific adapters own authentication, validation, persistence, and
+offline policy. The native account adapter reads its profile from Supabase
 when connected and uses the encrypted per-device profile cache for read-only
 display when offline. Membership is always treated as live data; the app does
 not present an old cached tier as current. Profile, email, password, sign-in,
 and sign-out changes require a connection and are never silently queued.
+
+The website and native app also share `NavbarView` and the bookmark card grid
+and saved-date formatter. The native app supplies its own notification bell,
+navigation handling, and offline activity data without duplicating those
+shared visual components. Bookmark save timestamps are cached locally after
+the app has loaded the online bookmark list, and timestamps for bookmarks
+created on the device are recorded immediately. An older server bookmark that
+has never been refreshed by the app may not have its original save date while
+offline; the activity snapshot protocol does not currently include bookmark
+creation timestamps.
 
 The native router also renders the website's shared About, FAQ, Contact,
 Privacy, Terms, and Cookies page components. The contact form uses the optional
