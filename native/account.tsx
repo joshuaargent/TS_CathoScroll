@@ -35,6 +35,7 @@ export function NativeAccount({
 
   useEffect(() => {
     if (!user) {
+      setMembershipLoaded(false);
       clearNativeStatusNotice('account-activity-setup');
       clearNativeStatusNotice('account-membership');
       return;
@@ -42,6 +43,7 @@ export function NativeAccount({
     let active = true;
     async function loadMembership() {
       if (!navigator.onLine) return;
+      setMembershipLoaded(false);
       try {
         const { data, error: profileError } = await createClient()
           .from('profiles')
