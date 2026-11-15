@@ -78,13 +78,11 @@ export function NativeNotes({
     async function load() {
       let note: CachedNote | null = null;
       let warning = '';
-      let cacheReadable = true;
       setState({ userId: accountId, topicId, note, loading: true, warning, verified: false });
       try {
         note = await cache.load(accountId, topicId);
       } catch (error) {
         console.error('Unable to load saved note:', error);
-        cacheReadable = false;
         warning = 'Your saved note could not be opened on this device.';
       }
       if (!active) return;
@@ -116,14 +114,15 @@ export function NativeNotes({
           draft.current = content ?? '';
           setContent(draft.current);
         }
-        if (cacheReadable) {
-          try {
-            await cache.save(accountId, topicId, content);
-            warning = '';
-          } catch (error) {
-            console.error('Unable to save note for offline viewing:', error);
-            warning = 'This note could not be saved for offline viewing.';
-          }
+        // A successful server response is authoritative. Repair a corrupt cache
+        // entry even when its previous contents could not be decrypted. The cache
+        // still refuses to create a replacement key when existing rows are present.
+        try {
+          await cache.save(accountId, topicId, content);
+          warning = '';
+        } catch (error) {
+          console.error('Unable to save note for offline viewing:', error);
+          warning = 'This note could not be saved for offline viewing.';
         }
         if (active) {
           setState({ userId: accountId, topicId, note, loading: false, warning, verified: true });

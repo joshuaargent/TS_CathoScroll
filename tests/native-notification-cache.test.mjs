@@ -151,3 +151,31 @@ test('a mark queued as an empty drain finishes is synchronized without waiting f
   assert.equal(remoteCalls, 1);
   assert.equal(acknowledged, true);
 });
+
+
+test('rejects malformed notification snapshots before storing them', async (t) => {
+  const { db, cache } = fixture();
+  t.after(() => db.close());
+  await cache.initialize();
+  const valid = {
+    notifications: [{
+      id: 1, type: 'reply', title: 'Reply', body: 'A reply was posted.',
+      topic_id: 'topic-one', topic_slug: 'topic-one', comment_id: 1,
+      read_at: null, created_at: '2026-11-15T10:00:00.000Z',
+    }],
+    unreadCount: 1,
+  };
+  await assert.rejects(cache.saveIfClean('alice', {
+    notifications: [valid.notifications[0], valid.notifications[0]],
+    unreadCount: 2,
+  }, null), /Duplicate saved notification/);
+  await assert.rejects(cache.saveIfClean('alice', {
+    notifications: [{ ...valid.notifications[0], created_at: 'not-a-date' }],
+    unreadCount: 1,
+  }, null), /Invalid saved notification/);
+  await assert.rejects(cache.saveIfClean('alice', {
+    notifications: [{ ...valid.notifications[0], title: 'x'.repeat(16_385) }],
+    unreadCount: 1,
+  }, null), /Invalid saved notification/);
+  assert.equal(await cache.load('alice'), null);
+});

@@ -3,6 +3,7 @@
 import { Bell, CheckCheck, MessageCircle, ShieldAlert, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Skeleton } from '@/components/ui/Skeleton';
 
 export interface Notification {
   id: number;
@@ -206,9 +207,16 @@ export function NotificationList({
       )}
 
       {loading ? (
-        <article className="border-border rounded-2xl border p-6">
-          <p className="text-text-secondary">Loading notifications...</p>
-        </article>
+        <div role="status" aria-label="Loading notifications" aria-busy="true" className="space-y-3">
+          {Array.from({ length: 4 }, (_, index) => (
+            <article key={index} className="border-border rounded-2xl border p-5">
+              <Skeleton className="h-5 w-2/3" />
+              <Skeleton className="mt-3 h-4 w-full" />
+              <Skeleton className="mt-2 h-4 w-4/5" />
+              <Skeleton className="mt-4 h-4 w-24" />
+            </article>
+          ))}
+        </div>
       ) : error ? null : notifications.length === 0 ? (
         <article className="border-border rounded-2xl border p-8 text-center">
           <Bell className="text-text-muted mx-auto h-8 w-8" aria-hidden="true" />
