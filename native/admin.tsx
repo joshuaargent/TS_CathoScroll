@@ -136,16 +136,19 @@ export function NativeAdmin({
       ? 'Comment reports'
       : section === 'appeals'
         ? 'Comment-ban appeals'
-        : 'Admin dashboard';
+        : section === 'content'
+          ? 'Content library'
+          : 'Admin dashboard';
 
   return (
     <main className="container py-12">
       <div className="mt-8">
-        <p className="text-accent text-sm font-semibold tracking-wider uppercase">Moderation</p>
+        <p className="text-accent text-sm font-semibold tracking-wider uppercase">Administration</p>
         <h1 className="mt-2 text-4xl font-extrabold md:text-5xl">{title}</h1>
         <p className="text-text-secondary mt-3 max-w-3xl">
-          Review private reports, comment-ban appeals, and user comment restrictions.
-          All privileged actions are verified by the server and recorded for accountability.
+          {section === 'content'
+            ? 'Create, edit, organise, publish, and maintain the shared learning library.'
+            : 'Review private reports, comment-ban appeals, and user comment restrictions. All privileged actions are verified by the server.'}
         </p>
       </div>
       <div className="mt-8">
