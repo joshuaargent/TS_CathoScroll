@@ -168,7 +168,7 @@ function parseRoute(href: string): Route | null {
       if (!Number.isSafeInteger(page) || page < 0) return null;
       return { kind: 'admin', pathname, section: 'dashboard', page };
     }
-    const adminMatch = /^\\/admin\\/(reports|appeals)$/.exec(pathname);
+    const adminMatch = /^\/admin\/(reports|appeals)$/.exec(pathname);
     if (adminMatch) {
       const page = Number(url.searchParams.get('page') ?? '0');
       if (!Number.isSafeInteger(page) || page < 0) return null;
