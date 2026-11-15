@@ -198,7 +198,9 @@ export function NativeNotes({
         setMessageState({ ...target, value: 'Unable to save your note. Check your connection and try again.' });
       }
     } finally {
-      if (isCurrent()) setSavingState({ ...target, value: false });
+      // The state is identity-keyed, so clearing the old operation cannot
+      // change the loading state of whichever topic is currently visible.
+      setSavingState({ ...target, value: false });
     }
   }
 
