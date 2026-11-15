@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { CommentBanAppealPageView } from '@/components/comments/CommentBanAppealPageView';
 import { siteConfig } from '@/lib/constants';
 import { createClient } from './supabase';
+import { NativeAppealSkeleton } from './skeletons';
 
 type AppealDetails = {
   ban: { created_at: string } | null;
@@ -127,6 +128,7 @@ export function NativeAppeal({
       banCreatedAt={current?.value?.ban?.created_at ?? null}
       pendingAppealCreatedAt={current?.value?.appeal?.created_at ?? null}
       loading={!current || current.loading}
+      loadingContent={<NativeAppealSkeleton />}
       error={current?.error ?? ''}
       submitter={submitter}
       onRetry={() => setAttempt((value) => value + 1)}

@@ -7,6 +7,7 @@ import { SearchInput } from '@/components/search/SearchInput';
 import { SearchResults } from '@/components/search/SearchResults';
 import { SearchSuggestions } from '@/components/search/SearchSuggestions';
 import { Badge } from '@/components/ui/Badge';
+import { NativeGridSkeleton, NativeCategorySkeleton } from './skeletons';
 import { topicSearchResultFromDatabase, type TopicSearchResult } from '@/lib/search';
 import {
   OfflineCatalogue,
@@ -14,7 +15,7 @@ import {
   type CategoryCursor,
 } from '@/lib/offline/catalogue';
 import type { ContentCategory, Topic } from '@/types';
-import { createClient } from './supabase';
+import { createClient, createPublicClient } from './supabase';
 import { notifyNativeStatus, clearNativeStatusNotice } from './offline-indicator';
 
 type OnlineTopicRow = {
@@ -198,9 +199,11 @@ export function CategoriesPage({ catalogue }: { catalogue: OfflineCatalogue }) {
           </div>
         )}
       </div>
-      {loading && !categories.length && <p role="status">Loading categories…</p>}
-
-      <CategoriesGrid categories={categories} />
+      {loading && !categories.length ? (
+        <NativeGridSkeleton label="Loading categories" />
+      ) : (
+        <CategoriesGrid categories={categories} />
+      )}
       {cursor && !error && (
         <button
           type="button"
@@ -326,11 +329,7 @@ function TopicList({ catalogue, category }: { catalogue: OfflineCatalogue; categ
 
   return (
     <>
-      {loading && !topics.length && (
-        <p role="status" className="mt-8">
-          Loading topics…
-        </p>
-      )}
+      {loading && !topics.length && <NativeGridSkeleton label="Loading topics" />}
 
       {!loading && !error && !topics.length && (
         <p className="text-text-secondary mt-8">No matching topics found.</p>
@@ -465,11 +464,7 @@ export function CategoryPage({ catalogue, slug }: { catalogue: OfflineCatalogue;
 
   return (
     <div className="container py-12">
-      {loading && (
-        <p role="status" className="mt-8">
-          Loading category…
-        </p>
-      )}
+      {loading && <NativeCategorySkeleton label="Loading category" />}
 
       {!loading && !error && !category && <p className="mt-8">Category not found.</p>}
       {category && (
@@ -536,7 +531,7 @@ export function SearchPage({
     async function search() {
       if (navigator.onLine) {
         try {
-          const { data, error: searchError } = await createClient()
+          const { data, error: searchError } = await createPublicClient()
             .rpc('search_published_topics', { search_query: debounced, result_limit: 30 })
             .abortSignal(controller.signal);
           if (searchError) throw searchError;

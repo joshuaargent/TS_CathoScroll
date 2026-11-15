@@ -8,6 +8,7 @@ import { secureAuthStorage } from './secure-auth-storage';
 import { createClient } from './supabase';
 import { readNativeProfile, updateNativeProfile } from './profile';
 import { notifyNativeStatus, clearNativeStatusNotice } from './offline-indicator';
+import { Skeleton } from '@/components/ui/Skeleton';
 
 export function NativeProfileSettings({ userId }: { userId: string }) {
   const [profile, setProfile] = useState<CachedProfile | null>(null);
@@ -129,7 +130,14 @@ export function NativeProfileSettings({ userId }: { userId: string }) {
     }
   }
 
-  if (loading && !profile) return <p className="text-text-secondary mt-4">Loading profile…</p>;
+  if (loading && !profile) return (
+    <section role="status" aria-label="Loading profile settings" aria-busy="true" className="mt-6 space-y-4">
+      <Skeleton className="h-7 w-48" />
+      <Skeleton className="h-12 w-full" />
+      <Skeleton className="h-12 w-full" />
+      <Skeleton className="h-28 w-full" variant="rectangular" />
+    </section>
+  );
   if (!profile) return null;
   const disabled = !verified || busy;
   return (

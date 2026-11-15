@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import type { ReactNode } from 'react';
 
 import {
   CommentBanAppealForm,
@@ -12,6 +13,7 @@ export function CommentBanAppealPageView({
   error = '',
   submitter,
   onRetry,
+  loadingContent,
 }: {
   banCreatedAt: string | null;
   pendingAppealCreatedAt: string | null;
@@ -19,6 +21,7 @@ export function CommentBanAppealPageView({
   error?: string;
   submitter?: CommentBanAppealSubmitter;
   onRetry?: () => void;
+  loadingContent?: ReactNode;
 }) {
   return (
     <main className="container py-12">
@@ -31,7 +34,7 @@ export function CommentBanAppealPageView({
 
       <section className="mx-auto max-w-2xl">
         {loading ? (
-          <p role="status" className="text-text-secondary">Loading your appeal details…</p>
+          loadingContent ?? <p role="status" className="text-text-secondary">Loading your appeal details…</p>
         ) : error ? (
           <div className="border-border rounded-2xl border p-6">
             <p role="alert">{error}</p>

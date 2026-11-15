@@ -15,6 +15,13 @@ import { NativeNotifications, NativeNotificationsProvider } from './notification
 import { OfflineIndicator, clearNativeStatusNotice, notifyNativeStatus } from './offline-indicator';
 import { NativeTopicActions } from './topic-actions';
 import { NativeSignup } from './signup';
+import {
+  NativeArticleSkeleton,
+  NativeCategorySkeleton,
+  NativeFeedSkeleton,
+  NativeGridSkeleton,
+} from './skeletons';
+import { AccountPageSkeleton } from '@/components/account/AccountPageView';
 import AboutPage from '@/app/about/page';
 import FAQPage from '@/app/faq/page';
 import ContactPage from '@/app/contact/page';
@@ -543,9 +550,7 @@ function NativeTopicPage({
         ← Explore Feed
       </button>
       {loading && (
-        <p role="status" className="mt-8">
-          Loading topic…
-        </p>
+        <NativeArticleSkeleton />
       )}
       {!loading && !error && !topic && <p className="mt-8">Topic not found.</p>}
       {topic && (
@@ -1102,12 +1107,27 @@ function App() {
             }}
           >
             <NativeNavbar pathname={route?.pathname ?? '/'} userId={user?.id ?? null} />
-            <main className="pt-16">
-              {!error && !firstPage && (
-                <p role="status" className="px-6">
-                  Loading topics…
-                </p>
+            <main className="native-content pt-16">
+              {route?.kind === 'feed' && !error && !firstPage && (
+                <NativeFeedSkeleton />
               )}
+              {!error && route?.kind === 'search' && !catalogue && (
+                <NativeGridSkeleton label="Loading search" />
+              )}
+              {!error && route?.kind === 'categories' && !catalogue && (
+                <NativeCategorySkeleton label="Loading categories" />
+              )}
+              {!error && route?.kind === 'bookmarks' && !catalogue && (
+                <NativeGridSkeleton label="Loading bookmarks" />
+              )}
+              {!error && route?.kind === 'category' && !catalogue && (
+                <NativeCategorySkeleton label="Loading category" />
+              )}
+              {!error &&
+                route?.kind === 'topic' &&
+                (!catalogue || !commentCache || !noteCache) && (
+                  <NativeArticleSkeleton />
+                )}
               {firstPage && !firstPage.topics.length && (
                 <p className="px-6">No topics available.</p>
               )}
@@ -1173,7 +1193,7 @@ function App() {
               )}
               {route?.kind === 'signup' &&
                 (authStatus === 'loading' || checkingAccount ? (
-                  <p className="container py-12">Loading account…</p>
+                  <AccountPageSkeleton />
                 ) : authStatus === 'unavailable' ? (
                   null
                 ) : user ? (

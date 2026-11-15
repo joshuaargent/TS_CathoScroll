@@ -6,6 +6,7 @@ import { AdminReportList } from '@/components/admin/AdminReportList';
 import type { AdminCommentBanAppeal, AdminCommentReport } from '@/lib/moderation/types';
 import { siteConfig } from '@/lib/constants';
 import { createClient } from './supabase';
+import { NativeGridSkeleton } from './skeletons';
 
 type AdminSection = 'dashboard' | 'reports' | 'appeals' | 'content';
 
@@ -160,7 +161,7 @@ export function NativeAdmin({
         <AdminNavigation />
       </div>
 
-      {loading && <p role="status">Loading moderation data…</p>}
+      {loading && <NativeGridSkeleton label="Loading moderation data" />}
       {!loading && error && (
         <div role="alert" className="border-border rounded-xl border p-5">
           <p>{error}</p>
