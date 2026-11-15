@@ -42,29 +42,41 @@ export const metadata: Metadata = {
 
 export const dynamic = 'force-dynamic';
 
-async function CategoriesContent() {
-  const [categories, totalTopics] = await Promise.all([
-    getPublishedCategories(),
-    getPublishedTopicCount(),
-  ]);
+async function CategoriesCount({
+  categoriesPromise,
+  topicCountPromise,
+}: {
+  categoriesPromise: ReturnType<typeof getPublishedCategories>;
+  topicCountPromise: ReturnType<typeof getPublishedTopicCount>;
+}) {
+  const [categories, totalTopics] = await Promise.all([categoriesPromise, topicCountPromise]);
 
   return (
-    <>
-      <div className="mt-6">
-        <Badge variant="accent" size="lg">
-          {categories.length} Categories • {totalTopics} Topics
-        </Badge>
-      </div>
-      <CategoriesGrid categories={categories} />
-    </>
+    <div className="mt-6">
+      <Badge variant="accent" size="lg">
+        {categories.length} Categories • {totalTopics} Topics
+      </Badge>
+    </div>
   );
 }
 
-function CategoriesContentSkeleton() {
+async function CategoriesGridContent({
+  categoriesPromise,
+}: {
+  categoriesPromise: ReturnType<typeof getPublishedCategories>;
+}) {
+  const categories = await categoriesPromise;
+  return <CategoriesGrid categories={categories} />;
+}
+
+function CategoriesCountSkeleton() {
+  return <div className="mt-6"><Skeleton className="h-8 w-44" /></div>;
+}
+
+function CategoriesGridSkeleton() {
   return (
     <div aria-label="Loading categories" aria-busy="true" role="status">
-      <Skeleton className="mt-6 h-8 w-44" />
-      <div className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
         {Array.from({ length: 6 }, (_, index) => (
           <SkeletonCard key={index} />
         ))}
@@ -74,15 +86,24 @@ function CategoriesContentSkeleton() {
 }
 
 export default function CategoriesPage() {
+  const categoriesPromise = getPublishedCategories();
+  const topicCountPromise = getPublishedTopicCount();
+
   return (
     <main className="container py-12">
       <div className="mt-8 mb-16">
         <h1 className="text-5xl font-extrabold md:text-7xl">Categories</h1>
         <p className="text-text-secondary mt-4 text-lg">Browse the Catholic faith by topic.</p>
+        <Suspense fallback={<CategoriesCountSkeleton />}>
+          <CategoriesCount
+            categoriesPromise={categoriesPromise}
+            topicCountPromise={topicCountPromise}
+          />
+        </Suspense>
       </div>
 
-      <Suspense fallback={<CategoriesContentSkeleton />}>
-        <CategoriesContent />
+      <Suspense fallback={<CategoriesGridSkeleton />}>
+        <CategoriesGridContent categoriesPromise={categoriesPromise} />
       </Suspense>
 
       <section className="border-border mt-16 border-t pt-8 text-center">
