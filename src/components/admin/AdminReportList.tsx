@@ -21,10 +21,12 @@ function AdminReportCard({
   report,
   adminUserId,
   fetcher,
+  onChange,
 }: {
   report: AdminCommentReport;
   adminUserId: string;
   fetcher: typeof fetch;
+  onChange?: () => void;
 }) {
   const [status, setStatus] = useState(report.status);
   const [note, setNote] = useState(report.admin_note ?? '');
@@ -121,6 +123,7 @@ function AdminReportCard({
           reason={report.comment.authorBanReason}
           canChangeBan={report.comment.author.id !== adminUserId}
           fetcher={fetcher}
+          onChange={onChange}
         />
       )}
 
@@ -184,10 +187,12 @@ export function AdminReportList({
   reports,
   adminUserId,
   fetcher = fetch,
+  onChange,
 }: {
   reports: AdminCommentReport[];
   adminUserId: string;
   fetcher?: typeof fetch;
+  onChange?: () => void;
 }) {
   if (reports.length === 0) {
     return (
@@ -200,7 +205,7 @@ export function AdminReportList({
   return (
     <div className="space-y-4">
       {reports.map((report) => (
-        <AdminReportCard key={report.id} report={report} adminUserId={adminUserId} fetcher={fetcher} />
+        <AdminReportCard key={report.id} report={report} adminUserId={adminUserId} fetcher={fetcher} onChange={onChange} />
       ))}
     </div>
   );
