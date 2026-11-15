@@ -13,8 +13,34 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  validate-source:
+    name: Validate source, tests and types
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out tagged source
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install project dependencies
+        run: npm ci
+
+      - name: Run unit tests
+        run: npm test
+
+      - name: Run ESLint
+        run: npm run lint
+
+      - name: Run TypeScript checks
+        run: npm run type-check
+
   build-desktop:
     name: Build ${{ matrix.name }}
+    needs: validate-source
     strategy:
       fail-fast: false
       # electron-builder uploads every platform to the same draft GitHub Release.
@@ -106,6 +132,7 @@ jobs:
 
   build-android:
     name: Build signed Android APK
+    needs: validate-source
     runs-on: ubuntu-latest
     steps:
       - name: Check out tagged source
@@ -179,7 +206,7 @@ jobs:
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
           CATHOSCROLL_VERSION: ${{ github.ref_name }}
           ANDROID_VERSION_CODE: ${{ github.run_number }}
-        run: bash ./gradlew --no-daemon --stacktrace assembleRelease
+        run: bash ./gradlew --no-daemon --stacktrace testReleaseUnitTest assembleRelease
 
       - name: Verify APK output and signing certificate
         shell: bash
