@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/Button';
 import { NativeSignin } from './signin';
 import { secureAuthStorage } from './secure-auth-storage';
 import { Input } from '@/components/ui/Input';
+import { Skeleton } from '@/components/ui/Skeleton';
 import type { CachedIdentity } from './cached-identity';
 import type { NativeActivity } from './activity';
 import { createClient } from './supabase';
@@ -308,7 +309,38 @@ export function NativeAccount({
 
   if (!available) return null;
   if (checking || (loading && (!user || profileUserId !== user.id))) {
-    return <p className="container py-12">Loading account…</p>;
+    return (
+      <main className="container py-12">
+        <div className="mt-8 mb-10">
+          <Skeleton className="h-16 w-64" />
+          <Skeleton className="mt-4 h-6 w-96" />
+        </div>
+        <div className="space-y-10">
+          <div className="flex items-center justify-between">
+            <div>
+              <Skeleton className="h-8 w-48" />
+              <Skeleton className="mt-3 h-5 w-72" />
+            </div>
+            <Skeleton className="h-9 w-40" />
+          </div>
+          <div className="space-y-6">
+            <Skeleton className="h-12 w-full" />
+            <Skeleton className="h-12 w-full" />
+            <Skeleton className="h-40 w-full" />
+          </div>
+          <div className="space-y-6">
+            <Skeleton className="h-8 w-56" />
+            <Skeleton className="h-12 w-full" />
+            <Skeleton className="h-12 w-full" />
+          </div>
+          <Skeleton className="h-24 w-full" />
+          <div className="flex gap-4">
+            <Skeleton className="h-12 w-40" />
+            <Skeleton className="h-12 w-32" />
+          </div>
+        </div>
+      </main>
+    );
   }
   if (!user) {
     return online ? (
@@ -447,7 +479,7 @@ export function NativeAccount({
           </div>
         )}
         <div className="flex flex-wrap gap-4">
-          <Button type="submit" disabled={!canSave} size="lg">
+          <Button type="submit" disabled={!canSave} size="lg" style={{ color: '#ffffff' }}>
             {busy ? 'Saving…' : 'Save Changes'}
           </Button>
           <Button type="button" variant="secondary" size="lg" disabled={signingOut || !online} onClick={() => void signOut()}>
