@@ -602,7 +602,7 @@ function App() {
         if (!active || (cause instanceof DOMException && cause.name === 'AbortError')) return;
         console.error('Unable to load the online topic feed:', cause);
         try {
-          const page = await catalogue.topics();
+          const page = await localCatalogue.topics();
           if (!active) return;
           setFirstPage(page);
           setFeedPersonalized(false);
