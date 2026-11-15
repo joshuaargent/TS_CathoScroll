@@ -1184,6 +1184,16 @@ test('does not acknowledge a mismatched receipt or run concurrent pushes', async
     release();
     await assert.rejects(running, /mismatched/);
     assert.equal((await store.nextOperation('alice')).operationId, 'first');
+
+    const invalidStatus = new OfflineActivitySync(store, async () => ({
+      operationId: 'first',
+      userId: 'alice',
+      revision: '1',
+      value: true,
+      status: 'pending',
+    }));
+    await assert.rejects(invalidStatus.push('alice'), /invalid offline activity receipt status/);
+    assert.equal((await store.nextOperation('alice')).operationId, 'first');
   } finally {
     db.close();
   }
@@ -1643,6 +1653,28 @@ test('rejects repeated snapshot cursors without making a partial account visible
     await assert.rejects(bootstrapActivity(store, transport, 'alice', 'snapshot'), /snapshot page/);
     assert.equal(await store.isBootstrapped('alice'), false);
     assert.equal(await store.getActivity('alice', 'topic', 'like'), null);
+  } finally {
+    db.close();
+  }
+});
+
+test('rejects duplicate activity snapshot items across bootstrap pages', async () => {
+  const db = new DatabaseSync(':memory:');
+  try {
+    const store = new OfflineActivityStore(adapter(db));
+    await store.initialize();
+    await store.beginBootstrap('alice', 'duplicate-snapshot', '0');
+    const item = {
+      topicId: 'topic-one',
+      kind: 'progress',
+      completedAt: '2026-11-15T10:00:00.000Z',
+    };
+    await store.stageBootstrap('alice', 'duplicate-snapshot', [item]);
+    await assert.rejects(
+      store.stageBootstrap('alice', 'duplicate-snapshot', [item]),
+      /duplicate item/
+    );
+    assert.equal(await store.isBootstrapped('alice'), false);
   } finally {
     db.close();
   }
