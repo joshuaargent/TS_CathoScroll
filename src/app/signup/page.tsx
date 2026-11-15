@@ -23,6 +23,7 @@ export default function SignupPage() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (loading) return;
     const formData = new FormData(event.currentTarget);
     setLoading(true);
 
