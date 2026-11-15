@@ -80,10 +80,15 @@ export function CategoriesPage({ catalogue }: { catalogue: OfflineCatalogue }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [attempt, setAttempt] = useState(0);
+  const requestVersion = useRef(0);
 
   useEffect(() => {
+    const version = ++requestVersion.current;
     let active = true;
-    const retry = () => setAttempt((value) => value + 1);
+    const retry = () => {
+      requestVersion.current += 1;
+      setAttempt((value) => value + 1);
+    };
     window.addEventListener('online', retry);
     window.addEventListener('offline', retry);
     async function load() {
@@ -104,7 +109,7 @@ export function CategoriesPage({ catalogue }: { catalogue: OfflineCatalogue }) {
             ]);
             if (categoryResult.error) throw categoryResult.error;
             if (topicResult.error) throw topicResult.error;
-            if (!active) return;
+            if (!active || version !== requestVersion.current) return;
             setCategories((categoryResult.data ?? []).map((category) => ({
               slug: category.slug,
               name: category.name,
@@ -117,7 +122,7 @@ export function CategoriesPage({ catalogue }: { catalogue: OfflineCatalogue }) {
           } catch (onlineError) {
             console.error('Unable to load live categories:', onlineError);
             const [page, counts] = await Promise.all([catalogue.categories(), catalogue.totals()]);
-            if (!active) return;
+            if (!active || version !== requestVersion.current) return;
             setCategories(page.categories);
             setTotals(counts);
             setCursor(page.nextCursor);
@@ -128,7 +133,7 @@ export function CategoriesPage({ catalogue }: { catalogue: OfflineCatalogue }) {
           }
         } else {
           const [page, counts] = await Promise.all([catalogue.categories(), catalogue.totals()]);
-          if (!active) return;
+          if (!active || version !== requestVersion.current) return;
           setCategories(page.categories);
           setTotals(counts);
           setCursor(page.nextCursor);
@@ -139,7 +144,7 @@ export function CategoriesPage({ catalogue }: { catalogue: OfflineCatalogue }) {
         setLoading(false);
       } catch (cause) {
         console.error('Unable to load categories:', cause);
-        if (!active) return;
+        if (!active || version !== requestVersion.current) return;
         setError('Unable to load categories. Please try again.');
         notifyNativeStatus('Unable to load categories. Please try again.', {
           id: 'categories-load',
@@ -151,6 +156,7 @@ export function CategoriesPage({ catalogue }: { catalogue: OfflineCatalogue }) {
     void load();
     return () => {
       active = false;
+      if (requestVersion.current === version) requestVersion.current += 1;
       window.removeEventListener('online', retry);
       window.removeEventListener('offline', retry);
     };
@@ -158,13 +164,16 @@ export function CategoriesPage({ catalogue }: { catalogue: OfflineCatalogue }) {
 
   async function loadMore() {
     if (!cursor || loading) return;
+    const version = requestVersion.current;
     setLoading(true);
     setError('');
     try {
       const page = await catalogue.categories(cursor);
+      if (version !== requestVersion.current) return;
       setCategories((previous) => [...previous, ...page.categories]);
       setCursor(page.nextCursor);
     } catch (cause) {
+      if (version !== requestVersion.current) return;
       console.error('Unable to load more offline categories:', cause);
       setError('Unable to load more categories. Please try again.');
       notifyNativeStatus('Unable to load more categories. Please try again.', {
@@ -172,7 +181,7 @@ export function CategoriesPage({ catalogue }: { catalogue: OfflineCatalogue }) {
         action: { label: 'Retry', onClick: () => void loadMore() },
       });
     } finally {
-      setLoading(false);
+      if (version === requestVersion.current) setLoading(false);
     }
   }
 
@@ -226,7 +235,10 @@ function TopicList({ catalogue, category }: { catalogue: OfflineCatalogue; categ
   useEffect(() => {
     const version = ++requestVersion.current;
     let active = true;
-    const retry = () => setAttempt((value) => value + 1);
+    const retry = () => {
+      requestVersion.current += 1;
+      setAttempt((value) => value + 1);
+    };
     window.addEventListener('online', retry);
     window.addEventListener('offline', retry);
     async function load() {
@@ -247,7 +259,7 @@ function TopicList({ catalogue, category }: { catalogue: OfflineCatalogue; categ
         } else {
           page = await catalogue.topics({ category });
         }
-        if (!active) return;
+        if (!active || version !== requestVersion.current) return;
         setTopics(page.topics);
         setCursor(page.nextCursor);
         setError('');
@@ -255,7 +267,7 @@ function TopicList({ catalogue, category }: { catalogue: OfflineCatalogue; categ
         setLoading(false);
       } catch (cause) {
         console.error('Unable to load topics:', cause);
-        if (!active) return;
+        if (!active || version !== requestVersion.current) return;
         setError('Unable to load topics. Please try again.');
         notifyNativeStatus('Unable to load topics. Please try again.', {
           id: 'category-topics:' + (category ?? 'all'),
