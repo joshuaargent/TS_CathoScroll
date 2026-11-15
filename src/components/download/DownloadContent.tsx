@@ -317,13 +317,16 @@ export default function DownloadContent({
               after the app is closed. macOS checks for a newer release on
               launch and displays an update notice with a link to the
               download page; macOS updates are installed manually. Android
-              updates are distributed as signed APKs; download the latest APK
-              and approve Android's installer prompt. After the first
-              migration from a debug-signed build, release APKs can update
-              the installed app without uninstalling it. macOS builds are
-              unsigned, so Gatekeeper may require you to Control-click the app
-              and choose Open on its first launch. Only install downloads
-              obtained from this official CathoScroll website.
+              checks GitHub Releases on launch, prompts when a newer signed
+              APK is available, downloads it, and opens Android's installer.
+              Android requires the user to approve the installation and may
+              require allowing installs from CathoScroll in system settings.
+              After the first migration from a debug-signed build, release
+              APKs can update the installed app without uninstalling it.
+              macOS builds are unsigned, so Gatekeeper may require you to
+              Control-click the app and choose Open on its first launch.
+              Only install downloads obtained from this official CathoScroll
+              website.
             </p>
 
             <div className="mt-6">
