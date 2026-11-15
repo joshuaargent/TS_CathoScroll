@@ -18,6 +18,7 @@ export function OPTIONS(request: Request) {
 
 function respond(request: Request, body: unknown, init?: ResponseInit) {
   const headers = nativeApiCorsHeaders(request);
+  headers.set('Cache-Control', 'no-store');
   new Headers(init?.headers).forEach((value, key) => headers.set(key, value));
   return NextResponse.json(body, { ...init, headers });
 }
@@ -105,7 +106,11 @@ export async function GET(request: Request, { params }: RouteContext) {
 
   const profileById = new Map((profiles ?? []).map((profile) => [profile.id, profile]));
   const parentById = new Map((parents ?? []).map((parent) => [parent.id, parent]));
-  const page = comments ?? [];
+  // Fetch one look-ahead row to determine whether another page exists, but
+  // return only the requested page so the next offset cannot duplicate a row.
+  const fetchedPage = comments ?? [];
+  const hasMore = fetchedPage.length > limitParam;
+  const page = fetchedPage.slice(0, limitParam);
   const topicIds = [...new Set(page.map((comment) => comment.topic_id))];
   const { data: topicRows, error: topicsError } = topicIds.length
     ? await adminClient.from('topics').select('id,question').in('id', topicIds)
@@ -135,6 +140,6 @@ export async function GET(request: Request, { params }: RouteContext) {
           : null,
       };
     }),
-    nextOffset: page.length > limitParam ? offsetParam + limitParam : null,
+    nextOffset: hasMore ? offsetParam + limitParam : null,
   });
 }
