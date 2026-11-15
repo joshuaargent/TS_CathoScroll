@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { updateNativeEmail, updateNativePassword } from './profile';
+import { notifyNativeStatus, clearNativeStatusNotice } from './offline-indicator';
 import { createClient } from './supabase';
 
 export function NativeAccountSecurity({ userId, currentEmail }: { userId: string; currentEmail: string }) {
@@ -12,6 +13,17 @@ export function NativeAccountSecurity({ userId, currentEmail }: { userId: string
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!online) {
+      notifyNativeStatus('Connect to the internet to change your email address or password.', {
+        id: 'account-security-offline:' + userId,
+      });
+    } else {
+      clearNativeStatusNotice('account-security-offline:' + userId);
+    }
+    return () => clearNativeStatusNotice('account-security-offline:' + userId);
+  }, [online, userId]);
 
   useEffect(() => {
     const update = () => setOnline(navigator.onLine);
@@ -27,7 +39,9 @@ export function NativeAccountSecurity({ userId, currentEmail }: { userId: string
     event.preventDefault();
     if (busy) return;
     if (!navigator.onLine) {
-      setError('Connect to the internet to change your account details.');
+      notifyNativeStatus('Connect to the internet to change your email address or password.', {
+        id: 'account-security-offline:' + userId,
+      });
       return;
     }
     setBusy(true);
