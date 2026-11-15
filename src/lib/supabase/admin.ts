@@ -49,6 +49,30 @@ export async function getAuthenticatedUserFromRequest(request: Request) {
   return { supabase, user: data.user, accessToken: token };
 }
 
+function hasTotpAssuranceInAccessToken(accessToken: string): boolean {
+  try {
+    const payload = accessToken.split('.')[1];
+    if (!payload) return false;
+    const claims = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as {
+      aal?: unknown;
+      amr?: unknown;
+    };
+    return (
+      claims.aal === 'aal2' &&
+      Array.isArray(claims.amr) &&
+      claims.amr.some(
+        (entry) =>
+          typeof entry === 'object' &&
+          entry !== null &&
+          'method' in entry &&
+          entry.method === 'totp'
+      )
+    );
+  } catch {
+    return false;
+  }
+}
+
 async function adminMfaSatisfied(
   supabase: Awaited<ReturnType<typeof createClient>>,
   userId: string,
@@ -61,49 +85,22 @@ async function adminMfaSatisfied(
   if (enforcementError) throw new Error(enforcementError.message);
   if (enforced !== true) return true;
 
-  if (accessToken) {
-    let claims: { aal?: unknown; amr?: unknown };
-    try {
-      const payload = accessToken.split('.')[1];
-      if (!payload) return false;
-      claims = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as {
-        aal?: unknown;
-        amr?: unknown;
-      };
-    } catch {
-      return false;
-    }
-
-    const hasTotpAssurance =
-      claims.aal === 'aal2' &&
-      Array.isArray(claims.amr) &&
-      claims.amr.some(
-        (entry) =>
-          typeof entry === 'object' &&
-          entry !== null &&
-          'method' in entry &&
-          entry.method === 'totp'
-      );
-    if (!hasTotpAssurance) return false;
-
-    const { data: hasVerifiedTotp, error: factorError } = await serviceClient.rpc(
-      'admin_user_has_verified_totp',
-      { p_user_id: userId }
-    );
-    if (factorError) throw new Error(factorError.message);
-    return hasVerifiedTotp === true;
+  let verifiedAccessToken = accessToken;
+  if (!verifiedAccessToken) {
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError) throw new Error(sessionError.message);
+    verifiedAccessToken = sessionData.session?.access_token;
+  }
+  if (!verifiedAccessToken || !hasTotpAssuranceInAccessToken(verifiedAccessToken)) {
+    return false;
   }
 
-  const [{ data, error }, { data: factorData, error: factorError }] = await Promise.all([
-    supabase.auth.mfa.getAuthenticatorAssuranceLevel(),
-    supabase.auth.mfa.listFactors(),
-  ]);
-  if (error) throw new Error(error.message);
-  if (factorError) throw new Error(factorError.message);
-  const hasVerifiedFactor = (factorData.totp ?? []).some(
-    (factor) => factor.status === 'verified'
+  const { data: hasVerifiedTotp, error: factorError } = await serviceClient.rpc(
+    'admin_user_has_verified_totp',
+    { p_user_id: userId }
   );
-  return data.currentLevel === 'aal2' && data.nextLevel === 'aal2' && hasVerifiedFactor;
+  if (factorError) throw new Error(factorError.message);
+  return hasVerifiedTotp === true;
 }
 
 export async function getAdminSessionFromRequest(request: Request) {
