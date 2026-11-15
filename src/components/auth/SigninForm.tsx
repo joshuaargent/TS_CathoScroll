@@ -5,16 +5,18 @@ import Link from 'next/link';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
-import { createClient } from '@/lib/supabase/client';
+import { createClient as createWebClient } from '@/lib/supabase/client';
 
 export function SigninForm({
   onSignedIn,
   description = 'Sign in to access your account, bookmarks, learning progress, and future features.',
   allowSignup = true,
+  clientFactory = createWebClient,
 }: {
   onSignedIn: () => void;
   description?: string;
   allowSignup?: boolean;
+  clientFactory?: typeof createWebClient;
 }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -27,7 +29,7 @@ export function SigninForm({
     setLoading(true);
     setError('');
     try {
-      const supabase = createClient();
+      const supabase = clientFactory();
       const { error: signInError } = await supabase.auth.signInWithPassword({
         email: email.trim().toLowerCase(),
         password,
