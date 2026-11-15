@@ -7,14 +7,14 @@ import { TopicArticle, TopicArticleHeader } from '@/components/topic/TopicArticl
 import { CategoriesPage, CategoryPage, SearchPage } from './catalogue-pages';
 import { NativeNavbar } from './navbar';
 import { NativeAccount } from './account';
+import { NativePublicProfile } from './public-profile';
 import { NativeBookmarks } from './bookmarks';
 import { NativeNotifications, NativeNotificationsProvider } from './notifications';
-import { OfflineIndicator } from './offline-indicator';
+import { OfflineIndicator, clearNativeStatusNotice, notifyNativeStatus } from './offline-indicator';
 import { NativeTopicActions } from './topic-actions';
 import { NativeSignup } from './signup';
 import { LearnContent } from '@/components/learn/LearnContent';
 import { NativeActivity, type NativeActivityStatus } from './activity';
-import { NativeActivityAlert } from './activity-alert';
 import { openPrivateActivity } from './private-activity';
 import { NativeNotes } from './notes';
 import { NativeNoteCache } from './note-cache';
@@ -42,7 +42,85 @@ import type { OfflineActivityKind, OfflineTopicActivity } from '@/lib/offline/ac
 import type { Topic } from '@/types';
 import './style.css';
 
-type CataloguePage = { topics: Topic[]; nextCursor: CatalogueCursor | null };
+type CataloguePage = { topics: Topic[]; nextCursor: CatalogueCursor | RecommendationCursor | null };
+
+type NativeLiveTopicRow = {
+  id: string;
+  slug: string;
+  question: string;
+  answer: string;
+  explanation: string;
+  catechism_paragraphs: string[] | null;
+  catechism_text: string;
+  scripture_reference: string;
+  scripture_text: string;
+  category: { name: string } | Array<{ name: string }> | null;
+};
+
+
+async function loadNativeLiveTopicBySlug(slug: string): Promise<Topic | null> {
+  const { data, error } = await createClient()
+    .from('topics')
+    .select('id,slug,question,answer,explanation,catechism_paragraphs,catechism_text,scripture_reference,scripture_text,category:categories!inner(name,is_published)')
+    .eq('slug', slug)
+    .eq('is_published', true)
+    .eq('category.is_published', true)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  const relation = Array.isArray(data.category) ? data.category[0] : data.category;
+  return {
+    id: data.id,
+    slug: data.slug,
+    category: relation?.name ?? '',
+    question: data.question,
+    answer: data.answer,
+    explanation: data.explanation,
+    catechism: { paragraphs: data.catechism_paragraphs ?? [], text: data.catechism_text },
+    scripture: { reference: data.scripture_reference, text: data.scripture_text },
+  } satisfies Topic;
+}
+
+async function loadNativeLiveTopicPage(cursor?: CatalogueCursor) {
+  let query = createClient()
+    .from('topics')
+    .select('id,slug,order_index,question,answer,explanation,catechism_paragraphs,catechism_text,scripture_reference,scripture_text,category:categories!inner(name,is_published)')
+    .eq('is_published', true)
+    .eq('category.is_published', true)
+    .order('order_index', { ascending: true })
+    .order('id', { ascending: true })
+    .limit(51);
+  if (cursor) {
+    query = query.or(
+      'order_index.gt.' + cursor.orderIndex +
+      ',and(order_index.eq.' + cursor.orderIndex + ',id.gt.' + cursor.id + ')'
+    );
+  }
+  const { data, error } = await query;
+  if (error) throw error;
+  const rows = (data ?? []) as unknown as Array<NativeLiveTopicRow & { order_index: number }>;
+  const hasMore = rows.length > 50;
+  const pageRows = hasMore ? rows.slice(0, 50) : rows;
+  const topics = pageRows.map((row) => {
+    const relation = Array.isArray(row.category) ? row.category[0] : row.category;
+    return {
+      id: row.id,
+      slug: row.slug,
+      category: relation?.name ?? '',
+      question: row.question,
+      answer: row.answer,
+      explanation: row.explanation,
+      catechism: { paragraphs: row.catechism_paragraphs ?? [], text: row.catechism_text },
+      scripture: { reference: row.scripture_reference, text: row.scripture_text },
+    } satisfies Topic;
+  });
+  const last = pageRows.at(-1);
+  return {
+    topics,
+    nextCursor: hasMore && last ? { orderIndex: last.order_index, id: last.id } : null,
+  };
+}
+
 type Route =
   | { kind: 'feed'; pathname: string }
   | { kind: 'search'; pathname: string; query: string }
@@ -53,6 +131,7 @@ type Route =
   | { kind: 'bookmarks'; pathname: string }
   | { kind: 'notifications'; pathname: string }
   | { kind: 'category'; pathname: string; slug: string }
+  | { kind: 'profile'; pathname: string; username: string }
   | { kind: 'topic'; pathname: string; slug: string; comments: boolean };
 
 function parseRoute(href: string): Route | null {
@@ -70,6 +149,13 @@ function parseRoute(href: string): Route | null {
     if (pathname === '/signup') return { kind: 'signup', pathname };
     if (pathname === '/bookmarks') return { kind: 'bookmarks', pathname };
     if (pathname === '/notifications') return { kind: 'notifications', pathname };
+    const profileMatch = /^\/profile\/([^/]+)$/.exec(pathname);
+    if (profileMatch) {
+      const username = decodeURIComponent(profileMatch[1]);
+      if (!username || username.trim() !== username || username.includes('/')) return null;
+      return { kind: 'profile', pathname, username };
+    }
+
     const match = /^\/(topic|categories)\/([^/]+)$/.exec(pathname);
     if (!match) return null;
     const slug = decodeURIComponent(match[2]);
@@ -219,6 +305,18 @@ function NativeViewer(props: {
     };
   }, []);
 
+  useEffect(() => {
+    const noticeId = 'topic-counts:' + topicId;
+    if (!countError) {
+      clearNativeStatusNotice(noticeId);
+      return;
+    }
+    notifyNativeStatus(countError, {
+      id: noticeId,
+      action: { label: 'Retry', onClick: () => setRefresh((version) => version + 1) },
+    });
+  }, [countError, topicId]);
+
   const currentCounts = counts?.topicId === topicId ? counts : null;
   const currentSaved =
     accountReady && savedActivity?.userId === userId && savedActivity.topicId === topicId
@@ -285,33 +383,6 @@ function NativeViewer(props: {
       {shareMessage?.topicId === topicId && (
         <p role="status" className="text-text-secondary px-6 text-sm">
           {shareMessage.text}
-        </p>
-      )}
-      {countError && navigator.onLine && (
-        <p role="status" className="text-text-secondary px-6 text-xs">
-          {countError}
-        </p>
-      )}
-      {userId && !accountReady && (
-        <p role="status" className="text-text-secondary px-6 text-xs">
-          {navigation.activityStatus?.userId === userId && navigation.activityStatus.error
-            ? navigation.activityStatus.error
-            : 'Connect to set up your saved account activity on this device.'}
-          {!accountActivity &&
-            navigation.activityStatus?.userId === userId &&
-            navigation.activityStatus.error && (
-              <>
-                {' '}
-                <button type="button" className="underline" onClick={navigation.retryActivitySetup}>
-                  Retry
-                </button>
-              </>
-            )}
-        </p>
-      )}
-      {accountReady && navigation.activityStatus?.error && (
-        <p role="status" className="text-text-secondary px-6 text-xs">
-          {navigation.activityStatus.error}
         </p>
       )}
       <div className="min-h-0 flex-1">
@@ -384,23 +455,49 @@ function NativeTopicPage({
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     let active = true;
-    catalogue.topic(slug).then(
-      (result) => {
+    async function load() {
+      try {
+        let result: Topic | null;
+        if (navigator.onLine) {
+          try {
+            result = await loadNativeLiveTopicBySlug(slug);
+            clearNativeStatusNotice('topic-fallback:' + slug);
+          } catch (onlineError) {
+            console.error('Unable to load live topic:', onlineError);
+            result = await catalogue.topic(slug);
+            notifyNativeStatus('Live topic content is unavailable. Showing the saved version.', {
+              id: 'topic-fallback:' + slug,
+              action: { label: 'Retry', onClick: () => setAttempt((value) => value + 1) },
+            });
+          }
+        } else {
+          result = await catalogue.topic(slug);
+        }
         if (!active) return;
         setTopic(result);
+        setError('');
+        clearNativeStatusNotice('topic-page:' + slug);
         setLoading(false);
-      },
-      (cause: unknown) => {
-        console.error('Unable to load offline topic:', cause);
-        if (active) {
-          setError('Unable to load this topic. Please try again.');
-          setLoading(false);
-        }
+      } catch (cause) {
+        console.error('Unable to load topic:', cause);
+        if (!active) return;
+        setError('Unable to load this topic. Please try again.');
+        notifyNativeStatus('Unable to load this topic. Please try again.', {
+          id: 'topic-page:' + slug,
+          action: {
+            label: 'Retry',
+            onClick: () => {
+              setError('');
+              setLoading(true);
+              setAttempt((value) => value + 1);
+            },
+          },
+        });
+        setLoading(false);
       }
-    );
-    return () => {
-      active = false;
-    };
+    }
+    void load();
+    return () => { active = false; };
   }, [catalogue, slug, attempt]);
 
   useEffect(() => {
@@ -415,22 +512,6 @@ function NativeTopicPage({
       {loading && (
         <p role="status" className="mt-8">
           Loading topic…
-        </p>
-      )}
-      {error && (
-        <p role="alert" className="mt-8">
-          {error}{' '}
-          <button
-            type="button"
-            className="text-accent underline"
-            onClick={() => {
-              setError('');
-              setLoading(true);
-              setAttempt((value) => value + 1);
-            }}
-          >
-            Retry
-          </button>
         </p>
       )}
       {!loading && !error && !topic && <p className="mt-8">Topic not found.</p>}
@@ -461,6 +542,8 @@ function NativeTopicPage({
 function App() {
   const [catalogue, setCatalogue] = useState<OfflineCatalogue | null>(null);
   const [firstPage, setFirstPage] = useState<CataloguePage | null>(null);
+  const [feedPersonalized, setFeedPersonalized] = useState(false);
+  const [feedAttempt, setFeedAttempt] = useState(0);
   const [catalogueRefresh, setCatalogueRefresh] = useState<CatalogueRefresh | null>(null);
   const [catalogueVersion, setCatalogueVersion] = useState(0);
   const [catalogueMessage, setCatalogueMessage] = useState('');
@@ -479,6 +562,145 @@ function App() {
   const [activityVersion, setActivityVersion] = useState(0);
   const [activityAttempt, setActivityAttempt] = useState(0);
   const retryStartup = useRef<() => void>(() => {});
+
+  useEffect(() => {
+    if (!catalogue || authStatus !== 'ready') return;
+    let active = true;
+    let controller: AbortController | null = null;
+
+    async function loadFeed() {
+      controller?.abort();
+      controller = new AbortController();
+      try {
+        if (!navigator.onLine) {
+          const page = await catalogue.topics();
+          if (!active) return;
+          setFirstPage(page);
+          setFeedPersonalized(false);
+          clearNativeStatusNotice('feed-online');
+          return;
+        }
+
+        let page: CataloguePage;
+        if (user?.id) {
+          const { data, error } = await createClient().rpc('get_my_recommendation_page', {
+            feed_cursor: null,
+            page_limit: 50,
+          });
+          if (error) throw error;
+          if (!data || typeof data !== 'object' || !Array.isArray(data.topics) || !('nextCursor' in data)) {
+            throw new Error('The recommendation service returned an invalid page.');
+          }
+          page = data as CataloguePage;
+        } else {
+          page = await loadNativeLiveTopicPage();
+        }
+        if (!active) return;
+        setFirstPage(page);
+        setFeedPersonalized(Boolean(user?.id));
+        clearNativeStatusNotice('feed-online');
+      } catch (cause) {
+        if (!active || (cause instanceof DOMException && cause.name === 'AbortError')) return;
+        console.error('Unable to load the online topic feed:', cause);
+        try {
+          const page = await catalogue.topics();
+          if (!active) return;
+          setFirstPage(page);
+          setFeedPersonalized(false);
+          notifyNativeStatus('The live feed is unavailable. Showing saved topics instead.', {
+            id: 'feed-online',
+            action: { label: 'Retry', onClick: () => setFeedAttempt((value) => value + 1) },
+          });
+        } catch (offlineCause) {
+          console.error('Unable to load the saved topic feed:', offlineCause);
+          if (active) {
+            notifyNativeStatus('The topic feed could not be loaded. Please retry.', {
+              id: 'feed-online',
+              action: { label: 'Retry', onClick: () => setFeedAttempt((value) => value + 1) },
+            });
+          }
+        }
+      }
+    }
+
+    const reconnect = () => void loadFeed();
+    void loadFeed();
+    window.addEventListener('online', reconnect);
+    window.addEventListener('offline', reconnect);
+    return () => {
+      active = false;
+      controller?.abort();
+      window.removeEventListener('online', reconnect);
+      window.removeEventListener('offline', reconnect);
+    };
+  }, [catalogue, authStatus, user?.id, feedAttempt]);
+
+  useEffect(() => {
+    if (authStatus === 'unavailable') {
+      notifyNativeStatus('Sign-in is unavailable. Check your connection and restart the app if the problem continues.', {
+        id: 'auth-unavailable',
+      });
+    } else {
+      clearNativeStatusNotice('auth-unavailable');
+    }
+  }, [authStatus]);
+
+  useEffect(() => {
+    if (!route) {
+      notifyNativeStatus('This page is not available in the app. Please use the website.', {
+        id: 'unsupported-route',
+      });
+    } else {
+      clearNativeStatusNotice('unsupported-route');
+    }
+  }, [route?.pathname, href]);
+
+  useEffect(() => {
+    if (!navigationMessage) return;
+    notifyNativeStatus(navigationMessage, { id: 'navigation' });
+    setNavigationMessage('');
+  }, [navigationMessage]);
+
+  useEffect(() => {
+    if (!error) {
+      clearNativeStatusNotice('startup');
+      return;
+    }
+    notifyNativeStatus(error, {
+      id: 'startup',
+      action: {
+        label: 'Retry',
+        onClick: () => {
+          clearNativeStatusNotice('startup');
+          retryStartup.current();
+        },
+      },
+    });
+  }, [error]);
+
+  useEffect(() => {
+    if (!catalogueMessage) {
+      clearNativeStatusNotice('catalogue-refresh');
+      return;
+    }
+    notifyNativeStatus(catalogueMessage, { id: 'catalogue-refresh' });
+  }, [catalogueMessage]);
+
+  useEffect(() => {
+    const message = activityStatus?.userId === user?.id ? activityStatus.error : '';
+    if (!message) {
+      clearNativeStatusNotice('account-activity');
+      return;
+    }
+    notifyNativeStatus(message, {
+      id: 'account-activity',
+      action: activity ? undefined : {
+        label: 'Retry',
+        onClick: () => setActivityAttempt((attempt) => attempt + 1),
+      },
+    });
+  }, [activityStatus, activity, user?.id]);
+
 
   useEffect(() => {
     let active = true;
@@ -752,7 +974,30 @@ function App() {
   const loadPage = useCallback(
     async (cursor: CatalogueCursor | RecommendationCursor) => {
       if (!catalogue) throw new Error('The offline catalogue is not ready.');
-      if (!('orderIndex' in cursor)) throw new Error('Invalid offline topic cursor.');
+      if ('categories' in cursor) {
+        if (!navigator.onLine) throw new Error('Personalized recommendations need an internet connection.');
+        const { data, error } = await createClient().rpc('get_my_recommendation_page', {
+          feed_cursor: cursor,
+          page_limit: 50,
+        });
+        if (error) throw error;
+        if (!data || typeof data !== 'object' || !Array.isArray(data.topics) || !('nextCursor' in data)) {
+          throw new Error('The recommendation service returned an invalid page.');
+        }
+        return data as { topics: Topic[]; nextCursor: RecommendationCursor | null };
+      }
+      if (navigator.onLine) {
+        try {
+          const page = await loadNativeLiveTopicPage(cursor);
+          clearNativeStatusNotice('feed-pagination');
+          return page;
+        } catch (cause) {
+          console.error('Unable to load the live topic page:', cause);
+          notifyNativeStatus('Live topic updates are unavailable. Showing saved topics.', {
+            id: 'feed-pagination',
+          });
+        }
+      }
       return catalogue.topics({ cursor });
     },
     [catalogue]
@@ -776,38 +1021,6 @@ function App() {
           >
             <NativeNavbar pathname={route?.pathname ?? '/'} userId={user?.id ?? null} />
             <main className="pt-16">
-              {navigationMessage && (
-                <div role="alert" className="bg-bg-card border-border mx-6 rounded-xl border p-4">
-                  {navigationMessage}{' '}
-                  <button
-                    type="button"
-                    className="text-accent underline"
-                    onClick={() => setNavigationMessage('')}
-                  >
-                    Dismiss
-                  </button>
-                </div>
-              )}
-              {error && (
-                <p role="alert" className="px-6">
-                  {error}{' '}
-                  <button
-                    type="button"
-                    className="text-accent underline"
-                    onClick={() => retryStartup.current()}
-                  >
-                    Retry
-                  </button>
-                </p>
-              )}
-              {activity && user && activity.userId === user.id && (
-                <NativeActivityAlert key={user.id} activity={activity} version={activityVersion} />
-              )}
-              {catalogueMessage && navigator.onLine && (
-                <p role="status" className="text-text-secondary px-6 text-sm">
-                  {catalogueMessage}
-                </p>
-              )}
               {!error && !firstPage && (
                 <p role="status" className="px-6">
                   Loading topics…
@@ -824,7 +1037,7 @@ function App() {
                   <TopicFeedCore
                     topics={firstPage.topics}
                     nextCursor={firstPage.nextCursor}
-                    personalized={false}
+                    personalized={feedPersonalized}
                     loadPage={loadPage}
                     userId={user?.id ?? null}
                     viewer={NativeViewer}
@@ -865,9 +1078,7 @@ function App() {
                 (authStatus === 'loading' || checkingAccount ? (
                   <p className="container py-12">Loading account…</p>
                 ) : authStatus === 'unavailable' ? (
-                  <p role="alert" className="container py-12">
-                    Account creation is unavailable. Check your connection and try again.
-                  </p>
+                  null
                 ) : user ? (
                   <div className="container py-12">
                     <p>You are already signed in.</p>
@@ -895,6 +1106,9 @@ function App() {
               {route?.kind === 'notifications' && (
                 <NativeNotifications key={user?.id ?? 'signed-out'} userId={user?.id ?? null} />
               )}
+              {catalogue && route?.kind === 'profile' && (
+                <NativePublicProfile key={route.username} username={route.username} catalogue={catalogue} />
+              )}
               {catalogue && route?.kind === 'category' && (
                 <CategoryPage
                   key={`${route.slug}-${catalogueVersion}`}
@@ -916,13 +1130,9 @@ function App() {
                   showComments={route.comments}
                 />
               )}
-              {!route && (
-                <p role="alert" className="px-6">
-                  This page is not available in the app. Please use the website.
-                </p>
-              )}
+
             </main>
-            <OfflineIndicator />
+            <OfflineIndicator activity={activity?.userId === user?.id ? activity : null} activityVersion={activityVersion} />
           </TopicNavigation.Provider>
         </NativeNotificationsProvider>
       </SignInPromptProvider>
