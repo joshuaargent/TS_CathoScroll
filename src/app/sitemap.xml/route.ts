@@ -1,16 +1,28 @@
 import { getPublicProfileCount, getPublishedTopicCount } from '@/lib/content';
 import { siteConfig } from '@/lib/constants';
 import { sitemapUrlsPerFile, xmlEscape } from '@/lib/sitemap';
+import { checkTrustedIpRateLimit, rateLimitResponseHeaders } from '@/lib/security/api-rate-limit';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(request: Request) {
+  const rateLimit = await checkTrustedIpRateLimit(request, 'sitemap:index:ip', 60, 60);
+  if (rateLimit && !rateLimit.allowed) {
+    return new Response('Too many sitemap requests.', {
+      status: rateLimit.unavailable ? 503 : 429,
+      headers: {
+        'Cache-Control': 'private, no-store',
+        ...rateLimitResponseHeaders(rateLimit.retryAfterSeconds),
+      },
+    });
+  }
+
   try {
     const [topicCount, profileCount] = await Promise.all([
       getPublishedTopicCount(),
       getPublicProfileCount(),
     ]);
-    const baseUrl = siteConfig.url.replace(/\/+$/, '');
+    const baseUrl = siteConfig.url.replace(/\\/+$/, '');
     const topicSitemaps = Math.max(1, Math.ceil(topicCount / sitemapUrlsPerFile));
     const profileSitemaps = Math.ceil(profileCount / sitemapUrlsPerFile);
     const sitemapUrls = [
@@ -27,7 +39,7 @@ export async function GET() {
 
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  ${sitemapUrls.map((url) => `<sitemap><loc>${xmlEscape(url)}</loc></sitemap>`).join('\n  ')}
+  ${sitemapUrls.map((url) => `<sitemap><loc>${xmlEscape(url)}</loc></sitemap>`).join('\\n  ')}
 </sitemapindex>`;
 
     return new Response(xml, {
