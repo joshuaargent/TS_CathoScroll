@@ -34,7 +34,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid recommendation cursor.' }, { status: 400, headers });
   }
 
-  let rateLimitClient;
+  let rateLimitClient: ReturnType<typeof createServiceRoleClient>;
   try {
     rateLimitClient = createServiceRoleClient();
   } catch (error) {
