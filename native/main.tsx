@@ -1001,7 +1001,14 @@ function App() {
     async (cursor: CatalogueCursor | RecommendationCursor) => {
       if (!catalogue) throw new Error('The offline catalogue is not ready.');
       if ('categories' in cursor) {
-        if (!navigator.onLine) throw new Error('Personalized recommendations need an internet connection.');
+        if (!navigator.onLine) {
+          // Recommendation cursors are server-owned; restart from the local catalogue
+          // rather than passing an incompatible cursor into offline pagination.
+          notifyNativeStatus('Personalized recommendations need a connection. Showing saved topics instead.', {
+            id: 'feed-pagination',
+          });
+          return catalogue.topics();
+        }
         const { data, error } = await createClient().rpc('get_my_recommendation_page', {
           feed_cursor: cursor,
           page_limit: 50,
