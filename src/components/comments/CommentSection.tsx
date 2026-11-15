@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Comment, Profile } from '../../lib/supabase/types';
 
 import { createClient } from '@/lib/supabase/client';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import type { OfflineCommentCache } from '@/lib/offline/comment-cache';
 import { useSignInPrompt } from '@/components/providers/SignInPromptProvider';
 
@@ -17,6 +18,7 @@ interface CommentSectionProps {
   topicId: string;
   cache?: Pick<OfflineCommentCache, 'load' | 'save'>;
   serverActionsAvailable?: boolean;
+  supabaseClient?: SupabaseClient;
 }
 
 const fallbackProfile: Profile = {
@@ -149,8 +151,10 @@ export function CommentSection({
   topicId,
   cache,
   serverActionsAvailable = true,
+  supabaseClient,
 }: CommentSectionProps) {
   const requestSignIn = useSignInPrompt();
+  const getClient = useCallback(() => supabaseClient ?? getClient(), [supabaseClient]);
   const [comments, setComments] = useState<Comment[]>([]);
 
   const [loading, setLoading] = useState(true);
@@ -209,7 +213,7 @@ export function CommentSection({
     setCacheWarning('');
     try {
       if (cache && !navigator.onLine) throw new Error('Offline');
-      const supabase = createClient();
+      const supabase = getClient();
 
       const {
         data: { user },
@@ -486,7 +490,7 @@ export function CommentSection({
 
     setComments((prev) => cloneAndSortComments([tempComment, ...prev], sortComments));
 
-    const supabase = createClient();
+    const supabase = getClient();
 
     const { data, error } = await supabase
       .from('comments')
@@ -540,7 +544,7 @@ export function CommentSection({
 
     setComments((prev) => insertReplyIntoTree(prev, parentId, tempReply));
 
-    const supabase = createClient();
+    const supabase = getClient();
 
     const { data, error } = await supabase
       .from('comments')
@@ -579,7 +583,7 @@ export function CommentSection({
       }))
     );
 
-    const supabase = createClient();
+    const supabase = getClient();
 
     const { error } = await supabase
       .from('comments')
@@ -613,7 +617,7 @@ export function CommentSection({
       }))
     );
 
-    const supabase = createClient();
+    const supabase = getClient();
 
     const { error } = await supabase
       .from('comments')
@@ -667,7 +671,7 @@ export function CommentSection({
     try {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (cache) {
-        const { data: sessionData, error: sessionError } = await createClient().auth.getSession();
+        const { data: sessionData, error: sessionError } = await getClient().auth.getSession();
         if (sessionError) throw sessionError;
         if (!sessionData.session?.access_token) throw new Error('Sign in again to moderate comments.');
         headers.Authorization = `Bearer ${sessionData.session.access_token}`;
@@ -703,7 +707,7 @@ export function CommentSection({
     }
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (cache) {
-      const { data: sessionData, error: sessionError } = await createClient().auth.getSession();
+      const { data: sessionData, error: sessionError } = await getClient().auth.getSession();
       if (sessionError) throw sessionError;
       if (!sessionData.session?.access_token) throw new Error('Sign in again to submit a report.');
       headers.Authorization = `Bearer ${sessionData.session.access_token}`;
@@ -782,7 +786,7 @@ export function CommentSection({
       )
     );
 
-    const supabase = createClient();
+    const supabase = getClient();
 
     let error = null;
 
