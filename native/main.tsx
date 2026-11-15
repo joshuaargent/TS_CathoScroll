@@ -23,7 +23,7 @@ import {
   identityAfterAuthEvent,
   type CachedIdentity,
 } from './cached-identity';
-import { initializeNativeAuth } from './supabase';
+import { createClient, initializeNativeAuth } from './supabase';
 import { authStorageKey, secureAuthStorage } from './secure-auth-storage';
 import { SignInPromptProvider, useSignInPrompt } from '@/components/providers/SignInPromptProvider';
 import { ThemeProvider } from '@/components/providers/ThemeProvider';
@@ -33,7 +33,6 @@ import { SupabaseCatalogueTransport } from '@/lib/offline/supabase-catalogue-tra
 import { OfflineCommentCache } from '@/lib/offline/comment-cache';
 import { OfflineTopicCountCache, type CachedTopicCounts } from '@/lib/offline/topic-count-cache';
 import { loadTopicActivity } from '@/lib/topic-activity';
-import { createClient } from '@/lib/supabase/client';
 import { siteConfig } from '@/lib/constants';
 import type { RecommendationCursor } from '@/lib/recommendations';
 import { openNativeDatabases } from '@/lib/offline/native-database';
