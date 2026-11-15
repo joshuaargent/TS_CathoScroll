@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server';
 
 import { getRecommendationPage } from '@/lib/recommendations-server';
 import { createClient } from '@/lib/supabase/server';
-import { createServiceRoleClient } from '@/lib/supabase/admin';
 import { readBoundedJson } from '@/lib/http/read-json';
+import { checkApiRateLimit, rateLimitResponseHeaders } from '@/lib/security/api-rate-limit';
 
 const headers = { 'Cache-Control': 'private, no-store' };
 
@@ -34,37 +34,25 @@ export async function POST(request: Request) {
     typeof body !== 'object' ||
     !('cursor' in body) ||
     typeof body.cursor !== 'string' ||
-    !body.cursor
+    !body.cursor ||
+    body.cursor.length > 512
   ) {
     return NextResponse.json({ error: 'Invalid recommendation cursor.' }, { status: 400, headers });
   }
 
-  let rateLimitClient: ReturnType<typeof createServiceRoleClient>;
-  try {
-    rateLimitClient = createServiceRoleClient();
-  } catch (error) {
-    console.error('Recommendation rate limiting is not configured:', error);
+  const rateLimit = await checkApiRateLimit({
+    scope: 'recommendations:user',
+    identifier: user.id,
+    limit: 30,
+    windowSeconds: 60,
+  });
+  if (!rateLimit.allowed) {
     return NextResponse.json(
-      { error: 'Recommendations are temporarily unavailable.' },
-      { status: 503, headers }
-    );
-  }
-
-  const { data: withinRateLimit, error: rateLimitError } = await rateLimitClient.rpc(
-    'consume_recommendation_rate_limit',
-    { p_user_id: user.id }
-  );
-  if (rateLimitError) {
-    console.error('Unable to enforce recommendation rate limit:', rateLimitError.message);
-    return NextResponse.json(
-      { error: 'Recommendations are temporarily unavailable.' },
-      { status: 503, headers }
-    );
-  }
-  if (withinRateLimit !== true) {
-    return NextResponse.json(
-      { error: 'You have requested recommendations too frequently. Please try again in a minute.' },
-      { status: 429, headers: { ...headers, 'Retry-After': '60' } }
+      { error: rateLimit.unavailable ? 'Recommendations are temporarily unavailable.' : 'You have requested recommendations too frequently. Please try again shortly.' },
+      {
+        status: rateLimit.unavailable ? 503 : 429,
+        headers: { ...headers, ...rateLimitResponseHeaders(rateLimit.retryAfterSeconds) },
+      }
     );
   }
 
