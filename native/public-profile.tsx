@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
-import { Badge } from '@/components/ui/Badge';
+import { PublicProfileView } from '@/components/profile/PublicProfileView';
 import type { Topic } from '@/types';
 import { createClient } from './supabase';
 import { notifyNativeStatus, clearNativeStatusNotice } from './offline-indicator';
@@ -59,19 +58,6 @@ function streaks(dates: string[]): { current: number; longest: number } {
     }
   }
   return { current, longest };
-}
-
-function completedLabel(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return 'Completed';
-  const today = new Date();
-  const completed = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  const start = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  const difference = Math.round((start.getTime() - completed.getTime()) / 86_400_000);
-  if (difference === 0) return 'Completed today';
-  if (difference === 1) return 'Completed yesterday';
-  if (difference > 1 && difference < 7) return `Completed ${difference} days ago`;
-  return `Completed ${date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`;
 }
 
 export function NativePublicProfile({
@@ -221,89 +207,43 @@ export function NativePublicProfile({
     };
   }, [username, attempt]);
 
+  if (!profile) {
+    return (
+      <main className="container py-12">
+        <p className="text-text-secondary mt-8">
+          {loading ? 'Loading public profile…' : 'Profile not found.'}
+        </p>
+      </main>
+    );
+  }
+
   return (
-    <div className="container py-12">
-      <div className="mt-8 mb-16">
-        {loading && !profile ? (
-          <p role="status">Loading public profile…</p>
-        ) : profile ? (
-          <>
-            <h1 className="text-5xl font-extrabold md:text-7xl">{profile.display_name}</h1>
-            <p className="text-text-secondary mt-4 text-lg">@{profile.username}</p>
-            <p className="text-text-muted mt-4">
-              {completedCount} Completed • {bookmarkCount} Bookmarks • {commentCount} Comments
-            </p>
-            <p className="text-text-secondary mt-6 max-w-3xl text-lg">{profile.bio || 'No bio yet.'}</p>
-            <div className="mt-6">
-              <Badge variant="accent" size="lg">{progressPercent}% Complete</Badge>
-            </div>
-          </>
-        ) : (
-          <h1 className="text-3xl font-bold">{loading ? 'Loading profile…' : 'Profile not found'}</h1>
-        )}
-      </div>
-      {profile && (
-        <>
-          <section className="mb-16">
-            <h2 className="mb-6 text-3xl font-bold">Progress</h2>
-            <article className="border-border rounded-2xl border p-6">
-              <div className="flex flex-wrap items-center justify-between gap-4">
-                <div>
-                  <h3 className="text-2xl font-bold">{completedCount} Topics Completed</h3>
-                  <p className="text-text-secondary mt-2">{progressPercent}% of CathoScroll</p>
-                </div>
-                <div className="text-4xl font-extrabold">{progressPercent}%</div>
-              </div>
-              <div className="bg-bg-secondary mt-6 h-3 overflow-hidden rounded-full">
-                <div className="bg-accent h-full rounded-full" style={{ width: `${Math.min(Number(progressPercent), 100)}%` }} />
-              </div>
-            </article>
-          </section>
-          <section className="mb-16">
-            <h2 className="mb-6 text-3xl font-bold">Learning Statistics</h2>
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              {[
-                ['Current Streak', `${currentStreak} days`],
-                ['Longest Streak', `${longestStreak} days`],
-                ['Likes Received', String(likesReceived)],
-                ['Topics Available', String(topicCount)],
-              ].map(([label, value]) => (
-                <article key={label} className="border-border rounded-2xl border p-5">
-                  <p className="text-text-secondary text-sm">{label}</p>
-                  <p className="mt-2 text-2xl font-bold">{value}</p>
-                </article>
-              ))}
-            </div>
-          </section>
-          <section className="mb-16">
-            <h2 className="mb-6 text-3xl font-bold">Recent Activity</h2>
-            {recentTopics.length ? (
-              <div className="space-y-3">
-                {recentTopics.map((topic) => (
-                  <Link key={topic.id} href={`/topic/${encodeURIComponent(topic.slug)}`} className="border-border hover:bg-bg-secondary block rounded-xl border p-4">
-                    <p className="font-semibold">{topic.question}</p>
-                    <p className="text-text-secondary mt-1 text-sm">{completedLabel(topic.completedAt)}</p>
-                  </Link>
-                ))}
-              </div>
-            ) : <p className="text-text-secondary">No completed topics yet.</p>}
-          </section>
-          <section className="mb-16">
-            <h2 className="mb-6 text-3xl font-bold">Recent Comments</h2>
-            {recentComments.length ? (
-              <div className="space-y-3">
-                {recentComments.map((comment) => (
-                  <Link key={comment.id} href={`/topic/${encodeURIComponent(comment.slug ?? '')}#comments`} className="border-border hover:bg-bg-secondary block rounded-xl border p-4">
-                    <p className="text-text-secondary text-sm">{comment.question}</p>
-                    <p className="mt-2 whitespace-pre-wrap">{comment.content}</p>
-                    <p className="text-text-muted mt-2 text-xs">{new Date(comment.created_at).toLocaleDateString('en-GB')}</p>
-                  </Link>
-                ))}
-              </div>
-            ) : <p className="text-text-secondary">No comments yet.</p>}
-          </section>
-        </>
+    <PublicProfileView
+      profile={{
+        id: profile.id,
+        displayName: profile.display_name,
+        username: profile.username,
+        bio: profile.bio,
+      }}
+      completedCount={completedCount}
+      bookmarkCount={bookmarkCount}
+      commentCount={commentCount}
+      likesReceived={likesReceived}
+      progressPercentage={progressPercent}
+      currentStreak={currentStreak}
+      longestStreak={longestStreak}
+      recentTopics={recentTopics}
+      recentComments={recentComments.flatMap((comment) =>
+        comment.slug && comment.question
+          ? [{
+              id: comment.id,
+              slug: comment.slug,
+              question: comment.question,
+              content: comment.content,
+              created_at: comment.created_at,
+            }]
+          : []
       )}
-    </div>
+    />
   );
 }
