@@ -328,3 +328,183 @@ CREATE TRIGGER comment_ban_appeals_enforce_user_rate_limit
   BEFORE INSERT ON public.comment_ban_appeals
   FOR EACH ROW
   EXECUTE FUNCTION catho_private.enforce_user_action_rate_limit();
+
+
+-- Public profile pages previously queried every progress row and all comment
+-- likes, and RLS hid progress/bookmarks belonging to other users. Return only
+-- public aggregate metrics and the six recent public activity items in one
+-- bounded SECURITY DEFINER query. The timezone argument preserves the
+-- browser-local calendar-day streak semantics used by the existing UI.
+CREATE OR REPLACE FUNCTION public.get_public_profile_metrics(
+  p_profile_id uuid,
+  p_timezone text DEFAULT 'UTC'
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $function$
+DECLARE
+  timezone_name text;
+  metrics jsonb;
+BEGIN
+  IF p_profile_id IS NULL THEN
+    RAISE EXCEPTION 'Profile ID is required' USING ERRCODE = '22023';
+  END IF;
+
+  SELECT CASE
+    WHEN EXISTS (
+      SELECT 1
+      FROM pg_catalog.pg_timezone_names
+      WHERE name = p_timezone
+    ) THEN p_timezone
+    ELSE 'UTC'
+  END
+  INTO timezone_name;
+
+  WITH progress_rows AS (
+    SELECT completed_at
+    FROM public.progress
+    WHERE user_id = p_profile_id
+      AND completed_at IS NOT NULL
+  ),
+  days AS (
+    SELECT DISTINCT (completed_at AT TIME ZONE timezone_name)::date AS day
+    FROM progress_rows
+  ),
+  ranked_days AS (
+    SELECT
+      day,
+      row_number() OVER (ORDER BY day) AS sequence_number
+    FROM days
+  ),
+  longest_streak AS (
+    SELECT COALESCE(MAX(streak_length), 0)::integer AS value
+    FROM (
+      SELECT count(*) AS streak_length
+      FROM ranked_days
+      GROUP BY day - sequence_number::integer
+    ) AS streak_groups
+  ),
+  streak_anchor AS (
+    SELECT CASE
+      WHEN EXISTS (
+        SELECT 1 FROM days
+        WHERE day = (pg_catalog.now() AT TIME ZONE timezone_name)::date
+      ) THEN (pg_catalog.now() AT TIME ZONE timezone_name)::date
+      WHEN EXISTS (
+        SELECT 1 FROM days
+        WHERE day = (pg_catalog.now() AT TIME ZONE timezone_name)::date - 1
+      ) THEN (pg_catalog.now() AT TIME ZONE timezone_name)::date - 1
+      ELSE NULL
+    END AS day
+  ),
+  current_streak AS (
+    SELECT COALESCE(
+      count(*) FILTER (
+        WHERE day = streak_anchor.day - (sequence_number - 1)::integer
+      ),
+      0
+    )::integer AS value
+    FROM (
+      SELECT
+        days.day,
+        streak_anchor.day AS anchor_day,
+        row_number() OVER (ORDER BY days.day DESC) AS sequence_number
+      FROM days
+      CROSS JOIN streak_anchor
+      WHERE streak_anchor.day IS NOT NULL
+        AND days.day <= streak_anchor.day
+    ) AS streak_days
+    CROSS JOIN streak_anchor
+  ),
+  recent_progress AS (
+    SELECT COALESCE(
+      jsonb_agg(
+        jsonb_build_object(
+          'topic_id', recent.topic_id,
+          'completed_at', recent.completed_at
+        )
+        ORDER BY recent.completed_at DESC
+      ),
+      '[]'::jsonb
+    ) AS value
+    FROM (
+      SELECT progress.topic_id, progress.completed_at
+      FROM public.progress AS progress
+      JOIN public.topics AS topic
+        ON topic.id = progress.topic_id
+       AND topic.is_published = true
+      JOIN public.categories AS category
+        ON category.slug = topic.category_slug
+       AND category.is_published = true
+      WHERE progress.user_id = p_profile_id
+        AND progress.completed_at IS NOT NULL
+      ORDER BY progress.completed_at DESC
+      LIMIT 6
+    ) AS recent
+  ),
+  recent_comments AS (
+    SELECT COALESCE(
+      jsonb_agg(
+        jsonb_build_object(
+          'id', recent.id,
+          'topic_id', recent.topic_id,
+          'content', recent.content,
+          'created_at', recent.created_at
+        )
+        ORDER BY recent.created_at DESC
+      ),
+      '[]'::jsonb
+    ) AS value
+    FROM (
+      SELECT comment.id, comment.topic_id, comment.content, comment.created_at
+      FROM public.comments AS comment
+      JOIN public.topics AS topic
+        ON topic.id = comment.topic_id
+       AND topic.is_published = true
+      JOIN public.categories AS category
+        ON category.slug = topic.category_slug
+       AND category.is_published = true
+      WHERE comment.user_id = p_profile_id
+        AND comment.is_deleted = false
+      ORDER BY comment.created_at DESC
+      LIMIT 6
+    ) AS recent
+  )
+  SELECT jsonb_build_object(
+    'completed_count', (SELECT count(*) FROM progress_rows),
+    'bookmark_count', (
+      SELECT count(*)
+      FROM public.bookmarks
+      WHERE user_id = p_profile_id
+    ),
+    'comment_count', (
+      SELECT count(*)
+      FROM public.comments
+      WHERE user_id = p_profile_id
+        AND is_deleted = false
+    ),
+    'likes_received', (
+      SELECT count(*)
+      FROM public.comment_likes AS comment_like
+      JOIN public.comments AS comment ON comment.id = comment_like.comment_id
+      WHERE comment.user_id = p_profile_id
+        AND comment.is_deleted = false
+    ),
+    'current_streak', (SELECT value FROM current_streak),
+    'longest_streak', (SELECT value FROM longest_streak),
+    'recent_progress', (SELECT value FROM recent_progress),
+    'recent_comments', (SELECT value FROM recent_comments)
+  )
+  INTO metrics;
+
+  RETURN metrics;
+END
+$function$;
+
+REVOKE ALL ON FUNCTION public.get_public_profile_metrics(uuid, text)
+  FROM PUBLIC, service_role;
+GRANT EXECUTE ON FUNCTION public.get_public_profile_metrics(uuid, text)
+  TO anon, authenticated;
