@@ -39,7 +39,7 @@ public class MainActivity extends BridgeActivity {
     }
 
     @Override
-    protected void onStart() {
+    public void onStart() {
         super.onStart();
         if (!updateCheckStarted) {
             updateCheckStarted = true;
@@ -48,13 +48,13 @@ public class MainActivity extends BridgeActivity {
     }
 
     @Override
-    protected void onResume() {
+    public void onResume() {
         super.onResume();
         AndroidUpdateChecker.resumePendingInstall(this);
     }
 
     @Override
-    protected void onDestroy() {
+    public void onDestroy() {
         if (updateReceiverRegistered) {
             unregisterReceiver(updateDownloadReceiver);
             updateReceiverRegistered = false;
