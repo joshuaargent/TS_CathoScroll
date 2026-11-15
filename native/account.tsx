@@ -78,6 +78,8 @@ export function NativeAccount({
     let active = true;
     setEmail(user.email ?? '');
     setEmailChangeRequested(false);
+    setVerified(false);
+    setMembershipUserId(null);
     setLoading(true);
     async function loadAccount() {
       try {
@@ -318,7 +320,7 @@ export function NativeAccount({
   const currentProfile = profileUserId === user.id ? profile : null;
   const canSave = online && verified && Boolean(currentProfile) && !busy;
   return (
-    <main className="container py-12">
+    <div className="container py-12">
       <div className="mt-8 mb-10">
         <h1 className="text-5xl font-extrabold md:text-7xl">Account</h1>
         <p className="text-text-secondary mt-4 text-lg">
@@ -452,6 +454,6 @@ export function NativeAccount({
         </div>
         {signOutError && <p role="alert" className="text-sm text-red-600">{signOutError}</p>}
       </form>
-    </main>
+    </div>
   );
 }
