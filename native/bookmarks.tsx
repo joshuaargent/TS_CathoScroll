@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { BookmarksGrid, BookmarksHeader, EmptyBookmarks } from '@/components/bookmarks/BookmarksSummary';
 import type { OfflineCatalogue } from '@/lib/offline/catalogue';
@@ -254,9 +253,9 @@ export function NativeBookmarks({
       {!userId ? (
         <p>
           Sign in to see your bookmarks.{' '}
-          <Link className="text-accent underline" href="/signin">
+          <a className="text-accent underline" href="/signin">
             Sign in
-          </Link>
+          </a>
         </p>
       ) : !ready ? (
         <p role="status">Preparing your saved bookmarks...</p>
