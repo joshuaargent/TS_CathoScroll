@@ -8,6 +8,7 @@ interface RouteContext {
 
 export function OPTIONS(request: Request) {
   const headers = nativeApiCorsHeaders(request);
+  headers.set('Cache-Control', 'no-store');
   if (!headers.has('Access-Control-Allow-Origin')) {
     return new NextResponse(null, { status: 403 });
   }
