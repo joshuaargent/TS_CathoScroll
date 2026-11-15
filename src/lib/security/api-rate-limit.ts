@@ -1,6 +1,6 @@
 import 'server-only';
 
-import { createHash } from 'node:crypto';
+import { createHmac } from 'node:crypto';
 import { isIP } from 'node:net';
 
 import { createServiceRoleClient } from '@/lib/supabase/admin';
@@ -39,7 +39,12 @@ export async function checkApiRateLimit({
     return { allowed: false, retryAfterSeconds: 60, unavailable: true };
   }
 
-  const keyHash = createHash('sha256')
+  const hashSecret = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!hashSecret) {
+    return { allowed: false, retryAfterSeconds: 60, unavailable: true };
+  }
+
+  const keyHash = createHmac('sha256', hashSecret)
     .update(`${scope}\0${identifier}`, 'utf8')
     .digest('hex');
 
