@@ -47,10 +47,12 @@ export function NativeSignup({ onSignedUp }: { onSignedUp: () => void }) {
       setError(invalidUsername);
       return;
     }
-    if (password.length < 8 || password !== confirmPassword) {
-      setError(
-        password.length < 8 ? 'Password must be at least 8 characters.' : 'Passwords do not match.'
-      );
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters.');
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError('Passwords do not match.');
       return;
     }
     setLoading(true);
