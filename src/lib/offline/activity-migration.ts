@@ -58,7 +58,8 @@ type Value = string | number | null;
 async function copyTable(
   source: OfflineTransaction,
   destination: OfflineTransaction,
-  table: (typeof tables)[number]
+  table: (typeof tables)[number],
+  merge = false
 ) {
   const schema = await source.query(`PRAGMA table_info(${table.name})`);
   const names = schema.map((column) => column.name);
@@ -96,7 +97,7 @@ async function copyTable(
         return value;
       });
       await destination.execute(
-        `INSERT INTO ${table.name} (${columns}) VALUES (${placeholders})`,
+        `${merge ? 'INSERT OR IGNORE' : 'INSERT'} INTO ${table.name} (${columns}) VALUES (${placeholders})`,
         values
       );
     }
@@ -142,6 +143,15 @@ export async function migrateLegacyActivity(
       if (marker.length) {
         if (marker.length !== 1 || marker[0].id !== 1 || marker[0].version !== 1) {
           throw new Error('Invalid offline activity migration marker.');
+        }
+        // Older app versions continued storing comment, count and encrypted
+        // note caches in the plaintext database after activity had migrated.
+        // Merge those optional cache tables on every startup until cleanup
+        // succeeds; existing encrypted destination rows are never overwritten.
+        for (const table of tables) {
+          if ('optional' in table && table.optional) {
+            await copyTable(source, destination, table, true);
+          }
         }
         return;
       }
