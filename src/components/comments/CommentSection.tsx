@@ -426,7 +426,7 @@ export function CommentSection({
     } finally {
       if (isCurrent()) setLoading(false);
     }
-  }, [topicId, sortComments, cache]);
+  }, [topicId, sortComments, cache, getClient]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
