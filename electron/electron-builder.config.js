@@ -13,7 +13,7 @@ module.exports = {
     'generated/**/*',
     // `assets` is also the electron-builder `buildResources` directory, whose
     // contents are NOT packaged by default. Include it explicitly so the
-    // splash screen (and any other runtime assets) ship in the app.
+    // splash screen and other runtime assets ship in the app.
     'assets/**/*',
     'package.json',
     // Platform runtime + plugins, prepared by `capacitor-electron vendor`.
@@ -33,10 +33,10 @@ module.exports = {
     artifactName: '${productName}-${version}-${arch}.${ext}',
   },
   mac: {
-    icon: '../assets/logo.png',
+    icon: 'assets/icon.icns',
     category: 'public.app-category.education',
     target: ['dmg', 'zip'],
-    // No Apple Developer signing credentials are configured for this project.
+    // The app is intentionally unsigned until Developer ID credentials exist.
     identity: null,
     notarize: false,
     artifactName: '${productName}-${version}-${arch}.${ext}',
