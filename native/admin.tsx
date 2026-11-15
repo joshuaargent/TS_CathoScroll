@@ -35,9 +35,16 @@ export function NativeAdmin({
   const [hasNext, setHasNext] = useState(false);
   const [categories, setCategories] = useState<AdminContentCategory[]>([]);
   const [topics, setTopics] = useState<AdminContentTopic[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [loadedKey, setLoadedKey] = useState('');
+  const [loadError, setLoadError] = useState<{ key: string; message: string } | null>(null);
   const [attempt, setAttempt] = useState(0);
+  const requestKey = JSON.stringify([userId, section, page, attempt]);
+  const loading = Boolean(userId) && loadedKey !== requestKey;
+  const error = !userId
+    ? 'Sign in with an administrator account to use moderation tools.'
+    : loadError?.key === requestKey
+      ? loadError.message
+      : '';
 
   const fetcher = useCallback<typeof fetch>(async (input, init) => {
     const { data, error: sessionError } = await createClient().auth.getSession();
@@ -61,14 +68,8 @@ export function NativeAdmin({
   }, []);
 
   useEffect(() => {
-    if (!userId) {
-      setLoading(false);
-      setError('Sign in with an administrator account to use moderation tools.');
-      return;
-    }
+    if (!userId) return;
     let active = true;
-    setLoading(true);
-    setError('');
     async function load() {
       try {
         const params = new URLSearchParams({ section, page: String(page) });
@@ -85,6 +86,7 @@ export function NativeAdmin({
           );
         }
         if (!active) return;
+        setLoadError(null);
         if (section === 'content') {
           if (!Array.isArray(result.categories) || !Array.isArray(result.topics)) {
             throw new Error('The content library returned invalid data.');
@@ -113,17 +115,20 @@ export function NativeAdmin({
       } catch (cause) {
         console.error('Unable to load native moderation tools:', cause);
         if (active) {
-          setError(cause instanceof Error ? cause.message : 'Unable to load moderation tools.');
+          setLoadError({
+            key: requestKey,
+            message: cause instanceof Error ? cause.message : 'Unable to load moderation tools.',
+          });
         }
       } finally {
-        if (active) setLoading(false);
+        if (active) setLoadedKey(requestKey);
       }
     }
     void load();
     return () => {
       active = false;
     };
-  }, [userId, section, page, fetcher, attempt]);
+  }, [userId, section, page, fetcher, attempt, requestKey]);
 
   useEffect(() => {
     const retry = () => setAttempt((value) => value + 1);
