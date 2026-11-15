@@ -103,7 +103,7 @@ export function NativeAccount({
         }
         if (!navigator.onLine) {
           setVerified(false);
-          if (!profileUserId || profileUserId !== accountId) setProfileUserId(accountId);
+          setProfileUserId(accountId);
           return;
         }
 
@@ -175,7 +175,8 @@ export function NativeAccount({
   }, [user?.id, online, attempt]);
 
   useEffect(() => {
-    if (!user) return;
+    const accountId = user?.id;
+    if (!accountId) return;
     if (!online) {
       notifyNativeStatus('Connect to the internet to view your latest membership details.', {
         id: 'account-membership',
