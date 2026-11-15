@@ -100,7 +100,6 @@ export class NativeNoteCache {
 
   async save(userId: string, topicId: string, content: string | null): Promise<void> {
     if (content !== null && typeof content !== 'string') throw new Error('Invalid note content.');
-    await this.load(userId, topicId);
     const keys = await this.getKeys();
     const noteKey = await this.noteKey(userId, topicId, keys.index);
     const nonce = crypto.getRandomValues(new Uint8Array(12));
