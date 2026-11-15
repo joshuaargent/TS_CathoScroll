@@ -19,7 +19,7 @@ export function NativeTopicActions({
   status: NativeActivityStatus | null;
   version: number;
 }) {
-  const [bookmark, setBookmark] = useState<{ userId: string; value: boolean } | null>(null);
+  const [bookmark, setBookmark] = useState<{ userId: string; topicId: string; value: boolean } | null>(null);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
@@ -36,7 +36,7 @@ export function NativeTopicActions({
     activity.store.topicActivity(userId, String(topic.id)).then(
       (saved) => {
         if (active) {
-          setBookmark({ userId, value: saved.bookmarked });
+          setBookmark({ userId, topicId: String(topic.id), value: saved.bookmarked });
           setError('');
         }
       },
@@ -50,7 +50,10 @@ export function NativeTopicActions({
     };
   }, [activity, userId, ready, topic.id, version, attempt]);
 
-  const saved = userId && bookmark?.userId === userId ? bookmark.value : null;
+  const saved =
+    userId && bookmark?.userId === userId && bookmark.topicId === String(topic.id)
+      ? bookmark.value
+      : null;
 
   async function toggleBookmark() {
     if (!userId) {
@@ -63,7 +66,7 @@ export function NativeTopicActions({
     setError('');
     try {
       await activity.set(String(topic.id), 'bookmark', !saved);
-      setBookmark({ userId, value: !saved });
+      setBookmark({ userId, topicId: String(topic.id), value: !saved });
     } catch (cause) {
       console.error('Unable to save bookmark:', cause);
       setError('Unable to update your bookmark. Please try again.');
