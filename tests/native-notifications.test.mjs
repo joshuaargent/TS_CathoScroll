@@ -20,9 +20,11 @@ Object.defineProperty(globalThis, 'navigator', {
 
 function client(userId = 'user-1') {
   const queries = [];
+  let activeUserId = userId;
   return {
     queries,
-    auth: { getUser: async () => ({ data: { user: { id: userId } }, error: null }) },
+    setUserId(value) { activeUserId = value; },
+    auth: { getUser: async () => ({ data: { user: { id: activeUserId } }, error: null }) },
     from(table) {
       const state = { table, filters: [] };
       queries.push(state);
@@ -115,4 +117,24 @@ test('does not access notifications for another account or while offline', async
   } finally {
     navigator.onLine = true;
   }
+});
+
+
+test('keeps a queued read operation pending if the account changes during the remote update', async () => {
+  const api = client('user-1');
+  const transport = notificationTransport(api, 'user-1');
+  let checks = 0;
+  api.auth.getUser = async () => ({
+    data: { user: { id: ++checks === 1 ? 'user-1' : 'user-2' } },
+    error: null,
+  });
+
+  await assert.rejects(transport.syncRead(10, false), /account changed/);
+  const update = api.queries.find((query) => query.update);
+  assert.ok(update);
+  assert.deepEqual(update.filters, [
+    ['user_id', 'user-1'],
+    ['read_at', null],
+    ['id', '<=', 10],
+  ]);
 });
