@@ -307,7 +307,9 @@ export function NativeAccount({
   }
 
   if (!available) return null;
-  if (checking || loading && !profile) return <p className="container py-12">Loading account…</p>;
+  if (checking || (loading && (!user || profileUserId !== user.id))) {
+    return <p className="container py-12">Loading account…</p>;
+  }
   if (!user) {
     return online ? (
       <NativeSignin
