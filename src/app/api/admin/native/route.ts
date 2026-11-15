@@ -9,9 +9,10 @@ import {
   nativeApiCorsHeaders,
 } from '@/lib/supabase/admin';
 
-function respond(request: Request, body: unknown, status = 200) {
+function respond(request: Request, body: unknown, status = 200, extraHeaders?: HeadersInit) {
   const headers = nativeApiCorsHeaders(request);
-  headers.set('Cache-Control', 'no-store');
+  new Headers(extraHeaders).forEach((value, key) => headers.set(key, value));
+  headers.set('Cache-Control', 'private, no-store');
   return NextResponse.json(body, { status, headers });
 }
 
@@ -56,7 +57,8 @@ export async function GET(request: Request) {
     return respond(
       request,
       { error: rateLimit.unavailable ? 'Administrator services are temporarily unavailable' : 'Too many administrator requests. Please wait.' },
-      { status: rateLimit.unavailable ? 503 : 429, headers: rateLimitResponseHeaders(rateLimit.retryAfterSeconds) }
+      rateLimit.unavailable ? 503 : 429,
+      rateLimitResponseHeaders(rateLimit.retryAfterSeconds)
     );
   }
 
