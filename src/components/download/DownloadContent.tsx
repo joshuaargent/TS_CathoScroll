@@ -51,8 +51,8 @@ const platforms = [
   },
   {
     name: 'Linux',
-    description: 'Download the CathoScroll desktop application for Linux.',
-    formats: 'AppImage or DEB',
+    description: 'Choose the Linux package that suits your distribution and installation preference.',
+    formats: 'AppImage (recommended) or DEB',
     extensions: ['.appimage', '.deb'],
     icon: Terminal,
   },
@@ -80,6 +80,22 @@ function formatFileSize(bytes: number): string {
   }
 
   return `${size.toFixed(unit === 0 ? 0 : 1)} ${units[unit]}`;
+}
+
+function getAssetLabel(asset: GitHubReleaseAsset, platformName: string): string {
+  const fileName = asset.name.toLowerCase();
+
+  if (platformName === 'Linux') {
+    if (fileName.endsWith('.appimage')) return 'Download AppImage';
+    if (fileName.endsWith('.deb')) return 'Download DEB package';
+  }
+
+  if (platformName === 'macOS') {
+    if (fileName.endsWith('.dmg')) return 'Download DMG';
+    if (fileName.endsWith('.zip')) return 'Download ZIP';
+  }
+
+  return 'Download';
 }
 
 function getPlatformAssets(
@@ -212,6 +228,13 @@ export default function DownloadContent({
                   </p>
 
                   <div className="mt-auto space-y-3 pt-6">
+                    {platform.name === 'Linux' && available && (
+                  <p className="text-text-secondary mt-2 text-xs leading-relaxed">
+                    AppImage runs without a traditional installation and is
+                    the easiest option for most Linux users. DEB is intended
+                    for Debian, Ubuntu, and compatible distributions.
+                  </p>
+                    )}
                     {available ? (
                       platformAssets.map((asset) => (
                         <Button
@@ -227,7 +250,7 @@ export default function DownloadContent({
                           >
                             <span className="flex min-w-0 items-center gap-2">
                               <Download size={17} className="shrink-0" />
-                              <span className="truncate">{asset.name}</span>
+                              <span className="truncate">{getAssetLabel(asset, platform.name)}</span>
                             </span>
 
                             <span className="shrink-0 text-xs opacity-80">
