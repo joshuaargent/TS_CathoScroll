@@ -38,13 +38,13 @@ export async function POST(request: Request) {
   if (
     !body ||
     typeof body !== 'object' ||
-    !('cursor' in body) ||
-    typeof body.cursor !== 'string' ||
-    !body.cursor ||
-    body.cursor.length > 512
+    ('cursor' in body &&
+      body.cursor !== null &&
+      (typeof body.cursor !== 'string' || body.cursor.length > 512))
   ) {
     return respond(request, { error: 'Invalid recommendation cursor.' }, 400);
   }
+  const cursor = 'cursor' in body ? body.cursor ?? null : null;
 
   const rateLimit = await checkApiRateLimit({
     scope: 'recommendations:user',
@@ -57,7 +57,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const page = await getRecommendationPage(supabase, body.cursor);
+    const page = await getRecommendationPage(supabase, cursor);
     return respond(request, page);
   } catch (error) {
     const cause = error instanceof Error ? error.cause : null;
