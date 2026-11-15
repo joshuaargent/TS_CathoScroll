@@ -83,6 +83,9 @@ export function CategoriesPage({ catalogue }: { catalogue: OfflineCatalogue }) {
 
   useEffect(() => {
     let active = true;
+    const retry = () => setAttempt((value) => value + 1);
+    window.addEventListener('online', retry);
+    window.addEventListener('offline', retry);
     async function load() {
       try {
         if (navigator.onLine) {
@@ -148,6 +151,8 @@ export function CategoriesPage({ catalogue }: { catalogue: OfflineCatalogue }) {
     void load();
     return () => {
       active = false;
+      window.removeEventListener('online', retry);
+      window.removeEventListener('offline', retry);
     };
   }, [catalogue, attempt]);
 
@@ -219,6 +224,9 @@ function TopicList({ catalogue, category }: { catalogue: OfflineCatalogue; categ
 
   useEffect(() => {
     let active = true;
+    const retry = () => setAttempt((value) => value + 1);
+    window.addEventListener('online', retry);
+    window.addEventListener('offline', retry);
     async function load() {
       try {
         let page: { topics: Topic[]; nextCursor: CatalogueCursor | null };
@@ -255,7 +263,11 @@ function TopicList({ catalogue, category }: { catalogue: OfflineCatalogue; categ
       }
     }
     void load();
-    return () => { active = false; };
+    return () => {
+      active = false;
+      window.removeEventListener('online', retry);
+      window.removeEventListener('offline', retry);
+    };
   }, [catalogue, category, attempt]);
 
   async function loadMore() {
