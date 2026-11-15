@@ -12,6 +12,7 @@ import { siteConfig } from '@/lib/constants';
 
 import { Badge } from '@/components/ui/Badge';
 import { CategoryTopicGrid } from '@/components/categories/CategoryTopicGrid';
+import { CategoryBottomNavigation } from '@/components/categories/CategoryBottomNavigation';
 
 interface Props {
   params: Promise<{
@@ -132,37 +133,10 @@ export default async function CategoryPage({ params, searchParams }: Props) {
         <CategoryTopicGrid topics={categoryTopics} />
       </section>
 
-      {/* Bottom Navigation */}
-
-      <section className="border-border mt-16 border-t pt-8">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div>
-            {previousCategory && (
-              <Link
-                href={`/categories/${previousCategory.slug}`}
-                className="text-text-secondary hover:text-text-primary transition-colors"
-              >
-                ← {previousCategory.name}
-              </Link>
-            )}
-          </div>
-
-          <Link href="/" className="text-accent hover:text-accent-hover font-medium">
-            Explore Feed
-          </Link>
-
-          <div>
-            {nextCategory && (
-              <Link
-                href={`/categories/${nextCategory.slug}`}
-                className="text-text-secondary hover:text-text-primary transition-colors"
-              >
-                {nextCategory.name} →
-              </Link>
-            )}
-          </div>
-        </div>
-      </section>
+      <CategoryBottomNavigation
+        previousCategory={previousCategory}
+        nextCategory={nextCategory}
+      />
     </main>
   );
 }
