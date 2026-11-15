@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { PublicProfileView } from '@/components/profile/PublicProfileView';
+import { calculateStreaks } from '@/lib/profile-metrics';
 import type { Topic } from '@/types';
 import { createClient } from './supabase';
 import { notifyNativeStatus, clearNativeStatusNotice } from './offline-indicator';
@@ -20,45 +21,6 @@ type RecentComment = {
   slug?: string;
   question?: string;
 };
-
-function dayKey(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-');
-}
-
-function shiftDay(value: string, amount: number): string {
-  const [year, month, day] = value.split('-').map(Number);
-  const date = new Date(year, month - 1, day + amount);
-  return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-');
-}
-
-function streaks(dates: string[]): { current: number; longest: number } {
-  const days = [...new Set(dates.map(dayKey).filter(Boolean))].sort();
-  if (!days.length) return { current: 0, longest: 0 };
-  let longest = 1;
-  let run = 1;
-  for (let index = 1; index < days.length; index++) {
-    if (days[index] === shiftDay(days[index - 1], 1)) {
-      run++;
-      longest = Math.max(longest, run);
-    } else {
-      run = 1;
-    }
-  }
-  const today = dayKey(new Date().toISOString());
-  const yesterday = shiftDay(today, -1);
-  let current = 0;
-  let cursor = days.includes(today) ? today : days.includes(yesterday) ? yesterday : '';
-  if (cursor) {
-    const set = new Set(days);
-    while (set.has(cursor)) {
-      current++;
-      cursor = shiftDay(cursor, -1);
-    }
-  }
-  return { current, longest };
-}
 
 export function NativePublicProfile({
   username,
@@ -120,7 +82,7 @@ export function NativePublicProfile({
         }
         const progressRows = progressResult.data ?? [];
         const completionDates = progressRows.flatMap((row) => row.completed_at ? [row.completed_at] : []);
-        const calculated = streaks(completionDates);
+        const calculated = calculateStreaks(completionDates);
         const progressRowsRecent = (recentProgressResult.data ?? []) as RecentCompletion[];
         const comments = (commentsResult.data ?? []) as RecentComment[];
         const recentTopicIds = progressRowsRecent.map((entry) => String(entry.topic_id));
