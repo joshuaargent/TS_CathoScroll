@@ -187,25 +187,11 @@ export default function AccountSecurityPage() {
       setVerificationCode('');
       await refreshSecurityState();
 
-      // The sole owner turns enforcement on only after Supabase confirms AAL2.
-      // The database independently checks that the owner has a verified factor.
-      const response = await fetch('/api/admin/security/mfa-enforcement', {
-        method: 'POST',
-      });
-      if (response.ok) {
-        setEnforcementEnabled(true);
-        setMessage('Authenticator verified. Administrator MFA enforcement is now enabled.');
-      } else {
-        const result = (await response.json().catch(() => ({}))) as { error?: string };
-        if (response.status === 403 && !isOwner) {
-          setMessage('Authenticator verified. This account is ready to be granted administrator access by the owner.');
-        } else {
-          setMessage(
-            result.error ??
-              'Authenticator verified. The owner can enable administrator MFA enforcement from this page.'
-          );
-        }
-      }
+      setMessage(
+        isOwner
+          ? 'Authenticator verified. Add a backup authenticator or securely save the setup key, then enable enforcement below.'
+          : 'Authenticator verified. This account is ready to be granted administrator access by the owner.'
+      );
       await refreshSecurityState();
     } catch (cause) {
       console.error('Unable to verify authenticator code:', cause);
@@ -284,20 +270,29 @@ export default function AccountSecurityPage() {
                   <div key={factor.id} className="border-border rounded-xl border p-3">
                     <p className="font-medium">{factor.friendly_name || 'Authenticator app'}</p>
                     <p className="text-text-muted mt-1 text-xs">Verified and linked to this account</p>
+                    {assurance?.currentLevel !== 'aal2' && (
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => void beginChallenge(factor.id)}
+                        className="bg-accent mt-3 rounded-lg px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                      >
+                        Verify this authenticator
+                      </button>
+                    )}
                   </div>
                 ))}
-                {assurance?.currentLevel === 'aal2' ? (
+                {assurance?.currentLevel === 'aal2' && (
                   <p className="text-sm">This session has completed second-factor verification.</p>
-                ) : (
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() => void beginChallenge(verifiedFactors[0].id)}
-                    className="bg-accent mt-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
-                  >
-                    Verify authenticator
-                  </button>
                 )}
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void beginEnrollment()}
+                  className="border-border mt-2 rounded-xl border px-4 py-2.5 text-sm font-semibold hover:bg-bg-secondary disabled:opacity-50"
+                >
+                  {busy ? 'Preparing…' : 'Add a backup authenticator'}
+                </button>
               </div>
             ) : (
               <div className="mt-5">
@@ -320,7 +315,7 @@ export default function AccountSecurityPage() {
                 <p className="font-semibold">1. Scan this QR code</p>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={`data:image/svg+xml;utf8,${encodeURIComponent(qrCode)}`}
+                  src={qrCode}
                   alt="Authenticator setup QR code"
                   className="mt-3 h-52 w-52 rounded-lg bg-white p-2"
                 />
