@@ -63,9 +63,16 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p electron/assets
-          sips -s format icns assets/logo.png --out electron/assets/icon.icns >/dev/null
+          iconset="electron/assets/icon.iconset"
+          mkdir -p "$iconset"
+          for size in 16 32 128 256 512; do
+            double=$((size * 2))
+            sips -s format png -z "$size" "$size" assets/logo.png --out "$iconset/icon_${size}x${size}.png" >/dev/null
+            sips -s format png -z "$double" "$double" assets/logo.png --out "$iconset/icon_${size}x${size}@2x.png" >/dev/null
+          done
+          iconutil -c icns "$iconset" -o electron/assets/icon.icns
           test -s electron/assets/icon.icns
+          rm -rf "$iconset"
 
       - name: Package desktop application without publishing
         run: npm --prefix electron run pack -- --${{ matrix.platform }} --${{ matrix.architecture }} --publish never
