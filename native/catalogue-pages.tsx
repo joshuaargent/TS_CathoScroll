@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { CategoriesGrid } from '@/components/categories/CategoriesGrid';
 import { CategoryTopicGrid } from '@/components/categories/CategoryTopicGrid';
+import { CategoryBottomNavigation } from '@/components/categories/CategoryBottomNavigation';
 import { SearchInput } from '@/components/search/SearchInput';
 import { SearchResults } from '@/components/search/SearchResults';
 import { SearchSuggestions } from '@/components/search/SearchSuggestions';
@@ -322,6 +323,7 @@ function TopicList({ catalogue, category }: { catalogue: OfflineCatalogue; categ
 export function CategoryPage({ catalogue, slug }: { catalogue: OfflineCatalogue; slug: string }) {
   const [category, setCategory] = useState<ContentCategory | null>(null);
   const [topicCount, setTopicCount] = useState<number | null>(null);
+  const [navigationCategories, setNavigationCategories] = useState<ContentCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [attempt, setAttempt] = useState(0);
@@ -334,7 +336,7 @@ export function CategoryPage({ catalogue, slug }: { catalogue: OfflineCatalogue;
         if (navigator.onLine) {
           try {
             const client = createClient();
-            const [categoryResult, countResult] = await Promise.all([
+            const [categoryResult, countResult, navigationResult] = await Promise.all([
               client.from('categories')
                 .select('slug,name,description,order_index')
                 .eq('slug', slug)
@@ -345,9 +347,21 @@ export function CategoryPage({ catalogue, slug }: { catalogue: OfflineCatalogue;
                 .eq('is_published', true)
                 .eq('category.is_published', true)
                 .eq('category.slug', slug),
+              client.from('categories')
+                .select('slug,name,description,order_index')
+                .eq('is_published', true)
+                .order('order_index', { ascending: true })
+                .order('slug', { ascending: true }),
             ]);
             if (categoryResult.error) throw categoryResult.error;
             if (countResult.error) throw countResult.error;
+            if (navigationResult.error) throw navigationResult.error;
+            setNavigationCategories((navigationResult.data ?? []).map((item) => ({
+              slug: item.slug,
+              name: item.name,
+              description: item.description,
+              orderIndex: item.order_index,
+            })));
             result = categoryResult.data ? {
               slug: categoryResult.data.slug,
               name: categoryResult.data.name,
@@ -358,20 +372,28 @@ export function CategoryPage({ catalogue, slug }: { catalogue: OfflineCatalogue;
             clearNativeStatusNotice('category-page-fallback:' + slug);
           } catch (onlineError) {
             console.error('Unable to load live category:', onlineError);
-            [result, count] = await Promise.all([
+            const [savedCategory, savedCount, savedCategories] = await Promise.all([
               catalogue.category(slug),
               catalogue.categoryTopicCount(slug),
+              catalogue.categories(),
             ]);
+            result = savedCategory;
+            count = savedCount;
+            setNavigationCategories(savedCategories.categories);
             notifyNativeStatus('Live category details are unavailable. Showing saved information.', {
               id: 'category-page-fallback:' + slug,
               action: { label: 'Retry', onClick: () => setAttempt((value) => value + 1) },
             });
           }
         } else {
-          [result, count] = await Promise.all([
+          const [savedCategory, savedCount, savedCategories] = await Promise.all([
             catalogue.category(slug),
             catalogue.categoryTopicCount(slug),
+            catalogue.categories(),
           ]);
+          result = savedCategory;
+          count = savedCount;
+          setNavigationCategories(savedCategories.categories);
         }
         if (!active) return;
         setCategory(result);
@@ -395,6 +417,12 @@ export function CategoryPage({ catalogue, slug }: { catalogue: OfflineCatalogue;
       active = false;
     };
   }, [catalogue, slug, attempt]);
+  const categoryIndex = navigationCategories.findIndex((item) => item.slug === slug);
+  const previousCategory = categoryIndex > 0 ? navigationCategories[categoryIndex - 1] : null;
+  const nextCategory = categoryIndex >= 0 && categoryIndex < navigationCategories.length - 1
+    ? navigationCategories[categoryIndex + 1]
+    : null;
+
   return (
     <div className="container py-12">
       <Link href="/categories" className="text-accent">
@@ -423,6 +451,10 @@ export function CategoryPage({ catalogue, slug }: { catalogue: OfflineCatalogue;
             </p>
           </section>
           <TopicList catalogue={catalogue} category={slug} />
+          <CategoryBottomNavigation
+            previousCategory={previousCategory}
+            nextCategory={nextCategory}
+          />
         </>
       )}
     </div>
