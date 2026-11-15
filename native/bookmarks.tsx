@@ -78,19 +78,20 @@ export function NativeBookmarks({
             // Reconcile the server snapshot with the latest queued local operation
             // for each topic. This keeps offline additions visible and prevents
             // pending removals from reappearing while the outbox is retrying.
+            const pendingChanges = await savedActivity.store.pendingChanges(savedUserId, 'bookmark');
+            const pendingTopicIds = new Set(pendingChanges.map((change) => change.topicId));
             const effectiveBookmarks = new Map(
               (bookmarks ?? []).map((bookmark) => [
                 String(bookmark.topic_id),
                 { topic_id: String(bookmark.topic_id), created_at: bookmark.created_at },
               ])
             );
-            const pendingChanges = await savedActivity.store.pendingChanges(savedUserId, 'bookmark');
             for (const change of pendingChanges) {
               if (change.value) {
                 const existing = effectiveBookmarks.get(change.topicId);
                 effectiveBookmarks.set(change.topicId, {
                   topic_id: change.topicId,
-                  created_at: existing?.created_at ?? change.savedAt ?? new Date().toISOString(),
+                  created_at: change.savedAt ?? existing?.created_at ?? new Date().toISOString(),
                 });
               } else {
                 effectiveBookmarks.delete(change.topicId);
@@ -107,10 +108,12 @@ export function NativeBookmarks({
             try {
               await savedActivity.store.recordBookmarkTimestamps(
                 savedUserId,
-                (bookmarks ?? []).map((bookmark) => ({
-                  topicId: String(bookmark.topic_id),
-                  savedAt: bookmark.created_at,
-                }))
+                (bookmarks ?? [])
+                  .filter((bookmark) => !pendingTopicIds.has(String(bookmark.topic_id)))
+                  .map((bookmark) => ({
+                    topicId: String(bookmark.topic_id),
+                    savedAt: bookmark.created_at,
+                  }))
               );
               clearNativeStatusNotice('bookmarks-cache:' + savedUserId);
             } catch (cacheError) {
