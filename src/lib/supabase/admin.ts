@@ -4,7 +4,7 @@ import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 
 import { createClient } from '@/lib/supabase/server';
 
-const nativeOrigins = new Set(['capacitor://localhost', 'http://localhost', 'https://localhost']);
+const nativeOrigins = new Set(['capacitor://localhost', 'capacitor-electron://localhost', 'http://localhost', 'https://localhost']);
 
 function nativeOrigin(request: Request): string | null {
   const origin = request.headers.get('origin');
