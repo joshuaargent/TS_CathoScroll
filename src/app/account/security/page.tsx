@@ -21,6 +21,7 @@ export default function AccountSecurityPage() {
   const [busy, setBusy] = useState(false);
   const [factors, setFactors] = useState<TotpFactor[]>([]);
   const [assurance, setAssurance] = useState<AssuranceState | null>(null);
+  const [totpAssurance, setTotpAssurance] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [enforcementEnabled, setEnforcementEnabled] = useState(false);
@@ -66,6 +67,30 @@ export default function AccountSecurityPage() {
     setIsAdmin(Boolean(adminRow));
     setFactors((factorData.totp ?? []) as TotpFactor[]);
     setAssurance(assuranceData as AssuranceState);
+
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError) throw sessionError;
+    const tokenPayload = sessionData.session?.access_token.split('.')[1];
+    let hasTotpAssurance = false;
+    if (tokenPayload) {
+      try {
+        const normalizedPayload = tokenPayload.replace(/-/g, '+').replace(/_/g, '/');
+        const claims = JSON.parse(atob(normalizedPayload)) as { aal?: unknown; amr?: unknown };
+        hasTotpAssurance =
+          claims.aal === 'aal2' &&
+          Array.isArray(claims.amr) &&
+          claims.amr.some(
+            (entry) =>
+              typeof entry === 'object' &&
+              entry !== null &&
+              'method' in entry &&
+              entry.method === 'totp'
+          );
+      } catch {
+        hasTotpAssurance = false;
+      }
+    }
+    setTotpAssurance(hasTotpAssurance);
 
     const response = await fetch('/api/admin/security/mfa-enforcement', {
       method: 'GET',
@@ -253,7 +278,7 @@ export default function AccountSecurityPage() {
               </p>
             )}
 
-            {isAdmin && assurance?.currentLevel === 'aal2' && (
+            {isAdmin && totpAssurance && (
               <Link
                 href="/admin"
                 className="text-accent mt-4 inline-block text-sm font-semibold hover:underline"
@@ -269,7 +294,7 @@ export default function AccountSecurityPage() {
                   <div key={factor.id} className="border-border rounded-xl border p-3">
                     <p className="font-medium">{factor.friendly_name || 'Authenticator app'}</p>
                     <p className="text-text-muted mt-1 text-xs">Verified and linked to this account</p>
-                    {assurance?.currentLevel !== 'aal2' && (
+                    {!totpAssurance && (
                       <button
                         type="button"
                         disabled={busy}
@@ -281,12 +306,12 @@ export default function AccountSecurityPage() {
                     )}
                   </div>
                 ))}
-                {assurance?.currentLevel === 'aal2' && (
+                {totpAssurance && (
                   <p className="text-sm">This session has completed second-factor verification.</p>
                 )}
                 <button
                   type="button"
-                  disabled={busy || assurance?.currentLevel !== 'aal2'}
+                  disabled={busy || !totpAssurance}
                   onClick={() => void beginEnrollment()}
                   className="border-border mt-2 rounded-xl border px-4 py-2.5 text-sm font-semibold hover:bg-bg-secondary disabled:opacity-50"
                 >
@@ -351,7 +376,7 @@ export default function AccountSecurityPage() {
               </div>
             )}
 
-            {isOwner && verifiedFactors.length > 0 && assurance?.currentLevel === 'aal2' && !enforcementEnabled && (
+            {isOwner && verifiedFactors.length > 0 && totpAssurance && !enforcementEnabled && (
               <div className="border-border mt-6 border-t pt-5">
                 <p className="text-sm">
                   Your owner account has a verified authenticator. Enabling enforcement will require
