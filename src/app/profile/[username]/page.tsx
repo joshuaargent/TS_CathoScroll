@@ -52,6 +52,7 @@ export default async function ProfilePage({ params }: Props) {
   let canManageCommentBan = false;
   let isAdmin = false;
   let profileIsAdmin = false;
+  let canManageAdminRoles = false;
   let activeBan: { reason: string } | null = null;
 
   if (currentUser) {
@@ -66,10 +67,20 @@ export default async function ProfilePage({ params }: Props) {
     } else if (adminRole) {
       isAdmin = true;
 
+      const serviceClient = createServiceRoleClient();
+      const { data: ownerStatus, error: ownerError } = await serviceClient.rpc(
+        'is_cathoscroll_admin_owner',
+        { p_user_id: currentUser.id }
+      );
+      if (ownerError) {
+        console.error('Unable to verify administrator-management permission:', ownerError.message);
+        throw new Error('Unable to load administrator details.');
+      }
+      canManageAdminRoles = ownerStatus === true;
+
       if (currentUser.id !== profile.id) {
         canManageCommentBan = true;
 
-        const serviceClient = createServiceRoleClient();
         const [banResult, profileAdminResult] = await Promise.all([
           serviceClient
             .from('user_comment_bans')
@@ -187,7 +198,7 @@ export default async function ProfilePage({ params }: Props) {
           <AdminRoleControlClient
             userId={profile.id}
             isAdmin={profileIsAdmin}
-            canManage={isAdmin && currentUser?.id !== profile.id}
+            canManage={canManageAdminRoles && currentUser?.id !== profile.id}
           />
         </>
       }
