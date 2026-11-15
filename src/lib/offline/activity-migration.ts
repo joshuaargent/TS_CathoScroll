@@ -108,7 +108,8 @@ async function copyTable(
 
 /**
  * Both stores must be initialized and the legacy store must not be used for new activity.
- * The legacy copy is retained; no data is deleted if the transfer is interrupted.
+ * Activity plus cached comments, counts and encrypted notes are copied transactionally.
+ * The caller verifies the encrypted database before removing the legacy database.
  */
 export async function migrateLegacyActivity(
   legacy: OfflineDatabase,
