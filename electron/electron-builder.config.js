@@ -7,9 +7,6 @@ module.exports = {
     buildResources: 'assets',
   },
   asarUnpack: ['**/*.node'],
-  win: {
-    icon: 'assets/icon.ico',
-  },
   files: [
     'build/**/*',
     'app/**/*',
@@ -22,12 +19,31 @@ module.exports = {
     // Platform runtime + plugins, prepared by `capacitor-electron vendor`.
     { from: 'vendor/node_modules', to: 'node_modules' },
   ],
+  win: {
+    icon: 'assets/icon.ico',
+    target: ['nsis'],
+  },
   nsis: {
-    artifactName: '${productName}-${version}.${ext}',
+    artifactName: '${productName}-${version}-${arch}.${ext}',
+  },
+  linux: {
+    icon: '../assets/logo.png',
+    category: 'Education',
+    target: ['AppImage', 'deb'],
+    artifactName: '${productName}-${version}-${arch}.${ext}',
+  },
+  mac: {
+    icon: '../assets/logo.png',
+    category: 'public.app-category.education',
+    target: ['dmg', 'zip'],
+    // No Apple Developer signing credentials are configured for this project.
+    identity: null,
+    notarize: false,
+    artifactName: '${productName}-${version}-${arch}.${ext}',
   },
   publish: {
     provider: 'github',
     owner: 'joshuaargent',
-    repo: 'CathoScroll',
+    repo: 'TS_CathoScroll',
   },
 };
