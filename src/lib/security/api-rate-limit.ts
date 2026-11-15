@@ -99,3 +99,24 @@ export function rateLimitResponseHeaders(retryAfterSeconds: number): HeadersInit
     'Retry-After': String(Math.max(1, Math.ceil(retryAfterSeconds))),
   };
 }
+
+export async function checkTrustedIpRateLimit(
+  request: Request,
+  scope: string,
+  limit: number,
+  windowSeconds: number
+): Promise<ApiRateLimitResult | null> {
+  const clientIp = getTrustedClientIp(request);
+  if (!clientIp) {
+    return process.env.VERCEL === '1'
+      ? { allowed: false, retryAfterSeconds: 60, unavailable: true }
+      : null;
+  }
+
+  return checkApiRateLimit({
+    scope,
+    identifier: clientIp,
+    limit,
+    windowSeconds,
+  });
+}
