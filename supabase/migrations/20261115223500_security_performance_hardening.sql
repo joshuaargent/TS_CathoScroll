@@ -364,10 +364,16 @@ BEGIN
   INTO timezone_name;
 
   WITH progress_rows AS (
-    SELECT completed_at
-    FROM public.progress
-    WHERE user_id = p_profile_id
-      AND completed_at IS NOT NULL
+    SELECT progress.completed_at
+    FROM public.progress AS progress
+    JOIN public.topics AS topic
+      ON topic.id = progress.topic_id
+     AND topic.is_published = true
+    JOIN public.categories AS category
+      ON category.slug = topic.category_slug
+     AND category.is_published = true
+    WHERE progress.user_id = p_profile_id
+      AND progress.completed_at IS NOT NULL
   ),
   days AS (
     SELECT DISTINCT (completed_at AT TIME ZONE timezone_name)::date AS day
@@ -476,21 +482,40 @@ BEGIN
     'completed_count', (SELECT count(*) FROM progress_rows),
     'bookmark_count', (
       SELECT count(*)
-      FROM public.bookmarks
-      WHERE user_id = p_profile_id
+      FROM public.bookmarks AS bookmark
+      JOIN public.topics AS topic
+        ON topic.id = bookmark.topic_id
+       AND topic.is_published = true
+      JOIN public.categories AS category
+        ON category.slug = topic.category_slug
+       AND category.is_published = true
+      WHERE bookmark.user_id = p_profile_id
     ),
     'comment_count', (
       SELECT count(*)
-      FROM public.comments
-      WHERE user_id = p_profile_id
-        AND is_deleted = false
+      FROM public.comments AS comment
+      JOIN public.topics AS topic
+        ON topic.id = comment.topic_id
+       AND topic.is_published = true
+      JOIN public.categories AS category
+        ON category.slug = topic.category_slug
+       AND category.is_published = true
+      WHERE comment.user_id = p_profile_id
+        AND comment.is_deleted = false
     ),
     'likes_received', (
       SELECT count(*)
       FROM public.comment_likes AS comment_like
-      JOIN public.comments AS comment ON comment.id = comment_like.comment_id
+      JOIN public.comments AS comment
+        ON comment.id = comment_like.comment_id
+       AND comment.is_deleted = false
+      JOIN public.topics AS topic
+        ON topic.id = comment.topic_id
+       AND topic.is_published = true
+      JOIN public.categories AS category
+        ON category.slug = topic.category_slug
+       AND category.is_published = true
       WHERE comment.user_id = p_profile_id
-        AND comment.is_deleted = false
     ),
     'current_streak', (SELECT value FROM current_streak),
     'longest_streak', (SELECT value FROM longest_streak),
