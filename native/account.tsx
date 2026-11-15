@@ -7,6 +7,7 @@ import { NativeProfileSetup } from './profile-setup';
 import { NativeAccountSecurity } from './account-security';
 import { createClient } from './supabase';
 import { useNativeNotifications } from './notifications';
+import { notifyNativeStatus, clearNativeStatusNotice } from './offline-indicator';
 
 export function NativeAccount({
   user,
@@ -28,7 +29,73 @@ export function NativeAccount({
   const [online, setOnline] = useState(navigator.onLine);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [subscriptionTier, setSubscriptionTier] = useState('free');
+  const [membershipLoaded, setMembershipLoaded] = useState(false);
   const notifications = useNativeNotifications();
+
+  useEffect(() => {
+    if (!user) {
+      clearNativeStatusNotice('account-activity-setup');
+      clearNativeStatusNotice('account-membership');
+      return;
+    }
+    let active = true;
+    async function loadMembership() {
+      if (!navigator.onLine) return;
+      try {
+        const { data, error: profileError } = await createClient()
+          .from('profiles')
+          .select('subscription_tier')
+          .eq('id', user.id)
+          .maybeSingle();
+        if (profileError) throw profileError;
+        if (active) {
+          setSubscriptionTier(data?.subscription_tier ?? 'free');
+          setMembershipLoaded(true);
+        }
+        clearNativeStatusNotice('account-membership');
+      } catch (cause) {
+        console.error('Unable to load account membership:', cause);
+        if (active) {
+          setMembershipLoaded(false);
+          notifyNativeStatus('Your membership details could not be loaded.', { id: 'account-membership' });
+        }
+      }
+    }
+    void loadMembership();
+    return () => { active = false; };
+  }, [user?.id, online]);
+
+  useEffect(() => {
+    if (!user && !online) {
+      notifyNativeStatus('Connect to the internet to sign in.', { id: 'signin-offline' });
+    } else {
+      clearNativeStatusNotice('signin-offline');
+    }
+  }, [user?.id, online]);
+
+  useEffect(() => {
+    if (!available) {
+      notifyNativeStatus('Sign-in is unavailable. Check your connection and restart the app if the problem continues. Saved offline changes have not been removed.', {
+        id: 'auth-unavailable',
+      });
+    } else {
+      clearNativeStatusNotice('auth-unavailable');
+    }
+  }, [available]);
+
+  useEffect(() => {
+    if (!user) return;
+    if (activityStatus?.userId === user.id && activityStatus.error) {
+      notifyNativeStatus(activityStatus.error, {
+        id: 'account-activity-setup',
+        action: activity ? undefined : { label: 'Retry', onClick: onRetryActivity },
+      });
+    } else if (activityStatus?.userId === user.id && activityStatus.ready) {
+      clearNativeStatusNotice('account-activity-setup');
+    }
+  }, [user?.id, activityStatus, activity, onRetryActivity]);
+
   useEffect(() => {
     const update = () => setOnline(navigator.onLine);
     window.addEventListener('online', update);
@@ -71,14 +138,7 @@ export function NativeAccount({
     }
   }
 
-  if (!available) {
-    return (
-      <p role="alert" className="container py-12">
-        Sign-in is unavailable. Check your connection and restart the app if the problem continues.
-        Your saved offline changes have not been removed.
-      </p>
-    );
-  }
+  if (!available) return null;
   if (checking) return <p className="container py-12">Loading account…</p>;
   if (!user) {
     return online ? (
@@ -86,36 +146,22 @@ export function NativeAccount({
         onSignedIn={onSignedIn}
         description="Sign in to keep your bookmarks and learning progress linked to your account."
       />
-    ) : (
-      <p role="status" className="container py-12">
-        Connect to the internet to sign in.
-      </p>
-    );
+    ) : null;
   }
   return (
     <div className="container py-12">
-      <h1 className="mt-8 text-5xl font-extrabold">Account</h1>
-      <p className="text-text-secondary mt-4">{user.email ?? 'Signed in'}</p>
+      <div className="mt-8 mb-10">
+        <h1 className="text-5xl font-extrabold md:text-7xl">Account</h1>
+        <p className="text-text-secondary mt-4 text-lg">
+          Manage your public profile, account details, and password.
+        </p>
+      </div>
       <NativeProfileSetup key={user.id} userId={user.id} />
-      <NativeAccountSecurity key={user.id} userId={user.id} />
-      {activityStatus?.userId === user.id && activityStatus.error && (
-        <p role="status" className="text-text-secondary mt-4">
-          {activityStatus.error}
-          {!activity && (
-            <>
-              {' '}
-              <button type="button" className="text-accent underline" onClick={onRetryActivity}>
-                Retry
-              </button>
-            </>
-          )}
-        </p>
-      )}
-      {(activityStatus?.userId !== user.id || !activityStatus.ready) && (
-        <p role="status" className="text-text-secondary mt-4">
-          Connect to set up your saved account activity on this device.
-        </p>
-      )}
+      <NativeAccountSecurity key={user.id} userId={user.id} currentEmail={user.email ?? ''} />
+      <section className="border-border mt-6 rounded-xl border p-6">
+        <p className="text-text-muted text-sm">Membership</p>
+        <p className="mt-2 text-lg font-medium capitalize">{membershipLoaded ? subscriptionTier : online ? "Unavailable" : "Connect to view membership"}</p>
+      </section>
       {error && (
         <p role="alert" className="mt-4">
           {error}
