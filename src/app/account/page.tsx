@@ -2,16 +2,10 @@
 
 import { useEffect, useState } from 'react';
 
-import Link from 'next/link';
 
 import { useRouter } from 'next/navigation';
 
-import { Skeleton } from '@/components/ui/Skeleton';
-
-import { Loader2 } from 'lucide-react';
-
-import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
+import { AccountPageView } from '@/components/account/AccountPageView';
 
 import { createClient } from '@/lib/supabase/client';
 import { usernameError } from '@/lib/username';
@@ -212,200 +206,34 @@ export default function AccountPage() {
     router.replace('/');
   }
 
-  if (loading) {
-    return (
-      <main className="container py-12">
-        <div className="mt-8 mb-10">
-          <Skeleton className="h-16 w-64" />
-
-          <Skeleton className="mt-4 h-6 w-96" />
-        </div>
-
-        <div className="space-y-10">
-          <div className="flex items-center justify-between">
-            <div>
-              <Skeleton className="h-8 w-48" />
-
-              <Skeleton className="mt-3 h-5 w-72" />
-            </div>
-
-            <Skeleton className="h-9 w-40" />
-          </div>
-
-          <div className="space-y-6">
-            <Skeleton className="h-12 w-full" />
-
-            <Skeleton className="h-12 w-full" />
-
-            <Skeleton className="h-40 w-full" />
-          </div>
-
-          <div className="space-y-6">
-            <Skeleton className="h-8 w-56" />
-
-            <Skeleton className="h-12 w-full" />
-
-            <Skeleton className="h-12 w-full" />
-          </div>
-
-          <Skeleton className="h-24 w-full" />
-
-          <div className="flex gap-4">
-            <Skeleton className="h-12 w-40" />
-
-            <Skeleton className="h-12 w-32" />
-          </div>
-        </div>
-      </main>
-    );
-  }
-
   return (
-    <main className="container py-12">
-      <div className="mt-8 mb-10">
-        <h1 className="text-5xl font-extrabold md:text-7xl">Account</h1>
-
-        <p className="text-text-secondary mt-4 text-lg">
-          Manage your public profile, account details, and password.
-        </p>
-      </div>
-
-      <div className="space-y-10">
-        <section>
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <h2 className="text-2xl font-bold">Public Profile</h2>
-
-              <p className="text-text-secondary mt-2">
-                This is how people will see you on CathoScroll.
-              </p>
-            </div>
-
-            <Link href={`/profile/${username}`}>
-              <Button
-                size="sm"
-                style={{
-                  color: '#ffffff',
-                }}
-              >
-                View Public Profile
-              </Button>
-            </Link>
-          </div>
-        </section>
-
-        <section className="space-y-6">
-          <Input
-            label="Display Name"
-            value={displayName}
-            disabled={saving}
-            onChange={(e) => setDisplayName(e.target.value)}
-          />
-
-          <Input
-            label="Username"
-            value={username}
-            disabled={saving}
-            onChange={(e) => setUsername(e.target.value)}
-            hint="3-20 characters. Used for your public profile URL."
-          />
-
-          <div className="space-y-1.5">
-            <label className="text-text-primary text-sm font-medium">Bio</label>
-
-            <textarea
-              value={bio}
-              maxLength={250}
-              disabled={saving}
-              onChange={(e) => setBio(e.target.value)}
-              rows={5}
-              className="border-border bg-bg-card w-full rounded-lg border p-4"
-              placeholder="Tell people a little about yourself..."
-            />
-
-            <p className="text-text-muted text-sm">{bio.length}/250</p>
-          </div>
-        </section>
-
-        <section className="space-y-6">
-          <h2 className="text-2xl font-bold">Account Settings</h2>
-
-          <Input
-            label="Email Address"
-            type="email"
-            value={email}
-            disabled={saving}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-
-          <Input
-            label="New Password"
-            type="password"
-            value={newPassword}
-            disabled={saving}
-            onChange={(e) => setNewPassword(e.target.value)}
-            hint="Minimum 8 characters. Leave blank to keep your current password."
-          />
-
-          <Input
-            label="Confirm New Password"
-            type="password"
-            value={confirmPassword}
-            disabled={saving}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            hint="Required when changing your password."
-          />
-        </section>
-
-        <section>
-          <div className="border-border rounded-xl border p-6">
-            <p className="text-text-muted text-sm">Membership</p>
-
-            <p className="mt-2 text-lg font-medium capitalize">{subscriptionTier}</p>
-          </div>
-        </section>
-
-        {error && (
-          <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-600">{error}</div>
-        )}
-
-        {message && (
-          <div className="rounded-lg border border-green-200 bg-green-50 p-4 text-green-600">
-            {message}
-          </div>
-        )}
-
-        <div className="flex flex-wrap gap-4">
-          <Button
-            onClick={saveProfile}
-            disabled={saving}
-            size="lg"
-            style={{
-              color: '#ffffff',
-            }}
-          >
-            {saving ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Saving...
-              </>
-            ) : (
-              'Save Changes'
-            )}
-          </Button>
-
-          <Button variant="secondary" size="lg" disabled={signingOut} onClick={signOut}>
-            {signingOut ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Signing Out...
-              </>
-            ) : (
-              'Sign Out'
-            )}
-          </Button>
-        </div>
-      </div>
-    </main>
+    <AccountPageView
+      loading={loading}
+      displayName={displayName}
+      username={username}
+      bio={bio}
+      email={email}
+      newPassword={newPassword}
+      confirmPassword={confirmPassword}
+      membershipLabel={subscriptionTier}
+      saving={saving}
+      signingOut={signingOut}
+      saveDisabled={false}
+      accountSettingsDisabled={false}
+      signOutDisabled={false}
+      error={error}
+      message={message}
+      onDisplayNameChange={setDisplayName}
+      onUsernameChange={setUsername}
+      onBioChange={setBio}
+      onEmailChange={setEmail}
+      onNewPasswordChange={setNewPassword}
+      onConfirmPasswordChange={setConfirmPassword}
+      onSave={(event) => {
+        event.preventDefault();
+        void saveProfile();
+      }}
+      onSignOut={() => void signOut()}
+    />
   );
 }
