@@ -12,11 +12,13 @@ export function SigninForm({
   description = 'Sign in to access your account, bookmarks, learning progress, and future features.',
   allowSignup = true,
   clientFactory = createWebClient,
+  online = true,
 }: {
   onSignedIn: () => void;
   description?: string;
   allowSignup?: boolean;
   clientFactory?: typeof createWebClient;
+  online?: boolean;
 }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -26,7 +28,7 @@ export function SigninForm({
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
-    if (loading) return;
+    if (loading || !online) return;
     setLoading(true);
     setError('');
     try {
@@ -72,7 +74,7 @@ export function SigninForm({
           value={email}
           placeholder="you@example.com"
           autoComplete="email"
-          disabled={loading}
+          disabled={loading || !online}
           onChange={(event) => setEmail(event.target.value)}
           required
         />
@@ -108,7 +110,7 @@ export function SigninForm({
           type="submit"
           size="lg"
           className="w-full"
-          disabled={loading}
+          disabled={loading || !online}
           style={{ color: '#fff' }}
         >
           {loading ? (
