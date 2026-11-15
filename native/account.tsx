@@ -38,7 +38,6 @@ export function NativeAccount({
   const [online, setOnline] = useState(navigator.onLine);
   const [busy, setBusy] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [verified, setVerified] = useState(false);
   const [profileExists, setProfileExists] = useState(true);
   const [profile, setProfile] = useState<CachedProfile | null>(null);
@@ -67,23 +66,14 @@ export function NativeAccount({
   }, []);
 
   useEffect(() => {
-    if (!user) {
+    const accountId = user?.id;
+    if (!accountId) {
       clearNativeStatusNotice('account-membership');
-      setProfile(null);
-      setProfileUserId(null);
-      setMembershipUserId(null);
-      setLoading(false);
       return;
     }
-    const accountId = user.id;
     let active = true;
     cache.current = null;
     clearNativeStatusNotice('account-membership');
-    setEmail(user.email ?? '');
-    setEmailChangeRequested(false);
-    setVerified(false);
-    setMembershipUserId(null);
-    setLoading(true);
     async function loadAccount() {
       try {
         let profileCache: NativeProfileCache | null = null;
@@ -109,7 +99,7 @@ export function NativeAccount({
         }
         if (!navigator.onLine) {
           setVerified(false);
-          setLoading(false);
+          if (!profileUserId || profileUserId !== accountId) setProfileUserId(accountId);
           return;
         }
 
@@ -131,7 +121,6 @@ export function NativeAccount({
         setProfileExists(status.exists);
         setVerified(true);
         setError('');
-        setLoading(false);
         try {
           if (!profileCache) throw new Error('Profile cache is unavailable.');
           await profileCache.save(accountId, latest);
@@ -168,7 +157,7 @@ export function NativeAccount({
         console.error('Unable to load account details:', cause);
         if (!active) return;
         setVerified(false);
-        setLoading(false);
+        setProfileUserId(accountId);
         notifyNativeStatus('Some account details could not be refreshed. Cached details remain available where possible.', {
           id: 'account-profile-load:' + accountId,
           action: { label: 'Retry', onClick: () => setAttempt((value) => value + 1) },
@@ -310,7 +299,7 @@ export function NativeAccount({
   }
 
   if (!available) return null;
-  if (checking || (loading && (!user || profileUserId !== user.id))) {
+  if (checking || (user && profileUserId !== user.id)) {
     return (
       <div className="container py-12">
         <div className="mt-8 mb-10">
