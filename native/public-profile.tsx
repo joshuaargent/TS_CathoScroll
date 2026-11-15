@@ -1,8 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { PublicProfileView } from '@/components/profile/PublicProfileView';
+import { CommentBanControl } from '@/components/admin/CommentBanControl';
+import { AdminRoleControl } from '@/components/admin/AdminRoleControl';
 import { calculateStreaks } from '@/lib/profile-metrics';
 import type { Topic } from '@/types';
 import { createClient } from './supabase';
+import { siteConfig } from '@/lib/constants';
 import { notifyNativeStatus, clearNativeStatusNotice } from './offline-indicator';
 
 type ProfileData = {
@@ -39,6 +42,32 @@ export function NativePublicProfile({
   const [recentComments, setRecentComments] = useState<RecentComment[]>([]);
   const [loading, setLoading] = useState(true);
   const [attempt, setAttempt] = useState(0);
+  const [moderation, setModeration] = useState<{
+    isAdmin: boolean;
+    canManage: boolean;
+    activeBan: { reason: string } | null;
+    profileIsAdmin: boolean;
+  } | null>(null);
+  const adminFetcher = useCallback<typeof fetch>(async (input, init) => {
+    const { data, error } = await createClient().auth.getSession();
+    if (error) throw error;
+    const token = data.session?.access_token;
+    if (!token) throw new Error('Sign in again to access moderation tools.');
+    const requestUrl =
+      typeof input === 'string'
+        ? new URL(input, siteConfig.url)
+        : input instanceof URL
+          ? input
+          : new URL(input.url);
+    const headers = new Headers(init?.headers);
+    headers.set('Authorization', `Bearer ${token}`);
+    return globalThis.fetch(requestUrl, {
+      ...init,
+      headers,
+      credentials: 'omit',
+    });
+  }, []);
+
 
   useEffect(() => {
     let active = true;
@@ -64,6 +93,33 @@ export function NativePublicProfile({
           return;
         }
         const profileData = profileRow as ProfileData;
+        let moderationData: {
+          isAdmin: boolean;
+          canManage: boolean;
+          activeBan: { reason: string } | null;
+          profileIsAdmin: boolean;
+        } | null = null;
+        try {
+          const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+          if (sessionError) throw sessionError;
+          if (sessionData.session?.access_token) {
+            const moderationResponse = await adminFetcher(
+              `/api/admin/users/${encodeURIComponent(profileData.id)}/role`
+            );
+            if (moderationResponse.ok) {
+              moderationData = await moderationResponse.json();
+            } else if (moderationResponse.status !== 403) {
+              const result = (await moderationResponse.json()) as { error?: string };
+              throw new Error(result.error ?? 'Unable to load profile moderation controls.');
+            }
+          }
+        } catch (moderationError) {
+          console.error('Unable to load native profile moderation controls:', moderationError);
+          notifyNativeStatus('Profile moderation controls are temporarily unavailable.', {
+            id: `profile-moderation:${username}`,
+            action: { label: 'Retry', onClick: () => setAttempt((value) => value + 1) },
+          });
+        }
         const [
           progressResult,
           bookmarkResult,
@@ -139,6 +195,7 @@ export function NativePublicProfile({
         if (!active) return;
         const totalTopics = topicCountResult.count ?? 0;
         const done = progressResult.count ?? 0;
+        setModeration(moderationData);
         setProfile(profileData);
         setCompletedCount(done);
         setBookmarkCount(bookmarkResult.count ?? 0);
@@ -170,7 +227,7 @@ export function NativePublicProfile({
       window.removeEventListener('online', retry);
       window.removeEventListener('offline', retry);
     };
-  }, [username, attempt]);
+  }, [username, attempt, adminFetcher]);
 
   if (!profile) {
     return (
@@ -209,6 +266,28 @@ export function NativePublicProfile({
             }]
           : []
       )}
+      showAdminLink={Boolean(moderation?.isAdmin)}
+      moderationControls={
+        moderation?.isAdmin && moderation.canManage ? (
+          <>
+            <CommentBanControl
+              userId={profile.id}
+              activeBan={Boolean(moderation.activeBan)}
+              reason={moderation.activeBan?.reason}
+              canChangeBan
+              fetcher={adminFetcher}
+              onChange={() => setAttempt((value) => value + 1)}
+            />
+            <AdminRoleControl
+              userId={profile.id}
+              isAdmin={moderation.profileIsAdmin}
+              canManage
+              fetcher={adminFetcher}
+              onChange={() => setAttempt((value) => value + 1)}
+            />
+          </>
+        ) : null
+      }
     />
   );
 }
