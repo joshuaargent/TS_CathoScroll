@@ -606,7 +606,7 @@ function NativeMfaGate({ userId }: { userId: string | null }) {
     }
 
     const response = await fetch(
-      \`\${siteConfig.url.replace(/\/+$/, '')}/api/admin/security/mfa-enforcement\`,
+      `${siteConfig.url.replace(/\/+$/, '')}/api/admin/security/mfa-enforcement`,
       { headers: { Authorization: `Bearer ${accessToken}` }, cache: 'no-store' }
     );
     if (!response.ok) throw new Error('Unable to check administrator security requirements.');
