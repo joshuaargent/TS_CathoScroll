@@ -9,7 +9,7 @@ export { CathoSecureStorage } from './secure-storage.mjs';
 export class CathoSQLite {
   static __capacitorElectronPlugin = {
     name: 'CathoSQLite',
-    methods: ['open', 'execute', 'query', 'begin', 'commit', 'rollback'],
+    methods: ['open', 'execute', 'query', 'begin', 'commit', 'rollback', 'removeLegacyActivity'],
   };
 
   constructor(context) {
@@ -102,6 +102,38 @@ export class CathoSQLite {
       const connection = new DatabaseSync(destination);
       connection.exec('PRAGMA foreign_keys = ON;');
       this.databases.set(database, connection);
+    }
+  }
+
+  async removeLegacyActivity() {
+    const privateDatabase = this.databases.get('private-activity');
+    if (!privateDatabase) {
+      throw new Error('Encrypted private activity storage is not open.');
+    }
+    const integrity = privateDatabase.prepare('PRAGMA quick_check(1)').get()?.quick_check;
+    const marker = privateDatabase
+      .prepare('SELECT version FROM offline_activity_migration WHERE id = 1')
+      .get();
+    if (integrity !== 'ok' || marker?.version !== 1) {
+      throw new Error('The encrypted activity migration could not be verified.');
+    }
+
+    const legacyDatabase = this.databases.get('activity');
+    if (legacyDatabase) {
+      legacyDatabase.close();
+      this.databases.delete('activity');
+    }
+
+    const userData = app.getPath('userData');
+    const files = [
+      path.join(userData, 'databases', 'activity.sqlite'),
+      path.join(userData, 'cathoscroll-sqlite', 'activity.sqlite'),
+    ];
+    for (const databaseFile of files) {
+      for (const suffix of ['', '-wal', '-shm', '-journal']) {
+        const file = databaseFile + suffix;
+        if (existsSync(file)) unlinkSync(file);
+      }
     }
   }
 
