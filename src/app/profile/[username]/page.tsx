@@ -10,7 +10,7 @@ import { CommentBanControl } from '@/components/admin/CommentBanControl';
 import { AdminRoleControlClient } from '@/components/admin/AdminRoleControlClient';
 import { createServiceRoleClient } from '@/lib/supabase/admin';
 import { PublicProfileView } from '@/components/profile/PublicProfileView';
-import { calculateStreaks } from '@/lib/profile-metrics';
+import { calculateStreaks, countLikesReceived } from '@/lib/profile-metrics';
 
 interface Props {
   params: Promise<{
@@ -110,7 +110,6 @@ export default async function ProfilePage({ params }: Props) {
     streakResult,
     commentsResult,
     commentCountResult,
-    commentLikesResult,
   ] = await Promise.all([
     supabase
       .from('progress')
@@ -159,7 +158,6 @@ export default async function ProfilePage({ params }: Props) {
       .eq('user_id', profile.id)
       .eq('is_deleted', false),
 
-    supabase.from('comment_likes').select('comment_id'),
   ]);
 
   const completedCount = progressResult.count ?? 0;
@@ -168,11 +166,27 @@ export default async function ProfilePage({ params }: Props) {
 
   const commentCount = commentCountResult.count ?? 0;
 
-  const userCommentIds = (commentsResult.data ?? []).map((comment) => comment.id);
-
-  const likesReceived = (commentLikesResult.data ?? []).filter((like) =>
-    userCommentIds.includes(like.comment_id)
-  ).length;
+  const likesReceived = await countLikesReceived(
+    async (offset, limit) => {
+      const { data, error } = await supabase
+        .from('comments')
+        .select('id')
+        .eq('user_id', profile.id)
+        .eq('is_deleted', false)
+        .order('id', { ascending: true })
+        .range(offset, offset + limit - 1);
+      if (error) throw error;
+      return (data ?? []).map((comment) => comment.id);
+    },
+    async (commentIds) => {
+      const { count, error } = await supabase
+        .from('comment_likes')
+        .select('comment_id', { count: 'exact', head: true })
+        .in('comment_id', commentIds);
+      if (error) throw error;
+      return count ?? 0;
+    }
+  );
 
   const streakDates = (streakResult.data ?? []).map((row) => row.completed_at);
 
