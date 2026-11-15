@@ -505,7 +505,11 @@ export function CommentSection({
 
     if (error || !data) {
       await loadComments();
-      throw new Error('Unable to post your comment. Please try again.');
+      throw new Error(
+        error?.code === 'P0001'
+          ? 'You have reached the comment posting limit. Please try again later.'
+          : 'Unable to post your comment. Please try again.'
+      );
     }
 
     setComments((prev) => replaceCommentId(prev, tempId, data.id));
@@ -559,7 +563,11 @@ export function CommentSection({
 
     if (error || !data) {
       await loadComments();
-      throw new Error('Unable to post your reply. Please try again.');
+      throw new Error(
+        error?.code === 'P0001'
+          ? 'You have reached the comment posting limit. Please try again later.'
+          : 'Unable to post your reply. Please try again.'
+      );
     }
 
     setComments((prev) => replaceCommentId(prev, tempId, data.id));
@@ -595,7 +603,11 @@ export function CommentSection({
 
     if (error) {
       await loadComments();
-      throw new Error('Unable to edit this comment. Your comment access may be restricted.');
+      throw new Error(
+        error.code === 'P0001'
+          ? 'You have reached the comment edit limit. Please try again later.'
+          : 'Unable to edit this comment. Your comment access may be restricted.'
+      );
     }
     if (cache) await loadComments();
   }
@@ -806,7 +818,11 @@ export function CommentSection({
     if (error) {
       console.error('Unable to update comment like:', error.message);
       await loadComments();
-      setCommentActionError('Unable to update your like. Please try again.');
+      setCommentActionError(
+        error.code === 'P0001'
+          ? 'You have reached the comment-like limit. Please try again later.'
+          : 'Unable to update your like. Please try again.'
+      );
     } else if (cache) {
       await loadComments();
     }
