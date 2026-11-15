@@ -26,7 +26,7 @@ export async function POST(request: Request) {
     return respond(request, { error: 'Forbidden' }, 403);
   }
 
-  let authenticated;
+  let authenticated: Awaited<ReturnType<typeof getAuthenticatedUserFromRequest>>;
   try {
     authenticated = await getAuthenticatedUserFromRequest(request);
   } catch (error) {
