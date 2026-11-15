@@ -1,12 +1,14 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { NotificationBellLink } from '@/components/notifications/NotificationBellLink';
 import { NotificationList } from '@/components/notifications/NotificationList';
+import { NotificationsPageView } from '@/components/notifications/NotificationsPageView';
 import { createClient } from './supabase';
 import { notificationTransport } from './notification-operations';
 import { NotificationCache } from './notification-cache';
 import { NativeNotificationService } from './notification-service';
 import { openPrivateActivityDatabase } from '@/lib/offline/native-database';
 import { secureAuthStorage } from './secure-auth-storage';
+import { notifyNativeStatus, clearNativeStatusNotice } from './offline-indicator';
 
 type NotificationState = {
   userId: string;
@@ -23,16 +25,34 @@ export function NativeNotificationsProvider({
   children: React.ReactNode;
 }) {
   const [state, setState] = useState<NotificationState | null>(null);
+  const [attempt, setAttempt] = useState(0);
+  const previousUserId = useRef<string | null>(null);
+  useEffect(() => {
+    const previous = previousUserId.current;
+    if (previous && previous !== userId) {
+      clearNativeStatusNotice('notifications-storage:' + previous);
+      clearNativeStatusNotice('notifications-sync:' + previous);
+    }
+    previousUserId.current = userId;
+  }, [userId]);
   useEffect(() => {
     if (!userId) return;
     const accountId = userId;
     let active = true;
     let service: NativeNotificationService | null = null;
+    const noticeId = "notifications-sync:" + accountId;
     const request = () => {
       if (!service) return;
-      void service.sync().catch((error: unknown) => {
-        console.error('Unable to synchronize notification changes:', error);
-      });
+      void service.sync().then(
+        () => clearNativeStatusNotice(noticeId),
+        (error: unknown) => {
+          console.error('Unable to synchronize notification changes:', error);
+          notifyNativeStatus('Your notification changes could not be synchronized.', {
+            id: noticeId,
+            action: { label: 'Retry', onClick: request },
+          });
+        }
+      );
     };
     async function start() {
       try {
@@ -45,15 +65,21 @@ export function NativeNotificationsProvider({
           notificationTransport(createClient(), accountId)
         );
         setState({ userId: accountId, service, error: '' });
+        clearNativeStatusNotice('notifications-storage:' + accountId);
         request();
       } catch (error) {
         console.error('Unable to open saved notifications:', error);
-        if (active)
+        if (active) {
           setState({
             userId: accountId,
             service: null,
             error: 'Saved notifications could not be opened.',
           });
+          notifyNativeStatus('Saved notifications could not be opened.', {
+            id: "notifications-storage:" + accountId,
+            action: { label: 'Retry', onClick: () => setAttempt((value) => value + 1) },
+          });
+        }
       }
     }
     void start();
@@ -66,7 +92,7 @@ export function NativeNotificationsProvider({
       window.removeEventListener('focus', request);
       window.clearInterval(timer);
     };
-  }, [userId]);
+  }, [userId, attempt]);
 
   const current = state?.userId === userId ? state : null;
   return <NotificationContext.Provider value={current}>{children}</NotificationContext.Provider>;
@@ -101,12 +127,17 @@ export function NativeNotificationBell({
       if (version !== requestVersion.current) return;
       setUnreadCount(count);
       setHasCountError(false);
+      clearNativeStatusNotice('notification-count:' + userId);
     } catch (error) {
       if (version !== requestVersion.current) return;
       console.error('Unable to refresh notification count:', error);
       setHasCountError(true);
+      notifyNativeStatus('Your unread notification count could not be loaded.', {
+        id: 'notification-count:' + userId,
+        action: { label: 'Retry', onClick: () => window.dispatchEvent(new Event('cathoscroll:notifications-changed')) },
+      });
     }
-  }, [transport, storageError]);
+  }, [transport, storageError, userId]);
 
   useEffect(() => {
     let active = true;
@@ -150,24 +181,14 @@ export function NativeNotifications({ userId }: { userId: string | null }) {
   const state = useNativeNotifications();
   const transport = state?.userId === userId ? state.service : null;
   return (
-    <div className="container py-12">
-      <section className="mt-8 mb-10">
-        <h1 className="text-5xl font-extrabold md:text-7xl">Notifications</h1>
-        <p className="text-text-secondary mt-4 max-w-2xl text-lg">
-          Replies, moderation updates, and other important account messages appear here.
-        </p>
-      </section>
-      <section className="max-w-3xl">
-        {!userId ? (
-          <p>Sign in to view notifications.</p>
-        ) : transport ? (
-          <NotificationList transport={transport} />
-        ) : state?.error ? (
-          <p role="alert">{state.error}</p>
-        ) : (
-          <p role="status">Loading notifications...</p>
-        )}
-      </section>
-    </div>
+    <NotificationsPageView>
+      {!userId ? (
+        <p>Sign in to view notifications.</p>
+      ) : transport ? (
+        <NotificationList transport={transport} />
+      ) : (
+        <p role="status">Loading notifications...</p>
+      )}
+    </NotificationsPageView>
   );
 }

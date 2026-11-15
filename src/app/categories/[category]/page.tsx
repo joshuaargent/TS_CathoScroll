@@ -11,6 +11,8 @@ import {
 import { siteConfig } from '@/lib/constants';
 
 import { Badge } from '@/components/ui/Badge';
+import { CategoryTopicGrid } from '@/components/categories/CategoryTopicGrid';
+import { CategoryBottomNavigation } from '@/components/categories/CategoryBottomNavigation';
 
 interface Props {
   params: Promise<{
@@ -128,54 +130,13 @@ export default async function CategoryPage({ params, searchParams }: Props) {
       {/* Topics */}
 
       <section>
-        <div className="grid gap-6 md:grid-cols-2">
-          {categoryTopics.map((topic) => (
-            <Link
-              key={topic.id}
-              href={`/topic/${topic.slug}`}
-              className="border-border hover:bg-accent-light/10 block rounded-2xl border p-6 transition-colors"
-            >
-              <h2 className="text-xl leading-snug font-bold">{topic.question}</h2>
-
-              <p className="text-text-secondary mt-4 leading-relaxed">{topic.answer}</p>
-
-              <div className="text-accent mt-6 text-sm font-medium">Study Topic →</div>
-            </Link>
-          ))}
-        </div>
+        <CategoryTopicGrid topics={categoryTopics} />
       </section>
 
-      {/* Bottom Navigation */}
-
-      <section className="border-border mt-16 border-t pt-8">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div>
-            {previousCategory && (
-              <Link
-                href={`/categories/${previousCategory.slug}`}
-                className="text-text-secondary hover:text-text-primary transition-colors"
-              >
-                ← {previousCategory.name}
-              </Link>
-            )}
-          </div>
-
-          <Link href="/" className="text-accent hover:text-accent-hover font-medium">
-            Explore Feed
-          </Link>
-
-          <div>
-            {nextCategory && (
-              <Link
-                href={`/categories/${nextCategory.slug}`}
-                className="text-text-secondary hover:text-text-primary transition-colors"
-              >
-                {nextCategory.name} →
-              </Link>
-            )}
-          </div>
-        </div>
-      </section>
+      <CategoryBottomNavigation
+        previousCategory={previousCategory}
+        nextCategory={nextCategory}
+      />
     </main>
   );
 }

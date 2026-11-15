@@ -1,0 +1,171 @@
+name: CathoScroll Release Build Validation
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cathoscroll-release-validation-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate-source:
+    name: Validate source, tests and types
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install project dependencies
+        run: npm ci
+
+      - name: Run unit tests
+        run: npm test
+
+      - name: Run ESLint
+        run: npm run lint
+
+      - name: Run TypeScript checks
+        run: npm run type-check
+
+  build-desktop:
+    name: Validate ${{ matrix.name }}
+    needs: validate-source
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        include:
+          - name: Windows x64
+            runner: windows-2022
+            platform: win
+            architecture: x64
+            extension: exe
+          - name: Linux x64
+            runner: ubuntu-latest
+            platform: linux
+            architecture: x64
+            extension: AppImage
+          - name: macOS Universal
+            runner: macos-26
+            platform: mac
+            architecture: universal
+            extension: dmg
+
+    runs-on: ${{ matrix.runner }}
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install project dependencies
+        run: npm ci
+
+      - name: Build native app and export offline catalogue
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+        run: npm run cap:sync:electron
+
+      - name: Create macOS application icon
+        if: matrix.platform == 'mac'
+        shell: bash
+        run: |
+          set -euo pipefail
+          iconset="electron/assets/icon.iconset"
+          mkdir -p "$iconset"
+          for size in 16 32 128 256 512; do
+            double=$((size * 2))
+            sips -s format png -z "$size" "$size" assets/logo.png --out "$iconset/icon_${size}x${size}.png" >/dev/null
+            sips -s format png -z "$double" "$double" assets/logo.png --out "$iconset/icon_${size}x${size}@2x.png" >/dev/null
+          done
+          iconutil -c icns "$iconset" -o electron/assets/icon.icns
+          test -s electron/assets/icon.icns
+          rm -rf "$iconset"
+
+      - name: Package desktop application without publishing
+        run: npm --prefix electron run pack -- --${{ matrix.platform }} --${{ matrix.architecture }} --publish never
+
+      - name: Verify installer output
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$(find electron/dist -maxdepth 1 -type f -name '*.${{ matrix.extension }}' -print -quit)"
+
+          if [[ "${{ matrix.platform }}" == "mac" ]]; then
+            app_path="$(find electron/dist -type d -name 'CathoScroll.app' -print -quit)"
+            test -n "$app_path"
+
+            main_binary="$app_path/Contents/MacOS/CathoScroll"
+            test -s "$main_binary"
+            lipo "$main_binary" -verify_arch x86_64 arm64
+
+            sqlite_dir="$app_path/Contents/Resources/app.asar.unpacked/node_modules/better-sqlite3-multiple-ciphers/prebuilds"
+            test -s "$sqlite_dir/darwin-x64.node"
+            test -s "$sqlite_dir/darwin-arm64.node"
+            lipo "$sqlite_dir/darwin-x64.node" -verify_arch x86_64
+            lipo "$sqlite_dir/darwin-arm64.node" -verify_arch arm64
+          fi
+
+  build-android:
+    name: Validate Android release APK
+    needs: validate-source
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Set up Java
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+
+      - name: Install project dependencies
+        run: npm ci
+
+      - name: Build Android web assets and sync native project
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+        run: |
+          npm run native:build
+          npx cap sync android
+
+      - name: Build unsigned release APK for compile validation
+        working-directory: android
+        run: bash ./gradlew --no-daemon --stacktrace testReleaseUnitTest assembleRelease
+
+      - name: Verify APK output
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$(find android/app/build/outputs/apk/release -maxdepth 1 -type f -name 'CathoScroll-*.apk' -print -quit)"

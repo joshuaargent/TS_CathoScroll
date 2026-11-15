@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, readFile, rm, unlink } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, rm, unlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
@@ -51,7 +51,35 @@ async function fixture(t, server) {
   const assets = path.join(bundle, 'assets', 'databases');
   await mkdir(assets, { recursive: true });
   const catalogue = new DatabaseSync(path.join(assets, 'catalogue.db'));
-  catalogue.exec("CREATE TABLE topics (id TEXT); INSERT INTO topics VALUES ('bundled');");
+  catalogue.exec(`
+    CREATE TABLE categories (
+      slug TEXT,
+      name TEXT,
+      description TEXT,
+      order_index INTEGER
+    );
+    CREATE TABLE topics (
+      id TEXT PRIMARY KEY,
+      slug TEXT,
+      category_slug TEXT,
+      order_index INTEGER,
+      question TEXT,
+      answer TEXT,
+      explanation TEXT,
+      catechism_paragraphs TEXT,
+      catechism_text TEXT,
+      scripture_reference TEXT,
+      scripture_text TEXT
+    );
+    INSERT INTO topics (id) VALUES ('bundled');
+    CREATE TABLE catalogue_metadata (
+      singleton INTEGER PRIMARY KEY,
+      format INTEGER NOT NULL,
+      category_count INTEGER NOT NULL,
+      topic_count INTEGER NOT NULL
+    );
+    INSERT INTO catalogue_metadata VALUES (1, 1, 0, 1);
+  `);
   catalogue.close();
 
   const source = await readFile(
@@ -181,6 +209,25 @@ test('migrates an existing queue through the encrypted desktop bridge', async (t
   await plugin.open({ database: 'private-activity' });
   await migrateLegacyActivity(legacy, encrypted);
   assert.equal(await destination.pendingCount('synthetic-user'), 1);
+
+  const legacyFile = path.join(userData, 'cathoscroll-sqlite', 'activity.sqlite');
+  const originalCopy = path.join(userData, 'databases', 'activity.sqlite');
+  await mkdir(path.dirname(originalCopy), { recursive: true });
+  await writeFile(originalCopy, await readFile(legacyFile));
+  await writeFile(legacyFile + '-wal', Buffer.from('legacy-wal'));
+  await writeFile(originalCopy + '-shm', Buffer.from('legacy-shm'));
+  await plugin.removeLegacyActivity();
+  for (const file of [
+    legacyFile,
+    legacyFile + '-wal',
+    legacyFile + '-shm',
+    originalCopy,
+    originalCopy + '-shm',
+  ]) {
+    await assert.rejects(readFile(file), { code: 'ENOENT' });
+  }
+  assert.equal(plugin.databases.has('activity'), false);
+  assert.equal(await destination.pendingCount('synthetic-user'), 1);
 });
 
 test('a configured Electron development server cannot use the offline database bridge', async (t) => {
@@ -193,6 +240,40 @@ test('a configured Electron development server cannot use the offline database b
     if (previous === undefined) delete process.env.CAPACITOR_ELECTRON_DEV_SERVER_URL;
     else process.env.CAPACITOR_ELECTRON_DEV_SERVER_URL = previous;
   }
+});
+
+test('repairs a corrupted Electron catalogue without touching private activity', async (t) => {
+  const { plugin, userData } = await fixture(t);
+  await plugin.open({ database: 'catalogue' });
+  await plugin.open({ database: 'private-activity' });
+  await plugin.execute({
+    database: 'private-activity',
+    statement: 'CREATE TABLE retained_private_data (value TEXT)',
+  });
+  await plugin.execute({
+    database: 'private-activity',
+    statement: 'INSERT INTO retained_private_data VALUES (?)',
+    values: ['must-survive-catalogue-repair'],
+  });
+
+  plugin.databases.get('catalogue').close();
+  plugin.databases.delete('catalogue');
+  const catalogueFile = path.join(userData, 'cathoscroll-sqlite', 'catalogue.sqlite');
+  await writeFile(catalogueFile, Buffer.from('corrupted catalogue'));
+  await writeFile(catalogueFile + '-wal', Buffer.from('corrupt wal'));
+
+  await plugin.open({ database: 'catalogue' });
+  assert.deepEqual(
+    await plugin.query({ database: 'catalogue', statement: 'SELECT id FROM topics' }),
+    { rows: [{ id: 'bundled' }] }
+  );
+  assert.deepEqual(
+    await plugin.query({
+      database: 'private-activity',
+      statement: 'SELECT value FROM retained_private_data',
+    }),
+    { rows: [{ value: 'must-survive-catalogue-repair' }] }
+  );
 });
 
 test('bundled desktop app can use its catalogue and transactional activity database', async (t) => {

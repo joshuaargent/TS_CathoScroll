@@ -1,31 +1,68 @@
 import { NextResponse } from 'next/server';
 
-import { createServiceRoleClient, getAdminSession, isValidUuid } from '@/lib/supabase/admin';
+import { createServiceRoleClient, getAdminSessionFromRequest, isSameOriginOrNativeRequest, nativeApiCorsHeaders, isValidUuid } from '@/lib/supabase/admin';
 
 interface RouteContext {
   params: Promise<{ userId: string }>;
 }
 
+export function OPTIONS(request: Request) {
+  const headers = nativeApiCorsHeaders(request);
+  headers.set('Cache-Control', 'no-store');
+  if (!headers.has('Access-Control-Allow-Origin')) {
+    return new NextResponse(null, { status: 403 });
+  }
+  headers.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  return new NextResponse(null, { status: 204, headers });
+}
+
+function isAllowedCommentHistoryRequest(request: Request): boolean {
+  if (isSameOriginOrNativeRequest(request)) return true;
+
+  // Fetch GET requests made by the website normally omit the Origin header.
+  // Fetch Metadata is browser-controlled; the Referer check supports clients
+  // that omit Sec-Fetch-Site while still requiring an exact same-origin URL.
+  if (request.headers.has('origin')) return false;
+  if (request.headers.get('sec-fetch-site') === 'same-origin') return true;
+
+  const referer = request.headers.get('referer');
+  if (!referer) return false;
+
+  try {
+    return new URL(referer).origin === new URL(request.url).origin;
+  } catch {
+    return false;
+  }
+}
+
+function respond(request: Request, body: unknown, init?: ResponseInit) {
+  const headers = nativeApiCorsHeaders(request);
+  headers.set('Cache-Control', 'no-store');
+  new Headers(init?.headers).forEach((value, key) => headers.set(key, value));
+  return NextResponse.json(body, { ...init, headers });
+}
+
 export async function GET(request: Request, { params }: RouteContext) {
-  const { user, isAdmin, error: roleError } = await getAdminSession();
+  if (!isAllowedCommentHistoryRequest(request)) return respond(request, { error: 'Forbidden' }, { status: 403 });
+  const { user, isAdmin, error: roleError } = await getAdminSessionFromRequest(request);
 
   if (!user) {
-    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    return respond(request, { error: 'Authentication required' }, { status: 401 });
   }
 
   if (roleError) {
     console.error('Unable to verify comment-history access:', roleError.message);
-    return NextResponse.json({ error: 'Unable to verify admin access' }, { status: 500 });
+    return respond(request, { error: 'Unable to verify admin access' }, { status: 500 });
   }
 
   if (!isAdmin) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    return respond(request, { error: 'Forbidden' }, { status: 403 });
   }
 
   const { userId } = await params;
 
   if (!isValidUuid(userId)) {
-    return NextResponse.json({ error: 'Invalid user id' }, { status: 400 });
+    return respond(request, { error: 'Invalid user id' }, { status: 400 });
   }
 
   const url = new URL(request.url);
@@ -39,7 +76,7 @@ export async function GET(request: Request, { params }: RouteContext) {
     limitParam < 1 ||
     limitParam > 100
   ) {
-    return NextResponse.json({ error: 'Invalid pagination values' }, { status: 400 });
+    return respond(request, { error: 'Invalid pagination values' }, { status: 400 });
   }
 
   let adminClient;
@@ -48,7 +85,7 @@ export async function GET(request: Request, { params }: RouteContext) {
     adminClient = createServiceRoleClient();
   } catch (error) {
     console.error('Comment history is not configured:', error);
-    return NextResponse.json({ error: 'Comment history is not configured' }, { status: 500 });
+    return respond(request, { error: 'Comment history is not configured' }, { status: 500 });
   }
 
   const { data: comments, error: commentsError } = await adminClient
@@ -60,7 +97,7 @@ export async function GET(request: Request, { params }: RouteContext) {
 
   if (commentsError) {
     console.error('Unable to load user comment history:', commentsError.message);
-    return NextResponse.json({ error: 'Unable to load comment history' }, { status: 500 });
+    return respond(request, { error: 'Unable to load comment history' }, { status: 500 });
   }
 
   const parentIds = [
@@ -72,7 +109,7 @@ export async function GET(request: Request, { params }: RouteContext) {
 
   if (parentsError) {
     console.error('Unable to load reply context:', parentsError.message);
-    return NextResponse.json({ error: 'Unable to load comment history' }, { status: 500 });
+    return respond(request, { error: 'Unable to load comment history' }, { status: 500 });
   }
 
   const profileIds = [...new Set([userId, ...(parents ?? []).map((parent) => parent.user_id)])];
@@ -83,12 +120,16 @@ export async function GET(request: Request, { params }: RouteContext) {
 
   if (profilesError) {
     console.error('Unable to load comment-history profiles:', profilesError.message);
-    return NextResponse.json({ error: 'Unable to load comment history' }, { status: 500 });
+    return respond(request, { error: 'Unable to load comment history' }, { status: 500 });
   }
 
   const profileById = new Map((profiles ?? []).map((profile) => [profile.id, profile]));
   const parentById = new Map((parents ?? []).map((parent) => [parent.id, parent]));
-  const page = comments ?? [];
+  // Fetch one look-ahead row to determine whether another page exists, but
+  // return only the requested page so the next offset cannot duplicate a row.
+  const fetchedPage = comments ?? [];
+  const hasMore = fetchedPage.length > limitParam;
+  const page = fetchedPage.slice(0, limitParam);
   const topicIds = [...new Set(page.map((comment) => comment.topic_id))];
   const { data: topicRows, error: topicsError } = topicIds.length
     ? await adminClient.from('topics').select('id,question').in('id', topicIds)
@@ -96,12 +137,12 @@ export async function GET(request: Request, { params }: RouteContext) {
 
   if (topicsError) {
     console.error('Unable to load comment-history topic names:', topicsError.message);
-    return NextResponse.json({ error: 'Unable to load comment history' }, { status: 500 });
+    return respond(request, { error: 'Unable to load comment history' }, { status: 500 });
   }
 
   const topicTitleById = new Map((topicRows ?? []).map((topic) => [topic.id, topic.question]));
 
-  return NextResponse.json({
+  return respond(request, {
     comments: page.map((comment) => {
       const parent =
         comment.parent_id === null ? null : (parentById.get(comment.parent_id) ?? null);
@@ -118,6 +159,6 @@ export async function GET(request: Request, { params }: RouteContext) {
           : null,
       };
     }),
-    nextOffset: page.length > limitParam ? offsetParam + limitParam : null,
+    nextOffset: hasMore ? offsetParam + limitParam : null,
   });
 }

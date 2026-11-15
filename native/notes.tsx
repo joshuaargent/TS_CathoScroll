@@ -4,7 +4,13 @@ import { useSignInPrompt } from '@/components/providers/SignInPromptProvider';
 import { TopicNotesEditor } from '@/components/topic/TopicNotesEditor';
 import type { CachedNote, NativeNoteCache } from './note-cache';
 import { saveNativeNote } from './note-operations';
+import {
+  nativeNoteSaveKey,
+  updateNativeNoteSaveState,
+  type NativeNoteSaveState,
+} from './note-save-state';
 import { createClient } from './supabase';
+import { notifyNativeStatus, clearNativeStatusNotice } from './offline-indicator';
 
 type NoteState = {
   userId: string;
@@ -35,10 +41,15 @@ export function NativeNotes({
   const [state, setState] = useState<NoteState | null>(null);
   const [attempt, setAttempt] = useState(0);
   const [content, setContent] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState('');
+  const [savingState, setSavingState] = useState<NativeNoteSaveState>({});
+  const saving = userId ? Boolean(savingState[nativeNoteSaveKey(userId, topicId)]) : false;
+  const [messageState, setMessageState] = useState({ userId, topicId, value: '' });
+  const message = messageState.userId === userId && messageState.topicId === topicId
+    ? messageState.value
+    : '';
   const dirty = useRef(false);
   const draft = useRef('');
+  const identity = useRef({ userId, topicId });
   const requestSignIn = useSignInPrompt();
 
   useEffect(() => {
@@ -50,6 +61,15 @@ export function NativeNotes({
       window.removeEventListener('offline', retry);
     };
   }, []);
+
+  useEffect(() => {
+    // A draft belongs to exactly one account/topic pair, never to the editor
+    // instance across navigation or account switching.
+    identity.current = { userId, topicId };
+    dirty.current = false;
+    draft.current = '';
+
+  }, [userId, topicId]);
 
   useEffect(() => {
     if (!userId) return;
@@ -129,26 +149,62 @@ export function NativeNotes({
   }, [cache, topicId, userId, attempt]);
 
   const current = state?.userId === userId && state.topicId === topicId ? state : null;
+
+  useEffect(() => {
+    if (!userId || !current?.warning) {
+      if (userId) clearNativeStatusNotice('note-status:' + userId + ':' + topicId);
+      return;
+    }
+    notifyNativeStatus(current.warning, {
+      id: 'note-status:' + userId + ':' + topicId,
+      action: { label: 'Retry', onClick: () => setAttempt((value) => value + 1) },
+    });
+    return () => clearNativeStatusNotice('note-status:' + userId + ':' + topicId);
+  }, [userId, topicId, current?.warning]);
+
+  useEffect(() => {
+    const noticeId = userId ? 'note-offline:' + userId + ':' + topicId : '';
+    if (!userId || (current?.verified && navigator.onLine)) {
+      if (noticeId) clearNativeStatusNotice(noticeId);
+      return;
+    }
+    if (!navigator.onLine) {
+      notifyNativeStatus('Connect to view the latest note and make changes.', { id: noticeId });
+    }
+    return () => {
+      if (noticeId) clearNativeStatusNotice(noticeId);
+    };
+  }, [userId, topicId, current?.verified]);
+
   async function save() {
     if (!userId || !current?.verified || !navigator.onLine || saving) return;
+    const target = { userId, topicId };
     const savedContent = draft.current;
-    setSaving(true);
-    setMessage('');
+    const isCurrent = () =>
+      identity.current.userId === target.userId && identity.current.topicId === target.topicId;
+    setSavingState((previous) => updateNativeNoteSaveState(previous, target.userId, target.topicId, true));
+    setMessageState({ ...target, value: '' });
     try {
-      await saveNativeNote(createClient(), userId, topicId, savedContent);
+      await saveNativeNote(createClient(), target.userId, target.topicId, savedContent);
+      if (!isCurrent()) return;
       dirty.current = draft.current !== savedContent;
-      setMessage('Saved successfully.');
+      setMessageState({ ...target, value: 'Saved successfully.' });
       try {
-        await cache.save(userId, topicId, savedContent);
+        await cache.save(target.userId, target.topicId, savedContent);
       } catch (error) {
         console.error('Unable to save note for offline viewing:', error);
-        setMessage('Saved online, but this note could not be saved for offline viewing.');
+        if (isCurrent()) {
+          setMessageState({ ...target, value: 'Saved online, but this note could not be saved for offline viewing.' });
+        }
       }
     } catch (error) {
       console.error('Unable to save note:', error);
-      setMessage('Unable to save your note. Check your connection and try again.');
+      if (isCurrent()) {
+        setMessageState({ ...target, value: 'Unable to save your note. Check your connection and try again.' });
+      }
     } finally {
-      setSaving(false);
+      // Remove only this account/topic operation; other in-flight saves remain visible.
+      setSavingState((previous) => updateNativeNoteSaveState(previous, target.userId, target.topicId, false));
     }
   }
 
@@ -186,25 +242,8 @@ export function NativeNotes({
         onSave={() => void save()}
         saving={saving}
         disabled={!current.verified || !navigator.onLine}
-        notice={
-          !current.verified || !navigator.onLine
-            ? 'Connect to view the latest note and make changes.'
-            : undefined
-        }
         message={message}
       />
-      {current.warning && (
-        <p role="alert" className="mb-6">
-          {current.warning}{' '}
-          <button
-            type="button"
-            className="text-accent underline"
-            onClick={() => setAttempt((n) => n + 1)}
-          >
-            Retry
-          </button>
-        </p>
-      )}
     </>
   );
 }

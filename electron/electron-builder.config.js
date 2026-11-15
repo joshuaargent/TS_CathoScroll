@@ -29,6 +29,7 @@ module.exports = {
   linux: {
     icon: '../assets/logo.png',
     category: 'Education',
+    maintainer: 'Joshua Argent <argentjackjoshua@gmail.com>',
     target: ['AppImage', 'deb'],
     artifactName: '${productName}-${version}-${arch}.${ext}',
   },
@@ -36,10 +37,16 @@ module.exports = {
     icon: 'assets/icon.icns',
     category: 'public.app-category.education',
     target: ['dmg', 'zip'],
-    // The app is intentionally unsigned until Developer ID credentials exist.
+    // CathoScroll is distributed unsigned; macOS update notices link to the
+    // website so users can download and install the new DMG manually.
     identity: null,
     notarize: false,
     artifactName: '${productName}-${version}-${arch}.${ext}',
+    // The sqlite package ships both Intel and Apple Silicon prebuilds in
+    // each architecture's package tree. Both files are identical between the
+    // x64 and arm64 staging apps; neither is a universal Mach-O binary, so
+    // keep the packaged prebuilds as-is instead of trying to lipo-merge them.
+    x64ArchFiles: '**/better-sqlite3-multiple-ciphers/prebuilds/darwin-*.node',
   },
   publish: {
     provider: 'github',

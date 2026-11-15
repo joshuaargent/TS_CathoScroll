@@ -1,7 +1,6 @@
 'use client';
 
 import { useMemo, useState, type FormEvent } from 'react';
-import { useRouter } from 'next/navigation';
 
 export interface AdminContentCategory {
   slug: string;
@@ -29,6 +28,8 @@ export interface AdminContentTopic {
 interface Props {
   categories: AdminContentCategory[];
   topics: AdminContentTopic[];
+  fetcher?: typeof fetch;
+  onSaved?: () => void;
 }
 
 type CategoryForm = Omit<AdminContentCategory, 'is_published' | 'order_index'> & {
@@ -95,8 +96,7 @@ function parseOrder(value: string) {
   return Number.isSafeInteger(parsed) && parsed >= 0 && parsed <= 100_000 ? parsed : -1;
 }
 
-export function AdminContentManager({ categories, topics }: Props) {
-  const router = useRouter();
+export function AdminContentManager({ categories, topics, fetcher = fetch, onSaved }: Props) {
   const [categoryForm, setCategoryForm] = useState<CategoryForm | null>(null);
   const [topicForm, setTopicForm] = useState<TopicForm | null>(null);
   const [topicFilter, setTopicFilter] = useState('');
@@ -196,7 +196,7 @@ export function AdminContentManager({ categories, topics }: Props) {
     setSuccess('');
     setSaving(true);
     try {
-      const response = await fetch('/api/admin/content', {
+      const response = await fetcher('/api/admin/content', {
         method: editing ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -210,7 +210,7 @@ export function AdminContentManager({ categories, topics }: Props) {
       setCategoryForm(null);
       setTopicForm(null);
       setSuccess('Content saved and the shared content cache was cleared.');
-      router.refresh();
+      onSaved?.();
     } catch (requestError) {
       console.error('Unable to save admin-managed content:', requestError);
       setError('Unable to save this content. Please try again.');

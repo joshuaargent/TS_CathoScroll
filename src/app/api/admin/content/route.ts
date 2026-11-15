@@ -2,7 +2,12 @@ import { revalidateTag } from 'next/cache';
 import { NextResponse } from 'next/server';
 
 import { CONTENT_CACHE_TAG } from '@/lib/content';
-import { createServiceRoleClient, getAdminSession, isSameOrigin } from '@/lib/supabase/admin';
+import {
+  createServiceRoleClient,
+  getAdminSessionFromRequest,
+  isSameOriginOrNativeRequest,
+  nativeApiCorsHeaders,
+} from '@/lib/supabase/admin';
 
 type CategoryInput = Record<string, unknown> & {
   kind: 'category';
@@ -108,23 +113,23 @@ function topicRow(input: TopicInput) {
 }
 
 async function authorize(request: Request) {
-  if (!isSameOrigin(request)) {
-    return { response: NextResponse.json({ error: 'Forbidden' }, { status: 403 }) };
+  if (!isSameOriginOrNativeRequest(request)) {
+    return { response: respond(request, { error: 'Forbidden' }, { status: 403 }) };
   }
 
-  const { user, isAdmin, error } = await getAdminSession();
+  const { user, isAdmin, error } = await getAdminSessionFromRequest(request);
 
   if (!user) {
-    return { response: NextResponse.json({ error: 'Authentication required' }, { status: 401 }) };
+    return { response: respond(request, { error: 'Authentication required' }, { status: 401 }) };
   }
   if (error) {
     console.error('Unable to verify content editor access:', error.message);
     return {
-      response: NextResponse.json({ error: 'Unable to verify admin access' }, { status: 500 }),
+      response: respond(request, { error: 'Unable to verify admin access' }, { status: 500 }),
     };
   }
   if (!isAdmin) {
-    return { response: NextResponse.json({ error: 'Forbidden' }, { status: 403 }) };
+    return { response: respond(request, { error: 'Forbidden' }, { status: 403 }) };
   }
 
   try {
@@ -132,7 +137,7 @@ async function authorize(request: Request) {
   } catch (error) {
     console.error('Content editor is not configured:', error);
     return {
-      response: NextResponse.json({ error: 'Content editor is not configured' }, { status: 500 }),
+      response: respond(request, { error: 'Content editor is not configured' }, { status: 500 }),
     };
   }
 }
@@ -141,7 +146,7 @@ async function readInput(request: Request): Promise<unknown | NextResponse> {
   try {
     return await request.json();
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    return respond(request, { error: 'Invalid JSON body' }, { status: 400 });
   }
 }
 
@@ -149,23 +154,84 @@ function isResponse(value: unknown): value is NextResponse {
   return value instanceof NextResponse;
 }
 
-function handleDatabaseError(message: string, error: { code?: string; message: string }) {
+function handleDatabaseError(request: Request, message: string, error: { code?: string; message: string }) {
   if (error.code === '23505') {
-    return NextResponse.json({ error: 'A record with that slug already exists.' }, { status: 409 });
+    return respond(request, { error: 'A record with that slug already exists.' }, { status: 409 });
   }
   if (error.code === '23503') {
-    return NextResponse.json(
+    return respond(request, 
       { error: 'Select an existing category for this topic.' },
       { status: 400 }
     );
   }
 
   console.error(message, error.message);
-  return NextResponse.json({ error: 'Unable to save content.' }, { status: 500 });
+  return respond(request, { error: 'Unable to save content.' }, { status: 500 });
 }
 
 function invalidateContent() {
   revalidateTag(CONTENT_CACHE_TAG, { expire: 0 });
+}
+
+function respond(request: Request, body: unknown, init?: ResponseInit) {
+  const headers = nativeApiCorsHeaders(request);
+  headers.set('Cache-Control', 'no-store');
+  new Headers(init?.headers).forEach((value, key) => headers.set(key, value));
+  return NextResponse.json(body, { ...init, headers });
+}
+
+export function OPTIONS(request: Request) {
+  const headers = nativeApiCorsHeaders(request);
+  if (!headers.has('Access-Control-Allow-Origin')) {
+    return new NextResponse(null, { status: 403 });
+  }
+  headers.set('Access-Control-Allow-Methods', 'GET, POST, PATCH, OPTIONS');
+  return new NextResponse(null, { status: 204, headers });
+}
+
+async function loadAllRows<T>(
+  query: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
+  label: string
+): Promise<T[]> {
+  const rows: T[] = [];
+  for (let offset = 0; ; offset += 500) {
+    const { data, error } = await query(offset, offset + 499);
+    if (error) throw new Error(`Unable to load admin ${label}: ${error.message}`);
+    rows.push(...(data ?? []));
+    if (!data || data.length < 500) return rows;
+  }
+}
+
+export async function GET(request: Request) {
+  const authorization = await authorize(request);
+  if ('response' in authorization) return authorization.response;
+
+  try {
+    const [categories, topics] = await Promise.all([
+      loadAllRows(
+        (from, to) => authorization.adminClient
+          .from('categories')
+          .select('slug,name,description,order_index,is_published')
+          .order('order_index', { ascending: true })
+          .order('slug', { ascending: true })
+          .range(from, to),
+        'categories'
+      ),
+      loadAllRows(
+        (from, to) => authorization.adminClient
+          .from('topics')
+          .select('id,slug,category_slug,order_index,question,answer,explanation,catechism_paragraphs,catechism_text,scripture_reference,scripture_text,is_published')
+          .order('order_index', { ascending: true })
+          .order('id', { ascending: true })
+          .range(from, to),
+        'topics'
+      ),
+    ]);
+    return respond(request, { categories, topics });
+  } catch (error) {
+    console.error('Unable to load admin content:', error);
+    return respond(request, { error: 'Unable to load admin content.' }, { status: 500 });
+  }
 }
 
 export async function POST(request: Request) {
@@ -175,7 +241,7 @@ export async function POST(request: Request) {
   const input = await readInput(request);
   if (isResponse(input)) return input;
   if (!isRecord(input)) {
-    return NextResponse.json({ error: 'Invalid content data.' }, { status: 400 });
+    return respond(request, { error: 'Invalid content data.' }, { status: 400 });
   }
 
   if (isCategoryInput(input)) {
@@ -183,7 +249,7 @@ export async function POST(request: Request) {
       slug: input.slug,
       ...categoryRow(input),
     });
-    if (error) return handleDatabaseError('Unable to create category:', error);
+    if (error) return handleDatabaseError(request, 'Unable to create category:', error);
   } else if (isTopicInput(input)) {
     const { data: category, error: categoryError } = await authorization.adminClient
       .from('categories')
@@ -192,9 +258,9 @@ export async function POST(request: Request) {
       .maybeSingle();
 
     if (categoryError)
-      return handleDatabaseError('Unable to verify topic category:', categoryError);
+      return handleDatabaseError(request, 'Unable to verify topic category:', categoryError);
     if (!category) {
-      return NextResponse.json(
+      return respond(request, 
         { error: 'Select an existing category for this topic.' },
         { status: 400 }
       );
@@ -204,13 +270,13 @@ export async function POST(request: Request) {
       id: crypto.randomUUID(),
       ...topicRow(input),
     });
-    if (error) return handleDatabaseError('Unable to create topic:', error);
+    if (error) return handleDatabaseError(request, 'Unable to create topic:', error);
   } else {
-    return NextResponse.json({ error: 'Invalid content data.' }, { status: 400 });
+    return respond(request, { error: 'Invalid content data.' }, { status: 400 });
   }
 
   invalidateContent();
-  return NextResponse.json({ success: true });
+  return respond(request, { success: true });
 }
 
 export async function PATCH(request: Request) {
@@ -220,7 +286,7 @@ export async function PATCH(request: Request) {
   const input = await readInput(request);
   if (isResponse(input)) return input;
   if (!isRecord(input)) {
-    return NextResponse.json({ error: 'Invalid content data.' }, { status: 400 });
+    return respond(request, { error: 'Invalid content data.' }, { status: 400 });
   }
 
   if (isCategoryInput(input)) {
@@ -230,8 +296,8 @@ export async function PATCH(request: Request) {
       .eq('slug', input.slug)
       .select('slug')
       .maybeSingle();
-    if (error) return handleDatabaseError('Unable to update category:', error);
-    if (!data) return NextResponse.json({ error: 'Category not found.' }, { status: 404 });
+    if (error) return handleDatabaseError(request, 'Unable to update category:', error);
+    if (!data) return respond(request, { error: 'Category not found.' }, { status: 404 });
   } else if (isTopicInput(input) && input.id) {
     const { data: existingTopic, error: existingTopicError } = await authorization.adminClient
       .from('topics')
@@ -240,11 +306,11 @@ export async function PATCH(request: Request) {
       .maybeSingle();
 
     if (existingTopicError) {
-      return handleDatabaseError('Unable to verify topic before update:', existingTopicError);
+      return handleDatabaseError(request, 'Unable to verify topic before update:', existingTopicError);
     }
-    if (!existingTopic) return NextResponse.json({ error: 'Topic not found.' }, { status: 404 });
+    if (!existingTopic) return respond(request, { error: 'Topic not found.' }, { status: 404 });
     if (existingTopic.slug !== input.slug) {
-      return NextResponse.json(
+      return respond(request, 
         { error: 'A topic URL slug cannot be changed after creation.' },
         { status: 400 }
       );
@@ -256,12 +322,12 @@ export async function PATCH(request: Request) {
       .eq('id', input.id)
       .select('id')
       .maybeSingle();
-    if (error) return handleDatabaseError('Unable to update topic:', error);
-    if (!data) return NextResponse.json({ error: 'Topic not found.' }, { status: 404 });
+    if (error) return handleDatabaseError(request, 'Unable to update topic:', error);
+    if (!data) return respond(request, { error: 'Topic not found.' }, { status: 404 });
   } else {
-    return NextResponse.json({ error: 'Invalid content data.' }, { status: 400 });
+    return respond(request, { error: 'Invalid content data.' }, { status: 400 });
   }
 
   invalidateContent();
-  return NextResponse.json({ success: true });
+  return respond(request, { success: true });
 }

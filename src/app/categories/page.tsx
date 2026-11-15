@@ -4,6 +4,7 @@ import type { Metadata } from 'next';
 import { getPublishedCategories, getPublishedTopicCount } from '@/lib/content';
 import { siteConfig } from '@/lib/constants';
 import { Badge } from '@/components/ui/Badge';
+import { CategoriesGrid } from '@/components/categories/CategoriesGrid';
 
 export const metadata: Metadata = {
   title: 'Categories',
@@ -59,23 +60,7 @@ export default async function CategoriesPage() {
         </div>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-        {categories.map((category) => (
-          <Link key={category.slug} href={`/categories/${category.slug}`}>
-            <article className="border-border hover:bg-bg-secondary h-full rounded-2xl border p-6 transition-colors">
-              <div className="flex items-center justify-between">
-                <Badge variant="accent" size="sm">
-                  Explore topics
-                </Badge>
-              </div>
-
-              <h2 className="mt-4 text-2xl font-bold">{category.name}</h2>
-
-              <p className="text-text-secondary mt-3 leading-relaxed">{category.description}</p>
-            </article>
-          </Link>
-        ))}
-      </div>
+      <CategoriesGrid categories={categories} />
 
       <section className="border-border mt-16 border-t pt-8 text-center">
         <Link

@@ -4,14 +4,21 @@ import type { NativeActivity } from './activity';
 export function NativeActivityAlert({
   activity,
   version,
+  onPresenceChange,
 }: {
   activity: NativeActivity;
   version: number;
+  onPresenceChange: (present: boolean) => void;
 }) {
   const [count, setCount] = useState(0);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [attempt, setAttempt] = useState(0);
+
+  useEffect(() => {
+    onPresenceChange(count > 0 || Boolean(error));
+    return () => onPresenceChange(false);
+  }, [count, error, onPresenceChange]);
 
   useEffect(() => {
     let active = true;
@@ -48,7 +55,7 @@ export function NativeActivityAlert({
 
   if (!count && !error) return null;
   return (
-    <div role="status" className="bg-bg-card border-border mx-6 rounded-xl border p-4 text-sm">
+    <div role="status" className="bg-bg-secondary border-border rounded-xl border p-3 text-sm">
       {count > 0 && (
         <p>
           {count === 1

@@ -1,32 +1,32 @@
-import Link from 'next/link';
-
-export function AdminNavigation() {
+export function AdminNavigation({ showContent = true }: { showContent?: boolean }) {
   return (
     <nav aria-label="Admin sections" className="mb-8 flex flex-wrap gap-3">
-      <Link
+      <a
         href="/admin"
         className="border-border hover:bg-bg-secondary rounded-lg border px-4 py-2 text-sm"
       >
         Dashboard
-      </Link>
-      <Link
+      </a>
+      <a
         href="/admin/reports"
         className="border-border hover:bg-bg-secondary rounded-lg border px-4 py-2 text-sm"
       >
         All reports
-      </Link>
-      <Link
+      </a>
+      <a
         href="/admin/appeals"
         className="border-border hover:bg-bg-secondary rounded-lg border px-4 py-2 text-sm"
       >
         Comment-ban appeals
-      </Link>
-      <Link
-        href="/admin/content"
-        className="border-border hover:bg-bg-secondary rounded-lg border px-4 py-2 text-sm"
-      >
-        Content library
-      </Link>
+      </a>
+      {showContent && (
+        <a
+          href="/admin/content"
+          className="border-border hover:bg-bg-secondary rounded-lg border px-4 py-2 text-sm"
+        >
+          Content library
+        </a>
+      )}
     </nav>
   );
 }

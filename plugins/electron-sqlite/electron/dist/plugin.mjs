@@ -6,10 +6,50 @@ import { app } from 'electron';
 
 export { CathoSecureStorage } from './secure-storage.mjs';
 
+function validateCatalogue(file) {
+  const database = new DatabaseSync(file);
+  try {
+    const integrity = database.prepare('PRAGMA quick_check(1)').get()?.quick_check;
+    database.prepare(
+      'SELECT slug, name, description, order_index FROM categories LIMIT 0'
+    ).all();
+    database.prepare(
+      'SELECT id, slug, category_slug, order_index, question, answer, explanation, catechism_paragraphs, catechism_text, scripture_reference, scripture_text FROM topics LIMIT 0'
+    ).all();
+    const metadata = database
+      .prepare('SELECT format, category_count, topic_count FROM catalogue_metadata WHERE singleton = 1')
+      .get();
+    const categoryCount = database.prepare('SELECT COUNT(*) AS count FROM categories').get()?.count;
+    const topicCount = database.prepare('SELECT COUNT(*) AS count FROM topics').get()?.count;
+    if (
+      integrity !== 'ok' ||
+      !metadata ||
+      metadata.format !== 1 ||
+      !Number.isSafeInteger(metadata.category_count) ||
+      metadata.category_count < 0 ||
+      !Number.isSafeInteger(metadata.topic_count) ||
+      metadata.topic_count < 0 ||
+      categoryCount !== metadata.category_count ||
+      topicCount !== metadata.topic_count
+    ) {
+      throw new Error('The offline catalogue failed validation.');
+    }
+  } finally {
+    database.close();
+  }
+}
+
+function removeSqliteSidecars(file) {
+  for (const suffix of ['-wal', '-shm', '-journal']) {
+    const sidecar = file + suffix;
+    if (existsSync(sidecar)) unlinkSync(sidecar);
+  }
+}
+
 export class CathoSQLite {
   static __capacitorElectronPlugin = {
     name: 'CathoSQLite',
-    methods: ['open', 'execute', 'query', 'begin', 'commit', 'rollback'],
+    methods: ['open', 'execute', 'query', 'begin', 'commit', 'rollback', 'removeLegacyActivity'],
   };
 
   constructor(context) {
@@ -46,17 +86,11 @@ export class CathoSQLite {
     const directory = path.join(app.getPath('userData'), 'cathoscroll-sqlite');
     mkdirSync(directory, { recursive: true });
     const destination = path.join(directory, `${database}.sqlite`);
-    if (database === 'catalogue' && !existsSync(destination)) {
+    if (database === 'catalogue') {
       const bundle =
         this.context.services.bundles.getActiveBundlePath() ?? path.join(app.getAppPath(), 'app');
       const source = path.join(bundle, 'assets', 'databases', 'catalogue.db');
-      const temporary = `${destination}.${randomUUID()}.tmp`;
-      try {
-        copyFileSync(source, temporary);
-        renameSync(temporary, destination);
-      } finally {
-        if (existsSync(temporary)) unlinkSync(temporary);
-      }
+      this.installCatalogue(destination, source);
     }
     if (database === 'private-activity') {
       const { CathoSecureStorage } = await import('./secure-storage.mjs');
@@ -102,6 +136,85 @@ export class CathoSQLite {
       const connection = new DatabaseSync(destination);
       connection.exec('PRAGMA foreign_keys = ON;');
       this.databases.set(database, connection);
+    }
+  }
+
+  installCatalogue(destination, source) {
+    if (existsSync(destination)) {
+      try {
+        validateCatalogue(destination);
+        return;
+      } catch {
+        // The catalogue is a rebuildable public-content cache. Preserve the
+        // damaged file until a validated replacement is ready to publish.
+        const backup = `${destination}.corrupt-${randomUUID()}`;
+        renameSync(destination, backup);
+        removeSqliteSidecars(destination);
+        const temporary = `${destination}.${randomUUID()}.tmp`;
+        try {
+          copyFileSync(source, temporary);
+          validateCatalogue(temporary);
+          renameSync(temporary, destination);
+          try {
+            unlinkSync(backup);
+          } catch {
+            // A leftover corrupt backup is not used by the application.
+          }
+        } catch (repairError) {
+          if (!existsSync(destination) && existsSync(backup)) {
+            try {
+              renameSync(backup, destination);
+            } catch (restoreError) {
+              throw new AggregateError([repairError, restoreError], 'Catalogue repair and rollback both failed.');
+            }
+          }
+          throw repairError;
+        } finally {
+          if (existsSync(temporary)) unlinkSync(temporary);
+        }
+        return;
+      }
+    }
+
+    const temporary = `${destination}.${randomUUID()}.tmp`;
+    try {
+      copyFileSync(source, temporary);
+      validateCatalogue(temporary);
+      renameSync(temporary, destination);
+    } finally {
+      if (existsSync(temporary)) unlinkSync(temporary);
+    }
+  }
+
+  async removeLegacyActivity() {
+    const privateDatabase = this.databases.get('private-activity');
+    if (!privateDatabase) {
+      throw new Error('Encrypted private activity storage is not open.');
+    }
+    const integrity = privateDatabase.prepare('PRAGMA quick_check(1)').get()?.quick_check;
+    const marker = privateDatabase
+      .prepare('SELECT version FROM offline_activity_migration WHERE id = 1')
+      .get();
+    if (integrity !== 'ok' || marker?.version !== 1) {
+      throw new Error('The encrypted activity migration could not be verified.');
+    }
+
+    const legacyDatabase = this.databases.get('activity');
+    if (legacyDatabase) {
+      legacyDatabase.close();
+      this.databases.delete('activity');
+    }
+
+    const userData = app.getPath('userData');
+    const files = [
+      path.join(userData, 'databases', 'activity.sqlite'),
+      path.join(userData, 'cathoscroll-sqlite', 'activity.sqlite'),
+    ];
+    for (const databaseFile of files) {
+      for (const suffix of ['-wal', '-shm', '-journal', '']) {
+        const file = databaseFile + suffix;
+        if (existsSync(file)) unlinkSync(file);
+      }
     }
   }
 

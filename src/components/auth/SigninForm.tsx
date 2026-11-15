@@ -5,16 +5,20 @@ import Link from 'next/link';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
-import { createClient } from '@/lib/supabase/client';
+import { createClient as createWebClient } from '@/lib/supabase/client';
 
 export function SigninForm({
   onSignedIn,
   description = 'Sign in to access your account, bookmarks, learning progress, and future features.',
   allowSignup = true,
+  clientFactory = createWebClient,
+  online = true,
 }: {
   onSignedIn: () => void;
   description?: string;
   allowSignup?: boolean;
+  clientFactory?: typeof createWebClient;
+  online?: boolean;
 }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -24,10 +28,11 @@ export function SigninForm({
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
+    if (loading || !online) return;
     setLoading(true);
     setError('');
     try {
-      const supabase = createClient();
+      const supabase = clientFactory();
       const { error: signInError } = await supabase.auth.signInWithPassword({
         email: email.trim().toLowerCase(),
         password,
@@ -69,7 +74,7 @@ export function SigninForm({
           value={email}
           placeholder="you@example.com"
           autoComplete="email"
-          disabled={loading}
+          disabled={loading || !online}
           onChange={(event) => setEmail(event.target.value)}
           required
         />
@@ -80,7 +85,7 @@ export function SigninForm({
             value={password}
             placeholder="Enter your password"
             autoComplete="current-password"
-            disabled={loading}
+            disabled={loading || !online}
             onChange={(event) => setPassword(event.target.value)}
             required
           />
@@ -105,7 +110,7 @@ export function SigninForm({
           type="submit"
           size="lg"
           className="w-full"
-          disabled={loading}
+          disabled={loading || !online}
           style={{ color: '#fff' }}
         >
           {loading ? (

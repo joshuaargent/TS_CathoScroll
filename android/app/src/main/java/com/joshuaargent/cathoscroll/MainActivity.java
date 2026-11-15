@@ -1,19 +1,65 @@
 package com.joshuaargent.cathoscroll;
 
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.os.Bundle;
+
+import androidx.core.content.ContextCompat;
+
 import com.getcapacitor.BridgeActivity;
 import com.getcapacitor.CapConfig;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginLoadException;
 import com.getcapacitor.PluginManager;
+
 import java.util.List;
 
 public class MainActivity extends BridgeActivity {
+    private boolean updateCheckStarted;
+    private boolean updateReceiverRegistered;
+
+    private final BroadcastReceiver updateDownloadReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            AndroidUpdateChecker.handleDownloadCompleted(MainActivity.this, intent);
+        }
+    };
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         registerPlugin(CatalogueAssetPlugin.class);
         registerPlugin(SecureAuthGuardPlugin.class);
         super.onCreate(savedInstanceState);
+
+        IntentFilter filter = new IntentFilter(android.app.DownloadManager.ACTION_DOWNLOAD_COMPLETE);
+        ContextCompat.registerReceiver(this, updateDownloadReceiver, filter, ContextCompat.RECEIVER_EXPORTED);
+        updateReceiverRegistered = true;
+    }
+
+    @Override
+    public void onStart() {
+        super.onStart();
+        if (!updateCheckStarted) {
+            updateCheckStarted = true;
+            AndroidUpdateChecker.checkForUpdates(this);
+        }
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        AndroidUpdateChecker.resumePendingInstall(this);
+    }
+
+    @Override
+    public void onDestroy() {
+        if (updateReceiverRegistered) {
+            unregisterReceiver(updateDownloadReceiver);
+            updateReceiverRegistered = false;
+        }
+        super.onDestroy();
     }
 
     @Override

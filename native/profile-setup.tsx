@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/Input';
 import { createNativeProfile, getNativeProfileStatus } from './profile';
 import { createClient } from './supabase';
 import { NativeProfileSettings } from './profile-settings';
+import { notifyNativeStatus, clearNativeStatusNotice } from './offline-indicator';
 
 export function NativeProfileSetup({ userId }: { userId: string }) {
   const [status, setStatus] = useState<'loading' | 'complete' | 'missing' | 'offline' | 'error'>(
@@ -13,6 +14,18 @@ export function NativeProfileSetup({ userId }: { userId: string }) {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [attempt, setAttempt] = useState(0);
+
+  useEffect(() => {
+    const noticeId = 'profile-setup:' + userId;
+    if (status === 'error') {
+      notifyNativeStatus('Unable to check your profile. Please try again.', {
+        id: noticeId,
+        action: { label: 'Retry', onClick: () => setAttempt((value) => value + 1) },
+      });
+    } else if (status === 'complete' || status === 'missing' || status === 'offline') {
+      clearNativeStatusNotice(noticeId);
+    }
+  }, [status, userId]);
 
   useEffect(() => {
     let active = true;
@@ -73,23 +86,7 @@ export function NativeProfileSetup({ userId }: { userId: string }) {
   if (status === 'offline') {
     return <NativeProfileSettings userId={userId} />;
   }
-  if (status === 'error') {
-    return (
-      <>
-        <p role="alert" className="mt-4">
-          Unable to check your profile.{' '}
-          <button
-            type="button"
-            className="text-accent underline"
-            onClick={() => setAttempt((value) => value + 1)}
-          >
-            Retry
-          </button>
-        </p>
-        <NativeProfileSettings userId={userId} />
-      </>
-    );
-  }
+  if (status === 'error') return <NativeProfileSettings userId={userId} />;
   return (
     <form onSubmit={submit} className="border-border mt-6 space-y-4 rounded-2xl border p-6">
       <h2 className="text-xl font-bold">Complete your profile</h2>

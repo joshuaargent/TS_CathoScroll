@@ -5,17 +5,20 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Comment, Profile } from '../../lib/supabase/types';
 
 import { createClient } from '@/lib/supabase/client';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import type { OfflineCommentCache } from '@/lib/offline/comment-cache';
 import { useSignInPrompt } from '@/components/providers/SignInPromptProvider';
 
 import { CommentCard } from './CommentCard';
 import { CommentForm } from './CommentForm';
 import Link from 'next/link';
+import { siteConfig } from '@/lib/constants';
 
 interface CommentSectionProps {
   topicId: string;
   cache?: Pick<OfflineCommentCache, 'load' | 'save'>;
   serverActionsAvailable?: boolean;
+  supabaseClient?: SupabaseClient;
 }
 
 const fallbackProfile: Profile = {
@@ -148,8 +151,10 @@ export function CommentSection({
   topicId,
   cache,
   serverActionsAvailable = true,
+  supabaseClient,
 }: CommentSectionProps) {
   const requestSignIn = useSignInPrompt();
+  const getClient = useCallback(() => supabaseClient ?? createClient(), [supabaseClient]);
   const [comments, setComments] = useState<Comment[]>([]);
 
   const [loading, setLoading] = useState(true);
@@ -208,7 +213,7 @@ export function CommentSection({
     setCacheWarning('');
     try {
       if (cache && !navigator.onLine) throw new Error('Offline');
-      const supabase = createClient();
+      const supabase = getClient();
 
       const {
         data: { user },
@@ -421,7 +426,7 @@ export function CommentSection({
     } finally {
       if (isCurrent()) setLoading(false);
     }
-  }, [topicId, sortComments, cache]);
+  }, [topicId, sortComments, cache, getClient]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -485,7 +490,7 @@ export function CommentSection({
 
     setComments((prev) => cloneAndSortComments([tempComment, ...prev], sortComments));
 
-    const supabase = createClient();
+    const supabase = getClient();
 
     const { data, error } = await supabase
       .from('comments')
@@ -539,7 +544,7 @@ export function CommentSection({
 
     setComments((prev) => insertReplyIntoTree(prev, parentId, tempReply));
 
-    const supabase = createClient();
+    const supabase = getClient();
 
     const { data, error } = await supabase
       .from('comments')
@@ -578,7 +583,7 @@ export function CommentSection({
       }))
     );
 
-    const supabase = createClient();
+    const supabase = getClient();
 
     const { error } = await supabase
       .from('comments')
@@ -612,7 +617,7 @@ export function CommentSection({
       }))
     );
 
-    const supabase = createClient();
+    const supabase = getClient();
 
     const { error } = await supabase
       .from('comments')
@@ -664,11 +669,19 @@ export function CommentSection({
     );
 
     try {
-      const response = await fetch(`/api/admin/comments/${commentId}/pin`, {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (cache) {
+        const { data: sessionData, error: sessionError } = await getClient().auth.getSession();
+        if (sessionError) throw sessionError;
+        if (!sessionData.session?.access_token) throw new Error('Sign in again to moderate comments.');
+        headers.Authorization = `Bearer ${sessionData.session.access_token}`;
+      }
+      const endpoint = cache
+        ? new URL(`/api/admin/comments/${commentId}/pin`, siteConfig.url).toString()
+        : `/api/admin/comments/${commentId}/pin`;
+      const response = await fetch(endpoint, {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify({ pinned: shouldPin }),
       });
 
@@ -692,11 +705,19 @@ export function CommentSection({
     if (!serverActionsAvailable) {
       throw new Error('Comment reports are currently available on the website.');
     }
-    const response = await fetch('/api/reports/comments', {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (cache) {
+      const { data: sessionData, error: sessionError } = await getClient().auth.getSession();
+      if (sessionError) throw sessionError;
+      if (!sessionData.session?.access_token) throw new Error('Sign in again to submit a report.');
+      headers.Authorization = `Bearer ${sessionData.session.access_token}`;
+    }
+    const endpoint = cache
+      ? new URL('/api/reports/comments', siteConfig.url).toString()
+      : '/api/reports/comments';
+    const response = await fetch(endpoint, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify({ commentId, reason, details }),
     });
 
@@ -765,7 +786,7 @@ export function CommentSection({
       )
     );
 
-    const supabase = createClient();
+    const supabase = getClient();
 
     let error = null;
 
@@ -921,7 +942,9 @@ export function CommentSection({
               onDelete={deleteComment}
               onReport={reportComment}
               onPin={togglePin}
-              canPin={canPinComments}
+              canPin={canPinComments && serverActionsAvailable}
+              canReport={serverActionsAvailable}
+              profileLinksAvailable={serverActionsAvailable}
               isCommentBanned={isCommentBanned || commentBanCheckFailed}
               isOnline={isOnline && !cachedAt}
               hasPinnedComment={hasPinnedComment}

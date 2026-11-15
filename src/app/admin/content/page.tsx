@@ -1,4 +1,4 @@
-import { AdminContentManager } from '@/components/admin/AdminContentManager';
+import { AdminContentManagerClient } from '@/components/admin/AdminContentManagerClient';
 import { AdminNavigation } from '@/components/admin/AdminNavigation';
 import { requireAdminPage } from '@/lib/moderation/require-admin';
 
@@ -65,7 +65,7 @@ export default async function AdminContentPage() {
       <div className="mt-8">
         <AdminNavigation />
       </div>
-      <AdminContentManager categories={categories} topics={topics} />
+      <AdminContentManagerClient categories={categories} topics={topics} />
     </main>
   );
 }

@@ -406,6 +406,130 @@ test('a retention reset during snapshot replay leaves the existing account state
   }
 });
 
+test('pending activity changes expose the latest queued bookmark value per topic', async () => {
+  const db = new DatabaseSync(':memory:');
+  try {
+    const store = new OfflineActivityStore(adapter(db));
+    await store.initialize();
+    await bootstrap(store);
+    await store.setActivity('alice', 'restore', 'bookmark', true, 'first-save');
+    await store.setActivity('alice', 'restore', 'bookmark', false, 'remove');
+    await store.setActivity('alice', 'restore', 'bookmark', true, 'save-again');
+    await store.setActivity('alice', 'remove', 'bookmark', true, 'save-then-remove');
+    await store.setActivity('alice', 'remove', 'bookmark', false, 'final-remove');
+
+    const changes = await store.pendingChanges('alice', 'bookmark');
+    assert.deepEqual(changes.map(({ topicId, value }) => ({ topicId, value })), [
+      { topicId: 'restore', value: true },
+      { topicId: 'remove', value: false },
+    ]);
+    assert.equal(typeof changes[0].savedAt, 'string');
+  } finally {
+    db.close();
+  }
+});
+
+test('legacy migration preserves comment, count and encrypted note caches', async () => {
+  const sourceDb = new DatabaseSync(':memory:');
+  const targetDb = new DatabaseSync(':memory:');
+  try {
+    const source = adapter(sourceDb);
+    const target = adapter(targetDb);
+    const oldStore = new OfflineActivityStore(source);
+    const newStore = new OfflineActivityStore(target);
+    await oldStore.initialize();
+    await newStore.initialize();
+    await bootstrap(oldStore);
+    sourceDb.exec(`
+      CREATE TABLE offline_comment_cache (
+        topic_id TEXT PRIMARY KEY NOT NULL,
+        comments TEXT NOT NULL,
+        saved_at TEXT NOT NULL
+      );
+      CREATE TABLE offline_topic_counts (
+        topic_id TEXT PRIMARY KEY NOT NULL,
+        likes INTEGER NOT NULL,
+        comments INTEGER NOT NULL,
+        saved_at TEXT NOT NULL
+      );
+      CREATE TABLE offline_private_notes (
+        note_key TEXT PRIMARY KEY NOT NULL,
+        nonce TEXT NOT NULL,
+        ciphertext TEXT NOT NULL
+      );
+    `);
+    sourceDb.prepare('INSERT INTO offline_comment_cache VALUES (?, ?, ?)').run(
+      'topic-one', '[{"id":1}]', '2026-11-15T10:00:00.000Z'
+    );
+    sourceDb.prepare('INSERT INTO offline_topic_counts VALUES (?, ?, ?, ?)').run(
+      'topic-one', 12, 4, '2026-11-15T10:00:00.000Z'
+    );
+    sourceDb.prepare('INSERT INTO offline_private_notes VALUES (?, ?, ?)').run(
+      'opaque-note-key', 'opaque-nonce', 'encrypted-ciphertext'
+    );
+
+    await migrateLegacyActivity(source, target);
+    assert.equal(
+      targetDb.prepare('SELECT comments FROM offline_comment_cache WHERE topic_id = ?').get('topic-one').comments,
+      '[{"id":1}]'
+    );
+    assert.equal(
+      targetDb.prepare('SELECT likes FROM offline_topic_counts WHERE topic_id = ?').get('topic-one').likes,
+      12
+    );
+    assert.equal(
+      targetDb.prepare('SELECT ciphertext FROM offline_private_notes WHERE note_key = ?').get('opaque-note-key').ciphertext,
+      'encrypted-ciphertext'
+    );
+  } finally {
+    sourceDb.close();
+    targetDb.close();
+  }
+});
+
+test('a completed activity migration merges caches written by older app versions', async () => {
+  const sourceDb = new DatabaseSync(':memory:');
+  const targetDb = new DatabaseSync(':memory:');
+  try {
+    const source = adapter(sourceDb);
+    const target = adapter(targetDb);
+    const oldStore = new OfflineActivityStore(source);
+    const newStore = new OfflineActivityStore(target);
+    await oldStore.initialize();
+    await newStore.initialize();
+    await bootstrap(oldStore);
+    sourceDb.exec(`CREATE TABLE offline_private_notes (
+      note_key TEXT PRIMARY KEY NOT NULL,
+      nonce TEXT NOT NULL,
+      ciphertext TEXT NOT NULL
+    )`);
+    sourceDb.prepare('INSERT INTO offline_private_notes VALUES (?, ?, ?)').run(
+      'existing', 'nonce-old', 'cipher-old'
+    );
+    await migrateLegacyActivity(source, target);
+
+    sourceDb.prepare('INSERT INTO offline_private_notes VALUES (?, ?, ?)').run(
+      'added-later', 'nonce-new', 'cipher-new'
+    );
+    targetDb.prepare('UPDATE offline_private_notes SET nonce = ?, ciphertext = ? WHERE note_key = ?').run(
+      'nonce-private', 'cipher-private', 'existing'
+    );
+    await migrateLegacyActivity(source, target);
+
+    assert.equal(
+      targetDb.prepare('SELECT ciphertext FROM offline_private_notes WHERE note_key = ?').get('existing').ciphertext,
+      'cipher-private'
+    );
+    assert.equal(
+      targetDb.prepare('SELECT ciphertext FROM offline_private_notes WHERE note_key = ?').get('added-later').ciphertext,
+      'cipher-new'
+    );
+  } finally {
+    sourceDb.close();
+    targetDb.close();
+  }
+});
+
 test('legacy migration preserves rejected operations and their notification state', async () => {
   const sourceDb = new DatabaseSync(':memory:');
   const targetDb = new DatabaseSync(':memory:');
@@ -719,6 +843,8 @@ test('copies legacy account state and queued operations once without removing th
     await bootstrap(source);
     await source.setActivity('alice', 'topic', 'like', true, 'first');
     await source.setActivity('bob', 'other', 'bookmark', true, 'second');
+    const savedAt = '2026-11-14T10:30:00.000Z';
+    await source.recordBookmarkTimestamps('bob', [{ topicId: 'other', savedAt }]);
     await source.setActivity('alice', 'topic', 'progress', true, 'third');
     await source.applyChanges('alice', [
       { topicId: 'server-topic', kind: 'like', value: true, revision: '1', completedAt: null },
@@ -747,6 +873,12 @@ test('copies legacy account state and queued operations once without removing th
     }
     assert.equal(await destination.pendingCount('alice'), 2);
     assert.equal(await destination.pendingCount('bob'), 1);
+    assert.equal(
+      privateDb.prepare(
+        "SELECT bookmark_saved_at FROM offline_activity WHERE user_id = 'bob' AND topic_id = 'other' AND kind = 'bookmark'"
+      ).get().bookmark_saved_at,
+      savedAt
+    );
     assert.equal((await destination.nextOperation('alice')).operationId, 'first');
     assert.equal(await destination.cursor('alice'), '1');
     assert.equal(
@@ -1051,6 +1183,16 @@ test('does not acknowledge a mismatched receipt or run concurrent pushes', async
     await assert.rejects(sync.push('bob'), /already running/);
     release();
     await assert.rejects(running, /mismatched/);
+    assert.equal((await store.nextOperation('alice')).operationId, 'first');
+
+    const invalidStatus = new OfflineActivitySync(store, async () => ({
+      operationId: 'first',
+      userId: 'alice',
+      revision: '1',
+      value: true,
+      status: 'pending',
+    }));
+    await assert.rejects(invalidStatus.push('alice'), /invalid offline activity receipt status/);
     assert.equal((await store.nextOperation('alice')).operationId, 'first');
   } finally {
     db.close();
@@ -1516,6 +1658,28 @@ test('rejects repeated snapshot cursors without making a partial account visible
   }
 });
 
+test('rejects duplicate activity snapshot items across bootstrap pages', async () => {
+  const db = new DatabaseSync(':memory:');
+  try {
+    const store = new OfflineActivityStore(adapter(db));
+    await store.initialize();
+    await store.beginBootstrap('alice', 'duplicate-snapshot', '0');
+    const item = {
+      topicId: 'topic-one',
+      kind: 'progress',
+      completedAt: '2026-11-15T10:00:00.000Z',
+    };
+    await store.stageBootstrap('alice', 'duplicate-snapshot', [item]);
+    await assert.rejects(
+      store.stageBootstrap('alice', 'duplicate-snapshot', [item]),
+      /duplicate item/
+    );
+    assert.equal(await store.isBootstrapped('alice'), false);
+  } finally {
+    db.close();
+  }
+});
+
 test('persists per-account acknowledgement sequences when operations are accepted or rejected', async () => {
   const db = new DatabaseSync(':memory:');
   const store = new OfflineActivityStore(adapter(db));
@@ -1785,5 +1949,135 @@ test('background sync stops the old account before starting a different one', as
     assert.deepEqual(calls, ['push:alice', 'push:bob', 'pull:bob']);
   } finally {
     background.dispose();
+  }
+});
+
+
+test('preserves bookmark save timestamps for offline display and upgrades existing databases', async () => {
+  const db = new DatabaseSync(':memory:');
+  try {
+    const store = new OfflineActivityStore(adapter(db));
+    await store.initialize();
+    await bootstrap(store);
+    await store.setActivity('alice', 'topic-a', 'bookmark', true, 'bookmark-a');
+    const locallySaved = await store.listActivity('alice', 'bookmark');
+    assert.equal(locallySaved.items.length, 1);
+    assert.equal(locallySaved.items[0].topicId, 'topic-a');
+    assert.ok(Number.isFinite(Date.parse(locallySaved.items[0].savedAt)));
+
+    const serverSavedAt = '2026-11-14T10:30:00.000Z';
+    await store.recordBookmarkTimestamps('alice', [
+      { topicId: 'topic-a', savedAt: serverSavedAt },
+    ]);
+    assert.equal(
+      (await store.listActivity('alice', 'bookmark')).items[0].savedAt,
+      serverSavedAt
+    );
+
+    // A server snapshot refresh must not erase the locally cached created_at value.
+    await store.beginBootstrap('alice', 'replacement-snapshot', '0', true);
+    await store.stageBootstrap('alice', 'replacement-snapshot', [
+      { topicId: 'topic-a', kind: 'bookmark', completedAt: null },
+    ]);
+    await store.completeBootstrap('alice', 'replacement-snapshot');
+    assert.equal(
+      (await store.listActivity('alice', 'bookmark')).items[0].savedAt,
+      serverSavedAt
+    );
+
+    await store.setActivity('alice', 'topic-b', 'bookmark', true, 'bookmark-b');
+    await store.setActivity('alice', 'topic-a', 'bookmark', false, 'remove-a');
+    const afterChanges = await store.listActivity('alice', 'bookmark');
+    assert.deepEqual(afterChanges.topicIds, ['topic-b']);
+    assert.equal(afterChanges.items[0].topicId, 'topic-b');
+    assert.ok(Number.isFinite(Date.parse(afterChanges.items[0].savedAt)));
+  } finally {
+    db.close();
+  }
+});
+
+test('adds bookmark timestamp storage to an existing activity database without losing rows', async () => {
+  const db = new DatabaseSync(':memory:');
+  try {
+    db.exec(`
+      CREATE TABLE offline_activity (
+        user_id TEXT NOT NULL, topic_id TEXT NOT NULL, kind TEXT NOT NULL,
+        value INTEGER NOT NULL, completed_at TEXT,
+        PRIMARY KEY (user_id, topic_id, kind)
+      );
+      INSERT INTO offline_activity VALUES ('alice', 'existing-topic', 'bookmark', 1, NULL);
+    `);
+    const store = new OfflineActivityStore(adapter(db));
+    await store.initialize();
+    const columns = db.prepare('PRAGMA table_info(offline_activity)').all();
+    assert.ok(columns.some((column) => column.name === 'bookmark_saved_at'));
+    assert.equal(
+      db.prepare('SELECT topic_id, value FROM offline_activity').get().topic_id,
+      'existing-topic'
+    );
+  } finally {
+    db.close();
+  }
+});
+
+
+test('orders offline bookmarks by saved time and paginates with a stable date/topic cursor', async () => {
+  const db = new DatabaseSync(':memory:');
+  try {
+    const store = new OfflineActivityStore(adapter(db));
+    await store.initialize();
+    await bootstrap(store);
+    const timestamps = [];
+    for (let index = 0; index < 55; index++) {
+      const topicId = `topic-${String(index).padStart(3, '0')}`;
+      await store.setActivity('alice', topicId, 'bookmark', true, 'bookmark-' + topicId);
+      timestamps.push({
+        topicId,
+        savedAt: new Date(Date.UTC(2026, 10, 1 + index, 10)).toISOString(),
+      });
+    }
+    await store.recordBookmarkTimestamps('alice', timestamps);
+    db.prepare(
+      "UPDATE offline_activity SET bookmark_saved_at = 'not-a-date' WHERE user_id = 'alice' AND topic_id = 'topic-000' AND kind = 'bookmark'"
+    ).run();
+    const first = await store.listActivity('alice', 'bookmark');
+    const second = await store.listActivity('alice', 'bookmark', first.nextCursor);
+    assert.equal(first.topicIds.length, 50);
+    assert.equal(second.topicIds.length, 5);
+    assert.equal(first.topicIds[0], 'topic-054');
+    assert.equal(first.topicIds[49], 'topic-005');
+    assert.deepEqual(second.topicIds, ['topic-004', 'topic-003', 'topic-002', 'topic-001', 'topic-000']);
+    assert.equal(second.items[4].savedAt, null);
+    assert.equal(second.nextCursor, null);
+  } finally {
+    db.close();
+  }
+});
+
+
+test('ignores a corrupt optional bookmark timestamp without breaking offline activity', async () => {
+  const db = new DatabaseSync(':memory:');
+  try {
+    const store = new OfflineActivityStore(adapter(db));
+    await store.initialize();
+    await bootstrap(store);
+    await store.setActivity('alice', 'topic-a', 'bookmark', true, 'bookmark-a');
+    db.prepare(
+      "UPDATE offline_activity SET bookmark_saved_at = 'not-a-date' WHERE user_id = 'alice' AND topic_id = 'topic-a' AND kind = 'bookmark'"
+    ).run();
+
+    const page = await store.listActivity('alice', 'bookmark');
+    assert.deepEqual(page.topicIds, ['topic-a']);
+    assert.equal(page.items[0].savedAt, null);
+
+    await store.beginBootstrap('alice', 'corrupt-date-refresh', '0', true);
+    await store.stageBootstrap('alice', 'corrupt-date-refresh', [
+      { topicId: 'topic-a', kind: 'bookmark', completedAt: null },
+    ]);
+    await store.completeBootstrap('alice', 'corrupt-date-refresh');
+    assert.deepEqual((await store.listActivity('alice', 'bookmark')).topicIds, ['topic-a']);
+    assert.equal((await store.listActivity('alice', 'bookmark')).items[0].savedAt, null);
+  } finally {
+    db.close();
   }
 });

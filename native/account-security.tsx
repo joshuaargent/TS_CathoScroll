@@ -2,16 +2,28 @@ import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { updateNativeEmail, updateNativePassword } from './profile';
+import { notifyNativeStatus, clearNativeStatusNotice } from './offline-indicator';
 import { createClient } from './supabase';
 
-export function NativeAccountSecurity({ userId }: { userId: string }) {
+export function NativeAccountSecurity({ userId, currentEmail }: { userId: string; currentEmail: string }) {
   const [online, setOnline] = useState(navigator.onLine);
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(currentEmail);
   const [password, setPassword] = useState('');
   const [confirmation, setConfirmation] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!online) {
+      notifyNativeStatus('Connect to the internet to change your email address or password.', {
+        id: 'account-security-offline:' + userId,
+      });
+    } else {
+      clearNativeStatusNotice('account-security-offline:' + userId);
+    }
+    return () => clearNativeStatusNotice('account-security-offline:' + userId);
+  }, [online, userId]);
 
   useEffect(() => {
     const update = () => setOnline(navigator.onLine);
@@ -27,7 +39,9 @@ export function NativeAccountSecurity({ userId }: { userId: string }) {
     event.preventDefault();
     if (busy) return;
     if (!navigator.onLine) {
-      setError('Connect to the internet to change your account details.');
+      notifyNativeStatus('Connect to the internet to change your email address or password.', {
+        id: 'account-security-offline:' + userId,
+      });
       return;
     }
     setBusy(true);
@@ -36,7 +50,6 @@ export function NativeAccountSecurity({ userId }: { userId: string }) {
     try {
       if (action === 'email') {
         await updateNativeEmail(createClient(), userId, email);
-        setEmail('');
         setMessage('Email change requested. Check your email for any confirmation instructions.');
       } else {
         await updateNativePassword(createClient(), userId, password, confirmation);
@@ -57,10 +70,9 @@ export function NativeAccountSecurity({ userId }: { userId: string }) {
   return (
     <section className="border-border mt-6 space-y-5 rounded-2xl border p-6">
       <h2 className="text-xl font-bold">Account security</h2>
-      {!online && <p role="status">Connect to the internet to change your account details.</p>}
       <form onSubmit={(event) => void submit(event, 'email')} className="space-y-3">
         <Input
-          label="New email address"
+          label="Email Address"
           type="email"
           autoComplete="email"
           maxLength={254}
@@ -70,7 +82,7 @@ export function NativeAccountSecurity({ userId }: { userId: string }) {
           required
         />
         <Button type="submit" disabled={!online || busy}>
-          Change email
+          Save email address
         </Button>
       </form>
       <form onSubmit={(event) => void submit(event, 'password')} className="space-y-3">

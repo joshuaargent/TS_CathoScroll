@@ -7,14 +7,22 @@ import { TopicArticle, TopicArticleHeader } from '@/components/topic/TopicArticl
 import { CategoriesPage, CategoryPage, SearchPage } from './catalogue-pages';
 import { NativeNavbar } from './navbar';
 import { NativeAccount } from './account';
+import { NativePublicProfile } from './public-profile';
 import { NativeBookmarks } from './bookmarks';
+import { NativeAdmin } from './admin';
+import { NativeAppeal } from './appeal';
 import { NativeNotifications, NativeNotificationsProvider } from './notifications';
-import { OfflineIndicator } from './offline-indicator';
+import { OfflineIndicator, clearNativeStatusNotice, notifyNativeStatus } from './offline-indicator';
 import { NativeTopicActions } from './topic-actions';
 import { NativeSignup } from './signup';
+import AboutPage from '@/app/about/page';
+import FAQPage from '@/app/faq/page';
+import ContactPage from '@/app/contact/page';
+import PrivacyPage from '@/app/privacy/page';
+import TermsPage from '@/app/terms/page';
+import CookiesPage from '@/app/cookies/page';
 import { LearnContent } from '@/components/learn/LearnContent';
 import { NativeActivity, type NativeActivityStatus } from './activity';
-import { NativeActivityAlert } from './activity-alert';
 import { openPrivateActivity } from './private-activity';
 import { NativeNotes } from './notes';
 import { NativeNoteCache } from './note-cache';
@@ -23,7 +31,7 @@ import {
   identityAfterAuthEvent,
   type CachedIdentity,
 } from './cached-identity';
-import { initializeNativeAuth } from './supabase';
+import { createClient, initializeNativeAuth } from './supabase';
 import { authStorageKey, secureAuthStorage } from './secure-auth-storage';
 import { SignInPromptProvider, useSignInPrompt } from '@/components/providers/SignInPromptProvider';
 import { ThemeProvider } from '@/components/providers/ThemeProvider';
@@ -33,26 +41,107 @@ import { SupabaseCatalogueTransport } from '@/lib/offline/supabase-catalogue-tra
 import { OfflineCommentCache } from '@/lib/offline/comment-cache';
 import { OfflineTopicCountCache, type CachedTopicCounts } from '@/lib/offline/topic-count-cache';
 import { loadTopicActivity } from '@/lib/topic-activity';
-import { createClient } from '@/lib/supabase/client';
 import { siteConfig } from '@/lib/constants';
 import type { RecommendationCursor } from '@/lib/recommendations';
-import { openNativeDatabases } from '@/lib/offline/native-database';
+import { openNativeDatabases, openPrivateActivityDatabase } from '@/lib/offline/native-database';
 import { SupabaseActivityTransport } from '@/lib/offline/supabase-activity-transport';
 import type { OfflineActivityKind, OfflineTopicActivity } from '@/lib/offline/activity-store';
 import type { Topic } from '@/types';
 import './style.css';
 
-type CataloguePage = { topics: Topic[]; nextCursor: CatalogueCursor | null };
+type CataloguePage = { topics: Topic[]; nextCursor: CatalogueCursor | RecommendationCursor | null };
+
+type NativeLiveTopicRow = {
+  id: string;
+  slug: string;
+  question: string;
+  answer: string;
+  explanation: string;
+  catechism_paragraphs: string[] | null;
+  catechism_text: string;
+  scripture_reference: string;
+  scripture_text: string;
+  category: { name: string } | Array<{ name: string }> | null;
+};
+
+
+async function loadNativeLiveTopicBySlug(slug: string): Promise<Topic | null> {
+  const { data, error } = await createClient()
+    .from('topics')
+    .select('id,slug,question,answer,explanation,catechism_paragraphs,catechism_text,scripture_reference,scripture_text,category:categories!inner(name,is_published)')
+    .eq('slug', slug)
+    .eq('is_published', true)
+    .eq('category.is_published', true)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  const relation = Array.isArray(data.category) ? data.category[0] : data.category;
+  return {
+    id: data.id,
+    slug: data.slug,
+    category: relation?.name ?? '',
+    question: data.question,
+    answer: data.answer,
+    explanation: data.explanation,
+    catechism: { paragraphs: data.catechism_paragraphs ?? [], text: data.catechism_text },
+    scripture: { reference: data.scripture_reference, text: data.scripture_text },
+  } satisfies Topic;
+}
+
+async function loadNativeLiveTopicPage(cursor?: CatalogueCursor) {
+  let query = createClient()
+    .from('topics')
+    .select('id,slug,order_index,question,answer,explanation,catechism_paragraphs,catechism_text,scripture_reference,scripture_text,category:categories!inner(name,is_published)')
+    .eq('is_published', true)
+    .eq('category.is_published', true)
+    .order('order_index', { ascending: true })
+    .order('id', { ascending: true })
+    .limit(51);
+  if (cursor) {
+    query = query.or(
+      'order_index.gt.' + cursor.orderIndex +
+      ',and(order_index.eq.' + cursor.orderIndex + ',id.gt.' + cursor.id + ')'
+    );
+  }
+  const { data, error } = await query;
+  if (error) throw error;
+  const rows = (data ?? []) as unknown as Array<NativeLiveTopicRow & { order_index: number }>;
+  const hasMore = rows.length > 50;
+  const pageRows = hasMore ? rows.slice(0, 50) : rows;
+  const topics = pageRows.map((row) => {
+    const relation = Array.isArray(row.category) ? row.category[0] : row.category;
+    return {
+      id: row.id,
+      slug: row.slug,
+      category: relation?.name ?? '',
+      question: row.question,
+      answer: row.answer,
+      explanation: row.explanation,
+      catechism: { paragraphs: row.catechism_paragraphs ?? [], text: row.catechism_text },
+      scripture: { reference: row.scripture_reference, text: row.scripture_text },
+    } satisfies Topic;
+  });
+  const last = pageRows.at(-1);
+  return {
+    topics,
+    nextCursor: hasMore && last ? { orderIndex: last.order_index, id: last.id } : null,
+  };
+}
+
 type Route =
   | { kind: 'feed'; pathname: string }
   | { kind: 'search'; pathname: string; query: string }
   | { kind: 'learn'; pathname: string }
   | { kind: 'categories'; pathname: string }
   | { kind: 'account'; pathname: string }
+  | { kind: 'about' | 'faq' | 'contact' | 'privacy' | 'terms' | 'cookies'; pathname: string }
   | { kind: 'signup'; pathname: string }
   | { kind: 'bookmarks'; pathname: string }
+  | { kind: 'appeal'; pathname: string }
   | { kind: 'notifications'; pathname: string }
+  | { kind: 'admin'; pathname: string; section: 'dashboard' | 'reports' | 'appeals' | 'content'; page: number }
   | { kind: 'category'; pathname: string; slug: string }
+  | { kind: 'profile'; pathname: string; username: string }
   | { kind: 'topic'; pathname: string; slug: string; comments: boolean };
 
 function parseRoute(href: string): Route | null {
@@ -61,6 +150,12 @@ function parseRoute(href: string): Route | null {
     if (url.origin !== 'https://native.cathoscroll.invalid') return null;
     const pathname = url.pathname;
     if (pathname === '/') return { kind: 'feed', pathname };
+    if (pathname === '/about') return { kind: 'about', pathname };
+    if (pathname === '/faq') return { kind: 'faq', pathname };
+    if (pathname === '/contact') return { kind: 'contact', pathname };
+    if (pathname === '/privacy') return { kind: 'privacy', pathname };
+    if (pathname === '/terms') return { kind: 'terms', pathname };
+    if (pathname === '/cookies') return { kind: 'cookies', pathname };
     if (pathname === '/learn') return { kind: 'learn', pathname };
     if (pathname === '/search') {
       return { kind: 'search', pathname, query: url.searchParams.get('q') ?? '' };
@@ -69,7 +164,31 @@ function parseRoute(href: string): Route | null {
     if (pathname === '/signin' || pathname === '/account') return { kind: 'account', pathname };
     if (pathname === '/signup') return { kind: 'signup', pathname };
     if (pathname === '/bookmarks') return { kind: 'bookmarks', pathname };
+    if (pathname === '/appeal') return { kind: 'appeal', pathname };
     if (pathname === '/notifications') return { kind: 'notifications', pathname };
+    if (pathname === '/admin') {
+      const page = Number(url.searchParams.get('page') ?? '0');
+      if (!Number.isSafeInteger(page) || page < 0) return null;
+      return { kind: 'admin', pathname, section: 'dashboard', page };
+    }
+    const adminMatch = /^\/admin\/(reports|appeals|content)$/.exec(pathname);
+    if (adminMatch) {
+      const page = Number(url.searchParams.get('page') ?? '0');
+      if (!Number.isSafeInteger(page) || page < 0) return null;
+      return {
+        kind: 'admin',
+        pathname,
+        section: adminMatch[1] as 'reports' | 'appeals' | 'content',
+        page,
+      };
+    }
+    const profileMatch = /^\/profile\/([^/]+)$/.exec(pathname);
+    if (profileMatch) {
+      const username = decodeURIComponent(profileMatch[1]);
+      if (!username || username.trim() !== username || username.includes('/')) return null;
+      return { kind: 'profile', pathname, username };
+    }
+
     const match = /^\/(topic|categories)\/([^/]+)$/.exec(pathname);
     if (!match) return null;
     const slug = decodeURIComponent(match[2]);
@@ -219,6 +338,18 @@ function NativeViewer(props: {
     };
   }, []);
 
+  useEffect(() => {
+    const noticeId = 'topic-counts:' + topicId;
+    if (!countError) {
+      clearNativeStatusNotice(noticeId);
+      return;
+    }
+    notifyNativeStatus(countError, {
+      id: noticeId,
+      action: { label: 'Retry', onClick: () => setRefresh((version) => version + 1) },
+    });
+  }, [countError, topicId]);
+
   const currentCounts = counts?.topicId === topicId ? counts : null;
   const currentSaved =
     accountReady && savedActivity?.userId === userId && savedActivity.topicId === topicId
@@ -285,33 +416,6 @@ function NativeViewer(props: {
       {shareMessage?.topicId === topicId && (
         <p role="status" className="text-text-secondary px-6 text-sm">
           {shareMessage.text}
-        </p>
-      )}
-      {countError && navigator.onLine && (
-        <p role="status" className="text-text-secondary px-6 text-xs">
-          {countError}
-        </p>
-      )}
-      {userId && !accountReady && (
-        <p role="status" className="text-text-secondary px-6 text-xs">
-          {navigation.activityStatus?.userId === userId && navigation.activityStatus.error
-            ? navigation.activityStatus.error
-            : 'Connect to set up your saved account activity on this device.'}
-          {!accountActivity &&
-            navigation.activityStatus?.userId === userId &&
-            navigation.activityStatus.error && (
-              <>
-                {' '}
-                <button type="button" className="underline" onClick={navigation.retryActivitySetup}>
-                  Retry
-                </button>
-              </>
-            )}
-        </p>
-      )}
-      {accountReady && navigation.activityStatus?.error && (
-        <p role="status" className="text-text-secondary px-6 text-xs">
-          {navigation.activityStatus.error}
         </p>
       )}
       <div className="min-h-0 flex-1">
@@ -384,23 +488,49 @@ function NativeTopicPage({
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     let active = true;
-    catalogue.topic(slug).then(
-      (result) => {
+    async function load() {
+      try {
+        let result: Topic | null;
+        if (navigator.onLine) {
+          try {
+            result = await loadNativeLiveTopicBySlug(slug);
+            clearNativeStatusNotice('topic-fallback:' + slug);
+          } catch (onlineError) {
+            console.error('Unable to load live topic:', onlineError);
+            result = await catalogue.topic(slug);
+            notifyNativeStatus('Live topic content is unavailable. Showing the saved version.', {
+              id: 'topic-fallback:' + slug,
+              action: { label: 'Retry', onClick: () => setAttempt((value) => value + 1) },
+            });
+          }
+        } else {
+          result = await catalogue.topic(slug);
+        }
         if (!active) return;
         setTopic(result);
+        setError('');
+        clearNativeStatusNotice('topic-page:' + slug);
         setLoading(false);
-      },
-      (cause: unknown) => {
-        console.error('Unable to load offline topic:', cause);
-        if (active) {
-          setError('Unable to load this topic. Please try again.');
-          setLoading(false);
-        }
+      } catch (cause) {
+        console.error('Unable to load topic:', cause);
+        if (!active) return;
+        setError('Unable to load this topic. Please try again.');
+        notifyNativeStatus('Unable to load this topic. Please try again.', {
+          id: 'topic-page:' + slug,
+          action: {
+            label: 'Retry',
+            onClick: () => {
+              setError('');
+              setLoading(true);
+              setAttempt((value) => value + 1);
+            },
+          },
+        });
+        setLoading(false);
       }
-    );
-    return () => {
-      active = false;
-    };
+    }
+    void load();
+    return () => { active = false; };
   }, [catalogue, slug, attempt]);
 
   useEffect(() => {
@@ -415,22 +545,6 @@ function NativeTopicPage({
       {loading && (
         <p role="status" className="mt-8">
           Loading topic…
-        </p>
-      )}
-      {error && (
-        <p role="alert" className="mt-8">
-          {error}{' '}
-          <button
-            type="button"
-            className="text-accent underline"
-            onClick={() => {
-              setError('');
-              setLoading(true);
-              setAttempt((value) => value + 1);
-            }}
-          >
-            Retry
-          </button>
         </p>
       )}
       {!loading && !error && !topic && <p className="mt-8">Topic not found.</p>}
@@ -451,7 +565,7 @@ function NativeTopicPage({
             topicId={String(topic.id)}
             cache={noteCache}
           />
-          <CommentSection topicId={String(topic.id)} cache={cache} serverActionsAvailable={false} />
+          <CommentSection topicId={String(topic.id)} cache={cache} serverActionsAvailable supabaseClient={createClient()} />
         </>
       )}
     </div>
@@ -461,6 +575,8 @@ function NativeTopicPage({
 function App() {
   const [catalogue, setCatalogue] = useState<OfflineCatalogue | null>(null);
   const [firstPage, setFirstPage] = useState<CataloguePage | null>(null);
+  const [feedPersonalized, setFeedPersonalized] = useState(false);
+  const [feedAttempt, setFeedAttempt] = useState(0);
   const [catalogueRefresh, setCatalogueRefresh] = useState<CatalogueRefresh | null>(null);
   const [catalogueVersion, setCatalogueVersion] = useState(0);
   const [catalogueMessage, setCatalogueMessage] = useState('');
@@ -470,7 +586,6 @@ function App() {
   const [href, setHref] = useState(currentHref);
   const route = parseRoute(href);
   const [error, setError] = useState('');
-  const [navigationMessage, setNavigationMessage] = useState('');
   const [authStatus, setAuthStatus] = useState<'loading' | 'ready' | 'unavailable'>('loading');
   const [checkingAccount, setCheckingAccount] = useState(true);
   const [user, setUser] = useState<CachedIdentity | null>(null);
@@ -479,6 +594,140 @@ function App() {
   const [activityVersion, setActivityVersion] = useState(0);
   const [activityAttempt, setActivityAttempt] = useState(0);
   const retryStartup = useRef<() => void>(() => {});
+
+  useEffect(() => {
+    if (!catalogue || authStatus !== 'ready') return;
+    const localCatalogue = catalogue;
+    let active = true;
+    let controller: AbortController | null = null;
+
+    async function loadFeed() {
+      controller?.abort();
+      controller = new AbortController();
+      try {
+        if (!navigator.onLine) {
+          const page = await localCatalogue.topics();
+          if (!active) return;
+          setFirstPage(page);
+          setFeedPersonalized(false);
+          clearNativeStatusNotice('feed-online');
+          return;
+        }
+
+        let page: CataloguePage;
+        if (user?.id) {
+          const { data, error } = await createClient().rpc('get_my_recommendation_page', {
+            feed_cursor: null,
+            page_limit: 50,
+          });
+          if (error) throw error;
+          if (!data || typeof data !== 'object' || !Array.isArray(data.topics) || !('nextCursor' in data)) {
+            throw new Error('The recommendation service returned an invalid page.');
+          }
+          page = data as CataloguePage;
+        } else {
+          page = await loadNativeLiveTopicPage();
+        }
+        if (!active) return;
+        setFirstPage(page);
+        setFeedPersonalized(Boolean(user?.id));
+        clearNativeStatusNotice('feed-online');
+      } catch (cause) {
+        if (!active || (cause instanceof DOMException && cause.name === 'AbortError')) return;
+        console.error('Unable to load the online topic feed:', cause);
+        try {
+          const page = await localCatalogue.topics();
+          if (!active) return;
+          setFirstPage(page);
+          setFeedPersonalized(false);
+          notifyNativeStatus('The live feed is unavailable. Showing saved topics instead.', {
+            id: 'feed-online',
+            action: { label: 'Retry', onClick: () => setFeedAttempt((value) => value + 1) },
+          });
+        } catch (offlineCause) {
+          console.error('Unable to load the saved topic feed:', offlineCause);
+          if (active) {
+            notifyNativeStatus('The topic feed could not be loaded. Please retry.', {
+              id: 'feed-online',
+              action: { label: 'Retry', onClick: () => setFeedAttempt((value) => value + 1) },
+            });
+          }
+        }
+      }
+    }
+
+    const reconnect = () => void loadFeed();
+    void loadFeed();
+    window.addEventListener('online', reconnect);
+    window.addEventListener('offline', reconnect);
+    return () => {
+      active = false;
+      controller?.abort();
+      window.removeEventListener('online', reconnect);
+      window.removeEventListener('offline', reconnect);
+    };
+  }, [catalogue, authStatus, user?.id, feedAttempt]);
+
+  useEffect(() => {
+    if (authStatus === 'unavailable') {
+      notifyNativeStatus('Sign-in is unavailable. Check your connection and restart the app if the problem continues.', {
+        id: 'auth-unavailable',
+      });
+    } else {
+      clearNativeStatusNotice('auth-unavailable');
+    }
+  }, [authStatus]);
+
+  useEffect(() => {
+    if (!parseRoute(href)) {
+      notifyNativeStatus('This page is not available in the app. Please use the website.', {
+        id: 'unsupported-route',
+      });
+    } else {
+      clearNativeStatusNotice('unsupported-route');
+    }
+  }, [href]);
+
+  useEffect(() => {
+    if (!error) {
+      clearNativeStatusNotice('startup');
+      return;
+    }
+    notifyNativeStatus(error, {
+      id: 'startup',
+      action: {
+        label: 'Retry',
+        onClick: () => {
+          clearNativeStatusNotice('startup');
+          retryStartup.current();
+        },
+      },
+    });
+  }, [error]);
+
+  useEffect(() => {
+    if (!catalogueMessage) {
+      clearNativeStatusNotice('catalogue-refresh');
+      return;
+    }
+    notifyNativeStatus(catalogueMessage, { id: 'catalogue-refresh' });
+  }, [catalogueMessage]);
+
+  useEffect(() => {
+    const message = activityStatus && activityStatus.userId === user?.id ? activityStatus.error : '';
+    if (!message) {
+      clearNativeStatusNotice('account-activity');
+      return;
+    }
+    notifyNativeStatus(message, {
+      id: 'account-activity',
+      action: activity ? undefined : {
+        label: 'Retry',
+        onClick: () => setActivityAttempt((attempt) => attempt + 1),
+      },
+    });
+  }, [activityStatus, activity, user?.id]);
+
 
   useEffect(() => {
     let active = true;
@@ -492,9 +741,22 @@ function App() {
       try {
         const databases = await openNativeDatabases(secureAuthStorage);
         const localCatalogue = new OfflineCatalogue(databases.catalogue);
-        const localComments = new OfflineCommentCache(databases.activity);
-        const localCounts = new OfflineTopicCountCache(databases.activity);
-        const localNotes = new NativeNoteCache(databases.activity, secureAuthStorage);
+        let cacheDatabase = databases.catalogue;
+        try {
+          await openPrivateActivity();
+          cacheDatabase = await openPrivateActivityDatabase(secureAuthStorage);
+          clearNativeStatusNotice('private-cache-unavailable');
+        } catch (cause) {
+          // Keep public browsing and online reading available if secure storage
+          // is unavailable. Note contents remain encrypted by NativeNoteCache.
+          console.error('Encrypted offline cache is unavailable:', cause);
+          notifyNativeStatus('Encrypted offline account storage is unavailable. Saved notes and activity may not be available offline.', {
+            id: 'private-cache-unavailable',
+          });
+        }
+        const localComments = new OfflineCommentCache(cacheDatabase);
+        const localCounts = new OfflineTopicCountCache(cacheDatabase);
+        const localNotes = new NativeNoteCache(cacheDatabase, secureAuthStorage);
         failure = 'Unable to open saved comments. Please try again.';
         await localComments.initialize();
         failure = 'Unable to open saved topic counts. Please try again.';
@@ -624,9 +886,15 @@ function App() {
         await service.initialize();
         if (await service.refresh(controller.signal)) uiNeedsReload = true;
         if (uiNeedsReload) {
-          const page = await localCatalogue.topics();
+          // A catalogue refresh updates the offline browse cache, not the live
+          // personalized feed. Replacing its first page would also mismatch
+          // the server-owned recommendation cursor used by subsequent pages.
+          if (!feedPersonalized) {
+            const page = await localCatalogue.topics();
+            if (!active) return;
+            setFirstPage(page);
+          }
           if (!active) return;
-          setFirstPage(page);
           setCatalogueVersion((version) => version + 1);
           uiNeedsReload = false;
         }
@@ -668,7 +936,7 @@ function App() {
       window.removeEventListener('focus', request);
       document.removeEventListener('visibilitychange', resume);
     };
-  }, [catalogueRefresh, catalogue]);
+  }, [catalogueRefresh, catalogue, feedPersonalized]);
 
   useEffect(() => {
     if (!user?.id || authStatus !== 'ready') return;
@@ -728,31 +996,90 @@ function App() {
       const target =
         event instanceof CustomEvent && typeof event.detail === 'string' ? event.detail : '';
       if (!parseRoute(target)) {
-        setNavigationMessage('This page is not available in the app. Please use the website.');
+        notifyNativeStatus('This page is not available in the app. Please use the website.', { id: 'navigation' });
         return;
       }
       window.history.pushState(null, '', `#${target}`);
       setHref(target);
-      setNavigationMessage('');
       window.scrollTo(0, 0);
     }
     function restore() {
       setHref(currentHref());
-      setNavigationMessage('');
       window.scrollTo(0, 0);
     }
+    function interceptInternalLinks(event: MouseEvent) {
+      if (
+        event.defaultPrevented ||
+        event.button !== 0 ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.shiftKey ||
+        event.altKey
+      ) return;
+      const target = event.target;
+      const anchor = target instanceof Element ? target.closest('a[href]') : null;
+      if (!(anchor instanceof HTMLAnchorElement)) return;
+      if ((anchor.target && anchor.target !== '_self') || anchor.hasAttribute('download')) return;
+      const destination = new URL(anchor.href, window.location.href);
+      if (destination.origin !== window.location.origin || destination.pathname.startsWith('/api/')) return;
+      event.preventDefault();
+      const next = destination.pathname + destination.search + destination.hash;
+      window.dispatchEvent(new CustomEvent('cathoscroll:navigate', { detail: next }));
+    }
+
     window.addEventListener('cathoscroll:navigate', navigate);
     window.addEventListener('popstate', restore);
+    document.addEventListener('click', interceptInternalLinks, true);
     return () => {
       window.removeEventListener('cathoscroll:navigate', navigate);
       window.removeEventListener('popstate', restore);
+      document.removeEventListener('click', interceptInternalLinks, true);
     };
   }, []);
 
   const loadPage = useCallback(
     async (cursor: CatalogueCursor | RecommendationCursor) => {
       if (!catalogue) throw new Error('The offline catalogue is not ready.');
-      if (!('orderIndex' in cursor)) throw new Error('Invalid offline topic cursor.');
+      if ('categories' in cursor) {
+        // Recommendation cursors are server-owned. If the connection drops or
+        // the RPC fails, replace the feed with a fresh local catalogue page;
+        // never append page one to the existing personalized feed.
+        try {
+          if (!navigator.onLine) throw new Error('The device is offline.');
+          const { data, error } = await createClient().rpc('get_my_recommendation_page', {
+            feed_cursor: cursor,
+            page_limit: 50,
+          });
+          if (error) throw error;
+          if (!data || typeof data !== 'object' || !Array.isArray(data.topics) || !('nextCursor' in data)) {
+            throw new Error('The recommendation service returned an invalid page.');
+          }
+          clearNativeStatusNotice('feed-pagination');
+          return data as { topics: Topic[]; nextCursor: RecommendationCursor | null };
+        } catch (cause) {
+          console.error('Unable to continue personalized feed pagination:', cause);
+          const page = await catalogue.topics();
+          setFirstPage(page);
+          setFeedPersonalized(false);
+          notifyNativeStatus('Personalized recommendations are unavailable. Showing saved topics instead.', {
+            id: 'feed-pagination',
+            action: { label: 'Retry', onClick: () => setFeedAttempt((value) => value + 1) },
+          });
+          return page;
+        }
+      }
+      if (navigator.onLine) {
+        try {
+          const page = await loadNativeLiveTopicPage(cursor);
+          clearNativeStatusNotice('feed-pagination');
+          return page;
+        } catch (cause) {
+          console.error('Unable to load the live topic page:', cause);
+          notifyNativeStatus('Live topic updates are unavailable. Showing saved topics.', {
+            id: 'feed-pagination',
+          });
+        }
+      }
       return catalogue.topics({ cursor });
     },
     [catalogue]
@@ -776,38 +1103,6 @@ function App() {
           >
             <NativeNavbar pathname={route?.pathname ?? '/'} userId={user?.id ?? null} />
             <main className="pt-16">
-              {navigationMessage && (
-                <div role="alert" className="bg-bg-card border-border mx-6 rounded-xl border p-4">
-                  {navigationMessage}{' '}
-                  <button
-                    type="button"
-                    className="text-accent underline"
-                    onClick={() => setNavigationMessage('')}
-                  >
-                    Dismiss
-                  </button>
-                </div>
-              )}
-              {error && (
-                <p role="alert" className="px-6">
-                  {error}{' '}
-                  <button
-                    type="button"
-                    className="text-accent underline"
-                    onClick={() => retryStartup.current()}
-                  >
-                    Retry
-                  </button>
-                </p>
-              )}
-              {activity && user && activity.userId === user.id && (
-                <NativeActivityAlert key={user.id} activity={activity} version={activityVersion} />
-              )}
-              {catalogueMessage && navigator.onLine && (
-                <p role="status" className="text-text-secondary px-6 text-sm">
-                  {catalogueMessage}
-                </p>
-              )}
               {!error && !firstPage && (
                 <p role="status" className="px-6">
                   Loading topics…
@@ -822,9 +1117,10 @@ function App() {
                   hidden={route?.kind !== 'feed'}
                 >
                   <TopicFeedCore
+                    key={feedPersonalized ? 'personalized' : 'catalogue'}
                     topics={firstPage.topics}
                     nextCursor={firstPage.nextCursor}
-                    personalized={false}
+                    personalized={feedPersonalized}
                     loadPage={loadPage}
                     userId={user?.id ?? null}
                     viewer={NativeViewer}
@@ -849,25 +1145,37 @@ function App() {
               {catalogue && route?.kind === 'categories' && (
                 <CategoriesPage key={catalogueVersion} catalogue={catalogue} />
               )}
+              {route?.kind === 'admin' && (
+                <NativeAdmin
+                  key={user?.id ?? 'signed-out'}
+                  userId={user?.id ?? null}
+                  section={route.section}
+                  page={route.page}
+                />
+              )}
+              {route?.kind === 'about' && <AboutPage />}
+              {route?.kind === 'faq' && <FAQPage />}
+              {route?.kind === 'contact' && <ContactPage />}
+              {route?.kind === 'privacy' && <PrivacyPage />}
+              {route?.kind === 'terms' && <TermsPage />}
+              {route?.kind === 'cookies' && <CookiesPage />}
               {route?.kind === 'learn' && <LearnContent />}
               {route?.kind === 'account' && (
                 <NativeAccount
+                  key={user?.id ?? 'signed-out'}
                   user={user}
                   checking={authStatus === 'loading' || checkingAccount}
                   available={authStatus !== 'unavailable'}
                   onSignedIn={() => openRoute('/account')}
+                  onSignedOut={() => openRoute('/')}
                   activity={activity?.userId === user?.id ? activity : null}
-                  activityStatus={activityStatus}
-                  onRetryActivity={() => setActivityAttempt((attempt) => attempt + 1)}
                 />
               )}
               {route?.kind === 'signup' &&
                 (authStatus === 'loading' || checkingAccount ? (
                   <p className="container py-12">Loading account…</p>
                 ) : authStatus === 'unavailable' ? (
-                  <p role="alert" className="container py-12">
-                    Account creation is unavailable. Check your connection and try again.
-                  </p>
+                  null
                 ) : user ? (
                   <div className="container py-12">
                     <p>You are already signed in.</p>
@@ -892,8 +1200,18 @@ function App() {
                   version={activityVersion}
                 />
               )}
+              {route?.kind === 'appeal' && (
+                <NativeAppeal
+                  key={user?.id ?? 'signed-out'}
+                  userId={user?.id ?? null}
+                  onRequireSignIn={() => openRoute('/signin?next=%2Fappeal')}
+                />
+              )}
               {route?.kind === 'notifications' && (
                 <NativeNotifications key={user?.id ?? 'signed-out'} userId={user?.id ?? null} />
+              )}
+              {route?.kind === 'profile' && (
+                <NativePublicProfile key={route.username} username={route.username} />
               )}
               {catalogue && route?.kind === 'category' && (
                 <CategoryPage
@@ -916,13 +1234,9 @@ function App() {
                   showComments={route.comments}
                 />
               )}
-              {!route && (
-                <p role="alert" className="px-6">
-                  This page is not available in the app. Please use the website.
-                </p>
-              )}
+
             </main>
-            <OfflineIndicator />
+            <OfflineIndicator activity={activity?.userId === user?.id ? activity : null} activityVersion={activityVersion} />
           </TopicNavigation.Provider>
         </NativeNotificationsProvider>
       </SignInPromptProvider>

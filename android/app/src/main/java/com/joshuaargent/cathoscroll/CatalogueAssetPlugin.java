@@ -30,6 +30,27 @@ public class CatalogueAssetPlugin extends Plugin {
         }
     }
 
+    @PluginMethod
+    public void removeLegacyActivity(PluginCall call) {
+        File database = getContext().getDatabasePath("activitySQLite.db");
+        getContext().deleteDatabase("activitySQLite.db");
+        String[] suffixes = {"-wal", "-shm", "-journal"};
+        for (String suffix : suffixes) {
+            File sidecar = new File(database.getAbsolutePath() + suffix);
+            if (sidecar.exists() && !sidecar.delete()) {
+                call.reject("Unable to remove the migrated plaintext activity database.", new IOException(
+                    "Unable to delete " + sidecar.getName()
+                ));
+                return;
+            }
+        }
+        if (database.exists() && !database.delete()) {
+            call.reject("Unable to remove the migrated plaintext activity database.");
+            return;
+        }
+        call.resolve();
+    }
+
     private static void validate(File file) throws IOException {
         try (SQLiteDatabase database = SQLiteDatabase.openDatabase(
             file.getAbsolutePath(),
@@ -39,18 +60,34 @@ public class CatalogueAssetPlugin extends Plugin {
             if (!integrity.moveToFirst() || !"ok".equals(integrity.getString(0)) || integrity.moveToNext()) {
                 throw new IOException("The bundled catalogue failed its integrity check.");
             }
-            try (Cursor metadata = database.rawQuery(
-                "SELECT format, category_count, topic_count FROM catalogue_metadata WHERE singleton = 1",
-                null
-            )) {
+            try (
+                Cursor categories = database.rawQuery(
+                    "SELECT slug, name, description, order_index FROM categories LIMIT 0",
+                    null
+                );
+                Cursor topics = database.rawQuery(
+                    "SELECT id, slug, category_slug, order_index, question, answer, explanation, catechism_paragraphs, catechism_text, scripture_reference, scripture_text FROM topics LIMIT 0",
+                    null
+                );
+                Cursor metadata = database.rawQuery(
+                    "SELECT format, category_count, topic_count FROM catalogue_metadata WHERE singleton = 1",
+                    null
+                );
+                Cursor categoryCount = database.rawQuery("SELECT COUNT(*) FROM categories", null);
+                Cursor topicCount = database.rawQuery("SELECT COUNT(*) FROM topics", null)
+            ) {
                 if (
                     !metadata.moveToFirst() ||
                     metadata.getInt(0) != 1 ||
                     metadata.getLong(1) < 0 ||
                     metadata.getLong(2) < 0 ||
+                    !categoryCount.moveToFirst() ||
+                    categoryCount.getLong(0) != metadata.getLong(1) ||
+                    !topicCount.moveToFirst() ||
+                    topicCount.getLong(0) != metadata.getLong(2) ||
                     metadata.moveToNext()
                 ) {
-                    throw new IOException("The bundled catalogue metadata is invalid.");
+                    throw new IOException("The bundled catalogue metadata or row counts are invalid.");
                 }
             }
         } catch (SQLiteException error) {
@@ -59,7 +96,7 @@ public class CatalogueAssetPlugin extends Plugin {
     }
 
     private static void publish(File temporary, File destination) throws IOException {
-        if (destination.exists()) return;
+        if (destination.exists()) throw new IOException("Catalogue destination unexpectedly exists.");
         try {
             Os.rename(temporary.getAbsolutePath(), destination.getAbsolutePath());
         } catch (ErrnoException error) {

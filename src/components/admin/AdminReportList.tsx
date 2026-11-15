@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useState } from 'react';
 
 import { CommentBanControl } from '@/components/admin/CommentBanControl';
@@ -21,9 +20,13 @@ function displayName(profile: AdminCommentReport['reporter']) {
 function AdminReportCard({
   report,
   adminUserId,
+  fetcher,
+  onChange,
 }: {
   report: AdminCommentReport;
   adminUserId: string;
+  fetcher: typeof fetch;
+  onChange?: () => void;
 }) {
   const [status, setStatus] = useState(report.status);
   const [note, setNote] = useState(report.admin_note ?? '');
@@ -39,7 +42,7 @@ function AdminReportCard({
     setBusyAction(action);
 
     try {
-      const response = await fetch(`/api/admin/reports/${report.id}`, {
+      const response = await fetcher(`/api/admin/reports/${report.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action, note }),
@@ -86,12 +89,12 @@ function AdminReportCard({
           <p className="text-text-muted text-xs">
             Comment by{' '}
             {report.comment.author?.username ? (
-              <Link
+              <a
                 href={`/profile/${encodeURIComponent(report.comment.author.username)}`}
                 className="text-accent hover:underline"
               >
                 {displayName(report.comment.author)}
-              </Link>
+              </a>
             ) : (
               displayName(report.comment.author)
             )}
@@ -101,12 +104,12 @@ function AdminReportCard({
           </p>
           <p className="text-text-secondary mt-3 text-sm">{report.comment.topicTitle}</p>
           {report.comment.topicSlug && (
-            <Link
+            <a
               href={`/topic/${report.comment.topicSlug}#comments`}
               className="text-accent mt-2 inline-block text-sm hover:underline"
             >
               View discussion
-            </Link>
+            </a>
           )}
         </div>
       ) : (
@@ -115,10 +118,13 @@ function AdminReportCard({
 
       {report.comment?.author && (
         <CommentBanControl
+          key={`${report.comment.author.id}:${report.comment.isAuthorCommentBanned}:${report.comment.authorBanReason ?? ''}`}
           userId={report.comment.author.id}
           activeBan={report.comment.isAuthorCommentBanned}
           reason={report.comment.authorBanReason}
           canChangeBan={report.comment.author.id !== adminUserId}
+          fetcher={fetcher}
+          onChange={onChange}
         />
       )}
 
@@ -181,9 +187,13 @@ function AdminReportCard({
 export function AdminReportList({
   reports,
   adminUserId,
+  fetcher = fetch,
+  onChange,
 }: {
   reports: AdminCommentReport[];
   adminUserId: string;
+  fetcher?: typeof fetch;
+  onChange?: () => void;
 }) {
   if (reports.length === 0) {
     return (
@@ -196,7 +206,7 @@ export function AdminReportList({
   return (
     <div className="space-y-4">
       {reports.map((report) => (
-        <AdminReportCard key={report.id} report={report} adminUserId={adminUserId} />
+        <AdminReportCard key={report.id} report={report} adminUserId={adminUserId} fetcher={fetcher} onChange={onChange} />
       ))}
     </div>
   );

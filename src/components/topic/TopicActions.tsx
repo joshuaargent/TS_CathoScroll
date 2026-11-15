@@ -2,12 +2,10 @@
 
 import { useEffect, useState } from 'react';
 
-import { Bookmark, Share2 } from 'lucide-react';
+import { TopicActionsView } from './TopicActionsView';
 
 import { createClient } from '@/lib/supabase/client';
 import { useSignInPrompt } from '@/components/providers/SignInPromptProvider';
-
-import { Button } from '@/components/ui/Button';
 
 interface TopicActionsProps {
   topicId: string;
@@ -138,44 +136,16 @@ export function TopicActions({ topicId, slug, title }: TopicActionsProps) {
   }
 
   return (
-    <div className="flex flex-wrap gap-3">
-      <Button
-        type="button"
-        variant={isBookmarked ? 'primary' : 'secondary'}
-        onClick={toggleBookmark}
-        disabled={loadingBookmark || Boolean(bookmarkError)}
-        style={
-          isBookmarked
-            ? {
-                color: '#ffffff',
-              }
-            : undefined
-        }
-      >
-        <Bookmark className={`mr-2 h-4 w-4 ${isBookmarked ? 'fill-current' : ''}`} />
-        {isBookmarked ? 'Bookmarked' : 'Bookmark Topic'}
-      </Button>
-
-      {bookmarkError && (
-        <p role="alert" className="text-sm text-red-600">
-          {bookmarkError}{' '}
-          <button
-            type="button"
-            className="underline"
-            onClick={() => {
-              setLoadingBookmark(true);
-              setLoadVersion((version) => version + 1);
-            }}
-          >
-            Retry
-          </button>
-        </p>
-      )}
-
-      <Button type="button" variant="secondary" onClick={shareTopic}>
-        <Share2 className="mr-2 h-4 w-4" />
-        Share Topic
-      </Button>
-    </div>
+    <TopicActionsView
+      isBookmarked={isBookmarked}
+      bookmarkDisabled={loadingBookmark || Boolean(bookmarkError)}
+      bookmarkError={bookmarkError}
+      onToggleBookmark={() => void toggleBookmark()}
+      onRetryBookmark={() => {
+        setLoadingBookmark(true);
+        setLoadVersion((version) => version + 1);
+      }}
+      onShare={() => void shareTopic()}
+    />
   );
 }

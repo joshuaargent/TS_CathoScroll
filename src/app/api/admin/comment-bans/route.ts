@@ -2,29 +2,45 @@ import { NextResponse } from 'next/server';
 
 import {
   createServiceRoleClient,
-  getAdminSession,
-  isSameOrigin,
+  getAdminSessionFromRequest,
+  isSameOriginOrNativeRequest,
+  nativeApiCorsHeaders,
   isValidUuid,
 } from '@/lib/supabase/admin';
 
+function respond(request: Request, body: unknown, init?: ResponseInit) {
+  const headers = nativeApiCorsHeaders(request);
+  headers.set('Cache-Control', 'no-store');
+  new Headers(init?.headers).forEach((value, key) => headers.set(key, value));
+  return NextResponse.json(body, { ...init, headers });
+}
+
+export function OPTIONS(request: Request) {
+  const headers = nativeApiCorsHeaders(request);
+  if (!headers.has('Access-Control-Allow-Origin')) {
+    return new NextResponse(null, { status: 403 });
+  }
+  return new NextResponse(null, { status: 204, headers });
+}
+
 export async function POST(request: Request) {
-  if (!isSameOrigin(request)) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  if (!isSameOriginOrNativeRequest(request)) {
+    return respond(request, { error: 'Forbidden' }, { status: 403 });
   }
 
-  const { user, isAdmin, error: roleError } = await getAdminSession();
+  const { user, isAdmin, error: roleError } = await getAdminSessionFromRequest(request);
 
   if (!user) {
-    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    return respond(request, { error: 'Authentication required' }, { status: 401 });
   }
 
   if (roleError) {
     console.error('Unable to verify comment moderator:', roleError.message);
-    return NextResponse.json({ error: 'Unable to verify admin access' }, { status: 500 });
+    return respond(request, { error: 'Unable to verify admin access' }, { status: 500 });
   }
 
   if (!isAdmin) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    return respond(request, { error: 'Forbidden' }, { status: 403 });
   }
 
   let body: unknown;
@@ -32,7 +48,7 @@ export async function POST(request: Request) {
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    return respond(request, { error: 'Invalid JSON body' }, { status: 400 });
   }
 
   if (
@@ -49,11 +65,11 @@ export async function POST(request: Request) {
     ('hideExistingComments' in body && typeof body.hideExistingComments !== 'boolean') ||
     ('restoreHiddenComments' in body && typeof body.restoreHiddenComments !== 'boolean')
   ) {
-    return NextResponse.json({ error: 'Invalid comment restriction details' }, { status: 400 });
+    return respond(request, { error: 'Invalid comment restriction details' }, { status: 400 });
   }
 
   if (body.action === 'ban' && body.userId === user.id) {
-    return NextResponse.json({ error: 'You cannot restrict your own account' }, { status: 400 });
+    return respond(request, { error: 'You cannot restrict your own account' }, { status: 400 });
   }
 
   const hideExistingComments = 'hideExistingComments' in body && body.hideExistingComments === true;
@@ -66,7 +82,7 @@ export async function POST(request: Request) {
     adminClient = createServiceRoleClient();
   } catch (error) {
     console.error('Comment restrictions are not configured:', error);
-    return NextResponse.json({ error: 'Comment restrictions are not configured' }, { status: 500 });
+    return respond(request, { error: 'Comment restrictions are not configured' }, { status: 500 });
   }
 
   const { data: target, error: targetError } = await adminClient
@@ -77,11 +93,11 @@ export async function POST(request: Request) {
 
   if (targetError) {
     console.error('Unable to verify comment restriction target:', targetError.message);
-    return NextResponse.json({ error: 'Unable to update comment restriction' }, { status: 500 });
+    return respond(request, { error: 'Unable to update comment restriction' }, { status: 500 });
   }
 
   if (!target) {
-    return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    return respond(request, { error: 'User not found' }, { status: 404 });
   }
 
   // Ban state and optional comment hiding/restoration are one transaction in
@@ -97,22 +113,22 @@ export async function POST(request: Request) {
 
   if (moderationError) {
     if (moderationError.code === '23505') {
-      return NextResponse.json(
+      return respond(request, 
         { error: 'This user already has an active comment restriction' },
         { status: 409 }
       );
     }
 
     if (moderationError.code === 'P0002') {
-      return NextResponse.json(
+      return respond(request, 
         { error: 'This user has no active comment restriction' },
         { status: 404 }
       );
     }
 
     console.error('Unable to update comment restriction:', moderationError.message);
-    return NextResponse.json({ error: 'Unable to update comment restriction' }, { status: 500 });
+    return respond(request, { error: 'Unable to update comment restriction' }, { status: 500 });
   }
 
-  return NextResponse.json(data, { status: body.action === 'ban' ? 201 : 200 });
+  return respond(request, data, { status: body.action === 'ban' ? 201 : 200 });
 }

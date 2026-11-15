@@ -1,7 +1,12 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
-import { createServiceRoleClient, getAdminSession, isSameOrigin } from '@/lib/supabase/admin';
+import {
+  createServiceRoleClient,
+  getAdminSessionFromRequest,
+  isSameOriginOrNativeRequest,
+  nativeApiCorsHeaders,
+} from '@/lib/supabase/admin';
 
 interface RouteContext {
   params: Promise<{
@@ -9,62 +14,63 @@ interface RouteContext {
   }>;
 }
 
+function respond(request: Request, body: unknown, status = 200) {
+  const headers = nativeApiCorsHeaders(request);
+  headers.set('Cache-Control', 'no-store');
+  return NextResponse.json(body, { status, headers });
+}
+
+export function OPTIONS(request: Request) {
+  const headers = nativeApiCorsHeaders(request);
+  if (!headers.has('Access-Control-Allow-Origin')) {
+    return new NextResponse(null, { status: 403 });
+  }
+  return new NextResponse(null, { status: 204, headers });
+}
+
 export async function PATCH(request: NextRequest, { params }: RouteContext) {
-  if (!isSameOrigin(request)) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  if (!isSameOriginOrNativeRequest(request)) {
+    return respond(request, { error: 'Forbidden' }, 403);
   }
 
   const { commentId: commentIdParam } = await params;
-
   if (!/^[1-9]\d*$/.test(commentIdParam)) {
-    return NextResponse.json({ error: 'Invalid comment id' }, { status: 400 });
+    return respond(request, { error: 'Invalid comment id' }, 400);
   }
-
   const commentId = Number(commentIdParam);
-
   if (!Number.isSafeInteger(commentId)) {
-    return NextResponse.json({ error: 'Invalid comment id' }, { status: 400 });
+    return respond(request, { error: 'Invalid comment id' }, 400);
   }
 
   let body: unknown;
-
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    return respond(request, { error: 'Invalid JSON body' }, 400);
   }
-
   if (
     typeof body !== 'object' ||
     body === null ||
     !('pinned' in body) ||
     typeof body.pinned !== 'boolean'
   ) {
-    return NextResponse.json({ error: 'Expected a boolean pinned value' }, { status: 400 });
+    return respond(request, { error: 'Expected a boolean pinned value' }, 400);
   }
 
-  const { user, isAdmin, error: adminCheckError } = await getAdminSession();
-
-  if (!user) {
-    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
-  }
-
+  const { user, isAdmin, error: adminCheckError } = await getAdminSessionFromRequest(request);
+  if (!user) return respond(request, { error: 'Authentication required' }, 401);
   if (adminCheckError) {
     console.error('Unable to verify comment moderation role:', adminCheckError.message);
-    return NextResponse.json({ error: 'Unable to verify admin access' }, { status: 500 });
+    return respond(request, { error: 'Unable to verify admin access' }, 500);
   }
-
-  if (!isAdmin) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
+  if (!isAdmin) return respond(request, { error: 'Forbidden' }, 403);
 
   let adminClient;
-
   try {
     adminClient = createServiceRoleClient();
   } catch (error) {
     console.error('Comment pinning is not configured:', error);
-    return NextResponse.json({ error: 'Comment pinning is not configured' }, { status: 500 });
+    return respond(request, { error: 'Comment pinning is not configured' }, 500);
   }
 
   // The RPC serializes pin changes per topic and enforces the single pinned
@@ -73,15 +79,13 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
     target_comment_id: commentId,
     should_pin: body.pinned,
   });
-
   if (error) {
     if (error.code === 'P0002') {
-      return NextResponse.json({ error: 'Top-level comment not found' }, { status: 404 });
+      return respond(request, { error: 'Top-level comment not found' }, 404);
     }
-
     console.error('Unable to update pinned comment:', error.message);
-    return NextResponse.json({ error: 'Unable to update pinned comment' }, { status: 500 });
+    return respond(request, { error: 'Unable to update pinned comment' }, 500);
   }
 
-  return NextResponse.json({ pinned: body.pinned });
+  return respond(request, { pinned: body.pinned });
 }

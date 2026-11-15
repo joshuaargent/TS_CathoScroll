@@ -1,4 +1,3 @@
-
 import Link from 'next/link';
 import {
   Apple,
@@ -38,32 +37,28 @@ interface DownloadContentProps {
 const platforms = [
   {
     name: 'Android',
-    description:
-      'Install CathoScroll directly on your Android device.',
+    description: 'Install CathoScroll directly on your Android device.',
     formats: 'APK',
     extensions: ['.apk'],
     icon: Smartphone,
   },
   {
     name: 'Windows',
-    description:
-      'Download the CathoScroll desktop application for Windows.',
-    formats: 'EXE or MSI',
-    extensions: ['.exe', '.msi'],
+    description: 'Download the CathoScroll desktop application for Windows.',
+    formats: 'EXE',
+    extensions: ['.exe'],
     icon: Monitor,
   },
   {
     name: 'Linux',
-    description:
-      'Download the CathoScroll desktop application for Linux.',
-    formats: 'AppImage, DEB or RPM',
-    extensions: ['.appimage', '.deb', '.rpm'],
+    description: 'Choose the Linux package that suits your distribution and installation preference.',
+    formats: 'AppImage (recommended) or DEB',
+    extensions: ['.appimage', '.deb'],
     icon: Terminal,
   },
   {
     name: 'macOS',
-    description:
-      'Download the CathoScroll desktop application for Mac.',
+    description: 'Download the CathoScroll desktop application for Mac.',
     formats: 'DMG or ZIP',
     extensions: ['.dmg', '.zip'],
     icon: Apple,
@@ -87,6 +82,22 @@ function formatFileSize(bytes: number): string {
   return `${size.toFixed(unit === 0 ? 0 : 1)} ${units[unit]}`;
 }
 
+function getAssetLabel(asset: GitHubReleaseAsset, platformName: string): string {
+  const fileName = asset.name.toLowerCase();
+
+  if (platformName === 'Linux') {
+    if (fileName.endsWith('.appimage')) return 'Download AppImage';
+    if (fileName.endsWith('.deb')) return 'Download DEB package';
+  }
+
+  if (platformName === 'macOS') {
+    if (fileName.endsWith('.dmg')) return 'Download DMG';
+    if (fileName.endsWith('.zip')) return 'Download ZIP';
+  }
+
+  return 'Download';
+}
+
 function getPlatformAssets(
   assets: GitHubReleaseAsset[],
   extensions: string[]
@@ -94,9 +105,7 @@ function getPlatformAssets(
   return assets.filter((asset) => {
     const fileName = asset.name.toLowerCase();
 
-    return extensions.some((extension) =>
-      fileName.endsWith(extension)
-    );
+    return extensions.some((extension) => fileName.endsWith(extension));
   });
 }
 
@@ -158,10 +167,7 @@ export default function DownloadContent({
               </p>
 
               <div className="mt-6">
-                <Button
-                  asChild
-                  variant="outline"
-                >
+                <Button asChild variant="outline">
                   <a
                     href={releasesUrl}
                     target="_blank"
@@ -180,10 +186,7 @@ export default function DownloadContent({
               const Icon = platform.icon;
 
               const platformAssets = release
-                ? getPlatformAssets(
-                    release.assets,
-                    platform.extensions
-                  )
+                ? getPlatformAssets(release.assets, platform.extensions)
                 : [];
 
               const available = platformAssets.length > 0;
@@ -225,6 +228,13 @@ export default function DownloadContent({
                   </p>
 
                   <div className="mt-auto space-y-3 pt-6">
+                    {platform.name === 'Linux' && available && (
+                  <p className="text-text-secondary mt-2 text-xs leading-relaxed">
+                    AppImage runs without a traditional installation and is
+                    the easiest option for most Linux users. DEB is intended
+                    for Debian, Ubuntu, and compatible distributions.
+                  </p>
+                    )}
                     {available ? (
                       platformAssets.map((asset) => (
                         <Button
@@ -239,14 +249,8 @@ export default function DownloadContent({
                             aria-label={`Download ${asset.name} for ${platform.name}`}
                           >
                             <span className="flex min-w-0 items-center gap-2">
-                              <Download
-                                size={17}
-                                className="shrink-0"
-                              />
-
-                              <span className="truncate">
-                                {asset.name}
-                              </span>
+                              <Download size={17} className="shrink-0" />
+                              <span className="truncate">{getAssetLabel(asset, platform.name)}</span>
                             </span>
 
                             <span className="shrink-0 text-xs opacity-80">
@@ -262,9 +266,7 @@ export default function DownloadContent({
                         className="w-full"
                         leftIcon={<Download size={17} />}
                       >
-                        {!release
-                          ? 'Unavailable'
-                          : 'Coming Soon'}
+                        {!release ? 'Unavailable' : 'Coming Soon'}
                       </Button>
                     )}
                   </div>
@@ -327,16 +329,35 @@ export default function DownloadContent({
 
           <div className="border-border rounded-2xl border p-8">
             <p className="text-text-secondary leading-relaxed">
-              CathoScroll is being made available across mobile and
-              desktop platforms. Android and Windows installers are
-              currently published, with Linux and macOS versions
-              planned.
+              CathoScroll release builds target Android, Windows, Linux, and
+              macOS. Available downloads are detected automatically from
+              the latest published GitHub release.
             </p>
 
             <p className="text-text-secondary mt-4 leading-relaxed">
-              Available installers are automatically detected from
-              the latest GitHub release. When new platform builds
-              are published, their download options will appear here.
+              Windows checks for updates when launched, downloads them in
+              the background, and installs them after the app is closed.
+              Linux AppImage updates install after the app is closed; DEB
+              updates require system authentication when the installer runs.
+              macOS checks for a newer release on
+              launch and displays an update notice with a link to the
+              download page; macOS updates are installed manually. Android
+              checks GitHub Releases on launch, prompts when a newer signed
+              APK is available, downloads it, and opens Android's installer.
+              Android requires the user to approve the installation and may
+              require allowing installs from CathoScroll in system settings.
+              The first production-signed Android release cannot install
+              over an older debug-signed build. If you already have a
+              debug-signed version installed, connect to the internet and
+              allow pending account activity to sync before uninstalling it;
+              uninstalling removes device-only data. Install this APK after
+              removing the old build. Future production-signed releases can
+              then update normally. Keep your Android release keystore and
+              passwords backed up securely; every future APK must use the
+              same signing key. macOS builds are unsigned, so Gatekeeper may require you to
+              Control-click the app and choose Open on its first launch.
+              Only install downloads obtained from this official CathoScroll
+              website.
             </p>
 
             <div className="mt-6">
@@ -366,10 +387,7 @@ export default function DownloadContent({
 
           <div className="mt-6">
             <Link href="/contact">
-              <Button
-                size="lg"
-                style={{ color: '#ffffff' }}
-              >
+              <Button size="lg" style={{ color: '#ffffff' }}>
                 Contact Us
               </Button>
             </Link>

@@ -1,7 +1,7 @@
 import Link from 'next/link';
 
 import { AdminNavigation } from '@/components/admin/AdminNavigation';
-import { AdminReportList } from '@/components/admin/AdminReportList';
+import { AdminReportListClient } from '@/components/admin/AdminReportListClient';
 import { loadCommentReports } from '@/lib/moderation/admin-data';
 import { requireAdminPage } from '@/lib/moderation/require-admin';
 
@@ -29,7 +29,7 @@ export default async function AdminReportsPage({ searchParams }: Props) {
       <div className="mt-8">
         <AdminNavigation />
       </div>
-      <AdminReportList reports={items} adminUserId={user.id} />
+      <AdminReportListClient reports={items} adminUserId={user.id} />
       <div className="mt-8 flex justify-between">
         {page > 0 ? (
           <Link
