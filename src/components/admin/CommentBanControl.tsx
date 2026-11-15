@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 
 import type { AdminUserComment } from '@/lib/moderation/types';
 
@@ -10,6 +9,7 @@ interface CommentBanControlProps {
   activeBan: boolean;
   reason?: string | null;
   canChangeBan: boolean;
+  fetcher?: typeof fetch;
 }
 
 export function CommentBanControl({
@@ -17,9 +17,10 @@ export function CommentBanControl({
   activeBan,
   reason,
   canChangeBan,
+  fetcher = fetch,
 }: CommentBanControlProps) {
-  const router = useRouter();
   const [restrictionActive, setRestrictionActive] = useState(activeBan);
+  const [currentReason, setCurrentReason] = useState(reason ?? '');
   const [moderationReason, setModerationReason] = useState('');
   const [hideExistingComments, setHideExistingComments] = useState(false);
   const [restoreHiddenComments, setRestoreHiddenComments] = useState(true);
@@ -46,7 +47,7 @@ export function CommentBanControl({
       // APPEND returned comments to history
       // IF more comments exist THEN store next offset
       // Each request processes at most 30 comments; total history is loaded on demand.
-      const response = await fetch(`/api/admin/users/${userId}/comments?offset=${offset}&limit=30`);
+      const response = await fetcher(`/api/admin/users/${userId}/comments?offset=${offset}&limit=30`);
       const result = (await response.json()) as {
         comments?: AdminUserComment[];
         nextOffset?: number | null;
@@ -88,7 +89,7 @@ export function CommentBanControl({
     setSaving(true);
 
     try {
-      const response = await fetch('/api/admin/comment-bans', {
+      const response = await fetcher('/api/admin/comment-bans', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -107,10 +108,10 @@ export function CommentBanControl({
       }
 
       setRestrictionActive(Boolean(result.banned));
+      setCurrentReason(result.banned ? moderationReason.trim() : '');
       setModerationReason('');
       setHideExistingComments(false);
       setRestoreHiddenComments(true);
-      router.refresh();
     } catch (requestError) {
       console.error('Unable to update comment restriction:', requestError);
       setError('Unable to update comment access. Please try again.');
@@ -127,8 +128,8 @@ export function CommentBanControl({
           ? 'This user is currently unable to post or reply to comments.'
           : 'This user can currently post and reply to comments.'}
       </p>
-      {restrictionActive && reason && (
-        <p className="text-text-muted mt-2 text-sm">Restriction reason: {reason}</p>
+      {restrictionActive && currentReason && (
+        <p className="text-text-muted mt-2 text-sm">Restriction reason: {currentReason}</p>
       )}
       {restrictionActive && (
         <div className="mt-4">
