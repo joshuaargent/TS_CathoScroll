@@ -232,17 +232,11 @@ export function CommentSection({
       const commentRows = commentsResult.data ?? [];
       // Restrict the likes query to this topic's comment ids instead of loading
       // the entire community's likes on every topic page.
-      const commentIds = commentRows.map((row) => row.id);
-
       const userIds = [
         ...new Set([...commentRows.map((row) => row.user_id), user?.id].filter(Boolean)),
       ];
 
-      const [likesResult, profilesResult, adminRoleResult, commentBanResult] = await Promise.all([
-        commentIds.length
-          ? supabase.from('comment_likes').select('comment_id,user_id').in('comment_id', commentIds)
-          : Promise.resolve({ data: [], error: null }),
-
+      const [profilesResult, adminRoleResult, commentBanResult] = await Promise.all([
         userIds.length
           ? supabase.from('profiles').select('id,username,display_name,bio').in('id', userIds)
           : Promise.resolve({
@@ -265,9 +259,8 @@ export function CommentSection({
       ]);
 
       if (!isCurrent()) return;
-      if (likesResult.error || profilesResult.error) {
-        const error = likesResult.error ?? profilesResult.error;
-        throw new Error(`Unable to load comment details: ${error?.message}`);
+      if (profilesResult.error) {
+        throw new Error(`Unable to load comment details: ${profilesResult.error.message}`);
       }
 
       if (adminRoleResult.error) {
@@ -310,18 +303,6 @@ export function CommentSection({
         setCurrentProfile(profiles.get(user.id) ?? null);
       }
 
-      const likeCounts = new Map<number, number>();
-
-      const likedByUser = new Set<number>();
-
-      (likesResult.data ?? []).forEach((like) => {
-        likeCounts.set(like.comment_id, (likeCounts.get(like.comment_id) ?? 0) + 1);
-
-        if (like.user_id === user?.id) {
-          likedByUser.add(like.comment_id);
-        }
-      });
-
       const map = new Map<number, Comment>();
 
       const roots: Comment[] = [];
@@ -357,9 +338,9 @@ export function CommentSection({
             id: row.user_id,
           },
 
-          likes: likeCounts.get(row.id) ?? 0,
+          likes: Number(row.likes ?? 0),
 
-          likedByUser: likedByUser.has(row.id),
+          likedByUser: Boolean(row.liked_by_user),
 
           replies: [],
         });
