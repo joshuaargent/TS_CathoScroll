@@ -17,6 +17,7 @@ export interface GitHubReleaseAsset {
   browser_download_url: string;
   size: number;
   content_type: string;
+  digest?: string | null;
 }
 
 export interface GitHubRelease {
@@ -102,14 +103,14 @@ function getPlatformAssets(
 export default function DownloadContent({
   release,
 }: DownloadContentProps) {
-  const version = release?.tag_name ?? null;
+  const version = release?.tag_name ?? 'Unavailable';
 
   const releasesUrl =
     release?.html_url ??
     'https://github.com/joshuaargent/TS_CathoScroll/releases';
 
   return (
-    <div className="container py-12">
+    <main className="container py-12">
       <div className="mt-12 mb-16">
         <h1 className="text-5xl font-extrabold md:text-7xl">
           Download CathoScroll
@@ -120,13 +121,11 @@ export default function DownloadContent({
           your device and explore Catholic teaching wherever you are.
         </p>
 
-        {release && (
-          <div className="mt-6">
-            <Badge variant="accent" size="sm">
-              Latest version: {version}
-            </Badge>
-          </div>
-        )}
+        <div className="mt-6">
+          <Badge variant="accent" size="sm">
+            Latest version: {version}
+          </Badge>
+        </div>
       </div>
 
       <div className="space-y-16">
@@ -142,26 +141,29 @@ export default function DownloadContent({
           </p>
 
           {!release && (
-            <div className="border-border mb-6 rounded-2xl border p-6">
+            <div className="border-border mb-6 rounded-2xl border p-8">
               <Badge variant="default" size="sm">
-                Release information unavailable
+                Release unavailable
               </Badge>
 
-              <h3 className="mt-4 text-xl font-bold">
+              <h3 className="mt-4 text-2xl font-bold">
                 Unable to retrieve the latest release
               </h3>
 
-              <p className="text-text-secondary mt-3 leading-relaxed">
-                The GitHub release information could not be retrieved.
-                Platform availability cannot currently be verified.
+              <p className="text-text-secondary mt-4 leading-relaxed">
+                GitHub release information could not be retrieved.
+                Download availability cannot currently be verified.
                 Please try again later or view the releases directly
                 on GitHub.
               </p>
 
               <div className="mt-6">
-                <Button asChild variant="outline">
+                <Button
+                  asChild
+                  variant="outline"
+                >
                   <a
-                    href="https://github.com/joshuaargent/TS_CathoScroll/releases"
+                    href={releasesUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                   >
@@ -199,9 +201,7 @@ export default function DownloadContent({
                     </div>
 
                     <Badge
-                      variant={
-                        available ? 'accent' : 'default'
-                      }
+                      variant={available ? 'accent' : 'default'}
                       size="sm"
                     >
                       {!release
@@ -232,8 +232,12 @@ export default function DownloadContent({
                           asChild
                           size="md"
                           className="w-full justify-between"
+                          style={{ color: '#ffffff' }}
                         >
-                          <a href={asset.browser_download_url}>
+                          <a
+                            href={asset.browser_download_url}
+                            aria-label={`Download ${asset.name} for ${platform.name}`}
+                          >
                             <span className="flex min-w-0 items-center gap-2">
                               <Download
                                 size={17}
@@ -260,7 +264,7 @@ export default function DownloadContent({
                       >
                         {!release
                           ? 'Unavailable'
-                          : 'Not available yet'}
+                          : 'Coming Soon'}
                       </Button>
                     )}
                   </div>
@@ -270,6 +274,52 @@ export default function DownloadContent({
           </div>
         </section>
 
+        {release?.body && (
+          <section>
+            <h2 className="mb-6 text-3xl font-bold">
+              Release Notes
+            </h2>
+
+            <div className="border-border rounded-2xl border p-8">
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <h3 className="text-xl font-bold">
+                  CathoScroll {version}
+                </h3>
+
+                {release.published_at && (
+                  <Badge variant="default" size="sm">
+                    {new Date(release.published_at).toLocaleDateString(
+                      'en-GB',
+                      {
+                        day: 'numeric',
+                        month: 'long',
+                        year: 'numeric',
+                      }
+                    )}
+                  </Badge>
+                )}
+              </div>
+
+              <p className="text-text-secondary whitespace-pre-wrap leading-relaxed">
+                {release.body}
+              </p>
+
+              <div className="mt-6">
+                <Button asChild variant="outline">
+                  <a
+                    href={release.html_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Full Release Details
+                    <ExternalLink size={16} />
+                  </a>
+                </Button>
+              </div>
+            </div>
+          </section>
+        )}
+
         <section>
           <h2 className="mb-6 text-3xl font-bold">
             About the Downloads
@@ -277,15 +327,16 @@ export default function DownloadContent({
 
           <div className="border-border rounded-2xl border p-8">
             <p className="text-text-secondary leading-relaxed">
-              CathoScroll is available across mobile and desktop
-              platforms. Android and Windows installers are currently
-              published, with Linux and macOS versions planned.
+              CathoScroll is being made available across mobile and
+              desktop platforms. Android and Windows installers are
+              currently published, with Linux and macOS versions
+              planned.
             </p>
 
             <p className="text-text-secondary mt-4 leading-relaxed">
-              Download availability is determined by the files
-              published in the latest GitHub release. New installers
-              will automatically appear here when published.
+              Available installers are automatically detected from
+              the latest GitHub release. When new platform builds
+              are published, their download options will appear here.
             </p>
 
             <div className="mt-6">
@@ -295,7 +346,7 @@ export default function DownloadContent({
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  View GitHub Release
+                  View All GitHub Releases
                   <ExternalLink size={16} />
                 </a>
               </Button>
@@ -325,6 +376,6 @@ export default function DownloadContent({
           </div>
         </section>
       </div>
-    </div>
+    </main>
   );
 }
