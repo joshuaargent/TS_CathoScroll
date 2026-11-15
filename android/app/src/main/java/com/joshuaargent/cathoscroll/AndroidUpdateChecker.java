@@ -110,23 +110,29 @@ public final class AndroidUpdateChecker {
         SharedPreferences preferences = activity.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         if (completedId == -1L || completedId != preferences.getLong(PENDING_DOWNLOAD_ID, -1L)) return;
 
-        DownloadManager manager = (DownloadManager) activity.getSystemService(Context.DOWNLOAD_SERVICE);
-        try (Cursor cursor = manager.query(new DownloadManager.Query().setFilterById(completedId))) {
-            if (cursor == null || !cursor.moveToFirst()) {
-                clearPendingDownload(preferences);
-                showToast(activity, "The CathoScroll update download could not be found.");
-                return;
+        try {
+            DownloadManager manager = (DownloadManager) activity.getSystemService(Context.DOWNLOAD_SERVICE);
+            if (manager == null) throw new IllegalStateException("Android DownloadManager is unavailable.");
+            try (Cursor cursor = manager.query(new DownloadManager.Query().setFilterById(completedId))) {
+                if (cursor == null || !cursor.moveToFirst()) {
+                    clearPendingDownload(preferences);
+                    showToast(activity, "The CathoScroll update download could not be found.");
+                    return;
+                }
+                int status = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS));
+                if (status == DownloadManager.STATUS_FAILED) {
+                    int reason = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_REASON));
+                    clearPendingDownload(preferences);
+                    showToast(activity, "The CathoScroll update download failed (error " + reason + ").");
+                    return;
+                }
+                if (status != DownloadManager.STATUS_SUCCESSFUL) return;
             }
-            int status = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS));
-            if (status == DownloadManager.STATUS_FAILED) {
-                int reason = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_REASON));
-                clearPendingDownload(preferences);
-                showToast(activity, "The CathoScroll update download failed (error " + reason + ").");
-                return;
-            }
-            if (status != DownloadManager.STATUS_SUCCESSFUL) return;
+            openDownloadedUpdateIfAllowed(activity, completedId);
+        } catch (Exception error) {
+            android.util.Log.w("CathoScrollUpdates", "Unable to process the completed Android update download.", error);
+            showToast(activity, "Unable to verify the CathoScroll update download. It will be checked again when the app is reopened.");
         }
-        openDownloadedUpdateIfAllowed(activity, completedId);
     }
 
     public static void resumePendingInstall(Activity activity) {
@@ -134,18 +140,23 @@ public final class AndroidUpdateChecker {
         long pendingId = preferences.getLong(PENDING_DOWNLOAD_ID, -1L);
         if (pendingId == -1L) return;
 
-        DownloadManager manager = (DownloadManager) activity.getSystemService(Context.DOWNLOAD_SERVICE);
-        try (Cursor cursor = manager.query(new DownloadManager.Query().setFilterById(pendingId))) {
-            if (cursor == null || !cursor.moveToFirst()) {
-                clearPendingDownload(preferences);
-                return;
+        try {
+            DownloadManager manager = (DownloadManager) activity.getSystemService(Context.DOWNLOAD_SERVICE);
+            if (manager == null) throw new IllegalStateException("Android DownloadManager is unavailable.");
+            try (Cursor cursor = manager.query(new DownloadManager.Query().setFilterById(pendingId))) {
+                if (cursor == null || !cursor.moveToFirst()) {
+                    clearPendingDownload(preferences);
+                    return;
+                }
+                int status = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS));
+                if (status == DownloadManager.STATUS_SUCCESSFUL) {
+                    openDownloadedUpdateIfAllowed(activity, pendingId);
+                } else if (status == DownloadManager.STATUS_FAILED) {
+                    clearPendingDownload(preferences);
+                }
             }
-            int status = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS));
-            if (status == DownloadManager.STATUS_SUCCESSFUL) {
-                openDownloadedUpdateIfAllowed(activity, pendingId);
-            } else if (status == DownloadManager.STATUS_FAILED) {
-                clearPendingDownload(preferences);
-            }
+        } catch (Exception error) {
+            android.util.Log.w("CathoScrollUpdates", "Unable to resume the pending Android update installation.", error);
         }
     }
 
@@ -199,10 +210,20 @@ public final class AndroidUpdateChecker {
             return;
         }
 
-        DownloadManager manager = (DownloadManager) activity.getSystemService(Context.DOWNLOAD_SERVICE);
-        Uri apkUri = manager.getUriForDownloadedFile(downloadId);
+        Uri apkUri;
+        try {
+            DownloadManager manager = (DownloadManager) activity.getSystemService(Context.DOWNLOAD_SERVICE);
+            if (manager == null) throw new IllegalStateException("Android DownloadManager is unavailable.");
+            apkUri = manager.getUriForDownloadedFile(downloadId);
+        } catch (Exception error) {
+            android.util.Log.e("CathoScrollUpdates", "Unable to access the downloaded Android update.", error);
+            Toast.makeText(activity, "Unable to access the CathoScroll update download. It will be retried when the app is reopened.", Toast.LENGTH_LONG).show();
+            return;
+        }
+
         if (apkUri == null) {
-            Toast.makeText(activity, "The downloaded CathoScroll APK is unavailable.", Toast.LENGTH_LONG).show();
+            clearPendingDownload(activity.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE));
+            Toast.makeText(activity, "The downloaded CathoScroll APK is unavailable. Check for updates again.", Toast.LENGTH_LONG).show();
             return;
         }
 
@@ -211,8 +232,7 @@ public final class AndroidUpdateChecker {
             installIntent.setDataAndType(apkUri, APK_MIME_TYPE);
             installIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
             activity.startActivity(installIntent);
-            activity.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-                .edit().remove(PENDING_DOWNLOAD_ID).apply();
+            clearPendingDownload(activity.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE));
         } catch (Exception error) {
             android.util.Log.e("CathoScrollUpdates", "Unable to open the Android package installer.", error);
             Toast.makeText(activity, "Android could not open the CathoScroll installer.", Toast.LENGTH_LONG).show();
