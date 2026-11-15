@@ -75,8 +75,10 @@ export function NativeAccount({
       return;
     }
     const userId: string = accountId;
+    const accountEmail = user?.email ?? '';
     let active = true;
     cache.current = null;
+    setEmail(accountEmail);
     clearNativeStatusNotice('account-membership');
     async function loadAccount() {
       try {
@@ -184,7 +186,7 @@ export function NativeAccount({
     return () => {
       active = false;
     };
-  }, [user?.id, online, attempt]);
+  }, [user?.id, user?.email, online, attempt]);
 
   useEffect(() => {
     const accountId = user?.id;
