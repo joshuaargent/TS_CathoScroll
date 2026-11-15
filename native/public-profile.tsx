@@ -100,7 +100,6 @@ export function NativePublicProfile({
     let active = true;
     const noticeId = `public-profile:${username}`;
     async function load() {
-      setLoading(true);
       try {
         if (!navigator.onLine) throw new Error('Connect to the internet to view this public profile.');
         const supabase = createClient();
@@ -189,7 +188,7 @@ export function NativePublicProfile({
             cause instanceof Error && cause.message.startsWith('Connect to')
               ? cause.message
               : 'This public profile could not be loaded. Please try again.',
-            { id: noticeId, action: { label: 'Retry', onClick: () => setAttempt((value) => value + 1) } }
+            { id: noticeId, action: { label: 'Retry', onClick: () => { setLoading(true); setAttempt((value) => value + 1); } } }
           );
         }
       } finally {
