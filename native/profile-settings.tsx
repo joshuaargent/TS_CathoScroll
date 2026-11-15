@@ -22,6 +22,18 @@ export function NativeProfileSettings({ userId }: { userId: string }) {
   const dirty = useRef(false);
 
   useEffect(() => {
+    const noticeId = 'profile-offline:' + userId;
+    if (!navigator.onLine) {
+      notifyNativeStatus('Profile settings are read-only until you reconnect.', {
+        id: noticeId,
+      });
+    } else {
+      clearNativeStatusNotice(noticeId);
+    }
+    return () => clearNativeStatusNotice(noticeId);
+  }, [userId, attempt]);
+
+  useEffect(() => {
     let active = true;
     async function load() {
       try {
@@ -118,13 +130,7 @@ export function NativeProfileSettings({ userId }: { userId: string }) {
   }
 
   if (loading && !profile) return <p className="text-text-secondary mt-4">Loading profile…</p>;
-  if (!profile) {
-    return (
-      <p role="status" className="text-text-secondary mt-4">
-        Connect to view your profile settings.
-      </p>
-    );
-  }
+  if (!profile) return null;
   const disabled = !verified || busy;
   return (
     <form
@@ -146,11 +152,6 @@ export function NativeProfileSettings({ userId }: { userId: string }) {
           View Public Profile
         </Link>
       </div>
-      {!verified && (
-        <p role="status" className="text-text-secondary">
-          Connect to edit your profile.
-        </p>
-      )}
       <Input
         label="Username"
         value={profile.username}
