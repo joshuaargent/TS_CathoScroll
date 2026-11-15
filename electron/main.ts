@@ -26,7 +26,7 @@ if (embeddedConfig.server?.url) {
 }
 
 function parseStableVersion(version: string): [number, number, number] | null {
-  const match = /^v?(\\d+)\\.(\\d+)\\.(\\d+)$/.exec(version.trim());
+  const match = /^v?(\d+)\.(\d+)\.(\d+)$/.exec(version.trim());
 
   if (!match) return null;
 
