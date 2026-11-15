@@ -74,6 +74,19 @@ REVOKE UPDATE ON TABLE public.bookmarks, public.comment_likes, public.topic_like
 -- exposed through narrow aggregate RPCs instead of raw user_id rows.
 REVOKE SELECT ON TABLE public.comment_likes, public.topic_likes
   FROM anon, authenticated;
+GRANT SELECT (user_id, comment_id)
+  ON TABLE public.comment_likes TO authenticated;
+GRANT SELECT (user_id, topic_id)
+  ON TABLE public.topic_likes TO authenticated;
+
+DROP POLICY IF EXISTS "Anyone can view comment likes" ON public.comment_likes;
+DROP POLICY IF EXISTS "Users can view likes" ON public.topic_likes;
+CREATE POLICY comment_likes_select_own
+  ON public.comment_likes FOR SELECT TO authenticated
+  USING (user_id = (SELECT auth.uid()));
+CREATE POLICY topic_likes_select_own
+  ON public.topic_likes FOR SELECT TO authenticated
+  USING (user_id = (SELECT auth.uid()));
 
 -- Profiles are public only through the fields used by public profile pages,
 -- comments and account UI. Membership and account timestamps are private.
