@@ -29,6 +29,7 @@ module.exports = {
   linux: {
     icon: '../assets/logo.png',
     category: 'Education',
+    maintainer: 'Joshua Argent <argentjackjoshua@gmail.com>',
     target: ['AppImage', 'deb'],
     artifactName: '${productName}-${version}-${arch}.${ext}',
   },
