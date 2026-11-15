@@ -552,7 +552,6 @@ function App() {
   const [href, setHref] = useState(currentHref);
   const route = parseRoute(href);
   const [error, setError] = useState('');
-  const [navigationMessage, setNavigationMessage] = useState('');
   const [authStatus, setAuthStatus] = useState<'loading' | 'ready' | 'unavailable'>('loading');
   const [checkingAccount, setCheckingAccount] = useState(true);
   const [user, setUser] = useState<CachedIdentity | null>(null);
@@ -645,20 +644,14 @@ function App() {
   }, [authStatus]);
 
   useEffect(() => {
-    if (!route) {
+    if (!parseRoute(href)) {
       notifyNativeStatus('This page is not available in the app. Please use the website.', {
         id: 'unsupported-route',
       });
     } else {
       clearNativeStatusNotice('unsupported-route');
     }
-  }, [route?.pathname, href]);
-
-  useEffect(() => {
-    if (!navigationMessage) return;
-    notifyNativeStatus(navigationMessage, { id: 'navigation' });
-    setNavigationMessage('');
-  }, [navigationMessage]);
+  }, [href]);
 
   useEffect(() => {
     if (!error) {
@@ -949,12 +942,11 @@ function App() {
       const target =
         event instanceof CustomEvent && typeof event.detail === 'string' ? event.detail : '';
       if (!parseRoute(target)) {
-        setNavigationMessage('This page is not available in the app. Please use the website.');
+        notifyNativeStatus('This page is not available in the app. Please use the website.', { id: 'navigation' });
         return;
       }
       window.history.pushState(null, '', `#${target}`);
       setHref(target);
-      setNavigationMessage('');
       window.scrollTo(0, 0);
     }
     function restore() {
