@@ -114,7 +114,7 @@ export function AccountPageView(props: AccountPageViewProps) {
           <Input
             label="Username"
             value={props.username}
-            disabled={props.saving}
+            disabled={props.profileFieldsDisabled || props.saving}
             onChange={(event) => props.onUsernameChange(event.target.value)}
             hint="3-20 characters. Used for your public profile URL."
           />
@@ -124,7 +124,7 @@ export function AccountPageView(props: AccountPageViewProps) {
               id="account-bio"
               value={props.bio}
               maxLength={250}
-              disabled={props.saving}
+              disabled={props.profileFieldsDisabled || props.saving}
               onChange={(event) => props.onBioChange(event.target.value)}
               rows={5}
               className="border-border bg-bg-card w-full rounded-lg border p-4"
