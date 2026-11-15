@@ -219,6 +219,7 @@ export default function AccountPage() {
       saving={saving}
       signingOut={signingOut}
       saveDisabled={false}
+      profileFieldsDisabled={false}
       accountSettingsDisabled={false}
       signOutDisabled={false}
       error={error}
