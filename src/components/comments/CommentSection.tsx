@@ -307,8 +307,8 @@ export function CommentSection({
             }),
 
         user
-          ? supabase.from('admin_users').select('user_id').eq('user_id', user.id).maybeSingle()
-          : Promise.resolve({ data: null, error: null }),
+          ? supabase.rpc('is_cathoscroll_content_admin')
+          : Promise.resolve({ data: false, error: null }),
 
         user
           ? supabase
