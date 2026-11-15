@@ -52,6 +52,12 @@ async function fixture(t, server) {
   await mkdir(assets, { recursive: true });
   const catalogue = new DatabaseSync(path.join(assets, 'catalogue.db'));
   catalogue.exec(`
+    CREATE TABLE categories (
+      slug TEXT,
+      name TEXT,
+      description TEXT,
+      order_index INTEGER
+    );
     CREATE TABLE topics (id TEXT);
     INSERT INTO topics VALUES ('bundled');
     CREATE TABLE catalogue_metadata (
