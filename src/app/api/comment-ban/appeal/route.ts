@@ -108,7 +108,7 @@ export async function POST(request: Request) {
     return respond(request, { error: 'Appeals must be between 20 and 2,000 characters' }, 400);
   }
 
-  const adminClient = serviceClient(request);
+  const adminClient = serviceClient();
   if (!adminClient) return respond(request, { error: 'Appeals are not configured' }, 500);
 
   const { data: activeBan, error: banError } = await adminClient
