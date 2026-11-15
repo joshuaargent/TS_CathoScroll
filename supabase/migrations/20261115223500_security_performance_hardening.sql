@@ -20,7 +20,7 @@ REVOKE SELECT ON TABLE public.bookmarks, public.notes, public.progress
   FROM anon;
 
 -- TRUNCATE bypasses row-level security. It is never an application operation.
-REVOKE TRUNCATE ON ALL TABLES IN SCHEMA public FROM anon, authenticated;
+REVOKE TRUNCATE, REFERENCES, TRIGGER ON ALL TABLES IN SCHEMA public FROM anon, authenticated;
 
 -- Admin content is changed through server routes using the service-role client.
 -- The authenticated browser/native clients do not need direct content writes.
@@ -212,18 +212,14 @@ DECLARE
   now_at timestamptz := pg_catalog.clock_timestamp();
   current_count integer;
   maximum_count integer;
-  window_started_at timestamptz;
   action_name text;
 BEGIN
   IF TG_TABLE_NAME = 'comment_ban_appeals' THEN
+    -- Appeals are inserted only by the authenticated server route using the
+    -- service-role client; NEW.user_id is the identity already verified there.
     actor := NEW.user_id;
     action_name := 'appeal';
     maximum_count := 3;
-    SELECT appeal_window_started_at, appeal_count
-      INTO window_started_at, current_count
-      FROM catho_private.user_action_limits
-      WHERE user_id = actor
-      FOR UPDATE;
   ELSE
     actor := auth.uid();
     IF actor IS NULL THEN
@@ -237,19 +233,9 @@ BEGIN
     IF TG_TABLE_NAME = 'comments' THEN
       action_name := 'comment';
       maximum_count := 20;
-      SELECT comment_window_started_at, comment_count
-        INTO window_started_at, current_count
-        FROM catho_private.user_action_limits
-        WHERE user_id = actor
-        FOR UPDATE;
     ELSIF TG_TABLE_NAME = 'comment_likes' THEN
       action_name := 'comment_like';
       maximum_count := 180;
-      SELECT comment_like_window_started_at, comment_like_count
-        INTO window_started_at, current_count
-        FROM catho_private.user_action_limits
-        WHERE user_id = actor
-        FOR UPDATE;
     ELSE
       RAISE EXCEPTION 'Unsupported rate-limited action';
     END IF;
@@ -259,8 +245,8 @@ BEGIN
   VALUES (actor)
   ON CONFLICT (user_id) DO NOTHING;
 
-  -- Lock after ensuring that the counter row exists. Concurrent requests from
-  -- the same user serialize on this row and cannot race past the threshold.
+  -- Concurrent requests from the same user serialize on this row and cannot
+  -- race past the threshold.
   PERFORM 1
     FROM catho_private.user_action_limits
     WHERE user_id = actor
