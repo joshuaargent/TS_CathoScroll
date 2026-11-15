@@ -352,16 +352,9 @@ export default function DownloadContent({
                         <Button
                           key={asset.name}
                           asChild
-                          {...(platform.name === 'Windows'
-                            ? {
-                                variant: 'primary' as const,
-                                className: 'w-full justify-between text-white hover:text-white',
-                              }
-                            : {
-                                className: 'w-full justify-between',
-                                style: { color: '#ffffff' },
-                              })}
                           size="md"
+                          className="w-full justify-between"
+                          style={{ color: '#ffffff' }}
                         >
                           <a
                             href={asset.browser_download_url}
