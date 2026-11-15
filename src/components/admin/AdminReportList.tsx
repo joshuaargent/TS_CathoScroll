@@ -118,6 +118,7 @@ function AdminReportCard({
 
       {report.comment?.author && (
         <CommentBanControl
+          key={`${report.comment.author.id}:${report.comment.isAuthorCommentBanned}:${report.comment.authorBanReason ?? ''}`}
           userId={report.comment.author.id}
           activeBan={report.comment.isAuthorCommentBanned}
           reason={report.comment.authorBanReason}
