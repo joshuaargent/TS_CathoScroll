@@ -24,7 +24,6 @@ export function AdminRoleControl({
   if (!canManage) return null;
 
   async function changeAdminRole(grant: boolean) {
-    const action = grant ? 'Grant' : 'Revoke';
     const confirmed = window.confirm(
       grant
         ? 'Grant this account administrator access? They will be able to manage content and moderation.'
