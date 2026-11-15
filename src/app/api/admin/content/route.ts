@@ -114,7 +114,7 @@ function topicRow(input: TopicInput) {
   };
 }
 
-async function authorize(request: Request) {
+async function authorize(request: Request, mutation = false) {
   if (!isSameOriginOrNativeRequest(request)) {
     return { response: respond(request, { error: 'Forbidden' }, { status: 403 }) };
   }
@@ -137,7 +137,7 @@ async function authorize(request: Request) {
   const rateLimit = await checkApiRateLimit({
     scope: 'admin:content',
     identifier: user.id,
-    limit: 30,
+    limit: mutation ? 10 : 30,
     windowSeconds: 60,
   });
   if (!rateLimit.allowed) {
@@ -221,7 +221,7 @@ async function loadAllRows<T>(
 }
 
 export async function GET(request: Request) {
-  const authorization = await authorize(request);
+  const authorization = await authorize(request, false);
   if ('response' in authorization) return authorization.response;
 
   try {
@@ -253,7 +253,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const authorization = await authorize(request);
+  const authorization = await authorize(request, true);
   if ('response' in authorization) return authorization.response;
 
   const input = await readInput(request);
@@ -298,7 +298,7 @@ export async function POST(request: Request) {
 }
 
 export async function PATCH(request: Request) {
-  const authorization = await authorize(request);
+  const authorization = await authorize(request, true);
   if ('response' in authorization) return authorization.response;
 
   const input = await readInput(request);
