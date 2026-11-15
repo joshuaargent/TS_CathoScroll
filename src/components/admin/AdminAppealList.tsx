@@ -4,7 +4,7 @@ import { useState } from 'react';
 
 import type { AdminCommentBanAppeal, AdminUserComment } from '@/lib/moderation/types';
 
-function AppealCard({ appeal }: { appeal: AdminCommentBanAppeal }) {
+function AppealCard({ appeal, fetcher }: { appeal: AdminCommentBanAppeal; fetcher: typeof fetch }) {
   const [status, setStatus] = useState(appeal.status);
   const [note, setNote] = useState(appeal.admin_note ?? '');
   const [restoreHiddenComments, setRestoreHiddenComments] = useState(true);
@@ -27,7 +27,7 @@ function AppealCard({ appeal }: { appeal: AdminCommentBanAppeal }) {
       // FETCH comments[offset TO offset + 30]
       // IF offset = 0 THEN history ← page ELSE APPEND page TO history
       // SET next offset if another page exists
-      const response = await fetch(
+      const response = await fetcher(
         `/api/admin/users/${appeal.user_id}/comments?offset=${offset}&limit=30`
       );
       const result = (await response.json()) as {
@@ -59,7 +59,7 @@ function AppealCard({ appeal }: { appeal: AdminCommentBanAppeal }) {
     setError('');
 
     try {
-      const response = await fetch(`/api/admin/comment-ban-appeals/${appeal.id}`, {
+      const response = await fetcher(`/api/admin/comment-ban-appeals/${appeal.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ decision, note, restoreHiddenComments }),
@@ -227,7 +227,7 @@ function AppealCard({ appeal }: { appeal: AdminCommentBanAppeal }) {
   );
 }
 
-export function AdminAppealList({ appeals }: { appeals: AdminCommentBanAppeal[] }) {
+export function AdminAppealList({ appeals, fetcher = fetch }: { appeals: AdminCommentBanAppeal[]; fetcher?: typeof fetch }) {
   if (appeals.length === 0) {
     return (
       <article className="border-border rounded-2xl border p-6">
@@ -239,7 +239,7 @@ export function AdminAppealList({ appeals }: { appeals: AdminCommentBanAppeal[] 
   return (
     <div className="space-y-4">
       {appeals.map((appeal) => (
-        <AppealCard key={appeal.id} appeal={appeal} />
+        <AppealCard key={appeal.id} appeal={appeal} fetcher={fetcher} />
       ))}
     </div>
   );
