@@ -49,7 +49,7 @@ const platforms = [
     description:
       'Download the CathoScroll desktop application for Windows.',
     formats: 'EXE',
-    extensions: ['.exe', '.msi'],
+    extensions: ['.exe'],
     icon: Monitor,
   },
   {
@@ -57,7 +57,7 @@ const platforms = [
     description:
       'Download the CathoScroll desktop application for Linux.',
     formats: 'AppImage or DEB',
-    extensions: ['.appimage', '.deb', '.rpm'],
+    extensions: ['.appimage', '.deb'],
     icon: Terminal,
   },
   {
@@ -327,8 +327,8 @@ export default function DownloadContent({
 
           <div className="border-border rounded-2xl border p-8">
             <p className="text-text-secondary leading-relaxed">
-              CathoScroll installers are built for Android, Windows,
-              Linux, and macOS. Available downloads are detected
+              CathoScroll release builds target Android, Windows, Linux, and
+              macOS. Available downloads are detected
               automatically from the latest published GitHub release.
             </p>
 
