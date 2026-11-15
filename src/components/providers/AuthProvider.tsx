@@ -53,7 +53,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const loadProfile = useCallback(async (userId: string, isActive: () => boolean = () => true) => {
     const requestId = ++profileRequest.current;
-    const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).single();
+    const { data, error } = await supabase.from('profiles').select('id,username,display_name,bio,avatar_url,subscription_tier,created_at').eq('id', userId).single();
     if (!isActive() || requestId !== profileRequest.current) return;
 
     if (error) {

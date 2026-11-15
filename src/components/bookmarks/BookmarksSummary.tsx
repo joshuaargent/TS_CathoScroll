@@ -18,6 +18,15 @@ export function BookmarksHeader({ count }: { count?: number }) {
   );
 }
 
+export function BookmarksPagination({ hasCursor, nextCursor }: { hasCursor: boolean; nextCursor: string | null }) {
+  if (!hasCursor && !nextCursor) return null;
+  return (
+    <nav aria-label="Bookmark pagination" className="mt-10 flex items-center justify-between gap-4">
+      {hasCursor ? <Link href="/bookmarks" className="text-text-secondary hover:text-text-primary font-medium">Latest bookmarks</Link> : <span />}
+      {nextCursor && <Link href={'/bookmarks?cursor=' + encodeURIComponent(nextCursor)} className="bg-accent rounded-lg px-4 py-2 text-sm font-medium text-white">Older bookmarks →</Link>}
+    </nav>
+  );
+}
 export function EmptyBookmarks() {
   return (
     <section className="border-border rounded-2xl border p-12 text-center">

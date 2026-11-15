@@ -51,8 +51,6 @@ function publicComments(value: unknown, topicId: string, depth = 0): Comment[] {
         username: profile.username,
         display_name: profile.display_name,
         bio: null,
-        created_at: '',
-        subscription_tier: 'free',
       },
       likes: row.likes,
       likedByUser: false,

@@ -57,7 +57,7 @@ export default function AccountPage() {
 
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
-          .select('*')
+          .select('username,display_name,bio,subscription_tier')
           .eq('id', user.id)
           .single();
         if (profileError) throw profileError;
