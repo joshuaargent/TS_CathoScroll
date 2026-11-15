@@ -17,6 +17,7 @@ export type AccountPageViewProps = {
   saving: boolean;
   signingOut: boolean;
   saveDisabled: boolean;
+  profileFieldsDisabled: boolean;
   accountSettingsDisabled: boolean;
   signOutDisabled: boolean;
   statusMessage?: string;
@@ -107,7 +108,7 @@ export function AccountPageView(props: AccountPageViewProps) {
           <Input
             label="Display Name"
             value={props.displayName}
-            disabled={props.saving}
+            disabled={props.profileFieldsDisabled || props.saving}
             onChange={(event) => props.onDisplayNameChange(event.target.value)}
           />
           <Input
