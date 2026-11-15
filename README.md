@@ -273,8 +273,10 @@ Online comment discussions use the native secure Supabase session. Comment
 likes, posts, replies, edits, and deletes use Supabase directly. Private
 comment reports and administrator comment pinning use the website API over
 HTTPS with the user's access token; the service-role key remains server-only.
-Native API CORS is restricted to the local Capacitor origins
-(`capacitor://localhost`, `http://localhost`, and `https://localhost`).
+Native API CORS is restricted to the local Capacitor and Electron origins
+(`capacitor://localhost`, `capacitor-electron://localhost`, `http://localhost`,
+and `https://localhost`). The matching website API deployment must be live before
+the native app release is distributed.
 The administrative report/appeal dashboard and account restriction workflows
 remain website-only. Comment reporting, pinning, and all comment writes require
 an internet connection; cached discussions are read-only and may be stale.
