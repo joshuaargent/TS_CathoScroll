@@ -119,6 +119,7 @@ async function updateRole(request: Request, userId: string, grant: boolean) {
   if (error) {
     if (error.code === 'P0002') return respond(request, { error: 'User account not found.' }, { status: 404 });
     if (error.code === '42501') return respond(request, { error: 'Only the CathoScroll owner can manage administrator access.' }, { status: 403 });
+    if (error.code === '23514') return respond(request, { error: 'This account must set up and verify an authenticator before receiving administrator access. Ask them to visit Account → Security.' }, { status: 409 });
     console.error('Unable to change administrator role:', error.message);
     return respond(request, { error: 'Unable to change administrator access.' }, { status: 500 });
   }
