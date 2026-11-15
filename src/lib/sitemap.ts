@@ -19,7 +19,6 @@ export function getSitemapCategoriesXml(categories: { slug: string }[]) {
   const staticUrls = [
     '/',
     '/categories',
-    '/learn',
     '/download',
     '/about',
     '/faq',
