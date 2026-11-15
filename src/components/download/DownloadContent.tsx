@@ -335,9 +335,11 @@ export default function DownloadContent({
             </p>
 
             <p className="text-text-secondary mt-4 leading-relaxed">
-              Windows and Linux desktop apps check for updates when launched,
-              download available updates in the background, and install them
-              after the app is closed. macOS checks for a newer release on
+              Windows checks for updates when launched, downloads them in
+              the background, and installs them after the app is closed.
+              Linux AppImage updates install after the app is closed; DEB
+              updates require system authentication when the installer runs.
+              macOS checks for a newer release on
               launch and displays an update notice with a link to the
               download page; macOS updates are installed manually. Android
               checks GitHub Releases on launch, prompts when a newer signed
