@@ -12,7 +12,21 @@ android {
     signingConfigs {
         release {
             if (releaseKeystorePath) {
-                storeFile file(releaseKeystorePath)
+                def missingSigningValues = []
+                if (!releaseKeystorePassword) missingSigningValues << 'ANDROID_KEYSTORE_PASSWORD'
+                if (!releaseKeyAlias) missingSigningValues << 'ANDROID_KEY_ALIAS'
+                if (!releaseKeyPassword) missingSigningValues << 'ANDROID_KEY_PASSWORD'
+
+                if (missingSigningValues) {
+                    throw new GradleException("Missing Android release signing environment variables: ${missingSigningValues.join(', ')}")
+                }
+
+                def releaseKeystoreFile = file(releaseKeystorePath)
+                if (!releaseKeystoreFile.isFile()) {
+                    throw new GradleException("Android release keystore does not exist: ${releaseKeystorePath}")
+                }
+
+                storeFile releaseKeystoreFile
                 storePassword releaseKeystorePassword
                 keyAlias releaseKeyAlias
                 keyPassword releaseKeyPassword
@@ -37,7 +51,9 @@ android {
     buildTypes {
         release {
             minifyEnabled false
-            signingConfig signingConfigs.release
+            if (releaseKeystorePath) {
+                signingConfig signingConfigs.release
+            }
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
