@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { usernameError } from '@/lib/username';
 import { createClient } from './supabase';
+import { notifyNativeStatus, clearNativeStatusNotice } from './offline-indicator';
 
 export function NativeSignup({ onSignedUp }: { onSignedUp: () => void }) {
   const [loading, setLoading] = useState(false);
@@ -13,6 +14,14 @@ export function NativeSignup({ onSignedUp }: { onSignedUp: () => void }) {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [online, setOnline] = useState(navigator.onLine);
+
+  useEffect(() => {
+    if (!online) {
+      notifyNativeStatus('Connect to the internet to create an account.', { id: 'signup-offline' });
+    } else {
+      clearNativeStatusNotice('signup-offline');
+    }
+  }, [online]);
 
   useEffect(() => {
     const update = () => setOnline(navigator.onLine);
@@ -95,7 +104,6 @@ export function NativeSignup({ onSignedUp }: { onSignedUp: () => void }) {
               features.
             </p>
           </div>
-          {!online && <p role="status">Connect to the internet to create an account.</p>}
           <Input
             label="Username"
             name="username"
