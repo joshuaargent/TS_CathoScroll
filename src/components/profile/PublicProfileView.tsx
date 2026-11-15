@@ -71,7 +71,7 @@ export function PublicProfileView({
   moderationControls?: ReactNode;
 }) {
   return (
-    <main className="container py-12">
+    <div className="container py-12">
       <div className="mt-8 mb-16">
         <h1 className="text-5xl font-extrabold md:text-7xl">{profile.displayName}</h1>
         <p className="text-text-secondary mt-4 text-lg">@{profile.username}</p>
@@ -169,6 +169,6 @@ export function PublicProfileView({
           </div>
         )}
       </section>
-    </main>
+    </div>
   );
 }
