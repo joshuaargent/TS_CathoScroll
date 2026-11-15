@@ -151,6 +151,51 @@ or packaging it. Installers are written under `electron/dist`. Packaging,
 signing, upgrades, and online/offline account flows must be tested on each
 target OS before release.
 
+## Building and publishing releases
+
+CathoScroll uses two separate GitHub Actions workflows:
+
+- **CathoScroll Release Build Validation** runs for pull requests targeting `main` and can also be started manually from the Actions tab. It runs the unit tests, ESLint, TypeScript checks, Android release-APK compilation, and Windows x64, Linux x64, and universal macOS packaging checks. These validation builds do not publish a release.
+- **CathoScroll Release** runs when a version tag matching `v*.*.*` is pushed. It validates the source again, builds the signed Android APK and desktop installers, verifies the expected outputs, and publishes the GitHub release.
+
+### Before tagging a release
+
+1. Merge the release PR into `main` only after the latest validation workflow has passed and the code review findings have been addressed.
+2. Ensure the matching website changes have deployed to production. Native apps call the production website API; a successful native build does not deploy those APIs.
+3. Keep the versions in the root `package.json`, `electron/package.json`, and Android Gradle configuration aligned. The release workflow checks the root and Electron package versions against the tag and supplies the tag version to the Android build.
+4. Confirm the repository Actions configuration contains the required public Supabase repository variables: `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
+5. Confirm these Android signing secrets exist in the repository's Actions secrets: `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, and `ANDROID_KEY_PASSWORD`. The keystore must be the same long-lived signing key used for previous production releases. Back it up securely; never commit the keystore or passwords.
+
+### Triggering a release
+
+Create and push an annotated version tag from the merged `main` commit. For example, for version 2.2.0:
+
+```bash
+git checkout main
+git pull origin main
+git tag -a v2.2.0 -m "CathoScroll v2.2.0"
+git push origin v2.2.0
+```
+
+The tag push starts the release workflow. Do not create a separate manual release or upload build files yourself; the workflow creates/updates the GitHub release and publishes it after the platform builds and asset checks succeed. The workflow generates GitHub release notes automatically from the changes since the previous release.
+
+You can create the tag with GitHub Desktop's tag interface instead of the terminal, provided the tag is created from the merged `main` commit and pushed to GitHub. Merging the pull request itself can be done directly on GitHub using **Squash and merge**; no local Git command is required for that step.
+
+### Published release files
+
+The workflow verifies and publishes:
+
+- **Windows:** x64 installer (`.exe`).
+- **Linux:** x64 AppImage and Debian package (`.deb`).
+- **macOS:** universal DMG and ZIP. macOS builds are unsigned; users may need to follow the documented macOS first-launch security steps.
+- **Android:** signed versioned APK (`CathoScroll-<version>.apk`).
+
+Desktop builds also publish the update metadata used by the desktop auto-updaters, including `latest.yml` and `latest-linux.yml`. Windows and Linux AppImage updates download in the background and install on app exit. Linux DEB downloads automatically but requires system authorization to apply. macOS updates remain manual download-and-reinstall.
+
+After the workflow completes, inspect the [GitHub Releases](https://github.com/joshuaargent/TS_CathoScroll/releases) page and confirm that every expected installer, the Android APK, release notes, and desktop update metadata are present. Do not distribute a release if any platform job or required asset-verification step failed.
+
+The CI packaging checks prove that the packages can be built; they do not replace real-device upgrade, migration, offline, reconnect, or platform-specific installation tests. See the release verification plan below.
+
 ## Configuration
 
 Copy `.env.example` to `.env.local` in the project root and fill in the values for your project. `.env.local` is ignored by Git; commit changes to `.env.example` when the required variables change, never your real credentials.
