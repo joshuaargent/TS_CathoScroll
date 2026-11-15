@@ -218,7 +218,7 @@ export function NativeAccount({
       if (passwordChanged && newPassword !== confirmPassword) {
         throw new Error('Passwords do not match.');
       }
-      if (!email.trim() || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email.trim())) {
+      if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
         throw new Error('Enter a valid email address.');
       }
 
