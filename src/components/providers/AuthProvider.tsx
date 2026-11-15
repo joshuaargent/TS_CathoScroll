@@ -49,6 +49,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const supabase = useMemo(() => createClient(), []);
   const profileRequest = useRef(0);
+  const authEventVersion = useRef(0);
 
   const loadProfile = useCallback(async (userId: string) => {
     const requestId = ++profileRequest.current;
@@ -74,10 +75,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Restore the existing session once, then keep the context synchronized
     // with sign-in, sign-out, and token-refresh events from Supabase.
     async function initialise() {
+      const initialVersion = authEventVersion.current;
       try {
         const { data, error } = await supabase.auth.getSession();
         if (error) throw error;
-        if (!active) return;
+        if (!active || initialVersion !== authEventVersion.current) return;
 
         const currentSession = data.session;
         setSession(currentSession);
@@ -91,13 +93,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       } catch (cause) {
         console.error('Unable to restore the authentication session:', cause);
-        if (active) {
+        if (active && initialVersion === authEventVersion.current) {
           setSession(null);
           setUser(null);
           setProfile(null);
         }
       } finally {
-        if (active) setLoading(false);
+        if (active && initialVersion === authEventVersion.current) setLoading(false);
       }
     }
 
@@ -105,6 +107,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       if (!active) return;
+      authEventVersion.current++;
       setSession(nextSession);
       setUser(nextSession?.user ?? null);
       if (nextSession?.user) {
@@ -118,6 +121,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     return () => {
       active = false;
+      authEventVersion.current++;
       profileRequest.current++;
       // Prevent the auth listener from retaining this provider after unmount.
       authListener.subscription.unsubscribe();
