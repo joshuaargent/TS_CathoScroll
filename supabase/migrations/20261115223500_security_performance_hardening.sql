@@ -576,17 +576,23 @@ AS $function$
     comment.edited_at,
     comment.is_deleted,
     comment.is_pinned,
-    (
-      SELECT count(*)
-      FROM public.comment_likes AS comment_like
-      WHERE comment_like.comment_id = comment.id
-    ) AS likes,
-    EXISTS (
-      SELECT 1
-      FROM public.comment_likes AS comment_like
-      WHERE comment_like.comment_id = comment.id
-        AND comment_like.user_id = (SELECT auth.uid())
-    ) AS liked_by_user
+    CASE
+      WHEN comment.is_deleted THEN 0::bigint
+      ELSE (
+        SELECT count(*)
+        FROM public.comment_likes AS comment_like
+        WHERE comment_like.comment_id = comment.id
+      )
+    END AS likes,
+    CASE
+      WHEN comment.is_deleted THEN false
+      ELSE EXISTS (
+        SELECT 1
+        FROM public.comment_likes AS comment_like
+        WHERE comment_like.comment_id = comment.id
+          AND comment_like.user_id = (SELECT auth.uid())
+      )
+    END AS liked_by_user
   FROM public.comments AS comment
   JOIN public.topics AS topic
     ON topic.id = comment.topic_id
