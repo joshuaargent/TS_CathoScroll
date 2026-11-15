@@ -301,8 +301,10 @@ Native API CORS is restricted to the local Capacitor and Electron origins
 and `https://localhost`). The matching website API deployment must be live before
 the native app release is distributed.
 The native router also exposes the admin dashboard, reports, appeals,
-comment restrictions, and content library. These routes reuse the website's
-admin navigation, report list, appeal list, comment restriction controls, and
+comment restrictions, and content library. Public profiles also expose the
+website's administrator-role and comment-restriction controls to authorized
+native administrators. These routes reuse the website's admin navigation,
+report list, appeal list, comment restriction controls, role control, and
 content editor. Native requests use the signed-in user's bearer token and are
 independently authorized against the database-backed `admin_users` role on the
 server; no service-role credentials are shipped in the app. Admin reads and
