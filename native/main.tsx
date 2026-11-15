@@ -42,7 +42,7 @@ import { OfflineTopicCountCache, type CachedTopicCounts } from '@/lib/offline/to
 import { loadTopicActivity } from '@/lib/topic-activity';
 import { siteConfig } from '@/lib/constants';
 import type { RecommendationCursor } from '@/lib/recommendations';
-import { openNativeDatabases } from '@/lib/offline/native-database';
+import { openNativeDatabases, openPrivateActivityDatabase } from '@/lib/offline/native-database';
 import { SupabaseActivityTransport } from '@/lib/offline/supabase-activity-transport';
 import type { OfflineActivityKind, OfflineTopicActivity } from '@/lib/offline/activity-store';
 import type { Topic } from '@/types';
