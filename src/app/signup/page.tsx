@@ -28,13 +28,13 @@ export default function SignupPage() {
 
     setError('');
 
-    const username = (formData.get('username') as string).trim().toLowerCase();
+    const username = String(formData.get('username') ?? '').trim().toLowerCase();
 
-    const email = (formData.get('email') as string).trim().toLowerCase();
+    const email = String(formData.get('email') ?? '').trim().toLowerCase();
 
-    const password = formData.get('password') as string;
+    const password = String(formData.get('password') ?? '');
 
-    const confirmPassword = formData.get('confirmPassword') as string;
+    const confirmPassword = String(formData.get('confirmPassword') ?? '');
 
     const invalidUsername = usernameError(username);
     if (invalidUsername) {
@@ -45,19 +45,15 @@ export default function SignupPage() {
       return;
     }
 
-    if (password !== confirmPassword) {
-      setError('Passwords do not match.');
-
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters.');
       setLoading(false);
-
       return;
     }
 
-    if (password.length < 8) {
-      setError('Password must be at least 8 characters.');
-
+    if (password !== confirmPassword) {
+      setError('Passwords do not match.');
       setLoading(false);
-
       return;
     }
 
