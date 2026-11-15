@@ -201,7 +201,7 @@ export class CathoSQLite {
       path.join(userData, 'cathoscroll-sqlite', 'activity.sqlite'),
     ];
     for (const databaseFile of files) {
-      for (const suffix of ['', '-wal', '-shm', '-journal']) {
+      for (const suffix of ['-wal', '-shm', '-journal', '']) {
         const file = databaseFile + suffix;
         if (existsSync(file)) unlinkSync(file);
       }
