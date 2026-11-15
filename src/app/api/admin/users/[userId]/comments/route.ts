@@ -16,6 +16,25 @@ export function OPTIONS(request: Request) {
   return new NextResponse(null, { status: 204, headers });
 }
 
+function isAllowedCommentHistoryRequest(request: Request): boolean {
+  if (isSameOriginOrNativeRequest(request)) return true;
+
+  // Fetch GET requests made by the website normally omit the Origin header.
+  // Fetch Metadata is browser-controlled; the Referer check supports clients
+  // that omit Sec-Fetch-Site while still requiring an exact same-origin URL.
+  if (request.headers.has('origin')) return false;
+  if (request.headers.get('sec-fetch-site') === 'same-origin') return true;
+
+  const referer = request.headers.get('referer');
+  if (!referer) return false;
+
+  try {
+    return new URL(referer).origin === new URL(request.url).origin;
+  } catch {
+    return false;
+  }
+}
+
 function respond(request: Request, body: unknown, init?: ResponseInit) {
   const headers = nativeApiCorsHeaders(request);
   headers.set('Cache-Control', 'no-store');
@@ -24,7 +43,7 @@ function respond(request: Request, body: unknown, init?: ResponseInit) {
 }
 
 export async function GET(request: Request, { params }: RouteContext) {
-  if (!isSameOriginOrNativeRequest(request)) return respond(request, { error: 'Forbidden' }, { status: 403 });
+  if (!isAllowedCommentHistoryRequest(request)) return respond(request, { error: 'Forbidden' }, { status: 403 });
   const { user, isAdmin, error: roleError } = await getAdminSessionFromRequest(request);
 
   if (!user) {
