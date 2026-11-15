@@ -544,7 +544,7 @@ function NativeTopicPage({
             topicId={String(topic.id)}
             cache={noteCache}
           />
-          <CommentSection topicId={String(topic.id)} cache={cache} serverActionsAvailable />
+          <CommentSection topicId={String(topic.id)} cache={cache} serverActionsAvailable supabaseClient={createClient()} />
         </>
       )}
     </div>
