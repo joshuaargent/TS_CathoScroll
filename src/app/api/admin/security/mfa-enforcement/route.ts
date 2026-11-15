@@ -4,11 +4,13 @@ import {
   createServiceRoleClient,
   getAuthenticatedUserFromRequest,
   isSameOrigin,
+  nativeApiCorsHeaders,
 } from '@/lib/supabase/admin';
 import { checkApiRateLimit, rateLimitResponseHeaders } from '@/lib/security/api-rate-limit';
 
-function respond(body: unknown, status = 200, extraHeaders?: HeadersInit) {
-  const headers = new Headers(extraHeaders);
+function respond(request: Request, body: unknown, status = 200, extraHeaders?: HeadersInit) {
+  const headers = nativeApiCorsHeaders(request);
+  new Headers(extraHeaders).forEach((value, key) => headers.set(key, value));
   headers.set('Cache-Control', 'private, no-store');
   return NextResponse.json(body, { status, headers });
 }
@@ -25,20 +27,27 @@ async function loadOwnerStatus(userId: string) {
   return { isOwner: isOwner === true, enforcementEnabled: enforced === true };
 }
 
+export function OPTIONS(request: Request) {
+  const headers = nativeApiCorsHeaders(request);
+  if (!headers.has('Access-Control-Allow-Origin')) return new NextResponse(null, { status: 403 });
+  headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  return new NextResponse(null, { status: 204, headers });
+}
+
 export async function GET(request: Request) {
   try {
     const { user } = await getAuthenticatedUserFromRequest(request);
-    if (!user) return respond({ error: 'Authentication required' }, 401);
+    if (!user) return respond(request, { error: 'Authentication required' }, 401);
     const status = await loadOwnerStatus(user.id);
-    return respond(status);
+    return respond(request, status);
   } catch (error) {
     console.error('Unable to load administrator MFA settings:', error);
-    return respond({ error: 'Unable to load security settings.' }, 500);
+    return respond(request, { error: 'Unable to load security settings.' }, 500);
   }
 }
 
 export async function POST(request: Request) {
-  if (!isSameOrigin(request)) return respond({ error: 'Forbidden' }, 403);
+  if (!isSameOrigin(request)) return respond(request, { error: 'Forbidden' }, 403);
 
   try {
     const { supabase, user } = await getAuthenticatedUserFromRequest(request);
@@ -88,7 +97,7 @@ export async function POST(request: Request) {
       console.error('Unable to enable administrator MFA enforcement:', error.message);
       return respond({ error: 'Unable to enable administrator MFA enforcement.' }, 500);
     }
-    return respond({ enabled: data === true });
+    return respond(request, { enabled: data === true });
   } catch (error) {
     console.error('Unable to enable administrator MFA enforcement:', error);
     return respond({ error: 'Unable to enable administrator MFA enforcement.' }, 500);
