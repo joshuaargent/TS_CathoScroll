@@ -11,16 +11,10 @@ interface TotpFactor {
   friendly_name?: string | null;
 }
 
-interface AssuranceState {
-  currentLevel: 'aal1' | 'aal2';
-  nextLevel: 'aal1' | 'aal2';
-}
-
 export default function AccountSecurityPage() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [factors, setFactors] = useState<TotpFactor[]>([]);
-  const [assurance, setAssurance] = useState<AssuranceState | null>(null);
   const [totpAssurance, setTotpAssurance] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -45,16 +39,14 @@ export default function AccountSecurityPage() {
 
   const refreshSecurityState = useCallback(async () => {
     const supabase = createClient();
-    const [{ data: userData, error: userError }, { data: factorData, error: factorError }, { data: assuranceData, error: assuranceError }] =
+    const [{ data: userData, error: userError }, { data: factorData, error: factorError }] =
       await Promise.all([
         supabase.auth.getUser(),
         supabase.auth.mfa.listFactors(),
-        supabase.auth.mfa.getAuthenticatorAssuranceLevel(),
       ]);
 
     if (userError) throw userError;
     if (factorError) throw factorError;
-    if (assuranceError) throw assuranceError;
     if (!userData.user) throw new Error('Sign in to manage account security.');
 
     const { data: adminRow, error: adminError } = await supabase
@@ -66,7 +58,6 @@ export default function AccountSecurityPage() {
 
     setIsAdmin(Boolean(adminRow));
     setFactors((factorData.totp ?? []) as TotpFactor[]);
-    setAssurance(assuranceData as AssuranceState);
 
     const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
     if (sessionError) throw sessionError;
