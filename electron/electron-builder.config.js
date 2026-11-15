@@ -42,6 +42,9 @@ module.exports = {
     notarize: Boolean(process.env.APPLE_API_KEY),
     artifactName: '${productName}-${version}-${arch}.${ext}',
   },
+  // If notarisation credentials are present, signing is mandatory. This makes
+  // a misconfigured production macOS release fail instead of shipping unsigned.
+  forceCodeSigning: Boolean(process.env.APPLE_API_KEY),
   publish: {
     provider: 'github',
     owner: 'joshuaargent',
