@@ -202,7 +202,7 @@ export function NativePublicProfile({
   }, [username, catalogue, attempt]);
 
   return (
-    <main className="container py-12">
+    <div className="container py-12">
       <div className="mt-8 mb-16">
         {loading && !profile ? (
           <p role="status">Loading public profile…</p>
@@ -284,6 +284,6 @@ export function NativePublicProfile({
           </section>
         </>
       )}
-    </main>
+    </div>
   );
 }
