@@ -4,12 +4,21 @@ on:
   push:
     tags:
       - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing version tag to build and publish (for example v2.2.0)
+        required: true
+        type: string
 
 permissions:
   contents: write
 
+env:
+  RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
+
 concurrency:
-  group: cathoscroll-release-${{ github.ref }}
+  group: cathoscroll-release-${{ inputs.release_tag || github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -19,6 +28,8 @@ jobs:
     steps:
       - name: Check out tagged source
         uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.release_tag || github.ref }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v7
@@ -66,6 +77,8 @@ jobs:
     steps:
       - name: Check out tagged source
         uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.release_tag || github.ref }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v7
@@ -79,10 +92,10 @@ jobs:
           node <<'NODE'
           const root = require('./package.json');
           const electron = require('./electron/package.json');
-          const tagVersion = process.env.GITHUB_REF_NAME.replace(/^v/, '');
+          const tagVersion = process.env.RELEASE_TAG.replace(/^v/, '');
 
           if (!/^[0-9]+[.][0-9]+[.][0-9]+$/.test(tagVersion)) {
-            throw new Error(`Invalid release tag: ${process.env.GITHUB_REF_NAME}`);
+            throw new Error(`Invalid release tag: ${process.env.RELEASE_TAG}`);
           }
           if (root.version !== tagVersion || electron.version !== tagVersion) {
             throw new Error(
@@ -117,10 +130,8 @@ jobs:
           test -s electron/assets/icon.icns
           rm -rf "$iconset"
 
-      - name: Package and publish desktop application
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npm --prefix electron run pack -- --${{ matrix.platform }} --${{ matrix.architecture }} --publish onTag
+      - name: Package desktop application
+        run: npm --prefix electron run pack -- --${{ matrix.platform }} --${{ matrix.architecture }} --publish never
 
       - name: Upload platform build outputs for verification
         uses: actions/upload-artifact@v7
@@ -137,6 +148,8 @@ jobs:
     steps:
       - name: Check out tagged source
         uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.release_tag || github.ref }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v7
@@ -212,7 +225,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          apk="android/app/build/outputs/apk/release/CathoScroll-${GITHUB_REF_NAME#v}.apk"
+          apk="android/app/build/outputs/apk/release/CathoScroll-${RELEASE_TAG#v}.apk"
           test -s "$apk"
           apksigner_path="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
           test -x "$apksigner_path"
@@ -251,29 +264,48 @@ jobs:
           test -n "$(find release-assets -maxdepth 1 -type f -name '*.zip' -print -quit)"
           test -n "$(find release-assets -maxdepth 1 -type f -name 'CathoScroll-*.apk' -print -quit)"
 
-      - name: Verify desktop installers and update metadata were published
+      - name: Upload all assets, verify the release, and publish it
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
         shell: bash
         run: |
           set -euo pipefail
-          assets="$(gh release view "$GITHUB_REF_NAME" --json assets --jq '.assets[].name')"
-          printf '%s\n' "$assets"
-          for expected in '.exe' '.AppImage' '.deb' '.dmg' '.zip' 'latest.yml' 'latest-linux.yml'; do
-            if ! grep -Fq "$expected" <<<"$assets"; then
-              echo "Missing published desktop release asset matching: $expected"
+          version="${RELEASE_TAG#v}"
+
+          # electron-builder no longer publishes per-platform. Create the draft
+          # once, then upload the complete, verified set from this single job.
+          if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release create "$RELEASE_TAG" --draft --title "CathoScroll $RELEASE_TAG" --generate-notes
+          fi
+
+          gh release upload "$RELEASE_TAG" \
+            release-assets/CathoScroll-* \
+            release-assets/latest.yml \
+            release-assets/latest-linux.yml \
+            release-assets/latest-mac.yml \
+            --clobber
+
+          assets="$(gh release view "$RELEASE_TAG" --json assets --jq '.assets[].name')"
+          printf '%s\\n' "$assets"
+
+          expected_assets=(
+            "CathoScroll-$version-x64.exe"
+            "CathoScroll-$version-x86_64.AppImage"
+            "CathoScroll-$version-amd64.deb"
+            "CathoScroll-$version-universal.dmg"
+            "CathoScroll-$version-universal.zip"
+            "CathoScroll-$version.apk"
+            "latest.yml"
+            "latest-linux.yml"
+            "latest-mac.yml"
+          )
+
+          for expected in "${expected_assets[@]}"; do
+            if ! grep -Fxq "$expected" <<<"$assets"; then
+              echo "Missing published release asset: $expected"
               exit 1
             fi
           done
 
-      - name: Attach Android APK and publish release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ github.ref_name }}
-          name: CathoScroll ${{ github.ref_name }}
-          generate_release_notes: true
-          draft: false
-          prerelease: false
-          fail_on_unmatched_files: true
-          files: release-assets/CathoScroll-*.apk
+          gh release edit "$RELEASE_TAG" --draft=false --title "CathoScroll $RELEASE_TAG"
