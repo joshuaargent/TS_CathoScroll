@@ -108,7 +108,7 @@ export function AccountPageView(props: AccountPageViewProps) {
           <Input
             label="Display Name"
             value={props.displayName}
-            disabled={props.profileFieldsDisabled || props.saving}
+            disabled={props.profileFieldsDisabled || props.saving || props.signingOut}
             onChange={(event) => props.onDisplayNameChange(event.target.value)}
           />
           <Input
@@ -140,7 +140,7 @@ export function AccountPageView(props: AccountPageViewProps) {
             label="Email Address"
             type="email"
             value={props.email}
-            disabled={props.accountSettingsDisabled || props.saving}
+            disabled={props.accountSettingsDisabled || props.saving || props.signingOut}
             onChange={(event) => props.onEmailChange(event.target.value)}
           />
           <Input
@@ -183,7 +183,7 @@ export function AccountPageView(props: AccountPageViewProps) {
         )}
 
         <div className="flex flex-wrap gap-4">
-          <Button type="submit" disabled={props.saveDisabled || props.saving} size="lg" style={{ color: '#ffffff' }}>
+          <Button type="submit" disabled={props.saveDisabled || props.saving || props.signingOut} size="lg" style={{ color: '#ffffff' }}>
             {props.saving ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -193,7 +193,7 @@ export function AccountPageView(props: AccountPageViewProps) {
               'Save Changes'
             )}
           </Button>
-          <Button type="button" variant="secondary" size="lg" disabled={props.signOutDisabled || props.signingOut} onClick={props.onSignOut}>
+          <Button type="button" variant="secondary" size="lg" disabled={props.signOutDisabled || props.signingOut || props.saving} onClick={props.onSignOut}>
             {props.signingOut ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
