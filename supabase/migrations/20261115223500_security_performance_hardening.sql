@@ -507,3 +507,34 @@ REVOKE ALL ON FUNCTION public.get_public_profile_metrics(uuid, text)
   FROM PUBLIC, service_role;
 GRANT EXECUTE ON FUNCTION public.get_public_profile_metrics(uuid, text)
   TO anon, authenticated;
+
+
+-- Deleted or moderation-hidden comments are rendered as tombstones in the UI.
+-- Do not let clients retrieve their original text directly from the base table.
+-- The owner-rights view exposes an empty string for deleted content while
+-- retaining the identifiers needed to keep reply trees intact.
+CREATE OR REPLACE VIEW public.comment_feed AS
+SELECT
+  comment.id,
+  comment.topic_id,
+  comment.user_id,
+  comment.parent_id,
+  CASE WHEN comment.is_deleted THEN ''::text ELSE comment.content END AS content,
+  comment.created_at,
+  comment.edited_at,
+  comment.is_deleted,
+  comment.is_pinned
+FROM public.comments AS comment;
+
+REVOKE SELECT ON TABLE public.comments FROM anon, authenticated;
+GRANT SELECT (
+  id,
+  topic_id,
+  user_id,
+  parent_id,
+  created_at,
+  edited_at,
+  is_deleted,
+  is_pinned
+) ON TABLE public.comments TO anon, authenticated;
+GRANT SELECT ON TABLE public.comment_feed TO anon, authenticated;
