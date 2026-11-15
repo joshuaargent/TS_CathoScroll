@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/Badge';
-import type { OfflineCatalogue } from '@/lib/offline/catalogue';
 import type { Topic } from '@/types';
 import { createClient } from './supabase';
 import { notifyNativeStatus, clearNativeStatusNotice } from './offline-indicator';
@@ -77,10 +76,9 @@ function completedLabel(value: string): string {
 
 export function NativePublicProfile({
   username,
-  catalogue,
+  username,
 }: {
   username: string;
-  catalogue: OfflineCatalogue;
 }) {
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [completedCount, setCompletedCount] = useState(0);
@@ -142,9 +140,32 @@ export function NativePublicProfile({
         const comments = (commentsResult.data ?? []) as RecentComment[];
         const recentTopicIds = progressRowsRecent.map((entry) => String(entry.topic_id));
         const recentCommentTopicIds = comments.map((entry) => String(entry.topic_id));
+        async function loadTopicsByIds(ids: string[]): Promise<Topic[]> {
+          if (!ids.length) return [];
+          const { data, error } = await supabase
+            .from('topics')
+            .select('id,slug,question,answer,explanation,catechism_paragraphs,catechism_text,scripture_reference,scripture_text,category:categories!inner(name,is_published)')
+            .in('id', ids)
+            .eq('is_published', true)
+            .eq('category.is_published', true);
+          if (error) throw error;
+          return (data ?? []).map((row) => {
+            const relation = Array.isArray(row.category) ? row.category[0] : row.category;
+            return {
+              id: row.id,
+              slug: row.slug,
+              category: relation?.name ?? '',
+              question: row.question,
+              answer: row.answer,
+              explanation: row.explanation,
+              catechism: { paragraphs: row.catechism_paragraphs ?? [], text: row.catechism_text },
+              scripture: { reference: row.scripture_reference, text: row.scripture_text },
+            } satisfies Topic;
+          });
+        }
         const [completionTopics, commentTopics] = await Promise.all([
-          catalogue.topicsByIds(recentTopicIds),
-          catalogue.topicsByIds(recentCommentTopicIds),
+          loadTopicsByIds(recentTopicIds),
+          loadTopicsByIds(recentCommentTopicIds),
         ]);
         const completionById = new Map(completionTopics.map((topic) => [String(topic.id), topic]));
         const commentById = new Map(commentTopics.map((topic) => [String(topic.id), topic]));
