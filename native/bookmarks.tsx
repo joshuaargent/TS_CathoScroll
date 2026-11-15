@@ -5,6 +5,7 @@ import type { Topic } from '@/types';
 import { createClient } from './supabase';
 import type { NativeActivity, NativeActivityStatus } from './activity';
 import { notifyNativeStatus, clearNativeStatusNotice } from './offline-indicator';
+import { NativeGridSkeleton } from './skeletons';
 
 export function NativeBookmarks({
   catalogue,
@@ -261,10 +262,10 @@ export function NativeBookmarks({
           </a>
         </p>
       ) : !ready ? (
-        <p role="status">Preparing your saved bookmarks...</p>
+        <NativeGridSkeleton label="Preparing your saved bookmarks" />
       ) : (
         <>
-          {loading && !topics.length && <p role="status">Loading bookmarks…</p>}
+          {loading && !topics.length && <NativeGridSkeleton label="Loading bookmarks" />}
 
           {missing && (
             <p role="status" className="text-text-secondary mb-6">
