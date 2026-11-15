@@ -738,9 +738,22 @@ function App() {
       try {
         const databases = await openNativeDatabases(secureAuthStorage);
         const localCatalogue = new OfflineCatalogue(databases.catalogue);
-        const localComments = new OfflineCommentCache(databases.activity);
-        const localCounts = new OfflineTopicCountCache(databases.activity);
-        const localNotes = new NativeNoteCache(databases.activity, secureAuthStorage);
+        let cacheDatabase = databases.catalogue;
+        try {
+          await openPrivateActivity();
+          cacheDatabase = await openPrivateActivityDatabase(secureAuthStorage);
+          clearNativeStatusNotice('private-cache-unavailable');
+        } catch (cause) {
+          // Keep public browsing and online reading available if secure storage
+          // is unavailable. Note contents remain encrypted by NativeNoteCache.
+          console.error('Encrypted offline cache is unavailable:', cause);
+          notifyNativeStatus('Encrypted offline account storage is unavailable. Saved notes and activity may not be available offline.', {
+            id: 'private-cache-unavailable',
+          });
+        }
+        const localComments = new OfflineCommentCache(cacheDatabase);
+        const localCounts = new OfflineTopicCountCache(cacheDatabase);
+        const localNotes = new NativeNoteCache(cacheDatabase, secureAuthStorage);
         failure = 'Unable to open saved comments. Please try again.';
         await localComments.initialize();
         failure = 'Unable to open saved topic counts. Please try again.';
