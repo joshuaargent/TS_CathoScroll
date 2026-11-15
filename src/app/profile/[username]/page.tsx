@@ -56,15 +56,13 @@ export default async function ProfilePage({ params }: Props) {
   let activeBan: { reason: string } | null = null;
 
   if (currentUser) {
-    const { data: adminRole, error: roleError } = await supabase
-      .from('admin_users')
-      .select('user_id')
-      .eq('user_id', currentUser.id)
-      .maybeSingle();
+    const { data: adminRole, error: roleError } = await supabase.rpc(
+      'is_cathoscroll_content_admin'
+    );
 
     if (roleError) {
       console.error('Unable to verify profile moderation access:', roleError.message);
-    } else if (adminRole) {
+    } else if (adminRole === true) {
       isAdmin = true;
 
       const serviceClient = createServiceRoleClient();
