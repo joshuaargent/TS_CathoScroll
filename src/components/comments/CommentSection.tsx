@@ -921,7 +921,9 @@ export function CommentSection({
               onDelete={deleteComment}
               onReport={reportComment}
               onPin={togglePin}
-              canPin={canPinComments}
+              canPin={canPinComments && serverActionsAvailable}
+              canReport={serverActionsAvailable}
+              profileLinksAvailable={serverActionsAvailable}
               isCommentBanned={isCommentBanned || commentBanCheckFailed}
               isOnline={isOnline && !cachedAt}
               hasPinnedComment={hasPinnedComment}
