@@ -3,6 +3,10 @@ import { NextResponse } from 'next/server';
 import { readBoundedJson } from '@/lib/http/read-json';
 import { checkTrustedIpRateLimit, rateLimitResponseHeaders } from '@/lib/security/api-rate-limit';
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
 function safeText(value: unknown, maximum = 500): string | null {
   if (typeof value !== 'string') return null;
   return value.slice(0, maximum);
@@ -28,33 +32,22 @@ export async function POST(request: Request) {
     });
   }
 
-  const payload = parsed.value;
-  const legacy =
-    typeof payload === 'object' && payload !== null && 'csp-report' in payload
-      ? payload['csp-report']
-      : payload;
-  const report =
-    Array.isArray(legacy) ? legacy[0] : legacy;
-
-  if (typeof report !== 'object' || report === null) {
+  let report: unknown = parsed.value;
+  if (isRecord(report) && 'csp-report' in report) report = report['csp-report'];
+  if (Array.isArray(report)) report = report[0];
+  if (!isRecord(report)) {
     return new NextResponse(null, { status: 204, headers: { 'Cache-Control': 'no-store' } });
   }
 
-  const record =
-    'body' in report && typeof report.body === 'object' && report.body !== null
-      ? report.body
-      : report;
-
+  const record = isRecord(report.body) ? report.body : report;
+  const lineNumber = record['line-number'] ?? record.lineNumber;
   const safeReport = {
-    documentUri: safeText('document-uri' in record ? record['document-uri'] : record['documentURL']),
-    blockedUri: safeText('blocked-uri' in record ? record['blocked-uri'] : record['blockedURL']),
-    violatedDirective: safeText('violated-directive' in record ? record['violated-directive'] : record['effectiveDirective']),
-    sourceFile: safeText('source-file' in record ? record['source-file'] : record['sourceFile']),
-    lineNumber:
-      typeof ('line-number' in record ? record['line-number'] : record['lineNumber']) === 'number'
-        ? ('line-number' in record ? record['line-number'] : record['lineNumber'])
-        : null,
-    disposition: safeText('disposition' in record ? record.disposition : null, 40),
+    documentUri: safeText(record['document-uri'] ?? record.documentURL),
+    blockedUri: safeText(record['blocked-uri'] ?? record.blockedURL),
+    violatedDirective: safeText(record['violated-directive'] ?? record.effectiveDirective),
+    sourceFile: safeText(record['source-file'] ?? record.sourceFile),
+    lineNumber: typeof lineNumber === 'number' ? lineNumber : null,
+    disposition: safeText(record.disposition, 40),
   };
 
   console.warn('CSP report-only violation:', safeReport);
