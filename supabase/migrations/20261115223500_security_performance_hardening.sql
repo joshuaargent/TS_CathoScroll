@@ -539,6 +539,12 @@ AS $function$
     comment.is_deleted,
     comment.is_pinned
   FROM public.comments AS comment
+  JOIN public.topics AS topic
+    ON topic.id = comment.topic_id
+   AND topic.is_published = true
+  JOIN public.categories AS category
+    ON category.slug = topic.category_slug
+   AND category.is_published = true
   WHERE p_topic_id IS NOT NULL
     AND pg_catalog.length(p_topic_id) BETWEEN 1 AND 100
     AND comment.topic_id = p_topic_id
