@@ -30,7 +30,7 @@ async function authenticate(request: Request) {
   }
 }
 
-function serviceClient(request: Request) {
+function serviceClient() {
   try {
     return createServiceRoleClient();
   } catch (error) {
@@ -52,7 +52,7 @@ export async function GET(request: Request) {
   const auth = await authenticate(request);
   if ('response' in auth) return auth.response;
 
-  const adminClient = serviceClient(request);
+  const adminClient = serviceClient();
   if (!adminClient) return respond(request, { error: 'Appeals are not configured' }, 500);
 
   const [{ data: ban, error: banError }, { data: appeal, error: appealError }] =
