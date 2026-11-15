@@ -43,6 +43,9 @@ export function NativePublicProfile({
   useEffect(() => {
     let active = true;
     const noticeId = `public-profile:${username}`;
+    const retry = () => setAttempt((value) => value + 1);
+    window.addEventListener('online', retry);
+    window.addEventListener('offline', retry);
     async function load() {
       try {
         if (!navigator.onLine) throw new Error('Connect to the internet to view this public profile.');
@@ -164,6 +167,8 @@ export function NativePublicProfile({
     void load();
     return () => {
       active = false;
+      window.removeEventListener('online', retry);
+      window.removeEventListener('offline', retry);
     };
   }, [username, attempt]);
 
