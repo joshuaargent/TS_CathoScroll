@@ -1863,3 +1863,26 @@ test('adds bookmark timestamp storage to an existing activity database without l
     db.close();
   }
 });
+
+
+test('orders offline bookmarks by saved time and paginates with a stable date/topic cursor', async () => {
+  const db = new DatabaseSync(':memory:');
+  try {
+    const store = new OfflineActivityStore(adapter(db));
+    await store.initialize();
+    await bootstrap(store);
+    for (const topicId of ['older', 'newest', 'middle']) {
+      await store.setActivity('alice', topicId, 'bookmark', true, 'bookmark-' + topicId);
+    }
+    await store.recordBookmarkTimestamps('alice', [
+      { topicId: 'older', savedAt: '2026-11-10T10:00:00.000Z' },
+      { topicId: 'newest', savedAt: '2026-11-12T10:00:00.000Z' },
+      { topicId: 'middle', savedAt: '2026-11-11T10:00:00.000Z' },
+    ]);
+    const page = await store.listActivity('alice', 'bookmark');
+    assert.deepEqual(page.topicIds, ['newest', 'middle', 'older']);
+    assert.equal(page.nextCursor, null);
+  } finally {
+    db.close();
+  }
+});
