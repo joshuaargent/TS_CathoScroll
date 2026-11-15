@@ -403,7 +403,7 @@ BEGIN
   current_streak AS (
     SELECT COALESCE(
       count(*) FILTER (
-        WHERE day = streak_anchor.day - (sequence_number - 1)::integer
+        WHERE day = anchor_day - (sequence_number - 1)::integer
       ),
       0
     )::integer AS value
@@ -417,7 +417,6 @@ BEGIN
       WHERE streak_anchor.day IS NOT NULL
         AND days.day <= streak_anchor.day
     ) AS streak_days
-    CROSS JOIN streak_anchor
   ),
   recent_progress AS (
     SELECT COALESCE(
