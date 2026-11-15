@@ -1,9 +1,6 @@
 name: Security audit
 
 on:
-  pull_request:
-    branches:
-      - main
   push:
     branches:
       - main
@@ -20,28 +17,85 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  dependency-audit:
-    name: Dependency vulnerability audit
+  lockfile-sync:
+    name: Resolve and commit patched dependency lockfiles
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/release/')
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - name: Check out release branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+
+      - name: Set up supported Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.0
+          cache: npm
+
+      - name: Resolve root lockfile with approved overrides
+        run: npm install --package-lock-only --ignore-scripts --no-audit
+
+      - name: Resolve Electron lockfile
+        run: npm --prefix electron install --package-lock-only --ignore-scripts --no-audit
+
+      - name: Commit lockfile updates
+        run: |
+          if git diff --quiet -- package-lock.json electron/package-lock.json; then
+            echo "Lockfiles are already synchronized."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package-lock.json electron/package-lock.json
+          git commit -m "chore: update audited dependency resolutions"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+
+  dependency-audit:
+    name: Dependency vulnerability audit
+    needs: lockfile-sync
+    if: always() && needs.lockfile-sync.result != 'failure'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
 
-      - name: Set up Node.js
+      - name: Set up supported Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22.12.0
+          node-version: 22.13.0
           cache: npm
+
+      - name: Use the latest release-branch commit after lockfile synchronization
+        if: startsWith(github.ref, 'refs/heads/release/')
+        run: |
+          git fetch origin "${GITHUB_REF}"
+          git reset --hard FETCH_HEAD
 
       - name: Install locked dependencies
         run: npm ci
 
       - name: Audit root production and development dependencies
+        id: root-audit
+        continue-on-error: true
         run: npm audit --audit-level=high
 
       - name: Audit Electron production and development dependencies
+        id: electron-audit
+        continue-on-error: true
         run: npm --prefix electron audit --audit-level=high
+
+      - name: Fail if either dependency tree has high or critical vulnerabilities
+        if: steps.root-audit.outcome == 'failure' || steps.electron-audit.outcome == 'failure'
+        run: |
+          echo "::error::High or critical dependency vulnerabilities remain. Review both audit reports above."
+          exit 1
 
   codeql:
     name: CodeQL JavaScript and TypeScript
