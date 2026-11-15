@@ -54,8 +54,7 @@ jobs:
     needs: validate-source
     strategy:
       fail-fast: false
-      # electron-builder uploads every platform to the same draft GitHub Release.
-      # Serialise these jobs to avoid concurrent draft-release creation/update races.
+      # Platform jobs only build; the final job publishes all assets together.
       max-parallel: 1
       matrix:
         include:
@@ -130,7 +129,7 @@ jobs:
           test -s electron/assets/icon.icns
           rm -rf "$iconset"
 
-      - name: Package desktop application
+      - name: Package desktop application without publishing
         run: npm --prefix electron run pack -- --${{ matrix.platform }} --${{ matrix.architecture }} --publish never
 
       - name: Upload platform build outputs for verification
@@ -193,7 +192,7 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-          CATHOSCROLL_VERSION: ${{ github.ref_name }}
+          CATHOSCROLL_VERSION: ${{ env.RELEASE_TAG }}
           ANDROID_VERSION_CODE: ${{ github.run_number }}
         run: |
           npm run native:build
@@ -217,7 +216,7 @@ jobs:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-          CATHOSCROLL_VERSION: ${{ github.ref_name }}
+          CATHOSCROLL_VERSION: ${{ env.RELEASE_TAG }}
           ANDROID_VERSION_CODE: ${{ github.run_number }}
         run: bash ./gradlew --no-daemon --stacktrace testReleaseUnitTest assembleRelease
 
