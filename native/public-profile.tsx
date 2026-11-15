@@ -285,6 +285,7 @@ export function NativePublicProfile({
         moderation?.isAdmin && moderation.canManage ? (
           <>
             <CommentBanControl
+              key={`comment-ban:${Boolean(moderation.activeBan)}:${moderation.activeBan?.reason ?? ''}`}
               userId={profile.id}
               activeBan={Boolean(moderation.activeBan)}
               reason={moderation.activeBan?.reason}
@@ -293,6 +294,7 @@ export function NativePublicProfile({
               onChange={() => setAttempt((value) => value + 1)}
             />
             <AdminRoleControl
+              key={`admin-role:${moderation.profileIsAdmin}`}
               userId={profile.id}
               isAdmin={moderation.profileIsAdmin}
               canManage
