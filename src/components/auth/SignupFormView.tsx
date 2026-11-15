@@ -26,7 +26,7 @@ export function SignupFormView({
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
   return (
-    <main className="container py-12">
+    <div className="container py-12">
       <div className="mt-8 mb-10">
         <h1 className="text-5xl font-extrabold md:text-7xl">Join CathoScroll</h1>
         <p className="text-text-secondary mt-4 max-w-2xl text-lg">
@@ -149,6 +149,6 @@ export function SignupFormView({
           </form>
         </div>
       )}
-    </main>
+    </div>
   );
 }
