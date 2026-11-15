@@ -1,11 +1,13 @@
-import { createPageMetadata } from '@/lib/seo';
 import Link from 'next/link';
+import { createPageMetadata } from '@/lib/seo';
 
 import { Button } from '@/components/ui/Button';
 
-export const metadata = createPageMetadata(
-  {"title":"FAQs","description":"Answers to common questions about CathoScroll, Catholic learning, accounts, and subscriptions.","path":"/faq"}
-);
+export const metadata = createPageMetadata({
+  title: "FAQs",
+  description: "Answers to common questions about CathoScroll, Catholic learning, accounts, and subscriptions.",
+  path: "/faq",
+});
 
 export default function FAQPage() {
   return (
