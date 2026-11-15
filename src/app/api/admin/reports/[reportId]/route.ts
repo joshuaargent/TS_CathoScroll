@@ -8,6 +8,7 @@ interface RouteContext {
 
 function respond(request: Request, body: unknown, init?: ResponseInit) {
   const headers = nativeApiCorsHeaders(request);
+  headers.set('Cache-Control', 'no-store');
   new Headers(init?.headers).forEach((value, key) => headers.set(key, value));
   return NextResponse.json(body, { ...init, headers });
 }
