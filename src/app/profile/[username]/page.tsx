@@ -7,7 +7,7 @@ import { siteConfig } from '@/lib/constants';
 
 import { getPublishedTopicCount, getPublishedTopicsByIds } from '@/lib/content';
 import { CommentBanControl } from '@/components/admin/CommentBanControl';
-import { AdminRoleControl } from '@/components/admin/AdminRoleControl';
+import { AdminRoleControlClient } from '@/components/admin/AdminRoleControlClient';
 import { createServiceRoleClient } from '@/lib/supabase/admin';
 import { PublicProfileView } from '@/components/profile/PublicProfileView';
 import { calculateStreaks } from '@/lib/profile-metrics';
@@ -228,7 +228,7 @@ export default async function ProfilePage({ params }: Props) {
             reason={activeBan?.reason}
             canChangeBan={canManageCommentBan}
           />
-          <AdminRoleControl
+          <AdminRoleControlClient
             userId={profile.id}
             isAdmin={profileIsAdmin}
             canManage={isAdmin && currentUser?.id !== profile.id}
