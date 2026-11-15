@@ -78,6 +78,7 @@ export function NativeAccount({
     const accountId = user.id;
     let active = true;
     cache.current = null;
+    clearNativeStatusNotice('account-membership');
     setEmail(user.email ?? '');
     setEmailChangeRequested(false);
     setVerified(false);
@@ -429,7 +430,10 @@ export function NativeAccount({
             type="email"
             value={email}
             disabled={!online || busy}
-            onChange={(event) => setEmail(event.target.value)}
+            onChange={(event) => {
+              setEmail(event.target.value);
+              setEmailChangeRequested(false);
+            }}
           />
           <Input
             label="New Password"
