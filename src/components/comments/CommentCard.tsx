@@ -31,6 +31,10 @@ interface CommentCardProps {
 
   canPin?: boolean;
 
+  canReport?: boolean;
+
+  profileLinksAvailable?: boolean;
+
   isCommentBanned?: boolean;
 
   hasPinnedComment?: boolean;
@@ -87,6 +91,8 @@ export function CommentCard({
   onReport,
   onPin,
   canPin = false,
+  canReport = true,
+  profileLinksAvailable = true,
   isCommentBanned = false,
   hasPinnedComment = false,
   isPinning = false,
@@ -131,12 +137,16 @@ export function CommentCard({
             </div>
           )}
           <div className="flex flex-wrap items-center gap-2">
-            <Link
-              href={`/profile/${comment.profile.username}`}
-              className="hover:text-accent font-semibold transition-colors"
-            >
-              {comment.profile.display_name}
-            </Link>
+            {profileLinksAvailable ? (
+              <Link
+                href={`/profile/${comment.profile.username}`}
+                className="hover:text-accent font-semibold transition-colors"
+              >
+                {comment.profile.display_name}
+              </Link>
+            ) : (
+              <span className="font-semibold">{comment.profile.display_name}</span>
+            )}
 
             {isOwner && (
               <span className="bg-accent-light text-accent rounded-full px-2 py-0.5 text-xs font-medium">
@@ -215,7 +225,7 @@ export function CommentCard({
                 </button>
               )}
 
-              {currentUserId && !isOwner && !comment.is_deleted && (
+              {canReport && currentUserId && !isOwner && !comment.is_deleted && (
                 <button
                   type="button"
                   onClick={() => {
@@ -400,6 +410,8 @@ export function CommentCard({
               onReport={onReport}
               onPin={onPin}
               canPin={canPin}
+              canReport={canReport}
+              profileLinksAvailable={profileLinksAvailable}
               isCommentBanned={isCommentBanned}
               hasPinnedComment={hasPinnedComment}
               isPinning={isPinning}
