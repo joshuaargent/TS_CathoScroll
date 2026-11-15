@@ -38,6 +38,20 @@ export async function GET(request: Request) {
   try {
     const { user } = await getAuthenticatedUserFromRequest(request);
     if (!user) return respond(request, { error: 'Authentication required' }, 401);
+    const rateLimit = await checkApiRateLimit({
+      scope: 'admin:mfa:status',
+      identifier: user.id,
+      limit: 30,
+      windowSeconds: 60,
+    });
+    if (!rateLimit.allowed) {
+      return respond(
+        request,
+        { error: rateLimit.unavailable ? 'Security settings are temporarily unavailable' : 'Too many security-status requests. Please wait.' },
+        rateLimit.unavailable ? 503 : 429,
+        rateLimitResponseHeaders(rateLimit.retryAfterSeconds)
+      );
+    }
     return respond(request, await loadOwnerStatus(user.id));
   } catch (error) {
     console.error('Unable to load administrator MFA settings:', error);
