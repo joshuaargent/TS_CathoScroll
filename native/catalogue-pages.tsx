@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { CategoriesGrid } from '@/components/categories/CategoriesGrid';
+import { CategoryTopicGrid } from '@/components/categories/CategoryTopicGrid';
 import { SearchInput } from '@/components/search/SearchInput';
 import { SearchResults } from '@/components/search/SearchResults';
 import { SearchSuggestions } from '@/components/search/SearchSuggestions';
@@ -183,19 +185,7 @@ export function CategoriesPage({ catalogue }: { catalogue: OfflineCatalogue }) {
       </div>
       {loading && !categories.length && <p role="status">Loading categories…</p>}
 
-      <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-        {categories.map((category) => (
-          <Link key={category.slug} href={`/categories/${encodeURIComponent(category.slug)}`}>
-            <article className="border-border hover:bg-bg-secondary h-full rounded-2xl border p-6 transition-colors">
-              <Badge variant="accent" size="sm">
-                Explore topics
-              </Badge>
-              <h2 className="mt-4 text-2xl font-bold">{category.name}</h2>
-              <p className="text-text-secondary mt-3 leading-relaxed">{category.description}</p>
-            </article>
-          </Link>
-        ))}
-      </div>
+      <CategoriesGrid categories={categories} />
       {cursor && !error && (
         <button
           type="button"
@@ -207,6 +197,14 @@ export function CategoriesPage({ catalogue }: { catalogue: OfflineCatalogue }) {
         </button>
       )}
       {!loading && !error && !categories.length && <p>No categories available.</p>}
+      <section className="border-border mt-16 border-t pt-8 text-center">
+        <Link
+          href="/"
+          className="text-text-primary hover:text-text-secondary inline-flex items-center text-lg font-medium"
+        >
+          Explore the Feed →
+        </Link>
+      </section>
     </div>
   );
 }
@@ -306,19 +304,7 @@ function TopicList({ catalogue, category }: { catalogue: OfflineCatalogue; categ
       {!loading && !error && !topics.length && (
         <p className="text-text-secondary mt-8">No matching topics found.</p>
       )}
-      <div className="grid gap-6 md:grid-cols-2">
-        {topics.map((topic) => (
-          <Link
-            key={topic.id}
-            href={`/topic/${encodeURIComponent(topic.slug)}`}
-            className="border-border hover:bg-accent-light/10 block rounded-2xl border p-6 transition-colors"
-          >
-            <h2 className="text-xl leading-snug font-bold">{topic.question}</h2>
-            <p className="text-text-secondary mt-4 leading-relaxed">{topic.answer}</p>
-            <div className="text-accent mt-6 text-sm font-medium">Study Topic →</div>
-          </Link>
-        ))}
-      </div>
+      <CategoryTopicGrid topics={topics} />
       {cursor && !error && (
         <button
           type="button"
