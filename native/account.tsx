@@ -324,12 +324,7 @@ export function NativeAccount({
   if (!available) return null;
   if (checking || (user && profileUserId !== user.id)) return <AccountPageSkeleton />;
   if (!user) {
-    return online ? (
-      <NativeSignin
-        onSignedIn={onSignedIn}
-        description="Sign in to keep your bookmarks and learning progress linked to your account."
-      />
-    ) : null;
+    return <NativeSignin onSignedIn={onSignedIn} />;
   }
 
   const currentProfile = profileUserId === user.id ? profile : null;
