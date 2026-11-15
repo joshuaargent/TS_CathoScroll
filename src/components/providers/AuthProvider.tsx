@@ -51,10 +51,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const profileRequest = useRef(0);
   const authEventVersion = useRef(0);
 
-  const loadProfile = useCallback(async (userId: string) => {
+  const loadProfile = useCallback(async (userId: string, isActive: () => boolean = () => true) => {
     const requestId = ++profileRequest.current;
     const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).single();
-    if (requestId !== profileRequest.current) return;
+    if (!isActive() || requestId !== profileRequest.current) return;
 
     if (error) {
       setProfile(null);
@@ -86,7 +86,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(currentSession?.user ?? null);
 
         if (currentSession?.user) {
-          await loadProfile(currentSession.user.id);
+          await loadProfile(currentSession.user.id, () => active);
         } else {
           profileRequest.current++;
           setProfile(null);
@@ -111,7 +111,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSession(nextSession);
       setUser(nextSession?.user ?? null);
       if (nextSession?.user) {
-        void loadProfile(nextSession.user.id);
+        void loadProfile(nextSession.user.id, () => active);
       } else {
         profileRequest.current++;
         setProfile(null);
@@ -121,8 +121,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     return () => {
       active = false;
-      authEventVersion.current++;
-      profileRequest.current++;
       // Prevent the auth listener from retaining this provider after unmount.
       authListener.subscription.unsubscribe();
     };
