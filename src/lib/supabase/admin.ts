@@ -46,16 +46,53 @@ export async function getAuthenticatedUserFromRequest(request: Request) {
   });
   const { data, error } = await supabase.auth.getUser(token);
   if (error) return { supabase, user: null };
-  return { supabase, user: data.user };
+  return { supabase, user: data.user, accessToken: token };
 }
 
-async function adminMfaSatisfied(supabase: Awaited<ReturnType<typeof createClient>>) {
+async function adminMfaSatisfied(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  accessToken?: string
+) {
   const serviceClient = createServiceRoleClient();
   const { data: enforced, error: enforcementError } = await serviceClient.rpc(
     'admin_mfa_enforcement_enabled'
   );
   if (enforcementError) throw new Error(enforcementError.message);
   if (enforced !== true) return true;
+
+  if (accessToken) {
+    let claims: { aal?: unknown; amr?: unknown };
+    try {
+      const payload = accessToken.split('.')[1];
+      if (!payload) return false;
+      claims = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as {
+        aal?: unknown;
+        amr?: unknown;
+      };
+    } catch {
+      return false;
+    }
+
+    const hasTotpAssurance =
+      claims.aal === 'aal2' &&
+      Array.isArray(claims.amr) &&
+      claims.amr.some(
+        (entry) =>
+          typeof entry === 'object' &&
+          entry !== null &&
+          'method' in entry &&
+          entry.method === 'totp'
+      );
+    if (!hasTotpAssurance) return false;
+
+    const { data: hasVerifiedTotp, error: factorError } = await serviceClient.rpc(
+      'admin_user_has_verified_totp',
+      { p_user_id: userId }
+    );
+    if (factorError) throw new Error(factorError.message);
+    return hasVerifiedTotp === true;
+  }
 
   const [{ data, error }, { data: factorData, error: factorError }] = await Promise.all([
     supabase.auth.mfa.getAuthenticatorAssuranceLevel(),
@@ -70,7 +107,7 @@ async function adminMfaSatisfied(supabase: Awaited<ReturnType<typeof createClien
 }
 
 export async function getAdminSessionFromRequest(request: Request) {
-  const { supabase, user } = await getAuthenticatedUserFromRequest(request);
+  const { supabase, user, accessToken } = await getAuthenticatedUserFromRequest(request);
   if (!user) return { user: null, isAdmin: false, error: null, mfaRequired: false };
   const { data, error } = await supabase
     .from('admin_users')
@@ -85,7 +122,7 @@ export async function getAdminSessionFromRequest(request: Request) {
   }
 
   try {
-    const mfaSatisfied = await adminMfaSatisfied(supabase);
+    const mfaSatisfied = await adminMfaSatisfied(supabase, user.id, accessToken);
     return {
       user,
       isAdmin: mfaSatisfied,
@@ -180,5 +217,5 @@ export async function getAuthenticatedUser() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  return { supabase, user };
+  return { supabase, user, accessToken: undefined };
 }
