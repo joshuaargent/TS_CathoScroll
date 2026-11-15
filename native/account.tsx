@@ -56,7 +56,11 @@ export function NativeAccount({
   const notifications = useNativeNotifications();
 
   useEffect(() => {
-    const update = () => setOnline(navigator.onLine);
+    const update = () => {
+      const connected = navigator.onLine;
+      setOnline(connected);
+      if (!connected) setMembershipUserId(null);
+    };
     window.addEventListener('online', update);
     window.addEventListener('offline', update);
     return () => {
@@ -198,7 +202,7 @@ export function NativeAccount({
       if (newPassword && newPassword !== confirmPassword) {
         throw new Error('Passwords do not match.');
       }
-      if (email.trim() && !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email.trim())) {
+      if (!email.trim() || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email.trim())) {
         throw new Error('Enter a valid email address.');
       }
 
