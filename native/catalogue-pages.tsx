@@ -7,7 +7,7 @@ import { SearchInput } from '@/components/search/SearchInput';
 import { SearchResults } from '@/components/search/SearchResults';
 import { SearchSuggestions } from '@/components/search/SearchSuggestions';
 import { Badge } from '@/components/ui/Badge';
-import { NativeGridSkeleton, NativeTopicSkeleton } from './skeletons';
+import { NativeGridSkeleton, NativeCategorySkeleton } from './skeletons';
 import { topicSearchResultFromDatabase, type TopicSearchResult } from '@/lib/search';
 import {
   OfflineCatalogue,
@@ -329,7 +329,7 @@ function TopicList({ catalogue, category }: { catalogue: OfflineCatalogue; categ
 
   return (
     <>
-      {loading && !topics.length && <NativeTopicSkeleton label="Loading topics" />}
+      {loading && !topics.length && <NativeGridSkeleton label="Loading topics" />}
 
       {!loading && !error && !topics.length && (
         <p className="text-text-secondary mt-8">No matching topics found.</p>
@@ -464,7 +464,7 @@ export function CategoryPage({ catalogue, slug }: { catalogue: OfflineCatalogue;
 
   return (
     <div className="container py-12">
-      {loading && <NativeTopicSkeleton label="Loading category" />}
+      {loading && <NativeCategorySkeleton label="Loading category" />}
 
       {!loading && !error && !category && <p className="mt-8">Category not found.</p>}
       {category && (
