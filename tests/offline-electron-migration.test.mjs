@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
@@ -44,7 +43,9 @@ test('repairs a corrupted intermediate destination from a valid legacy source', 
   createDatabase(source, 'preserved legacy activity');
   await mkdir(path.dirname(destination));
   const damaged = Buffer.from('damaged destination bytes');
+  const damagedWal = Buffer.from('damaged wal bytes');
   await writeFile(destination, damaged);
+  await writeFile(destination + '-wal', damagedWal);
 
   migrateLegacyOfflineDatabases(directory);
 
@@ -53,6 +54,7 @@ test('repairs a corrupted intermediate destination from a valid legacy source', 
   const backupName = files.find((name) => name.startsWith('activity.sqlite.corrupt-'));
   assert.ok(backupName, 'the damaged destination should be retained after recovery');
   assert.deepEqual(await readFile(path.join(path.dirname(destination), backupName)), damaged);
+  assert.deepEqual(await readFile(path.join(path.dirname(destination), backupName + '-wal')), damagedWal);
   assert.equal(readValue(source), 'preserved legacy activity');
 });
 
@@ -90,7 +92,9 @@ test('restores the damaged destination if atomic publication is interrupted', as
   createDatabase(source, 'valid legacy');
   await mkdir(path.dirname(destination));
   const damaged = Buffer.from('damaged destination');
+  const damagedWal = Buffer.from('damaged wal');
   await writeFile(destination, damaged);
+  await writeFile(destination + '-wal', damagedWal);
 
   assert.throws(
     () => migrateLegacyOfflineDatabases(directory, () => { throw new Error('simulated interruption'); }),
@@ -98,6 +102,7 @@ test('restores the damaged destination if atomic publication is interrupted', as
   );
 
   assert.deepEqual(await readFile(destination), damaged);
+  assert.deepEqual(await readFile(destination + '-wal'), damagedWal);
   assert.equal(readValue(source), 'valid legacy');
   assert.equal((await readdir(path.dirname(destination))).some((name) => name.endsWith('.tmp')), false);
 });
@@ -124,7 +129,7 @@ test('never opens or replaces the encrypted private activity database', async (t
   const privateDatabase = path.join(directory, 'cathoscroll-sqlite', 'private-activity.sqlite');
   createDatabase(source, 'legacy');
   await mkdir(path.dirname(destination));
-  createDatabase(privateDatabase, 'records', 'encrypted private placeholder');
+  createDatabase(privateDatabase, 'encrypted private placeholder');
   const before = await readFile(privateDatabase);
 
   migrateLegacyOfflineDatabases(directory);

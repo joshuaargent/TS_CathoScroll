@@ -32,6 +32,49 @@ function syncFile(file: string): void {
   }
 }
 
+const sqliteSidecars = ['-wal', '-shm', '-journal'];
+
+function preserveDamagedDatabase(destination: string, backup: string): Array<[string, string]> {
+  const moved: Array<[string, string]> = [];
+  const files = [destination, ...sqliteSidecars.map((suffix) => destination + suffix)];
+  try {
+    for (const file of files) {
+      if (!existsSync(file)) continue;
+      const preserved = file === destination ? backup : backup + file.slice(destination.length);
+      renameSync(file, preserved);
+      moved.push([file, preserved]);
+    }
+    return moved;
+  } catch (error) {
+    const restoreErrors: unknown[] = [];
+    for (const [original, preserved] of moved.reverse()) {
+      try {
+        renameSync(preserved, original);
+      } catch (restoreError) {
+        restoreErrors.push(restoreError);
+      }
+    }
+    if (restoreErrors.length) {
+      throw new AggregateError([error, ...restoreErrors], 'Unable to preserve or restore the damaged SQLite database.');
+    }
+    throw error;
+  }
+}
+
+function restoreDamagedDatabase(moved: Array<[string, string]>): void {
+  const errors: unknown[] = [];
+  for (const [original, preserved] of [...moved].reverse()) {
+    try {
+      if (existsSync(preserved)) renameSync(preserved, original);
+    } catch (error) {
+      errors.push(error);
+    }
+  }
+  if (errors.length) {
+    throw new AggregateError(errors, 'Unable to restore the damaged SQLite database and its sidecars.');
+  }
+}
+
 function copyValidatedDatabase(source: string, temporary: string): void {
   const database = new DatabaseSync(source, { readOnly: true });
   try {
@@ -97,24 +140,21 @@ export function migrateLegacyOfflineDatabases(
     const backup = destinationExists
       ? join(directory, `${name}.sqlite.corrupt-${randomUUID()}`)
       : null;
-    let backedUp = false;
+    let preservedFiles: Array<[string, string]> = [];
 
     try {
       // Never modify the source. VACUUM INTO creates a consistent independent copy.
       copyValidatedDatabase(source, temporary);
 
-      if (backup) {
-        renameSync(destination, backup);
-        backedUp = true;
-      }
+      if (backup) preservedFiles = preserveDamagedDatabase(destination, backup);
 
       try {
         publish(temporary, destination);
       } catch (error) {
-        if (backedUp && backup && !existsSync(destination)) {
+        if (preservedFiles.length && !existsSync(destination)) {
           try {
-            renameSync(backup, destination);
-            backedUp = false;
+            restoreDamagedDatabase(preservedFiles);
+            preservedFiles = [];
           } catch (restoreError) {
             throw new AggregateError(
               [error, restoreError],
