@@ -1787,3 +1787,60 @@ test('background sync stops the old account before starting a different one', as
     background.dispose();
   }
 });
+
+
+test('preserves bookmark save timestamps for offline display and upgrades existing databases', async () => {
+  const db = new DatabaseSync(':memory:');
+  try {
+    const store = new OfflineActivityStore(adapter(db));
+    await store.initialize();
+    await bootstrap(store);
+    await store.setActivity('alice', 'topic-a', 'bookmark', true, 'bookmark-a');
+    const locallySaved = await store.listActivity('alice', 'bookmark');
+    assert.equal(locallySaved.items.length, 1);
+    assert.equal(locallySaved.items[0].topicId, 'topic-a');
+    assert.ok(Number.isFinite(Date.parse(locallySaved.items[0].savedAt)));
+
+    const serverSavedAt = '2026-11-14T10:30:00.000Z';
+    await store.recordBookmarkTimestamps('alice', [
+      { topicId: 'topic-a', savedAt: serverSavedAt },
+    ]);
+    assert.equal(
+      (await store.listActivity('alice', 'bookmark')).items[0].savedAt,
+      serverSavedAt
+    );
+
+    await store.setActivity('alice', 'topic-b', 'bookmark', true, 'bookmark-b');
+    await store.setActivity('alice', 'topic-a', 'bookmark', false, 'remove-a');
+    const afterChanges = await store.listActivity('alice', 'bookmark');
+    assert.deepEqual(afterChanges.topicIds, ['topic-b']);
+    assert.equal(afterChanges.items[0].topicId, 'topic-b');
+    assert.ok(Number.isFinite(Date.parse(afterChanges.items[0].savedAt)));
+  } finally {
+    db.close();
+  }
+});
+
+test('adds bookmark timestamp storage to an existing activity database without losing rows', async () => {
+  const db = new DatabaseSync(':memory:');
+  try {
+    db.exec(`
+      CREATE TABLE offline_activity (
+        user_id TEXT NOT NULL, topic_id TEXT NOT NULL, kind TEXT NOT NULL,
+        value INTEGER NOT NULL, completed_at TEXT,
+        PRIMARY KEY (user_id, topic_id, kind)
+      );
+      INSERT INTO offline_activity VALUES ('alice', 'existing-topic', 'bookmark', 1, NULL);
+    `);
+    const store = new OfflineActivityStore(adapter(db));
+    await store.initialize();
+    const columns = db.prepare('PRAGMA table_info(offline_activity)').all();
+    assert.ok(columns.some((column) => column.name === 'bookmark_saved_at'));
+    assert.equal(
+      db.prepare('SELECT topic_id, value FROM offline_activity').get().topic_id,
+      'existing-topic'
+    );
+  } finally {
+    db.close();
+  }
+});
