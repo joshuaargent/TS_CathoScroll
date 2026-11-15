@@ -344,9 +344,15 @@ export default function DownloadContent({
               APK is available, downloads it, and opens Android's installer.
               Android requires the user to approve the installation and may
               require allowing installs from CathoScroll in system settings.
-              After the first migration from a debug-signed build, release
-              APKs can update the installed app without uninstalling it.
-              macOS builds are unsigned, so Gatekeeper may require you to
+              The first production-signed Android release cannot install
+              over an older debug-signed build. If you already have a
+              debug-signed version installed, connect to the internet and
+              allow pending account activity to sync before uninstalling it;
+              uninstalling removes device-only data. Install this APK after
+              removing the old build. Future production-signed releases can
+              then update normally. Keep your Android release keystore and
+              passwords backed up securely; every future APK must use the
+              same signing key. macOS builds are unsigned, so Gatekeeper may require you to
               Control-click the app and choose Open on its first launch.
               Only install downloads obtained from this official CathoScroll
               website.
