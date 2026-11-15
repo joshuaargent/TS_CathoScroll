@@ -1,12 +1,14 @@
-import { createPageMetadata } from '@/lib/seo';
 import Link from 'next/link';
+import { createPageMetadata } from '@/lib/seo';
 
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 
-export const metadata = createPageMetadata(
-  {"title":"About","description":"Learn about CathoScroll and its mission to make Catholic teaching clear and accessible.","path":"/about"}
-);
+export const metadata = createPageMetadata({
+  title: "About",
+  description: "Learn about CathoScroll and its mission to make Catholic teaching clear and accessible.",
+  path: "/about",
+});
 
 export default function AboutPage() {
   return (
