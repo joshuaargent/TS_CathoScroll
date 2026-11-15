@@ -9,6 +9,7 @@ import {
   nativeApiCorsHeaders,
 } from '@/lib/supabase/admin';
 import { readBoundedJson } from '@/lib/http/read-json';
+import { checkApiRateLimit, rateLimitResponseHeaders } from '@/lib/security/api-rate-limit';
 
 type CategoryInput = Record<string, unknown> & {
   kind: 'category';
@@ -131,6 +132,22 @@ async function authorize(request: Request) {
   }
   if (!isAdmin) {
     return { response: respond(request, { error: 'Forbidden' }, { status: 403 }) };
+  }
+
+  const rateLimit = await checkApiRateLimit({
+    scope: 'admin:content',
+    identifier: user.id,
+    limit: 30,
+    windowSeconds: 60,
+  });
+  if (!rateLimit.allowed) {
+    return {
+      response: respond(
+        request,
+        { error: rateLimit.unavailable ? 'Content editor is temporarily unavailable' : 'Too many content-editor requests. Please wait.' },
+        { status: rateLimit.unavailable ? 503 : 429, headers: rateLimitResponseHeaders(rateLimit.retryAfterSeconds) }
+      ),
+    };
   }
 
   try {
