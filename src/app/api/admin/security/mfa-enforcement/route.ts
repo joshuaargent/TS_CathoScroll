@@ -109,7 +109,7 @@ export async function POST(request: Request) {
     });
     if (error) {
       if (error.code === '23514') {
-        return respond(request, { error: 'Verify a TOTP authenticator before enabling enforcement.' }, 409);
+        return respond(request, { error: 'Verify a TOTP authenticator for every current administrator before enabling enforcement.' }, 409);
       }
       if (error.code === '42501') {
         return respond(request, { error: 'Only the CathoScroll owner can enable administrator MFA enforcement.' }, 403);
