@@ -42,6 +42,7 @@ export async function getAuthenticatedUserFromRequest(request: Request) {
 
   const supabase = createSupabaseClient(supabaseUrl, anonKey, {
     auth: { autoRefreshToken: false, persistSession: false },
+    global: { headers: { Authorization: `Bearer ${token}` } },
   });
   const { data, error } = await supabase.auth.getUser(token);
   if (error) return { supabase, user: null };
