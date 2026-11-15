@@ -59,7 +59,7 @@ jobs:
           const electron = require('./electron/package.json');
           const tagVersion = process.env.GITHUB_REF_NAME.replace(/^v/, '');
 
-          if (!/^[0-9]+[.][0-9]+[.][0-9]+(?:-[0-9A-Za-z.-]+)?$/.test(tagVersion)) {
+          if (!/^[0-9]+[.][0-9]+[.][0-9]+$/.test(tagVersion)) {
             throw new Error(`Invalid release tag: ${process.env.GITHUB_REF_NAME}`);
           }
           if (root.version !== tagVersion || electron.version !== tagVersion) {
