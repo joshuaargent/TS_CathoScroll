@@ -29,7 +29,7 @@ export default async function AdminReportsPage({ searchParams }: Props) {
       <div className="mt-8">
         <AdminNavigation />
       </div>
-      <AdminReportList reports={items} adminUserId={user.id} />
+      <AdminReportListClient reports={items} adminUserId={user.id} />
       <div className="mt-8 flex justify-between">
         {page > 0 ? (
           <Link
