@@ -199,6 +199,7 @@ export function NativeAccount({
 
   async function saveChanges(event: React.FormEvent) {
     event.preventDefault();
+    if (busy || signingOut) return;
     if (!user || profileUserId !== user.id || !profile || !verified || !navigator.onLine || busy) return;
     setBusy(true);
     setError('');
