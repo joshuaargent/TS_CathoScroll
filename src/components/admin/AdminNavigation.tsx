@@ -19,12 +19,14 @@ export function AdminNavigation({ showContent = true }: { showContent?: boolean 
       >
         Comment-ban appeals
       </a>
-      <a
-        href="/admin/content"
-        className="border-border hover:bg-bg-secondary rounded-lg border px-4 py-2 text-sm"
-      >
-        Content library
-      </a>
+      {showContent && (
+        <a
+          href="/admin/content"
+          className="border-border hover:bg-bg-secondary rounded-lg border px-4 py-2 text-sm"
+        >
+          Content library
+        </a>
+      )}
     </nav>
   );
 }
