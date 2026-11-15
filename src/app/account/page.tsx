@@ -80,7 +80,7 @@ export default function AccountPage() {
   }, [router]);
 
   async function saveProfile() {
-    if (loadFailed || saving) return;
+    if (loadFailed || saving || signingOut) return;
     setSaving(true);
 
     setError('');
