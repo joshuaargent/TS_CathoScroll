@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { openPrivateActivityDatabase } from '@/lib/offline/native-database';
@@ -6,6 +7,7 @@ import { NativeProfileCache, type CachedProfile } from './profile-cache';
 import { secureAuthStorage } from './secure-auth-storage';
 import { createClient } from './supabase';
 import { readNativeProfile, updateNativeProfile } from './profile';
+import { notifyNativeStatus, clearNativeStatusNotice } from './offline-indicator';
 
 export function NativeProfileSettings({ userId }: { userId: string }) {
   const [profile, setProfile] = useState<CachedProfile | null>(null);
@@ -16,6 +18,7 @@ export function NativeProfileSettings({ userId }: { userId: string }) {
   const [message, setMessage] = useState('');
   const [attempt, setAttempt] = useState(0);
   const cache = useRef<NativeProfileCache | null>(null);
+  const formRef = useRef<HTMLFormElement | null>(null);
   const dirty = useRef(false);
 
   useEffect(() => {
@@ -38,19 +41,23 @@ export function NativeProfileSettings({ userId }: { userId: string }) {
           if (!dirty.current) setProfile(latest);
           setVerified(true);
           setError('');
+          clearNativeStatusNotice('profile-load:' + userId);
           setLoading(false);
         }
         try {
           await store.save(userId, latest);
         } catch (cause) {
           console.error('Unable to cache account settings:', cause);
-          if (active) setError('Your profile could not be saved for offline viewing.');
+          if (active) notifyNativeStatus('Your profile could not be saved for offline viewing.', { id: 'profile-cache:' + userId });
         }
       } catch (cause) {
         console.error('Unable to load account settings:', cause);
         if (active) {
           setVerified(false);
-          setError('Account settings could not be refreshed. Check your connection and try again.');
+          notifyNativeStatus('Account settings could not be refreshed. Check your connection and try again.', {
+            id: 'profile-load:' + userId,
+            action: { label: 'Retry', onClick: () => setAttempt((value) => value + 1) },
+          });
           setLoading(false);
         }
       }
@@ -87,7 +94,7 @@ export function NativeProfileSettings({ userId }: { userId: string }) {
         await cache.current.save(userId, updated);
       } catch (cause) {
         console.error('Unable to cache account settings:', cause);
-        setMessage('Profile saved online, but it could not be saved for offline viewing.');
+        notifyNativeStatus('Profile saved online, but it could not be saved for offline viewing.', { id: 'profile-cache:' + userId });
       }
     } catch (cause) {
       console.error('Unable to save account settings:', cause);
@@ -97,11 +104,14 @@ export function NativeProfileSettings({ userId }: { userId: string }) {
         'Display name must be at least 2 characters.',
         'Bio cannot exceed 250 characters.',
       ];
-      setError(
-        cause instanceof Error && validationMessages.includes(cause.message)
-          ? cause.message
-          : 'Unable to save your profile. Please try again.'
-      );
+      if (cause instanceof Error && validationMessages.includes(cause.message)) {
+        setError(cause.message);
+      } else {
+        notifyNativeStatus('Unable to save your profile. Please try again.', {
+          id: 'profile-save:' + userId,
+          action: { label: 'Retry', onClick: () => formRef.current?.requestSubmit() },
+        });
+      }
     } finally {
       setBusy(false);
     }
@@ -111,24 +121,31 @@ export function NativeProfileSettings({ userId }: { userId: string }) {
   if (!profile) {
     return (
       <p role="status" className="text-text-secondary mt-4">
-        {error || 'Connect to view your profile.'}{' '}
-        <button
-          type="button"
-          className="text-accent underline"
-          onClick={() => setAttempt((value) => value + 1)}
-        >
-          Retry
-        </button>
+        Connect to view your profile settings.
       </p>
     );
   }
   const disabled = !verified || busy;
   return (
     <form
+      ref={formRef}
       onSubmit={(event) => void save(event)}
       className="border-border mt-6 space-y-4 rounded-2xl border p-6"
     >
-      <h2 className="text-xl font-bold">Profile</h2>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-bold">Public Profile</h2>
+          <p className="text-text-secondary mt-1 text-sm">
+            This is how people will see you on CathoScroll.
+          </p>
+        </div>
+        <Link
+          href={'/profile/' + encodeURIComponent(profile.username)}
+          className="text-accent text-sm font-medium underline"
+        >
+          View Public Profile
+        </Link>
+      </div>
       {!verified && (
         <p role="status" className="text-text-secondary">
           Connect to edit your profile.
@@ -142,6 +159,7 @@ export function NativeProfileSettings({ userId }: { userId: string }) {
           dirty.current = true;
           setProfile({ ...profile, username: event.target.value });
         }}
+        hint="3-20 characters. Used for your public profile URL."
       />
       <Input
         label="Display name"
@@ -165,7 +183,10 @@ export function NativeProfileSettings({ userId }: { userId: string }) {
           setProfile({ ...profile, bio: event.target.value });
         }}
         className="border-border bg-bg-primary w-full rounded-xl border p-3"
+        placeholder="Tell people a little about yourself..."
+        rows={5}
       />
+      <p className="text-text-muted text-sm">{profile.bio.length}/250</p>
       {error && (
         <p role="alert" className="text-sm text-red-600">
           {error}{' '}
