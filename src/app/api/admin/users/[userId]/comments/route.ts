@@ -6,6 +6,15 @@ interface RouteContext {
   params: Promise<{ userId: string }>;
 }
 
+export function OPTIONS(request: Request) {
+  const headers = nativeApiCorsHeaders(request);
+  if (!headers.has('Access-Control-Allow-Origin')) {
+    return new NextResponse(null, { status: 403 });
+  }
+  headers.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  return new NextResponse(null, { status: 204, headers });
+}
+
 function respond(request: Request, body: unknown, init?: ResponseInit) {
   const headers = nativeApiCorsHeaders(request);
   new Headers(init?.headers).forEach((value, key) => headers.set(key, value));
