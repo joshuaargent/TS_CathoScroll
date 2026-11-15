@@ -234,7 +234,11 @@ loaded online; read changes made offline are queued and synced after reconnect.
 Marking all as read offline covers notifications known to that device, not
 notifications received afterwards. Reporting and moderation require the website.
 Real-device upgrades, reconnects and packaged desktop releases still need
-end-to-end verification before distribution.
+end-to-end verification before distribution. Windows NSIS and Linux AppImage
+updates download in the background and install on app exit. Linux DEB updates
+also download automatically, but applying them requires system authorization
+through the package installer. macOS remains unsigned and uses a manual
+download-and-reinstall update flow.
 
 Signed-in feed recommendations require the `get_my_recommendation_page` RPC and supporting indexes supplied separately for Supabase. It aggregates each user's completed topics (weight 5), bookmarks (4), likes (3), and distinct commented topics (3) across the published catalogue into category preferences. For each category, a weight of `1 + sqrt(preference)` reduces the effect of very large histories while allowing every category to be explored. The RPC takes the next unfinished topic from indexed category streams, selecting the category with the smallest `served / weight` and avoiding three consecutive topics from the same category when alternatives exist. This approximates a globally personalized ranking without loading or sorting the whole catalogue. The per-category cursor and preference snapshot are carried across pages; a refresh picks up changed preferences. Progress is checked as pages load, and content edits or unpublishing can change subsequent results. If every topic is complete, the initial page falls back to completed topics. The cursor is limited to 200 published categories and 64 KiB; the RPC rejects larger catalogues explicitly. Recommendation responses are private and uncached. Signed-out users retain the shuffled feed.
 
