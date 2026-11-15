@@ -52,7 +52,6 @@ jobs:
         shell: bash
         run: |
           node <<'NODE'
-          const fs = require('node:fs');
           const root = require('./package.json');
           const electron = require('./electron/package.json');
           const tagVersion = process.env.GITHUB_REF_NAME.replace(/^v/, '');
