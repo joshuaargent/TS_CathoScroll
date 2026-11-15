@@ -89,13 +89,13 @@ jobs:
 
             main_binary="$app_path/Contents/MacOS/CathoScroll"
             test -s "$main_binary"
-            lipo -verify_arch x86_64 arm64 "$main_binary"
+            lipo "$main_binary" -verify_arch x86_64 arm64
 
             sqlite_dir="$app_path/Contents/Resources/app.asar.unpacked/node_modules/better-sqlite3-multiple-ciphers/prebuilds"
             test -s "$sqlite_dir/darwin-x64.node"
             test -s "$sqlite_dir/darwin-arm64.node"
-            lipo -verify_arch x86_64 "$sqlite_dir/darwin-x64.node"
-            lipo -verify_arch arm64 "$sqlite_dir/darwin-arm64.node"
+            lipo "$sqlite_dir/darwin-x64.node" -verify_arch x86_64
+            lipo "$sqlite_dir/darwin-arm64.node" -verify_arch arm64
           fi
 
   build-android:
