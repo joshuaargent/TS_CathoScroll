@@ -786,8 +786,15 @@ export class OfflineActivityStore {
     await this.database.transaction(async (db) => {
       await this.assertBootstrap(db, userId, snapshotId);
       for (const item of items) {
+        const existing = await db.query(
+          'SELECT 1 FROM offline_activity_bootstrap_items WHERE user_id = ? AND topic_id = ? AND kind = ?',
+          [userId, item.topicId, item.kind]
+        );
+        if (existing.length) {
+          throw new Error('The offline activity snapshot contains a duplicate item.');
+        }
         await db.execute(
-          `INSERT OR IGNORE INTO offline_activity_bootstrap_items (user_id, topic_id, kind, value, completed_at)
+          `INSERT INTO offline_activity_bootstrap_items (user_id, topic_id, kind, value, completed_at)
            VALUES (?, ?, ?, 1, ?)`,
           [userId, item.topicId, item.kind, item.completedAt ?? null]
         );
