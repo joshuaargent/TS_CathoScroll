@@ -1,14 +1,12 @@
-import type { Metadata } from 'next';
+import { createPageMetadata } from '@/lib/seo';
 import { LearnContent } from '@/components/learn/LearnContent';
-import { siteConfig } from '@/lib/constants';
 
-export const metadata: Metadata = {
-  title: 'Learn',
-  description:
-    "Explore CathoScroll's growing library and learn about upcoming Catholic courses, audio lessons, and quizzes.",
-  alternates: {
-    canonical: new URL('/learn', siteConfig.url).toString(),
-  },
+export const metadata = {
+  ...createPageMetadata({
+    title: "Learn",
+    description: "Explore CathoScroll's growing library and learn about upcoming Catholic courses, audio lessons, and quizzes.",
+    path: "/learn",
+  }),
   robots: {
     index: false,
     follow: true,
