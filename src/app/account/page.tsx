@@ -55,18 +55,23 @@ export default function AccountPage() {
 
         setEmail(user.email ?? '');
 
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('username,display_name,bio,subscription_tier')
-          .eq('id', user.id)
-          .single();
+        const [{ data: profile, error: profileError }, { data: membership, error: membershipError }] =
+          await Promise.all([
+            supabase
+              .from('profiles')
+              .select('username,display_name,bio')
+              .eq('id', user.id)
+              .single(),
+            supabase.rpc('get_own_subscription_tier'),
+          ]);
         if (profileError) throw profileError;
+        if (membershipError) throw membershipError;
         if (!profile) throw new Error('Account profile is missing.');
 
         setDisplayName(profile.display_name ?? '');
         setUsername(profile.username ?? '');
         setBio(profile.bio ?? '');
-        setSubscriptionTier(profile.subscription_tier ?? 'free');
+        setSubscriptionTier(typeof membership === 'string' ? membership : 'free');
       } catch (cause) {
         console.error('Unable to load account:', cause);
         setLoadFailed(true);
