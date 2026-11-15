@@ -429,13 +429,15 @@ export class OfflineActivityStore {
         if (typeof row.topic_id !== 'string') throw new Error('Invalid offline activity topic.');
         assertKey(row.topic_id, 'activity topic');
         const savedAt = row.bookmark_saved_at;
-        if (kind === 'bookmark' && savedAt !== null && savedAt !== undefined &&
-            (typeof savedAt !== 'string' || Number.isNaN(Date.parse(savedAt)))) {
-          throw new Error('Invalid offline bookmark saved time.');
-        }
+        // Bookmark timestamps are optional display metadata. Ignore a corrupt
+        // value rather than allowing it to break the offline bookmark list.
+        const validSavedAt =
+          kind === 'bookmark' &&
+          typeof savedAt === 'string' &&
+          !Number.isNaN(Date.parse(savedAt));
         return {
           topicId: row.topic_id,
-          savedAt: kind === 'bookmark' && typeof savedAt === 'string' ? savedAt : null,
+          savedAt: validSavedAt ? savedAt as string : null,
         };
       });
       const ids = items.map((item) => item.topicId);
@@ -1008,15 +1010,11 @@ export class OfflineActivityStore {
         )
       : [];
     const storedBookmarkTime = existingBookmark[0]?.bookmark_saved_at;
-    if (
-      storedBookmarkTime !== undefined &&
-      storedBookmarkTime !== null &&
-      (typeof storedBookmarkTime !== 'string' || Number.isNaN(Date.parse(storedBookmarkTime)))
-    ) {
-      throw new Error('Invalid stored bookmark saved time.');
-    }
+    // A damaged optional timestamp must never block activity synchronization.
     const bookmarkSavedAt: string | null =
-      typeof storedBookmarkTime === 'string' ? storedBookmarkTime : null;
+      typeof storedBookmarkTime === 'string' && !Number.isNaN(Date.parse(storedBookmarkTime))
+        ? storedBookmarkTime
+        : null;
     await db.execute(
       `INSERT OR REPLACE INTO offline_activity
       (user_id, topic_id, kind, value, completed_at, bookmark_saved_at)
