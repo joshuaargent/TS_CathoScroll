@@ -652,7 +652,7 @@ function NativeMfaGate({ userId }: { userId: string | null }) {
 
   useEffect(() => {
     let active = true;
-    void refresh().catch((cause) => {
+    void Promise.resolve().then(refresh).catch((cause) => {
       if (active) {
         console.error('Unable to check native administrator MFA:', cause);
         setError('Unable to verify administrator security. Reconnect and try again.');
