@@ -7,7 +7,10 @@ import { SearchInput } from '@/components/search/SearchInput';
 import { SearchResults } from '@/components/search/SearchResults';
 import { SearchSuggestions } from '@/components/search/SearchSuggestions';
 import { Badge } from '@/components/ui/Badge';
-import { topicSearchResultFromDatabase, type TopicSearchResult } from '@/lib/search';
+import { siteConfig } from '@/lib/constants';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { NativeGridSkeleton, NativeTopicSkeleton } from './skeletons';
+import type { TopicSearchResult } from '@/lib/search';
 import {
   OfflineCatalogue,
   type CatalogueCursor,
@@ -198,9 +201,11 @@ export function CategoriesPage({ catalogue }: { catalogue: OfflineCatalogue }) {
           </div>
         )}
       </div>
-      {loading && !categories.length && <p role="status">Loading categories…</p>}
-
-      <CategoriesGrid categories={categories} />
+      {loading && !categories.length ? (
+        <NativeGridSkeleton label="Loading categories" />
+      ) : (
+        <CategoriesGrid categories={categories} />
+      )}
       {cursor && !error && (
         <button
           type="button"
@@ -326,11 +331,7 @@ function TopicList({ catalogue, category }: { catalogue: OfflineCatalogue; categ
 
   return (
     <>
-      {loading && !topics.length && (
-        <p role="status" className="mt-8">
-          Loading topics…
-        </p>
-      )}
+      {loading && !topics.length && <NativeTopicSkeleton label="Loading topics" />}
 
       {!loading && !error && !topics.length && (
         <p className="text-text-secondary mt-8">No matching topics found.</p>
@@ -465,11 +466,7 @@ export function CategoryPage({ catalogue, slug }: { catalogue: OfflineCatalogue;
 
   return (
     <div className="container py-12">
-      {loading && (
-        <p role="status" className="mt-8">
-          Loading category…
-        </p>
-      )}
+      {loading && <NativeTopicSkeleton label="Loading category" />}
 
       {!loading && !error && !category && <p className="mt-8">Category not found.</p>}
       {category && (
@@ -536,12 +533,24 @@ export function SearchPage({
     async function search() {
       if (navigator.onLine) {
         try {
-          const { data, error: searchError } = await createClient()
-            .rpc('search_published_topics', { search_query: debounced, result_limit: 30 })
-            .abortSignal(controller.signal);
-          if (searchError) throw searchError;
-          if (!Array.isArray(data)) throw new Error('Invalid search response.');
-          const onlineResults = data.map(topicSearchResultFromDatabase);
+          const searchUrl = new URL('/api/content/search', siteConfig.url);
+          searchUrl.searchParams.set('q', debounced);
+          const response = await globalThis.fetch(searchUrl, {
+            signal: controller.signal,
+            headers: { Accept: 'application/json' },
+            cache: 'no-store',
+          });
+          const payload = (await response.json()) as {
+            results?: TopicSearchResult[];
+            error?: string;
+          };
+          if (!response.ok) {
+            throw new Error(payload.error ?? `Online search failed with status ${response.status}.`);
+          }
+          if (!Array.isArray(payload.results)) {
+            throw new Error('The online search service returned an invalid response.');
+          }
+          const onlineResults = payload.results;
           if (!active) return;
           setResults(onlineResults);
           setResultQuery(debounced);
