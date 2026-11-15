@@ -129,7 +129,7 @@ test('keeps a queued read operation pending if the account changes during the re
     error: null,
   });
 
-  await assert.rejects(transport.syncRead(10, false), /account changed/);
+  await assert.rejects(transport.syncRead(10, true), /account changed/);
   const update = api.queries.find((query) => query.update);
   assert.ok(update);
   assert.deepEqual(update.filters, [

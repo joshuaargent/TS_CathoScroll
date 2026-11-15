@@ -7,7 +7,7 @@ const source = await readFile(new URL('../native/note-operations.ts', import.met
 const code = ts.transpileModule(source, {
   compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
 }).outputText;
-const { saveNativeNote } = await import(
+const { loadNativeNote, saveNativeNote } = await import(
   `data:text/javascript;base64,${Buffer.from(code).toString('base64')}`
 );
 
@@ -44,4 +44,59 @@ test('does not save for a changed account and reports server failures', async ()
   assert.equal(changed.writes.length, 0);
   const failed = client({ id: 'user-1' }, { message: 'denied' });
   await assert.rejects(saveNativeNote(failed, 'user-1', 'topic-1', 'Note'), /Unable to save/);
+});
+
+
+test('repairs an unreadable cached note after a successful online refresh', async () => {
+  const saved = [];
+  const cache = {
+    async load() {
+      throw new Error('Corrupted cached ciphertext');
+    },
+    async save(userId, topicId, content) {
+      saved.push({ userId, topicId, content });
+    },
+  };
+  let cachedState;
+  const result = await loadNativeNote(
+    cache,
+    'user-1',
+    'topic-1',
+    async () => 'Fresh note from Supabase',
+    (note, warning) => {
+      cachedState = { note, warning };
+    }
+  );
+
+  assert.deepEqual(cachedState, {
+    note: null,
+    warning: 'Your saved note could not be opened on this device.',
+  });
+  assert.equal(result.verified, true);
+  assert.equal(result.note.content, 'Fresh note from Supabase');
+  assert.equal(result.warning, '');
+  assert.deepEqual(saved, [{
+    userId: 'user-1',
+    topicId: 'topic-1',
+    content: 'Fresh note from Supabase',
+  }]);
+});
+
+test('does not cache an online note after its account/topic request becomes stale', async () => {
+  const saved = [];
+  const cache = {
+    async load() { return null; },
+    async save(...args) { saved.push(args); },
+  };
+  const result = await loadNativeNote(
+    cache,
+    'user-1',
+    'topic-1',
+    async () => 'A response that arrived after navigation',
+    undefined,
+    () => false
+  );
+
+  assert.equal(result.verified, false);
+  assert.equal(saved.length, 0);
 });

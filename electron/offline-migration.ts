@@ -12,7 +12,9 @@ import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 
 function validateDatabase(file: string): void {
-  const database = new DatabaseSync(file, { readOnly: true });
+  // Open read-write so SQLite can roll back a hot journal before we classify
+  // the database. A read-only quick_check can leave recovery sidecars pending.
+  const database = new DatabaseSync(file);
   try {
     const result = database.prepare('PRAGMA quick_check(1)').get();
     if (result?.quick_check !== 'ok') {
@@ -34,15 +36,15 @@ function syncFile(file: string): void {
 
 const sqliteSidecars = ['-wal', '-shm', '-journal'];
 
-function preserveDamagedDatabase(destination: string, backup: string): Array<[string, string]> {
+function preserveDamagedDatabase(file: string, backup: string): Array<[string, string]> {
   const moved: Array<[string, string]> = [];
-  const files = [destination, ...sqliteSidecars.map((suffix) => destination + suffix)];
+  const files = [file, ...sqliteSidecars.map((suffix) => file + suffix)];
   try {
-    for (const file of files) {
-      if (!existsSync(file)) continue;
-      const preserved = file === destination ? backup : backup + file.slice(destination.length);
-      renameSync(file, preserved);
-      moved.push([file, preserved]);
+    for (const current of files) {
+      if (!existsSync(current)) continue;
+      const preserved = current === file ? backup : backup + current.slice(file.length);
+      renameSync(current, preserved);
+      moved.push([current, preserved]);
     }
     return moved;
   } catch (error) {
@@ -75,7 +77,32 @@ function restoreDamagedDatabase(moved: Array<[string, string]>): void {
   }
 }
 
+function preserveCatalogueFallbackFiles(source: string, destination: string): void {
+  const moved: Array<[string, string]> = [];
+  try {
+    if (existsSync(source)) {
+      moved.push(...preserveDamagedDatabase(source, `${source}.corrupt-${randomUUID()}`));
+    }
+    if (existsSync(destination)) {
+      moved.push(...preserveDamagedDatabase(destination, `${destination}.corrupt-${randomUUID()}`));
+    }
+  } catch (error) {
+    try {
+      restoreDamagedDatabase(moved);
+    } catch (restoreError) {
+      throw new AggregateError(
+        [error, restoreError],
+        'Unable to preserve the damaged catalogue files or restore them.'
+      );
+    }
+    throw error;
+  }
+}
+
 function copyValidatedDatabase(source: string, temporary: string): void {
+  // A writable open first lets SQLite recover a hot rollback journal or WAL
+  // before VACUUM reads the legacy database.
+  validateDatabase(source);
   const database = new DatabaseSync(source, { readOnly: true });
   try {
     const result = database.prepare('PRAGMA quick_check(1)').get();
@@ -116,20 +143,21 @@ export function migrateLegacyOfflineDatabases(
     if (destinationExists) {
       try {
         validateDatabase(destination);
-        // A valid intermediate destination is authoritative. Do not replace it,
-        // even if the old source has since become unreadable.
+        // A valid intermediate destination is authoritative. Writable
+        // validation has already allowed SQLite to recover pending writes.
         continue;
       } catch (destinationError) {
-        if (!sourceExists && name === 'catalogue') {
-          // The Electron catalogue installer can rebuild this public cache from
-          // the bundled database when no legacy source remains.
-          continue;
-        }
-        if (!sourceExists) {
+        if (!sourceExists && name !== 'catalogue') {
           throw new Error(
             `The existing ${name} database is corrupt and no legacy source is available.`,
             { cause: destinationError }
           );
+        }
+        if (!sourceExists && name === 'catalogue') {
+          // The Electron plugin can rebuild this public cache from its bundled
+          // catalogue, but only if the damaged destination is moved aside.
+          preserveCatalogueFallbackFiles(source, destination);
+          continue;
         }
       }
     }
@@ -143,8 +171,19 @@ export function migrateLegacyOfflineDatabases(
     let preservedFiles: Array<[string, string]> = [];
 
     try {
-      // Never modify the source. VACUUM INTO creates a consistent independent copy.
-      copyValidatedDatabase(source, temporary);
+      try {
+        // VACUUM INTO creates a consistent independent copy and never replaces
+        // the legacy source.
+        copyValidatedDatabase(source, temporary);
+      } catch (sourceError) {
+        if (name !== 'catalogue') throw sourceError;
+
+        // Catalogue content is rebuildable from the bundled asset. Keep both
+        // damaged copies (and their SQLite sidecars) for diagnosis, then let
+        // the Electron catalogue installer create a fresh destination.
+        preserveCatalogueFallbackFiles(source, destination);
+        continue;
+      }
 
       if (backup) preservedFiles = preserveDamagedDatabase(destination, backup);
 
@@ -166,9 +205,8 @@ export function migrateLegacyOfflineDatabases(
       }
     } finally {
       if (existsSync(temporary)) unlinkSync(temporary);
-      // Keep a damaged backup after a successful recovery. It is not opened by
-      // the application and preserves the user's original bytes for diagnosis.
-      // If publication failed, the backup is moved back into place above.
+      // Keep a damaged backup after successful recovery. If publication failed,
+      // the backup is moved back into place above.
     }
   }
 }

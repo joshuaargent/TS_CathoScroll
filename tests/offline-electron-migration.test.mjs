@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -136,4 +138,68 @@ test('never opens or replaces the encrypted private activity database', async (t
 
   assert.deepEqual(await readFile(privateDatabase), before);
   assert.equal((await readdir(path.dirname(privateDatabase))).some((name) => name.startsWith('private-activity.sqlite.corrupt-')), false);
+});
+
+
+test('recovers a hot rollback journal before accepting an existing destination', async (t) => {
+  const directory = await fixture(t);
+  const source = path.join(directory, 'databases', 'activity.sqlite');
+  const destination = path.join(directory, 'cathoscroll-sqlite', 'activity.sqlite');
+  createDatabase(source, 'older legacy data');
+
+  await mkdir(path.dirname(destination));
+  const database = new DatabaseSync(destination);
+  database.exec('CREATE TABLE records (id INTEGER PRIMARY KEY, value TEXT NOT NULL);');
+  const insert = database.prepare('INSERT INTO records (id, value) VALUES (?, ?)');
+  for (let index = 1; index <= 1000; index++) {
+    insert.run(index, `committed destination row ${index} ${'x'.repeat(900)}`);
+  }
+  database.close();
+
+  const childScript = `
+    const { DatabaseSync } = require('node:sqlite');
+    const database = new DatabaseSync(process.argv[1]);
+    database.exec('PRAGMA cache_size=10; BEGIN IMMEDIATE;');
+    database.prepare('UPDATE records SET value = ?').run('uncommitted replacement');
+    process.exit(0);
+  `;
+  const child = spawnSync(process.execPath, ['-e', childScript, destination], { encoding: 'utf8' });
+  assert.equal(child.status, 0, child.stderr);
+  assert.ok(existsSync(destination + '-journal'), 'the crashed writer should leave a hot rollback journal');
+
+  migrateLegacyOfflineDatabases(directory);
+
+  assert.match(readValue(destination), /^committed destination row 1 /);
+  assert.equal(readValue(source), 'older legacy data');
+  assert.equal(existsSync(destination + '-journal'), false, 'SQLite recovery should remove the hot journal');
+});
+
+test('preserves both damaged catalogue copies and leaves room for bundled recovery', async (t) => {
+  const directory = await fixture(t);
+  const source = path.join(directory, 'databases', 'catalogue.sqlite');
+  const destination = path.join(directory, 'cathoscroll-sqlite', 'catalogue.sqlite');
+  await mkdir(path.dirname(destination));
+  await writeFile(source, 'corrupt legacy catalogue');
+  await writeFile(destination, 'corrupt intermediate catalogue');
+  await writeFile(source + '-journal', 'legacy rollback journal');
+  await writeFile(destination + '-wal', 'intermediate wal');
+
+  migrateLegacyOfflineDatabases(directory);
+
+  assert.equal(existsSync(source), false);
+  assert.equal(existsSync(destination), false);
+  const legacyFiles = await readdir(path.dirname(source));
+  const destinationFiles = await readdir(path.dirname(destination));
+  const legacyBackup = legacyFiles.find((name) => name.startsWith('catalogue.sqlite.corrupt-'));
+  const destinationBackup = destinationFiles.find((name) => name.startsWith('catalogue.sqlite.corrupt-'));
+  assert.ok(legacyBackup);
+  assert.ok(destinationBackup);
+  assert.equal(
+    await readFile(path.join(path.dirname(source), legacyBackup + '-journal'), 'utf8'),
+    'legacy rollback journal'
+  );
+  assert.equal(
+    await readFile(path.join(path.dirname(destination), destinationBackup + '-wal'), 'utf8'),
+    'intermediate wal'
+  );
 });
