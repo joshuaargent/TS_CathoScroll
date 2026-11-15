@@ -231,7 +231,7 @@ export default function DownloadContent({
     'https://github.com/joshuaargent/TS_CathoScroll/releases';
 
   return (
-    <main className="container py-12">
+    <div className="container py-12">
       <div className="mt-12 mb-16">
         <h1 className="text-5xl font-extrabold md:text-7xl">
           Download CathoScroll
@@ -538,6 +538,6 @@ export default function DownloadContent({
           </div>
         </section>
       </div>
-    </main>
+    </div>
   );
 }
