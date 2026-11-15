@@ -162,7 +162,7 @@ export async function getAdminSession() {
   }
 
   try {
-    const mfaSatisfied = await adminMfaSatisfied(supabase);
+    const mfaSatisfied = await adminMfaSatisfied(supabase, user.id);
     return {
       user,
       isAdmin: mfaSatisfied,
