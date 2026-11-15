@@ -2,7 +2,7 @@ import Link from 'next/link';
 
 import { AdminAppealList } from '@/components/admin/AdminAppealList';
 import { AdminNavigation } from '@/components/admin/AdminNavigation';
-import { AdminReportList } from '@/components/admin/AdminReportList';
+import { AdminReportListClient } from '@/components/admin/AdminReportListClient';
 import { loadCommentBanAppeals, loadCommentReports } from '@/lib/moderation/admin-data';
 import { requireAdminPage } from '@/lib/moderation/require-admin';
 
