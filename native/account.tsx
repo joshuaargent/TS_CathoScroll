@@ -350,6 +350,7 @@ export function NativeAccount({
       saving={busy}
       signingOut={signingOut}
       saveDisabled={!canSave}
+      profileFieldsDisabled={!canSave}
       accountSettingsDisabled={!online}
       signOutDisabled={!online}
       error={error}
