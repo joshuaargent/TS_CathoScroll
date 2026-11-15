@@ -37,10 +37,9 @@ module.exports = {
     icon: 'assets/icon.icns',
     category: 'public.app-category.education',
     target: ['dmg', 'zip'],
-    // Direct distribution requires a Developer ID Application signature.
-    // The release workflow supplies the certificate and notarisation API key.
-    // Pull-request validation builds intentionally omit these credentials.
-    notarize: true,
+    // Release builds provide Developer ID signing and App Store Connect
+    // notarisation credentials. Pull-request builds intentionally omit them.
+    notarize: Boolean(process.env.APPLE_API_KEY),
     artifactName: '${productName}-${version}-${arch}.${ext}',
   },
   publish: {
