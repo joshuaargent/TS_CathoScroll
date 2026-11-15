@@ -136,7 +136,7 @@ export function NativeNotificationBell({
         action: { label: 'Retry', onClick: () => void refresh() },
       });
     }
-  }, [transport, storageError]);
+  }, [transport, storageError, userId]);
 
   useEffect(() => {
     let active = true;
