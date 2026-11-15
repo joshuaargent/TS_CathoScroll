@@ -58,8 +58,20 @@ async function fixture(t, server) {
       description TEXT,
       order_index INTEGER
     );
-    CREATE TABLE topics (id TEXT);
-    INSERT INTO topics VALUES ('bundled');
+    CREATE TABLE topics (
+      id TEXT PRIMARY KEY,
+      slug TEXT,
+      category_slug TEXT,
+      order_index INTEGER,
+      question TEXT,
+      answer TEXT,
+      explanation TEXT,
+      catechism_paragraphs TEXT,
+      catechism_text TEXT,
+      scripture_reference TEXT,
+      scripture_text TEXT
+    );
+    INSERT INTO topics (id) VALUES ('bundled');
     CREATE TABLE catalogue_metadata (
       singleton INTEGER PRIMARY KEY,
       format INTEGER NOT NULL,
