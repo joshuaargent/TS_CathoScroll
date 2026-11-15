@@ -286,7 +286,7 @@ jobs:
             --clobber
 
           assets="$(gh release view "$RELEASE_TAG" --json assets --jq '.assets[].name')"
-          printf '%s\\n' "$assets"
+          printf '%s\n' "$assets"
 
           expected_assets=(
             "CathoScroll-$version-x64.exe"
