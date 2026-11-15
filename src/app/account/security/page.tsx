@@ -22,6 +22,7 @@ export default function AccountSecurityPage() {
   const [factors, setFactors] = useState<TotpFactor[]>([]);
   const [assurance, setAssurance] = useState<AssuranceState | null>(null);
   const [isOwner, setIsOwner] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [enforcementEnabled, setEnforcementEnabled] = useState(false);
   const [factorId, setFactorId] = useState('');
   const [qrCode, setQrCode] = useState('');
@@ -55,6 +56,14 @@ export default function AccountSecurityPage() {
     if (assuranceError) throw assuranceError;
     if (!userData.user) throw new Error('Sign in to manage account security.');
 
+    const { data: adminRow, error: adminError } = await supabase
+      .from('admin_users')
+      .select('user_id')
+      .eq('user_id', userData.user.id)
+      .maybeSingle();
+    if (adminError) throw adminError;
+
+    setIsAdmin(Boolean(adminRow));
     setFactors((factorData.totp ?? []) as TotpFactor[]);
     setAssurance(assuranceData as AssuranceState);
 
@@ -257,6 +266,15 @@ export default function AccountSecurityPage() {
               <p className="mt-4 rounded-xl border border-emerald-600/30 bg-emerald-600/5 p-3 text-sm">
                 Administrator MFA enforcement is enabled for CathoScroll.
               </p>
+            )}
+
+            {isAdmin && assurance?.currentLevel === 'aal2' && (
+              <Link
+                href="/admin"
+                className="text-accent mt-4 inline-block text-sm font-semibold hover:underline"
+              >
+                Continue to administrator dashboard
+              </Link>
             )}
 
             {verifiedFactors.length > 0 ? (
