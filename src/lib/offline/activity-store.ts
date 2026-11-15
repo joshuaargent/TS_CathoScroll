@@ -966,7 +966,16 @@ export class OfflineActivityStore {
           [userId, topicId]
         )
       : [];
-    const bookmarkSavedAt = existingBookmark[0]?.bookmark_saved_at ?? null;
+    const storedBookmarkTime = existingBookmark[0]?.bookmark_saved_at;
+    if (
+      storedBookmarkTime !== undefined &&
+      storedBookmarkTime !== null &&
+      (typeof storedBookmarkTime !== 'string' || Number.isNaN(Date.parse(storedBookmarkTime)))
+    ) {
+      throw new Error('Invalid stored bookmark saved time.');
+    }
+    const bookmarkSavedAt: string | null =
+      typeof storedBookmarkTime === 'string' ? storedBookmarkTime : null;
     await db.execute(
       `INSERT OR REPLACE INTO offline_activity
       (user_id, topic_id, kind, value, completed_at, bookmark_saved_at)
