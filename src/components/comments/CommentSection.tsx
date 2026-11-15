@@ -254,6 +254,11 @@ export function CommentSection({
     const version = ++loadVersion.current;
     const isCurrent = () => version === loadVersion.current;
     setLoading(true);
+    setLoadingMoreComments(false);
+    setLoadMoreError('');
+    setHasMoreComments(false);
+    setNextCommentCursor(null);
+    setTotalCommentCount(null);
     setCommentLoadError('');
     setCacheWarning('');
     try {
@@ -267,8 +272,9 @@ export function CommentSection({
       if (!isCurrent()) return;
       setUserId(user?.id ?? null);
 
-      const commentsResult = await supabase.rpc('get_topic_comment_feed', {
+      const commentsResult = await supabase.rpc('get_topic_comment_page', {
         p_topic_id: topicId,
+        p_limit: 50,
       });
 
       if (!isCurrent()) return;
@@ -276,7 +282,12 @@ export function CommentSection({
         throw new Error(`Unable to load comments: ${commentsResult.error.message}`);
       }
 
-      const commentRows = (commentsResult.data ?? []) as CommentFeedRow[];
+      const page = commentsResult.data as CommentPageResult | null;
+      if (!page) throw new Error('The comment page response was empty.');
+      const commentRows = page.comments ?? [];
+      setHasMoreComments(Boolean(page.has_more));
+      setNextCommentCursor(page.next_cursor ?? null);
+      setTotalCommentCount(Number(page.total_count ?? commentRows.length));
       const userIds = [
         ...new Set(
           [...commentRows.map((row) => row.user_id), user?.id].filter(
@@ -430,6 +441,9 @@ export function CommentSection({
           if (cached) {
             setComments(cached.comments);
             setCachedAt(cached.savedAt);
+            setHasMoreComments(false);
+            setNextCommentCursor(null);
+            setTotalCommentCount(null);
             setUserId(null);
             setCurrentProfile(null);
             setCanPinComments(false);
@@ -444,6 +458,9 @@ export function CommentSection({
       }
       setComments([]);
       setCachedAt(null);
+      setHasMoreComments(false);
+      setNextCommentCursor(null);
+      setTotalCommentCount(null);
       setCommentLoadError(
         cache && !navigator.onLine
           ? 'Comments for this topic have not been saved on this device.'
