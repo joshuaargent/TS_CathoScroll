@@ -313,7 +313,7 @@ REVOKE ALL ON FUNCTION catho_private.enforce_user_action_rate_limit()
 
 DROP TRIGGER IF EXISTS comments_enforce_user_rate_limit ON public.comments;
 CREATE TRIGGER comments_enforce_user_rate_limit
-  BEFORE INSERT ON public.comments
+  BEFORE INSERT OR UPDATE OF content ON public.comments
   FOR EACH ROW
   EXECUTE FUNCTION catho_private.enforce_user_action_rate_limit();
 
