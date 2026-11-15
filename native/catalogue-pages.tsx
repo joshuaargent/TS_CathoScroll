@@ -472,9 +472,6 @@ export function SearchPage({
   }, []);
   useEffect(() => {
     if (!debounced) {
-      setResults([]);
-      setResultQuery('');
-      setError('');
       clearNativeStatusNotice('search-fallback');
       clearNativeStatusNotice('search-error');
       return;
@@ -553,7 +550,7 @@ export function SearchPage({
           <span>Searching for &quot;{debounced}&quot;</span>
         </div>
       )}
-      {!error && <SearchResults query={resultQuery === debounced ? debounced : ''} results={results} />}
+      {debounced && !error && <SearchResults query={resultQuery === debounced ? debounced : ''} results={results} />}
     </div>
   );
 }
