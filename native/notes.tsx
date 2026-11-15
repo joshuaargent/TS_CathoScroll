@@ -149,7 +149,7 @@ export function NativeNotes({
       if (noticeId) clearNativeStatusNotice(noticeId);
       return;
     }
-    if (!navigator.onLine || current?.verified === false) {
+    if (!navigator.onLine) {
       notifyNativeStatus('Connect to view the latest note and make changes.', { id: noticeId });
     }
     return () => {
