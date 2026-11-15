@@ -31,7 +31,7 @@ export interface Comment {
 
   is_pinned: boolean;
 
-  profile: Profile;
+  profile: Pick<Profile, 'id' | 'username' | 'display_name' | 'bio'>;
 
   likes: number;
 

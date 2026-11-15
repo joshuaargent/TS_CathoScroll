@@ -1,12 +1,19 @@
 import { NextResponse } from 'next/server';
 
 import { getAuthenticatedUser, isSameOrigin } from '@/lib/supabase/admin';
+import { readBoundedJson } from '@/lib/http/read-json';
+
+function respond(body: unknown, init?: ResponseInit) {
+  const headers = new Headers(init?.headers);
+  headers.set('Cache-Control', 'private, no-store');
+  return NextResponse.json(body, { ...init, headers });
+}
 
 export async function GET(request: Request) {
   const { supabase, user } = await getAuthenticatedUser();
 
   if (!user) {
-    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    return respond({ error: 'Authentication required' }, { status: 401 });
   }
 
   const countOnly = new URL(request.url).searchParams.get('countOnly') === '1';
@@ -21,11 +28,11 @@ export async function GET(request: Request) {
 
   if (countError) {
     console.error('Unable to load unread notification count:', countError.message);
-    return NextResponse.json({ error: 'Unable to load notifications' }, { status: 500 });
+    return respond({ error: 'Unable to load notifications' }, { status: 500 });
   }
 
   if (countOnly) {
-    return NextResponse.json({ unreadCount: count ?? 0 });
+    return respond({ unreadCount: count ?? 0 });
   }
 
   const { data: notificationRows, error: notificationsError } = await supabase
@@ -37,7 +44,7 @@ export async function GET(request: Request) {
 
   if (notificationsError) {
     console.error('Unable to load notifications:', notificationsError.message);
-    return NextResponse.json({ error: 'Unable to load notifications' }, { status: 500 });
+    return respond({ error: 'Unable to load notifications' }, { status: 500 });
   }
 
   const topicIds = [
@@ -51,12 +58,12 @@ export async function GET(request: Request) {
 
   if (topicsError) {
     console.error('Unable to resolve notification topic links:', topicsError.message);
-    return NextResponse.json({ error: 'Unable to load notifications' }, { status: 500 });
+    return respond({ error: 'Unable to load notifications' }, { status: 500 });
   }
 
   const topicSlugById = new Map((topics ?? []).map((topic) => [String(topic.id), topic.slug]));
 
-  return NextResponse.json({
+  return respond({
     notifications: (notificationRows ?? []).map((notification) => ({
       ...notification,
       topic_slug: notification.topic_id ? (topicSlugById.get(notification.topic_id) ?? null) : null,
@@ -67,22 +74,18 @@ export async function GET(request: Request) {
 
 export async function PATCH(request: Request) {
   if (!isSameOrigin(request)) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    return respond({ error: 'Forbidden' }, { status: 403 });
   }
 
   const { supabase, user } = await getAuthenticatedUser();
 
   if (!user) {
-    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    return respond({ error: 'Authentication required' }, { status: 401 });
   }
 
-  let body: unknown;
-
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
-  }
+  const parsed = await readBoundedJson(request, 1024);
+  if (!parsed.ok) return respond({ error: parsed.error }, { status: parsed.status });
+  const body = parsed.value;
 
   if (
     typeof body !== 'object' ||
@@ -95,7 +98,7 @@ export async function PATCH(request: Request) {
         !Number.isSafeInteger(body.notificationId) ||
         body.notificationId < 1))
   ) {
-    return NextResponse.json({ error: 'Invalid notification update' }, { status: 400 });
+    return respond({ error: 'Invalid notification update' }, { status: 400 });
   }
 
   const targetNotificationId =
@@ -120,12 +123,12 @@ export async function PATCH(request: Request) {
 
   if (error) {
     console.error('Unable to mark notifications as read:', error.message);
-    return NextResponse.json({ error: 'Unable to update notifications' }, { status: 500 });
+    return respond({ error: 'Unable to update notifications' }, { status: 500 });
   }
 
   if (body.action === 'read' && targetNotificationId !== null && (!data || data.length === 0)) {
-    return NextResponse.json({ error: 'Notification not found' }, { status: 404 });
+    return respond({ error: 'Notification not found' }, { status: 404 });
   }
 
-  return NextResponse.json({ updated: data?.length ?? 0 });
+  return respond({ updated: data?.length ?? 0 });
 }

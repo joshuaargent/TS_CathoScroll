@@ -7,6 +7,7 @@ import {
   isSameOriginOrNativeRequest,
   nativeApiCorsHeaders,
 } from '@/lib/supabase/admin';
+import { readBoundedJson } from '@/lib/http/read-json';
 
 interface RouteContext {
   params: Promise<{
@@ -42,12 +43,9 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
     return respond(request, { error: 'Invalid comment id' }, 400);
   }
 
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return respond(request, { error: 'Invalid JSON body' }, 400);
-  }
+  const parsed = await readBoundedJson(request, 1024);
+  if (!parsed.ok) return respond(request, { error: parsed.error }, parsed.status);
+  const body = parsed.value;
   if (
     typeof body !== 'object' ||
     body === null ||

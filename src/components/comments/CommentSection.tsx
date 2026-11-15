@@ -21,13 +21,11 @@ interface CommentSectionProps {
   supabaseClient?: SupabaseClient;
 }
 
-const fallbackProfile: Profile = {
+const fallbackProfile: Pick<Profile, 'id' | 'username' | 'display_name' | 'bio'> = {
   id: '',
   username: 'unknown',
   display_name: 'Unknown User',
   bio: null,
-  created_at: '',
-  subscription_tier: 'free',
 };
 
 /**
@@ -169,7 +167,7 @@ export function CommentSection({
 
   const [userId, setUserId] = useState<string | null>(null);
 
-  const [currentProfile, setCurrentProfile] = useState<Profile | null>(null);
+  const [currentProfile, setCurrentProfile] = useState<Pick<Profile, 'id' | 'username' | 'display_name' | 'bio'> | null>(null);
 
   const [canPinComments, setCanPinComments] = useState(false);
 
@@ -224,7 +222,7 @@ export function CommentSection({
 
       const commentsResult = await supabase
         .from('comments')
-        .select('*')
+        .select('id,topic_id,user_id,parent_id,content,created_at,edited_at,is_deleted,is_pinned')
         .eq('topic_id', topicId)
         .order('created_at', {
           ascending: false,
@@ -250,7 +248,7 @@ export function CommentSection({
           : Promise.resolve({ data: [], error: null }),
 
         userIds.length
-          ? supabase.from('profiles').select('*').in('id', userIds)
+          ? supabase.from('profiles').select('id,username,display_name,bio').in('id', userIds)
           : Promise.resolve({
               data: [],
               error: null,
@@ -292,12 +290,14 @@ export function CommentSection({
         setCommentBanCheckFailed(false);
       }
 
-      const profiles = new Map((profilesResult.data ?? []).map((profile) => [profile.id, profile]));
+      const profiles = new Map<string, Pick<Profile, 'id' | 'username' | 'display_name' | 'bio'>>(
+        (profilesResult.data ?? []).map((profile) => [profile.id, profile])
+      );
 
       if (user?.id && !profiles.has(user.id)) {
         const { data, error } = await supabase
           .from('profiles')
-          .select('*')
+          .select('id,username,display_name,bio')
           .eq('id', user.id)
           .single();
 

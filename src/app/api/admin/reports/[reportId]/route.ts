@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { createServiceRoleClient, getAdminSessionFromRequest, isSameOriginOrNativeRequest, nativeApiCorsHeaders } from '@/lib/supabase/admin';
+import { readBoundedJson } from '@/lib/http/read-json';
 
 interface RouteContext {
   params: Promise<{ reportId: string }>;
@@ -47,13 +48,9 @@ export async function PATCH(request: Request, { params }: RouteContext) {
     return respond(request, { error: 'Invalid report id' }, { status: 400 });
   }
 
-  let body: unknown;
-
-  try {
-    body = await request.json();
-  } catch {
-    return respond(request, { error: 'Invalid JSON body' }, { status: 400 });
-  }
+  const parsed = await readBoundedJson(request, 4096);
+  if (!parsed.ok) return respond(request, { error: parsed.error }, { status: parsed.status });
+  const body = parsed.value;
 
   if (
     typeof body !== 'object' ||

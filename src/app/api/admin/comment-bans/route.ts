@@ -7,6 +7,7 @@ import {
   nativeApiCorsHeaders,
   isValidUuid,
 } from '@/lib/supabase/admin';
+import { readBoundedJson } from '@/lib/http/read-json';
 
 function respond(request: Request, body: unknown, init?: ResponseInit) {
   const headers = nativeApiCorsHeaders(request);
@@ -43,13 +44,9 @@ export async function POST(request: Request) {
     return respond(request, { error: 'Forbidden' }, { status: 403 });
   }
 
-  let body: unknown;
-
-  try {
-    body = await request.json();
-  } catch {
-    return respond(request, { error: 'Invalid JSON body' }, { status: 400 });
-  }
+  const parsed = await readBoundedJson(request, 4096);
+  if (!parsed.ok) return respond(request, { error: parsed.error }, { status: parsed.status });
+  const body = parsed.value;
 
   if (
     typeof body !== 'object' ||

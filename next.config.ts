@@ -53,8 +53,8 @@ const nextConfig: NextConfig = {
             value: 'DENY',
           },
           {
-            key: 'X-XSS-Protection',
-            value: '1; mode=block',
+            key: 'Permissions-Policy',
+            value: 'accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()',
           },
           {
             key: 'Referrer-Policy',

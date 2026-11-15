@@ -40,7 +40,7 @@ export default async function ProfilePage({ params }: Props) {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('*')
+    .select('id,username,display_name,bio')
     .eq('username', username)
     .single();
 

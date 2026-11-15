@@ -99,6 +99,25 @@ function preserveCatalogueFallbackFiles(source: string, destination: string): vo
   }
 }
 
+function hasMeaningfulActivityData(file: string): boolean {
+  const database = new DatabaseSync(file, { readOnly: true });
+  try {
+    const tables = database
+      .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'")
+      .all();
+    for (const row of tables) {
+      if (typeof row.name !== 'string' || row.name === 'offline_activity_device' || row.name === 'android_metadata') {
+        continue;
+      }
+      const table = `"${row.name.replace(/"/g, '""')}"`;
+      if (database.prepare(`SELECT 1 FROM ${table} LIMIT 1`).get()) return true;
+    }
+    return false;
+  } finally {
+    database.close();
+  }
+}
+
 function copyValidatedDatabase(source: string, temporary: string): void {
   // A writable open first lets SQLite recover a hot rollback journal or WAL
   // before VACUUM reads the legacy database.
@@ -140,13 +159,32 @@ export function migrateLegacyOfflineDatabases(
 
     mkdirSync(directory, { recursive: true });
 
+    let destinationState: 'corrupt' | 'empty' | null = null;
     if (destinationExists) {
       try {
         validateDatabase(destination);
-        // A valid intermediate destination is authoritative. Writable
-        // validation has already allowed SQLite to recover pending writes.
-        continue;
+        // A freshly initialised activity database can be structurally valid
+        // while containing none of the legacy user's activity. Do not mistake
+        // its device-identity row for migrated user data.
+        if (name === 'activity' && sourceExists && !hasMeaningfulActivityData(destination)) {
+          try {
+            validateDatabase(source);
+            if (hasMeaningfulActivityData(source)) {
+              destinationState = 'empty';
+            } else {
+              continue;
+            }
+          } catch {
+            // Keep the valid destination if the legacy source cannot be read.
+            // The source remains untouched for later recovery/diagnosis.
+            continue;
+          }
+        } else {
+          // A valid destination containing user data is authoritative.
+          continue;
+        }
       } catch (destinationError) {
+        destinationState = 'corrupt';
         if (!sourceExists && name !== 'catalogue') {
           throw new Error(
             `The existing ${name} database is corrupt and no legacy source is available.`,
@@ -166,7 +204,7 @@ export function migrateLegacyOfflineDatabases(
 
     const temporary = join(directory, `.${name}.${randomUUID()}.tmp`);
     const backup = destinationExists
-      ? join(directory, `${name}.sqlite.corrupt-${randomUUID()}`)
+      ? join(directory, `${name}.sqlite.${destinationState ?? 'previous'}-${randomUUID()}`)
       : null;
     let preservedFiles: Array<[string, string]> = [];
 

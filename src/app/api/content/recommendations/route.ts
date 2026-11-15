@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { getRecommendationPage } from '@/lib/recommendations-server';
 import { createClient } from '@/lib/supabase/server';
+import { readBoundedJson } from '@/lib/http/read-json';
 
 const headers = { 'Cache-Control': 'private, no-store' };
 
@@ -18,22 +19,14 @@ export async function POST(request: Request) {
     );
   }
 
-  let body: unknown;
-  try {
-    const text = await request.text();
-    if (text.length > 65_536) {
-      return NextResponse.json(
-        { error: 'Recommendation cursor is too large.' },
-        { status: 400, headers }
-      );
-    }
-    body = JSON.parse(text);
-  } catch {
+  const parsed = await readBoundedJson(request, 2048);
+  if (!parsed.ok) {
     return NextResponse.json(
-      { error: 'Invalid recommendation request.' },
-      { status: 400, headers }
+      { error: parsed.error },
+      { status: parsed.status, headers }
     );
   }
+  const body = parsed.value;
 
   if (!body || typeof body !== 'object' || !('cursor' in body) || !body.cursor) {
     return NextResponse.json({ error: 'Invalid recommendation cursor.' }, { status: 400, headers });

@@ -30,3 +30,20 @@ export function getSitemapCategoriesXml(categories: { slug: string }[]) {
 
   return [...staticUrls, ...categoryUrls];
 }
+
+export function isSitemapPageInRange(
+  page: number,
+  totalItems: number,
+  itemsPerPage = sitemapUrlsPerFile
+): boolean {
+  return (
+    Number.isSafeInteger(page) &&
+    page >= 0 &&
+    Number.isSafeInteger(totalItems) &&
+    totalItems >= 0 &&
+    Number.isSafeInteger(itemsPerPage) &&
+    itemsPerPage > 0 &&
+    page <= Math.floor(Number.MAX_SAFE_INTEGER / itemsPerPage) &&
+    page < Math.ceil(totalItems / itemsPerPage)
+  );
+}

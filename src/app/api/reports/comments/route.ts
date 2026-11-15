@@ -6,11 +6,14 @@ import {
   isSameOriginOrNativeRequest,
   nativeApiCorsHeaders,
 } from '@/lib/supabase/admin';
+import { readBoundedJson } from '@/lib/http/read-json';
 
 const reportReasons = ['harassment', 'hate_speech', 'spam', 'inappropriate', 'other'] as const;
 
 function respond(request: Request, body: unknown, status = 200) {
-  return NextResponse.json(body, { status, headers: nativeApiCorsHeaders(request) });
+  const headers = nativeApiCorsHeaders(request);
+  headers.set('Cache-Control', 'no-store');
+  return NextResponse.json(body, { status, headers });
 }
 
 export function OPTIONS(request: Request) {
@@ -38,12 +41,9 @@ export async function POST(request: Request) {
     return respond(request, { error: 'Sign in to report a comment' }, 401);
   }
 
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return respond(request, { error: 'Invalid JSON body' }, 400);
-  }
+  const parsed = await readBoundedJson(request, 4096);
+  if (!parsed.ok) return respond(request, { error: parsed.error }, parsed.status);
+  const body = parsed.value;
 
   if (
     typeof body !== 'object' ||

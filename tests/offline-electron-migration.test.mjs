@@ -203,3 +203,51 @@ test('preserves both damaged catalogue copies and leaves room for bundled recove
     'intermediate wal'
   );
 });
+
+
+test('replaces a structurally valid but empty activity destination from the populated legacy source', async (t) => {
+  const directory = await fixture(t);
+  const source = path.join(directory, 'databases', 'activity.sqlite');
+  const destination = path.join(directory, 'cathoscroll-sqlite', 'activity.sqlite');
+  createDatabase(source, 'legacy user activity');
+  await mkdir(path.dirname(destination));
+  const database = new DatabaseSync(destination);
+  database.exec('CREATE TABLE records (value TEXT NOT NULL);');
+  database.close();
+
+  migrateLegacyOfflineDatabases(directory);
+
+  assert.equal(readValue(destination), 'legacy user activity');
+  assert.equal(readValue(source), 'legacy user activity');
+  const files = await readdir(path.dirname(destination));
+  assert.ok(files.some((name) => name.startsWith('activity.sqlite.empty-')));
+});
+
+test('treats a device identity without user activity as an empty destination', async (t) => {
+  const directory = await fixture(t);
+  const source = path.join(directory, 'databases', 'activity.sqlite');
+  const destination = path.join(directory, 'cathoscroll-sqlite', 'activity.sqlite');
+  const sourceDb = new DatabaseSync(source);
+  sourceDb.exec('CREATE TABLE offline_activity (user_id TEXT, topic_id TEXT, kind TEXT, value INTEGER);');
+  sourceDb.prepare('INSERT INTO offline_activity VALUES (?, ?, ?, ?)').run('user-1', 'topic-1', 'bookmark', 1);
+  sourceDb.close();
+
+  await mkdir(path.dirname(destination));
+  const destinationDb = new DatabaseSync(destination);
+  destinationDb.exec('CREATE TABLE offline_activity_device (singleton INTEGER PRIMARY KEY, device_id TEXT NOT NULL);');
+  destinationDb.prepare('INSERT INTO offline_activity_device VALUES (1, ?)').run('device-id');
+  destinationDb.exec('CREATE TABLE offline_activity (user_id TEXT, topic_id TEXT, kind TEXT, value INTEGER);');
+  destinationDb.close();
+
+  migrateLegacyOfflineDatabases(directory);
+
+  const result = new DatabaseSync(destination, { readOnly: true });
+  try {
+    assert.equal(
+      result.prepare('SELECT value FROM offline_activity WHERE user_id = ?').get('user-1')?.value,
+      1
+    );
+  } finally {
+    result.close();
+  }
+});
