@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from 'react';
 import { PublicProfileView } from '@/components/profile/PublicProfileView';
 import { CommentBanControl } from '@/components/admin/CommentBanControl';
 import { AdminRoleControl } from '@/components/admin/AdminRoleControl';
-import { calculateStreaks, countLikesReceived } from '@/lib/profile-metrics';
 import type { Topic } from '@/types';
 import { createClient } from './supabase';
 import { siteConfig } from '@/lib/constants';
@@ -135,29 +134,32 @@ export function NativePublicProfile({
             action: { label: 'Retry', onClick: () => setAttempt((value) => value + 1) },
           });
         }
-        const [
-          progressResult,
-          bookmarkResult,
-          commentCountResult,
-          recentProgressResult,
-          commentsResult,
-          topicCountResult,
-        ] = await Promise.all([
-          supabase.from('progress').select('topic_id,completed_at', { count: 'exact' }).eq('user_id', profileData.id),
-          supabase.from('bookmarks').select('topic_id', { count: 'exact' }).eq('user_id', profileData.id),
-          supabase.from('comments').select('id', { count: 'exact' }).eq('user_id', profileData.id).eq('is_deleted', false),
-          supabase.from('progress').select('topic_id,completed_at').eq('user_id', profileData.id).order('completed_at', { ascending: false }).limit(6),
-          supabase.from('comments').select('id,topic_id,content,created_at').eq('user_id', profileData.id).eq('is_deleted', false).order('created_at', { ascending: false }).limit(6),
-          supabase.from('topics').select('id,category:categories!inner(is_published)', { count: 'exact', head: true }).eq('is_published', true).eq('category.is_published', true),
+        const [metricsResult, topicCountResult] = await Promise.all([
+          supabase.rpc('get_public_profile_metrics', {
+            p_profile_id: profileData.id,
+            p_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          }),
+          supabase
+            .from('topics')
+            .select('id,category:categories!inner(is_published)', { count: 'exact', head: true })
+            .eq('is_published', true)
+            .eq('category.is_published', true),
         ]);
-        for (const result of [progressResult, bookmarkResult, commentCountResult, recentProgressResult, commentsResult, topicCountResult]) {
-          if (result.error) throw result.error;
-        }
-        const progressRows = progressResult.data ?? [];
-        const completionDates = progressRows.flatMap((row) => row.completed_at ? [row.completed_at] : []);
-        const calculated = calculateStreaks(completionDates);
-        const progressRowsRecent = (recentProgressResult.data ?? []) as RecentCompletion[];
-        const comments = (commentsResult.data ?? []) as RecentComment[];
+        if (metricsResult.error) throw metricsResult.error;
+        if (topicCountResult.error) throw topicCountResult.error;
+
+        const metrics = (metricsResult.data ?? {}) as {
+          completed_count?: number;
+          bookmark_count?: number;
+          comment_count?: number;
+          likes_received?: number;
+          current_streak?: number;
+          longest_streak?: number;
+          recent_progress?: RecentCompletion[];
+          recent_comments?: RecentComment[];
+        };
+        const progressRowsRecent = metrics.recent_progress ?? [];
+        const comments = metrics.recent_comments ?? [];
         const recentTopicIds = progressRowsRecent.map((entry) => String(entry.topic_id));
         const recentCommentTopicIds = comments.map((entry) => String(entry.topic_id));
         async function loadTopicsByIds(ids: string[]): Promise<Topic[]> {
@@ -197,39 +199,18 @@ export function NativePublicProfile({
           const topic = commentById.get(String(comment.topic_id));
           return topic ? [{ ...comment, slug: topic.slug, question: topic.question }] : [];
         });
-        const received = await countLikesReceived(
-          async (offset, limit) => {
-            const { data, error } = await supabase
-              .from('comments')
-              .select('id')
-              .eq('user_id', profileData.id)
-              .eq('is_deleted', false)
-              .order('id', { ascending: true })
-              .range(offset, offset + limit - 1);
-            if (error) throw error;
-            return (data ?? []).map((comment) => comment.id);
-          },
-          async (commentIds) => {
-            const { count, error } = await supabase
-              .from('comment_likes')
-              .select('comment_id', { count: 'exact', head: true })
-              .in('comment_id', commentIds);
-            if (error) throw error;
-            return count ?? 0;
-          }
-        );
         if (!active) return;
         const totalTopics = topicCountResult.count ?? 0;
-        const done = progressResult.count ?? 0;
+        const done = Number(metrics.completed_count ?? 0);
         setModeration(moderationData);
         setProfile(profileData);
         setCompletedCount(done);
-        setBookmarkCount(bookmarkResult.count ?? 0);
-        setCommentCount(commentCountResult.count ?? 0);
-        setLikesReceived(received);
+        setBookmarkCount(Number(metrics.bookmark_count ?? 0));
+        setCommentCount(Number(metrics.comment_count ?? 0));
+        setLikesReceived(Number(metrics.likes_received ?? 0));
         setProgressPercent(totalTopics > 0 ? ((done / totalTopics) * 100).toFixed(1) : '0');
-        setCurrentStreak(calculated.current);
-        setLongestStreak(calculated.longest);
+        setCurrentStreak(Number(metrics.current_streak ?? 0));
+        setLongestStreak(Number(metrics.longest_streak ?? 0));
         setRecentTopics(mappedRecentTopics);
         setRecentComments(mappedRecentComments);
         clearNativeStatusNotice(noticeId);
