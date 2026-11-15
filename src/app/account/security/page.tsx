@@ -300,6 +300,7 @@ export default function AccountSecurityPage() {
             {flow === 'enroll' && qrCode && (
               <div className="border-border mt-6 rounded-xl border p-4">
                 <p className="font-semibold">1. Scan this QR code</p>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={`data:image/svg+xml;utf8,${encodeURIComponent(qrCode)}`}
                   alt="Authenticator setup QR code"
