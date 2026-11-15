@@ -8,3 +8,10 @@
   --font-lora: 'Lora';
   --font-mono: 'JetBrains Mono';
 }
+
+/* Native routes share the website's page components, but the fixed app
+   navigation already provides the top offset. Remove only the extra header
+   margin used by website pages so every native page aligns with Search. */
+.native-content .container > :first-child {
+  margin-top: 0 !important;
+}
