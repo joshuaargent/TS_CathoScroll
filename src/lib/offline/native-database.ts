@@ -13,10 +13,14 @@ interface DesktopSQLite {
   begin(options: { database: DatabaseName }): Promise<void>;
   commit(options: { database: DatabaseName }): Promise<void>;
   rollback(options: { database: DatabaseName }): Promise<void>;
+  removeLegacyActivity(): Promise<void>;
 }
 
 const desktop = registerPlugin<DesktopSQLite>('CathoSQLite');
-const androidCatalogueAsset = registerPlugin<{ prepare(): Promise<void> }>('CathoCatalogueAsset');
+const androidCatalogueAsset = registerPlugin<{
+  prepare(): Promise<void>;
+  removeLegacyActivity(): Promise<void>;
+}>('CathoCatalogueAsset');
 
 interface Connection {
   execute(statement: string, values: Value[]): Promise<void>;
@@ -184,6 +188,18 @@ async function preparePrivateActivitySecret(storage: PrivateKeyStorage): Promise
     if (matches !== true) throw new Error('The private activity encryption key does not match.');
   } else {
     await CapacitorSQLite.setEncryptionSecret({ passphrase: key });
+  }
+}
+
+export async function removeLegacyActivityDatabase(): Promise<void> {
+  const platform = Capacitor.getPlatform();
+  if (platform === 'android') {
+    await CapacitorSQLite.closeConnection({ database: 'activity', readonly: false });
+    await androidCatalogueAsset.removeLegacyActivity();
+    return;
+  }
+  if (platform === 'electron') {
+    await desktop.removeLegacyActivity();
   }
 }
 
