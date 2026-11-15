@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { CategoriesGrid } from '@/components/categories/CategoriesGrid';
 import { CategoryTopicGrid } from '@/components/categories/CategoryTopicGrid';
@@ -221,8 +221,10 @@ function TopicList({ catalogue, category }: { catalogue: OfflineCatalogue; categ
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [attempt, setAttempt] = useState(0);
+  const requestVersion = useRef(0);
 
   useEffect(() => {
+    const version = ++requestVersion.current;
     let active = true;
     const retry = () => setAttempt((value) => value + 1);
     window.addEventListener('online', retry);
@@ -265,6 +267,7 @@ function TopicList({ catalogue, category }: { catalogue: OfflineCatalogue; categ
     void load();
     return () => {
       active = false;
+      if (requestVersion.current === version) requestVersion.current += 1;
       window.removeEventListener('online', retry);
       window.removeEventListener('offline', retry);
     };
@@ -272,6 +275,7 @@ function TopicList({ catalogue, category }: { catalogue: OfflineCatalogue; categ
 
   async function loadMore() {
     if (!cursor || loading) return;
+    const version = requestVersion.current;
     setLoading(true);
     setError('');
     try {
@@ -291,10 +295,12 @@ function TopicList({ catalogue, category }: { catalogue: OfflineCatalogue; categ
       } else {
         page = await catalogue.topics({ category, cursor });
       }
+      if (version !== requestVersion.current) return;
       setTopics((previous) => [...previous, ...page.topics]);
       setCursor(page.nextCursor);
       clearNativeStatusNotice('category-topics-more:' + (category ?? 'all'));
     } catch (cause) {
+      if (version !== requestVersion.current) return;
       console.error('Unable to load more topics:', cause);
       setError('Unable to load more topics. Please try again.');
       notifyNativeStatus('Unable to load more topics. Please try again.', {
@@ -302,7 +308,7 @@ function TopicList({ catalogue, category }: { catalogue: OfflineCatalogue; categ
         action: { label: 'Retry', onClick: () => void loadMore() },
       });
     } finally {
-      setLoading(false);
+      if (version === requestVersion.current) setLoading(false);
     }
   }
 
