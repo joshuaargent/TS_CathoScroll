@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { BookmarksGrid, BookmarksHeader, EmptyBookmarks } from '@/components/bookmarks/BookmarksSummary';
 import type { OfflineCatalogue } from '@/lib/offline/catalogue';
