@@ -7,6 +7,7 @@ import { NotificationCache } from './notification-cache';
 import { NativeNotificationService } from './notification-service';
 import { openPrivateActivityDatabase } from '@/lib/offline/native-database';
 import { secureAuthStorage } from './secure-auth-storage';
+import { notifyNativeStatus, clearNativeStatusNotice } from './offline-indicator';
 
 type NotificationState = {
   userId: string;
@@ -23,16 +24,25 @@ export function NativeNotificationsProvider({
   children: React.ReactNode;
 }) {
   const [state, setState] = useState<NotificationState | null>(null);
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     if (!userId) return;
     const accountId = userId;
     let active = true;
     let service: NativeNotificationService | null = null;
+    const noticeId = "notifications-sync:" + accountId;
     const request = () => {
       if (!service) return;
-      void service.sync().catch((error: unknown) => {
-        console.error('Unable to synchronize notification changes:', error);
-      });
+      void service.sync().then(
+        () => clearNativeStatusNotice(noticeId),
+        (error: unknown) => {
+          console.error('Unable to synchronize notification changes:', error);
+          notifyNativeStatus('Your notification changes could not be synchronized.', {
+            id: noticeId,
+            action: { label: 'Retry', onClick: request },
+          });
+        }
+      );
     };
     async function start() {
       try {
@@ -45,15 +55,21 @@ export function NativeNotificationsProvider({
           notificationTransport(createClient(), accountId)
         );
         setState({ userId: accountId, service, error: '' });
+        clearNativeStatusNotice('notifications-storage:' + accountId);
         request();
       } catch (error) {
         console.error('Unable to open saved notifications:', error);
-        if (active)
+        if (active) {
           setState({
             userId: accountId,
             service: null,
             error: 'Saved notifications could not be opened.',
           });
+          notifyNativeStatus('Saved notifications could not be opened.', {
+            id: "notifications-storage:" + accountId,
+            action: { label: 'Retry', onClick: () => setAttempt((value) => value + 1) },
+          });
+        }
       }
     }
     void start();
@@ -66,7 +82,7 @@ export function NativeNotificationsProvider({
       window.removeEventListener('focus', request);
       window.clearInterval(timer);
     };
-  }, [userId]);
+  }, [userId, attempt]);
 
   const current = state?.userId === userId ? state : null;
   return <NotificationContext.Provider value={current}>{children}</NotificationContext.Provider>;
@@ -162,8 +178,6 @@ export function NativeNotifications({ userId }: { userId: string | null }) {
           <p>Sign in to view notifications.</p>
         ) : transport ? (
           <NotificationList transport={transport} />
-        ) : state?.error ? (
-          <p role="alert">{state.error}</p>
         ) : (
           <p role="status">Loading notifications...</p>
         )}
