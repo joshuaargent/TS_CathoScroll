@@ -511,8 +511,8 @@ test('a completed activity migration merges caches written by older app versions
     sourceDb.prepare('INSERT INTO offline_private_notes VALUES (?, ?, ?)').run(
       'added-later', 'nonce-new', 'cipher-new'
     );
-    targetDb.prepare('INSERT INTO offline_private_notes VALUES (?, ?, ?)').run(
-      'existing', 'nonce-private', 'cipher-private'
+    targetDb.prepare('UPDATE offline_private_notes SET nonce = ?, ciphertext = ? WHERE note_key = ?').run(
+      'nonce-private', 'cipher-private', 'existing'
     );
     await migrateLegacyActivity(source, target);
 
