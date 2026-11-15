@@ -48,7 +48,7 @@ const platforms = [
     name: 'Windows',
     description:
       'Download the CathoScroll desktop application for Windows.',
-    formats: 'EXE or MSI',
+    formats: 'EXE',
     extensions: ['.exe', '.msi'],
     icon: Monitor,
   },
@@ -56,7 +56,7 @@ const platforms = [
     name: 'Linux',
     description:
       'Download the CathoScroll desktop application for Linux.',
-    formats: 'AppImage, DEB or RPM',
+    formats: 'AppImage or DEB',
     extensions: ['.appimage', '.deb', '.rpm'],
     icon: Terminal,
   },
@@ -327,16 +327,21 @@ export default function DownloadContent({
 
           <div className="border-border rounded-2xl border p-8">
             <p className="text-text-secondary leading-relaxed">
-              CathoScroll is being made available across mobile and
-              desktop platforms. Android and Windows installers are
-              currently published, with Linux and macOS versions
-              planned.
+              CathoScroll installers are built for Android, Windows,
+              Linux, and macOS. Available downloads are detected
+              automatically from the latest published GitHub release.
             </p>
 
             <p className="text-text-secondary mt-4 leading-relaxed">
-              Available installers are automatically detected from
-              the latest GitHub release. When new platform builds
-              are published, their download options will appear here.
+              Windows and Linux desktop apps check for updates when
+              launched, download available updates in the background,
+              and install them after the app is closed. macOS updates
+              currently require a manual download because the app is
+              not code-signed. Android updates are distributed as signed
+              APKs; download the latest APK and approve Android's
+              installer prompt. After the first migration from a
+              debug-signed build, release APKs can update the installed
+              app without uninstalling it.
             </p>
 
             <div className="mt-6">
