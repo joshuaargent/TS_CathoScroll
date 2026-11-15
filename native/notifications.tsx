@@ -126,10 +126,15 @@ export function NativeNotificationBell({
       if (version !== requestVersion.current) return;
       setUnreadCount(count);
       setHasCountError(false);
+      clearNativeStatusNotice('notification-count:' + userId);
     } catch (error) {
       if (version !== requestVersion.current) return;
       console.error('Unable to refresh notification count:', error);
       setHasCountError(true);
+      notifyNativeStatus('Your unread notification count could not be loaded.', {
+        id: 'notification-count:' + userId,
+        action: { label: 'Retry', onClick: () => void refresh() },
+      });
     }
   }, [transport, storageError]);
 
