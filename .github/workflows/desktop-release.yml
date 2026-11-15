@@ -1,0 +1,252 @@
+name: CathoScroll Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: cathoscroll-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-desktop:
+    name: Build ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      # electron-builder uploads every platform to the same draft GitHub Release.
+      # Serialise these jobs to avoid concurrent draft-release creation/update races.
+      max-parallel: 1
+      matrix:
+        include:
+          - name: Windows x64
+            runner: windows-latest
+            platform: win
+            architecture: x64
+          - name: Linux x64
+            runner: ubuntu-latest
+            platform: linux
+            architecture: x64
+          - name: macOS Intel
+            runner: macos-26-intel
+            platform: mac
+            architecture: x64
+          - name: macOS Apple Silicon
+            runner: macos-26
+            platform: mac
+            architecture: arm64
+
+    runs-on: ${{ matrix.runner }}
+
+    steps:
+      - name: Check out tagged source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Verify release versions
+        shell: bash
+        run: |
+          node <<'NODE'
+          const root = require('./package.json');
+          const electron = require('./electron/package.json');
+          const tagVersion = process.env.GITHUB_REF_NAME.replace(/^v/, '');
+
+          if (!/^[0-9]+[.][0-9]+[.][0-9]+(?:-[0-9A-Za-z.-]+)?$/.test(tagVersion)) {
+            throw new Error(`Invalid release tag: ${process.env.GITHUB_REF_NAME}`);
+          }
+          if (root.version !== tagVersion || electron.version !== tagVersion) {
+            throw new Error(
+              `Release version mismatch: tag=${tagVersion}, root=${root.version}, electron=${electron.version}`
+            );
+          }
+          console.log(`Building CathoScroll ${tagVersion}`);
+          NODE
+
+      - name: Install project dependencies
+        run: npm ci
+
+      - name: Build native app and export offline catalogue
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+        run: npm run cap:sync:electron
+
+      - name: Create macOS application icon
+        if: matrix.platform == 'mac'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p electron/assets/iconset
+          for size in 16 32 128 256 512; do
+            double=$((size * 2))
+            sips -z "$size" "$size" assets/logo.png --out "electron/assets/iconset/icon_${size}x${size}.png" >/dev/null
+            sips -z "$double" "$double" assets/logo.png --out "electron/assets/iconset/icon_${size}x${size}@2x.png" >/dev/null
+          done
+          iconutil -c icns electron/assets/iconset -o electron/assets/icon.icns
+          rm -rf electron/assets/iconset
+
+      - name: Package and publish desktop application
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm --prefix electron run pack -- --${{ matrix.platform }} --${{ matrix.architecture }} --publish onTag
+
+      - name: Upload platform build outputs for verification
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: electron/dist/*
+          if-no-files-found: error
+          retention-days: 7
+
+  build-android:
+    name: Build signed Android APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out tagged source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Validate release configuration
+        shell: bash
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$NEXT_PUBLIC_SUPABASE_URL" || { echo "Missing NEXT_PUBLIC_SUPABASE_URL Actions variable"; exit 1; }
+          test -n "$NEXT_PUBLIC_SUPABASE_ANON_KEY" || { echo "Missing NEXT_PUBLIC_SUPABASE_ANON_KEY Actions variable"; exit 1; }
+          test -n "$ANDROID_KEYSTORE_BASE64" || { echo "Missing ANDROID_KEYSTORE_BASE64 Actions secret"; exit 1; }
+          test -n "$ANDROID_KEYSTORE_PASSWORD" || { echo "Missing ANDROID_KEYSTORE_PASSWORD Actions secret"; exit 1; }
+          test -n "$ANDROID_KEY_ALIAS" || { echo "Missing ANDROID_KEY_ALIAS Actions secret"; exit 1; }
+          test -n "$ANDROID_KEY_PASSWORD" || { echo "Missing ANDROID_KEY_PASSWORD Actions secret"; exit 1; }
+
+      - name: Install project dependencies
+        run: npm ci
+
+      - name: Build Android web assets and sync native project
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          CATHOSCROLL_VERSION: ${{ github.ref_name }}
+          ANDROID_VERSION_CODE: ${{ github.run_number }}
+        run: |
+          npm run native:build
+          npx cap sync android
+
+      - name: Restore Android release keystore
+        shell: bash
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/cathoscroll-release.jks
+        run: |
+          set -euo pipefail
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$ANDROID_KEYSTORE_PATH"
+          test -s "$ANDROID_KEYSTORE_PATH"
+          chmod 600 "$ANDROID_KEYSTORE_PATH"
+
+      - name: Build signed release APK
+        working-directory: android
+        env:
+          ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/cathoscroll-release.jks
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          CATHOSCROLL_VERSION: ${{ github.ref_name }}
+          ANDROID_VERSION_CODE: ${{ github.run_number }}
+        run: ./gradlew --no-daemon --stacktrace assembleRelease
+
+      - name: Verify APK output and signing certificate
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk="android/app/build/outputs/apk/release/CathoScroll-${GITHUB_REF_NAME#v}.apk"
+          test -s "$apk"
+          apksigner_path="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          test -x "$apksigner_path"
+          "$apksigner_path" verify --verbose --print-certs "$apk"
+
+      - name: Upload Android APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Android APK
+          path: android/app/build/outputs/apk/release/CathoScroll-*.apk
+          if-no-files-found: error
+          retention-days: 7
+
+  publish-release:
+    name: Finalise GitHub Release
+    needs:
+      - build-desktop
+      - build-android
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all platform build outputs
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - name: Verify local release outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          find release-assets -maxdepth 1 -type f -print
+          test -n "$(find release-assets -maxdepth 1 -type f -name '*.exe' -print -quit)"
+          test -n "$(find release-assets -maxdepth 1 -type f -name '*.AppImage' -print -quit)"
+          test -n "$(find release-assets -maxdepth 1 -type f -name '*.deb' -print -quit)"
+          test -n "$(find release-assets -maxdepth 1 -type f -name '*.dmg' -print -quit)"
+          test -n "$(find release-assets -maxdepth 1 -type f -name '*.zip' -print -quit)"
+          test -n "$(find release-assets -maxdepth 1 -type f -name 'CathoScroll-*.apk' -print -quit)"
+
+      - name: Verify desktop installers and update metadata were published
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          assets="$(gh release view "$GITHUB_REF_NAME" --json assets --jq '.assets[].name')"
+          printf '%s\n' "$assets"
+          for expected in '.exe' '.AppImage' '.deb' '.dmg' '.zip' 'latest.yml' 'latest-linux.yml'; do
+            if ! grep -Fq "$expected" <<<"$assets"; then
+              echo "Missing published desktop release asset matching: $expected"
+              exit 1
+            fi
+          done
+
+      - name: Attach Android APK and publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: CathoScroll ${{ github.ref_name }}
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+          fail_on_unmatched_files: true
+          files: release-assets/CathoScroll-*.apk

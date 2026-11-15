@@ -1,5 +1,6 @@
 import { createCapacitorElectronApp } from '@capawesome/capacitor-electron';
 import { app } from 'electron';
+import { autoUpdater } from 'electron-updater';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -21,6 +22,18 @@ if (embeddedConfig.server?.url) {
 }
 
 if (app.requestSingleInstanceLock()) {
+  app.whenReady().then(() => {
+    // macOS automatic updates require a Developer ID-signed application.
+    // Keep macOS updates disabled until CathoScroll can be signed and notarised.
+    if (!app.isPackaged || process.platform === 'darwin') return;
+
+    autoUpdater.autoDownload = true;
+    autoUpdater.autoInstallOnAppQuit = true;
+    autoUpdater.checkForUpdatesAndNotify().catch((error: unknown) => {
+      console.error('Unable to check for CathoScroll updates:', error);
+    });
+  });
+
   if (!embeddedConfig.server?.url && !process.env.CAPACITOR_ELECTRON_DEV_SERVER_URL) {
     migrateLegacyOfflineDatabases(app.getPath('userData'));
   }
