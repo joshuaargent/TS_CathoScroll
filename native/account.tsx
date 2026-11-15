@@ -30,12 +30,11 @@ export function NativeAccount({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [subscriptionTier, setSubscriptionTier] = useState('free');
-  const [membershipLoaded, setMembershipLoaded] = useState(false);
+  const [membershipUserId, setMembershipUserId] = useState<string | null>(null);
   const notifications = useNativeNotifications();
 
   useEffect(() => {
     if (!user) {
-      setMembershipLoaded(false);
       clearNativeStatusNotice('account-activity-setup');
       clearNativeStatusNotice('account-membership');
       return;
@@ -43,7 +42,6 @@ export function NativeAccount({
     let active = true;
     async function loadMembership() {
       if (!navigator.onLine) return;
-      setMembershipLoaded(false);
       try {
         const { data, error: profileError } = await createClient()
           .from('profiles')
@@ -53,13 +51,12 @@ export function NativeAccount({
         if (profileError) throw profileError;
         if (active) {
           setSubscriptionTier(data?.subscription_tier ?? 'free');
-          setMembershipLoaded(true);
+          setMembershipUserId(user.id);
         }
         clearNativeStatusNotice('account-membership');
       } catch (cause) {
         console.error('Unable to load account membership:', cause);
         if (active) {
-          setMembershipLoaded(false);
           notifyNativeStatus('Your membership details could not be loaded.', { id: 'account-membership' });
         }
       }
@@ -162,7 +159,7 @@ export function NativeAccount({
       <NativeAccountSecurity key={user.id} userId={user.id} currentEmail={user.email ?? ''} />
       <section className="border-border mt-6 rounded-xl border p-6">
         <p className="text-text-muted text-sm">Membership</p>
-        <p className="mt-2 text-lg font-medium capitalize">{membershipLoaded ? subscriptionTier : online ? "Unavailable" : "Connect to view membership"}</p>
+        <p className="mt-2 text-lg font-medium capitalize">{membershipUserId === user.id ? subscriptionTier : online ? 'Unavailable' : 'Connect to view membership'}</p>
       </section>
       {error && (
         <p role="alert" className="mt-4">
