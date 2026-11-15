@@ -1,26 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import Link from 'next/link';
-import { Badge } from '@/components/ui/Badge';
-import { BookmarksHeader, EmptyBookmarks } from '@/components/bookmarks/BookmarksSummary';
+import { BookmarksGrid, BookmarksHeader, EmptyBookmarks } from '@/components/bookmarks/BookmarksSummary';
 import type { OfflineCatalogue } from '@/lib/offline/catalogue';
 import type { Topic } from '@/types';
 import { createClient } from './supabase';
 import type { NativeActivity, NativeActivityStatus } from './activity';
 import { notifyNativeStatus, clearNativeStatusNotice } from './offline-indicator';
-
-function formatSavedDate(dateString?: string) {
-  if (!dateString) return '';
-  const savedDate = new Date(dateString);
-  if (Number.isNaN(savedDate.getTime())) return '';
-  const today = new Date();
-  const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  const startOfSaved = new Date(savedDate.getFullYear(), savedDate.getMonth(), savedDate.getDate());
-  const difference = Math.floor((startOfToday.getTime() - startOfSaved.getTime()) / 86_400_000);
-  if (difference === 0) return 'Saved today';
-  if (difference === 1) return 'Saved yesterday';
-  if (difference > 1 && difference < 7) return 'Saved ' + difference + ' days ago';
-  return 'Saved ' + savedDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-}
 
 export function NativeBookmarks({
   catalogue,
@@ -71,6 +55,22 @@ export function NativeBookmarks({
               .order('created_at', { ascending: false });
             if (bookmarkError) throw bookmarkError;
             const ids = (bookmarks ?? []).map((bookmark) => String(bookmark.topic_id));
+            // Cache authoritative server timestamps so the same labels survive an offline restart.
+            try {
+              await savedActivity.store.recordBookmarkTimestamps(
+                savedUserId,
+                (bookmarks ?? []).map((bookmark) => ({
+                  topicId: String(bookmark.topic_id),
+                  savedAt: bookmark.created_at,
+                }))
+              );
+              clearNativeStatusNotice('bookmarks-cache:' + savedUserId);
+            } catch (cacheError) {
+              console.error('Unable to cache bookmark timestamps:', cacheError);
+              notifyNativeStatus('Bookmark dates could not be saved for offline viewing.', {
+                id: 'bookmarks-cache:' + savedUserId,
+              });
+            }
             const { data: topicRows, error: topicsError } = ids.length
               ? await client
                   .from('topics')
@@ -104,7 +104,11 @@ export function NativeBookmarks({
             console.error('Unable to load live bookmarks:', onlineError);
             const page = await savedActivity.store.listActivity(savedUserId, 'bookmark');
             const offlineTopics = await catalogue.topicsByIds(page.topicIds);
-            savedTopics = offlineTopics;
+            const savedAtById = new Map(page.items.map((item) => [item.topicId, item.savedAt]));
+            savedTopics = offlineTopics.map((topic) => ({
+              ...topic,
+              bookmarkedAt: savedAtById.get(String(topic.id)) ?? undefined,
+            }));
             nextCursor = page.nextCursor;
             hasMissing = offlineTopics.length !== page.topicIds.length;
             notifyNativeStatus('Live bookmarks are unavailable. Showing saved bookmarks from this device.', {
@@ -115,7 +119,11 @@ export function NativeBookmarks({
         } else {
           const page = await savedActivity.store.listActivity(savedUserId, 'bookmark');
           const offlineTopics = await catalogue.topicsByIds(page.topicIds);
-          savedTopics = offlineTopics;
+          const savedAtById = new Map(page.items.map((item) => [item.topicId, item.savedAt]));
+          savedTopics = offlineTopics.map((topic) => ({
+            ...topic,
+            bookmarkedAt: savedAtById.get(String(topic.id)) ?? undefined,
+          }));
           nextCursor = page.nextCursor;
           hasMissing = offlineTopics.length !== page.topicIds.length;
         }
@@ -164,7 +172,12 @@ export function NativeBookmarks({
     setError('');
     try {
       const page = await activity.store.listActivity(userId, 'bookmark', cursor);
-      const savedTopics = await catalogue.topicsByIds(page.topicIds);
+      const offlineTopics = await catalogue.topicsByIds(page.topicIds);
+      const savedAtById = new Map(page.items.map((item) => [item.topicId, item.savedAt]));
+      const savedTopics = offlineTopics.map((topic) => ({
+        ...topic,
+        bookmarkedAt: savedAtById.get(String(topic.id)) ?? undefined,
+      }));
       if (current !== generation.current) return;
       setTopics((previous) => [...previous, ...savedTopics]);
       setCursor(page.nextCursor);
@@ -208,22 +221,7 @@ export function NativeBookmarks({
             </p>
           )}
           {!loading && !error && !topics.length && !missing && <EmptyBookmarks />}
-          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-            {topics.map((topic) => (
-              <Link key={topic.id} href={`/topic/${encodeURIComponent(topic.slug)}`}>
-                <article className="border-border hover:bg-bg-secondary h-full rounded-2xl border p-6 transition-colors">
-                  <Badge variant="accent" size="sm">
-                    {topic.category}
-                  </Badge>
-                  <h2 className="mt-4 text-xl leading-tight font-bold">{topic.question}</h2>
-                  <p className="text-text-secondary mt-3 line-clamp-3">{topic.answer}</p>
-                  {topic.bookmarkedAt && (
-                    <p className="text-text-muted mt-6 text-sm">{formatSavedDate(topic.bookmarkedAt)}</p>
-                  )}
-                </article>
-              </Link>
-            ))}
-          </div>
+          {topics.length > 0 && <BookmarksGrid topics={topics} />}
           {cursor && !error && (
             <button
               type="button"
