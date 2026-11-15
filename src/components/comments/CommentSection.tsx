@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { Comment, Profile } from '../../lib/supabase/types';
 
@@ -541,7 +541,7 @@ export function CommentSection({
           : Promise.resolve({ data: null, error: null }),
       ]);
 
-      if (!isCurrentLoad()) return;
+      if (version !== loadVersion.current) return;
       if (profilesResult.error) throw profilesResult.error;
 
       (profilesResult.data ?? []).forEach((profile) => profiles.set(profile.id, profile));
@@ -625,10 +625,6 @@ export function CommentSection({
     } finally {
       loadMoreInFlight.current = false;
       if (version === loadVersion.current) setLoadingMoreComments(false);
-    }
-
-    function isCurrentLoad() {
-      return version === loadVersion.current;
     }
   }, [
     nextCommentCursor,
