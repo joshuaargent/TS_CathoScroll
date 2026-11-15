@@ -70,6 +70,11 @@ REVOKE DELETE ON TABLE public.comments, public.profiles
 REVOKE UPDATE ON TABLE public.bookmarks, public.comment_likes, public.topic_likes
   FROM authenticated;
 
+-- Like ownership is private. Public counts and the caller's own state are
+-- exposed through narrow aggregate RPCs instead of raw user_id rows.
+REVOKE SELECT ON TABLE public.comment_likes, public.topic_likes
+  FROM anon, authenticated;
+
 -- Profiles are public only through the fields used by public profile pages,
 -- comments and account UI. Membership and account timestamps are private.
 REVOKE SELECT ON TABLE public.profiles FROM anon, authenticated;
@@ -729,3 +734,31 @@ REVOKE ALL ON FUNCTION public.consume_recommendation_rate_limit(uuid)
   FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.consume_recommendation_rate_limit(uuid)
   TO service_role;
+
+
+CREATE OR REPLACE FUNCTION public.get_topic_like_state(p_topic_id text)
+RETURNS TABLE (likes bigint, liked boolean)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $function$
+  SELECT
+    count(topic_like.id)::bigint AS likes,
+    COALESCE(bool_or(topic_like.user_id = (SELECT auth.uid())), false) AS liked
+  FROM public.topics AS topic
+  JOIN public.categories AS category
+    ON category.slug = topic.category_slug
+   AND category.is_published = true
+  LEFT JOIN public.topic_likes AS topic_like
+    ON topic_like.topic_id = topic.id
+  WHERE topic.id = p_topic_id
+    AND topic.is_published = true
+    AND p_topic_id IS NOT NULL
+    AND pg_catalog.length(p_topic_id) BETWEEN 1 AND 100
+$function$;
+
+REVOKE ALL ON FUNCTION public.get_topic_like_state(text)
+  FROM PUBLIC, service_role;
+GRANT EXECUTE ON FUNCTION public.get_topic_like_state(text)
+  TO anon, authenticated;
