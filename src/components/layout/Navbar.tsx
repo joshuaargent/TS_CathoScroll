@@ -1,3 +1,4 @@
+
 'use client';
 
 import { usePathname } from 'next/navigation';
@@ -8,10 +9,12 @@ import { NavbarView } from './NavbarView';
 export function Navbar() {
   const pathname = usePathname();
   const { isAuthenticated } = useAuth();
+
   return (
     <NavbarView
       pathname={pathname}
       isAuthenticated={isAuthenticated}
+      showDownloadLink
       renderNotifications={(props) => <NotificationBell {...props} />}
     />
   );

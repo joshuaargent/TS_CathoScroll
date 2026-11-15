@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { mainNav } from '@/lib/constants';
 import { siteConfig } from '@/lib/constants';
-import { Menu, X, Sun, Moon, User, UserCheck } from 'lucide-react';
+import { Menu, X, Sun, Moon, User, UserCheck, Download } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { useTheme } from '@/components/providers/ThemeProvider';
 
@@ -19,6 +19,7 @@ export function NavbarView({
   isAuthenticated,
   renderNotifications,
   showSpacer = true,
+  showDownloadLink = false,
 }: {
   pathname: string;
   isAuthenticated: boolean;
@@ -28,6 +29,7 @@ export function NavbarView({
     onNavigate?: () => void;
   }) => React.ReactNode;
   showSpacer?: boolean;
+  showDownloadLink?: boolean;
 }) {
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuState, setMobileMenuState] = useState({ open: false, pathname });
@@ -103,7 +105,16 @@ export function NavbarView({
 
               {/* Toggles */}
               <div className="ml-1 flex items-center gap-1">
+                {showDownloadLink && (
+                  <Link href="/download" aria-label="Download CathoScroll">
+                    <Button variant="ghost" size="icon">
+                      <Download className="text-text-primary h-5 w-5" />
+                    </Button>
+                  </Link>
+                )}
+
                 {renderNotifications({})}
+
                 <Button
                   variant="ghost"
                   size="icon"
@@ -187,8 +198,35 @@ export function NavbarView({
               </div>
 
               {/* Mobile Menu Footer */}
+              {/* Mobile Menu Footer */}
               <div className="border-border mt-8 border-t pt-8">
-                {/* Theme Toggle for Mobile */}
+                {/* Download */}
+                {showDownloadLink && (
+                  <div className="mb-6 flex justify-center">
+                    <Link
+                      href="/download"
+                      onClick={() => setMobileMenuState({ open: false, pathname })}
+                      className="border-border bg-bg-card text-text-primary hover:bg-bg-secondary inline-flex h-auto w-full max-w-[16rem] items-center justify-center gap-2 rounded-lg border px-4 py-2 font-medium transition-all duration-200"
+                    >
+                      <Download className="h-4 w-4" />
+                      <span>Download CathoScroll</span>
+                    </Link>
+                  </div>
+                )}
+
+                {/* Notifications */}
+                {isAuthenticated && (
+                  <div className="mb-6 flex justify-center">
+                    {renderNotifications({
+                      showLabel: true,
+                      onNavigate: () => setMobileMenuState({ open: false, pathname }),
+                      className:
+                        'border-border bg-bg-card hover:bg-bg-secondary h-auto w-full max-w-[16rem] justify-center gap-2 rounded-lg border px-4 py-2',
+                    })}
+                  </div>
+                )}
+
+                {/* Theme Toggle */}
                 <div className="mb-6 flex justify-center">
                   <button
                     onClick={() => {
@@ -211,15 +249,11 @@ export function NavbarView({
                   </button>
                 </div>
 
+                {/* Account */}
                 <div className="mb-6 flex justify-center">
                   <Link
                     href={isAuthenticated ? '/account' : '/signin'}
-                    onClick={() =>
-                      setMobileMenuState({
-                        open: false,
-                        pathname,
-                      })
-                    }
+                    onClick={() => setMobileMenuState({ open: false, pathname })}
                     className="border-border bg-bg-card text-text-primary hover:bg-bg-secondary inline-flex items-center justify-center gap-2 rounded-lg border px-4 py-2 font-medium transition-all duration-200"
                   >
                     {isAuthenticated ? (
@@ -235,17 +269,6 @@ export function NavbarView({
                     )}
                   </Link>
                 </div>
-
-                {isAuthenticated && (
-                  <div className="mb-6 flex justify-center">
-                    {renderNotifications({
-                      showLabel: true,
-                      onNavigate: () => setMobileMenuState({ open: false, pathname }),
-                      className:
-                        'border-border bg-bg-card hover:bg-bg-secondary h-auto w-full max-w-[16rem] justify-center gap-2 rounded-lg border px-4 py-2',
-                    })}
-                  </div>
-                )}
 
                 <div className="flex items-center justify-center gap-4">
                   <a
