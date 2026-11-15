@@ -1,9 +1,11 @@
-import { createPageMetadata } from '@/lib/seo';
 import Link from 'next/link';
+import { createPageMetadata } from '@/lib/seo';
 
-export const metadata = createPageMetadata(
-  {"title":"Cookies","description":"How CathoScroll uses cookies and similar technologies.","path":"/cookies"}
-);
+export const metadata = createPageMetadata({
+  title: "Cookies",
+  description: "How CathoScroll uses cookies and similar technologies.",
+  path: "/cookies",
+});
 
 export default function CookiesPage() {
   return (
