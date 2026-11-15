@@ -86,6 +86,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(currentSession?.user ?? null);
 
         if (currentSession?.user) {
+          setProfile(null);
           await loadProfile(currentSession.user.id, () => active);
         } else {
           profileRequest.current++;
@@ -111,6 +112,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSession(nextSession);
       setUser(nextSession?.user ?? null);
       if (nextSession?.user) {
+        setProfile(null);
         void loadProfile(nextSession.user.id, () => active);
       } else {
         profileRequest.current++;
