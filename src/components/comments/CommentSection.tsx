@@ -230,8 +230,6 @@ export function CommentSection({
       }
 
       const commentRows = commentsResult.data ?? [];
-      // Restrict the likes query to this topic's comment ids instead of loading
-      // the entire community's likes on every topic page.
       const userIds = [
         ...new Set([...commentRows.map((row) => row.user_id), user?.id].filter(Boolean)),
       ];
