@@ -81,11 +81,11 @@ public class CatalogueAssetPlugin extends Plugin {
                     metadata.getInt(0) != 1 ||
                     metadata.getLong(1) < 0 ||
                     metadata.getLong(2) < 0 ||
-                    metadata.moveToNext() ||
                     !categoryCount.moveToFirst() ||
                     categoryCount.getLong(0) != metadata.getLong(1) ||
                     !topicCount.moveToFirst() ||
-                    topicCount.getLong(0) != metadata.getLong(2)
+                    topicCount.getLong(0) != metadata.getLong(2) ||
+                    metadata.moveToNext()
                 ) {
                     throw new IOException("The bundled catalogue metadata or row counts are invalid.");
                 }
