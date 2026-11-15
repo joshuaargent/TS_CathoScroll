@@ -39,7 +39,7 @@ export function createPageMetadata({
       ],
     },
     twitter: {
-      card: 'summary_large_image',
+      card: 'summary',
       title: socialTitle,
       description,
       images: [siteConfig.ogImage],
