@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import type { CachedIdentity } from './cached-identity';
 import { NativeSignin } from './signin';
 import { Button } from '@/components/ui/Button';
-import type { NativeActivity, NativeActivityStatus } from './activity';
+import type { NativeActivity } from './activity';
 import { NativeProfileSetup } from './profile-setup';
 import { NativeAccountSecurity } from './account-security';
 import { createClient } from './supabase';
@@ -15,16 +15,12 @@ export function NativeAccount({
   available,
   onSignedIn,
   activity,
-  activityStatus,
-  onRetryActivity,
 }: {
   user: CachedIdentity | null;
   checking: boolean;
   available: boolean;
   onSignedIn: () => void;
   activity: NativeActivity | null;
-  activityStatus: NativeActivityStatus | null;
-  onRetryActivity: () => void;
 }) {
   const [online, setOnline] = useState(navigator.onLine);
   const [busy, setBusy] = useState(false);
@@ -35,7 +31,6 @@ export function NativeAccount({
 
   useEffect(() => {
     if (!user) {
-      clearNativeStatusNotice('account-activity-setup');
       clearNativeStatusNotice('account-membership');
       return;
     }
@@ -73,28 +68,6 @@ export function NativeAccount({
       clearNativeStatusNotice('signin-offline');
     }
   }, [user, online]);
-
-  useEffect(() => {
-    if (!available) {
-      notifyNativeStatus('Sign-in is unavailable. Check your connection and restart the app if the problem continues. Saved offline changes have not been removed.', {
-        id: 'auth-unavailable',
-      });
-    } else {
-      clearNativeStatusNotice('auth-unavailable');
-    }
-  }, [available]);
-
-  useEffect(() => {
-    if (!user) return;
-    if (activityStatus?.userId === user.id && activityStatus.error) {
-      notifyNativeStatus(activityStatus.error, {
-        id: 'account-activity-setup',
-        action: activity ? undefined : { label: 'Retry', onClick: onRetryActivity },
-      });
-    } else if (activityStatus?.userId === user.id && activityStatus.ready) {
-      clearNativeStatusNotice('account-activity-setup');
-    }
-  }, [user, activityStatus, activity, onRetryActivity]);
 
   useEffect(() => {
     const update = () => setOnline(navigator.onLine);
