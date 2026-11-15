@@ -385,6 +385,15 @@ may be stale.
   status popup. Keep field validation and action-specific failures beside the
   control that needs attention.
 
+### Recent reliability safeguards
+
+The 2.2.0 release work also includes safeguards that should be preserved when changing these flows:
+
+- Catalogue startup validates metadata and row counts before advancing SQLite cursors. A valid catalogue must not be rejected because a cursor was moved before its metadata was read.
+- Comment-history GET requests accept browser same-origin requests even when the browser omits the `Origin` header. When `Origin` is absent, the route requires browser-provided same-origin fetch metadata or an exact same-origin referrer; a present but invalid origin is still rejected. The route's existing administrator authentication and authorization checks remain mandatory.
+- Category and topic pagination responses are tied to the current list request generation. When a refresh or retry starts a new list, older first-page and load-more responses are ignored so they cannot append stale rows, overwrite the current cursor, or change the new request's loading/error state.
+- Note saves, bookmark operations, and notification read queues remain scoped to their account/topic or account/notification identities. A result from an earlier screen or account must never overwrite the state of the current one.
+
 ### Release verification plan
 
 Before publishing a release, run unit tests, ESLint, TypeScript, Android APK
