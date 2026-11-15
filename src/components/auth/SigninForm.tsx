@@ -26,6 +26,7 @@ export function SigninForm({
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
+    if (loading) return;
     setLoading(true);
     setError('');
     try {
