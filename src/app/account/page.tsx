@@ -201,7 +201,7 @@ export default function AccountPage() {
   }
 
   async function signOut() {
-    if (signingOut) return;
+    if (signingOut || saving) return;
     setSigningOut(true);
     setError('');
     try {
