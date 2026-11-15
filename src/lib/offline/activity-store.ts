@@ -382,13 +382,50 @@ export class OfflineActivityStore {
     if (cursor !== undefined) assertKey(cursor, 'activity cursor');
     return this.database.transaction(async (db) => {
       await this.assertInitialized(db, userId);
-      const rows = await db.query(
-        `SELECT topic_id, bookmark_saved_at FROM offline_activity
-         WHERE user_id = ? AND kind = ? AND value = 1 ${cursor ? 'AND topic_id > ?' : ''}
-         ORDER BY topic_id LIMIT 51`,
-        cursor ? [userId, kind, cursor] : [userId, kind]
-      );
-      const items = rows.slice(0, 50).map((row) => {
+      let rows: Record<string, unknown>[];
+      let bookmarkCursor: { savedAt: string; topicId: string } | null = null;
+      if (kind === 'bookmark' && cursor) {
+        try {
+          const parsed: unknown = JSON.parse(cursor);
+          if (
+            !parsed ||
+            typeof parsed !== 'object' ||
+            !('savedAt' in parsed) ||
+            !('topicId' in parsed) ||
+            typeof parsed.savedAt !== 'string' ||
+            typeof parsed.topicId !== 'string' ||
+            (parsed.savedAt !== '' && Number.isNaN(Date.parse(parsed.savedAt)))
+          ) {
+            throw new Error('Invalid bookmark cursor.');
+          }
+          assertKey(parsed.topicId, 'bookmark cursor topic');
+          bookmarkCursor = { savedAt: parsed.savedAt, topicId: parsed.topicId };
+        } catch {
+          throw new Error('Invalid bookmark activity cursor.');
+        }
+      }
+      if (kind === 'bookmark') {
+        rows = await db.query(
+          `SELECT topic_id, bookmark_saved_at FROM offline_activity
+           WHERE user_id = ? AND kind = ? AND value = 1
+           ${bookmarkCursor
+             ? "AND (COALESCE(bookmark_saved_at, '') < ? OR (COALESCE(bookmark_saved_at, '') = ? AND topic_id < ?))"
+             : ''}
+           ORDER BY COALESCE(bookmark_saved_at, '') DESC, topic_id DESC LIMIT 51`,
+          bookmarkCursor
+            ? [userId, kind, bookmarkCursor.savedAt, bookmarkCursor.savedAt, bookmarkCursor.topicId]
+            : [userId, kind]
+        );
+      } else {
+        rows = await db.query(
+          `SELECT topic_id, bookmark_saved_at FROM offline_activity
+           WHERE user_id = ? AND kind = ? AND value = 1 ${cursor ? 'AND topic_id > ?' : ''}
+           ORDER BY topic_id LIMIT 51`,
+          cursor ? [userId, kind, cursor] : [userId, kind]
+        );
+      }
+      const pageRows = rows.slice(0, 50);
+      const items = pageRows.map((row) => {
         if (typeof row.topic_id !== 'string') throw new Error('Invalid offline activity topic.');
         assertKey(row.topic_id, 'activity topic');
         const savedAt = row.bookmark_saved_at;
@@ -401,15 +438,19 @@ export class OfflineActivityStore {
           savedAt: kind === 'bookmark' && typeof savedAt === 'string' ? savedAt : null,
         };
       });
-      const ids = rows.map((row) => {
-        if (typeof row.topic_id !== 'string') throw new Error('Invalid offline activity topic.');
-        assertKey(row.topic_id, 'activity topic');
-        return row.topic_id;
-      });
+      const ids = items.map((item) => item.topicId);
+      const last = pageRows.at(-1);
       return {
-        topicIds: ids.slice(0, 50),
+        topicIds: ids,
         items,
-        nextCursor: ids.length > 50 ? ids[49] : null,
+        nextCursor: rows.length > 50 && last
+          ? kind === 'bookmark'
+            ? JSON.stringify({
+                savedAt: typeof last.bookmark_saved_at === 'string' ? last.bookmark_saved_at : '',
+                topicId: last.topic_id,
+              })
+            : ids[ids.length - 1]
+          : null,
       };
     });
   }
