@@ -58,3 +58,31 @@ export function calculateStreaks(
 
   return { current, longest };
 }
+
+
+/** Count likes on every visible comment, without relying on PostgREST's row limit. */
+export async function countLikesReceived(
+  loadCommentIds: (offset: number, limit: number) => Promise<Array<number | string>>,
+  countLikes: (commentIds: Array<number | string>) => Promise<number>
+): Promise<number> {
+  const pageSize = 500;
+  const batchSize = 100;
+  let offset = 0;
+  let total = 0;
+
+  while (true) {
+    const commentIds = await loadCommentIds(offset, pageSize);
+
+    for (let index = 0; index < commentIds.length; index += batchSize) {
+      const batch = commentIds.slice(index, index + batchSize);
+      const count = await countLikes(batch);
+      if (!Number.isSafeInteger(count) || count < 0) {
+        throw new Error('The comment-like count is invalid.');
+      }
+      total += count;
+    }
+
+    if (commentIds.length < pageSize) return total;
+    offset += commentIds.length;
+  }
+}
