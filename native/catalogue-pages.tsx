@@ -8,7 +8,6 @@ import { SearchResults } from '@/components/search/SearchResults';
 import { SearchSuggestions } from '@/components/search/SearchSuggestions';
 import { Badge } from '@/components/ui/Badge';
 import { siteConfig } from '@/lib/constants';
-import { Skeleton } from '@/components/ui/Skeleton';
 import { NativeGridSkeleton, NativeTopicSkeleton } from './skeletons';
 import type { TopicSearchResult } from '@/lib/search';
 import {
