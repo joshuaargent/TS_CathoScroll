@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server';
 
-import { getAuthenticatedUser, isSameOrigin } from '@/lib/supabase/admin';
+import { getAuthenticatedUserFromRequest, isSameOriginOrNativeRequest, nativeApiCorsHeaders } from '@/lib/supabase/admin';
 import { readBoundedJson } from '@/lib/http/read-json';
 import { checkApiRateLimit, rateLimitResponseHeaders } from '@/lib/security/api-rate-limit';
 
-function respond(body: unknown, init?: ResponseInit) {
-  const headers = new Headers(init?.headers);
+function respond(request: Request, body: unknown, init?: ResponseInit) {
+  const headers = nativeApiCorsHeaders(request);
+  new Headers(init?.headers).forEach((value, key) => headers.set(key, value));
   headers.set('Cache-Control', 'private, no-store');
   return NextResponse.json(body, { ...init, headers });
 }
@@ -19,11 +20,18 @@ async function enforceUserLimit(userId: string, scope: string, limit: number) {
   });
 }
 
+export function OPTIONS(request: Request) {
+  const headers = nativeApiCorsHeaders(request);
+  if (!headers.has('Access-Control-Allow-Origin')) return new NextResponse(null, { status: 403 });
+  headers.set('Access-Control-Allow-Methods', 'GET, PATCH, OPTIONS');
+  return new NextResponse(null, { status: 204, headers });
+}
+
 export async function GET(request: Request) {
-  const { supabase, user } = await getAuthenticatedUser();
+  const { supabase, user } = await getAuthenticatedUserFromRequest(request);
 
   if (!user) {
-    return respond({ error: 'Authentication required' }, { status: 401 });
+    return respond(request, { error: 'Authentication required' }, { status: 401 });
   }
 
   const rateLimit = await enforceUserLimit(user.id, 'notifications:read', 60);
@@ -46,11 +54,11 @@ export async function GET(request: Request) {
 
   if (countError) {
     console.error('Unable to load unread notification count:', countError.message);
-    return respond({ error: 'Unable to load notifications' }, { status: 500 });
+    return respond(request, { error: 'Unable to load notifications' }, { status: 500 });
   }
 
   if (countOnly) {
-    return respond({ unreadCount: count ?? 0 });
+    return respond(request, { unreadCount: count ?? 0 });
   }
 
   const { data: notificationRows, error: notificationsError } = await supabase
@@ -81,7 +89,7 @@ export async function GET(request: Request) {
 
   const topicSlugById = new Map((topics ?? []).map((topic) => [String(topic.id), topic.slug]));
 
-  return respond({
+  return respond(request, {
     notifications: (notificationRows ?? []).map((notification) => ({
       ...notification,
       topic_slug: notification.topic_id ? (topicSlugById.get(notification.topic_id) ?? null) : null,
@@ -91,7 +99,7 @@ export async function GET(request: Request) {
 }
 
 export async function PATCH(request: Request) {
-  if (!isSameOrigin(request)) {
+  if (!isSameOriginOrNativeRequest(request)) {
     return respond({ error: 'Forbidden' }, { status: 403 });
   }
 
@@ -156,5 +164,5 @@ export async function PATCH(request: Request) {
     return respond({ error: 'Notification not found' }, { status: 404 });
   }
 
-  return respond({ updated: data?.length ?? 0 });
+  return respond(request, { updated: data?.length ?? 0 });
 }
