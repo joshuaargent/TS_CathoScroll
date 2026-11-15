@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import type { ReactNode } from 'react';
 import {
   Apple,
   Download,
@@ -107,6 +108,111 @@ function getPlatformAssets(
 
     return extensions.some((extension) => fileName.endsWith(extension));
   });
+}
+
+function renderInlineMarkdown(value: string): ReactNode[] {
+  return value.split(/(\\*\\*[^*]+\\*\\*)/g).map((part, index) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return <strong key={index}>{part.slice(2, -2)}</strong>;
+    }
+
+    return part;
+  });
+}
+
+function ReleaseNotes({ body }: { body: string }) {
+  const lines = body.replace(/\\r\\n/g, '\\n').split('\\n');
+  const blocks: Array<
+    | { type: 'heading'; level: number; content: string }
+    | { type: 'paragraph'; content: string }
+    | { type: 'list'; items: string[] }
+  > = [];
+
+  for (let index = 0; index < lines.length; ) {
+    const line = lines[index].trim();
+
+    if (!line) {
+      index++;
+      continue;
+    }
+
+    const heading = line.match(/^(#{1,3})\\s+(.+)$/);
+    if (heading) {
+      blocks.push({
+        type: 'heading',
+        level: heading[1].length,
+        content: heading[2],
+      });
+      index++;
+      continue;
+    }
+
+    if (/^[-*]\\s+/.test(line)) {
+      const items: string[] = [];
+
+      while (index < lines.length && /^\\s*[-*]\\s+/.test(lines[index])) {
+        items.push(lines[index].trim().replace(/^[-*]\\s+/, ''));
+        index++;
+      }
+
+      blocks.push({ type: 'list', items });
+      continue;
+    }
+
+    const paragraph = [line];
+    index++;
+
+    while (
+      index < lines.length &&
+      lines[index].trim() &&
+      !/^\\s*#{1,3}\\s+/.test(lines[index]) &&
+      !/^\\s*[-*]\\s+/.test(lines[index])
+    ) {
+      paragraph.push(lines[index].trim());
+      index++;
+    }
+
+    blocks.push({ type: 'paragraph', content: paragraph.join(' ') });
+  }
+
+  return (
+    <div className="space-y-5">
+      {blocks.map((block, index) => {
+        if (block.type === 'heading') {
+          const className =
+            block.level === 1
+              ? 'text-2xl font-bold'
+              : block.level === 2
+                ? 'text-xl font-semibold'
+                : 'text-lg font-semibold';
+
+          return (
+            <h4 key={index} className={className}>
+              {renderInlineMarkdown(block.content)}
+            </h4>
+          );
+        }
+
+        if (block.type === 'list') {
+          return (
+            <ul key={index} className="list-disc space-y-2 pl-6">
+              {block.items.map((item, itemIndex) => (
+                <li key={itemIndex} className="text-text-secondary leading-relaxed">
+                  {renderInlineMarkdown(item)}
+                </li>
+              ))}
+            </ul>
+          );
+        }
+
+        return (
+          <p key={index} className="text-text-secondary leading-relaxed">
+            {renderInlineMarkdown(block.content)}
+          </p>
+        );
+      })}
+    </div>
+  );
 }
 
 export default function DownloadContent({
@@ -240,9 +346,9 @@ export default function DownloadContent({
                         <Button
                           key={asset.name}
                           asChild
+                          variant="primary"
                           size="md"
-                          className="w-full justify-between"
-                          style={{ color: '#ffffff' }}
+                          className="w-full justify-between text-white hover:text-white"
                         >
                           <a
                             href={asset.browser_download_url}
@@ -276,7 +382,7 @@ export default function DownloadContent({
           </div>
         </section>
 
-        {release?.body && (
+        {release && (
           <section>
             <h2 className="mb-6 text-3xl font-bold">
               Release Notes
@@ -302,9 +408,13 @@ export default function DownloadContent({
                 )}
               </div>
 
-              <p className="text-text-secondary whitespace-pre-wrap leading-relaxed">
-                {release.body}
-              </p>
+              {release.body?.trim() ? (
+                <ReleaseNotes body={release.body} />
+              ) : (
+                <p className="text-text-secondary leading-relaxed">
+                  Release notes for this version have not been published yet.
+                </p>
+              )}
 
               <div className="mt-6">
                 <Button asChild variant="outline">
