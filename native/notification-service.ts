@@ -15,12 +15,24 @@ export class NativeNotificationService implements NotificationTransport {
 
   async sync(): Promise<void> {
     if (!navigator.onLine) return;
-    if (!this.syncing) {
-      this.syncing = this.drain().finally(() => {
-        this.syncing = null;
-      });
+
+    // A mark operation can be queued just as the active drain observes an
+    // empty outbox. Join that drain, then recheck the queue so the new
+    // operation is not left waiting for the next periodic refresh.
+    const active = this.syncing;
+    if (active) {
+      await active;
+      if (await this.cache.next(this.userId)) return this.sync();
+      return;
     }
-    return this.syncing;
+
+    const operation = this.drain();
+    this.syncing = operation;
+    try {
+      await operation;
+    } finally {
+      if (this.syncing === operation) this.syncing = null;
+    }
   }
 
   private async drain(): Promise<void> {
