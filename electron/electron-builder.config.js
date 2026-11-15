@@ -42,10 +42,11 @@ module.exports = {
     identity: null,
     notarize: false,
     artifactName: '${productName}-${version}-${arch}.${ext}',
-    // The sqlite package ships both macOS prebuilds in each architecture's
-    // package tree. They are identical across the x64 and arm64 staging apps,
-    // so preserve the shared arm64 prebuild instead of trying to lipo-merge it.
-    x64ArchFiles: '**/better-sqlite3-multiple-ciphers/prebuilds/darwin-arm64.node',
+    // The sqlite package ships both Intel and Apple Silicon prebuilds in
+    // each architecture's package tree. Both files are identical between the
+    // x64 and arm64 staging apps; neither is a universal Mach-O binary, so
+    // keep the packaged prebuilds as-is instead of trying to lipo-merge them.
+    x64ArchFiles: '**/better-sqlite3-multiple-ciphers/prebuilds/darwin-*.node',
   },
   publish: {
     provider: 'github',
