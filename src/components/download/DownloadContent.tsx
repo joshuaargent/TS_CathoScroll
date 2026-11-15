@@ -138,6 +138,12 @@ function ReleaseNotes({ body }: { body: string }) {
 
     const heading = line.match(/^(#{1,3})\s+(.+)$/);
     if (heading) {
+      // The release card already displays the release title above the notes.
+      if (heading[1].length === 1) {
+        index++;
+        continue;
+      }
+
       blocks.push({
         type: 'heading',
         level: heading[1].length,
