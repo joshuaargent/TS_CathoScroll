@@ -9,6 +9,7 @@ import { NativeNavbar } from './navbar';
 import { NativeAccount } from './account';
 import { NativePublicProfile } from './public-profile';
 import { NativeBookmarks } from './bookmarks';
+import { NativeAdmin } from './admin';
 import { NativeNotifications, NativeNotificationsProvider } from './notifications';
 import { OfflineIndicator, clearNativeStatusNotice, notifyNativeStatus } from './offline-indicator';
 import { NativeTopicActions } from './topic-actions';
@@ -136,6 +137,7 @@ type Route =
   | { kind: 'signup'; pathname: string }
   | { kind: 'bookmarks'; pathname: string }
   | { kind: 'notifications'; pathname: string }
+  | { kind: 'admin'; pathname: string; section: 'dashboard' | 'reports' | 'appeals'; page: number }
   | { kind: 'category'; pathname: string; slug: string }
   | { kind: 'profile'; pathname: string; username: string }
   | { kind: 'topic'; pathname: string; slug: string; comments: boolean };
@@ -161,6 +163,22 @@ function parseRoute(href: string): Route | null {
     if (pathname === '/signup') return { kind: 'signup', pathname };
     if (pathname === '/bookmarks') return { kind: 'bookmarks', pathname };
     if (pathname === '/notifications') return { kind: 'notifications', pathname };
+    if (pathname === '/admin') {
+      const page = Number(url.searchParams.get('page') ?? '0');
+      if (!Number.isSafeInteger(page) || page < 0) return null;
+      return { kind: 'admin', pathname, section: 'dashboard', page };
+    }
+    const adminMatch = /^\\/admin\\/(reports|appeals)$/.exec(pathname);
+    if (adminMatch) {
+      const page = Number(url.searchParams.get('page') ?? '0');
+      if (!Number.isSafeInteger(page) || page < 0) return null;
+      return {
+        kind: 'admin',
+        pathname,
+        section: adminMatch[1] as 'reports' | 'appeals',
+        page,
+      };
+    }
     const profileMatch = /^\/profile\/([^/]+)$/.exec(pathname);
     if (profileMatch) {
       const username = decodeURIComponent(profileMatch[1]);
@@ -1110,6 +1128,14 @@ function App() {
               )}
               {catalogue && route?.kind === 'categories' && (
                 <CategoriesPage key={catalogueVersion} catalogue={catalogue} />
+              )}
+              {route?.kind === 'admin' && (
+                <NativeAdmin
+                  key={user?.id ?? 'signed-out'}
+                  userId={user?.id ?? null}
+                  section={route.section}
+                  page={route.page}
+                />
               )}
               {route?.kind === 'about' && <AboutPage />}
               {route?.kind === 'faq' && <FAQPage />}
