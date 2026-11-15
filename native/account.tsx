@@ -210,8 +210,8 @@ export function NativeAccount({
       }
       if (profile.bio.length > 250) throw new Error('Bio cannot exceed 250 characters.');
       const passwordChanged = Boolean(newPassword.trim());
-      if (passwordChanged && newPassword.length < 8) {
-        throw new Error('Password must be at least 8 characters.');
+      if (passwordChanged && newPassword.length < 12) {
+        throw new Error('Password must be at least 12 characters.');
       }
       if (passwordChanged && newPassword !== confirmPassword) {
         throw new Error('Passwords do not match.');
