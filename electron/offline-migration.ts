@@ -13,21 +13,24 @@ import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 
 function validateDatabase(file: string): void {
-  // Read-only validation must happen first: opening a corrupt database
-  // read-write can discard or alter its SQLite sidecars before we have saved
-  // them. A valid hot rollback journal is recovered only after a snapshot.
-  const readOnly = new DatabaseSync(file, { readOnly: true });
-  try {
-    const result = readOnly.prepare('PRAGMA quick_check(1)').get();
-    if (result?.quick_check !== 'ok') {
-      throw new Error('The database did not pass its integrity check.');
+  const hasRollbackJournal = existsSync(file + '-journal');
+  if (!hasRollbackJournal) {
+    const readOnly = new DatabaseSync(file, { readOnly: true });
+    try {
+      const result = readOnly.prepare('PRAGMA quick_check(1)').get();
+      if (result?.quick_check !== 'ok') {
+        throw new Error('The database did not pass its integrity check.');
+      }
+    } finally {
+      readOnly.close();
     }
-  } finally {
-    readOnly.close();
+    return;
   }
 
-  if (!existsSync(file + '-journal')) return;
-
+  // A hot rollback journal may make a read-only quick_check fail even though
+  // SQLite can recover the database. Snapshot the complete file set before
+  // allowing SQLite to perform that recovery. If recovery/integrity checking
+  // fails, restore the exact original bytes and sidecars.
   const token = randomUUID();
   const originals = [file, ...sqliteSidecars.map((suffix) => file + suffix)];
   const snapshots: Array<[string, string]> = [];
