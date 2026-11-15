@@ -83,7 +83,7 @@ DROP POLICY IF EXISTS "Anyone can view comment likes" ON public.comment_likes;
 DROP POLICY IF EXISTS "Users can view likes" ON public.topic_likes;
 CREATE POLICY comment_likes_select_own
   ON public.comment_likes FOR SELECT TO authenticated
-  USING (user_id = (SELECT auth.uid()));
+  USING (user_id = auth.uid());
 CREATE POLICY topic_likes_select_own
   ON public.topic_likes FOR SELECT TO authenticated
   USING (user_id = (SELECT auth.uid()));
