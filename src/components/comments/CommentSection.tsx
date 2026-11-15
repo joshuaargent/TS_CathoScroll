@@ -154,7 +154,7 @@ export function CommentSection({
   supabaseClient,
 }: CommentSectionProps) {
   const requestSignIn = useSignInPrompt();
-  const getClient = useCallback(() => supabaseClient ?? getClient(), [supabaseClient]);
+  const getClient = useCallback(() => supabaseClient ?? createClient(), [supabaseClient]);
   const [comments, setComments] = useState<Comment[]>([]);
 
   const [loading, setLoading] = useState(true);
