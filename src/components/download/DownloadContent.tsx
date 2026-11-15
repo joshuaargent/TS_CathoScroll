@@ -320,7 +320,10 @@ export default function DownloadContent({
               updates are distributed as signed APKs; download the latest APK
               and approve Android's installer prompt. After the first
               migration from a debug-signed build, release APKs can update
-              the installed app without uninstalling it.
+              the installed app without uninstalling it. macOS builds are
+              unsigned, so Gatekeeper may require you to Control-click the app
+              and choose Open on its first launch. Only install downloads
+              obtained from this official CathoScroll website.
             </p>
 
             <div className="mt-6">
