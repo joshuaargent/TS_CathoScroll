@@ -27,6 +27,7 @@ export type NativeActivityStatus = {
 export class NativeActivity {
   private readonly scheduler: BackgroundActivitySync;
   private readonly writes = new Set<Promise<void>>();
+  private readonly topicWrites = new Map<string, Promise<void>>();
   private disposed = false;
   private signingOut = false;
   private ready = false;
@@ -100,16 +101,14 @@ export class NativeActivity {
     if (this.disposed || this.signingOut || (!this.ready && kind !== 'progress')) {
       throw new Error('Account activity is not ready.');
     }
-    const write = (async () => {
-      if (
-        kind === 'progress' &&
-        value &&
-        (await this.store.getActivity(this.userId, topicId, kind))
-      ) {
-        return;
-      }
+    const key = `${kind}:${topicId}`;
+    const previous = this.topicWrites.get(key) ?? Promise.resolve();
+    const write = previous.catch(() => undefined).then(async () => {
+      const current = await this.store.getActivity(this.userId, topicId, kind);
+      if (current === value) return;
       await this.store.setActivity(this.userId, topicId, kind, value, crypto.randomUUID());
-    })();
+    });
+    this.topicWrites.set(key, write);
     this.writes.add(write);
     try {
       await write;
@@ -119,6 +118,7 @@ export class NativeActivity {
       }
     } finally {
       this.writes.delete(write);
+      if (this.topicWrites.get(key) === write) this.topicWrites.delete(key);
     }
   }
 
