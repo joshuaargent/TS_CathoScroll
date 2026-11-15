@@ -15,6 +15,8 @@ import { NativeNotifications, NativeNotificationsProvider } from './notification
 import { OfflineIndicator, clearNativeStatusNotice, notifyNativeStatus } from './offline-indicator';
 import { NativeTopicActions } from './topic-actions';
 import { NativeSignup } from './signup';
+import { NativeTopicSkeleton } from './skeletons';
+import { AccountPageSkeleton } from '@/components/account/AccountPageView';
 import AboutPage from '@/app/about/page';
 import FAQPage from '@/app/faq/page';
 import ContactPage from '@/app/contact/page';
@@ -543,9 +545,7 @@ function NativeTopicPage({
         ← Explore Feed
       </button>
       {loading && (
-        <p role="status" className="mt-8">
-          Loading topic…
-        </p>
+        <NativeTopicSkeleton label="Loading topic" />
       )}
       {!loading && !error && !topic && <p className="mt-8">Topic not found.</p>}
       {topic && (
@@ -1104,9 +1104,7 @@ function App() {
             <NativeNavbar pathname={route?.pathname ?? '/'} userId={user?.id ?? null} />
             <main className="native-content pt-16">
               {!error && !firstPage && (
-                <p role="status" className="px-6">
-                  Loading topics…
-                </p>
+                <div className="container py-12"><NativeTopicSkeleton label="Loading topics" /></div>
               )}
               {firstPage && !firstPage.topics.length && (
                 <p className="px-6">No topics available.</p>
@@ -1173,7 +1171,7 @@ function App() {
               )}
               {route?.kind === 'signup' &&
                 (authStatus === 'loading' || checkingAccount ? (
-                  <p className="container py-12">Loading account…</p>
+                  <AccountPageSkeleton />
                 ) : authStatus === 'unavailable' ? (
                   null
                 ) : user ? (
