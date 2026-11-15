@@ -37,9 +37,10 @@ module.exports = {
     icon: 'assets/icon.icns',
     category: 'public.app-category.education',
     target: ['dmg', 'zip'],
-    // The app is intentionally unsigned until Developer ID credentials exist.
-    identity: null,
-    notarize: false,
+    // Direct distribution requires a Developer ID Application signature.
+    // The release workflow supplies the certificate and notarisation API key.
+    // Pull-request validation builds intentionally omit these credentials.
+    notarize: true,
     artifactName: '${productName}-${version}-${arch}.${ext}',
   },
   publish: {
