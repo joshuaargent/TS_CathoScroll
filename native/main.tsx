@@ -137,7 +137,7 @@ type Route =
   | { kind: 'signup'; pathname: string }
   | { kind: 'bookmarks'; pathname: string }
   | { kind: 'notifications'; pathname: string }
-  | { kind: 'admin'; pathname: string; section: 'dashboard' | 'reports' | 'appeals'; page: number }
+  | { kind: 'admin'; pathname: string; section: 'dashboard' | 'reports' | 'appeals' | 'content'; page: number }
   | { kind: 'category'; pathname: string; slug: string }
   | { kind: 'profile'; pathname: string; username: string }
   | { kind: 'topic'; pathname: string; slug: string; comments: boolean };
@@ -168,14 +168,14 @@ function parseRoute(href: string): Route | null {
       if (!Number.isSafeInteger(page) || page < 0) return null;
       return { kind: 'admin', pathname, section: 'dashboard', page };
     }
-    const adminMatch = /^\/admin\/(reports|appeals)$/.exec(pathname);
+    const adminMatch = /^\/admin\/(reports|appeals|content)$/.exec(pathname);
     if (adminMatch) {
       const page = Number(url.searchParams.get('page') ?? '0');
       if (!Number.isSafeInteger(page) || page < 0) return null;
       return {
         kind: 'admin',
         pathname,
-        section: adminMatch[1] as 'reports' | 'appeals',
+        section: adminMatch[1] as 'reports' | 'appeals' | 'content',
         page,
       };
     }
