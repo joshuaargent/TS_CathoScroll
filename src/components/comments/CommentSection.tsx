@@ -11,6 +11,7 @@ import { useSignInPrompt } from '@/components/providers/SignInPromptProvider';
 import { CommentCard } from './CommentCard';
 import { CommentForm } from './CommentForm';
 import Link from 'next/link';
+import { siteConfig } from '@/lib/constants';
 
 interface CommentSectionProps {
   topicId: string;
@@ -664,11 +665,19 @@ export function CommentSection({
     );
 
     try {
-      const response = await fetch(`/api/admin/comments/${commentId}/pin`, {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (cache) {
+        const { data: sessionData, error: sessionError } = await createClient().auth.getSession();
+        if (sessionError) throw sessionError;
+        if (!sessionData.session?.access_token) throw new Error('Sign in again to moderate comments.');
+        headers.Authorization = `Bearer ${sessionData.session.access_token}`;
+      }
+      const endpoint = cache
+        ? new URL(`/api/admin/comments/${commentId}/pin`, siteConfig.url).toString()
+        : `/api/admin/comments/${commentId}/pin`;
+      const response = await fetch(endpoint, {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify({ pinned: shouldPin }),
       });
 
@@ -692,11 +701,19 @@ export function CommentSection({
     if (!serverActionsAvailable) {
       throw new Error('Comment reports are currently available on the website.');
     }
-    const response = await fetch('/api/reports/comments', {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (cache) {
+      const { data: sessionData, error: sessionError } = await createClient().auth.getSession();
+      if (sessionError) throw sessionError;
+      if (!sessionData.session?.access_token) throw new Error('Sign in again to submit a report.');
+      headers.Authorization = `Bearer ${sessionData.session.access_token}`;
+    }
+    const endpoint = cache
+      ? new URL('/api/reports/comments', siteConfig.url).toString()
+      : '/api/reports/comments';
+    const response = await fetch(endpoint, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify({ commentId, reason, details }),
     });
 
