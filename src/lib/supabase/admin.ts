@@ -63,7 +63,7 @@ async function adminMfaSatisfied(supabase: Awaited<ReturnType<typeof createClien
   ]);
   if (error) throw new Error(error.message);
   if (factorError) throw new Error(factorError.message);
-  const hasVerifiedFactor = [...(factorData.totp ?? []), ...(factorData.phone ?? [])].some(
+  const hasVerifiedFactor = (factorData.totp ?? []).some(
     (factor) => factor.status === 'verified'
   );
   return data.currentLevel === 'aal2' && data.nextLevel === 'aal2' && hasVerifiedFactor;
