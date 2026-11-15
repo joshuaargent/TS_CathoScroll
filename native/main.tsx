@@ -606,7 +606,7 @@ function NativeMfaGate({ userId }: { userId: string | null }) {
     }
 
     const response = await fetch(
-      `${siteConfig.url.replace(/\\/+$/, '')}/api/admin/security/mfa-enforcement`,
+      \`\${siteConfig.url.replace(/\/+$/, '')}/api/admin/security/mfa-enforcement\`,
       { headers: { Authorization: `Bearer ${accessToken}` }, cache: 'no-store' }
     );
     if (!response.ok) throw new Error('Unable to check administrator security requirements.');
@@ -684,7 +684,7 @@ function NativeMfaGate({ userId }: { userId: string | null }) {
 
   async function verifyChallenge() {
     if (!gate || gate.kind !== 'verify' || !gate.challengeId) return;
-    if (!/^\\d{6,8}$/.test(code.trim())) {
+    if (!/^\d{6,8}$/.test(code.trim())) {
       setError('Enter the current six- to eight-digit authenticator code.');
       return;
     }
@@ -761,7 +761,7 @@ function NativeMfaGate({ userId }: { userId: string | null }) {
                   autoComplete="one-time-code"
                   maxLength={8}
                   value={code}
-                  onChange={(event) => setCode(event.target.value.replace(/\\D/g, '').slice(0, 8))}
+                  onChange={(event) => setCode(event.target.value.replace(/\D/g, '').slice(0, 8))}
                   className="border-border bg-background w-full rounded-xl border px-4 py-3"
                   placeholder="000000"
                 />
