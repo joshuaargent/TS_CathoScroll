@@ -91,7 +91,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         className: mergedClassName,
         ref,
         ...props,
-      } as any);
+      } as unknown as Partial<typeof child.props>);
     }
 
     return (
