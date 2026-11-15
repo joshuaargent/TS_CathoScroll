@@ -54,14 +54,18 @@ export function NativeNotes({
   }, []);
 
   useEffect(() => {
-    // A draft belongs to exactly one account/topic pair. Reset it before any
-    // asynchronous read so navigation or account switching cannot carry it over.
+    // A draft belongs to exactly one account/topic pair, never to the editor
+    // instance across navigation or account switching.
     identity.current = { userId, topicId };
     dirty.current = false;
     draft.current = '';
     setContent('');
     setMessage('');
     setSaving(false);
+    setState(null);
+  }, [userId, topicId]);
+
+  useEffect(() => {
     if (!userId) {
       setState(null);
       return;
