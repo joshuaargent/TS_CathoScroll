@@ -4,6 +4,65 @@ import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 
 import { createClient } from '@/lib/supabase/server';
 
+const nativeOrigins = new Set(['capacitor://localhost', 'http://localhost', 'https://localhost']);
+
+function nativeOrigin(request: Request): string | null {
+  const origin = request.headers.get('origin');
+  return origin && nativeOrigins.has(origin) ? origin : null;
+}
+
+export function nativeApiCorsHeaders(request: Request): Headers {
+  const headers = new Headers();
+  const origin = nativeOrigin(request);
+  if (origin) {
+    headers.set('Access-Control-Allow-Origin', origin);
+    headers.set('Access-Control-Allow-Methods', 'POST, PATCH, OPTIONS');
+    headers.set('Access-Control-Allow-Headers', 'Authorization, Content-Type');
+    headers.set('Access-Control-Max-Age', '600');
+    headers.set('Vary', 'Origin');
+  }
+  return headers;
+}
+
+export function isSameOriginOrNativeRequest(request: Request): boolean {
+  if (isSameOrigin(request)) return true;
+  return Boolean(nativeOrigin(request) && /^Bearer\s+\S+$/i.test(request.headers.get('authorization') ?? ''));
+}
+
+export async function getAuthenticatedUserFromRequest(request: Request) {
+  const authorization = request.headers.get('authorization');
+  const token = /^Bearer\s+(\S+)$/i.exec(authorization ?? '')?.[1];
+  if (!token) return getAuthenticatedUser();
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!supabaseUrl || !anonKey) {
+    throw new Error('Supabase authentication configuration is missing.');
+  }
+
+  const supabase = createSupabaseClient(supabaseUrl, anonKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+  const { data, error } = await supabase.auth.getUser(token);
+  if (error) return { supabase, user: null };
+  return { supabase, user: data.user };
+}
+
+export async function getAdminSessionFromRequest(request: Request) {
+  const { supabase, user } = await getAuthenticatedUserFromRequest(request);
+  if (!user) return { user: null, isAdmin: false, error: null };
+  const { data, error } = await supabase
+    .from('admin_users')
+    .select('user_id')
+    .eq('user_id', user.id)
+    .maybeSingle();
+  return {
+    user,
+    isAdmin: Boolean(data),
+    error: error ? new Error(error.message) : null,
+  };
+}
+
 export async function getAdminSession() {
   const supabase = await createClient();
   const {
