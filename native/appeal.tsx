@@ -9,6 +9,14 @@ type AppealDetails = {
   appeal: { created_at: string } | null;
 };
 
+type AppealLoadState = {
+  userId: string;
+  attempt: number;
+  value: AppealDetails | null;
+  loading: boolean;
+  error: string;
+};
+
 export function NativeAppeal({
   userId,
   onRequireSignIn,
@@ -16,23 +24,14 @@ export function NativeAppeal({
   userId: string | null;
   onRequireSignIn: () => void;
 }) {
-  const [details, setDetails] = useState<{ userId: string; value: AppealDetails } | null>(null);
-  const [loading, setLoading] = useState(Boolean(userId));
-  const [error, setError] = useState('');
+  const [state, setState] = useState<AppealLoadState | null>(null);
   const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
-    if (!userId) {
-      setDetails(null);
-      setLoading(false);
-      setError('');
-      return;
-    }
+    if (!userId) return;
 
     const accountId = userId;
     let active = true;
-    setLoading(true);
-    setError('');
 
     async function load() {
       try {
@@ -55,15 +54,26 @@ export function NativeAppeal({
         ) {
           throw new Error('The appeal service returned invalid data.');
         }
-        if (active) setDetails({ userId: accountId, value: result });
+        if (active) {
+          setState({
+            userId: accountId,
+            attempt,
+            value: result,
+            loading: false,
+            error: '',
+          });
+        }
       } catch (cause) {
         console.error('Unable to load native comment-ban appeal details:', cause);
         if (active) {
-          setDetails(null);
-          setError(cause instanceof Error ? cause.message : 'Unable to load your appeal details.');
+          setState({
+            userId: accountId,
+            attempt,
+            value: null,
+            loading: false,
+            error: cause instanceof Error ? cause.message : 'Unable to load your appeal details.',
+          });
         }
-      } finally {
-        if (active) setLoading(false);
       }
     }
 
@@ -111,13 +121,13 @@ export function NativeAppeal({
     );
   }
 
-  const current = details?.userId === userId ? details.value : null;
+  const current = state?.userId === userId && state.attempt === attempt ? state : null;
   return (
     <CommentBanAppealPageView
-      banCreatedAt={current?.ban?.created_at ?? null}
-      pendingAppealCreatedAt={current?.appeal?.created_at ?? null}
-      loading={loading || !current && !error}
-      error={error}
+      banCreatedAt={current?.value?.ban?.created_at ?? null}
+      pendingAppealCreatedAt={current?.value?.appeal?.created_at ?? null}
+      loading={!current || current.loading}
+      error={current?.error ?? ''}
       submitter={submitter}
       onRetry={() => setAttempt((value) => value + 1)}
     />
