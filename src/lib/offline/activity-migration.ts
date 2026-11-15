@@ -4,6 +4,7 @@ const tables = [
   {
     name: 'offline_activity',
     columns: ['user_id', 'topic_id', 'kind', 'value', 'completed_at'],
+    optionalColumns: ['bookmark_saved_at'],
   },
   {
     name: 'offline_activity_outbox',
@@ -46,14 +47,20 @@ async function copyTable(
 ) {
   const schema = await source.query(`PRAGMA table_info(${table.name})`);
   const names = schema.map((column) => column.name);
+  const optionalColumns = 'optionalColumns' in table ? table.optionalColumns : [];
+  const presentOptionalColumns = optionalColumns.filter((column) => names.includes(column));
+  const allowedColumns = [...table.columns, ...optionalColumns];
   if (
-    names.length !== table.columns.length ||
-    table.columns.some((column) => !names.includes(column))
+    names.length !== table.columns.length + presentOptionalColumns.length ||
+    table.columns.some((column) => !names.includes(column)) ||
+    names.some((name) => typeof name !== 'string' ||
+      !allowedColumns.includes(name as (typeof allowedColumns)[number]))
   ) {
     throw new Error(`Unexpected legacy activity schema in ${table.name}.`);
   }
-  const columns = table.columns.join(', ');
-  const placeholders = table.columns.map(() => '?').join(', ');
+  const copiedColumns = [...table.columns, ...presentOptionalColumns];
+  const columns = copiedColumns.join(', ');
+  const placeholders = copiedColumns.map(() => '?').join(', ');
   let offset = 0;
   for (;;) {
     const rows = await source.query(
@@ -61,7 +68,7 @@ async function copyTable(
       [offset]
     );
     for (const row of rows) {
-      const values: Value[] = table.columns.map((column) => {
+      const values: Value[] = copiedColumns.map((column) => {
         const value = row[column];
         if (
           value !== null &&
