@@ -2,6 +2,7 @@ import { OfflineActivityStore } from '@/lib/offline/activity-store';
 import { migrateLegacyActivity } from '@/lib/offline/activity-migration';
 import { openNativeDatabases, openPrivateActivityDatabase, removeLegacyActivityDatabase } from '@/lib/offline/native-database';
 import { secureAuthStorage } from './secure-auth-storage';
+import { notifyNativeStatus } from './offline-indicator';
 
 let opening: Promise<OfflineActivityStore> | undefined;
 
@@ -36,7 +37,15 @@ async function initialize(): Promise<OfflineActivityStore> {
     }
   });
   // The legacy copy is removed only after the encrypted destination has passed
-  // integrity and migration-marker checks. A failed cleanup is retried at startup.
-  await removeLegacyActivityDatabase();
+  // integrity and migration-marker checks. A failed cleanup must not block the
+  // verified private store; it is reported and retried on the next app launch.
+  try {
+    await removeLegacyActivityDatabase();
+  } catch (error) {
+    console.error('Unable to remove the migrated plaintext activity database:', error);
+    notifyNativeStatus('Old local activity data could not be removed. It will be retried next time the app starts.', {
+      id: 'legacy-activity-cleanup',
+    });
+  }
   return privateStore;
 }
