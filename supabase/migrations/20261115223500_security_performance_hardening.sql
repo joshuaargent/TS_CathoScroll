@@ -648,70 +648,245 @@ GRANT EXECUTE ON FUNCTION public.get_public_profile_metrics(uuid, text)
   TO anon, authenticated;
 
 
--- Deleted or moderation-hidden comments are rendered as tombstones in the UI.
--- The RPC returns the same public comment shape but never returns deleted text.
-CREATE OR REPLACE FUNCTION public.get_topic_comment_feed(p_topic_id text)
-RETURNS TABLE (
-  id bigint,
-  topic_id text,
-  user_id uuid,
-  parent_id bigint,
-  content text,
-  created_at timestamptz,
-  edited_at timestamptz,
-  is_deleted boolean,
-  is_pinned boolean,
-  likes bigint,
-  liked_by_user boolean
+-- Return a stable page of comments, plus ancestor rows needed to render reply
+-- chains. Pinned root comments are included on every page; the cursor pages
+-- the remaining rows chronologically. Deleted text and liker identities stay
+-- private, while aggregate counts and the caller's like state are returned.
+CREATE OR REPLACE FUNCTION public.get_topic_comment_page(
+  p_topic_id text,
+  p_before_created_at timestamptz DEFAULT NULL,
+  p_before_id bigint DEFAULT NULL,
+  p_limit integer DEFAULT 50
 )
-LANGUAGE sql
+RETURNS jsonb
+LANGUAGE plpgsql
 STABLE
 SECURITY DEFINER
 SET search_path = ''
 AS $function$
-  SELECT
-    comment.id,
-    comment.topic_id,
-    comment.user_id,
-    comment.parent_id,
-    CASE WHEN comment.is_deleted THEN ''::text ELSE comment.content END,
-    comment.created_at,
-    comment.edited_at,
-    comment.is_deleted,
-    comment.is_pinned,
-    CASE
-      WHEN comment.is_deleted THEN 0::bigint
-      ELSE (
-        SELECT count(*)
-        FROM public.comment_likes AS comment_like
-        WHERE comment_like.comment_id = comment.id
+DECLARE
+  page_size integer := GREATEST(1, LEAST(COALESCE(p_limit, 50), 100));
+  result jsonb;
+BEGIN
+  IF p_topic_id IS NULL OR pg_catalog.length(p_topic_id) NOT BETWEEN 1 AND 100 THEN
+    RAISE EXCEPTION 'A valid topic ID is required' USING ERRCODE = '22023';
+  END IF;
+
+  IF (p_before_created_at IS NULL) <> (p_before_id IS NULL) THEN
+    RAISE EXCEPTION 'Comment cursor is incomplete' USING ERRCODE = '22023';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.topics AS topic
+    JOIN public.categories AS category
+      ON category.slug = topic.category_slug
+     AND category.is_published = true
+    WHERE topic.id = p_topic_id
+      AND topic.is_published = true
+  ) THEN
+    RETURN jsonb_build_object(
+      'comments', '[]'::jsonb,
+      'has_more', false,
+      'next_cursor', NULL,
+      'total_count', 0
+    );
+  END IF;
+
+  WITH RECURSIVE
+  page_candidates AS (
+    SELECT
+      comment.id,
+      comment.topic_id,
+      comment.user_id,
+      comment.parent_id,
+      comment.content,
+      comment.created_at,
+      comment.edited_at,
+      comment.is_deleted,
+      comment.is_pinned
+    FROM public.comments AS comment
+    WHERE comment.topic_id = p_topic_id
+      AND comment.is_pinned = false
+      AND (
+        p_before_created_at IS NULL
+        OR (comment.created_at, comment.id) < (p_before_created_at, p_before_id)
       )
-    END AS likes,
-    CASE
-      WHEN comment.is_deleted THEN false
-      ELSE EXISTS (
-        SELECT 1
-        FROM public.comment_likes AS comment_like
-        WHERE comment_like.comment_id = comment.id
-          AND comment_like.user_id = (SELECT auth.uid())
+    ORDER BY comment.created_at DESC, comment.id DESC
+    LIMIT page_size + 1
+  ),
+  selected_page AS (
+    SELECT *
+    FROM page_candidates
+    ORDER BY created_at DESC, id DESC
+    LIMIT page_size
+  ),
+  pinned_comments AS (
+    SELECT
+      comment.id,
+      comment.topic_id,
+      comment.user_id,
+      comment.parent_id,
+      comment.content,
+      comment.created_at,
+      comment.edited_at,
+      comment.is_deleted,
+      comment.is_pinned
+    FROM public.comments AS comment
+    WHERE comment.topic_id = p_topic_id
+      AND comment.is_pinned = true
+  ),
+  selected_comments AS (
+    SELECT * FROM selected_page
+    UNION ALL
+    SELECT * FROM pinned_comments
+  ),
+  ancestors (
+    id,
+    topic_id,
+    user_id,
+    parent_id,
+    content,
+    created_at,
+    edited_at,
+    is_deleted,
+    is_pinned,
+    depth
+  ) AS (
+    SELECT
+      parent.id,
+      parent.topic_id,
+      parent.user_id,
+      parent.parent_id,
+      parent.content,
+      parent.created_at,
+      parent.edited_at,
+      parent.is_deleted,
+      parent.is_pinned,
+      1
+    FROM selected_comments AS child
+    JOIN public.comments AS parent
+      ON parent.id = child.parent_id
+     AND parent.topic_id = p_topic_id
+
+    UNION ALL
+
+    SELECT
+      parent.id,
+      parent.topic_id,
+      parent.user_id,
+      parent.parent_id,
+      parent.content,
+      parent.created_at,
+      parent.edited_at,
+      parent.is_deleted,
+      parent.is_pinned,
+      ancestors.depth + 1
+    FROM ancestors
+    JOIN public.comments AS parent
+      ON parent.id = ancestors.parent_id
+     AND parent.topic_id = p_topic_id
+    WHERE ancestors.depth < 5
+  ),
+  raw_rows AS (
+    SELECT
+      id, topic_id, user_id, parent_id, content, created_at, edited_at,
+      is_deleted, is_pinned, false AS is_context
+    FROM selected_comments
+
+    UNION ALL
+
+    SELECT
+      id, topic_id, user_id, parent_id, content, created_at, edited_at,
+      is_deleted, is_pinned, true AS is_context
+    FROM ancestors
+  ),
+  deduplicated_rows AS (
+    SELECT DISTINCT ON (id)
+      id, topic_id, user_id, parent_id, content, created_at, edited_at,
+      is_deleted, is_pinned, is_context
+    FROM raw_rows
+    ORDER BY id, is_context
+  ),
+  enriched_rows AS (
+    SELECT
+      row_data.*,
+      CASE
+        WHEN row_data.is_deleted THEN 0::bigint
+        ELSE (
+          SELECT count(*)
+          FROM public.comment_likes AS comment_like
+          WHERE comment_like.comment_id = row_data.id
+        )
+      END AS likes,
+      CASE
+        WHEN row_data.is_deleted THEN false
+        ELSE EXISTS (
+          SELECT 1
+          FROM public.comment_likes AS comment_like
+          WHERE comment_like.comment_id = row_data.id
+            AND comment_like.user_id = (SELECT auth.uid())
+        )
+      END AS liked_by_user
+    FROM deduplicated_rows AS row_data
+  ),
+  page_metadata AS (
+    SELECT count(*) > page_size AS has_more
+    FROM page_candidates
+  ),
+  cursor_row AS (
+    SELECT created_at, id
+    FROM selected_page
+    ORDER BY created_at ASC, id ASC
+    LIMIT 1
+  ),
+  comment_json AS (
+    SELECT COALESCE(
+      jsonb_agg(
+        jsonb_build_object(
+          'id', id,
+          'topic_id', topic_id,
+          'user_id', user_id,
+          'parent_id', parent_id,
+          'content', CASE WHEN is_deleted THEN ''::text ELSE content END,
+          'created_at', created_at,
+          'edited_at', edited_at,
+          'is_deleted', is_deleted,
+          'is_pinned', is_pinned,
+          'likes', likes,
+          'liked_by_user', liked_by_user
+        )
+        ORDER BY created_at DESC, id DESC
+      ),
+      '[]'::jsonb
+    ) AS value
+    FROM enriched_rows
+  )
+  SELECT jsonb_build_object(
+    'comments', (SELECT value FROM comment_json),
+    'has_more', (SELECT has_more FROM page_metadata),
+    'next_cursor', CASE
+      WHEN (SELECT has_more FROM page_metadata) THEN (
+        SELECT jsonb_build_object('created_at', created_at, 'id', id)
+        FROM cursor_row
       )
-    END AS liked_by_user
-  FROM public.comments AS comment
-  JOIN public.topics AS topic
-    ON topic.id = comment.topic_id
-   AND topic.is_published = true
-  JOIN public.categories AS category
-    ON category.slug = topic.category_slug
-   AND category.is_published = true
-  WHERE p_topic_id IS NOT NULL
-    AND pg_catalog.length(p_topic_id) BETWEEN 1 AND 100
-    AND comment.topic_id = p_topic_id
-  ORDER BY comment.created_at DESC, comment.id DESC
+      ELSE NULL
+    END,
+    'total_count', (
+      SELECT count(*)
+      FROM public.comments
+      WHERE topic_id = p_topic_id
+    )
+  )
+  INTO result;
+
+  RETURN result;
+END
 $function$;
 
-REVOKE ALL ON FUNCTION public.get_topic_comment_feed(text)
+REVOKE ALL ON FUNCTION public.get_topic_comment_page(text, timestamptz, bigint, integer)
   FROM PUBLIC, service_role;
-GRANT EXECUTE ON FUNCTION public.get_topic_comment_feed(text)
+GRANT EXECUTE ON FUNCTION public.get_topic_comment_page(text, timestamptz, bigint, integer)
   TO anon, authenticated;
 
 REVOKE SELECT ON TABLE public.comments FROM anon, authenticated;
