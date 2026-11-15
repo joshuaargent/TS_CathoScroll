@@ -83,7 +83,7 @@ async function checkForMacOSUpdate(): Promise<void> {
       message: 'A newer version of CathoScroll is available.',
       detail: `Version ${latestVersion} is available. You are currently using version ${currentVersion}.`,
       buttons: ['Download update', 'Later'],
-      defaultId: 0,
+      defaultId: 1,
       cancelId: 1,
     });
 
