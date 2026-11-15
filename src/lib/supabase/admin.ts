@@ -50,7 +50,8 @@ export async function getAuthenticatedUserFromRequest(request: Request) {
 }
 
 async function adminMfaSatisfied(supabase: Awaited<ReturnType<typeof createClient>>) {
-  const { data: enforced, error: enforcementError } = await supabase.rpc(
+  const serviceClient = createServiceRoleClient();
+  const { data: enforced, error: enforcementError } = await serviceClient.rpc(
     'admin_mfa_enforcement_enabled'
   );
   if (enforcementError) throw new Error(enforcementError.message);
