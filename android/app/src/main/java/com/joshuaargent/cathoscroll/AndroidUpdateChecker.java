@@ -17,6 +17,7 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
@@ -33,6 +34,8 @@ public final class AndroidUpdateChecker {
     private static final String APK_MIME_TYPE = "application/vnd.android.package-archive";
     private static final String PREFS_NAME = "cathoscroll_updates";
     private static final String PENDING_DOWNLOAD_ID = "pending_download_id";
+    private static final String PENDING_DOWNLOAD_VERSION = "pending_download_version";
+    private static boolean installerLaunched;
     private static final ExecutorService EXECUTOR = Executors.newSingleThreadExecutor();
 
     private AndroidUpdateChecker() {}
@@ -139,10 +142,22 @@ public final class AndroidUpdateChecker {
         SharedPreferences preferences = activity.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         long pendingId = preferences.getLong(PENDING_DOWNLOAD_ID, -1L);
         if (pendingId == -1L) return;
+        if (installerLaunched) {
+            installerLaunched = false;
+            return;
+        }
 
         try {
             DownloadManager manager = (DownloadManager) activity.getSystemService(Context.DOWNLOAD_SERVICE);
             if (manager == null) throw new IllegalStateException("Android DownloadManager is unavailable.");
+            String targetVersion = preferences.getString(PENDING_DOWNLOAD_VERSION, null);
+            String currentVersion = activity.getPackageManager().getPackageInfo(activity.getPackageName(), 0).versionName;
+            if (isStableVersion(targetVersion) && isStableVersion(currentVersion)
+                && !isNewerVersion(targetVersion, currentVersion)) {
+                manager.remove(pendingId);
+                clearPendingDownload(preferences);
+                return;
+            }
             try (Cursor cursor = manager.query(new DownloadManager.Query().setFilterById(pendingId))) {
                 if (cursor == null || !cursor.moveToFirst()) {
                     clearPendingDownload(preferences);
@@ -174,6 +189,13 @@ public final class AndroidUpdateChecker {
         try {
             DownloadManager manager = (DownloadManager) activity.getSystemService(Context.DOWNLOAD_SERVICE);
             String fileName = "CathoScroll-" + version + ".apk";
+            File downloadDirectory = activity.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS);
+            if (downloadDirectory != null) {
+                File existingFile = new File(downloadDirectory, fileName);
+                if (existingFile.exists() && !existingFile.delete()) {
+                    throw new IllegalStateException("Unable to replace the previous CathoScroll APK download.");
+                }
+            }
             DownloadManager.Request request = new DownloadManager.Request(Uri.parse(downloadUrl))
                 .setTitle("CathoScroll " + version)
                 .setDescription("Downloading the latest CathoScroll update")
@@ -185,7 +207,10 @@ public final class AndroidUpdateChecker {
 
             long downloadId = manager.enqueue(request);
             activity.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-                .edit().putLong(PENDING_DOWNLOAD_ID, downloadId).apply();
+                .edit()
+                .putLong(PENDING_DOWNLOAD_ID, downloadId)
+                .putString(PENDING_DOWNLOAD_VERSION, version)
+                .apply();
             Toast.makeText(activity, "CathoScroll update downloading. Android will notify you when it is ready.", Toast.LENGTH_LONG).show();
         } catch (Exception error) {
             android.util.Log.e("CathoScrollUpdates", "Unable to start the Android update download.", error);
@@ -231,9 +256,10 @@ public final class AndroidUpdateChecker {
             Intent installIntent = new Intent(Intent.ACTION_VIEW);
             installIntent.setDataAndType(apkUri, APK_MIME_TYPE);
             installIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
+            installerLaunched = true;
             activity.startActivity(installIntent);
-            clearPendingDownload(activity.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE));
         } catch (Exception error) {
+            installerLaunched = false;
             android.util.Log.e("CathoScrollUpdates", "Unable to open the Android package installer.", error);
             Toast.makeText(activity, "Android could not open the CathoScroll installer.", Toast.LENGTH_LONG).show();
         }
@@ -261,6 +287,20 @@ public final class AndroidUpdateChecker {
         if (pendingId == -1L) return false;
 
         DownloadManager manager = (DownloadManager) activity.getSystemService(Context.DOWNLOAD_SERVICE);
+        if (manager == null) return true;
+        try {
+            String targetVersion = preferences.getString(PENDING_DOWNLOAD_VERSION, null);
+            String currentVersion = activity.getPackageManager().getPackageInfo(activity.getPackageName(), 0).versionName;
+            if (isStableVersion(targetVersion) && isStableVersion(currentVersion)
+                && !isNewerVersion(targetVersion, currentVersion)) {
+                manager.remove(pendingId);
+                clearPendingDownload(preferences);
+                return false;
+            }
+        } catch (Exception error) {
+            android.util.Log.w("CathoScrollUpdates", "Unable to verify the installed Android version.", error);
+            return true;
+        }
         try (Cursor cursor = manager.query(new DownloadManager.Query().setFilterById(pendingId))) {
             if (cursor == null || !cursor.moveToFirst()) {
                 clearPendingDownload(preferences);
@@ -285,7 +325,7 @@ public final class AndroidUpdateChecker {
     }
 
     private static void clearPendingDownload(SharedPreferences preferences) {
-        preferences.edit().remove(PENDING_DOWNLOAD_ID).apply();
+        preferences.edit().remove(PENDING_DOWNLOAD_ID).remove(PENDING_DOWNLOAD_VERSION).apply();
     }
 
     private static void showToast(Activity activity, String message) {
