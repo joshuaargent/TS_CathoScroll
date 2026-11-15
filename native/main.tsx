@@ -1001,23 +1001,32 @@ function App() {
     async (cursor: CatalogueCursor | RecommendationCursor) => {
       if (!catalogue) throw new Error('The offline catalogue is not ready.');
       if ('categories' in cursor) {
-        if (!navigator.onLine) {
-          // Recommendation cursors are server-owned; restart from the local catalogue
-          // rather than passing an incompatible cursor into offline pagination.
-          notifyNativeStatus('Personalized recommendations need a connection. Showing saved topics instead.', {
-            id: 'feed-pagination',
+        // Recommendation cursors are server-owned. If the connection drops or
+        // the RPC fails, replace the feed with a fresh local catalogue page;
+        // never append page one to the existing personalized feed.
+        try {
+          if (!navigator.onLine) throw new Error('The device is offline.');
+          const { data, error } = await createClient().rpc('get_my_recommendation_page', {
+            feed_cursor: cursor,
+            page_limit: 50,
           });
-          return catalogue.topics();
+          if (error) throw error;
+          if (!data || typeof data !== 'object' || !Array.isArray(data.topics) || !('nextCursor' in data)) {
+            throw new Error('The recommendation service returned an invalid page.');
+          }
+          clearNativeStatusNotice('feed-pagination');
+          return data as { topics: Topic[]; nextCursor: RecommendationCursor | null };
+        } catch (cause) {
+          console.error('Unable to continue personalized feed pagination:', cause);
+          const page = await catalogue.topics();
+          setFirstPage(page);
+          setFeedPersonalized(false);
+          notifyNativeStatus('Personalized recommendations are unavailable. Showing saved topics instead.', {
+            id: 'feed-pagination',
+            action: { label: 'Retry', onClick: () => setFeedAttempt((value) => value + 1) },
+          });
+          return page;
         }
-        const { data, error } = await createClient().rpc('get_my_recommendation_page', {
-          feed_cursor: cursor,
-          page_limit: 50,
-        });
-        if (error) throw error;
-        if (!data || typeof data !== 'object' || !Array.isArray(data.topics) || !('nextCursor' in data)) {
-          throw new Error('The recommendation service returned an invalid page.');
-        }
-        return data as { topics: Topic[]; nextCursor: RecommendationCursor | null };
       }
       if (navigator.onLine) {
         try {
@@ -1068,6 +1077,7 @@ function App() {
                   hidden={route?.kind !== 'feed'}
                 >
                   <TopicFeedCore
+                    key={`${feedPersonalized ? 'personalized' : 'catalogue'}-${catalogueVersion}`}
                     topics={firstPage.topics}
                     nextCursor={firstPage.nextCursor}
                     personalized={feedPersonalized}
