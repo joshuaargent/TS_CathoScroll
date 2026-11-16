@@ -418,6 +418,7 @@ export function TopicFeedCore({
       sponsorLoadingRef.current = false;
       setTopicsSinceSponsorCard(sponsorRequestPreviousCadence.current);
     }
+    pendingSponsorAfterComment.current = false;
     if (seenTopCommentUserId.current !== userId) {
       seenTopCommentUserId.current = userId;
       seenTopCommentIds.current.clear();
