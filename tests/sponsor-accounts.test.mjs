@@ -97,7 +97,7 @@ test('sponsor portal scopes organisations, campaigns and metrics to the signed-i
   assert.match(sponsorPortalPage, /SponsorPortal/);
   assert.match(sponsorPortal, /Aggregate reporting/);
   assert.match(sponsorPortal, /Individual user identities are never shared/);
-  assert.match(sponsorPortal, /role === 'owner' \|\| selectedOrganization\.role === 'manager'/);
+  assert.match(sponsorPortal, /selectedOrganization\?\.role === 'owner' \|\| selectedOrganization\?\.role === 'manager'/);
 });
 
 test('sponsor campaign APIs authenticate, rate-limit and delegate authorisation to database RPCs', () => {
