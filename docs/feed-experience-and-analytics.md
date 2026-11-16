@@ -146,9 +146,16 @@ Implementation status on 16 November 2026:
 3. **Topic interaction instrumentation:** implemented without changing the topic-card UI; deployed data collection begins when the combined release is deployed.
 4. **Recommendation weighting and diversity safeguards:** first telemetry-weighted model implemented; quality/freshness scoring and measured experimentation remain future work.
 5. **Top-comment feed cards and eligibility:** implemented; real inventory testing remains outstanding because production currently has no comments.
-6. **Sponsor organisations, campaign management, weighted delivery and sponsor reporting:** not started.
+6. **Sponsor organisations, campaign management, weighted delivery and sponsor reporting:** initial private sponsor registration and manual bank-transfer recording are implemented in the admin dashboard. Public sponsor delivery, campaign creatives/targeting, frequency caps, weighted allocation, sponsor reporting and sponsor accounts remain unimplemented.
 7. **Admin topic/category analytics and graphs:** implemented; admin/non-admin browser verification remains outstanding.
 8. **Quiz entities, five-question feed cards, attempts and dedicated routes:** not started.
 9. **Sponsor billing:** deferred until inventory, reporting, pricing and payment-provider requirements are validated.
 
 Keep future phases independently reviewable. Do not merge or deploy until the relevant automated and deployed-client checks pass.
+
+
+## Current sponsor-management implementation boundary
+
+The current implementation adds a private administrator-only sponsor register at `/admin/sponsors`. Administrators can record the sponsor name, contact details, website/logo URLs, description, placement dates, status, agreed amount, currency, bank-transfer status/reference, and private notes. A payment marked as received is timestamped by the server. Creation is recorded in the existing append-only administrator audit log.
+
+Sponsorship payments are made directly to the CathoScroll bank account and reconciled manually. The application does not collect bank details, initiate transfers, or integrate a payment provider. Sponsor records are not public and creating an active record does not yet display an advert. Campaign delivery, targeting, frequency caps, weighted allocation, sponsor analytics, sponsor accounts and billing remain separate future work.
