@@ -2142,10 +2142,10 @@ test('batch sync acknowledges committed operations and preserves a rate-limited 
         return receipts;
       }
     );
-    assert.equal(await sync.push('alice'), 2);
+    assert.deepEqual(await sync.push('alice'), { sent: 2, deferred: true });
     assert.equal(await store.pendingCount('alice'), 1);
     deferred = false;
-    assert.equal(await sync.push('alice'), 1);
+    assert.deepEqual(await sync.push('alice'), { sent: 1, deferred: false });
     assert.equal(await store.pendingCount('alice'), 0);
   } finally {
     db.close();
