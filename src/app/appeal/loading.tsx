@@ -1,5 +1,5 @@
 import { CommentBanAppealPageView } from '@/components/comments/CommentBanAppealPageView';
-import { NativeAppealSkeleton } from '../../../../native/skeletons';
+import { NativeAppealSkeleton } from '../../../native/skeletons';
 
 export default function Loading() {
   return (
