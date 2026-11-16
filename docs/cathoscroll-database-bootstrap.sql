@@ -5271,14 +5271,20 @@ BEGIN
     SELECT 1 FROM catho_private.sponsor_campaign_events AS existing
     WHERE existing.user_id=p_user_id AND existing.campaign_id=p_campaign_id
       AND existing.session_id=p_session_id AND existing.event_type=p_event_type
-  ) THEN RETURN false; END IF;
+  ) THEN RETURN true; END IF;
 
   INSERT INTO catho_private.sponsor_campaign_events
     (campaign_id,event_id,user_id,session_id,event_type,received_at)
   VALUES (p_campaign_id,p_event_id,p_user_id,p_session_id,p_event_type,pg_catalog.statement_timestamp())
   ON CONFLICT DO NOTHING;
   GET DIAGNOSTICS v_inserted = ROW_COUNT;
-  IF v_inserted=0 THEN RETURN false; END IF;
+  IF v_inserted=0 THEN
+    RETURN EXISTS (
+      SELECT 1 FROM catho_private.sponsor_campaign_events AS existing
+      WHERE existing.user_id=p_user_id AND existing.campaign_id=p_campaign_id
+        AND existing.session_id=p_session_id AND existing.event_type=p_event_type
+    );
+  END IF;
 
   INSERT INTO catho_private.sponsor_campaign_daily
     (event_date,campaign_id,served_count,viewable_impressions,clicks,updated_at)
@@ -5292,6 +5298,10 @@ BEGIN
   RETURN true;
 END;
 $function$;
+ALTER FUNCTION public.record_sponsor_campaign_event(uuid, uuid, uuid, uuid, text) OWNER TO postgres;
+REVOKE ALL ON FUNCTION public.record_sponsor_campaign_event(uuid, uuid, uuid, uuid, text)
+  FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.record_sponsor_campaign_event(uuid, uuid, uuid, uuid, text) TO service_role;
 ALTER FUNCTION public.record_sponsor_campaign_event(uuid, uuid, uuid, uuid, text) OWNER TO postgres;
 REVOKE ALL ON FUNCTION public.record_sponsor_campaign_event(uuid, uuid, uuid, uuid, text)
   FROM PUBLIC, anon, authenticated, service_role;
