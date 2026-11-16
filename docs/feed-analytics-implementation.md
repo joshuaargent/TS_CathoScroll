@@ -117,7 +117,7 @@ The raw event table is deliberately not partitioned yet. Its production size is 
 
 ## Sponsor campaign delivery and reporting
 
-Sponsor campaigns are stored in `public.sponsor_campaigns`, with direct table access restricted to the service role and RLS enabled. Campaign creation and state transitions are performed through administrator-verified, postgres-owned SECURITY DEFINER RPCs. Approval requires an active/scheduled sponsor with payment reconciled as received or explicitly not required. The sponsor payment itself remains a direct bank transfer outside CathoScroll.
+Sponsor campaigns are stored in `public.sponsor_campaigns` with RLS enabled. The service role has SELECT-only access for the admin inventory; direct INSERT/UPDATE/DELETE are revoked. Campaign creation and state transitions are performed through administrator-verified, postgres-owned SECURITY DEFINER RPCs. Approval requires an active/scheduled sponsor with payment reconciled as received or explicitly not required. The sponsor payment itself remains a direct bank transfer outside CathoScroll.
 
 Weighted delivery is handled by `public.get_weighted_sponsor_campaigns`, which is service-role-only. It locks the requesting user's delivery transaction and the selected campaign rows, applies sponsor and campaign date/status/payment/category/topic eligibility, daily and lifetime caps, per-user 24-hour and lifetime frequency caps, and chooses campaigns using weighted random selection. It reserves up to five unique campaigns and records a served event before returning only public creative fields. Organic recommendation ranking is not modified.
 
