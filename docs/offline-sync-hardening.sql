@@ -160,22 +160,23 @@ BEGIN
   IF actor IS NULL OR actor IS DISTINCT FROM p_user THEN
     RAISE EXCEPTION 'Account does not match' USING ERRCODE = '42501';
   END IF;
-  IF p_operations IS NULL OR jsonb_typeof(p_operations) <> 'array'
-    OR jsonb_array_length(p_operations) < 1
-    OR jsonb_array_length(p_operations) > 100 THEN
+  IF p_operations IS NULL OR jsonb_typeof(p_operations) IS DISTINCT FROM 'array' THEN
+    RAISE EXCEPTION 'Invalid offline activity batch size' USING ERRCODE = '22023';
+  END IF;
+  IF jsonb_array_length(p_operations) < 1 OR jsonb_array_length(p_operations) > 100 THEN
     RAISE EXCEPTION 'Invalid offline activity batch size' USING ERRCODE = '22023';
   END IF;
 
   FOR item IN SELECT value FROM jsonb_array_elements(p_operations)
   LOOP
-    IF jsonb_typeof(item) <> 'object'
-      OR jsonb_typeof(item->'operationId') <> 'string'
-      OR jsonb_typeof(item->'deviceId') <> 'string'
-      OR jsonb_typeof(item->'sequence') <> 'string'
-      OR jsonb_typeof(item->'acknowledgedSequence') <> 'string'
-      OR jsonb_typeof(item->'topicId') <> 'string'
-      OR jsonb_typeof(item->'kind') <> 'string'
-      OR jsonb_typeof(item->'value') <> 'boolean'
+    IF jsonb_typeof(item) IS DISTINCT FROM 'object'
+      OR jsonb_typeof(item->'operationId') IS DISTINCT FROM 'string'
+      OR jsonb_typeof(item->'deviceId') IS DISTINCT FROM 'string'
+      OR jsonb_typeof(item->'sequence') IS DISTINCT FROM 'string'
+      OR jsonb_typeof(item->'acknowledgedSequence') IS DISTINCT FROM 'string'
+      OR jsonb_typeof(item->'topicId') IS DISTINCT FROM 'string'
+      OR jsonb_typeof(item->'kind') IS DISTINCT FROM 'string'
+      OR jsonb_typeof(item->'value') IS DISTINCT FROM 'boolean'
       OR (item ? 'completedAt' AND jsonb_typeof(item->'completedAt') NOT IN ('string', 'null')) THEN
       RAISE EXCEPTION 'Invalid offline activity batch operation' USING ERRCODE = '22023';
     END IF;
@@ -194,6 +195,8 @@ BEGIN
     sequence_value := item->>'sequence';
     acknowledged_value := item->>'acknowledgedSequence';
 
+    -- Keep the last client-confirmed acknowledgement fixed across this batch.
+    -- The client can only confirm these receipts after the entire response is committed locally.
     IF previous_device IS NOT NULL
       AND (device_id IS DISTINCT FROM previous_device
         OR acknowledged_value IS DISTINCT FROM initial_acknowledgement
