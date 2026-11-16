@@ -239,3 +239,5 @@ $function$;
 
 REVOKE ALL ON FUNCTION public.offline_apply_activity_batch(uuid, jsonb) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.offline_apply_activity_batch(uuid, jsonb) TO authenticated;
+
+NOTIFY pgrst, 'reload schema';
