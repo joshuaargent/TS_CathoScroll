@@ -47,6 +47,7 @@ test('admin sponsor membership changes are audited and service-role-only', () =>
   assert.match(status, /public\.admin_users/);
   assert.match(status, /'suspend', 'reactivate', 'revoke'/);
   assert.match(status, /sponsor\.member_/);
+  assert.match(status, /last active sponsor owner cannot be suspended or revoked/);
   assert.match(lookup, /auth\.users/);
   assert.match(lookup, /lower\(users\.email\)/);
   assert.match(bootstrap, /GRANT EXECUTE ON FUNCTION public\.admin_find_sponsor_user_by_email[^;]+TO service_role/);
