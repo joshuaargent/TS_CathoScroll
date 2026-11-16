@@ -7,6 +7,7 @@ import { siteConfig } from '@/lib/constants';
 import { Badge } from '@/components/ui/Badge';
 import { CategoriesGrid } from '@/components/categories/CategoriesGrid';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { NativeGridSkeleton } from '../../../native/skeletons';
 
 export const metadata: Metadata = {
   title: 'Categories',
@@ -73,26 +74,6 @@ function CategoriesCountSkeleton() {
   return <div className="mt-6"><Skeleton className="h-8 w-44" /></div>;
 }
 
-function CategoriesGridSkeleton() {
-  return (
-    <div
-      aria-label="Loading categories"
-      aria-busy="true"
-      role="status"
-      className="grid gap-6 md:grid-cols-2 xl:grid-cols-3"
-    >
-      {Array.from({ length: 6 }, (_, index) => (
-        <article key={index} className="border-border rounded-2xl border p-6">
-          <Skeleton className="h-5 w-28" />
-          <Skeleton className="mt-4 h-7 w-1/2" />
-          <Skeleton className="mt-3 h-4 w-full" />
-          <Skeleton className="mt-2 h-4 w-5/6" />
-        </article>
-      ))}
-    </div>
-  );
-}
-
 export default function CategoriesPage() {
   const categoriesPromise = getPublishedCategories();
   const topicCountPromise = getPublishedTopicCount();
@@ -110,7 +91,7 @@ export default function CategoriesPage() {
         </Suspense>
       </div>
 
-      <Suspense fallback={<CategoriesGridSkeleton />}>
+      <Suspense fallback={<NativeGridSkeleton label="Loading categories" />}>
         <CategoriesGridContent categoriesPromise={categoriesPromise} />
       </Suspense>
 
