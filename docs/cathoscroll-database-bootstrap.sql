@@ -15,7 +15,7 @@
 --     the same PostgreSQL major version as the source project.
 --   * pg_cron and permission to create the ensure_rls event trigger are required.
 --
--- Object counts at export: 27 tables, 61 functions, 33 triggers, 32 policies,
+-- Object counts at export: 29 tables, 62 functions, 33 triggers, 32 policies,
 -- 15 categories and 86 topics.
 --
 DO $bootstrap_guard$
@@ -3685,6 +3685,181 @@ ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public REVOKE ALL ON SEQUEN
 -- Preserve the source project's service_role defaults for future objects.
 ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON TABLES TO service_role;
 ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON SEQUENCES TO service_role;
+
+-- Private feed analytics telemetry. Raw rows are available only through
+-- authenticated, validated RPC ingestion and server-side aggregate queries.
+CREATE TABLE catho_private.feed_analytics_events (
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  event_id uuid NOT NULL,
+  event_type text NOT NULL CHECK (event_type IN (
+    'impression', 'viewable_impression', 'active_duration', 'skip',
+    'swipe_depth', 'completion', 'return_visit'
+  )),
+  entity_type text NOT NULL CHECK (entity_type = 'topic'),
+  entity_id text NOT NULL REFERENCES public.topics(id) ON DELETE CASCADE,
+  session_id uuid NOT NULL,
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  received_at timestamptz NOT NULL DEFAULT statement_timestamp(),
+  CONSTRAINT feed_analytics_metadata_object CHECK (jsonb_typeof(metadata) = 'object'),
+  CONSTRAINT feed_analytics_metadata_size CHECK (octet_length(metadata::text) <= 1024),
+  CONSTRAINT feed_analytics_events_pkey PRIMARY KEY (user_id, event_id)
+);
+CREATE TABLE catho_private.feed_analytics_event_limits (
+  user_id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  window_started_at timestamptz NOT NULL DEFAULT statement_timestamp(),
+  event_count integer NOT NULL DEFAULT 0 CHECK (event_count >= 0)
+);
+CREATE INDEX feed_analytics_events_topic_time_idx
+  ON catho_private.feed_analytics_events (entity_id, received_at DESC);
+CREATE INDEX feed_analytics_events_user_time_idx
+  ON catho_private.feed_analytics_events (user_id, received_at DESC);
+CREATE INDEX feed_analytics_events_type_time_idx
+  ON catho_private.feed_analytics_events (event_type, received_at DESC);
+ALTER TABLE catho_private.feed_analytics_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE catho_private.feed_analytics_event_limits ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE catho_private.feed_analytics_events FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON TABLE catho_private.feed_analytics_event_limits FROM PUBLIC, anon, authenticated, service_role;
+
+CREATE OR REPLACE FUNCTION public.record_feed_analytics_events(p_events jsonb)
+RETURNS integer
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog, public, catho_private
+AS $function$
+DECLARE
+  v_user_id uuid := auth.uid();
+  v_event jsonb;
+  v_event_id uuid;
+  v_event_type text;
+  v_entity_type text;
+  v_entity_id text;
+  v_session_id uuid;
+  v_metadata jsonb;
+  v_key text;
+  v_value jsonb;
+  v_inserted integer := 0;
+  v_submitted integer;
+  v_count integer;
+BEGIN
+  IF v_user_id IS NULL THEN RAISE EXCEPTION 'Authentication required' USING ERRCODE = '42501'; END IF;
+  IF p_events IS NULL OR jsonb_typeof(p_events) <> 'array' THEN RAISE EXCEPTION 'Events must be a JSON array' USING ERRCODE = '22023'; END IF;
+  v_submitted := jsonb_array_length(p_events);
+  IF v_submitted < 1 OR v_submitted > 50 OR octet_length(p_events::text) > 16384 THEN
+    RAISE EXCEPTION 'Invalid analytics batch size' USING ERRCODE = '22023';
+  END IF;
+
+  INSERT INTO catho_private.feed_analytics_event_limits AS limits
+    (user_id, window_started_at, event_count)
+  VALUES (v_user_id, statement_timestamp(), v_submitted)
+  ON CONFLICT (user_id) DO UPDATE
+    SET window_started_at = CASE
+          WHEN limits.window_started_at <= statement_timestamp() - interval '1 minute' THEN statement_timestamp()
+          ELSE limits.window_started_at END,
+        event_count = CASE
+          WHEN limits.window_started_at <= statement_timestamp() - interval '1 minute' THEN EXCLUDED.event_count
+          ELSE limits.event_count + EXCLUDED.event_count END
+  RETURNING event_count INTO v_count;
+  IF v_count > 120 THEN RAISE EXCEPTION 'Analytics event rate limit exceeded' USING ERRCODE = 'P0001'; END IF;
+
+  FOR v_event IN SELECT value FROM jsonb_array_elements(p_events)
+  LOOP
+    IF jsonb_typeof(v_event) <> 'object'
+       OR (SELECT count(*) FROM jsonb_object_keys(v_event)) <> 6
+       OR NOT (v_event ?& ARRAY['event_id','session_id','event_type','entity_type','entity_id','metadata']) THEN
+      RAISE EXCEPTION 'Invalid analytics event shape' USING ERRCODE = '22023';
+    END IF;
+    BEGIN
+      v_event_id := (v_event ->> 'event_id')::uuid;
+      v_session_id := (v_event ->> 'session_id')::uuid;
+    EXCEPTION WHEN OTHERS THEN
+      RAISE EXCEPTION 'Invalid analytics event identifier' USING ERRCODE = '22023';
+    END;
+    IF v_event_id IS NULL OR v_session_id IS NULL THEN
+      RAISE EXCEPTION 'Analytics event identifiers are required' USING ERRCODE = '22023';
+    END IF;
+
+    v_event_type := v_event ->> 'event_type';
+    v_entity_type := v_event ->> 'entity_type';
+    v_entity_id := v_event ->> 'entity_id';
+    v_metadata := v_event -> 'metadata';
+    IF v_event_type IS NULL OR v_event_type NOT IN (
+      'impression', 'viewable_impression', 'active_duration', 'skip',
+      'swipe_depth', 'completion', 'return_visit'
+    ) OR v_entity_type IS NULL OR v_entity_type <> 'topic'
+       OR v_entity_id IS NULL OR length(v_entity_id) NOT BETWEEN 1 AND 100
+       OR v_metadata IS NULL OR jsonb_typeof(v_metadata) <> 'object'
+       OR octet_length(v_metadata::text) > 1024 THEN
+      RAISE EXCEPTION 'Invalid analytics event values' USING ERRCODE = '22023';
+    END IF;
+
+    FOR v_key, v_value IN SELECT key, value FROM jsonb_each(v_metadata)
+    LOOP
+      IF v_key NOT IN ('slide_index', 'duration_ms', 'source', 'depth', 'completion_percent') THEN
+        RAISE EXCEPTION 'Unsupported analytics metadata field' USING ERRCODE = '22023';
+      END IF;
+      IF v_key IN ('slide_index', 'duration_ms', 'depth', 'completion_percent')
+         AND (jsonb_typeof(v_value) <> 'number' OR (v_value #>> '{}') !~ '^[0-9]+CREATE EVENT TRIGGER ensure_rls ON ddl_command_end EXECUTE FUNCTION public.rls_auto_enable();
+
+-- Scheduled retention jobs
+DO $cron_restore$
+DECLARE existing_job record;
+BEGIN
+  FOR existing_job IN SELECT jobid FROM cron.job WHERE jobname = 'cathoscroll-prune-activity' LOOP
+    PERFORM cron.unschedule(existing_job.jobid);
+  END LOOP;
+  PERFORM cron.schedule('cathoscroll-prune-activity', '*/5 * * * *', 'SELECT catho_private.prune_due_activity();');
+  FOR existing_job IN SELECT jobid FROM cron.job WHERE jobname = 'cathoscroll-prune-catalogue' LOOP
+    PERFORM cron.unschedule(existing_job.jobid);
+  END LOOP;
+  PERFORM cron.schedule('cathoscroll-prune-catalogue', '2,17,32,47 * * * *', 'SELECT public.offline_catalogue_prune_old(clock_timestamp() - interval ''31 days'', 1000);');
+END;
+$cron_restore$;
+
+NOTIFY pgrst, 'reload schema';
+-- End of CathoScroll application-schema and catalogue bootstrap.) THEN
+        RAISE EXCEPTION 'Invalid numeric analytics metadata' USING ERRCODE = '22023';
+      END IF;
+      IF v_key = 'duration_ms' AND (v_value #>> '{}')::numeric NOT BETWEEN 0 AND 60000 THEN
+        RAISE EXCEPTION 'Invalid duration' USING ERRCODE = '22023';
+      END IF;
+      IF v_key = 'slide_index' AND (v_value #>> '{}')::numeric NOT BETWEEN 0 AND 20 THEN
+        RAISE EXCEPTION 'Invalid slide index' USING ERRCODE = '22023';
+      END IF;
+      IF v_key = 'depth' AND (v_value #>> '{}')::numeric NOT BETWEEN 0 AND 20 THEN
+        RAISE EXCEPTION 'Invalid swipe depth' USING ERRCODE = '22023';
+      END IF;
+      IF v_key = 'completion_percent' AND (v_value #>> '{}')::numeric NOT BETWEEN 0 AND 100 THEN
+        RAISE EXCEPTION 'Invalid completion percentage' USING ERRCODE = '22023';
+      END IF;
+      IF v_key = 'source' AND (
+        jsonb_typeof(v_value) <> 'string'
+        OR v_value #>> '{}' NOT IN ('feed', 'topic', 'category', 'search', 'related', 'direct')
+      ) THEN
+        RAISE EXCEPTION 'Invalid analytics source' USING ERRCODE = '22023';
+      END IF;
+    END LOOP;
+
+    IF NOT EXISTS (
+      SELECT 1 FROM public.topics t WHERE t.id = v_entity_id AND t.is_published = true
+    ) THEN
+      RAISE EXCEPTION 'Analytics topic is unavailable' USING ERRCODE = '22023';
+    END IF;
+    INSERT INTO catho_private.feed_analytics_events (
+      user_id, event_id, event_type, entity_type, entity_id,
+      session_id, metadata, received_at
+    )
+    VALUES (
+      v_user_id, v_event_id, v_event_type, v_entity_type, v_entity_id,
+      v_session_id, v_metadata, statement_timestamp()
+    )
+    ON CONFLICT (user_id, event_id) DO NOTHING;
+    IF FOUND THEN v_inserted := v_inserted + 1; END IF;
+  END LOOP;
+  RETURN v_inserted;
+END;
+$function$;
+REVOKE ALL ON FUNCTION public.record_feed_analytics_events(jsonb) FROM PUBLIC, anon, service_role;
+GRANT EXECUTE ON FUNCTION public.record_feed_analytics_events(jsonb) TO authenticated;
 
 -- DDL event triggers
 CREATE EVENT TRIGGER ensure_rls ON ddl_command_end EXECUTE FUNCTION public.rls_auto_enable();
