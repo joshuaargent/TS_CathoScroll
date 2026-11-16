@@ -2121,14 +2121,16 @@ test('batch sync acknowledges committed operations and preserves a rate-limited 
         throw new Error('The single-operation fallback should not be used.');
       },
       async (operations) => {
-        const receipts = operations.slice(0, deferred ? 2 : operations.length).map((operation, index) => ({
-          userId: operation.userId,
-          operationId: operation.operationId,
-          status: 'applied',
-          revision: String(++serverRevision),
-          value: operation.value,
-          completedAt: operation.completedAt,
-        }));
+        const receipts = operations
+          .slice(0, deferred ? 2 : operations.length)
+          .map((operation) => ({
+            userId: operation.userId,
+            operationId: operation.operationId,
+            status: 'applied',
+            revision: String(++serverRevision),
+            value: operation.value,
+            completedAt: operation.completedAt,
+          }));
         if (deferred) {
           receipts.push({
             userId: operations[2].userId,
