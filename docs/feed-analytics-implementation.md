@@ -92,3 +92,10 @@ Recommendation smoke tests used rollback-only fixtures to verify per-signal caps
 - Exercise comment gestures, discussion deep links, pagination boundaries, account switching and moderation refresh.
 - Run category aggregation with multiple topic fixtures and inspect query plans with representative event volume.
 - Do not enable sponsor campaigns or quiz cards until their own data models, reporting, eligibility and security work is implemented and tested.
+
+
+## Manual sponsor registration
+
+The current PR also adds a private administrator-only sponsor register at `/admin/sponsors`. Sponsor records live in `public.sponsors`, with RLS enabled and direct table privileges revoked from `anon` and `authenticated`. Only the server-side service role can read the table. Creation goes through `public.admin_create_sponsor`, which is executable only by `service_role`, verifies that the supplied actor is an administrator, writes the sponsor row and appends an audit record in the same database transaction.
+
+The form records the agreed amount in minor currency units, currency, placement dates, status, contact/creative metadata and manually reconciled bank-transfer state/reference. Selecting “received in bank” records the timestamp on the server. No bank details are stored and no payment provider or transfer is initiated. This is sponsor record management only: it does not publish adverts, deliver campaigns, or expose sponsor data to learners. Campaign delivery, targeting, caps, weighted allocation and sponsor reporting remain future work.
