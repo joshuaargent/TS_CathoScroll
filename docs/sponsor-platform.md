@@ -99,6 +99,7 @@ Sponsor access:
 - `catho_private.sponsor_member_audit`
 - `public.admin_add_sponsor_member`
 - `public.admin_set_sponsor_member_status`
+- `public.admin_set_sponsor_status`
 - `public.admin_find_sponsor_user_by_email`
 
 Campaign submissions and reporting:
