@@ -362,9 +362,11 @@ limits also apply to the underlying writes: bookmarks are limited to 120 per
 hour, topic likes to 180 per hour, and progress changes to 1,000 per hour.
 When an action limit is reached, the batch returns a deferred receipt for the
 first unprocessed operation. Earlier successful receipts are retained and
-acknowledged; the deferred operation remains queued for a later retry. These
-limits are enforced in Postgres and cannot be bypassed by calling the RPC
-directly from a modified client.
+acknowledged; the deferred operation remains queued for a later retry. The
+native app displays that saved changes are waiting for the limit to reset,
+keeps sign-out blocked while the outbox is non-empty, and clears the message
+when syncing resumes. These limits are enforced in Postgres and cannot be
+bypassed by calling the RPC directly from a modified client.
 
 The in-process background worker retries failed requests after 30 seconds
 and normally checks for further changes every 60 seconds while the app is open
