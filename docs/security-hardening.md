@@ -3,7 +3,7 @@
 **Updated:** 16 November 2026  
 **Scope:** Website, API, Supabase database, moderation and native administrator access.
 
-This is an operational reference, not an executable SQL script or a database migration. The Supabase schema and security changes are managed directly in the connected Supabase project, as requested. No migration files are used.
+This is an operational reference, not an executable SQL script. Applied schema changes are recorded in `supabase/migrations/`; `docs/cathoscroll-database-bootstrap.sql` is the canonical fresh-project snapshot.
 
 ## Database security
 
@@ -189,13 +189,27 @@ with the merged `main` branch; do not deploy an older application build
 against the hardened schema.
 
 
-## Manual sponsor records
+## Sponsor organisations and account membership
 
-The sponsor register is administrator-only. `public.sponsors` has RLS enabled, no client-facing policies, and direct table privileges revoked from `PUBLIC`, `anon`, and `authenticated`; the server-side service role is used by the protected admin APIs. The no-policy RLS advisor notice is intentional for this private table.
+The sponsor register is administrator-only. `public.sponsors` has RLS enabled, no client-facing policies and direct table privileges revoked from `PUBLIC`, `anon` and `authenticated`. `public.sponsor_memberships` is also RLS-enabled; the service role has SELECT-only access and all writes go through audited RPCs. `catho_private.sponsor_member_audit` has RLS enabled and no direct table grants.
 
-Sponsor creation and bank-transfer reconciliation use `public.admin_create_sponsor` and `public.admin_mark_sponsor_payment_received`. Both are postgres-owned SECURITY DEFINER functions with an empty search path, revoked from `PUBLIC`, `anon`, and `authenticated`, and executable only by `service_role`. They verify the supplied actor exists in `public.admin_users` and append an audit record in the same transaction as the sponsor change. The API independently enforces the admin/MFA session, same-origin/native request validation, bounded JSON and per-admin rate limits.
+Administrators assign existing Auth accounts to sponsor organisations by exact email through `public.admin_find_sponsor_user_by_email` and `public.admin_add_sponsor_member`. The lookup returns only the matching user UUID, verifies the supplied actor against `public.admin_users`, and is executable only by `service_role`. Membership roles are `owner`, `manager` and `analyst`; statuses are `active`, `suspended` and `revoked`. `public.admin_set_sponsor_member_status` audits changes and prevents removal of the last active owner. Sponsor representatives must already have a CathoScroll account; this flow does not create accounts, send invitations or alter email-verification settings.
 
-Bank transfers are made directly to the CathoScroll bank account and marked received by an administrator after checking the bank statement. The database records the server receipt timestamp and optional reference. The application does not collect bank account details or initiate payments. Creating a sponsor record alone does not publish an advert; an approved, paid and in-date campaign is delivered through the authenticated sponsored-feed API. Sponsor records remain private, and no sponsor self-service account or payment-provider integration exists.
+Sponsor portal reads are server-side and filtered by the authenticated user's active memberships. `public.get_sponsor_campaign_analytics` and `public.get_sponsor_financials` verify membership independently. Sponsor users cannot access another organisation, admin routes, user-level analytics or raw campaign events. Owner/manager roles may submit and edit draft, pending-approval and rejected campaigns; analyst is read-only. Approved and paused campaigns cannot be edited by sponsor users.
+
+## Sponsor campaign security controls
+
+Campaign inventory is protected by RLS with direct access revoked from public, anonymous and authenticated clients. The service role has SELECT-only access for administrator inventory; INSERT, UPDATE and DELETE are revoked so campaign writes must use audited RPCs. Administrator campaign creation/status changes and aggregate reporting use postgres-owned SECURITY DEFINER functions with an empty search path and execution restricted to `service_role`. Sponsor campaign submission/edit functions also use postgres ownership, empty search paths and service-role-only execution, and independently verify active owner/manager membership.
+
+Campaign delivery and event recording are service-role-only RPCs. Delivery verifies the authenticated user, serializes concurrent selection per user, locks selected campaign rows to enforce global caps, and filters by sponsor payment/status/date windows, campaign dates, targeting and frequency caps. The API returns only approved public creative fields. Each card placement receives its own placement/session UUID; returning to the same card reuses that ID. Event recording requires a matching served event in the same placement session; clicks require a prior viewable impression. Unique partial indexes prevent concurrent duplicate viewable/click events. Raw event rows and per-user frequency rows are retained only as long as required for reporting and caps; aggregate daily metrics contain no user identifiers. The bounded retention job automatically completes expired approved/paused campaigns and removes their frequency rows after the retention window.
+
+## Sponsor invoice and payment reconciliation
+
+`catho_private.sponsor_invoices` and `catho_private.sponsor_payment_transactions` are RLS-enabled private tables with no direct grants to `PUBLIC`, `anon`, `authenticated` or `service_role`. Financial reads and writes are exposed only through administrator- or sponsor-membership-checked RPCs. The service role cannot directly mutate the ledger.
+
+Administrators create and issue invoices through `public.admin_create_sponsor_invoice`. Invoice currency must match the sponsor's agreed currency. Bank transfers are made outside CathoScroll; an administrator checks the bank statement and records the actual amount received using `public.admin_record_sponsor_payment`. Partial payments update the outstanding balance, overpayments are rejected, and an optional unique statement transaction key prevents duplicate allocation. Refunds are separate transactions linked to the original payment and cannot exceed its unrefunded amount. `public.admin_record_sponsor_refund` is scoped to a sponsor and original payment. Payment status is recalculated from the agreed amount and all outstanding issued invoices; the previous direct `admin_mark_sponsor_payment_received` override has had execution revoked. Invoice/payment/refund actions are appended to the administrator audit log.
+
+Sponsor financial summaries contain only the organisation's invoices, balances and bank-transfer references. They do not expose the administrator who recorded a transaction or any other sponsor's data. Admin financial APIs require administrator/MFA verification, same-origin/native request validation, bounded JSON and shared rate limits. Sponsor financial APIs require an active authenticated membership. No bank account details, card details, payment-provider credentials or bank integrations are stored in CathoScroll.
 
 
 ## Feed analytics aggregate storage
