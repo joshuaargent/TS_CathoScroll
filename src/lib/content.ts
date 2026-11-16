@@ -51,6 +51,7 @@ function mapDatabaseTopic(row: DatabaseTopic): Topic {
     id: row.id,
     slug: row.slug,
     category: row.category.name,
+    categorySlug: row.category.slug,
     question: row.question,
     answer: row.answer,
     explanation: row.explanation,
