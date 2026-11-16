@@ -197,10 +197,10 @@ export function SponsorFeedCard({
       <div className="flex min-h-0 flex-1 flex-col justify-center">
         <article
           ref={cardRef}
-          className="bg-bg-card border-border w-full overflow-hidden rounded-3xl border"
+          className="mx-auto w-full max-w-3xl text-center"
         >
           {campaign.image_url && (
-            <div className="bg-bg-secondary relative aspect-[16/7] w-full">
+            <div className="bg-bg-secondary relative mx-auto aspect-[16/7] w-full overflow-hidden rounded-2xl">
               <Image
                 src={campaign.image_url}
                 alt=""
@@ -211,8 +211,8 @@ export function SponsorFeedCard({
               />
             </div>
           )}
-          <div className="p-6">
-            <div className="mb-5 flex flex-wrap items-center gap-3">
+          <div className="px-1 py-4 md:px-4 md:py-6">
+            <div className="mb-5 flex flex-wrap items-center justify-center gap-3">
               {campaign.sponsor_logo_url && (
                 <Image
                   src={campaign.sponsor_logo_url}
@@ -223,7 +223,7 @@ export function SponsorFeedCard({
                   className="h-11 w-11 rounded-lg border border-border object-contain"
                 />
               )}
-              <div className="min-w-0">
+              <div className="min-w-0 text-left">
                 <p className="text-text-primary truncate font-semibold">{campaign.sponsor_name}</p>
                 <p className="text-text-muted text-xs">Paid partnership</p>
               </div>
@@ -235,10 +235,10 @@ export function SponsorFeedCard({
             <p className="text-text-muted mb-2 text-xs font-semibold tracking-wider uppercase">
               {campaign.campaign_name}
             </p>
-            <h3 className="text-text-primary text-2xl leading-tight font-bold">
+            <h3 className="text-text-primary text-3xl leading-tight font-bold md:text-4xl">
               {campaign.headline}
             </h3>
-            <p className="text-text-secondary mt-3 whitespace-pre-line leading-relaxed">
+            <p className="text-text-secondary mx-auto mt-3 max-w-2xl whitespace-pre-line text-lg leading-relaxed">
               {campaign.body}
             </p>
 
