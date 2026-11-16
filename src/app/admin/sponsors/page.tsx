@@ -25,6 +25,32 @@ export default async function AdminSponsorsPage() {
     throw new Error('Unable to load sponsor management.');
   }
 
+  const { data: membershipRows, error: membershipError } = await adminClient
+    .from('sponsor_memberships')
+    .select('id,sponsor_id,user_id,role,status')
+    .order('created_at', { ascending: true })
+    .limit(500);
+  if (membershipError) {
+    console.error('Unable to load sponsor memberships:', membershipError.message);
+    throw new Error('Unable to load sponsor account access.');
+  }
+
+  const memberUserIds = [...new Set((membershipRows ?? []).map((membership) => membership.user_id))];
+  const { data: profiles, error: profilesError } = memberUserIds.length
+    ? await adminClient.from('profiles').select('id,display_name,username').in('id', memberUserIds)
+    : { data: [], error: null };
+  if (profilesError) {
+    console.error('Unable to load sponsor account profiles:', profilesError.message);
+    throw new Error('Unable to load sponsor account profiles.');
+  }
+
+  const profilesById = new Map((profiles ?? []).map((profile) => [profile.id, profile]));
+  const memberships = (membershipRows ?? []).map((membership) => ({
+    ...membership,
+    display_name: profilesById.get(membership.user_id)?.display_name ?? null,
+    username: profilesById.get(membership.user_id)?.username ?? null,
+  }));
+
   return (
     <main className="container py-12">
       <div className="mt-8">
@@ -38,7 +64,7 @@ export default async function AdminSponsorsPage() {
       <div className="mt-8">
         <AdminNavigation />
       </div>
-      <SponsorManager sponsors={(data ?? []) as SponsorRecord[]} />
+      <SponsorManager sponsors={(data ?? []) as SponsorRecord[]} memberships={memberships} />
     </main>
   );
 }
