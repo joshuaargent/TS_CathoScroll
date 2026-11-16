@@ -11,6 +11,13 @@ import {
   type TopFeedComment,
 } from '@/lib/feed-comments';
 import { TopCommentFeedCard } from './TopCommentFeedCard';
+import {
+  getNextSponsorCadence,
+  parseSponsorFeedCampaigns,
+  shouldInsertSponsorCard,
+  type SponsorFeedCampaign,
+} from '@/lib/sponsor-campaigns';
+import { SponsorFeedCard } from './SponsorFeedCard';
 
 import type { TopicPageCursor } from '@/lib/content';
 import type { RecommendationCursor } from '@/lib/recommendations';
@@ -18,6 +25,12 @@ import { Topic } from '@/types';
 
 type FeedCursor = TopicPageCursor | RecommendationCursor;
 type FeedPage = { topics: Topic[]; nextCursor: FeedCursor | null };
+
+function createSponsorSessionId(): string | null {
+  return typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : null;
+}
 type ViewerProps = {
   topics: Topic[];
   topicIndex: number;
@@ -35,6 +48,7 @@ type TopicFeedCoreProps = {
   preservePositionOnUpdate?: boolean;
   topCommentsEndpoint?: string;
   onOpenComment?: (comment: TopFeedComment) => void;
+  getSponsorAccessToken?: () => Promise<string | null>;
 };
 
 export function TopicFeedCore({
@@ -47,6 +61,7 @@ export function TopicFeedCore({
   preservePositionOnUpdate = false,
   topCommentsEndpoint,
   onOpenComment,
+  getSponsorAccessToken,
 }: TopicFeedCoreProps) {
   const [feedTopics, setFeedTopics] = useState<Topic[]>(topics);
   const [topComments, setTopComments] = useState<TopFeedComment[]>([]);
@@ -57,6 +72,14 @@ export function TopicFeedCore({
   const topCommentCadenceUserId = useRef(userId);
   const topCommentCardsByTopicId = useRef(new Map<string, TopFeedComment[]>());
   const [topicsSinceTopCommentCard, setTopicsSinceTopCommentCard] = useState(0);
+  const [sponsorCampaigns, setSponsorCampaigns] = useState<SponsorFeedCampaign[]>([]);
+  const [showSponsorCard, setShowSponsorCard] = useState(false);
+  const [topicsSinceSponsorCard, setTopicsSinceSponsorCard] = useState(0);
+  const sponsorCardsByTopicId = useRef(new Map<string, SponsorFeedCampaign[]>());
+  const sponsorSessionId = useRef<string | null>(null);
+  const sponsorSessionUserId = useRef(userId);
+  const sponsorLoadingRef = useRef(false);
+  const lastInterstitialType = useRef<'comment' | 'sponsor' | null>(null);
 
   const [topicIndex, setTopicIndex] = useState(personalized ? 0 : Math.floor(topics.length / 2));
   const [nextCursor, setNextCursor] = useState(initialCursor);
@@ -69,6 +92,49 @@ export function TopicFeedCore({
   useEffect(() => {
     currentTopicId.current = feedTopics[topicIndex]?.id ?? null;
   }, [feedTopics, topicIndex]);
+
+  useEffect(() => {
+    if (sponsorSessionUserId.current === userId) return;
+    sponsorSessionUserId.current = userId;
+    sponsorSessionId.current = createSponsorSessionId();
+    sponsorCardsByTopicId.current.clear();
+    sponsorLoadingRef.current = false;
+    lastInterstitialType.current = null;
+    setSponsorCampaigns([]);
+    setShowSponsorCard(false);
+    setTopicsSinceSponsorCard(0);
+    setTopicsSinceTopCommentCard(0);
+  }, [userId]);
+
+  const loadSponsorCampaigns = useCallback(
+    async (topic: Topic): Promise<SponsorFeedCampaign[]> => {
+      if (!userId || !getSponsorAccessToken) return [];
+      const sessionId = sponsorSessionId.current ?? createSponsorSessionId();
+      if (!sessionId) return [];
+      sponsorSessionId.current = sessionId;
+
+      try {
+        const accessToken = await getSponsorAccessToken();
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+        const response = await fetch('/api/content/sponsored-campaigns', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers,
+          body: JSON.stringify({
+            sessionId,
+            categorySlug: topic.categorySlug ?? null,
+            topicId: topic.id,
+          }),
+        });
+        if (!response.ok) return [];
+        return parseSponsorFeedCampaigns(await response.json());
+      } catch {
+        return [];
+      }
+    },
+    [getSponsorAccessToken, userId]
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -212,39 +278,96 @@ export function TopicFeedCore({
       return;
     }
 
-    let currentCadence = topicsSinceTopCommentCard;
+    let currentCommentCadence = topicsSinceTopCommentCard;
+    let currentSponsorCadence = topicsSinceSponsorCard;
 
     if (seenTopCommentUserId.current !== userId) {
       seenTopCommentUserId.current = userId;
       seenTopCommentIds.current.clear();
       topCommentCardsByTopicId.current.clear();
+      currentCommentCadence = 0;
     }
 
     if (topCommentCadenceUserId.current !== userId) {
       topCommentCadenceUserId.current = userId;
-      currentCadence = 0;
+      currentCommentCadence = 0;
+    }
+
+    if (sponsorSessionUserId.current !== userId) {
+      sponsorSessionUserId.current = userId;
+      sponsorSessionId.current = createSponsorSessionId();
+      sponsorCardsByTopicId.current.clear();
+      currentSponsorCadence = 0;
     }
 
     const unseenTopComments = getUnseenTopFeedComments(
       topComments,
       seenTopCommentIds.current
     );
-    const shouldInsertCommentCard = shouldInsertTopCommentCard(
-      currentCadence,
+    const commentDue = shouldInsertTopCommentCard(
+      currentCommentCadence,
       unseenTopComments.length > 0
     );
-    setTopicsSinceTopCommentCard(getNextTopCommentCadence(currentCadence));
+    const sponsorDue = shouldInsertSponsorCard(currentSponsorCadence, Boolean(userId));
+    const nextCommentCadence = getNextTopCommentCadence(currentCommentCadence);
+    const nextSponsorCadence = getNextSponsorCadence(currentSponsorCadence);
+    const chooseSponsor = sponsorDue && (!commentDue || lastInterstitialType.current === 'comment');
 
-    if (shouldInsertCommentCard) {
+    if (chooseSponsor) {
+      const currentTopic = feedTopics[topicIndex];
+      setTopicsSinceTopCommentCard(commentDue ? currentCommentCadence : nextCommentCadence);
+      setTopicsSinceSponsorCard(0);
+
+      if (!currentTopic || sponsorLoadingRef.current) {
+        advanceToNextTopic();
+        return;
+      }
+
+      sponsorLoadingRef.current = true;
+      const requestedUserId = userId;
+      void loadSponsorCampaigns(currentTopic).then((campaigns) => {
+        if (sponsorSessionUserId.current !== requestedUserId) return;
+        if (campaigns.length > 0) {
+          setSponsorCampaigns(campaigns);
+          sponsorCardsByTopicId.current.set(currentTopic.id, campaigns);
+          setShowTopCommentCard(false);
+          setShowSponsorCard(true);
+          lastInterstitialType.current = 'sponsor';
+          return;
+        }
+
+        if (commentDue && unseenTopComments.length > 0) {
+          setTopCommentCardComments(unseenTopComments);
+          topCommentCardsByTopicId.current.set(currentTopic.id, unseenTopComments);
+          setShowSponsorCard(false);
+          setShowTopCommentCard(true);
+          lastInterstitialType.current = 'comment';
+          return;
+        }
+
+        advanceToNextTopic();
+      }).finally(() => {
+        sponsorLoadingRef.current = false;
+      });
+      return;
+    }
+
+    setTopicsSinceSponsorCard(nextSponsorCadence);
+
+    if (commentDue) {
+      setTopicsSinceTopCommentCard(0);
       const currentTopic = feedTopics[topicIndex];
       if (currentTopic) {
         setTopCommentCardComments(unseenTopComments);
         topCommentCardsByTopicId.current.set(currentTopic.id, unseenTopComments);
+        setShowSponsorCard(false);
         setShowTopCommentCard(true);
+        lastInterstitialType.current = 'comment';
         return;
       }
     }
 
+    setTopicsSinceTopCommentCard(nextCommentCadence);
     advanceToNextTopic();
   };
 
@@ -280,6 +403,16 @@ export function TopicFeedCore({
 
     const previousIndex = (topicIndex - 1 + feedTopics.length) % feedTopics.length;
     const previousTopicId = feedTopics[previousIndex]?.id;
+    const previousSponsorCard = previousTopicId
+      ? sponsorCardsByTopicId.current.get(previousTopicId)
+      : undefined;
+    if (previousSponsorCard?.length) {
+      setSponsorCampaigns(previousSponsorCard);
+      setShowTopCommentCard(false);
+      setShowSponsorCard(true);
+      return;
+    }
+
     const previousCard = previousTopicId
       ? topCommentCardsByTopicId.current.get(previousTopicId)
       : undefined;
@@ -319,7 +452,18 @@ export function TopicFeedCore({
           )}
         </div>
       )}
-      {showTopCommentCard && activeTopCommentCardComments.length > 0 ? (
+      {showSponsorCard && sponsorCampaigns.length > 0 ? (
+        <SponsorFeedCard
+          campaigns={sponsorCampaigns}
+          sessionId={sponsorSessionId.current ?? ''}
+          getAccessToken={getSponsorAccessToken ?? (async () => null)}
+          onNextTopic={() => {
+            setShowSponsorCard(false);
+            advanceToNextTopic();
+          }}
+          onPreviousTopic={() => setShowSponsorCard(false)}
+        />
+      ) : showTopCommentCard && activeTopCommentCardComments.length > 0 ? (
         <TopCommentFeedCard
           comments={activeTopCommentCardComments}
           onCommentViewed={markTopCommentViewed}
