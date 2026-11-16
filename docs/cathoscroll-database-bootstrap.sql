@@ -3914,7 +3914,6 @@ CREATE TABLE catho_private.feed_analytics_daily (
   skips bigint NOT NULL DEFAULT 0 CHECK (skips >= 0),
   completions bigint NOT NULL DEFAULT 0 CHECK (completions >= 0),
   return_visits bigint NOT NULL DEFAULT 0 CHECK (return_visits >= 0),
-  unique_viewers bigint NOT NULL DEFAULT 0 CHECK (unique_viewers >= 0),
   refreshed_at timestamptz NOT NULL DEFAULT statement_timestamp(),
   PRIMARY KEY (event_date, entity_id)
 );
@@ -4257,7 +4256,12 @@ BEGIN
       SELECT
         coalesce(sum(daily_row.impressions), 0),
         coalesce(sum(daily_row.viewable_impressions), 0),
-        coalesce(sum(daily_row.unique_viewers), 0),
+        (
+          SELECT pg_catalog.count(*)
+          FROM catho_private.feed_analytics_daily_viewers AS viewer_row
+          WHERE viewer_row.entity_id = ANY(v_topic_ids)
+            AND viewer_row.event_date = days.day::date
+        ),
         coalesce(sum(daily_row.active_duration_ms), 0)
       FROM catho_private.feed_analytics_daily AS daily_row
       WHERE daily_row.entity_id = ANY(v_topic_ids)
@@ -4501,8 +4505,7 @@ BEGIN
 
   INSERT INTO catho_private.feed_analytics_daily (
     event_date, entity_id, impressions, viewable_impressions,
-    active_duration_ms, skips, completions, return_visits,
-    unique_viewers, refreshed_at
+    active_duration_ms, skips, completions, return_visits, refreshed_at
   )
   SELECT
     (event.received_at AT TIME ZONE 'UTC')::date,
@@ -4514,7 +4517,6 @@ BEGIN
     count(*) FILTER (WHERE event.event_type = 'skip'),
     count(*) FILTER (WHERE event.event_type = 'completion'),
     count(*) FILTER (WHERE event.event_type = 'return_visit'),
-    count(DISTINCT event.user_id) FILTER (WHERE event.event_type = 'viewable_impression'),
     statement_timestamp()
   FROM catho_private.feed_analytics_events AS event
   WHERE event.received_at >= (v_from::timestamp AT TIME ZONE 'UTC')
@@ -4527,7 +4529,6 @@ BEGIN
       skips = EXCLUDED.skips,
       completions = EXCLUDED.completions,
       return_visits = EXCLUDED.return_visits,
-      unique_viewers = EXCLUDED.unique_viewers,
       refreshed_at = EXCLUDED.refreshed_at;
 
   DELETE FROM catho_private.feed_analytics_daily_viewers
