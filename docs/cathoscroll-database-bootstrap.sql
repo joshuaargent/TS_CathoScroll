@@ -3928,6 +3928,8 @@ CREATE TABLE catho_private.feed_analytics_daily_viewers (
 );
 CREATE INDEX feed_analytics_daily_viewers_entity_date_user_idx
   ON catho_private.feed_analytics_daily_viewers (entity_id, event_date, user_id);
+CREATE INDEX feed_analytics_daily_viewers_user_date_idx
+  ON catho_private.feed_analytics_daily_viewers (user_id, event_date DESC);
 ALTER TABLE catho_private.feed_analytics_daily ENABLE ROW LEVEL SECURITY;
 ALTER TABLE catho_private.feed_analytics_daily_viewers ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON TABLE catho_private.feed_analytics_daily FROM PUBLIC, anon, authenticated, service_role;
