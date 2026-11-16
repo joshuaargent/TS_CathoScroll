@@ -86,20 +86,21 @@ Offline analytics must never block or delay bookmarks, likes, progress, notes, c
 
 ## Recommendation system
 
-Extend the existing weighted-category recommendation RPC rather than replacing it. The current model already uses completed topics, bookmarks, likes, and commented topics to infer category preferences and balances category exposure.
+The existing weighted-category RPC has been extended rather than replaced. It retains completed topics, bookmarks, likes and comments as strong signals and now incorporates signed-in feed telemetry when a new feed cursor is created. Category weights are frozen into that cursor so pagination remains deterministic; a refresh starts a new preference snapshot.
 
-New ranking signals should include:
-- Viewability-qualified impressions.
-- Active reading time and slide depth.
-- Early skips, interpreted over repeated observations rather than a single skip.
-- Topic completion.
-- Likes, bookmarks, comments, and shares.
-- Repeat visits.
-- Topic quality and freshness.
-- Category and topic diversity.
-- Explicit user feedback if introduced later.
+Feed signals use a 90-day window and a 30-day half-life:
+- Viewable impression: +0.40, capped at +1.20 per topic.
+- Active reading: +0.25 per active minute, capped at +1.50 per topic.
+- Slide depth: up to +0.50 per reached slide event, capped at +1.50 per topic.
+- Completion: +2.50 per event, capped at +3.00 per topic.
+- Return visit: +0.75 per event, capped at +1.50 per topic.
+- Early skip: -1.50 per event, capped at -3.00, and applied only after at least two skips for that topic in the window.
 
-Use a bounded, explainable scoring model with decay and minimum sample sizes. Avoid letting a single event dominate a profile. Separate organic topic recommendations from sponsor allocation. Optimise for useful learning and discovery, not maximum session length. Preserve exploration so the feed does not become a narrow filter bubble. Cold-start and signed-out users retain a sensible diversified feed.
+The combined telemetry score is clamped between -4 and +6 per topic. Topic scores are aggregated by published category and combined with the existing explicit learning signals. The category weight remains at least 1, using the square root of the non-negative combined preference score; negative telemetry can reduce an existing preference but cannot eliminate baseline category exploration. The existing weighted round-robin selection and no-three-consecutive-category safeguard remain intact.
+
+Telemetry is read through a private SECURITY DEFINER helper that checks `auth.uid()` against the requested account. Authenticated clients cannot read raw analytics rows or query another user's preference signals. A partial `(user_id, received_at)` index supports the 90-day lookup. The helper is invoked only when a new recommendation cursor is created, not for every page continuation.
+
+This is a first bounded scoring model, not a trained machine-learning system. It deliberately avoids treating a single skip as dislike, caps repeated signals, decays older behaviour and preserves cold-start diversity. Topic freshness/quality scoring, explicit feedback and model evaluation against controlled experiments remain future work. Sponsor allocation stays separate from organic recommendations.
 
 ## Topic and category analytics
 
@@ -141,9 +142,9 @@ Sponsor analytics are separate and show eligible opportunities, viewable impress
 Implementation status on 16 November 2026:
 
 1. **Feed/admin/comment/offline architecture review:** existing systems were inspected for this work; the offline activity architecture was preserved.
-2. **Validated event schema, ingestion, deduplication and retention:** implemented; full repository and deployed-client verification remains outstanding.
+2. **Validated event schema, ingestion, deduplication and retention:** implemented; automated source checks pass, with deployed browser/native verification still outstanding.
 3. **Topic interaction instrumentation:** implemented without changing the topic-card UI; deployed data collection begins when the combined release is deployed.
-4. **Recommendation weighting and diversity safeguards:** not started.
+4. **Recommendation weighting and diversity safeguards:** first telemetry-weighted model implemented; quality/freshness scoring and measured experimentation remain future work.
 5. **Top-comment feed cards and eligibility:** implemented; real inventory testing remains outstanding because production currently has no comments.
 6. **Sponsor organisations, campaign management, weighted delivery and sponsor reporting:** not started.
 7. **Admin topic/category analytics and graphs:** implemented; admin/non-admin browser verification remains outstanding.
