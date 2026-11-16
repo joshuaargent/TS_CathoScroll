@@ -30,7 +30,9 @@ export async function GET(request: Request) {
     const rateLimit = await checkApiRateLimit({
       scope: 'search:ip',
       identifier: clientIp,
-      limit: 30,
+      // Search fires as users type. Keep a generous per-IP ceiling so
+      // shared networks and active users are not throttled during normal use.
+      limit: 180,
       windowSeconds: 60,
     });
     if (!rateLimit.allowed) {
