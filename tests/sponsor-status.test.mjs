@@ -13,10 +13,10 @@ test('sponsor status changes are administrator-only, audited and constrained', (
   assert.notEqual(start, -1);
   const end = bootstrap.indexOf('ALTER FUNCTION ', start);
   const body = bootstrap.slice(start, end);
-  assert.match(body, /public\\.admin_users/);
+  assert.match(body, /public\.admin_users/);
   assert.match(body, /draft', 'scheduled', 'active', 'paused', 'completed/);
-  assert.match(body, /sponsor\\.status_changed/);
-  assert.match(bootstrap, /GRANT EXECUTE ON FUNCTION public\\.admin_set_sponsor_status\\(uuid, uuid, text\\) TO service_role/);
+  assert.match(body, /sponsor\.status_changed/);
+  assert.match(bootstrap, /GRANT EXECUTE ON FUNCTION public\.admin_set_sponsor_status\(uuid, uuid, text\) TO service_role/);
 });
 
 test('status API enforces administrator MFA, same-origin and rate limiting', () => {
