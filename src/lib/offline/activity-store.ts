@@ -177,7 +177,7 @@ export class OfflineActivityStore {
           devices[0].device_id
         )
       ) {
-        throw new Error('The offline activity device identity is invalid.');
+        throw new Error('The offline activity device sequence identity is invalid.');
       }
       await db.execute(`
         CREATE TABLE IF NOT EXISTS offline_activity_acknowledgements (
