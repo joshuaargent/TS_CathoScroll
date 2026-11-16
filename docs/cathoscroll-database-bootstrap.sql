@@ -15,7 +15,7 @@
 --     the same PostgreSQL major version as the source project.
 --   * pg_cron and permission to create the ensure_rls event trigger are required.
 --
--- Object counts at export: 29 tables, 65 functions, 33 triggers, 32 policies,
+-- Object counts at export: 29 tables, 66 functions, 33 triggers, 32 policies,
 -- 15 categories and 86 topics.
 --
 DO $bootstrap_guard$
@@ -1437,6 +1437,110 @@ BEGIN
 END;
 $function$;
 
+CREATE OR REPLACE FUNCTION catho_private.get_user_feed_preference_signals(p_user_id uuid)
+RETURNS TABLE(category_slug text, weight numeric)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $function$
+DECLARE
+  v_current_user_id uuid := auth.uid();
+BEGIN
+  IF v_current_user_id IS NULL OR v_current_user_id IS DISTINCT FROM p_user_id THEN
+    RAISE EXCEPTION 'Cannot read another account recommendation signals'
+      USING ERRCODE = '42501';
+  END IF;
+
+  RETURN QUERY
+  WITH topic_scores AS (
+    SELECT
+      e.entity_id,
+      count(*) FILTER (WHERE e.event_type = 'skip') AS skip_count,
+      sum(
+        CASE e.event_type
+          WHEN 'viewable_impression' THEN 0.40::numeric
+          WHEN 'active_duration' THEN
+            least(coalesce((e.metadata ->> 'duration_ms')::numeric, 0), 60000)
+              / 60000 * 0.25
+          WHEN 'swipe_depth' THEN
+            least(greatest(coalesce((e.metadata ->> 'depth')::numeric, 0), 0), 4)
+              / 4 * 0.50
+          WHEN 'completion' THEN 2.50::numeric
+          WHEN 'return_visit' THEN 0.75::numeric
+          ELSE 0::numeric
+        END
+        * pg_catalog.power(
+            0.5::numeric,
+            greatest(
+              0::numeric,
+              extract(epoch FROM (pg_catalog.statement_timestamp() - e.received_at))::numeric
+                / 2592000
+            )
+          )
+      ) FILTER (WHERE e.event_type <> 'skip') AS positive_score,
+      sum(
+        1.50::numeric
+        * pg_catalog.power(
+            0.5::numeric,
+            greatest(
+              0::numeric,
+              extract(epoch FROM (pg_catalog.statement_timestamp() - e.received_at))::numeric
+                / 2592000
+            )
+          )
+      ) FILTER (WHERE e.event_type = 'skip') AS negative_score
+    FROM catho_private.feed_analytics_events AS e
+    WHERE e.user_id = p_user_id
+      AND e.received_at >= pg_catalog.statement_timestamp() - interval '90 days'
+      AND e.received_at < pg_catalog.statement_timestamp()
+      AND e.event_type IN (
+        'viewable_impression',
+        'active_duration',
+        'skip',
+        'swipe_depth',
+        'completion',
+        'return_visit'
+      )
+    GROUP BY e.entity_id
+  ),
+  bounded_topic_scores AS (
+    SELECT
+      topic_scores.entity_id,
+      greatest(
+        -4::numeric,
+        least(
+          6::numeric,
+          coalesce(topic_scores.positive_score, 0)
+          + CASE
+              WHEN topic_scores.skip_count >= 2
+                THEN -coalesce(topic_scores.negative_score, 0)
+              ELSE 0::numeric
+            END
+        )
+      ) AS topic_weight
+    FROM topic_scores
+  )
+  SELECT
+    t.category_slug,
+    sum(bounded_topic_scores.topic_weight)::numeric
+  FROM bounded_topic_scores
+  JOIN public.topics AS t
+    ON t.id = bounded_topic_scores.entity_id
+   AND t.is_published = true
+  JOIN public.categories AS c
+    ON c.slug = t.category_slug
+   AND c.is_published = true
+  WHERE bounded_topic_scores.topic_weight <> 0
+  GROUP BY t.category_slug;
+END;
+$function$;
+
+ALTER FUNCTION catho_private.get_user_feed_preference_signals(uuid) OWNER TO postgres;
+REVOKE ALL ON FUNCTION catho_private.get_user_feed_preference_signals(uuid)
+  FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION catho_private.get_user_feed_preference_signals(uuid)
+  TO authenticated;
+
 CREATE OR REPLACE FUNCTION public.get_my_recommendation_page(feed_cursor jsonb DEFAULT NULL::jsonb, page_limit integer DEFAULT 50)
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -1467,31 +1571,33 @@ BEGIN
   END IF;
 
   IF initial_page THEN
-    -- Freeze category preferences for this feed cursor.
+    -- Freeze category preferences for this feed cursor. Legacy learning actions
+    -- remain strong signals; feed telemetry adds bounded, decaying evidence.
     WITH signals AS (
-      SELECT p.topic_id, 5 AS weight
+      SELECT p.topic_id, 5::numeric AS weight
       FROM public.progress p
       WHERE p.user_id = current_user_id
 
       UNION ALL
 
-      SELECT b.topic_id, 4
+      SELECT b.topic_id, 4::numeric
       FROM public.bookmarks b
       WHERE b.user_id = current_user_id
 
       UNION ALL
 
-      SELECT l.topic_id, 3
+      SELECT l.topic_id, 3::numeric
       FROM public.topic_likes l
       WHERE l.user_id = current_user_id
 
       UNION ALL
 
-      SELECT DISTINCT c.topic_id, 3
+      SELECT DISTINCT c.topic_id, 3::numeric
       FROM public.comments c
       WHERE c.user_id = current_user_id
         AND c.is_deleted = false
-    ), preferences AS (
+    ),
+    legacy_preferences AS (
       SELECT t.category_slug, sum(s.weight) AS weight
       FROM signals s
       JOIN public.topics t
@@ -1499,12 +1605,22 @@ BEGIN
       JOIN public.categories c
         ON c.slug = t.category_slug AND c.is_published
       GROUP BY t.category_slug
+    ),
+    feed_preferences AS (
+      SELECT feed_signals.category_slug, sum(feed_signals.weight) AS weight
+      FROM catho_private.get_user_feed_preference_signals(current_user_id) AS feed_signals
+      GROUP BY feed_signals.category_slug
+    ),
+    preferences AS (
+      SELECT category_slug, weight FROM legacy_preferences
+      UNION ALL
+      SELECT category_slug, weight FROM feed_preferences
     )
     SELECT coalesce(
       jsonb_agg(
         jsonb_build_object(
           'slug', c.slug,
-          'weight', 1 + sqrt(coalesce(p.weight, 0)::numeric),
+          'weight', 1 + sqrt(greatest(coalesce(p.weight, 0), 0)::numeric),
           'served', 0,
           'order', NULL,
           'id', NULL
@@ -1514,7 +1630,11 @@ BEGIN
     )
     INTO categories
     FROM public.categories c
-    LEFT JOIN preferences p ON p.category_slug = c.slug
+    LEFT JOIN (
+      SELECT category_slug, sum(weight) AS weight
+      FROM preferences
+      GROUP BY category_slug
+    ) p ON p.category_slug = c.slug
     WHERE c.is_published;
 
     state := jsonb_build_object(
@@ -3716,6 +3836,18 @@ CREATE INDEX feed_analytics_events_type_time_idx
   ON catho_private.feed_analytics_events (event_type, received_at DESC);
 CREATE INDEX feed_analytics_events_received_at_idx
   ON catho_private.feed_analytics_events (received_at);
+
+CREATE INDEX feed_analytics_events_user_time_idx
+  ON catho_private.feed_analytics_events (user_id, received_at DESC)
+  INCLUDE (entity_id)
+  WHERE event_type IN (
+    'viewable_impression',
+    'active_duration',
+    'skip',
+    'swipe_depth',
+    'completion',
+    'return_visit'
+  );
 ALTER TABLE catho_private.feed_analytics_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE catho_private.feed_analytics_event_limits ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON TABLE catho_private.feed_analytics_events FROM PUBLIC, anon, authenticated, service_role;
