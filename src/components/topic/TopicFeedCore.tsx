@@ -81,6 +81,8 @@ export function TopicFeedCore({
   const [activeSponsorSessionId, setActiveSponsorSessionId] = useState<string | null>(null);
   const sponsorSessionUserId = useRef(userId);
   const sponsorLoadingRef = useRef(false);
+  const sponsorRequestVersion = useRef(0);
+  const sponsorRequestPreviousCadence = useRef(0);
   const pendingSponsorAfterComment = useRef(false);
 
   const [topicIndex, setTopicIndex] = useState(personalized ? 0 : Math.floor(topics.length / 2));
@@ -100,6 +102,7 @@ export function TopicFeedCore({
     sponsorSessionUserId.current = userId;
     setActiveSponsorSessionId(null);
     sponsorCardsByTopicId.current.clear();
+    sponsorRequestVersion.current += 1;
     sponsorLoadingRef.current = false;
     pendingSponsorAfterComment.current = false;
     setSponsorCampaigns([]);
@@ -323,6 +326,7 @@ export function TopicFeedCore({
     if (chooseSponsor) {
       const currentTopic = feedTopics[topicIndex];
       setTopicsSinceTopCommentCard(commentDue ? currentCommentCadence : nextCommentCadence);
+      sponsorRequestPreviousCadence.current = topicsSinceSponsorCard;
       setTopicsSinceSponsorCard(0);
 
       if (!currentTopic || sponsorLoadingRef.current) {
@@ -332,8 +336,10 @@ export function TopicFeedCore({
 
       sponsorLoadingRef.current = true;
       const requestedUserId = userId;
+      const requestVersion = ++sponsorRequestVersion.current;
       void loadSponsorCampaigns(currentTopic).then((result) => {
-        if (sponsorSessionUserId.current !== requestedUserId) return;
+        if (sponsorRequestVersion.current !== requestVersion ||
+            sponsorSessionUserId.current !== requestedUserId) return;
         if (result.campaigns.length > 0 && result.sessionId) {
           setSponsorCampaigns(result.campaigns);
           setActiveSponsorSessionId(result.sessionId);
@@ -357,7 +363,9 @@ export function TopicFeedCore({
 
         advanceToNextTopic();
       }).finally(() => {
-        sponsorLoadingRef.current = false;
+        if (sponsorRequestVersion.current === requestVersion) {
+          sponsorLoadingRef.current = false;
+        }
       });
       return;
     }
@@ -405,6 +413,11 @@ export function TopicFeedCore({
   };
 
   const previousTopic = () => {
+    if (sponsorLoadingRef.current) {
+      sponsorRequestVersion.current += 1;
+      sponsorLoadingRef.current = false;
+      setTopicsSinceSponsorCard(sponsorRequestPreviousCadence.current);
+    }
     if (seenTopCommentUserId.current !== userId) {
       seenTopCommentUserId.current = userId;
       seenTopCommentIds.current.clear();
@@ -482,6 +495,7 @@ export function TopicFeedCore({
           comments={activeTopCommentCardComments}
           onCommentViewed={markTopCommentViewed}
           onNextTopic={() => {
+            if (sponsorLoadingRef.current) return;
             if (!pendingSponsorAfterComment.current) {
               setShowTopCommentCard(false);
               advanceToNextTopic();
@@ -498,9 +512,12 @@ export function TopicFeedCore({
             }
 
             sponsorLoadingRef.current = true;
+            sponsorRequestPreviousCadence.current = topicsSinceSponsorCard;
             const requestedUserId = userId;
+            const requestVersion = ++sponsorRequestVersion.current;
             void loadSponsorCampaigns(currentTopic).then((result) => {
-              if (sponsorSessionUserId.current !== requestedUserId) return;
+              if (sponsorRequestVersion.current !== requestVersion ||
+                  sponsorSessionUserId.current !== requestedUserId) return;
               setTopicsSinceSponsorCard(0);
               if (result.campaigns.length > 0 && result.sessionId) {
                 setSponsorCampaigns(result.campaigns);
@@ -517,7 +534,9 @@ export function TopicFeedCore({
               setShowTopCommentCard(false);
               advanceToNextTopic();
             }).finally(() => {
-              sponsorLoadingRef.current = false;
+              if (sponsorRequestVersion.current === requestVersion) {
+                sponsorLoadingRef.current = false;
+              }
             });
           }}
           onPreviousTopic={() => {
