@@ -86,7 +86,7 @@ Recommendation smoke tests used rollback-only fixtures to verify per-signal caps
 
 - Re-run unit tests, ESLint, TypeScript checks and the Next.js production build after any further code changes; these passed on the current combined head.
 - Linux x64, Windows x64, Android release APK and macOS Universal packaging all passed on the earlier combined head. A later source-only card-surface adjustment passed the source/test/lint/type/build job; its platform matrix was cancelled by workflow supersession and has been queued for a fresh run.
-- Obtain a successful Vercel preview build; the latest deployment attempt was blocked by the free-plan daily deployment quota. The repository-wide Prettier check is not a merge gate because it reports 130 existing formatting failures in unrelated files.
+- A later Vercel preview deployment is marked Ready after two earlier attempts hit the free-plan daily deployment quota. Complete the manual route, admin/non-admin and responsive browser review against that preview. The repository-wide Prettier check is not a merge gate because it reports 130 existing formatting failures in unrelated files.
 - Verify analytics API and aggregate pages in a deployed browser session with an administrator and a non-admin account.
 - Verify native analytics ingestion and the comment card in Android and Electron builds.
 - Exercise comment gestures, discussion deep links, pagination boundaries, account switching and moderation refresh.
