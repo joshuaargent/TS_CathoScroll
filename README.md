@@ -392,8 +392,9 @@ The activity RPCs are account-bound: they compare the requested user with
 `auth.uid()`. Internal activity, receipt, device, and rate-limit tables are
 not directly exposed to anonymous or authenticated table access. RLS remains
 enabled on the public sync tables. The batch RPC is executable by authenticated
-users only. The older single-operation RPC remains available for compatibility
-and is subject to the same server-side per-account write limit. Do not grant
+users only. The existing single-operation `offline_apply_activity_v2` RPC
+remains available for compatibility and is subject to the same server-side
+per-account write limit. Do not grant
 clients direct write access to internal synchronization tables.
 
 #### Local account data and security
