@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
+import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import type { TopFeedComment } from '@/lib/feed-comments';
 import type { TopicPageCursor } from '@/lib/content';
@@ -16,6 +17,11 @@ type TopicFeedProps = { topics: Topic[]; userId: string | null } & (
 
 export function TopicFeed({ topics, nextCursor, personalized = false, userId }: TopicFeedProps) {
   const router = useRouter();
+  const supabase = useMemo(() => createClient(), []);
+  const getSponsorAccessToken = useCallback(async () => {
+    const { data } = await supabase.auth.getSession();
+    return data.session?.access_token ?? null;
+  }, [supabase]);
   const openTopComment = useCallback(
     (comment: TopFeedComment) => {
       router.push(
@@ -64,6 +70,7 @@ export function TopicFeed({ topics, nextCursor, personalized = false, userId }: 
       personalized={personalized}
       loadPage={loadPage}
       userId={userId}
+      getSponsorAccessToken={getSponsorAccessToken}
       viewer={TopicViewer}
       onOpenComment={openTopComment}
     />
