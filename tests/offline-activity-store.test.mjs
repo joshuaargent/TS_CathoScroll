@@ -181,7 +181,7 @@ test('archives unavailable-topic rejections and continues syncing later changes'
         completedAt: null,
       };
     });
-    assert.equal(await sync.push('alice'), 3);
+    assert.deepEqual(await sync.push('alice'), { sent: 3, deferred: false });
     assert.deepEqual(sent, ['rejected', 'later', 'saved']);
     assert.equal(await store.pendingCount('alice'), 0);
     assert.equal(await store.pendingCount('bob'), 1);
@@ -1151,7 +1151,7 @@ test('retries the same operation after a lost response and preserves account ord
 
     await assert.rejects(sync.push('alice'), /Connection lost/);
     assert.equal((await store.nextOperation('alice')).operationId, 'first');
-    assert.equal(await sync.push('alice'), 2);
+    assert.deepEqual(await sync.push('alice'), { sent: 2, deferred: false });
     assert.deepEqual(sent, ['first', 'first', 'second']);
     assert.deepEqual(attempts[0], attempts[1]);
     assert.equal(attempts[2].deviceId, attempts[0].deviceId);
@@ -1820,7 +1820,7 @@ test('bootstraps and synchronizes two devices with a lost write response', async
     const sync = new OfflineActivitySync(first, (operation) => transport.send(operation));
     await assert.rejects(sync.push('alice'), /interrupted/);
     assert.equal((await first.nextOperation('alice')).operationId, 'operation');
-    assert.equal(await sync.push('alice'), 1);
+    assert.deepEqual(await sync.push('alice'), { sent: 1, deferred: false });
     assert.equal(events.length, 2);
     const secondSync = new OfflineActivitySync(second, (operation) => transport.send(operation));
     await secondSync.pull('alice', (userId, cursor) => transport.changes(userId, cursor));
@@ -1886,7 +1886,7 @@ test('backs off after an error even when a full batch requested another cycle', 
   const engine = {
     async push() {
       pushes++;
-      return 1;
+      return { sent: 100, deferred: false };
     },
     async pull() {
       throw new Error('Server unavailable');
@@ -1905,7 +1905,7 @@ test('backs off after an error even when a full batch requested another cycle', 
     background.setUser('alice');
     await waitFor(() => errors.length > 0);
     await new Promise((resolve) => setTimeout(resolve, 80));
-    assert.equal(pushes, 100);
+    assert.equal(pushes, 1);
     assert.deepEqual(errors, ['Server unavailable']);
   } finally {
     background.dispose();
@@ -1922,7 +1922,7 @@ test('background sync stops the old account before starting a different one', as
     async push(userId) {
       calls.push(`push:${userId}`);
       if (userId === 'alice') await first;
-      return 0;
+      return { sent: 0, deferred: false };
     },
     async pull(userId) {
       calls.push(`pull:${userId}`);
@@ -2149,5 +2149,47 @@ test('batch sync acknowledges committed operations and preserves a rate-limited 
     assert.equal(await store.pendingCount('alice'), 0);
   } finally {
     db.close();
+  }
+});
+
+
+test('background sync reports deferred activity and clears the message when it resumes', async () => {
+  let pushes = 0;
+  const deferred = [];
+  const recovered = [];
+  const engine = {
+    async push() {
+      pushes++;
+      return pushes === 1
+        ? { sent: 0, deferred: true }
+        : { sent: 1, deferred: false };
+    },
+    async pull() {
+      return 0;
+    },
+  };
+  const background = new BackgroundActivitySync(
+    engine,
+    async () => {
+      throw new Error('Not used');
+    },
+    () => true,
+    () => {},
+    (userId) => recovered.push(userId),
+    undefined,
+    undefined,
+    (userId) => deferred.push(userId)
+  );
+  try {
+    background.setUser('alice');
+    await waitFor(() => deferred.length === 1);
+    assert.deepEqual(deferred, ['alice']);
+    assert.deepEqual(recovered, []);
+    background.requestSync();
+    await waitFor(() => recovered.length === 1);
+    assert.deepEqual(recovered, ['alice']);
+    assert.equal(pushes, 2);
+  } finally {
+    background.dispose();
   }
 });
