@@ -51,9 +51,12 @@ export class NativeActivity {
       (_user, cause) => {
         if (cause instanceof ActivityResetRequired) this.rebootstrapRequired = true;
         else console.error('Unable to synchronize account activity:', cause);
-        this.error =
-          cause instanceof ActivityResetRequired
-            ? 'Your account activity needs to refresh. Saved changes remain on this device.'
+        const rateLimited =
+          cause instanceof Error && /rate limit exceeded|rate limit/i.test(cause.message);
+        this.error = cause instanceof ActivityResetRequired
+          ? 'Your account activity needs to refresh. Saved changes remain on this device.'
+          : rateLimited
+            ? 'A large batch of saved activity is being synchronized. Your progress remains safe on this device and will retry automatically.'
             : this.ready
               ? 'Your account changes could not be synchronized. They are saved on this device.'
               : 'Account activity could not be set up. Saved progress remains on this device; check your connection and try again.';
