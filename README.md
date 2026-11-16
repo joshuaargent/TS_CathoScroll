@@ -366,10 +366,13 @@ acknowledged; the deferred operation remains queued for a later retry. These
 limits are enforced in Postgres and cannot be bypassed by calling the RPC
 directly from a modified client.
 
-The background worker retries failed requests after 30 seconds and normally
-checks for further changes every 60 seconds while the app is online. A run
-uploads at most 100 operations and downloads at most 10 change pages; if a
-limit is reached while work remains, it schedules another run. Each activity
+The in-process background worker retries failed requests after 30 seconds
+and normally checks for further changes every 60 seconds while the app is open
+and online. It is not an operating-system background task: closing the app
+stops network sync, but the durable outbox remains on disk and resumes on the
+next launch. A run uploads at most 100 operations and downloads at most 10
+change pages; if a limit is reached while work remains, it schedules another
+run. Each activity
 change page contains at most 100 server events. Snapshot pages contain at
 most 100 current activity records. These bounds prevent one reconnect from
 creating an unbounded request or transaction.
