@@ -15,7 +15,7 @@
 --     the same PostgreSQL major version as the source project.
 --   * pg_cron and permission to create the ensure_rls event trigger are required.
 --
--- Object counts at export: 29 tables, 62 functions, 33 triggers, 32 policies,
+-- Object counts at export: 27 tables, 61 functions, 33 triggers, 32 policies,
 -- 15 categories and 86 topics.
 --
 DO $bootstrap_guard$
@@ -3715,6 +3715,8 @@ CREATE INDEX feed_analytics_events_user_time_idx
   ON catho_private.feed_analytics_events (user_id, received_at DESC);
 CREATE INDEX feed_analytics_events_type_time_idx
   ON catho_private.feed_analytics_events (event_type, received_at DESC);
+CREATE INDEX feed_analytics_events_received_at_idx
+  ON catho_private.feed_analytics_events (received_at);
 ALTER TABLE catho_private.feed_analytics_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE catho_private.feed_analytics_event_limits ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON TABLE catho_private.feed_analytics_events FROM PUBLIC, anon, authenticated, service_role;
@@ -3812,6 +3814,11 @@ BEGIN
     PERFORM cron.unschedule(existing_job.jobid);
   END LOOP;
   PERFORM cron.schedule('cathoscroll-prune-catalogue', '2,17,32,47 * * * *', 'SELECT public.offline_catalogue_prune_old(clock_timestamp() - interval ''31 days'', 1000);');
+  FOR existing_job IN SELECT jobid FROM cron.job WHERE jobname = 'cathoscroll-prune-feed-analytics' LOOP
+    PERFORM cron.unschedule(existing_job.jobid);
+  END LOOP;
+  PERFORM cron.schedule('cathoscroll-prune-feed-analytics', '*/15 * * * *',
+    'SELECT catho_private.prune_feed_analytics_events(clock_timestamp() - interval ''180 days'', 5000);');
 END;
 $cron_restore$;
 
@@ -3860,6 +3867,40 @@ END;
 $function$;
 REVOKE ALL ON FUNCTION public.record_feed_analytics_events(jsonb) FROM PUBLIC, anon, service_role;
 GRANT EXECUTE ON FUNCTION public.record_feed_analytics_events(jsonb) TO authenticated;
+
+CREATE OR REPLACE FUNCTION catho_private.prune_feed_analytics_events(
+  p_before timestamptz DEFAULT statement_timestamp() - interval '180 days',
+  p_limit integer DEFAULT 5000
+)
+RETURNS integer
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog, catho_private
+AS $function$
+DECLARE
+  v_deleted integer := 0;
+BEGIN
+  IF p_before IS NULL
+     OR p_before > statement_timestamp() - interval '180 days'
+     OR p_limit IS NULL OR p_limit < 1 OR p_limit > 10000 THEN
+    RAISE EXCEPTION 'Invalid feed analytics retention parameters' USING ERRCODE = '22023';
+  END IF;
+  WITH expired AS (
+    SELECT event.ctid
+    FROM catho_private.feed_analytics_events AS event
+    WHERE event.received_at < p_before
+    ORDER BY event.received_at
+    LIMIT p_limit
+  )
+  DELETE FROM catho_private.feed_analytics_events AS event
+  USING expired
+  WHERE event.ctid = expired.ctid;
+  GET DIAGNOSTICS v_deleted = ROW_COUNT;
+  RETURN v_deleted;
+END;
+$function$;
+REVOKE ALL ON FUNCTION catho_private.prune_feed_analytics_events(timestamptz, integer)
+  FROM PUBLIC, anon, authenticated, service_role;
 
 -- DDL event triggers
 CREATE EVENT TRIGGER ensure_rls ON ddl_command_end EXECUTE FUNCTION public.rls_auto_enable();
