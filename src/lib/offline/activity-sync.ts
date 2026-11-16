@@ -53,8 +53,13 @@ export type FetchActivity = (
   signal?: AbortSignal
 ) => Promise<ActivityPage>;
 
+export interface ActivityPushResult {
+  sent: number;
+  deferred: boolean;
+}
+
 export class OfflineActivitySync {
-  private running: Promise<number> | null = null;
+  private running: Promise<number | ActivityPushResult> | null = null;
 
   constructor(
     private readonly store: OfflineActivityStore,
@@ -62,7 +67,11 @@ export class OfflineActivitySync {
     private readonly sendBatch?: SendActivityBatch
   ) {}
 
-  async push(userId: string, limit = 100, signal?: AbortSignal): Promise<number> {
+  async push(
+    userId: string,
+    limit = 100,
+    signal?: AbortSignal
+  ): Promise<ActivityPushResult> {
     if (!userId || userId.trim() !== userId) throw new Error('Invalid user ID.');
     if (!Number.isSafeInteger(limit) || limit < 1 || limit > 1000) {
       throw new Error('Invalid offline sync limit.');
@@ -99,7 +108,11 @@ export class OfflineActivitySync {
     }
   }
 
-  private async pushBatch(userId: string, limit: number, signal?: AbortSignal): Promise<number> {
+  private async pushBatch(
+    userId: string,
+    limit: number,
+    signal?: AbortSignal
+  ): Promise<ActivityPushResult> {
     if (!(await this.store.isBootstrapped(userId))) {
       throw new Error('Offline activity must be initialized before syncing.');
     }
@@ -133,7 +146,7 @@ export class OfflineActivitySync {
           if (receipt.reason !== 'rate_limited' || index !== receipts.length - 1) {
             throw new Error('The server returned an invalid deferred activity receipt.');
           }
-          return sent;
+          return { sent, deferred: true };
         }
         if (receipt.status === 'rejected') {
           if (receipt.reason !== 'topic_unavailable' || !operation.value) {
@@ -162,7 +175,7 @@ export class OfflineActivitySync {
         throw new Error('The server returned an incomplete offline activity batch.');
       }
     }
-    return sent;
+    return { sent, deferred: false };
   }
 
   private async pullPages(
