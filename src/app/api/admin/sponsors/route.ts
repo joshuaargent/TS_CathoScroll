@@ -53,7 +53,7 @@ function validDate(value: unknown): string | null | undefined {
 }
 
 const sponsorStatuses: SponsorStatus[] = ['draft', 'scheduled', 'active', 'paused', 'completed'];
-const paymentStatuses: PaymentStatus[] = ['pending', 'received', 'not_required', 'refunded'];
+const paymentStatuses: PaymentStatus[] = ['pending', 'not_required'];
 const currencies: Currency[] = ['GBP', 'EUR', 'USD'];
 
 export function OPTIONS(request: Request) {
