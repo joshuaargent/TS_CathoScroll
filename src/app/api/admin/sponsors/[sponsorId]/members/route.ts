@@ -150,6 +150,18 @@ export async function PATCH(request: Request, { params }: RouteContext) {
 
   try {
     const adminClient = createServiceRoleClient();
+    const { data: existingMembership, error: lookupError } = await adminClient
+      .from('sponsor_memberships')
+      .select('id')
+      .eq('id', parsed.value.membershipId)
+      .eq('sponsor_id', sponsorId)
+      .maybeSingle();
+    if (lookupError) {
+      console.error('Unable to verify sponsor membership ownership:', lookupError.message);
+      return respond(request, { error: 'Unable to verify sponsor membership.' }, 503);
+    }
+    if (!existingMembership) return respond(request, { error: 'Sponsor membership not found.' }, 404);
+
     const { data: membership, error } = await adminClient.rpc('admin_set_sponsor_member_status', {
       p_actor_user_id: access.user.id,
       p_membership_id: parsed.value.membershipId,
@@ -161,9 +173,6 @@ export async function PATCH(request: Request, { params }: RouteContext) {
       if (error.code === '22023') return respond(request, { error: 'Invalid sponsor membership action.' }, 400);
       console.error('Unable to update sponsor membership:', error.message);
       return respond(request, { error: 'Unable to update sponsor access.' }, 500);
-    }
-    if (membership.sponsor_id !== sponsorId) {
-      return respond(request, { error: 'That membership does not belong to this sponsor.' }, 404);
     }
     return respond(request, { membership });
   } catch (cause) {
