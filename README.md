@@ -196,6 +196,41 @@ After the workflow completes, inspect the [GitHub Releases](https://github.com/j
 
 The CI packaging checks prove that the packages can be built; they do not replace real-device upgrade, migration, offline, reconnect, or platform-specific installation tests. See the release verification plan below.
 
+## Security posture and operational checks
+
+The database intentionally exposes a small set of read-only
+`SECURITY DEFINER` RPCs for public profile metrics, published topic comments,
+topic like counts, and published offline catalogue data. These functions use
+fixed search paths and return only the public data required by those features.
+Account activity RPCs are restricted to authenticated users and compare the
+requested account with `auth.uid()`. Administrative mutation functions are
+restricted to the service role and are called only from trusted server code.
+The private `catho_private` schema has no direct client table grants; its
+RLS-enabled tables intentionally have no client policies because access is
+through the checked functions.
+
+Supabase's security advisor may still flag these intentionally exposed
+`SECURITY DEFINER` functions and RLS-enabled private tables without policies.
+Review the function grants and ownership checks before changing them; removing
+their execute grants indiscriminately would break public reads or account sync.
+The current Auth configuration also has leaked-password protection disabled.
+Enable it in Supabase Auth settings before broad public launch if supported by
+the project's plan. Admin MFA enforcement remains a separate rollout task:
+enrol and verify the owner/admin accounts first, then enable enforcement so
+administrators are not locked out.
+
+The production database is currently small, so unused-index warnings are not
+evidence that those indexes should be dropped. Keep indexes that support
+known keyset, retention, foreign-key, and activity queries until representative
+traffic and query plans show they are unnecessary. Review Supabase security
+and performance advisors after schema or traffic changes.
+
+The repository's CI checks source, tests, types, dependencies, secrets, and
+CodeQL. They do not prove production capacity. No production load test or
+independent penetration test is claimed. Perform concurrency tests on a
+separate staging project and verify deployed HTTP security headers, CSP
+enforcement, and real-device offline recovery before a large public launch.
+
 ## Configuration
 
 Copy `.env.example` to `.env.local` in the project root and fill in the values for your project. `.env.local` is ignored by Git; commit changes to `.env.example` when the required variables change, never your real credentials.
