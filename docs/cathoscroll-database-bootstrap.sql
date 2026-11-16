@@ -15,7 +15,7 @@
 --     the same PostgreSQL major version as the source project.
 --   * pg_cron and permission to create the ensure_rls event trigger are required.
 --
--- Object counts at export: 29 tables, 66 functions, 33 triggers, 32 policies,
+-- Object counts at export: 30 tables, 67 functions, 33 triggers, 32 policies,
 -- 15 categories and 86 topics.
 --
 DO $bootstrap_guard$
@@ -4499,3 +4499,121 @@ GRANT EXECUTE ON FUNCTION public.get_top_feed_comments() TO service_role;
 
 NOTIFY pgrst, 'reload schema';
 -- End of CathoScroll application-schema and catalogue bootstrap.
+
+-- Private-by-default sponsor records. Payments are reconciled manually after
+-- direct bank transfer; this table does not integrate with a payment provider.
+CREATE TABLE public.sponsors (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  sponsor_name text NOT NULL CHECK (char_length(btrim(sponsor_name)) BETWEEN 2 AND 120),
+  contact_email text CHECK (contact_email IS NULL OR char_length(contact_email) <= 254),
+  website_url text CHECK (website_url IS NULL OR website_url ~ '^https://'),
+  logo_url text CHECK (logo_url IS NULL OR logo_url ~ '^https://'),
+  description text NOT NULL DEFAULT '' CHECK (char_length(description) <= 500),
+  starts_on date,
+  ends_on date,
+  status text NOT NULL DEFAULT 'draft'
+    CHECK (status IN ('draft', 'scheduled', 'active', 'paused', 'completed')),
+  agreed_amount_minor bigint
+    CHECK (agreed_amount_minor IS NULL OR agreed_amount_minor BETWEEN 0 AND 100000000000),
+  currency text NOT NULL DEFAULT 'GBP' CHECK (currency IN ('GBP', 'EUR', 'USD')),
+  payment_status text NOT NULL DEFAULT 'pending'
+    CHECK (payment_status IN ('pending', 'received', 'not_required', 'refunded')),
+  payment_received_at timestamptz,
+  payment_reference text CHECK (payment_reference IS NULL OR char_length(payment_reference) <= 120),
+  admin_notes text NOT NULL DEFAULT '' CHECK (char_length(admin_notes) <= 2000),
+  created_by uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT sponsors_valid_date_range CHECK (starts_on IS NULL OR ends_on IS NULL OR ends_on >= starts_on),
+  CONSTRAINT sponsors_payment_received_timestamp CHECK (
+    (payment_status = 'received' AND payment_received_at IS NOT NULL)
+    OR (payment_status <> 'received' AND payment_received_at IS NULL)
+  )
+);
+CREATE INDEX sponsors_status_dates_idx ON public.sponsors (status, starts_on, ends_on);
+CREATE INDEX sponsors_created_at_idx ON public.sponsors (created_at DESC);
+ALTER TABLE public.sponsors ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE public.sponsors FROM PUBLIC, anon, authenticated, service_role;
+GRANT ALL ON TABLE public.sponsors TO service_role;
+
+CREATE OR REPLACE FUNCTION public.admin_create_sponsor(
+  p_actor_user_id uuid,
+  p_sponsor_name text,
+  p_contact_email text,
+  p_website_url text,
+  p_logo_url text,
+  p_description text,
+  p_starts_on date,
+  p_ends_on date,
+  p_status text,
+  p_agreed_amount_minor bigint,
+  p_currency text,
+  p_payment_status text,
+  p_payment_reference text,
+  p_admin_notes text
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $function$
+DECLARE
+  v_sponsor public.sponsors%ROWTYPE;
+BEGIN
+  IF p_actor_user_id IS NULL OR NOT EXISTS (
+    SELECT 1 FROM public.admin_users AS admins WHERE admins.user_id = p_actor_user_id
+  ) THEN
+    RAISE EXCEPTION 'Administrator access required' USING ERRCODE = '42501';
+  END IF;
+  IF p_payment_status NOT IN ('pending', 'received', 'not_required', 'refunded') THEN
+    RAISE EXCEPTION 'Invalid payment status' USING ERRCODE = '22023';
+  END IF;
+
+  INSERT INTO public.sponsors (
+    sponsor_name, contact_email, website_url, logo_url, description,
+    starts_on, ends_on, status, agreed_amount_minor, currency,
+    payment_status, payment_received_at, payment_reference, admin_notes, created_by
+  )
+  VALUES (
+    btrim(p_sponsor_name), nullif(btrim(p_contact_email), ''),
+    nullif(btrim(p_website_url), ''), nullif(btrim(p_logo_url), ''),
+    coalesce(p_description, ''), p_starts_on, p_ends_on, p_status,
+    p_agreed_amount_minor, p_currency, p_payment_status,
+    CASE WHEN p_payment_status = 'received' THEN pg_catalog.statement_timestamp() ELSE NULL END,
+    nullif(btrim(p_payment_reference), ''), coalesce(p_admin_notes, ''), p_actor_user_id
+  )
+  RETURNING * INTO v_sponsor;
+
+  INSERT INTO catho_private.admin_action_audit (
+    actor_user_id, action, target_type, target_id, details
+  )
+  VALUES (
+    p_actor_user_id, 'sponsor.created', 'sponsor', v_sponsor.id::text,
+    pg_catalog.jsonb_build_object(
+      'sponsor_name', v_sponsor.sponsor_name,
+      'status', v_sponsor.status,
+      'payment_status', v_sponsor.payment_status,
+      'currency', v_sponsor.currency,
+      'agreed_amount_minor', v_sponsor.agreed_amount_minor
+    )
+  );
+
+  RETURN pg_catalog.jsonb_build_object(
+    'id', v_sponsor.id,
+    'sponsor_name', v_sponsor.sponsor_name,
+    'status', v_sponsor.status,
+    'payment_status', v_sponsor.payment_status,
+    'created_at', v_sponsor.created_at
+  );
+END;
+$function$;
+
+ALTER FUNCTION public.admin_create_sponsor(
+  uuid, text, text, text, text, text, date, date, text, bigint, text, text, text, text
+) OWNER TO postgres;
+REVOKE ALL ON FUNCTION public.admin_create_sponsor(
+  uuid, text, text, text, text, text, date, date, text, bigint, text, text, text, text
+) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.admin_create_sponsor(
+  uuid, text, text, text, text, text, date, date, text, bigint, text, text, text, text
+) TO service_role;
