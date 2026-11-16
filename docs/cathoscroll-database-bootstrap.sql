@@ -469,7 +469,7 @@ begin
   end if;
   return null;
 end;
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION catho_private.audit_moderation_change()
  RETURNS trigger
@@ -528,7 +528,7 @@ BEGIN
   WHERE user_id=p_user_id RETURNING recommendation_count INTO request_count;
   RETURN request_count<=30;
 END;
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION catho_private.enforce_activity_mutation_rate_limit()
  RETURNS trigger
@@ -593,7 +593,7 @@ BEGIN
 
   IF TG_OP='DELETE' THEN RETURN OLD; ELSE RETURN NEW; END IF;
 END;
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION catho_private.enforce_user_action_rate_limit()
  RETURNS trigger
@@ -707,7 +707,7 @@ BEGIN
   END IF;
   RETURN NEW;
 END;
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION catho_private.is_cathoscroll_content_admin()
  RETURNS boolean
@@ -736,7 +736,7 @@ AS $function$
       )
     )
   )
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION catho_private.prevent_audit_mutation()
  RETURNS trigger
@@ -760,7 +760,7 @@ begin
   delete from catho_private.activity_events where user_id = p_user and revision <= p_through;
   update catho_private.activity_heads set floor_revision = p_through where user_id = p_user;
 end;
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION catho_private.prune_due_activity()
  RETURNS integer
@@ -790,7 +790,7 @@ BEGIN
   END LOOP;
   RETURN removed;
 END;
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION catho_private.prune_old_activity(p_user uuid, p_before timestamp with time zone, p_limit integer DEFAULT 1000)
  RETURNS integer
@@ -828,7 +828,7 @@ begin
   update catho_private.activity_heads set floor_revision = last_revision where user_id = p_user;
   return row_count::integer;
 end;
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION catho_private.record_activity(p_user uuid, p_kind text, p_topic text, p_value boolean, p_completed_at timestamp with time zone)
  RETURNS bigint
@@ -846,7 +846,7 @@ begin
   values (p_user, next_revision, p_kind, p_topic, p_value, p_completed_at);
   return next_revision;
 end;
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION catho_private.validate_comment_write()
  RETURNS trigger
@@ -952,7 +952,7 @@ BEGIN
   END IF;
   RETURN NEW;
 END;
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION catho_private.validate_notification_read_update()
  RETURNS trigger
@@ -992,7 +992,7 @@ BEGIN
   NEW.read_at:=pg_catalog.now();
   RETURN NEW;
 END;
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION public.admin_get_action_audit(p_actor_user_id uuid, p_before_id bigint DEFAULT NULL::bigint, p_limit integer DEFAULT 50)
  RETURNS TABLE(id bigint, actor_user_id uuid, action text, target_type text, target_id text, target_user_id uuid, details jsonb, created_at timestamp with time zone)
@@ -1017,7 +1017,7 @@ BEGIN
   ORDER BY audit.id DESC
   LIMIT p_limit;
 END;
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION public.admin_manage_comment_ban(target_user_id uuid, moderator_user_id uuid, moderation_action text, moderation_reason text, hide_existing_comments boolean, restore_hidden_comments boolean)
  RETURNS jsonb
@@ -1109,7 +1109,7 @@ BEGIN
     'restoredCommentCount', changed_comment_count
   );
 END;
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION public.admin_mfa_enforcement_enabled()
  RETURNS boolean
@@ -1118,7 +1118,7 @@ CREATE OR REPLACE FUNCTION public.admin_mfa_enforcement_enabled()
  SET search_path TO ''
 AS $function$
   SELECT COALESCE((SELECT admin_mfa_enforced FROM catho_private.security_controls WHERE singleton=true),false)
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION public.admin_review_comment_ban_appeal(target_appeal_id bigint, approve_appeal boolean, reviewer_user_id uuid, review_note text, restore_hidden_comments boolean)
  RETURNS text
@@ -1187,7 +1187,7 @@ BEGIN
 
   RETURN next_status;
 END;
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION public.admin_review_comment_report(target_report_id bigint, review_action text, reviewer_user_id uuid, review_note text)
  RETURNS text
@@ -1243,7 +1243,7 @@ BEGIN
 
   RETURN next_status;
 END;
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION public.admin_set_comment_pin(target_comment_id bigint, should_pin boolean, moderator_user_id uuid)
  RETURNS void
@@ -1311,7 +1311,7 @@ BEGIN
     jsonb_build_object('topic_id', target_topic_id)
   );
 END;
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION public.admin_set_user_role(p_target_user_id uuid, p_actor_user_id uuid, p_grant boolean)
  RETURNS jsonb
@@ -1347,7 +1347,7 @@ BEGIN
   VALUES(p_actor_user_id,CASE WHEN p_grant THEN 'admin_role.granted' ELSE 'admin_role.revoked' END,'admin_users',p_target_user_id::text,p_target_user_id,jsonb_build_object('changed',changed_count));
   RETURN jsonb_build_object('success',true,'is_admin',p_grant,'changed',changed_count);
 END;
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION public.admin_user_has_verified_totp(p_user_id uuid)
  RETURNS boolean
@@ -1359,7 +1359,7 @@ AS $function$
     SELECT 1 FROM auth.mfa_factors
     WHERE user_id=p_user_id AND factor_type='totp' AND status='verified'
   )
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION public.consume_api_rate_limit(p_key_hash text, p_limit integer, p_window_seconds integer)
  RETURNS TABLE(allowed boolean, retry_after_seconds integer)
@@ -1395,7 +1395,7 @@ BEGIN
     ORDER BY candidate.updated_at LIMIT 100
   );
 END;
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION public.enable_admin_mfa_enforcement(p_actor_user_id uuid)
  RETURNS boolean
@@ -1435,7 +1435,7 @@ BEGIN
   VALUES(p_actor_user_id,'security.admin_mfa_enforced','security_controls','admin_mfa',p_actor_user_id,'{}'::jsonb);
   RETURN true;
 END;
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION public.get_my_recommendation_page(feed_cursor jsonb DEFAULT NULL::jsonb, page_limit integer DEFAULT 50)
  RETURNS jsonb
@@ -1687,7 +1687,7 @@ BEGIN
       ELSE NULL END
   );
 END;
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION public.get_my_topic_engagement()
  RETURNS TABLE(progress_topic_ids text[], bookmark_topic_ids text[], liked_topic_ids text[], commented_topic_ids text[])
@@ -1733,7 +1733,7 @@ AS $function$
       ),
       ARRAY[]::text[]
     );
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION public.get_own_subscription_tier()
  RETURNS text
@@ -1744,7 +1744,7 @@ AS $function$
   SELECT p.subscription_tier
   FROM public.profiles AS p
   WHERE p.id = (SELECT auth.uid())
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION public.get_public_profile_metrics(p_profile_id uuid, p_timezone text DEFAULT 'UTC'::text)
  RETURNS jsonb
@@ -1933,7 +1933,7 @@ BEGIN
 
   RETURN metrics;
 END
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION public.get_topic_comment_page(p_topic_id text, p_before_created_at timestamp with time zone DEFAULT NULL::timestamp with time zone, p_before_id bigint DEFAULT NULL::bigint, p_limit integer DEFAULT 50)
  RETURNS jsonb
@@ -2159,7 +2159,7 @@ BEGIN
 
   RETURN result;
 END
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION public.get_topic_like_state(p_topic_id text)
  RETURNS TABLE(likes bigint, liked boolean)
@@ -2180,7 +2180,7 @@ AS $function$
     AND topic.is_published = true
     AND p_topic_id IS NOT NULL
     AND pg_catalog.length(p_topic_id) BETWEEN 1 AND 100
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION public.is_cathoscroll_admin_owner(p_user_id uuid)
  RETURNS boolean
@@ -2192,7 +2192,7 @@ AS $function$
     SELECT 1 FROM catho_private.admin_owners owner_row
     WHERE owner_row.user_id = p_user_id
   )
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION public.is_cathoscroll_content_admin()
  RETURNS boolean
@@ -2201,7 +2201,7 @@ CREATE OR REPLACE FUNCTION public.is_cathoscroll_content_admin()
  SET search_path TO ''
 AS $function$
   SELECT catho_private.is_cathoscroll_content_admin()
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION public.notify_comment_appeal_reviewed()
  RETURNS trigger
@@ -2239,7 +2239,7 @@ begin
 
   return new;
 end;
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION public.notify_comment_pin_change()
  RETURNS trigger
@@ -2269,7 +2269,7 @@ begin
 
   return new;
 end;
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION public.notify_comment_reply()
  RETURNS trigger
@@ -2305,7 +2305,7 @@ begin
 
   return new;
 end;
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION public.notify_comment_report_reviewed()
  RETURNS trigger
@@ -2327,7 +2327,7 @@ begin
 
   return new;
 end;
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION public.notify_comment_restriction_created()
  RETURNS trigger
@@ -2346,7 +2346,7 @@ begin
 
   return new;
 end;
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION public.notify_comment_restriction_lifted()
  RETURNS trigger
@@ -2374,7 +2374,7 @@ begin
 
   return new;
 end;
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION public.notify_moderated_comment_visibility()
  RETURNS trigger
@@ -2408,7 +2408,7 @@ begin
 
   return null;
 end;
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION public.notify_profile_created()
  RETURNS trigger
@@ -2427,7 +2427,7 @@ begin
 
   return new;
 end;
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION public.offline_activity_changes(p_user uuid, p_after text, p_limit integer DEFAULT 100)
  RETURNS jsonb
@@ -2468,7 +2468,7 @@ begin
   into items, more;
   return jsonb_build_object('userId', actor, 'changes', items, 'hasMore', more);
 end;
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION public.offline_activity_head(p_user uuid)
  RETURNS jsonb
@@ -2484,7 +2484,7 @@ begin
   select revision into result from catho_private.activity_heads where user_id = actor;
   return jsonb_build_object('userId', actor, 'revision', coalesce(result, 0)::text);
 end;
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION public.offline_activity_snapshot(p_user uuid, p_cursor text DEFAULT NULL::text)
  RETURNS jsonb
@@ -2531,7 +2531,7 @@ begin
   into items, next_cursor;
   return jsonb_build_object('userId', actor, 'items', items, 'nextCursor', next_cursor);
 end;
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION public.offline_apply_activity(p_user uuid, p_operation uuid, p_kind text, p_topic text, p_value boolean, p_completed_at timestamp with time zone DEFAULT NULL::timestamp with time zone)
  RETURNS jsonb
@@ -2621,7 +2621,7 @@ begin
     'status', 'applied', 'revision', next_revision::text, 'value', p_value, 'completedAt', actual_completed_at
   );
 end;
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION public.offline_apply_activity_batch(p_user uuid, p_operations jsonb)
  RETURNS jsonb
@@ -2724,7 +2724,7 @@ BEGIN
 
   RETURN results;
 END;
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION public.offline_apply_activity_v2(p_user uuid, p_operation uuid, p_device uuid, p_sequence text, p_acknowledged text, p_kind text, p_topic text, p_value boolean, p_completed_at timestamp with time zone DEFAULT NULL::timestamp with time zone)
  RETURNS jsonb
@@ -2841,7 +2841,7 @@ BEGIN
 
   RETURN result;
 END;
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION public.offline_catalogue_category_changed()
  RETURNS trigger
@@ -2861,7 +2861,7 @@ BEGIN
   END IF;
   RETURN NULL;
 END;
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION public.offline_catalogue_changes(p_after text, p_through text)
  RETURNS jsonb
@@ -2916,7 +2916,7 @@ BEGIN
   RETURN jsonb_build_object('changes', entries, 'hasMore', coalesce(last_revision < through_revision, false),
     'resetRequired', false);
 END;
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION public.offline_catalogue_counts()
  RETURNS jsonb
@@ -2934,7 +2934,7 @@ AS $function$
     )
   )
   FROM public.offline_catalogue_revision WHERE singleton
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION public.offline_catalogue_head()
  RETURNS jsonb
@@ -2944,7 +2944,7 @@ CREATE OR REPLACE FUNCTION public.offline_catalogue_head()
 AS $function$
   SELECT jsonb_build_object('revision', revision::text)
   FROM public.offline_catalogue_revision WHERE singleton
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION public.offline_catalogue_lock()
  RETURNS trigger
@@ -2956,7 +2956,7 @@ BEGIN
   PERFORM pg_advisory_xact_lock(1128350799, 1128350802);
   RETURN NULL;
 END;
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION public.offline_catalogue_prune(p_through bigint)
  RETURNS void
@@ -2975,7 +2975,7 @@ BEGIN
   DELETE FROM public.offline_catalogue_events WHERE revision <= p_through;
   UPDATE public.offline_catalogue_revision SET floor_revision = p_through WHERE singleton;
 END;
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION public.offline_catalogue_prune_old(p_before timestamp with time zone, p_limit integer DEFAULT 1000)
  RETURNS integer
@@ -3012,7 +3012,7 @@ BEGIN
   UPDATE public.offline_catalogue_revision SET floor_revision = last_revision WHERE singleton;
   RETURN row_count::integer;
 END;
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION public.offline_catalogue_record(p_kind text, p_key text)
  RETURNS void
@@ -3028,7 +3028,7 @@ BEGIN
   INSERT INTO public.offline_catalogue_events(revision, kind, entity_key)
   VALUES (next_revision, p_kind, p_key);
 END;
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION public.offline_catalogue_topic_changed()
  RETURNS trigger
@@ -3052,7 +3052,7 @@ BEGIN
   IF is_visible THEN PERFORM public.offline_catalogue_record('topic', NEW.id); END IF;
   RETURN NULL;
 END;
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION public.offline_catalogue_truncated()
  RETURNS trigger
@@ -3064,7 +3064,7 @@ BEGIN
   PERFORM public.offline_catalogue_record('reset', 'truncate');
   RETURN NULL;
 END;
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION public.reject_comment_edit_from_banned_user()
  RETURNS trigger
@@ -3095,7 +3095,7 @@ BEGIN
 
   RETURN NEW;
 END;
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION public.reject_comment_from_banned_user()
  RETURNS trigger
@@ -3123,7 +3123,7 @@ BEGIN
 
   RETURN NEW;
 END;
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION public.rls_auto_enable()
  RETURNS event_trigger
@@ -3155,7 +3155,7 @@ BEGIN
      END IF;
   END LOOP;
 END;
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION public.search_published_topics(search_query text, result_limit integer DEFAULT 30)
  RETURNS TABLE(id text, slug text, category_slug text, category_name text, question text, answer text, explanation text, catechism_paragraphs text[], catechism_text text, scripture_reference text, scripture_text text, search_score real)
@@ -3209,7 +3209,7 @@ AS $function$
   FROM ranked_topics
   ORDER BY ranked_topics.search_score DESC, ranked_topics.question ASC, ranked_topics.id ASC
   LIMIT least(greatest(coalesce(result_limit, 30), 1), 50);
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION public.set_content_updated_at()
  RETURNS trigger
@@ -3220,7 +3220,7 @@ BEGIN
   NEW.updated_at := pg_catalog.now();
   RETURN NEW;
 END;
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION public.submit_comment_report(reporter_user_id uuid, target_comment_id bigint, report_reason text, report_details text)
  RETURNS void
@@ -3274,7 +3274,7 @@ BEGIN
     NULLIF(btrim(report_details), '')
   );
 END;
-$function$
+$function$;
 
 
 RESET check_function_bodies;
@@ -3390,6 +3390,13 @@ GRANT USAGE ON SCHEMA public TO postgres;
 GRANT USAGE ON SCHEMA public TO service_role;
 GRANT USAGE ON SCHEMA public TO PUBLIC;
 
+-- Reset inherited/default table and sequence access before restoring the
+-- source project's explicit ACL. This is essential on fresh Supabase projects,
+-- where default privileges may otherwise leave broad authenticated writes.
+REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA catho_private FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public FROM PUBLIC, anon, authenticated, service_role;
+
 -- Table grants
 GRANT SELECT ON TABLE public.admin_users TO authenticated;
 GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.admin_users TO service_role;
@@ -3430,6 +3437,15 @@ GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON
 GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.user_comment_ban_hidden_comments TO service_role;
 GRANT SELECT ON TABLE public.user_comment_bans TO authenticated;
 GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.user_comment_bans TO service_role;
+
+-- Column-level grants are part of the source security model. In particular,
+-- subscription_tier is deliberately not writable/readable through direct
+-- profile table access; clients obtain their own tier through the guarded RPC.
+GRANT SELECT (id, username, display_name, bio) ON TABLE public.profiles TO anon;
+GRANT SELECT (id, username, display_name, bio) ON TABLE public.profiles TO authenticated;
+GRANT INSERT (id, username, display_name, bio) ON TABLE public.profiles TO authenticated;
+GRANT UPDATE (username, display_name, bio) ON TABLE public.profiles TO authenticated;
+GRANT UPDATE (read_at) ON TABLE public.notifications TO authenticated;
 
 -- Sequence grants, including identity sequences
 GRANT SELECT ON SEQUENCE public.bookmarks_id_seq TO anon;
@@ -3642,6 +3658,12 @@ GRANT EXECUTE ON FUNCTION public.set_content_updated_at() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.set_content_updated_at() TO service_role;
 GRANT EXECUTE ON FUNCTION public.set_content_updated_at() TO PUBLIC;
 GRANT EXECUTE ON FUNCTION public.submit_comment_report(reporter_user_id uuid, target_comment_id bigint, report_reason text, report_details text) TO service_role;
+
+-- Preserve least-privilege defaults for future objects as well as the
+-- explicit grants above. New public tables/sequences must not become writable
+-- by anon/authenticated merely because of project-level default ACLs.
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public REVOKE ALL ON TABLES FROM PUBLIC, anon, authenticated;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public REVOKE ALL ON SEQUENCES FROM PUBLIC, anon, authenticated;
 
 -- Preserve the source project's service_role defaults for future objects.
 ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON TABLES TO service_role;
