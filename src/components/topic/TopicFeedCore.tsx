@@ -75,8 +75,7 @@ export function TopicFeedCore({
   const [sponsorCampaigns, setSponsorCampaigns] = useState<SponsorFeedCampaign[]>([]);
   const [showSponsorCard, setShowSponsorCard] = useState(false);
   const [topicsSinceSponsorCard, setTopicsSinceSponsorCard] = useState(0);
-  const sponsorCardsByTopicId = useRef(new Map<string, SponsorFeedCampaign[]>());
-  const sponsorSessionIdRef = useRef<string | null>(null);
+  const sponsorCardsByTopicId = useRef(new Map<string, { campaigns: SponsorFeedCampaign[]; sessionId: string }>());
   const [activeSponsorSessionId, setActiveSponsorSessionId] = useState<string | null>(null);
   const sponsorSessionUserId = useRef(userId);
   const sponsorLoadingRef = useRef(false);
@@ -97,9 +96,8 @@ export function TopicFeedCore({
   useEffect(() => {
     if (sponsorSessionUserId.current === userId) return;
     sponsorSessionUserId.current = userId;
-    sponsorSessionIdRef.current = createSponsorSessionId();
     /* eslint-disable react-hooks/set-state-in-effect */
-    setActiveSponsorSessionId(sponsorSessionIdRef.current);
+    setActiveSponsorSessionId(null);
     sponsorCardsByTopicId.current.clear();
     sponsorLoadingRef.current = false;
     lastInterstitialType.current = null;
@@ -111,12 +109,11 @@ export function TopicFeedCore({
   }, [userId]);
 
   const loadSponsorCampaigns = useCallback(
-    async (topic: Topic): Promise<SponsorFeedCampaign[]> => {
-      if (!userId || !getSponsorAccessToken) return [];
-      const sessionId = sponsorSessionIdRef.current ?? createSponsorSessionId();
-      if (!sessionId) return [];
-      sponsorSessionIdRef.current = sessionId;
-      setActiveSponsorSessionId(sessionId);
+    async (topic: Topic): Promise<{ campaigns: SponsorFeedCampaign[]; sessionId: string | null }> => {
+      if (!userId || !getSponsorAccessToken) return { campaigns: [], sessionId: null };
+      // Give each sponsor-card placement its own ID for reliable event attribution.
+      const sessionId = createSponsorSessionId();
+      if (!sessionId) return { campaigns: [], sessionId: null };
 
       try {
         const accessToken = await getSponsorAccessToken();
@@ -132,10 +129,10 @@ export function TopicFeedCore({
             topicId: topic.id,
           }),
         });
-        if (!response.ok) return [];
-        return parseSponsorFeedCampaigns(await response.json());
+        if (!response.ok) return { campaigns: [], sessionId: null };
+        return { campaigns: parseSponsorFeedCampaigns(await response.json()), sessionId };
       } catch {
-        return [];
+        return { campaigns: [], sessionId: null };
       }
     },
     [getSponsorAccessToken, userId]
@@ -303,8 +300,7 @@ export function TopicFeedCore({
 
     if (sponsorSessionUserId.current !== userId) {
       sponsorSessionUserId.current = userId;
-      sponsorSessionIdRef.current = createSponsorSessionId();
-      setActiveSponsorSessionId(sponsorSessionIdRef.current);
+      setActiveSponsorSessionId(null);
       sponsorCardsByTopicId.current.clear();
       currentSponsorCadence = 0;
     }
@@ -334,11 +330,12 @@ export function TopicFeedCore({
 
       sponsorLoadingRef.current = true;
       const requestedUserId = userId;
-      void loadSponsorCampaigns(currentTopic).then((campaigns) => {
+      void loadSponsorCampaigns(currentTopic).then((result) => {
         if (sponsorSessionUserId.current !== requestedUserId) return;
-        if (campaigns.length > 0) {
-          setSponsorCampaigns(campaigns);
-          sponsorCardsByTopicId.current.set(currentTopic.id, campaigns);
+        if (result.campaigns.length > 0 && result.sessionId) {
+          setSponsorCampaigns(result.campaigns);
+          setActiveSponsorSessionId(result.sessionId);
+          sponsorCardsByTopicId.current.set(currentTopic.id, result);
           setShowTopCommentCard(false);
           setShowSponsorCard(true);
           lastInterstitialType.current = 'sponsor';
@@ -416,8 +413,9 @@ export function TopicFeedCore({
     const previousSponsorCard = previousTopicId
       ? sponsorCardsByTopicId.current.get(previousTopicId)
       : undefined;
-    if (previousSponsorCard?.length) {
-      setSponsorCampaigns(previousSponsorCard);
+    if (previousSponsorCard?.campaigns.length) {
+      setSponsorCampaigns(previousSponsorCard.campaigns);
+      setActiveSponsorSessionId(previousSponsorCard.sessionId);
       setShowTopCommentCard(false);
       setShowSponsorCard(true);
       return;
