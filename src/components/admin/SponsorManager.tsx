@@ -59,7 +59,6 @@ export function SponsorManager({ sponsors, memberships }: { sponsors: SponsorRec
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [updatingSponsorId, setUpdatingSponsorId] = useState<string | null>(null);
   const [memberEmails, setMemberEmails] = useState<Record<string, string>>({});
   const [memberRoles, setMemberRoles] = useState<Record<string, 'owner' | 'manager' | 'analyst'>>({});
   const [memberUpdatingId, setMemberUpdatingId] = useState<string | null>(null);
