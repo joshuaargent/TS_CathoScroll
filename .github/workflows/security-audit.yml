@@ -47,10 +47,10 @@ jobs:
         continue-on-error: true
         run: npm --prefix electron audit --audit-level=moderate
 
-      - name: Fail if either dependency tree has high or critical vulnerabilities
+      - name: Fail if either dependency tree has moderate-or-higher vulnerabilities
         if: steps.root-audit.outcome == 'failure' || steps.electron-audit.outcome == 'failure'
         run: |
-          echo "::error::High or critical dependency vulnerabilities remain. Review both audit reports above."
+          echo "::error::Moderate, high or critical dependency vulnerabilities remain. Review both audit reports above."
           exit 1
 
   codeql:
