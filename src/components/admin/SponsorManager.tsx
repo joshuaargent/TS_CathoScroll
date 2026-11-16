@@ -3,6 +3,16 @@
 import { useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 
+export interface SponsorMembershipRecord {
+  id: string;
+  sponsor_id: string;
+  user_id: string;
+  role: 'owner' | 'manager' | 'analyst';
+  status: 'active' | 'suspended' | 'revoked';
+  display_name: string | null;
+  username: string | null;
+}
+
 export interface SponsorRecord {
   id: string;
   sponsor_name: string;
@@ -44,13 +54,67 @@ function humanize(value: string) {
   return value.replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
-export function SponsorManager({ sponsors }: { sponsors: SponsorRecord[] }) {
+export function SponsorManager({ sponsors, memberships }: { sponsors: SponsorRecord[]; memberships: SponsorMembershipRecord[] }) {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [updatingSponsorId, setUpdatingSponsorId] = useState<string | null>(null);
   const [paymentReferences, setPaymentReferences] = useState<Record<string, string>>({});
+  const [memberEmails, setMemberEmails] = useState<Record<string, string>>({});
+  const [memberRoles, setMemberRoles] = useState<Record<string, 'owner' | 'manager' | 'analyst'>>({});
+  const [memberUpdatingId, setMemberUpdatingId] = useState<string | null>(null);
+
+  async function addSponsorMember(sponsorId: string) {
+    if (memberUpdatingId) return;
+    const email = (memberEmails[sponsorId] ?? '').trim();
+    const role = memberRoles[sponsorId] ?? 'owner';
+    if (!email) {
+      setError('Enter the email address of an existing CathoScroll account.');
+      return;
+    }
+    setMemberUpdatingId(sponsorId);
+    setError(null);
+    setSuccess(null);
+    try {
+      const response = await fetch(`/api/admin/sponsors/${encodeURIComponent(sponsorId)}/members`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, role }),
+      });
+      const result: { error?: string } = await response.json();
+      if (!response.ok) throw new Error(result.error ?? 'Unable to grant sponsor access.');
+      setMemberEmails((current) => ({ ...current, [sponsorId]: '' }));
+      setSuccess(`Sponsor access granted to ${email}.`);
+      router.refresh();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Unable to grant sponsor access.');
+    } finally {
+      setMemberUpdatingId(null);
+    }
+  }
+
+  async function updateSponsorMember(sponsorId: string, membershipId: string, action: 'suspend' | 'reactivate' | 'revoke') {
+    if (memberUpdatingId) return;
+    setMemberUpdatingId(membershipId);
+    setError(null);
+    setSuccess(null);
+    try {
+      const response = await fetch(`/api/admin/sponsors/${encodeURIComponent(sponsorId)}/members`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ membershipId, action }),
+      });
+      const result: { error?: string } = await response.json();
+      if (!response.ok) throw new Error(result.error ?? 'Unable to update sponsor access.');
+      setSuccess(`Sponsor account access ${action === 'revoke' ? 'revoked' : action === 'suspend' ? 'suspended' : 'restored'}.`);
+      router.refresh();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Unable to update sponsor access.');
+    } finally {
+      setMemberUpdatingId(null);
+    }
+  }
 
   async function markPaymentReceived(sponsorId: string) {
     if (updatingSponsorId) return;
@@ -403,6 +467,121 @@ export function SponsorManager({ sponsors }: { sponsors: SponsorRecord[] }) {
               </tbody>
             </table>
           </div>
+        )}
+      </section>
+      <section className="space-y-5">
+        <div>
+          <h2 className="text-2xl font-bold">Sponsor account access</h2>
+          <p className="text-text-secondary mt-1 max-w-3xl text-sm">
+            Link existing CathoScroll accounts to sponsor organisations. The account must already
+            exist; this does not create an Auth user or change email-verification settings.
+          </p>
+        </div>
+        {sponsors.length === 0 ? (
+          <p className="text-text-secondary rounded-xl border border-border p-5 text-sm">
+            Create a sponsor record before assigning account access.
+          </p>
+        ) : (
+          sponsors.map((sponsor) => {
+            const sponsorMembers = memberships.filter((membership) => membership.sponsor_id === sponsor.id);
+            return (
+              <div key={sponsor.id} className="border-border rounded-2xl border p-5">
+                <div className="mb-4">
+                  <h3 className="font-semibold">{sponsor.sponsor_name}</h3>
+                  <p className="text-text-muted mt-1 text-xs">
+                    {sponsorMembers.length} linked account{sponsorMembers.length === 1 ? '' : 's'}
+                  </p>
+                </div>
+                <form
+                  className="mb-5 grid gap-3 sm:grid-cols-[minmax(0,1fr)_160px_auto]"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    void addSponsorMember(sponsor.id);
+                  }}
+                >
+                  <input
+                    type="email"
+                    required
+                    maxLength={254}
+                    value={memberEmails[sponsor.id] ?? ''}
+                    onChange={(event) => setMemberEmails((current) => ({ ...current, [sponsor.id]: event.target.value }))}
+                    placeholder="Existing account email"
+                    aria-label={`Account email for ${sponsor.sponsor_name}`}
+                    className="border-border bg-bg-primary min-w-0 rounded-lg border px-3 py-2.5 text-sm"
+                  />
+                  <select
+                    value={memberRoles[sponsor.id] ?? 'owner'}
+                    onChange={(event) => setMemberRoles((current) => ({
+                      ...current,
+                      [sponsor.id]: event.target.value as 'owner' | 'manager' | 'analyst',
+                    }))}
+                    aria-label={`Sponsor role for ${sponsor.sponsor_name}`}
+                    className="border-border bg-bg-primary rounded-lg border px-3 py-2.5 text-sm"
+                  >
+                    <option value="owner">Owner</option>
+                    <option value="manager">Manager</option>
+                    <option value="analyst">Analyst</option>
+                  </select>
+                  <button
+                    type="submit"
+                    disabled={memberUpdatingId !== null}
+                    className="bg-accent text-white rounded-lg px-4 py-2.5 text-sm font-semibold disabled:opacity-50"
+                  >
+                    {memberUpdatingId === sponsor.id ? 'Adding…' : 'Grant access'}
+                  </button>
+                </form>
+                {sponsorMembers.length === 0 ? (
+                  <p className="text-text-muted text-sm">No accounts have access to this sponsor.</p>
+                ) : (
+                  <div className="divide-border divide-y">
+                    {sponsorMembers.map((membership) => (
+                      <div key={membership.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
+                        <div className="min-w-0">
+                          <p className="font-medium">
+                            {membership.display_name || membership.username || 'CathoScroll account'}
+                          </p>
+                          <p className="text-text-muted mt-0.5 text-xs">
+                            {membership.username ? `@${membership.username} · ` : ''}{membership.role} · {membership.status}
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {membership.status === 'active' ? (
+                            <button
+                              type="button"
+                              disabled={memberUpdatingId !== null}
+                              onClick={() => void updateSponsorMember(sponsor.id, membership.id, 'suspend')}
+                              className="border-border rounded-md border px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
+                            >
+                              Suspend
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              disabled={memberUpdatingId !== null || membership.status === 'revoked'}
+                              onClick={() => void updateSponsorMember(sponsor.id, membership.id, 'reactivate')}
+                              className="border-border rounded-md border px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
+                            >
+                              Reactivate
+                            </button>
+                          )}
+                          {membership.status !== 'revoked' && (
+                            <button
+                              type="button"
+                              disabled={memberUpdatingId !== null}
+                              onClick={() => void updateSponsorMember(sponsor.id, membership.id, 'revoke')}
+                              className="border border-red-500/30 rounded-md px-3 py-1.5 text-xs font-semibold text-red-600 disabled:opacity-50"
+                            >
+                              Revoke
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })
         )}
       </section>
     </div>
