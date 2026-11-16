@@ -87,7 +87,12 @@ export class NativeActivity {
           this.notify();
         }
       },
-      () => this.notify()
+      () => this.notify(),
+      () => {
+        this.error =
+          'Some saved changes are waiting for an activity limit to reset. They remain on this device and will retry automatically.';
+        this.notify();
+      }
     );
   }
 
