@@ -89,7 +89,7 @@ export async function POST(request: Request) {
   const auth = await authenticate(request);
   if ('response' in auth) return auth.response;
 
-  const parsed = await readBoundedJson(request, 4096);
+  const parsed = await readBoundedJson(request, 16_384);
   if (!parsed.ok) return respond(request, { error: parsed.error }, parsed.status);
   const body = parsed.value;
 
