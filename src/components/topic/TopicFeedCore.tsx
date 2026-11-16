@@ -76,7 +76,8 @@ export function TopicFeedCore({
   const [showSponsorCard, setShowSponsorCard] = useState(false);
   const [topicsSinceSponsorCard, setTopicsSinceSponsorCard] = useState(0);
   const sponsorCardsByTopicId = useRef(new Map<string, SponsorFeedCampaign[]>());
-  const sponsorSessionId = useRef<string | null>(null);
+  const sponsorSessionIdRef = useRef<string | null>(null);
+  const [activeSponsorSessionId, setActiveSponsorSessionId] = useState<string | null>(null);
   const sponsorSessionUserId = useRef(userId);
   const sponsorLoadingRef = useRef(false);
   const lastInterstitialType = useRef<'comment' | 'sponsor' | null>(null);
@@ -96,7 +97,8 @@ export function TopicFeedCore({
   useEffect(() => {
     if (sponsorSessionUserId.current === userId) return;
     sponsorSessionUserId.current = userId;
-    sponsorSessionId.current = createSponsorSessionId();
+    sponsorSessionIdRef.current = createSponsorSessionId();
+    setActiveSponsorSessionId(sponsorSessionIdRef.current);
     sponsorCardsByTopicId.current.clear();
     sponsorLoadingRef.current = false;
     lastInterstitialType.current = null;
@@ -109,9 +111,10 @@ export function TopicFeedCore({
   const loadSponsorCampaigns = useCallback(
     async (topic: Topic): Promise<SponsorFeedCampaign[]> => {
       if (!userId || !getSponsorAccessToken) return [];
-      const sessionId = sponsorSessionId.current ?? createSponsorSessionId();
+      const sessionId = sponsorSessionIdRef.current ?? createSponsorSessionId();
       if (!sessionId) return [];
-      sponsorSessionId.current = sessionId;
+      sponsorSessionIdRef.current = sessionId;
+      setActiveSponsorSessionId(sessionId);
 
       try {
         const accessToken = await getSponsorAccessToken();
@@ -298,7 +301,8 @@ export function TopicFeedCore({
 
     if (sponsorSessionUserId.current !== userId) {
       sponsorSessionUserId.current = userId;
-      sponsorSessionId.current = createSponsorSessionId();
+      sponsorSessionIdRef.current = createSponsorSessionId();
+      setActiveSponsorSessionId(sponsorSessionIdRef.current);
       sponsorCardsByTopicId.current.clear();
       currentSponsorCadence = 0;
     }
@@ -459,7 +463,7 @@ export function TopicFeedCore({
       {showSponsorCard && sponsorCampaigns.length > 0 ? (
         <SponsorFeedCard
           campaigns={sponsorCampaigns}
-          sessionId={sponsorSessionId.current ?? ''}
+          sessionId={activeSponsorSessionId ?? ''}
           getAccessToken={getSponsorAccessToken ?? (async () => null)}
           onNextTopic={() => {
             setShowSponsorCard(false);
