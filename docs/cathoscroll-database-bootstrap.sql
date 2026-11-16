@@ -4531,6 +4531,7 @@ CREATE TABLE public.sponsors (
   )
 );
 CREATE INDEX sponsors_created_at_idx ON public.sponsors (created_at DESC);
+CREATE INDEX sponsors_created_by_idx ON public.sponsors (created_by);
 ALTER TABLE public.sponsors ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON TABLE public.sponsors FROM PUBLIC, anon, authenticated, service_role;
 GRANT ALL ON TABLE public.sponsors TO service_role;
