@@ -73,8 +73,8 @@ export default async function AdminSponsorsPage() {
         <p className="text-accent text-sm font-semibold tracking-wider uppercase">Administration</p>
         <h1 className="mt-2 text-4xl font-extrabold md:text-5xl">Sponsor management</h1>
         <p className="text-text-secondary mt-4 max-w-3xl">
-          Create sponsor records, record the agreed amount and manually reconcile bank-transfer
-          payments. Sponsor records are private and are not displayed to learners yet.
+          Manage sponsor organisations and access, issue invoices and reconcile direct bank transfers.
+          Business records remain private; only approved sponsored creative is shown in the feed.
         </p>
       </div>
       <div className="mt-8">
