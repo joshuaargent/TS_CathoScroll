@@ -340,6 +340,7 @@ export function TopicFeedCore({
         }
 
         if (commentDue && unseenTopComments.length > 0) {
+          setTopicsSinceTopCommentCard(0);
           setTopCommentCardComments(unseenTopComments);
           topCommentCardsByTopicId.current.set(currentTopic.id, unseenTopComments);
           setShowSponsorCard(false);
