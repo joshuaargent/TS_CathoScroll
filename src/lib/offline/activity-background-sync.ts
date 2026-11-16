@@ -12,6 +12,7 @@ export class BackgroundActivitySync {
   private requested = false;
   private timer: ReturnType<typeof setTimeout> | null = null;
   private failed = false;
+  private deferred = false;
   private disposed = false;
   private abort = new AbortController();
 
@@ -22,7 +23,8 @@ export class BackgroundActivitySync {
     private readonly onError: (userId: string, error: unknown) => void,
     private readonly onRecovery: (userId: string) => void,
     private readonly initialize?: (userId: string, signal: AbortSignal) => Promise<void>,
-    private readonly onChanged?: (userId: string) => void
+    private readonly onChanged?: (userId: string) => void,
+    private readonly onDeferred?: (userId: string) => void
   ) {}
 
   setUser(userId: string | null): void {
@@ -36,6 +38,7 @@ export class BackgroundActivitySync {
     this.userId = userId;
     this.generation++;
     this.failed = false;
+    this.deferred = false;
     this.requested = Boolean(userId);
     this.schedule(0);
   }
@@ -77,8 +80,17 @@ export class BackgroundActivitySync {
 
     try {
       await this.initialize?.(userId, signal);
-      const sent = await this.sync.push(userId, MAX_OPERATIONS, signal);
-      if (sent === MAX_OPERATIONS) this.requested = true;
+      const pushResult = await this.sync.push(userId, MAX_OPERATIONS, signal);
+      if (pushResult.sent === MAX_OPERATIONS) this.requested = true;
+      const wasDeferred = this.deferred;
+      this.deferred = pushResult.deferred;
+      if (pushResult.deferred) {
+        if (!wasDeferred || this.failed) this.onDeferred?.(userId);
+        this.failed = false;
+      } else if (wasDeferred || this.failed) {
+        this.failed = false;
+        this.onRecovery(userId);
+      }
 
       let pages = 0;
       let received = 0;
@@ -90,7 +102,7 @@ export class BackgroundActivitySync {
       }
       if (pages === MAX_PAGES) this.requested = true;
       if (isCurrent() && (sent || received)) this.onChanged?.(userId);
-      if (isCurrent() && this.failed) {
+      if (isCurrent() && this.failed && !pushResult.deferred) {
         this.failed = false;
         this.onRecovery(userId);
       }
