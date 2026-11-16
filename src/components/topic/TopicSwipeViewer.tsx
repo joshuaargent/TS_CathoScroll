@@ -7,6 +7,7 @@ import { Heart } from 'lucide-react';
 import type { Topic } from '@/types';
 import type { TopicActivity } from '@/lib/topic-activity';
 import { getTopicSlides } from '@/lib/topicSlides';
+import { installFeedAnalyticsListeners, recordFeedAnalyticsEvent } from '@/lib/feed-analytics-client';
 import { TopicCard } from './TopicCard';
 import { TopicProgress } from './TopicProgress';
 
@@ -76,6 +77,109 @@ export function TopicSwipeViewer({
   const previousSlide = slideIndex > 0 ? slides[slideIndex - 1] : null;
   const nextSlide = slideIndex < slides.length - 1 ? slides[slideIndex + 1] : null;
   const interactionVisible = !isAnimating;
+  const topicActiveSinceRef = useRef<number | null>(null);
+  const topicActiveDurationRef = useRef(0);
+  const topicViewableRef = useRef(false);
+  const viewedTopicsRef = useRef(new Set<string>());
+  const completedTopicsRef = useRef(new Set<string>());
+
+  useEffect(() => {
+    if (!userId || !active) return;
+
+    const wasViewed = viewedTopicsRef.current.has(currentTopicId);
+    viewedTopicsRef.current.add(currentTopicId);
+    recordFeedAnalyticsEvent(userId, wasViewed ? 'return_visit' : 'impression', currentTopicId, {
+      source: 'feed',
+    });
+
+    topicActiveDurationRef.current = 0;
+    topicViewableRef.current = false;
+    topicActiveSinceRef.current = null;
+
+    const flushActiveDuration = () => {
+      const startedAt = topicActiveSinceRef.current;
+      if (startedAt === null) return;
+      const elapsed = Math.max(0, Math.round(performance.now() - startedAt));
+      topicActiveDurationRef.current += elapsed;
+      topicActiveSinceRef.current = null;
+
+      let remaining = elapsed;
+      while (remaining > 0) {
+        const duration = Math.min(remaining, 60000);
+        recordFeedAnalyticsEvent(userId, 'active_duration', currentTopicId, {
+          duration_ms: duration,
+        });
+        remaining -= duration;
+      }
+    };
+
+    const startActiveDuration = () => {
+      if (document.visibilityState === 'visible' && topicActiveSinceRef.current === null) {
+        topicActiveSinceRef.current = performance.now();
+      }
+    };
+
+    const observer = typeof IntersectionObserver !== 'undefined'
+      ? new IntersectionObserver((entries) => {
+          const isViewable = entries.some((entry) => entry.isIntersecting && entry.intersectionRatio >= 0.5);
+          if (isViewable) {
+            if (!topicViewableRef.current) {
+              topicViewableRef.current = true;
+              recordFeedAnalyticsEvent(userId, 'viewable_impression', currentTopicId, {
+                source: 'feed',
+              });
+            }
+            startActiveDuration();
+          } else {
+            flushActiveDuration();
+          }
+        }, { threshold: [0, 0.5, 1] })
+      : null;
+
+    const observedElement = containerRef.current;
+    if (observedElement && observer) observer.observe(observedElement);
+    if (!observer && document.visibilityState === 'visible') {
+      topicViewableRef.current = true;
+      recordFeedAnalyticsEvent(userId, 'viewable_impression', currentTopicId, { source: 'feed' });
+      startActiveDuration();
+    }
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        flushActiveDuration();
+      } else if (topicViewableRef.current) {
+        startActiveDuration();
+      }
+    };
+
+    const interval = window.setInterval(flushActiveDuration, 30000);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    const removeAnalyticsListeners = installFeedAnalyticsListeners(userId);
+
+    return () => {
+      flushActiveDuration();
+      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      observer?.disconnect();
+      removeAnalyticsListeners();
+    };
+  }, [currentTopicId, userId, active]);
+
+  useEffect(() => {
+    if (!userId || slideIndex <= 0) return;
+    recordFeedAnalyticsEvent(userId, 'swipe_depth', currentTopicId, {
+      slide_index: slideIndex,
+      depth: slideIndex,
+    });
+
+    if (slideIndex === slides.length - 1 && !completedTopicsRef.current.has(currentTopicId)) {
+      completedTopicsRef.current.add(currentTopicId);
+      recordFeedAnalyticsEvent(userId, 'completion', currentTopicId, {
+        slide_index: slideIndex,
+        completion_percent: 100,
+      });
+    }
+  }, [currentTopicId, userId, slideIndex, slides.length]);
 
   const likeTopic = () => {
     if (
@@ -142,6 +246,17 @@ export function TopicSwipeViewer({
 
   const moveTopic = async (direction: 'next' | 'previous') => {
     if (isAnimating) return;
+
+    if (direction === 'next' && userId) {
+      const activeElapsed = topicActiveSinceRef.current === null
+        ? 0
+        : Math.max(0, performance.now() - topicActiveSinceRef.current);
+      if (topicActiveDurationRef.current + activeElapsed < 2000) {
+        recordFeedAnalyticsEvent(userId, 'skip', currentTopicId, {
+          slide_index: slideIndex,
+        });
+      }
+    }
 
     setIsAnimating(true);
 
