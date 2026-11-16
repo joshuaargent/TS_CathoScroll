@@ -261,8 +261,22 @@ test('sends ordered operations through the bounded batch RPC and validates each 
   ];
   const { calls, transport } = fixture({
     data: [
-      { userId: 'alice', operationId: 'first', status: 'applied', revision: '10', value: true, completedAt: null },
-      { userId: 'alice', operationId: 'second', status: 'applied', revision: '11', value: true, completedAt: null },
+      {
+        userId: 'alice',
+        operationId: 'first',
+        status: 'applied',
+        revision: '10',
+        value: true,
+        completedAt: null,
+      },
+      {
+        userId: 'alice',
+        operationId: 'second',
+        status: 'applied',
+        revision: '11',
+        value: true,
+        completedAt: null,
+      },
     ],
     error: null,
   });
@@ -277,7 +291,14 @@ test('sends ordered operations through the bounded batch RPC and validates each 
     /not contiguous/
   );
   const deferred = fixture({
-    data: [{ userId: 'alice', operationId: 'first', status: 'deferred', reason: 'rate_limited' }],
+    data: [
+      {
+        userId: 'alice',
+        operationId: 'first',
+        status: 'deferred',
+        reason: 'rate_limited',
+      },
+    ],
     error: null,
   });
   assert.deepEqual(await deferred.transport.sendBatch([operations[0]]), [
