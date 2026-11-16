@@ -232,3 +232,55 @@ test('validates reset requests for expired activity cursors', async () => {
     /changes/
   );
 });
+
+
+test('sends ordered operations through the bounded batch RPC and validates each receipt', async () => {
+  const operations = [
+    {
+      userId: 'alice',
+      operationId: 'first',
+      deviceId: 'device',
+      sequence: '4',
+      acknowledgedSequence: '3',
+      topicId: 'topic-one',
+      kind: 'bookmark',
+      value: true,
+      completedAt: null,
+    },
+    {
+      userId: 'alice',
+      operationId: 'second',
+      deviceId: 'device',
+      sequence: '5',
+      acknowledgedSequence: '4',
+      topicId: 'topic-two',
+      kind: 'like',
+      value: true,
+      completedAt: null,
+    },
+  ];
+  const { calls, transport } = fixture({
+    data: [
+      { userId: 'alice', operationId: 'first', status: 'applied', revision: '10', value: true, completedAt: null },
+      { userId: 'alice', operationId: 'second', status: 'applied', revision: '11', value: true, completedAt: null },
+    ],
+    error: null,
+  });
+  const receipts = await transport.sendBatch(operations);
+  assert.deepEqual(receipts.map((receipt) => receipt.operationId), ['first', 'second']);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].name, 'offline_apply_activity_batch');
+  assert.equal(calls[0].args.p_user, 'alice');
+  assert.deepEqual(calls[0].args.p_operations.map((item) => item.sequence), ['4', '5']);
+  await assert.rejects(
+    transport.sendBatch([operations[0], { ...operations[1], acknowledgedSequence: '3' }]),
+    /not contiguous/
+  );
+  const deferred = fixture({
+    data: [{ userId: 'alice', operationId: 'first', status: 'deferred', reason: 'rate_limited' }],
+    error: null,
+  });
+  assert.deepEqual(await deferred.transport.sendBatch([operations[0]]), [
+    { userId: 'alice', operationId: 'first', status: 'deferred', reason: 'rate_limited' },
+  ]);
+});
