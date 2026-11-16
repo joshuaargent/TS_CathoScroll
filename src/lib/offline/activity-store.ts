@@ -566,7 +566,7 @@ export class OfflineActivityStore {
         throw new Error('The offline activity device identity is invalid.');
       }
       assertKey(device_id, 'activity device ID');
-      let acknowledgedSequence = rows[0].acknowledged_sequence;
+      const acknowledgedSequence = rows[0].acknowledged_sequence;
       const operations: PendingActivity[] = [];
       for (const row of rows) {
         const { sequence } = row;
@@ -583,7 +583,6 @@ export class OfflineActivityStore {
           sequence,
           acknowledgedSequence,
         });
-        acknowledgedSequence = sequence;
       }
       return operations;
     });
