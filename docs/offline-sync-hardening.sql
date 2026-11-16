@@ -41,28 +41,6 @@ BEGIN
     RAISE EXCEPTION 'Account does not match' USING ERRCODE = '42501';
   END IF;
 
-  INSERT INTO catho_private.user_action_limits(user_id)
-  VALUES(actor) ON CONFLICT(user_id) DO NOTHING;
-
-  UPDATE catho_private.user_action_limits
-  SET
-    offline_sync_count = CASE
-      WHEN offline_sync_window_started_at IS NULL
-        OR offline_sync_window_started_at <= now_at - interval '1 minute' THEN 1
-      ELSE LEAST(offline_sync_count + 1, 301)
-    END,
-    offline_sync_window_started_at = CASE
-      WHEN offline_sync_window_started_at IS NULL
-        OR offline_sync_window_started_at <= now_at - interval '1 minute' THEN now_at
-      ELSE offline_sync_window_started_at
-    END
-  WHERE user_id = actor
-  RETURNING offline_sync_count INTO sync_count;
-
-  IF sync_count > 300 THEN
-    RAISE EXCEPTION 'Offline activity sync rate limit exceeded' USING ERRCODE = 'P0001';
-  END IF;
-
   IF p_device IS NULL OR p_operation IS NULL
     OR p_sequence IS NULL OR p_sequence !~ '^[1-9][0-9]{0,18}$'
     OR p_acknowledged IS NULL OR p_acknowledged !~ '^(0|[1-9][0-9]{0,18})$'
@@ -97,10 +75,36 @@ BEGIN
   IF mapped IS NULL AND ack < state.last_sequence AND seq <> state.last_sequence + 1 THEN
     RAISE EXCEPTION 'Previous activity operation was not acknowledged';
   END IF;
-  IF NOT FOUND AND EXISTS (
+  IF mapped IS NULL AND EXISTS (
     SELECT 1 FROM catho_private.activity_receipt_sequences
     WHERE user_id = actor AND operation_id = p_operation
   ) THEN RAISE EXCEPTION 'Activity operation ID was reused'; END IF;
+
+  -- Count only new operations. Replaying a committed receipt after a lost
+  -- response must remain idempotent and must not consume the write allowance.
+  IF mapped IS NULL THEN
+    INSERT INTO catho_private.user_action_limits(user_id)
+    VALUES(actor) ON CONFLICT(user_id) DO NOTHING;
+
+    UPDATE catho_private.user_action_limits
+    SET
+      offline_sync_count = CASE
+        WHEN offline_sync_window_started_at IS NULL
+          OR offline_sync_window_started_at <= now_at - interval '1 minute' THEN 1
+        ELSE LEAST(offline_sync_count + 1, 301)
+      END,
+      offline_sync_window_started_at = CASE
+        WHEN offline_sync_window_started_at IS NULL
+          OR offline_sync_window_started_at <= now_at - interval '1 minute' THEN now_at
+        ELSE offline_sync_window_started_at
+      END
+    WHERE user_id = actor
+    RETURNING offline_sync_count INTO sync_count;
+
+    IF sync_count > 300 THEN
+      RAISE EXCEPTION 'Offline activity sync rate limit exceeded' USING ERRCODE = 'P0001';
+    END IF;
+  END IF;
 
   IF ack > state.acknowledged_sequence THEN
     DELETE FROM catho_private.activity_receipts r
