@@ -60,7 +60,6 @@ export function SponsorManager({ sponsors, memberships }: { sponsors: SponsorRec
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [updatingSponsorId, setUpdatingSponsorId] = useState<string | null>(null);
-  const [paymentReferences, setPaymentReferences] = useState<Record<string, string>>({});
   const [memberEmails, setMemberEmails] = useState<Record<string, string>>({});
   const [memberRoles, setMemberRoles] = useState<Record<string, 'owner' | 'manager' | 'analyst'>>({});
   const [memberUpdatingId, setMemberUpdatingId] = useState<string | null>(null);
@@ -116,32 +115,6 @@ export function SponsorManager({ sponsors, memberships }: { sponsors: SponsorRec
     }
   }
 
-  async function markPaymentReceived(sponsorId: string) {
-    if (updatingSponsorId) return;
-    setUpdatingSponsorId(sponsorId);
-    setError(null);
-    setSuccess(null);
-
-    try {
-      const response = await fetch(`/api/admin/sponsors/${encodeURIComponent(sponsorId)}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'mark_payment_received',
-          paymentReference: paymentReferences[sponsorId] ?? null,
-        }),
-      });
-      const result: { error?: string } = await response.json();
-      if (!response.ok) throw new Error(result.error ?? 'Unable to update sponsor payment.');
-
-      setSuccess('Bank transfer marked as received.');
-      router.refresh();
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Unable to update sponsor payment.');
-    } finally {
-      setUpdatingSponsorId(null);
-    }
-  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -161,7 +134,7 @@ export function SponsorManager({ sponsors, memberships }: { sponsors: SponsorRec
       agreedAmount: formData.get('agreedAmount'),
       currency: formData.get('currency'),
       paymentStatus: formData.get('paymentStatus'),
-      paymentReference: formData.get('paymentReference'),
+      paymentReference: null,
       adminNotes: formData.get('adminNotes'),
     };
 
@@ -323,19 +296,8 @@ export function SponsorManager({ sponsors, memberships }: { sponsors: SponsorRec
                 className="border-border bg-bg-primary mt-2 w-full rounded-lg border px-3 py-2.5"
               >
                 <option value="pending">Awaiting bank transfer</option>
-                <option value="received">Received in bank</option>
                 <option value="not_required">No payment required</option>
-                <option value="refunded">Refunded</option>
               </select>
-            </label>
-            <label className="block text-sm font-medium">
-              Bank-transfer reference
-              <input
-                name="paymentReference"
-                maxLength={120}
-                className="border-border bg-bg-primary mt-2 w-full rounded-lg border px-3 py-2.5"
-                placeholder="Statement reference or internal note"
-              />
             </label>
           </div>
 
@@ -437,29 +399,9 @@ export function SponsorManager({ sponsors, memberships }: { sponsors: SponsorRec
                         </p>
                       )}
                       {sponsor.payment_status === 'pending' && (
-                        <div className="mt-3 flex flex-wrap items-center gap-2">
-                          <input
-                            aria-label={`Bank-transfer reference for ${sponsor.sponsor_name}`}
-                            value={paymentReferences[sponsor.id] ?? sponsor.payment_reference ?? ''}
-                            onChange={(event) =>
-                              setPaymentReferences((current) => ({
-                                ...current,
-                                [sponsor.id]: event.target.value.slice(0, 120),
-                              }))
-                            }
-                            maxLength={120}
-                            placeholder="Bank reference (optional)"
-                            className="border-border bg-bg-primary min-w-0 rounded-md border px-2 py-1.5 text-xs"
-                          />
-                          <button
-                            type="button"
-                            disabled={updatingSponsorId !== null}
-                            onClick={() => void markPaymentReceived(sponsor.id)}
-                            className="bg-accent text-white hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-60 rounded-md px-2.5 py-1.5 text-xs font-semibold"
-                          >
-                            {updatingSponsorId === sponsor.id ? 'Saving…' : 'Mark received'}
-                          </button>
-                        </div>
+                        <p className="text-text-muted mt-2 text-xs">
+                          Issue an invoice and reconcile bank transfers in Sponsor financials below.
+                        </p>
                       )}
                     </td>
                   </tr>
