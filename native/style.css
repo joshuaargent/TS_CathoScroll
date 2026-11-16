@@ -9,3 +9,18 @@
   --font-mono: 'JetBrains Mono';
 }
 
+/*
+ * The website and native shell both reserve the fixed navbar's 64px height
+ * and use the same container vertical padding. Several shared page headers
+ * also carry desktop-oriented top margins, which compound that padding in
+ * the native shell. Reset only the first content block inside native page
+ * containers; page-internal spacing and the Search page remain unchanged.
+ */
+.native-content > .container.py-12 > :first-child {
+  margin-top: 0;
+}
+
+/* Contact uses a padded shared PageHeader instead of a margin wrapper. */
+.native-content > .container.py-12 > header.py-12 {
+  padding-top: 0;
+}
