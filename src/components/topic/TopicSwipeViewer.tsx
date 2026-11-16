@@ -89,13 +89,29 @@ export function TopicSwipeViewer({
     const viewKey = userId + ':' + currentTopicId;
     const wasViewed = viewedTopicsRef.current.has(viewKey);
     viewedTopicsRef.current.add(viewKey);
-    recordFeedAnalyticsEvent(userId, wasViewed ? 'return_visit' : 'impression', currentTopicId, {
-      source: 'feed',
-    });
+    recordFeedAnalyticsEvent(userId, 'impression', currentTopicId, { source: 'feed' });
+    if (wasViewed) {
+      recordFeedAnalyticsEvent(userId, 'return_visit', currentTopicId, { source: 'feed' });
+    }
 
     topicActiveDurationRef.current = 0;
     topicViewableRef.current = false;
     topicActiveSinceRef.current = null;
+    let isIntersecting = false;
+    let viewabilityTimer: number | null = null;
+
+    const scheduleViewability = () => {
+      if (viewabilityTimer !== null || topicViewableRef.current || !isIntersecting) return;
+      viewabilityTimer = window.setTimeout(() => {
+        viewabilityTimer = null;
+        if (!isIntersecting || document.visibilityState !== 'visible') return;
+        topicViewableRef.current = true;
+        recordFeedAnalyticsEvent(userId, 'viewable_impression', currentTopicId, {
+          source: 'feed',
+        });
+        startActiveDuration();
+      }, 1000);
+    };
 
     const flushActiveDuration = () => {
       const startedAt = topicActiveSinceRef.current;
@@ -122,16 +138,20 @@ export function TopicSwipeViewer({
 
     const observer = typeof IntersectionObserver !== 'undefined'
       ? new IntersectionObserver((entries) => {
-          const isViewable = entries.some((entry) => entry.isIntersecting && entry.intersectionRatio >= 0.5);
-          if (isViewable) {
-            if (!topicViewableRef.current) {
-              topicViewableRef.current = true;
-              recordFeedAnalyticsEvent(userId, 'viewable_impression', currentTopicId, {
-                source: 'feed',
-              });
+          isIntersecting = entries.some(
+            (entry) => entry.isIntersecting && entry.intersectionRatio >= 0.5
+          );
+          if (isIntersecting) {
+            if (topicViewableRef.current) {
+              startActiveDuration();
+            } else {
+              scheduleViewability();
             }
-            startActiveDuration();
           } else {
+            if (viewabilityTimer !== null) {
+              window.clearTimeout(viewabilityTimer);
+              viewabilityTimer = null;
+            }
             flushActiveDuration();
           }
         }, { threshold: [0, 0.5, 1] })
@@ -139,17 +159,20 @@ export function TopicSwipeViewer({
 
     const observedElement = containerRef.current;
     if (observedElement && observer) observer.observe(observedElement);
-    if (!observer && document.visibilityState === 'visible') {
-      topicViewableRef.current = true;
-      recordFeedAnalyticsEvent(userId, 'viewable_impression', currentTopicId, { source: 'feed' });
-      startActiveDuration();
-    }
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden') {
+        if (viewabilityTimer !== null) {
+          window.clearTimeout(viewabilityTimer);
+          viewabilityTimer = null;
+        }
         flushActiveDuration();
-      } else if (topicViewableRef.current) {
-        startActiveDuration();
+      } else if (isIntersecting) {
+        if (topicViewableRef.current) {
+          startActiveDuration();
+        } else {
+          scheduleViewability();
+        }
       }
     };
 
@@ -160,6 +183,7 @@ export function TopicSwipeViewer({
     return () => {
       flushActiveDuration();
       window.clearInterval(interval);
+      if (viewabilityTimer !== null) window.clearTimeout(viewabilityTimer);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       observer?.disconnect();
       removeAnalyticsListeners();
