@@ -17,7 +17,7 @@ The two interstitial schedules are independent:
 
 A row in `public.sponsors` represents a business or organisation. It is not a login account.
 
-Administrators manage sponsor access at `/admin/sponsors`:
+Administrators manage sponsor organisations and access at `/admin/sponsors`. They can pause or reactivate an entire sponsor organisation; a paused/completed sponsor is immediately excluded from delivery even if an individual campaign remains approved. Membership changes are audited, and the database prevents suspending or revoking the last active owner.
 
 1. Create the sponsor organisation and record its agreed amount, currency, placement period and private notes.
 2. Enter the exact email address of an existing CathoScroll account.
