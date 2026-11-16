@@ -159,3 +159,8 @@ Keep future phases independently reviewable. Do not merge or deploy until the re
 The current implementation adds a private administrator-only sponsor register at `/admin/sponsors`. Administrators can record the sponsor name, contact details, website/logo URLs, description, placement dates, status, agreed amount, currency, bank-transfer status/reference, and private notes. A payment marked as received is timestamped by the server. Creation is recorded in the existing append-only administrator audit log.
 
 Sponsorship payments are made directly to the CathoScroll bank account and reconciled manually. The application does not collect bank details, initiate transfers, or integrate a payment provider. Sponsor records and campaigns are private. Campaign creation, approval, weighted delivery, targeting, frequency caps and aggregate performance reporting are now implemented; sponsor self-service accounts, campaign editing, invoices and billing remain future work.
+
+
+## Bounded feed ranking work
+
+The Top Comments selector first materializes at most the newest 5,000 eligible root comments from its 90-day window, using the existing partial index on visible top-level comment creation time. Like/reply aggregation and ranking then run only across that bounded candidate set. The endpoint retains its shared 30-second cache. This avoids a full 90-day engagement aggregation scan as comment volume grows; if the candidate pool regularly reaches its cap, the next scaling step is a maintained engagement-counter table rather than increasing the limit without bounds.
