@@ -36,7 +36,8 @@ function validHttpsUrl(value: string | null | undefined): boolean {
   if (value === null) return true;
   if (value === undefined) return false;
   try {
-    return new URL(value).protocol === 'https:';
+    const parsed = new URL(value);
+    return parsed.protocol === 'https:' && !parsed.username && !parsed.password;
   } catch {
     return false;
   }
