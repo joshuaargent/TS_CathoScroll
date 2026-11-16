@@ -1,6 +1,6 @@
 # Feed analytics and community cards
 
-**Status:** Implemented in the combined feed analytics PR. Repository-wide checks and deployed browser/native verification remain outstanding.
+**Status:** Feed telemetry, comment cards, admin analytics and the first telemetry-weighted recommendation model are implemented in the combined PR. Automated source checks pass; deployed browser/native verification remains outstanding.
 
 This document records the implementation that needs to be maintained. The product decisions and future sponsorship/quiz roadmap remain in `docs/feed-experience-and-analytics.md`; database and application security controls remain in `docs/security-hardening.md`.
 
@@ -56,6 +56,16 @@ The dashboard derives the earliest available event date from the retained raw-ev
 
 The dashboard uses the existing CathoScroll `Card`, `Badge` and `Button` components, existing design tokens, responsive page container, typography and purple accent. It does not introduce a separate charting dependency or a new visual system.
 
+## Recommendation weighting
+
+The existing category round-robin recommendation RPC now incorporates private feed telemetry when it creates a new cursor. Existing progress, bookmarks, likes and comments remain strong preference signals. Telemetry is limited to the previous 90 days and uses a 30-day half-life.
+
+Per-topic telemetry contributions are bounded: viewable impressions +0.40 (maximum +1.20); active time +0.25 per minute (maximum +1.50); slide-depth events up to +0.50 each (maximum +1.50); completions +2.50 (maximum +3.00); return visits +0.75 (maximum +1.50). Early skips contribute -1.50 each (maximum -3.00), but only after at least two skips for the same topic in the 90-day window. The final per-topic score is clamped to -4 through +6.
+
+The private `catho_private.get_user_feed_preference_signals(uuid)` helper checks that the requested account matches `auth.uid()`, runs as postgres with an empty search path, and is executable only by authenticated users. It returns category-level scores only. Raw event table access remains denied. A partial `(user_id, received_at DESC)` index supports the bounded per-account lookup.
+
+The recommendation RPC combines category telemetry scores with the existing explicit learning signals, applies `1 + sqrt(max(score, 0))`, and retains a minimum category weight of 1. Negative signals can temper an existing preference but do not remove baseline exploration. Scores are embedded in the feed cursor, so subsequent pages use the same preference snapshot and keep pagination deterministic. The existing weighted round-robin and category-streak protection are unchanged.
+
 ## Database and security verification
 
 Production Supabase changes for this work are additive. The canonical fresh-project schema is maintained in `docs/cathoscroll-database-bootstrap.sql`; do not create separate repository migration files for each implementation phase. The unused analytics `(user_id, received_at)` index was removed because the primary key already begins with `user_id` and the current aggregate queries use topic/time indexes.
@@ -74,8 +84,9 @@ Supabase advisors did not identify the new admin aggregate function as publicly 
 
 ## Before merge/release
 
-- Run the full repository test suite, ESLint, TypeScript, Prettier check and production build against the combined branch.
-- Obtain a successful Vercel preview build; the earlier deployment attempt was blocked by the free-plan daily deployment quota.
+- Re-run unit tests, ESLint, TypeScript checks and the Next.js production build after any further code changes; these passed on the current combined head.
+- Linux x64, Windows x64 and Android release-APK packaging validations passed. macOS Universal packaging was still running at the last check.
+- Obtain a successful Vercel preview build; the latest deployment attempt was blocked by the free-plan daily deployment quota. The repository-wide Prettier check is not a merge gate because it reports 130 existing formatting failures in unrelated files.
 - Verify analytics API and aggregate pages in a deployed browser session with an administrator and a non-admin account.
 - Verify native analytics ingestion and the comment card in Android and Electron builds.
 - Exercise comment gestures, discussion deep links, pagination boundaries, account switching and moderation refresh.
