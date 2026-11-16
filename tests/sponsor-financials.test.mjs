@@ -53,9 +53,14 @@ test('invoice creation and payment reconciliation require administrators', () =>
   assert.match(recordPayment, /v_outstanding_invoice_minor/);
   assert.match(recordPayment, /payment_status = CASE/);
   assert.match(refundPayment, /public\.admin_users/);
-  assert.match(refundPayment, /refund_of_payment_id/);
-  assert.match(refundPayment, /v_refunded_minor/);
-  assert.match(refundPayment, /v_outstanding_invoice_minor/);
+  assert.match(refundPayment, /p_sponsor_id/);
+  assert.match(refundPayment, /payment\\.sponsor_id = p_sponsor_id/);
+  assert.match(refundPayment, /public\\.admin_record_sponsor_refund\\(/);
+  const refundLedgerStart = bootstrap.indexOf('CREATE OR REPLACE FUNCTION public.admin_record_sponsor_refund(\\n  p_actor_user_id uuid, p_payment_id uuid');
+  assert.notEqual(refundLedgerStart, -1);
+  assert.match(bootstrap.slice(refundLedgerStart), /refund_of_payment_id/);
+  assert.match(bootstrap.slice(refundLedgerStart), /v_refunded_minor/);
+  assert.match(bootstrap.slice(refundLedgerStart), /v_outstanding_invoice_minor/);
 });
 
 test('sponsor financial reporting verifies membership and omits personal identifiers', () => {
@@ -88,7 +93,7 @@ test('financial API routes enforce administrator, MFA, same-origin and rate limi
   assert.match(invoiceRoute, /admin_create_sponsor_invoice/);
   assert.match(paymentRoute, /admin_record_sponsor_payment/);
   assert.match(refundRoute, /admin_record_sponsor_refund/);
-  assert.match(refundRoute, /get_admin_sponsor_financials/);
+  assert.match(refundRoute, /p_sponsor_id: sponsorId/);
 });
 
 test('admin can issue invoices, reconcile partial transfers and record refunds', () => {
