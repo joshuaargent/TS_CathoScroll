@@ -10,6 +10,14 @@ export interface SponsorOption {
   payment_status: 'pending' | 'received' | 'not_required' | 'refunded';
 }
 
+export interface SponsorCampaignAnalytics {
+  campaign_id: string;
+  served: number;
+  viewable_impressions: number;
+  clicks: number;
+  click_through_rate: number;
+}
+
 export interface SponsorCampaignRecord {
   id: string;
   sponsor_id: string;
@@ -59,9 +67,15 @@ function eligibleForApproval(campaign: SponsorCampaignRecord) {
 export function SponsorCampaignManager({
   campaigns,
   sponsors,
+  analytics,
+  analyticsFrom,
+  analyticsTo,
 }: {
   campaigns: SponsorCampaignRecord[];
   sponsors: SponsorOption[];
+  analytics: Map<string, SponsorCampaignAnalytics>;
+  analyticsFrom: string;
+  analyticsTo: string;
 }) {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
@@ -302,6 +316,7 @@ export function SponsorCampaignManager({
           <h2 className="text-2xl font-bold">Campaign inventory</h2>
           <p className="text-text-secondary mt-1 text-sm">
             Approval is blocked until the sponsor is active and its bank transfer is recorded as received.
+            Performance below covers {formatDate(analyticsFrom)} to {formatDate(analyticsTo)}.
           </p>
         </div>
         {campaigns.length === 0 ? (
@@ -318,7 +333,8 @@ export function SponsorCampaignManager({
                   <th className="px-4 py-3 font-semibold">Sponsor</th>
                   <th className="px-4 py-3 font-semibold">Schedule</th>
                   <th className="px-4 py-3 font-semibold">Weight / caps</th>
-                  <th className="px-4 py-3 font-semibold">Delivery</th>
+                  <th className="px-4 py-3 font-semibold">Performance (30 days)</th>
+                  <th className="px-4 py-3 font-semibold">Lifetime delivery</th>
                   <th className="px-4 py-3 font-semibold">Status / actions</th>
                 </tr>
               </thead>
@@ -351,6 +367,22 @@ export function SponsorCampaignManager({
                       <p className="text-text-muted mt-1 text-xs">
                         Daily: {campaign.daily_impression_cap ?? 'Unlimited'} · Total: {campaign.total_impression_cap ?? 'Unlimited'}
                       </p>
+                    </td>
+                    <td className="px-4 py-4 tabular-nums">
+                      {(() => {
+                        const stats = analytics.get(campaign.id);
+                        return (
+                          <>
+                            <p>{(stats?.served ?? 0).toLocaleString('en-GB')} served</p>
+                            <p className="text-text-muted mt-1 text-xs">
+                              {(stats?.viewable_impressions ?? 0).toLocaleString('en-GB')} viewable
+                            </p>
+                            <p className="text-text-muted mt-1 text-xs">
+                              {(stats?.clicks ?? 0).toLocaleString('en-GB')} clicks · {(stats?.click_through_rate ?? 0).toFixed(2)}% CTR
+                            </p>
+                          </>
+                        );
+                      })()}
                     </td>
                     <td className="px-4 py-4 tabular-nums">
                       {campaign.served_count.toLocaleString('en-GB')} served
