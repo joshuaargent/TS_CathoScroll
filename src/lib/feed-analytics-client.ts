@@ -31,6 +31,11 @@ const batchLimit = 50;
 const storagePrefix = 'cathoscroll.feed-analytics.v1.';
 const sessionId = createUuid();
 const flushingUsers = new Set<string>();
+type FeedAnalyticsTransport = {
+  endpoint?: string;
+  getAccessToken?: () => Promise<string | null>;
+};
+const transports = new Map<string, FeedAnalyticsTransport>();
 
 function createUuid(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -129,14 +134,27 @@ export async function flushFeedAnalytics(userId: string, keepalive = false): Pro
 
       const batch = queue.slice(0, batchLimit);
       let response: Response;
+      const transport = transports.get(userId);
+      const headers = new Headers({ 'Content-Type': 'application/json' });
+
+      if (transport?.getAccessToken) {
+        let accessToken: string | null;
+        try {
+          accessToken = await transport.getAccessToken();
+        } catch {
+          break;
+        }
+        if (!accessToken) break;
+        headers.set('Authorization', 'Bearer ' + accessToken);
+      }
 
       try {
-        response = await fetch('/api/analytics/feed-events', {
+        response = await fetch(transport?.endpoint ?? '/api/analytics/feed-events', {
           method: 'POST',
-          credentials: 'same-origin',
+          credentials: transport?.endpoint ? 'omit' : 'same-origin',
           cache: 'no-store',
           keepalive,
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body: JSON.stringify({ events: batch }),
         });
       } catch {
@@ -159,9 +177,13 @@ export async function flushFeedAnalytics(userId: string, keepalive = false): Pro
   }
 }
 
-export function installFeedAnalyticsListeners(userId: string): () => void {
+export function installFeedAnalyticsListeners(
+  userId: string,
+  transport: FeedAnalyticsTransport = {}
+): () => void {
   if (typeof window === 'undefined') return () => undefined;
 
+  transports.set(userId, transport);
   const flush = () => void flushFeedAnalytics(userId);
   const handleVisibility = () => {
     if (document.visibilityState === 'hidden') {
@@ -174,6 +196,7 @@ export function installFeedAnalyticsListeners(userId: string): () => void {
   document.addEventListener('visibilitychange', handleVisibility);
 
   return () => {
+    if (transports.get(userId) === transport) transports.delete(userId);
     window.removeEventListener('online', flush);
     window.removeEventListener('pagehide', handleVisibility);
     document.removeEventListener('visibilitychange', handleVisibility);
