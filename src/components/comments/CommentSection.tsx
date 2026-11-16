@@ -645,7 +645,6 @@ export function CommentSection({
     cachedAt,
     getClient,
     topicId,
-    comments,
     currentProfile,
     sortComments,
     cache,
