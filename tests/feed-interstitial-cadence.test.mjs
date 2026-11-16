@@ -61,6 +61,8 @@ test('sponsor fetches cannot race feed navigation or account changes', () => {
   assert.match(feedCore, /sponsorRequestPreviousCadence/);
   assert.match(feedCore, /sponsorRequestVersion\.current !== requestVersion/);
   assert.match(feedCore, /sponsorRequestVersion\.current \+= 1/);
+  const previousTopic = feedCore.slice(feedCore.indexOf('const previousTopic ='));
+  assert.match(previousTopic, /pendingSponsorAfterComment\.current = false/);
 });
 
 test('interstitial content uses the topic feed visual language rather than a separate card shell', () => {
