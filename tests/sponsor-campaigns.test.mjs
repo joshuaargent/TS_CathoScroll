@@ -75,6 +75,8 @@ test('sponsored feed cards are disclosed and inserted separately from organic re
   assert.match(sponsorCard, /IntersectionObserver/);
   assert.match(sponsorCard, /1000/);
   assert.match(sponsorCard, /target="_blank"/);
+  assert.match(feedCore, /Give each sponsor-card placement its own ID/);
+  assert.match(feedCore, /sessionId: string/);
   assert.match(deliveryRoute, /getAuthenticatedUserFromRequest/);
   assert.match(deliveryRoute, /isSameOriginOrNativeRequest/);
   assert.match(deliveryRoute, /get_weighted_sponsor_campaigns/);
@@ -104,4 +106,22 @@ test('administrator campaign reporting reads aggregate-only daily metrics', () =
   assert.doesNotMatch(analytics, /'user_id'|'session_id'/);
   assert.match(campaignPage, /get_admin_sponsor_campaign_analytics/);
   assert.match(campaignManager, /Performance \(30 days\)/);
+});
+
+test('top-comment selection and sponsor retention work remain bounded', () => {
+  const topComments = functionBody(
+    'public.get_top_feed_comments',
+    'COMMENT ON FUNCTION public.get_top_feed_comments'
+  );
+  assert.match(topComments, /candidate_ids AS MATERIALIZED/);
+  assert.match(topComments, /LIMIT 5000/);
+  assert.match(topComments, /created_at DESC, candidate.id DESC/);
+
+  const prune = functionBody(
+    'catho_private.prune_sponsor_campaign_events',
+    'REVOKE ALL ON FUNCTION catho_private.prune_sponsor_campaign_events'
+  );
+  assert.match(prune, /SET status = 'completed'/);
+  assert.match(prune, /campaign.ends_on < \(p_before AT TIME ZONE 'UTC'\)::date/);
+  assert.match(bootstrap, /NOTIFY pgrst, 'reload schema';\s*-- End of CathoScroll application-schema and catalogue bootstrap\./);
 });
