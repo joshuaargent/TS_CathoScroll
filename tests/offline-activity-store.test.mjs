@@ -2081,3 +2081,70 @@ test('ignores a corrupt optional bookmark timestamp without breaking offline act
     db.close();
   }
 });
+
+
+test('reads ordered offline activity batches with per-operation acknowledgement cursors', async () => {
+  const db = new DatabaseSync(':memory:');
+  try {
+    const store = new OfflineActivityStore(adapter(db));
+    await store.initialize();
+    await bootstrap(store);
+    await store.setActivity('alice', 'one', 'bookmark', true, 'one');
+    await store.setActivity('alice', 'two', 'like', true, 'two');
+    await store.setActivity('alice', 'three', 'progress', true, 'three');
+    const batch = await store.nextOperations('alice', 2);
+    assert.deepEqual(batch.map((operation) => operation.sequence), ['1', '2']);
+    assert.deepEqual(batch.map((operation) => operation.acknowledgedSequence), ['0', '1']);
+    await store.acknowledge('alice', 'one', '1', true, null);
+    const remaining = await store.nextOperations('alice', 2);
+    assert.deepEqual(remaining.map((operation) => operation.sequence), ['2', '3']);
+    assert.deepEqual(remaining.map((operation) => operation.acknowledgedSequence), ['1', '2']);
+  } finally {
+    db.close();
+  }
+});
+
+test('batch sync acknowledges committed operations and preserves a rate-limited operation', async () => {
+  const db = new DatabaseSync(':memory:');
+  try {
+    const store = new OfflineActivityStore(adapter(db));
+    await store.initialize();
+    await bootstrap(store);
+    await store.setActivity('alice', 'one', 'bookmark', true, 'one');
+    await store.setActivity('alice', 'two', 'like', true, 'two');
+    await store.setActivity('alice', 'three', 'progress', true, 'three');
+    let deferred = true;
+    const sync = new OfflineActivitySync(
+      store,
+      async () => {
+        throw new Error('The single-operation fallback should not be used.');
+      },
+      async (operations) => {
+        const receipts = operations.slice(0, deferred ? 2 : operations.length).map((operation, index) => ({
+          userId: operation.userId,
+          operationId: operation.operationId,
+          status: 'applied',
+          revision: String(index + 1),
+          value: operation.value,
+          completedAt: operation.completedAt,
+        }));
+        if (deferred) {
+          receipts.push({
+            userId: operations[2].userId,
+            operationId: operations[2].operationId,
+            status: 'deferred',
+            reason: 'rate_limited',
+          });
+        }
+        return receipts;
+      }
+    );
+    assert.equal(await sync.push('alice'), 2);
+    assert.equal(await store.pendingCount('alice'), 1);
+    deferred = false;
+    assert.equal(await sync.push('alice'), 1);
+    assert.equal(await store.pendingCount('alice'), 0);
+  } finally {
+    db.close();
+  }
+});
