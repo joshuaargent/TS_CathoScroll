@@ -1,5 +1,5 @@
 import { BookmarksHeader } from '@/components/bookmarks/BookmarksSummary';
-import { NativeGridSkeleton } from '../../../../native/skeletons';
+import { NativeGridSkeleton } from '../../../native/skeletons';
 
 export default function Loading() {
   return (
