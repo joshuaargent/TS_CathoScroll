@@ -4975,7 +4975,6 @@ CREATE TABLE catho_private.sponsor_campaign_events (
   received_at timestamptz NOT NULL DEFAULT statement_timestamp(),
   PRIMARY KEY (campaign_id, event_id)
 );
-CREATE INDEX sponsor_campaign_events_campaign_time_idx ON catho_private.sponsor_campaign_events (campaign_id, received_at DESC);
 CREATE INDEX sponsor_campaign_events_user_campaign_time_idx ON catho_private.sponsor_campaign_events (user_id, campaign_id, received_at DESC);
 CREATE INDEX sponsor_campaign_events_received_at_idx ON catho_private.sponsor_campaign_events (received_at);
 CREATE UNIQUE INDEX sponsor_campaign_events_one_viewable_per_session_idx
