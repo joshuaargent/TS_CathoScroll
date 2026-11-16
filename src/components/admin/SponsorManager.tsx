@@ -121,6 +121,14 @@ export function SponsorManager({ sponsors, memberships }: { sponsors: SponsorRec
 
     const form = event.currentTarget;
     const formData = new FormData(form);
+    const agreedAmountInput = formData.get('agreedAmount');
+    const agreedAmountValue = typeof agreedAmountInput === 'string' && agreedAmountInput.trim()
+      ? Number(agreedAmountInput)
+      : 0;
+    if (formData.get('paymentStatus') === 'not_required' && agreedAmountValue > 0) {
+      setError('A sponsor with an agreed fee must remain pending until its invoices are reconciled.');
+      return;
+    }
     const payload = {
       sponsorName: formData.get('sponsorName'),
       contactEmail: formData.get('contactEmail'),
