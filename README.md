@@ -338,7 +338,8 @@ for each one. Receipts identify the account and operation and include the
 server activity revision. The client validates every receipt and removes only
 the operations that the server has confirmed. If a request succeeds on the
 server but its response is lost, retrying the same operation IDs returns the
-existing receipts rather than applying the actions twice.
+existing receipts rather than applying the actions twice or consuming another
+sync-rate-limit slot.
 
 Each device has its own sequence and acknowledgement cursor. All operations
 in one batch carry the same last client-confirmed acknowledgement, and their
