@@ -1,3 +1,16 @@
+-- Offline activity batching and account-scoped write protection.
+-- Apply after the original offline activity tables and RPCs exist.
+
+ALTER TABLE catho_private.user_action_limits
+  ADD COLUMN IF NOT EXISTS offline_sync_window_started_at timestamptz,
+  ADD COLUMN IF NOT EXISTS offline_sync_count integer NOT NULL DEFAULT 0;
+
+ALTER TABLE catho_private.user_action_limits
+  DROP CONSTRAINT IF EXISTS user_action_limits_offline_sync_count_check;
+ALTER TABLE catho_private.user_action_limits
+  ADD CONSTRAINT user_action_limits_offline_sync_count_check
+  CHECK (offline_sync_count >= 0);
+
 CREATE OR REPLACE FUNCTION public.offline_apply_activity_v2(
   p_user uuid,
   p_operation uuid,
