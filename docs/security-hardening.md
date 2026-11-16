@@ -148,4 +148,8 @@ Not yet completed:
 - Admin content-editor pagination; it currently loads catalogue data in batches.
 - Long-term cached profile-stat summaries if activity volumes grow substantially.
 
-The database hardening was applied before the application changes in PR #7 were merged. The current `main` branch still contains legacy direct profile/comment queries and must not be deployed against the hardened schema. Merge and deploy the compatibility changes before relying on the updated website.
+The database hardening and its application compatibility changes in PR #7
+were merged on 16 November 2026. The current `main` branch uses the bounded
+comment-page and public-profile RPCs. Keep the production deployment aligned
+with the merged `main` branch; do not deploy an older application build
+against the hardened schema.
