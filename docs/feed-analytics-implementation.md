@@ -60,7 +60,7 @@ The dashboard uses the existing CathoScroll `Card`, `Badge` and `Button` compone
 
 The existing category round-robin recommendation RPC now incorporates private feed telemetry when it creates a new cursor. Existing progress, bookmarks, likes and comments remain strong preference signals. Telemetry is limited to the previous 90 days and uses a 30-day half-life.
 
-Per-topic telemetry contributions are bounded: viewable impressions +0.40 (maximum +1.20); active time +0.25 per minute (maximum +1.50); slide-depth events up to +0.50 each (maximum +1.50); completions +2.50 (maximum +3.00); return visits +0.75 (maximum +1.50). Early skips contribute -1.50 each (maximum -3.00), but only after at least two skips for the same topic in the 90-day window. The final per-topic score is clamped to -4 through +6.
+Per-topic telemetry contributions are bounded: viewable impressions +0.40 (maximum +1.20); active time +0.25 per minute (maximum +1.50); slide-depth events up to +0.50 each (maximum +1.50); completions +2.50 (maximum +3.00); return visits +0.75 (maximum +1.50). Early skips contribute -1.50 each (maximum -3.00), but only after skips occur in at least two distinct feed sessions for the same topic. The final per-topic score is clamped to -4 through +6.
 
 The private `catho_private.get_user_feed_preference_signals(uuid)` helper checks that the requested account matches `auth.uid()`, runs as postgres with an empty search path, and is executable only by authenticated users. It returns category-level scores only. Raw event table access remains denied. A partial `(user_id, received_at DESC)` index supports the bounded per-account lookup.
 
