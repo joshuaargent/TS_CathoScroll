@@ -111,7 +111,7 @@ export function SponsorPortal({
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  const selectedOrganization = organizations.find((item) => item.id === selectedSponsorId) ?? organizations[0];
+  const selectedOrganization = organizations.find((item) => item.id === selectedSponsorId) ?? organizations[0]!;
   const canManage = selectedOrganization?.role === 'owner' || selectedOrganization?.role === 'manager';
   const sponsorCampaigns = useMemo(
     () => campaigns.filter((campaign) => campaign.sponsor_id === selectedOrganization?.id),
