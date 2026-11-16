@@ -698,10 +698,10 @@ Use this file when creating a **fresh Supabase project** to restore the applicat
 1. Create a new Supabase project using the same PostgreSQL major version as the source project.
 2. Open the new project's SQL Editor and run the complete bootstrap file once.
 3. Confirm that both retention jobs exist and are succeeding, then verify the RLS policies, function grants, and PostgREST RPCs.
-4. Restore the catalogue content and any other required data from a separate data export.
+4. The bootstrap already seeds the 15 categories and 86 topics present at export time. Restore any additional or newer content and all required user data from a separate data export.
 5. Reconfigure Auth providers and redirect URLs, project secrets, Storage buckets/policies if used, Edge Functions, API settings, and the matching Vercel environment variables.
 
-The bootstrap intentionally refuses to run if CathoScroll application tables already exist. **Do not run it against the existing production project or use it as an upgrade script.** It restores schema, not data: it does not recreate Auth users/passwords, profiles or other user-generated rows, topic/category content, Storage objects, Auth settings, API keys, secrets, Edge Functions, or Supabase-managed platform internals. Keep a separate, regularly tested backup of database data and project configuration.
+The bootstrap intentionally refuses to run if CathoScroll application tables already exist. **Do not run it against the existing production project or use it as an upgrade script.** It restores schema and the public category/topic catalogue snapshot, not a full database backup: it does not recreate Auth users/passwords, profiles, admin-owner/admin-role assignments, bookmarks, comments, notes, notifications, moderation history, other user-generated rows, Storage objects, Auth settings, API keys, secrets, Edge Functions, or Supabase-managed platform internals. Keep a separate, regularly tested backup of database data and project configuration.
 
 The smaller SQL files in `docs/` document individual database features and are not substitutes for the full bootstrap. Update the consolidated snapshot whenever application database objects change, and test it on a disposable Supabase project before relying on it for disaster recovery.
 
