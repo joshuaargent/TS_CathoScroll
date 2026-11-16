@@ -2114,6 +2114,7 @@ test('batch sync acknowledges committed operations and preserves a rate-limited 
     await store.setActivity('alice', 'two', 'like', true, 'two');
     await store.setActivity('alice', 'three', 'progress', true, 'three');
     let deferred = true;
+    let serverRevision = 0;
     const sync = new OfflineActivitySync(
       store,
       async () => {
@@ -2124,7 +2125,7 @@ test('batch sync acknowledges committed operations and preserves a rate-limited 
           userId: operation.userId,
           operationId: operation.operationId,
           status: 'applied',
-          revision: String(index + 1),
+          revision: String(++serverRevision),
           value: operation.value,
           completedAt: operation.completedAt,
         }));
