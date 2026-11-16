@@ -150,7 +150,7 @@ export async function POST(request: Request) {
   if (amountInput !== undefined && amountInput !== null && amountInput !== '') {
     if (
       typeof amountInput !== 'string' ||
-      !/^(0|[1-9]\d{0,7})(\.\d{1,2})?$/.test(amountInput)
+      !/^(0|[1-9]\d{0,8})(\.\d{1,2})?$/.test(amountInput)
     ) {
       return respond(request, { error: 'Enter a valid agreed amount with up to two decimal places.' }, 400);
     }
