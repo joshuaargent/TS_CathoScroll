@@ -15,8 +15,12 @@ export const metadata = {
 };
 
 export default async function AdminSponsorCampaignsPage() {
-  const { adminClient } = await requireAdminPage('/admin/sponsor-campaigns');
-  const [{ data: campaignData, error: campaignError }, { data: sponsorData, error: sponsorError }] =
+  const { user, adminClient } = await requireAdminPage('/admin/sponsor-campaigns');
+  const analyticsTo = new Date().toISOString().slice(0, 10);
+  const analyticsFromDate = new Date(`${analyticsTo}T00:00:00.000Z`);
+  analyticsFromDate.setUTCDate(analyticsFromDate.getUTCDate() - 29);
+  const analyticsFrom = analyticsFromDate.toISOString().slice(0, 10);
+  const [{ data: campaignData, error: campaignError }, { data: sponsorData, error: sponsorError }, { data: analyticsData, error: analyticsError }] =
     await Promise.all([
       adminClient
         .from('sponsor_campaigns')
@@ -30,14 +34,23 @@ export default async function AdminSponsorCampaignsPage() {
         .select('id,sponsor_name,status,payment_status')
         .order('sponsor_name', { ascending: true })
         .limit(200),
+      adminClient.rpc('get_admin_sponsor_campaign_analytics', {
+        p_actor_user_id: user.id,
+        p_from: analyticsFrom,
+        p_to: analyticsTo,
+      }),
     ]);
 
-  if (campaignError || sponsorError) {
-    console.error('Unable to load sponsor campaigns:', campaignError?.message, sponsorError?.message);
+  if (campaignError || sponsorError || analyticsError) {
+    console.error('Unable to load sponsor campaigns:', campaignError?.message, sponsorError?.message, analyticsError?.message);
     throw new Error('Unable to load sponsor campaign management.');
   }
 
   const sponsors = (sponsorData ?? []) as SponsorOption[];
+  const campaignAnalytics = new Map(
+    ((analyticsData as { campaigns?: Array<{ campaign_id: string; served: number; viewable_impressions: number; clicks: number; click_through_rate: number }> } | null)?.campaigns ?? [])
+      .map((item) => [item.campaign_id, item])
+  );
   const sponsorById = new Map(sponsors.map((sponsor) => [sponsor.id, sponsor]));
   const campaigns = ((campaignData ?? []) as Omit<SponsorCampaignRecord, 'sponsor_name' | 'sponsor_payment_status' | 'sponsor_status'>[])
     .map((campaign) => ({
@@ -61,7 +74,7 @@ export default async function AdminSponsorCampaignsPage() {
       <div className="mt-8">
         <AdminNavigation />
       </div>
-      <SponsorCampaignManager campaigns={campaigns} sponsors={sponsors} />
+      <SponsorCampaignManager campaigns={campaigns} sponsors={sponsors} analytics={campaignAnalytics} analyticsFrom={analyticsFrom} analyticsTo={analyticsTo} />
     </main>
   );
 }
