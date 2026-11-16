@@ -15,7 +15,7 @@
 --     the same PostgreSQL major version as the source project.
 --   * pg_cron and permission to create the ensure_rls event trigger are required.
 --
--- Object counts at export: 30 tables, 68 functions, 33 triggers, 32 policies,
+-- Object counts at export: 36 tables, 73 functions, 33 triggers, 32 policies,
 -- 15 categories and 86 topics.
 --
 DO $bootstrap_guard$
@@ -4921,3 +4921,415 @@ REVOKE ALL ON FUNCTION public.admin_mark_sponsor_payment_received(uuid, uuid, te
   FROM PUBLIC, anon, authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.admin_mark_sponsor_payment_received(uuid, uuid, text)
   TO service_role;
+
+
+-- Sponsor campaign management, weighted delivery and aggregate reporting foundation.
+
+CREATE TABLE public.sponsor_campaigns (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  sponsor_id uuid NOT NULL REFERENCES public.sponsors(id) ON DELETE RESTRICT,
+  campaign_name text NOT NULL CHECK (char_length(btrim(campaign_name)) BETWEEN 2 AND 120),
+  headline text NOT NULL CHECK (char_length(btrim(headline)) BETWEEN 2 AND 100),
+  body text NOT NULL CHECK (char_length(btrim(body)) BETWEEN 2 AND 500),
+  image_url text CHECK (image_url IS NULL OR image_url ~ '^https://'),
+  destination_url text NOT NULL CHECK (destination_url ~ '^https://'),
+  cta_label text NOT NULL DEFAULT 'Learn more' CHECK (char_length(btrim(cta_label)) BETWEEN 2 AND 32),
+  starts_on date NOT NULL,
+  ends_on date NOT NULL,
+  target_category_slugs text[] NOT NULL DEFAULT ARRAY[]::text[],
+  target_topic_ids text[] NOT NULL DEFAULT ARRAY[]::text[],
+  placement_weight integer NOT NULL DEFAULT 1 CHECK (placement_weight BETWEEN 1 AND 1000),
+  frequency_cap_per_user_24h integer NOT NULL DEFAULT 1 CHECK (frequency_cap_per_user_24h BETWEEN 1 AND 5),
+  frequency_cap_per_user_total integer NOT NULL DEFAULT 3 CHECK (frequency_cap_per_user_total BETWEEN 1 AND 50),
+  daily_impression_cap bigint CHECK (daily_impression_cap IS NULL OR daily_impression_cap BETWEEN 1 AND 1000000000),
+  total_impression_cap bigint CHECK (total_impression_cap IS NULL OR total_impression_cap BETWEEN 1 AND 100000000000),
+  served_count bigint NOT NULL DEFAULT 0 CHECK (served_count >= 0),
+  status text NOT NULL DEFAULT 'draft'
+    CHECK (status IN ('draft', 'pending_approval', 'approved', 'paused', 'completed', 'rejected')),
+  created_by uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+  approved_by uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+  approved_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT statement_timestamp(),
+  updated_at timestamptz NOT NULL DEFAULT statement_timestamp(),
+  CONSTRAINT sponsor_campaigns_valid_dates CHECK (ends_on >= starts_on),
+  CONSTRAINT sponsor_campaigns_target_category_limit CHECK (cardinality(target_category_slugs) <= 100),
+  CONSTRAINT sponsor_campaigns_target_topic_limit CHECK (cardinality(target_topic_ids) <= 500),
+  CONSTRAINT sponsor_campaigns_approval_pair CHECK (
+    (approved_by IS NULL AND approved_at IS NULL)
+    OR (approved_by IS NOT NULL AND approved_at IS NOT NULL)
+  )
+);
+CREATE INDEX sponsor_campaigns_eligibility_idx ON public.sponsor_campaigns (status, starts_on, ends_on, placement_weight DESC);
+CREATE INDEX sponsor_campaigns_sponsor_created_idx ON public.sponsor_campaigns (sponsor_id, created_at DESC);
+ALTER TABLE public.sponsor_campaigns ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE public.sponsor_campaigns FROM PUBLIC, anon, authenticated, service_role;
+GRANT ALL ON TABLE public.sponsor_campaigns TO service_role;
+
+CREATE TABLE catho_private.sponsor_campaign_events (
+  campaign_id uuid NOT NULL REFERENCES public.sponsor_campaigns(id) ON DELETE CASCADE,
+  event_id uuid NOT NULL,
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  session_id uuid NOT NULL,
+  event_type text NOT NULL CHECK (event_type IN ('served', 'viewable_impression', 'click')),
+  received_at timestamptz NOT NULL DEFAULT statement_timestamp(),
+  PRIMARY KEY (campaign_id, event_id)
+);
+CREATE INDEX sponsor_campaign_events_campaign_time_idx ON catho_private.sponsor_campaign_events (campaign_id, received_at DESC);
+CREATE INDEX sponsor_campaign_events_user_campaign_time_idx ON catho_private.sponsor_campaign_events (user_id, campaign_id, received_at DESC);
+CREATE INDEX sponsor_campaign_events_received_at_idx ON catho_private.sponsor_campaign_events (received_at);
+
+CREATE TABLE catho_private.sponsor_campaign_daily (
+  event_date date NOT NULL,
+  campaign_id uuid NOT NULL REFERENCES public.sponsor_campaigns(id) ON DELETE CASCADE,
+  served_count bigint NOT NULL DEFAULT 0 CHECK (served_count >= 0),
+  viewable_impressions bigint NOT NULL DEFAULT 0 CHECK (viewable_impressions >= 0),
+  clicks bigint NOT NULL DEFAULT 0 CHECK (clicks >= 0),
+  updated_at timestamptz NOT NULL DEFAULT statement_timestamp(),
+  PRIMARY KEY (event_date, campaign_id)
+);
+CREATE INDEX sponsor_campaign_daily_campaign_date_idx ON catho_private.sponsor_campaign_daily (campaign_id, event_date DESC);
+
+CREATE TABLE catho_private.sponsor_campaign_user_frequency (
+  campaign_id uuid NOT NULL REFERENCES public.sponsor_campaigns(id) ON DELETE CASCADE,
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  served_count integer NOT NULL DEFAULT 0 CHECK (served_count >= 0),
+  last_served_at timestamptz NOT NULL,
+  PRIMARY KEY (campaign_id, user_id)
+);
+CREATE INDEX sponsor_campaign_user_frequency_user_idx ON catho_private.sponsor_campaign_user_frequency (user_id, campaign_id);
+
+ALTER TABLE catho_private.sponsor_campaign_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE catho_private.sponsor_campaign_daily ENABLE ROW LEVEL SECURITY;
+ALTER TABLE catho_private.sponsor_campaign_user_frequency ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE catho_private.sponsor_campaign_events FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON TABLE catho_private.sponsor_campaign_daily FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON TABLE catho_private.sponsor_campaign_user_frequency FROM PUBLIC, anon, authenticated, service_role;
+
+CREATE OR REPLACE FUNCTION public.admin_create_sponsor_campaign(
+  p_actor_user_id uuid, p_sponsor_id uuid, p_campaign_name text, p_headline text, p_body text,
+  p_image_url text, p_destination_url text, p_cta_label text, p_starts_on date, p_ends_on date,
+  p_target_category_slugs text[], p_target_topic_ids text[], p_placement_weight integer,
+  p_frequency_cap_per_user_24h integer, p_frequency_cap_per_user_total integer,
+  p_daily_impression_cap bigint, p_total_impression_cap bigint
+)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
+AS $function$
+DECLARE v_campaign public.sponsor_campaigns%ROWTYPE;
+BEGIN
+  IF p_actor_user_id IS NULL OR NOT EXISTS (
+    SELECT 1 FROM public.admin_users AS admins WHERE admins.user_id = p_actor_user_id
+  ) THEN RAISE EXCEPTION 'Administrator access required' USING ERRCODE = '42501'; END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.sponsors AS sponsor WHERE sponsor.id = p_sponsor_id) THEN
+    RAISE EXCEPTION 'Sponsor not found' USING ERRCODE = 'P0002';
+  END IF;
+  IF p_starts_on IS NULL OR p_ends_on IS NULL OR p_ends_on < p_starts_on
+     OR p_destination_url IS NULL OR p_destination_url !~ '^https://'
+     OR (p_image_url IS NOT NULL AND p_image_url !~ '^https://')
+     OR p_target_category_slugs IS NULL OR cardinality(p_target_category_slugs) > 100
+     OR p_target_topic_ids IS NULL OR cardinality(p_target_topic_ids) > 500
+     OR p_placement_weight NOT BETWEEN 1 AND 1000
+     OR p_frequency_cap_per_user_24h NOT BETWEEN 1 AND 5
+     OR p_frequency_cap_per_user_total NOT BETWEEN 1 AND 50
+     OR (p_daily_impression_cap IS NOT NULL AND p_daily_impression_cap NOT BETWEEN 1 AND 1000000000)
+     OR (p_total_impression_cap IS NOT NULL AND p_total_impression_cap NOT BETWEEN 1 AND 100000000000) THEN
+    RAISE EXCEPTION 'Invalid sponsor campaign configuration' USING ERRCODE = '22023';
+  END IF;
+  IF EXISTS (
+    SELECT 1 FROM pg_catalog.unnest(p_target_category_slugs) AS target(slug)
+    WHERE NOT EXISTS (SELECT 1 FROM public.categories AS category WHERE category.slug = target.slug)
+  ) OR EXISTS (
+    SELECT 1 FROM pg_catalog.unnest(p_target_topic_ids) AS target(topic_id)
+    WHERE NOT EXISTS (SELECT 1 FROM public.topics AS topic WHERE topic.id = target.topic_id)
+  ) THEN RAISE EXCEPTION 'Unknown campaign targeting value' USING ERRCODE = '22023'; END IF;
+
+  INSERT INTO public.sponsor_campaigns (
+    sponsor_id, campaign_name, headline, body, image_url, destination_url, cta_label,
+    starts_on, ends_on, target_category_slugs, target_topic_ids, placement_weight,
+    frequency_cap_per_user_24h, frequency_cap_per_user_total,
+    daily_impression_cap, total_impression_cap, created_by
+  ) VALUES (
+    p_sponsor_id, btrim(p_campaign_name), btrim(p_headline), btrim(p_body),
+    nullif(btrim(p_image_url), ''), btrim(p_destination_url),
+    coalesce(nullif(btrim(p_cta_label), ''), 'Learn more'),
+    p_starts_on, p_ends_on, p_target_category_slugs, p_target_topic_ids,
+    p_placement_weight, p_frequency_cap_per_user_24h, p_frequency_cap_per_user_total,
+    p_daily_impression_cap, p_total_impression_cap, p_actor_user_id
+  ) RETURNING * INTO v_campaign;
+
+  INSERT INTO catho_private.admin_action_audit (actor_user_id, action, target_type, target_id, details)
+  VALUES (
+    p_actor_user_id, 'sponsor_campaign.created', 'sponsor_campaign', v_campaign.id::text,
+    pg_catalog.jsonb_build_object('sponsor_id', v_campaign.sponsor_id,
+      'campaign_name', v_campaign.campaign_name, 'placement_weight', v_campaign.placement_weight,
+      'status', v_campaign.status)
+  );
+  RETURN pg_catalog.jsonb_build_object('id', v_campaign.id, 'campaign_name', v_campaign.campaign_name,
+    'status', v_campaign.status, 'created_at', v_campaign.created_at);
+END;
+$function$;
+ALTER FUNCTION public.admin_create_sponsor_campaign(
+  uuid, uuid, text, text, text, text, text, text, date, date, text[], text[], integer, integer, integer, bigint, bigint
+) OWNER TO postgres;
+REVOKE ALL ON FUNCTION public.admin_create_sponsor_campaign(
+  uuid, uuid, text, text, text, text, text, text, date, date, text[], text[], integer, integer, integer, bigint, bigint
+) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.admin_create_sponsor_campaign(
+  uuid, uuid, text, text, text, text, text, text, date, date, text[], text[], integer, integer, integer, bigint, bigint
+) TO service_role;
+
+CREATE OR REPLACE FUNCTION public.admin_set_sponsor_campaign_status(p_actor_user_id uuid, p_campaign_id uuid, p_action text)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
+AS $function$
+DECLARE
+  v_campaign public.sponsor_campaigns%ROWTYPE;
+  v_sponsor public.sponsors%ROWTYPE;
+  v_new_status text;
+BEGIN
+  IF p_actor_user_id IS NULL OR NOT EXISTS (
+    SELECT 1 FROM public.admin_users AS admins WHERE admins.user_id = p_actor_user_id
+  ) THEN RAISE EXCEPTION 'Administrator access required' USING ERRCODE = '42501'; END IF;
+  SELECT * INTO v_campaign FROM public.sponsor_campaigns AS campaign WHERE campaign.id = p_campaign_id FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Campaign not found' USING ERRCODE = 'P0002'; END IF;
+  SELECT * INTO v_sponsor FROM public.sponsors AS sponsor WHERE sponsor.id = v_campaign.sponsor_id;
+
+  CASE p_action
+    WHEN 'approve' THEN
+      IF v_campaign.status NOT IN ('draft', 'pending_approval', 'paused')
+         OR v_sponsor.status NOT IN ('active', 'scheduled')
+         OR v_sponsor.payment_status NOT IN ('received', 'not_required') THEN
+        RAISE EXCEPTION 'Campaign requires an active sponsor and reconciled payment before approval' USING ERRCODE = '23514';
+      END IF;
+      v_new_status := 'approved';
+      UPDATE public.sponsor_campaigns SET status=v_new_status, approved_by=p_actor_user_id,
+        approved_at=pg_catalog.statement_timestamp(), updated_at=pg_catalog.statement_timestamp()
+      WHERE id=p_campaign_id RETURNING * INTO v_campaign;
+    WHEN 'pause' THEN
+      IF v_campaign.status <> 'approved' THEN RAISE EXCEPTION 'Only approved campaigns can be paused' USING ERRCODE = '23514'; END IF;
+      v_new_status := 'paused';
+      UPDATE public.sponsor_campaigns SET status=v_new_status, updated_at=pg_catalog.statement_timestamp()
+      WHERE id=p_campaign_id RETURNING * INTO v_campaign;
+    WHEN 'resume' THEN
+      IF v_campaign.status <> 'paused' OR v_sponsor.status NOT IN ('active', 'scheduled')
+         OR v_sponsor.payment_status NOT IN ('received', 'not_required') THEN
+        RAISE EXCEPTION 'Campaign cannot be resumed until its sponsor and payment are eligible' USING ERRCODE = '23514';
+      END IF;
+      v_new_status := 'approved';
+      UPDATE public.sponsor_campaigns SET status=v_new_status, updated_at=pg_catalog.statement_timestamp()
+      WHERE id=p_campaign_id RETURNING * INTO v_campaign;
+    WHEN 'complete' THEN
+      IF v_campaign.status NOT IN ('approved', 'paused') THEN RAISE EXCEPTION 'Only approved or paused campaigns can be completed' USING ERRCODE = '23514'; END IF;
+      v_new_status := 'completed';
+      UPDATE public.sponsor_campaigns SET status=v_new_status, updated_at=pg_catalog.statement_timestamp()
+      WHERE id=p_campaign_id RETURNING * INTO v_campaign;
+    WHEN 'reject' THEN
+      IF v_campaign.status NOT IN ('draft', 'pending_approval', 'approved', 'paused') THEN RAISE EXCEPTION 'Campaign cannot be rejected in its current state' USING ERRCODE = '23514'; END IF;
+      v_new_status := 'rejected';
+      UPDATE public.sponsor_campaigns SET status=v_new_status, updated_at=pg_catalog.statement_timestamp()
+      WHERE id=p_campaign_id RETURNING * INTO v_campaign;
+    ELSE RAISE EXCEPTION 'Invalid campaign action' USING ERRCODE = '22023';
+  END CASE;
+
+  INSERT INTO catho_private.admin_action_audit (actor_user_id, action, target_type, target_id, details)
+  VALUES (p_actor_user_id, 'sponsor_campaign.' || p_action, 'sponsor_campaign', v_campaign.id::text,
+    pg_catalog.jsonb_build_object('campaign_name', v_campaign.campaign_name,
+      'sponsor_id', v_campaign.sponsor_id, 'status', v_campaign.status));
+  RETURN pg_catalog.jsonb_build_object('id', v_campaign.id, 'campaign_name', v_campaign.campaign_name,
+    'status', v_campaign.status, 'approved_at', v_campaign.approved_at);
+END;
+$function$;
+ALTER FUNCTION public.admin_set_sponsor_campaign_status(uuid, uuid, text) OWNER TO postgres;
+REVOKE ALL ON FUNCTION public.admin_set_sponsor_campaign_status(uuid, uuid, text)
+  FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.admin_set_sponsor_campaign_status(uuid, uuid, text) TO service_role;
+
+CREATE OR REPLACE FUNCTION public.get_weighted_sponsor_campaigns(
+  p_user_id uuid, p_session_id uuid, p_category_slug text DEFAULT NULL,
+  p_topic_id text DEFAULT NULL, p_limit integer DEFAULT 5
+)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
+AS $function$
+DECLARE
+  v_campaign record;
+  v_campaign_ids uuid[] := ARRAY[]::uuid[];
+  v_campaigns jsonb := '[]'::jsonb;
+  v_slot integer;
+  v_today date := (pg_catalog.timezone('UTC', pg_catalog.statement_timestamp()))::date;
+BEGIN
+  IF p_user_id IS NULL OR p_session_id IS NULL OR p_limit IS NULL OR p_limit < 1 OR p_limit > 5
+     OR NOT EXISTS (SELECT 1 FROM auth.users AS account WHERE account.id = p_user_id) THEN
+    RAISE EXCEPTION 'Invalid sponsor campaign request' USING ERRCODE = '22023';
+  END IF;
+  PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(p_user_id::text, 9173));
+
+  FOR v_slot IN 1..p_limit LOOP
+    SELECT campaign.id, campaign.sponsor_id, sponsor.sponsor_name,
+      sponsor.logo_url AS sponsor_logo_url, campaign.headline, campaign.body,
+      campaign.image_url, campaign.destination_url, campaign.cta_label, campaign.campaign_name
+    INTO v_campaign
+    FROM public.sponsor_campaigns AS campaign
+    JOIN public.sponsors AS sponsor ON sponsor.id = campaign.sponsor_id
+    LEFT JOIN catho_private.sponsor_campaign_user_frequency AS frequency
+      ON frequency.campaign_id = campaign.id AND frequency.user_id = p_user_id
+    WHERE campaign.status = 'approved'
+      AND sponsor.status = 'active'
+      AND sponsor.payment_status IN ('received', 'not_required')
+      AND campaign.starts_on <= v_today AND campaign.ends_on >= v_today
+      AND (cardinality(campaign.target_category_slugs) = 0
+        OR (p_category_slug IS NOT NULL AND p_category_slug = ANY(campaign.target_category_slugs)))
+      AND (cardinality(campaign.target_topic_ids) = 0
+        OR (p_topic_id IS NOT NULL AND p_topic_id = ANY(campaign.target_topic_ids)))
+      AND (campaign.daily_impression_cap IS NULL OR coalesce((
+        SELECT daily.served_count FROM catho_private.sponsor_campaign_daily AS daily
+        WHERE daily.campaign_id = campaign.id AND daily.event_date = v_today
+      ), 0) < campaign.daily_impression_cap)
+      AND (campaign.total_impression_cap IS NULL OR campaign.served_count < campaign.total_impression_cap)
+      AND coalesce(frequency.served_count, 0) < campaign.frequency_cap_per_user_total
+      AND (SELECT pg_catalog.count(*) FROM catho_private.sponsor_campaign_events AS recent_served
+        WHERE recent_served.user_id = p_user_id AND recent_served.campaign_id = campaign.id
+          AND recent_served.event_type = 'served'
+          AND recent_served.received_at >= pg_catalog.statement_timestamp() - interval '24 hours')
+        < campaign.frequency_cap_per_user_24h
+      AND NOT (campaign.id = ANY(v_campaign_ids))
+    ORDER BY -pg_catalog.ln(pg_catalog.greatest(pg_catalog.random(), 0.000001))
+      / campaign.placement_weight::numeric, campaign.id
+    LIMIT 1 FOR UPDATE OF campaign SKIP LOCKED;
+
+    IF NOT FOUND THEN EXIT; END IF;
+
+    UPDATE public.sponsor_campaigns SET served_count=served_count+1, updated_at=pg_catalog.statement_timestamp()
+    WHERE id=v_campaign.id;
+
+    INSERT INTO catho_private.sponsor_campaign_events
+      (campaign_id,event_id,user_id,session_id,event_type,received_at)
+    VALUES (v_campaign.id,pg_catalog.gen_random_uuid(),p_user_id,p_session_id,'served',pg_catalog.statement_timestamp());
+
+    INSERT INTO catho_private.sponsor_campaign_user_frequency
+      (campaign_id,user_id,served_count,last_served_at)
+    VALUES (v_campaign.id,p_user_id,1,pg_catalog.statement_timestamp())
+    ON CONFLICT (campaign_id,user_id) DO UPDATE
+    SET served_count=catho_private.sponsor_campaign_user_frequency.served_count+1,
+      last_served_at=EXCLUDED.last_served_at;
+
+    INSERT INTO catho_private.sponsor_campaign_daily
+      (event_date,campaign_id,served_count,viewable_impressions,clicks,updated_at)
+    VALUES (v_today,v_campaign.id,1,0,0,pg_catalog.statement_timestamp())
+    ON CONFLICT (event_date,campaign_id) DO UPDATE
+    SET served_count=catho_private.sponsor_campaign_daily.served_count+1,updated_at=EXCLUDED.updated_at;
+
+    v_campaign_ids := pg_catalog.array_append(v_campaign_ids,v_campaign.id);
+    v_campaigns := v_campaigns || pg_catalog.jsonb_build_array(pg_catalog.jsonb_build_object(
+      'campaign_id',v_campaign.id,'sponsor_name',v_campaign.sponsor_name,
+      'sponsor_logo_url',v_campaign.sponsor_logo_url,'campaign_name',v_campaign.campaign_name,
+      'headline',v_campaign.headline,'body',v_campaign.body,'image_url',v_campaign.image_url,
+      'destination_url',v_campaign.destination_url,'cta_label',v_campaign.cta_label,
+      'disclosure','Sponsored'
+    ));
+  END LOOP;
+
+  RETURN pg_catalog.jsonb_build_object('campaigns',v_campaigns,'generated_at',pg_catalog.statement_timestamp());
+END;
+$function$;
+ALTER FUNCTION public.get_weighted_sponsor_campaigns(uuid, uuid, text, text, integer) OWNER TO postgres;
+REVOKE ALL ON FUNCTION public.get_weighted_sponsor_campaigns(uuid, uuid, text, text, integer)
+  FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.get_weighted_sponsor_campaigns(uuid, uuid, text, text, integer) TO service_role;
+
+CREATE OR REPLACE FUNCTION public.record_sponsor_campaign_event(
+  p_user_id uuid, p_campaign_id uuid, p_event_id uuid, p_session_id uuid, p_event_type text
+)
+RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
+AS $function$
+DECLARE
+  v_today date := (pg_catalog.timezone('UTC', pg_catalog.statement_timestamp()))::date;
+  v_inserted integer := 0;
+BEGIN
+  IF p_user_id IS NULL OR p_campaign_id IS NULL OR p_event_id IS NULL OR p_session_id IS NULL
+     OR p_event_type IS NULL OR p_event_type NOT IN ('viewable_impression', 'click')
+     OR NOT EXISTS (SELECT 1 FROM auth.users AS account WHERE account.id = p_user_id) THEN
+    RAISE EXCEPTION 'Invalid sponsor campaign event' USING ERRCODE = '22023';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM catho_private.sponsor_campaign_events AS served
+    WHERE served.user_id=p_user_id AND served.campaign_id=p_campaign_id
+      AND served.session_id=p_session_id AND served.event_type='served'
+      AND served.received_at >= pg_catalog.statement_timestamp() - interval '24 hours'
+  ) THEN RAISE EXCEPTION 'Sponsor campaign was not served in this session' USING ERRCODE = '42501'; END IF;
+  IF p_event_type='click' AND NOT EXISTS (
+    SELECT 1 FROM catho_private.sponsor_campaign_events AS viewed
+    WHERE viewed.user_id=p_user_id AND viewed.campaign_id=p_campaign_id
+      AND viewed.session_id=p_session_id AND viewed.event_type='viewable_impression'
+  ) THEN RAISE EXCEPTION 'Sponsor campaign must be viewable before a click is recorded' USING ERRCODE = '42501'; END IF;
+  IF EXISTS (
+    SELECT 1 FROM catho_private.sponsor_campaign_events AS existing
+    WHERE existing.user_id=p_user_id AND existing.campaign_id=p_campaign_id
+      AND existing.session_id=p_session_id AND existing.event_type=p_event_type
+  ) THEN RETURN false; END IF;
+
+  INSERT INTO catho_private.sponsor_campaign_events
+    (campaign_id,event_id,user_id,session_id,event_type,received_at)
+  VALUES (p_campaign_id,p_event_id,p_user_id,p_session_id,p_event_type,pg_catalog.statement_timestamp())
+  ON CONFLICT (campaign_id,event_id) DO NOTHING;
+  GET DIAGNOSTICS v_inserted = ROW_COUNT;
+  IF v_inserted=0 THEN RETURN false; END IF;
+
+  INSERT INTO catho_private.sponsor_campaign_daily
+    (event_date,campaign_id,served_count,viewable_impressions,clicks,updated_at)
+  VALUES (v_today,p_campaign_id,0,
+    CASE WHEN p_event_type='viewable_impression' THEN 1 ELSE 0 END,
+    CASE WHEN p_event_type='click' THEN 1 ELSE 0 END,pg_catalog.statement_timestamp())
+  ON CONFLICT (event_date,campaign_id) DO UPDATE
+  SET viewable_impressions=catho_private.sponsor_campaign_daily.viewable_impressions+EXCLUDED.viewable_impressions,
+      clicks=catho_private.sponsor_campaign_daily.clicks+EXCLUDED.clicks,
+      updated_at=EXCLUDED.updated_at;
+  RETURN true;
+END;
+$function$;
+ALTER FUNCTION public.record_sponsor_campaign_event(uuid, uuid, uuid, uuid, text) OWNER TO postgres;
+REVOKE ALL ON FUNCTION public.record_sponsor_campaign_event(uuid, uuid, uuid, uuid, text)
+  FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.record_sponsor_campaign_event(uuid, uuid, uuid, uuid, text) TO service_role;
+
+CREATE OR REPLACE FUNCTION catho_private.prune_sponsor_campaign_events(
+  p_before timestamptz DEFAULT statement_timestamp() - interval '180 days', p_limit integer DEFAULT 5000
+)
+RETURNS integer LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, catho_private
+AS $function$
+DECLARE v_deleted integer := 0;
+BEGIN
+  IF p_before IS NULL OR p_before > statement_timestamp() - interval '180 days'
+     OR p_limit IS NULL OR p_limit < 1 OR p_limit > 10000 THEN
+    RAISE EXCEPTION 'Invalid sponsor campaign retention parameters' USING ERRCODE = '22023';
+  END IF;
+  WITH expired AS (
+    SELECT event.ctid FROM catho_private.sponsor_campaign_events AS event
+    WHERE event.received_at < p_before ORDER BY event.received_at LIMIT p_limit
+  )
+  DELETE FROM catho_private.sponsor_campaign_events AS event USING expired
+  WHERE event.ctid=expired.ctid;
+  GET DIAGNOSTICS v_deleted = ROW_COUNT;
+
+  WITH expired_frequency AS (
+    SELECT frequency.ctid
+    FROM catho_private.sponsor_campaign_user_frequency AS frequency
+    JOIN public.sponsor_campaigns AS campaign ON campaign.id=frequency.campaign_id
+    WHERE campaign.status IN ('completed','rejected') AND campaign.updated_at < p_before
+    ORDER BY campaign.updated_at LIMIT p_limit
+  )
+  DELETE FROM catho_private.sponsor_campaign_user_frequency AS frequency USING expired_frequency
+  WHERE frequency.ctid=expired_frequency.ctid;
+  RETURN v_deleted;
+END;
+$function$;
+REVOKE ALL ON FUNCTION catho_private.prune_sponsor_campaign_events(timestamptz, integer)
+  FROM PUBLIC, anon, authenticated, service_role;
+
+DO $sponsor_cron$
+DECLARE existing_job record;
+BEGIN
+  FOR existing_job IN SELECT jobid FROM cron.job WHERE jobname='cathoscroll-prune-sponsor-campaign-events' LOOP
+    PERFORM cron.unschedule(existing_job.jobid);
+  END LOOP;
+  PERFORM cron.schedule('cathoscroll-prune-sponsor-campaign-events','*/15 * * * *',
+    'SELECT catho_private.prune_sponsor_campaign_events(clock_timestamp() - interval ''180 days'', 5000);');
+END;
+$sponsor_cron$;
