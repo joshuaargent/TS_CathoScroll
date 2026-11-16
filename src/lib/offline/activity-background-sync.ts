@@ -77,12 +77,7 @@ export class BackgroundActivitySync {
 
     try {
       await this.initialize?.(userId, signal);
-      let sent = 0;
-      while (sent < MAX_OPERATIONS && isCurrent()) {
-        const count = await this.sync.push(userId, 1, signal);
-        if (!count) break;
-        sent += count;
-      }
+      const sent = await this.sync.push(userId, MAX_OPERATIONS, signal);
       if (sent === MAX_OPERATIONS) this.requested = true;
 
       let pages = 0;
