@@ -106,7 +106,10 @@ export class OfflineActivitySync {
     let sent = 0;
     while (sent < limit) {
       signal?.throwIfAborted();
-      const operations = await this.store.nextOperations(userId, Math.min(100, limit - sent));
+      const operations = await this.store.nextOperations(
+        userId,
+        this.sendBatch ? Math.min(100, limit - sent) : 1
+      );
       if (!operations.length) break;
       signal?.throwIfAborted();
       const receipts = this.sendBatch
