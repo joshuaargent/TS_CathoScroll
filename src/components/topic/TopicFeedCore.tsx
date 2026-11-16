@@ -81,7 +81,7 @@ export function TopicFeedCore({
   const [activeSponsorSessionId, setActiveSponsorSessionId] = useState<string | null>(null);
   const sponsorSessionUserId = useRef(userId);
   const sponsorLoadingRef = useRef(false);
-  const lastInterstitialType = useRef<'comment' | 'sponsor' | null>(null);
+  const pendingSponsorAfterComment = useRef(false);
 
   const [topicIndex, setTopicIndex] = useState(personalized ? 0 : Math.floor(topics.length / 2));
   const [nextCursor, setNextCursor] = useState(initialCursor);
@@ -101,7 +101,7 @@ export function TopicFeedCore({
     setActiveSponsorSessionId(null);
     sponsorCardsByTopicId.current.clear();
     sponsorLoadingRef.current = false;
-    lastInterstitialType.current = null;
+    pendingSponsorAfterComment.current = false;
     setSponsorCampaigns([]);
     setShowSponsorCard(false);
     setTopicsSinceSponsorCard(0);
@@ -316,7 +316,9 @@ export function TopicFeedCore({
     const sponsorDue = shouldInsertSponsorCard(currentSponsorCadence, Boolean(userId));
     const nextCommentCadence = getNextTopCommentCadence(currentCommentCadence);
     const nextSponsorCadence = getNextSponsorCadence(currentSponsorCadence);
-    const chooseSponsor = sponsorDue && (!commentDue || lastInterstitialType.current === 'comment');
+    // Keep the two cadences independent. If both are due, show the comment
+    // first and then the sponsor placement at the same topic boundary.
+    const chooseSponsor = sponsorDue && !commentDue;
 
     if (chooseSponsor) {
       const currentTopic = feedTopics[topicIndex];
@@ -341,7 +343,6 @@ export function TopicFeedCore({
           });
           setShowTopCommentCard(false);
           setShowSponsorCard(true);
-          lastInterstitialType.current = 'sponsor';
           return;
         }
 
@@ -351,7 +352,6 @@ export function TopicFeedCore({
           topCommentCardsByTopicId.current.set(currentTopic.id, unseenTopComments);
           setShowSponsorCard(false);
           setShowTopCommentCard(true);
-          lastInterstitialType.current = 'comment';
           return;
         }
 
@@ -362,9 +362,10 @@ export function TopicFeedCore({
       return;
     }
 
-    setTopicsSinceSponsorCard(nextSponsorCadence);
+    setTopicsSinceSponsorCard(sponsorDue ? currentSponsorCadence : nextSponsorCadence);
 
     if (commentDue) {
+      pendingSponsorAfterComment.current = sponsorDue;
       setTopicsSinceTopCommentCard(0);
       const currentTopic = feedTopics[topicIndex];
       if (currentTopic) {
@@ -372,7 +373,6 @@ export function TopicFeedCore({
         topCommentCardsByTopicId.current.set(currentTopic.id, unseenTopComments);
         setShowSponsorCard(false);
         setShowTopCommentCard(true);
-        lastInterstitialType.current = 'comment';
         return;
       }
     }
@@ -479,10 +479,49 @@ export function TopicFeedCore({
           comments={activeTopCommentCardComments}
           onCommentViewed={markTopCommentViewed}
           onNextTopic={() => {
-            setShowTopCommentCard(false);
-            advanceToNextTopic();
+            if (!pendingSponsorAfterComment.current) {
+              setShowTopCommentCard(false);
+              advanceToNextTopic();
+              return;
+            }
+
+            pendingSponsorAfterComment.current = false;
+            const currentTopic = feedTopics[topicIndex];
+            if (!currentTopic || sponsorLoadingRef.current) {
+              setShowTopCommentCard(false);
+              setTopicsSinceSponsorCard(0);
+              advanceToNextTopic();
+              return;
+            }
+
+            sponsorLoadingRef.current = true;
+            const requestedUserId = userId;
+            void loadSponsorCampaigns(currentTopic).then((result) => {
+              if (sponsorSessionUserId.current !== requestedUserId) return;
+              setTopicsSinceSponsorCard(0);
+              if (result.campaigns.length > 0 && result.sessionId) {
+                setSponsorCampaigns(result.campaigns);
+                setActiveSponsorSessionId(result.sessionId);
+                sponsorCardsByTopicId.current.set(currentTopic.id, {
+                  campaigns: result.campaigns,
+                  sessionId: result.sessionId,
+                });
+                setShowTopCommentCard(false);
+                setShowSponsorCard(true);
+                return;
+              }
+
+              setShowTopCommentCard(false);
+              advanceToNextTopic();
+            }).finally(() => {
+              sponsorLoadingRef.current = false;
+            });
           }}
-          onPreviousTopic={() => setShowTopCommentCard(false)}
+          onPreviousTopic={() => {
+            pendingSponsorAfterComment.current = false;
+            setShowTopCommentCard(false);
+            previousTopic();
+          }}
           onOpenComment={openTopComment}
         />
       ) : (
