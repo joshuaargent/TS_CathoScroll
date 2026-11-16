@@ -196,11 +196,14 @@ export function CommentSection({
   const getClient = useCallback(() => supabaseClient ?? createClient(), [supabaseClient]);
   const [comments, setComments] = useState<Comment[]>([]);
   const commentsRef = useRef<Comment[]>([]);
-  // Keep async pagination merges anchored to the latest committed tree, not
-  // the state snapshot captured when the request began.
-  useEffect(() => {
-    commentsRef.current = comments;
-  }, [comments]);
+  const commitComments = useCallback(
+    (next: Comment[] | ((previous: Comment[]) => Comment[])) => {
+      const resolved = typeof next === 'function' ? next(commentsRef.current) : next;
+      commentsRef.current = resolved;
+      setComments(resolved);
+    },
+    []
+  );
   const [hasMoreComments, setHasMoreComments] = useState(false);
   const [nextCommentCursor, setNextCommentCursor] = useState<CommentPageCursor | null>(null);
   const [loadingMoreComments, setLoadingMoreComments] = useState(false);
@@ -428,7 +431,7 @@ export function CommentSection({
 
       sortComments(roots);
 
-      setComments(roots);
+      commitComments(roots);
       setCachedAt(null);
       setCommentLoadError('');
       if (cache) {
@@ -447,7 +450,7 @@ export function CommentSection({
           const cached = await cache.load(topicId);
           if (!isCurrent()) return;
           if (cached) {
-            setComments(cached.comments);
+            commitComments(cached.comments);
             setCachedAt(cached.savedAt);
             setHasMoreComments(false);
             setNextCommentCursor(null);
@@ -464,7 +467,7 @@ export function CommentSection({
           return;
         }
       }
-      setComments([]);
+      commitComments([]);
       setCachedAt(null);
       setHasMoreComments(false);
       setNextCommentCursor(null);
@@ -477,7 +480,7 @@ export function CommentSection({
     } finally {
       if (isCurrent()) setLoading(false);
     }
-  }, [topicId, sortComments, cache, getClient]);
+  }, [topicId, sortComments, cache, getClient, commitComments]);
 
   const loadMoreComments = useCallback(async () => {
     const cursor = nextCommentCursor;
@@ -615,8 +618,7 @@ export function CommentSection({
       });
 
       sortComments(mergedRoots);
-      commentsRef.current = mergedRoots;
-      setComments(mergedRoots);
+      commitComments(mergedRoots);
       setUserId(user?.id ?? null);
       setCurrentProfile(user?.id ? profiles.get(user.id) ?? null : null);
       const nextCursor = page.next_cursor ?? null;
@@ -651,6 +653,7 @@ export function CommentSection({
     currentProfile,
     sortComments,
     cache,
+    commitComments,
   ]);
 
   useEffect(() => {
@@ -713,7 +716,7 @@ export function CommentSection({
       optimistic: true,
     };
 
-    setComments((prev) => cloneAndSortComments([tempComment, ...prev], sortComments));
+    commitComments((prev) => cloneAndSortComments([tempComment, ...prev], sortComments));
 
     const supabase = getClient();
 
@@ -737,7 +740,7 @@ export function CommentSection({
       );
     }
 
-    setComments((prev) => replaceCommentId(prev, tempId, data.id));
+    commitComments((prev) => replaceCommentId(prev, tempId, data.id));
     setTotalCommentCount((previous) => (previous === null ? null : previous + 1));
     if (cache) await loadComments();
   }
@@ -772,7 +775,7 @@ export function CommentSection({
       optimistic: true,
     };
 
-    setComments((prev) => insertReplyIntoTree(prev, parentId, tempReply));
+    commitComments((prev) => insertReplyIntoTree(prev, parentId, tempReply));
 
     const supabase = getClient();
 
@@ -796,7 +799,7 @@ export function CommentSection({
       );
     }
 
-    setComments((prev) => replaceCommentId(prev, tempId, data.id));
+    commitComments((prev) => replaceCommentId(prev, tempId, data.id));
     setTotalCommentCount((previous) => (previous === null ? null : previous + 1));
     if (cache) await loadComments();
   }
@@ -810,7 +813,7 @@ export function CommentSection({
 
     // Update the visible tree immediately; reload it from Supabase if the
     // persistent update fails so the UI returns to the saved value.
-    setComments((prev) =>
+    commitComments((prev) =>
       updateCommentTree(prev, commentId, (comment) => ({
         ...comment,
         content,
@@ -849,7 +852,7 @@ export function CommentSection({
     }
 
     setCommentActionError('');
-    setComments((prev) =>
+    commitComments((prev) =>
       updateCommentTree(prev, commentId, (comment) => ({
         ...comment,
         is_deleted: true,
@@ -897,7 +900,7 @@ export function CommentSection({
 
     setPinError('');
     setPinningCommentId(commentId);
-    setComments((previous) =>
+    commitComments((previous) =>
       cloneAndSortComments(
         previous.map((comment) => ({
           ...comment,
@@ -1014,7 +1017,7 @@ export function CommentSection({
     setCommentActionError('');
     const wasLiked = comment.likedByUser;
 
-    setComments((prev) =>
+    commitComments((prev) =>
       cloneAndSortComments(
         updateCommentTree(prev, commentId, (comment) => ({
           ...comment,
