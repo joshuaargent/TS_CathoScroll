@@ -86,8 +86,9 @@ export function TopicSwipeViewer({
   useEffect(() => {
     if (!userId || !active) return;
 
-    const wasViewed = viewedTopicsRef.current.has(currentTopicId);
-    viewedTopicsRef.current.add(currentTopicId);
+    const viewKey = userId + ':' + currentTopicId;
+    const wasViewed = viewedTopicsRef.current.has(viewKey);
+    viewedTopicsRef.current.add(viewKey);
     recordFeedAnalyticsEvent(userId, wasViewed ? 'return_visit' : 'impression', currentTopicId, {
       source: 'feed',
     });
@@ -172,8 +173,9 @@ export function TopicSwipeViewer({
       depth: slideIndex,
     });
 
-    if (slideIndex === slides.length - 1 && !completedTopicsRef.current.has(currentTopicId)) {
-      completedTopicsRef.current.add(currentTopicId);
+    const completionKey = userId + ':' + currentTopicId;
+    if (slideIndex === slides.length - 1 && !completedTopicsRef.current.has(completionKey)) {
+      completedTopicsRef.current.add(completionKey);
       recordFeedAnalyticsEvent(userId, 'completion', currentTopicId, {
         slide_index: slideIndex,
         completion_percent: 100,
