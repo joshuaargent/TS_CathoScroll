@@ -1,10 +1,12 @@
-import { Bookmark, Share2 } from 'lucide-react';
+import Link from 'next/link';
+import { BarChart3, Bookmark, Share2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/Button';
 
 export function TopicActionsView({
   isBookmarked,
   bookmarkDisabled,
+  analyticsHref,
   bookmarkError = '',
   statusMessage = '',
   shareMessage = '',
@@ -14,6 +16,7 @@ export function TopicActionsView({
 }: {
   isBookmarked: boolean;
   bookmarkDisabled: boolean;
+  analyticsHref?: string;
   bookmarkError?: string;
   statusMessage?: string;
   shareMessage?: string;
@@ -34,6 +37,18 @@ export function TopicActionsView({
           <Bookmark className={`mr-2 h-4 w-4 ${isBookmarked ? 'fill-current' : ''}`} />
           {isBookmarked ? 'Bookmarked' : 'Bookmark Topic'}
         </Button>
+        {analyticsHref && (
+          <Button
+            asChild
+            variant="secondary"
+            className="border-accent/30 bg-accent-light text-accent hover:bg-accent-light/80"
+          >
+            <Link href={analyticsHref}>
+              <BarChart3 className="mr-2 h-4 w-4" />
+              View Analytics
+            </Link>
+          </Button>
+        )}
         <Button type="button" variant="secondary" onClick={onShare}>
           <Share2 className="mr-2 h-4 w-4" />
           Share Topic

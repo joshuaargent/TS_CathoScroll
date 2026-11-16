@@ -78,6 +78,24 @@ API rate-limit responses include `Retry-After` where applicable.
   31 days. Scheduled cleanup jobs run every five minutes and every 15 minutes
   respectively.
 
+## Feed analytics ingestion
+
+- Signed-in feed telemetry is accepted only through POST /api/analytics/feed-events or the authenticated record_feed_analytics_events RPC.
+- The database derives the actor from auth.uid(); clients cannot submit an arbitrary user ID.
+- Raw event and rate-limit tables live in catho_private, have RLS enabled, and have no direct Data API grants for anon, authenticated, or service_role.
+- The ingestion RPC validates event IDs, session IDs, published topic references, event types, metadata keys, metadata size, and batch bounds.
+- Event IDs are unique per user, making retries idempotent.
+- Each request is limited to 50 events and 16 KiB; database ingestion is limited to 120 submitted events per user per minute. The HTTP route also uses the shared PostgreSQL API rate limiter.
+- Client telemetry is queued per signed-in account and does not share or block the durable offline activity outbox.
+- Raw analytics events are retained for 180 days. A bounded database cleanup job runs every 15 minutes and removes at most 5,000 expired events per run. Admin reporting uses on-demand aggregate queries; no long-term rollup table is implemented.
+- Anonymous tracking is disabled. Analytics events contain no comment text, profile fields, or email addresses.
+- Sponsor and administrator reporting must use server-side aggregate functions; raw events and individual user identities must never be exposed to sponsor accounts.
+
+- `public.get_admin_content_analytics(text,text,timestamptz,timestamptz)` is an on-demand aggregate RPC for topic/category dashboards. It is owned by postgres, uses SECURITY DEFINER with an empty search path, validates entity and date-window inputs (maximum 180 days), and is executable only by service_role. It returns counts and daily buckets only, never user IDs, session IDs or raw event rows.
+- The aggregate function also counts existing likes, bookmarks, visible top-level comments, visible replies and completed-topic records separately from feed telemetry. These historical interaction records are not used to infer impressions or reading time.
+- The admin pages call the existing server-side admin/MFA guard and apply a shared per-admin rate limit before invoking the aggregate RPC. The RPC is not directly executable by anon or authenticated roles.
+- `public.get_top_feed_comments()` is a separate server-only selector. It is SECURITY DEFINER with an empty search path and executable only by service_role. The public endpoint returns an explicit allowlist of public comment/author/topic fields, never user IDs, emails, profile bios, moderation notes or raw events. It excludes deleted/hidden comments, replies as candidates, and comments belonging to unpublished content.
+
 ## Comment invariants
 
 Database triggers enforce:
@@ -131,7 +149,19 @@ The repository has a recurring GitHub workflow for:
 - CodeQL extended JavaScript/TypeScript analysis.
 - Gitleaks full-history secret scanning.
 
-The dependency tree retains a low-severity `deepmerge` advisory in the legacy Workbox build chain. npm's only suggested automatic remediation downgrades `next-pwa` to 3.1.5, which is a breaking change; that downgrade was rejected to preserve PWA/offline behaviour. Vulnerable `serialize-javascript`, `minimatch` and `uuid` transitive versions are pinned to patched releases through targeted package overrides. The dependency audit is configured to fail on moderate or higher findings in both lockfiles. The latest completed audit found 5 low-severity findings in the root Workbox/deepmerge chain and zero vulnerabilities in the Electron dependency tree; there were no moderate or high findings.
+The dependency tree retains a low-severity `deepmerge` advisory in the legacy Workbox build chain. npm's only suggested automatic remediation downgrades `next-pwa` to 3.1.5, which is a breaking change; that downgrade was rejected to preserve PWA/offline behaviour. Vulnerable `serialize-javascript`, `minimatch` and `uuid` transitive versions are pinned to patched releases through targeted package overrides. The dependency audit is configured to fail on moderate or higher findings in both lockfiles. The combined PR's first audit identified Next.js advisory `GHSA-mfr8-8qww-v76h` while the lockfile still resolved 16.4.3. Next.js, `@next/env` and all matching SWC platform packages were updated together to 16.4.5. The subsequent dependency audit passed with no moderate-or-higher findings in either dependency tree. Five low-severity findings remain in the root legacy Workbox/deepmerge chain; the only suggested automatic remediation downgrades `next-pwa` to 3.1.5 and remains rejected because it would break PWA/offline behaviour.
+
+## Top-comment feed selection
+
+The top-comment feed selector is a server-only database function. `public.get_top_feed_comments()` is `SECURITY DEFINER`, owned by `postgres`, pins `search_path = ''`, and schema-qualifies its table and built-in function references. Execution is revoked from `PUBLIC`, `anon`, and `authenticated`; only `service_role` can execute it. Browser and native clients never call this RPC directly.
+
+Clients use `GET /api/content/top-comments`. The route calls the RPC using the server-only service-role client and applies the shared trusted-IP database rate limiter at 120 requests per IP per minute. Native CORS is restricted to the application's allowlisted origins. Native fetches omit cookies and credentials.
+
+The endpoint returns no more than five entries and validates every field before serialising an explicit allowlist. Returned data is limited to public comment text (maximum 600 characters), public author display name/username, topic/category context, timestamps, pinned state and aggregate like/reply counts. It does not return comment-author user IDs, emails, profile bios, report details, moderation notes, or raw analytics events. If the database response contains an unexpected field or invalid value, the route fails closed with a non-cacheable 503 rather than returning an unvalidated payload.
+
+The selector excludes deleted/hidden comments, blank comments, replies, comments outside the 90-day window, and comments belonging to unpublished topics or categories. Existing ban moderation hides comments through `is_deleted = true`, which the selector excludes. The endpoint uses a 30-second shared cache and a 30-second stale-while-revalidate window; this bounds database load while limiting the time deleted content can remain in a cached response.
+
+Comment inventory is fetched online but is not written to a persistent local cache or duplicated in the existing offline activity queue. Previously fetched comments can remain available in the current in-memory feed session; if no inventory has been loaded and the endpoint is unreachable, the interstitial is omitted without blocking the feed. Comment-card impression/open analytics and persistent cross-session seen-state are not implemented; any future telemetry must extend the existing validated feed analytics pipeline rather than introduce a second event queue.
 
 ## Validation and limitations
 

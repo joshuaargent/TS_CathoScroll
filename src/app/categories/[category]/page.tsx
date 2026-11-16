@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { BarChart3 } from 'lucide-react';
 import type { Metadata } from 'next';
 
 import {
@@ -9,8 +10,10 @@ import {
   type TopicPageCursor,
 } from '@/lib/content';
 import { siteConfig } from '@/lib/constants';
+import { getAdminSession } from '@/lib/supabase/admin';
 
 import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
 import { CategoryTopicGrid } from '@/components/categories/CategoryTopicGrid';
 import { CategoryBottomNavigation } from '@/components/categories/CategoryBottomNavigation';
 
@@ -74,10 +77,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function CategoryPage({ params, searchParams }: Props) {
-  const [{ category }, { afterOrder, afterId }, categories] = await Promise.all([
+  const [{ category }, { afterOrder, afterId }, categories, adminSession] = await Promise.all([
     params,
     searchParams,
     getPublishedCategories(),
+    getAdminSession().catch(() => ({ isAdmin: false })),
   ]);
   const categoryData = categories.find((item) => item.slug === category);
 
@@ -114,6 +118,20 @@ export default async function CategoryPage({ params, searchParams }: Props) {
         <p className="text-text-secondary mt-6 max-w-3xl text-lg leading-relaxed">
           {categoryData.description}
         </p>
+        {adminSession.isAdmin && (
+          <div className="mt-6">
+            <Button
+              asChild
+              variant="secondary"
+              className="border-accent/30 bg-accent-light text-accent hover:bg-accent-light/80"
+            >
+              <Link href={`/categories/${encodeURIComponent(categoryData.slug)}/analytics`}>
+                <BarChart3 className="h-4 w-4" aria-hidden="true" />
+                View Analytics
+              </Link>
+            </Button>
+          </div>
+        )}
       </section>
 
       {nextCursor && (

@@ -11,9 +11,10 @@ interface TopicActionsProps {
   topicId: string;
   slug: string;
   title: string;
+  analyticsHref?: string;
 }
 
-export function TopicActions({ topicId, slug, title }: TopicActionsProps) {
+export function TopicActions({ topicId, slug, title, analyticsHref }: TopicActionsProps) {
   const requestSignIn = useSignInPrompt();
 
   const [isBookmarked, setIsBookmarked] = useState(false);
@@ -137,6 +138,7 @@ export function TopicActions({ topicId, slug, title }: TopicActionsProps) {
 
   return (
     <TopicActionsView
+      analyticsHref={analyticsHref}
       isBookmarked={isBookmarked}
       bookmarkDisabled={loadingBookmark || Boolean(bookmarkError)}
       bookmarkError={bookmarkError}

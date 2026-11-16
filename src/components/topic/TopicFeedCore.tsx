@@ -3,6 +3,14 @@
 import { useCallback, useEffect, useRef, useState, type ComponentType } from 'react';
 
 import { shuffle } from '@/lib/utils';
+import {
+  getNextTopCommentCadence,
+  getUnseenTopFeedComments,
+  parseTopFeedComments,
+  shouldInsertTopCommentCard,
+  type TopFeedComment,
+} from '@/lib/feed-comments';
+import { TopCommentFeedCard } from './TopCommentFeedCard';
 
 import type { TopicPageCursor } from '@/lib/content';
 import type { RecommendationCursor } from '@/lib/recommendations';
@@ -25,6 +33,8 @@ type TopicFeedCoreProps = {
   userId: string | null;
   viewer: ComponentType<ViewerProps>;
   preservePositionOnUpdate?: boolean;
+  topCommentsEndpoint?: string;
+  onOpenComment?: (comment: TopFeedComment) => void;
 };
 
 export function TopicFeedCore({
@@ -35,8 +45,18 @@ export function TopicFeedCore({
   userId,
   viewer: Viewer,
   preservePositionOnUpdate = false,
+  topCommentsEndpoint,
+  onOpenComment,
 }: TopicFeedCoreProps) {
   const [feedTopics, setFeedTopics] = useState<Topic[]>(topics);
+  const [topComments, setTopComments] = useState<TopFeedComment[]>([]);
+  const [topCommentCardComments, setTopCommentCardComments] = useState<TopFeedComment[]>([]);
+  const [showTopCommentCard, setShowTopCommentCard] = useState(false);
+  const seenTopCommentIds = useRef(new Set<number>());
+  const seenTopCommentUserId = useRef(userId);
+  const topCommentCadenceUserId = useRef(userId);
+  const topCommentCardsByTopicId = useRef(new Map<string, TopFeedComment[]>());
+  const [topicsSinceTopCommentCard, setTopicsSinceTopCommentCard] = useState(0);
 
   const [topicIndex, setTopicIndex] = useState(personalized ? 0 : Math.floor(topics.length / 2));
   const [nextCursor, setNextCursor] = useState(initialCursor);
@@ -49,6 +69,70 @@ export function TopicFeedCore({
   useEffect(() => {
     currentTopicId.current = feedTopics[topicIndex]?.id ?? null;
   }, [feedTopics, topicIndex]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadTopComments = async () => {
+      try {
+        const response = await fetch(topCommentsEndpoint ?? '/api/content/top-comments', {
+          cache: 'default',
+          credentials: topCommentsEndpoint ? 'omit' : 'same-origin',
+        });
+        if (!response.ok) return;
+
+        const payload: unknown = await response.json();
+        if (!cancelled) {
+          const comments = parseTopFeedComments(payload);
+          const commentsById = new Map(
+            comments.map((comment) => [comment.comment_id, comment] as const)
+          );
+          const reconcileComments = (items: TopFeedComment[]) =>
+            items.flatMap((item) => {
+              const currentComment = commentsById.get(item.comment_id);
+              return currentComment ? [currentComment] : [];
+            });
+
+          setTopComments(comments);
+          setTopCommentCardComments((current) => reconcileComments(current));
+
+          for (const [topicId, cardComments] of topCommentCardsByTopicId.current) {
+            const remainingComments = reconcileComments(cardComments);
+
+            if (remainingComments.length > 0) {
+              topCommentCardsByTopicId.current.set(topicId, remainingComments);
+            } else {
+              topCommentCardsByTopicId.current.delete(topicId);
+            }
+          }
+
+          if (comments.length === 0) {
+            setShowTopCommentCard(false);
+            setTopCommentCardComments([]);
+            topCommentCardsByTopicId.current.clear();
+          }
+        }
+      } catch {
+        // Top comments are optional feed inventory. A failed request must not
+        // interrupt topic navigation or display an empty interstitial.
+      }
+    };
+
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') {
+        void loadTopComments();
+      }
+    };
+
+    void loadTopComments();
+    window.addEventListener('online', loadTopComments);
+    document.addEventListener('visibilitychange', refreshWhenVisible);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('online', loadTopComments);
+      document.removeEventListener('visibilitychange', refreshWhenVisible);
+    };
+  }, [topCommentsEndpoint]);
 
   // ----------------------------------
   // Initial Feed
@@ -108,7 +192,7 @@ export function TopicFeedCore({
   // ----------------------------------
 
   // Modulo arithmetic wraps the finite catalogue into a circular feed.
-  const nextTopic = () => {
+  const advanceToNextTopic = () => {
     if (topicIndex >= feedTopics.length - 3 && nextCursor) {
       void loadMoreTopics();
     }
@@ -120,9 +204,99 @@ export function TopicFeedCore({
     setTopicIndex((prev) => (prev + 1) % feedTopics.length);
   };
 
-  const previousTopic = () => {
-    setTopicIndex((prev) => (prev - 1 + feedTopics.length) % feedTopics.length);
+  const nextTopic = () => {
+    // Never strand the user on an interstitial at the end of a page while the
+    // next topic page is still loading.
+    if (topicIndex >= feedTopics.length - 1 && nextCursor) {
+      void loadMoreTopics();
+      return;
+    }
+
+    let currentCadence = topicsSinceTopCommentCard;
+
+    if (seenTopCommentUserId.current !== userId) {
+      seenTopCommentUserId.current = userId;
+      seenTopCommentIds.current.clear();
+      topCommentCardsByTopicId.current.clear();
+    }
+
+    if (topCommentCadenceUserId.current !== userId) {
+      topCommentCadenceUserId.current = userId;
+      currentCadence = 0;
+    }
+
+    const unseenTopComments = getUnseenTopFeedComments(
+      topComments,
+      seenTopCommentIds.current
+    );
+    const shouldInsertCommentCard = shouldInsertTopCommentCard(
+      currentCadence,
+      unseenTopComments.length > 0
+    );
+    setTopicsSinceTopCommentCard(getNextTopCommentCadence(currentCadence));
+
+    if (shouldInsertCommentCard) {
+      const currentTopic = feedTopics[topicIndex];
+      if (currentTopic) {
+        setTopCommentCardComments(unseenTopComments);
+        topCommentCardsByTopicId.current.set(currentTopic.id, unseenTopComments);
+        setShowTopCommentCard(true);
+        return;
+      }
+    }
+
+    advanceToNextTopic();
   };
+
+  const markTopCommentViewed = useCallback(
+    (commentId: number) => {
+      if (seenTopCommentUserId.current !== userId) {
+        seenTopCommentUserId.current = userId;
+        seenTopCommentIds.current.clear();
+        topCommentCardsByTopicId.current.clear();
+      }
+      seenTopCommentIds.current.add(commentId);
+    },
+    [userId]
+  );
+
+  const openTopComment = (comment: TopFeedComment) => {
+    if (onOpenComment) {
+      onOpenComment(comment);
+      return;
+    }
+
+    window.location.assign(
+      `/topic/${encodeURIComponent(comment.topic_slug)}#comment-${comment.comment_id}`
+    );
+  };
+
+  const previousTopic = () => {
+    if (seenTopCommentUserId.current !== userId) {
+      seenTopCommentUserId.current = userId;
+      seenTopCommentIds.current.clear();
+      topCommentCardsByTopicId.current.clear();
+    }
+
+    const previousIndex = (topicIndex - 1 + feedTopics.length) % feedTopics.length;
+    const previousTopicId = feedTopics[previousIndex]?.id;
+    const previousCard = previousTopicId
+      ? topCommentCardsByTopicId.current.get(previousTopicId)
+      : undefined;
+
+    if (previousCard?.length) {
+      setTopCommentCardComments(previousCard);
+      setShowTopCommentCard(true);
+      return;
+    }
+
+    setTopicIndex(previousIndex);
+  };
+
+  const currentTopCommentIds = new Set(topComments.map((comment) => comment.comment_id));
+  const activeTopCommentCardComments = topCommentCardComments.filter((comment) =>
+    currentTopCommentIds.has(comment.comment_id)
+  );
 
   // ----------------------------------
   // Loading
@@ -145,13 +319,26 @@ export function TopicFeedCore({
           )}
         </div>
       )}
-      <Viewer
-        topics={feedTopics}
-        topicIndex={topicIndex}
-        initialUserId={userId}
-        onNextTopic={nextTopic}
-        onPreviousTopic={previousTopic}
-      />
+      {showTopCommentCard && activeTopCommentCardComments.length > 0 ? (
+        <TopCommentFeedCard
+          comments={activeTopCommentCardComments}
+          onCommentViewed={markTopCommentViewed}
+          onNextTopic={() => {
+            setShowTopCommentCard(false);
+            advanceToNextTopic();
+          }}
+          onPreviousTopic={() => setShowTopCommentCard(false)}
+          onOpenComment={openTopComment}
+        />
+      ) : (
+        <Viewer
+          topics={feedTopics}
+          topicIndex={topicIndex}
+          initialUserId={userId}
+          onNextTopic={nextTopic}
+          onPreviousTopic={previousTopic}
+        />
+      )}
     </div>
   );
 }

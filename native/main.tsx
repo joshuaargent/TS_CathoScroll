@@ -49,6 +49,7 @@ import { OfflineCommentCache } from '@/lib/offline/comment-cache';
 import { OfflineTopicCountCache, type CachedTopicCounts } from '@/lib/offline/topic-count-cache';
 import { loadTopicActivity } from '@/lib/topic-activity';
 import { siteConfig } from '@/lib/constants';
+import type { TopFeedComment } from '@/lib/feed-comments';
 import type { RecommendationCursor } from '@/lib/recommendations';
 import { openNativeDatabases, openPrivateActivityDatabase } from '@/lib/offline/native-database';
 import { SupabaseActivityTransport } from '@/lib/offline/supabase-activity-transport';
@@ -201,7 +202,12 @@ function parseRoute(href: string): Route | null {
     const slug = decodeURIComponent(match[2]);
     if (!slug || slug.trim() !== slug || slug.includes('/')) return null;
     return match[1] === 'topic'
-      ? { kind: 'topic', pathname, slug, comments: url.hash === '#comments' }
+      ? {
+          kind: 'topic',
+          pathname,
+          slug,
+          comments: url.hash === '#comments' || /^#comment-\d+$/.test(url.hash),
+        }
       : { kind: 'category', pathname, slug };
   } catch {
     return null;
@@ -252,6 +258,14 @@ function NativeViewer(props: {
   const [pendingActions, setPendingActions] = useState(() => new Set<string>());
   const pendingRef = useRef(new Set<string>());
   const requestSignIn = useSignInPrompt();
+  const getAnalyticsAccessToken = useCallback(async () => {
+    const { data, error } = await createClient().auth.getSession();
+    if (error) {
+      console.error('Unable to obtain native analytics session:', error.message);
+      return null;
+    }
+    return data.session?.access_token ?? null;
+  }, []);
   const navigation = useContext(TopicNavigation);
   if (!navigation?.counts) throw new Error('Native topic navigation is unavailable.');
   const topicId = String(props.topics[props.topicIndex].id);
@@ -429,6 +443,8 @@ function NativeViewer(props: {
         <TopicSwipeViewer
           {...props}
           active={navigation.feedActive}
+          analyticsEndpoint={`${siteConfig.url.replace(/\/+$/, '')}/api/analytics/feed-events`}
+          getAnalyticsAccessToken={getAnalyticsAccessToken}
           userId={userId}
           currentActivity={
             !userId || currentSaved
@@ -1382,6 +1398,15 @@ function App() {
                     loadPage={loadPage}
                     userId={user?.id ?? null}
                     viewer={NativeViewer}
+                    topCommentsEndpoint={new URL(
+                      '/api/content/top-comments',
+                      siteConfig.url
+                    ).toString()}
+                    onOpenComment={(comment: TopFeedComment) =>
+                      openRoute(
+                        `/topic/${encodeURIComponent(comment.topic_slug)}#comment-${comment.comment_id}`
+                      )
+                    }
                     preservePositionOnUpdate
                   />
                 </div>

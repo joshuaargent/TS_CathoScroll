@@ -9,6 +9,7 @@ import { TopicArticle, TopicArticleHeader } from '@/components/topic/TopicArticl
 import { CommentSection } from '@/components/comments/CommentSection';
 
 import { getPublishedTopicBySlug, getPublishedTopicContext } from '@/lib/content';
+import { getAdminSession } from '@/lib/supabase/admin';
 import { siteConfig } from '@/lib/constants';
 import { Badge } from '@/components/ui/Badge';
 
@@ -80,7 +81,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function TopicPage({ params }: Props) {
   const { slug } = await params;
-  const context = await getPublishedTopicContext(slug);
+  const [context, adminSession] = await Promise.all([
+    getPublishedTopicContext(slug),
+    getAdminSession().catch(() => ({ isAdmin: false })),
+  ]);
 
   if (!context) {
     notFound();
@@ -92,7 +96,12 @@ export default async function TopicPage({ params }: Props) {
     <main className="container py-12">
       <TopicArticleHeader topic={topic} position={{ number: topicNumber, count: topicCount }} />
 
-      <TopicActions topicId={String(topic.id)} slug={topic.slug} title={topic.question} />
+      <TopicActions
+        topicId={String(topic.id)}
+        slug={topic.slug}
+        title={topic.question}
+        analyticsHref={adminSession.isAdmin ? `/topic/${encodeURIComponent(topic.slug)}/analytics` : undefined}
+      />
       <TopicArticle topic={topic} />
 
       <TopicNotes topicId={String(topic.id)} />

@@ -4,11 +4,15 @@ import { notFound, redirect } from 'next/navigation';
 
 import { createServiceRoleClient, getAdminSession } from '@/lib/supabase/admin';
 
-export async function requireAdminPage() {
+export async function requireAdminPage(nextPath = '/admin') {
+  const safeNextPath =
+    nextPath.startsWith('/') && !nextPath.startsWith('//') && !nextPath.includes('\\')
+      ? nextPath
+      : '/admin';
   const { user, isAdmin, error, mfaRequired } = await getAdminSession();
 
   if (!user) {
-    redirect('/signin?next=%2Fadmin');
+    redirect(`/signin?next=${encodeURIComponent(safeNextPath)}`);
   }
 
   if (error) {
@@ -17,7 +21,7 @@ export async function requireAdminPage() {
   }
 
   if (mfaRequired) {
-    redirect('/account/security?next=%2Fadmin');
+    redirect(`/account/security?next=${encodeURIComponent(safeNextPath)}`);
   }
 
   if (!isAdmin) {

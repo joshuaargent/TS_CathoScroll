@@ -1,6 +1,8 @@
 'use client';
 
 import { useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+import type { TopFeedComment } from '@/lib/feed-comments';
 import type { TopicPageCursor } from '@/lib/content';
 import type { RecommendationCursor } from '@/lib/recommendations';
 import type { Topic } from '@/types';
@@ -13,6 +15,16 @@ type TopicFeedProps = { topics: Topic[]; userId: string | null } & (
 );
 
 export function TopicFeed({ topics, nextCursor, personalized = false, userId }: TopicFeedProps) {
+  const router = useRouter();
+  const openTopComment = useCallback(
+    (comment: TopFeedComment) => {
+      router.push(
+        `/topic/${encodeURIComponent(comment.topic_slug)}#comment-${comment.comment_id}`
+      );
+    },
+    [router]
+  );
+
   const loadPage = useCallback(
     async (cursor: TopicPageCursor | RecommendationCursor) => {
       let response: Response;
@@ -53,6 +65,7 @@ export function TopicFeed({ topics, nextCursor, personalized = false, userId }: 
       loadPage={loadPage}
       userId={userId}
       viewer={TopicViewer}
+      onOpenComment={openTopComment}
     />
   );
 }

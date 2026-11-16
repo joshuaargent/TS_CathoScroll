@@ -15,7 +15,7 @@
 --     the same PostgreSQL major version as the source project.
 --   * pg_cron and permission to create the ensure_rls event trigger are required.
 --
--- Object counts at export: 27 tables, 61 functions, 33 triggers, 32 policies,
+-- Object counts at export: 29 tables, 65 functions, 33 triggers, 32 policies,
 -- 15 categories and 86 topics.
 --
 DO $bootstrap_guard$
@@ -3686,6 +3686,459 @@ ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public REVOKE ALL ON SEQUEN
 ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON TABLES TO service_role;
 ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON SEQUENCES TO service_role;
 
+-- Private feed analytics telemetry. Raw rows are available only through
+-- authenticated, validated RPC ingestion and server-side aggregate queries.
+CREATE TABLE catho_private.feed_analytics_events (
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  event_id uuid NOT NULL,
+  event_type text NOT NULL CHECK (event_type IN (
+    'impression', 'viewable_impression', 'active_duration', 'skip',
+    'swipe_depth', 'completion', 'return_visit'
+  )),
+  entity_type text NOT NULL CHECK (entity_type = 'topic'),
+  entity_id text NOT NULL REFERENCES public.topics(id) ON DELETE CASCADE,
+  session_id uuid NOT NULL,
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  received_at timestamptz NOT NULL DEFAULT statement_timestamp(),
+  CONSTRAINT feed_analytics_metadata_object CHECK (jsonb_typeof(metadata) = 'object'),
+  CONSTRAINT feed_analytics_metadata_size CHECK (octet_length(metadata::text) <= 1024),
+  CONSTRAINT feed_analytics_events_pkey PRIMARY KEY (user_id, event_id)
+);
+CREATE TABLE catho_private.feed_analytics_event_limits (
+  user_id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  window_started_at timestamptz NOT NULL DEFAULT statement_timestamp(),
+  event_count integer NOT NULL DEFAULT 0 CHECK (event_count >= 0)
+);
+CREATE INDEX feed_analytics_events_topic_time_idx
+  ON catho_private.feed_analytics_events (entity_id, received_at DESC);
+
+CREATE INDEX feed_analytics_events_type_time_idx
+  ON catho_private.feed_analytics_events (event_type, received_at DESC);
+CREATE INDEX feed_analytics_events_received_at_idx
+  ON catho_private.feed_analytics_events (received_at);
+ALTER TABLE catho_private.feed_analytics_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE catho_private.feed_analytics_event_limits ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE catho_private.feed_analytics_events FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON TABLE catho_private.feed_analytics_event_limits FROM PUBLIC, anon, authenticated, service_role;
+
+CREATE OR REPLACE FUNCTION public.record_feed_analytics_events(p_events jsonb)
+RETURNS integer
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog, public, catho_private
+AS $function$
+DECLARE
+  v_user_id uuid := auth.uid();
+  v_event jsonb;
+  v_event_id uuid;
+  v_event_type text;
+  v_entity_type text;
+  v_entity_id text;
+  v_session_id uuid;
+  v_metadata jsonb;
+  v_key text;
+  v_value jsonb;
+  v_inserted integer := 0;
+  v_submitted integer;
+  v_count integer;
+BEGIN
+  IF v_user_id IS NULL THEN RAISE EXCEPTION 'Authentication required' USING ERRCODE = '42501'; END IF;
+  IF p_events IS NULL OR jsonb_typeof(p_events) <> 'array' THEN RAISE EXCEPTION 'Events must be a JSON array' USING ERRCODE = '22023'; END IF;
+  v_submitted := jsonb_array_length(p_events);
+  IF v_submitted < 1 OR v_submitted > 50 OR octet_length(p_events::text) > 16384 THEN
+    RAISE EXCEPTION 'Invalid analytics batch size' USING ERRCODE = '22023';
+  END IF;
+
+  INSERT INTO catho_private.feed_analytics_event_limits AS limits
+    (user_id, window_started_at, event_count)
+  VALUES (v_user_id, statement_timestamp(), v_submitted)
+  ON CONFLICT (user_id) DO UPDATE
+    SET window_started_at = CASE
+          WHEN limits.window_started_at <= statement_timestamp() - interval '1 minute' THEN statement_timestamp()
+          ELSE limits.window_started_at END,
+        event_count = CASE
+          WHEN limits.window_started_at <= statement_timestamp() - interval '1 minute' THEN EXCLUDED.event_count
+          ELSE limits.event_count + EXCLUDED.event_count END
+  RETURNING event_count INTO v_count;
+  IF v_count > 120 THEN RETURN -1; END IF;
+
+  FOR v_event IN SELECT value FROM jsonb_array_elements(p_events)
+  LOOP
+    IF jsonb_typeof(v_event) <> 'object'
+       OR (SELECT count(*) FROM jsonb_object_keys(v_event)) <> 6
+       OR NOT (v_event ?& ARRAY['event_id','session_id','event_type','entity_type','entity_id','metadata']) THEN
+      RAISE EXCEPTION 'Invalid analytics event shape' USING ERRCODE = '22023';
+    END IF;
+    BEGIN
+      v_event_id := (v_event ->> 'event_id')::uuid;
+      v_session_id := (v_event ->> 'session_id')::uuid;
+    EXCEPTION WHEN OTHERS THEN
+      RAISE EXCEPTION 'Invalid analytics event identifier' USING ERRCODE = '22023';
+    END;
+    IF v_event_id IS NULL OR v_session_id IS NULL THEN
+      RAISE EXCEPTION 'Analytics event identifiers are required' USING ERRCODE = '22023';
+    END IF;
+
+    v_event_type := v_event ->> 'event_type';
+    v_entity_type := v_event ->> 'entity_type';
+    v_entity_id := v_event ->> 'entity_id';
+    v_metadata := v_event -> 'metadata';
+    IF v_event_type IS NULL OR v_event_type NOT IN (
+      'impression', 'viewable_impression', 'active_duration', 'skip',
+      'swipe_depth', 'completion', 'return_visit'
+    ) OR v_entity_type IS NULL OR v_entity_type <> 'topic'
+       OR v_entity_id IS NULL OR length(v_entity_id) NOT BETWEEN 1 AND 100
+       OR v_metadata IS NULL OR jsonb_typeof(v_metadata) <> 'object'
+       OR octet_length(v_metadata::text) > 1024 THEN
+      RAISE EXCEPTION 'Invalid analytics event values' USING ERRCODE = '22023';
+    END IF;
+
+    FOR v_key, v_value IN SELECT key, value FROM jsonb_each(v_metadata)
+    LOOP
+      IF v_key NOT IN ('slide_index', 'duration_ms', 'source', 'depth', 'completion_percent') THEN
+        RAISE EXCEPTION 'Unsupported analytics metadata field' USING ERRCODE = '22023';
+      END IF;
+      IF v_key IN ('slide_index', 'duration_ms', 'depth', 'completion_percent')
+         AND (jsonb_typeof(v_value) <> 'number' OR (v_value #>> '{}') !~ '^[0-9]+CREATE EVENT TRIGGER ensure_rls ON ddl_command_end EXECUTE FUNCTION public.rls_auto_enable();
+
+-- Scheduled retention jobs
+DO $cron_restore$
+DECLARE existing_job record;
+BEGIN
+  FOR existing_job IN SELECT jobid FROM cron.job WHERE jobname = 'cathoscroll-prune-activity' LOOP
+    PERFORM cron.unschedule(existing_job.jobid);
+  END LOOP;
+  PERFORM cron.schedule('cathoscroll-prune-activity', '*/5 * * * *', 'SELECT catho_private.prune_due_activity();');
+  FOR existing_job IN SELECT jobid FROM cron.job WHERE jobname = 'cathoscroll-prune-catalogue' LOOP
+    PERFORM cron.unschedule(existing_job.jobid);
+  END LOOP;
+  PERFORM cron.schedule('cathoscroll-prune-catalogue', '2,17,32,47 * * * *', 'SELECT public.offline_catalogue_prune_old(clock_timestamp() - interval ''31 days'', 1000);');
+  FOR existing_job IN SELECT jobid FROM cron.job WHERE jobname = 'cathoscroll-prune-feed-analytics' LOOP
+    PERFORM cron.unschedule(existing_job.jobid);
+  END LOOP;
+  PERFORM cron.schedule('cathoscroll-prune-feed-analytics', '*/15 * * * *',
+    'SELECT catho_private.prune_feed_analytics_events(clock_timestamp() - interval ''180 days'', 5000);');
+END;
+$cron_restore$;
+
+
+CREATE OR REPLACE FUNCTION public.get_admin_content_analytics(
+  p_entity_type text, p_entity_id text, p_from timestamptz, p_to timestamptz
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $function$
+DECLARE
+  v_first_retained_event_at timestamptz;
+  v_effective_from timestamptz;
+  v_topic_ids text[];
+  v_event_metrics jsonb;
+  v_depth_metrics jsonb;
+  v_interactions jsonb;
+  v_series jsonb;
+  v_last_event_at timestamptz;
+  v_category_content jsonb;
+  v_top_topics jsonb := '[]'::jsonb;
+BEGIN
+  IF p_entity_type IS NULL OR p_entity_type NOT IN ('topic', 'category')
+     OR p_entity_id IS NULL OR pg_catalog.length(p_entity_id) < 1 OR pg_catalog.length(p_entity_id) > 150
+     OR p_from IS NULL OR p_to IS NULL OR p_to <= p_from
+     OR p_to > pg_catalog.statement_timestamp() + interval '1 day'
+     OR p_to - p_from > interval '180 days' THEN
+    RAISE EXCEPTION 'Invalid analytics query parameters' USING ERRCODE = '22023';
+  END IF;
+
+  IF p_entity_type = 'topic' THEN
+    SELECT pg_catalog.array_agg(t.id) INTO v_topic_ids
+    FROM public.topics AS t WHERE t.slug = p_entity_id;
+    IF v_topic_ids IS NULL THEN
+      RAISE EXCEPTION 'Analytics entity not found' USING ERRCODE = 'P0002';
+    END IF;
+  ELSE
+    IF NOT EXISTS (SELECT 1 FROM public.categories AS c WHERE c.slug = p_entity_id) THEN
+      RAISE EXCEPTION 'Analytics entity not found' USING ERRCODE = 'P0002';
+    END IF;
+    SELECT coalesce(pg_catalog.array_agg(t.id), ARRAY[]::text[]) INTO v_topic_ids
+    FROM public.topics AS t WHERE t.category_slug = p_entity_id;
+  END IF;
+
+  SELECT pg_catalog.min(e.received_at)
+  INTO v_first_retained_event_at
+  FROM catho_private.feed_analytics_events AS e;
+
+  v_effective_from := greatest(p_from, coalesce(v_first_retained_event_at, p_to));
+
+  SELECT pg_catalog.max(e.received_at)
+  INTO v_last_event_at
+  FROM catho_private.feed_analytics_events AS e
+  WHERE e.entity_type = 'topic' AND e.entity_id = ANY(v_topic_ids)
+    AND e.received_at >= coalesce(v_first_retained_event_at, p_to)
+    AND e.received_at < pg_catalog.statement_timestamp();
+
+  SELECT
+    pg_catalog.jsonb_build_object(
+      'impressions', pg_catalog.count(*) FILTER (WHERE e.event_type = 'impression'),
+      'viewable_impressions', pg_catalog.count(*) FILTER (WHERE e.event_type = 'viewable_impression'),
+      'unique_viewers', pg_catalog.count(DISTINCT e.user_id) FILTER (WHERE e.event_type = 'viewable_impression'),
+      'active_seconds', pg_catalog.round(
+        coalesce(pg_catalog.sum((e.metadata ->> 'duration_ms')::numeric)
+          FILTER (WHERE e.event_type = 'active_duration'), 0) / 1000, 1),
+      'skips', pg_catalog.count(*) FILTER (WHERE e.event_type = 'skip'),
+      'completions', pg_catalog.count(*) FILTER (WHERE e.event_type = 'completion'),
+      'return_visits', pg_catalog.count(*) FILTER (WHERE e.event_type = 'return_visit')
+    )
+  INTO v_event_metrics
+  FROM catho_private.feed_analytics_events AS e
+  WHERE e.entity_type = 'topic' AND e.entity_id = ANY(v_topic_ids)
+    AND e.received_at >= v_effective_from AND e.received_at < p_to;
+
+  SELECT pg_catalog.jsonb_build_object(
+    'average_slide_depth',
+      pg_catalog.round(coalesce(pg_catalog.avg(coalesce(visits.max_depth, 0)), 0), 2),
+    'average_completion_percent',
+      pg_catalog.round(coalesce(pg_catalog.avg(coalesce(visits.max_depth, 0) / 4 * 100), 0), 1)
+  )
+  INTO v_depth_metrics
+  FROM (
+    SELECT
+      impressions.user_id,
+      impressions.session_id,
+      impressions.entity_id,
+      pg_catalog.max((depth.metadata ->> 'depth')::numeric) AS max_depth
+    FROM (
+      SELECT DISTINCT e.user_id, e.session_id, e.entity_id
+      FROM catho_private.feed_analytics_events AS e
+      WHERE e.entity_type = 'topic'
+        AND e.entity_id = ANY(v_topic_ids)
+        AND e.event_type = 'impression'
+        AND e.received_at >= v_effective_from
+        AND e.received_at < p_to
+    ) AS impressions
+    LEFT JOIN catho_private.feed_analytics_events AS depth
+      ON depth.user_id = impressions.user_id
+     AND depth.session_id = impressions.session_id
+     AND depth.entity_type = 'topic'
+     AND depth.entity_id = impressions.entity_id
+     AND depth.event_type = 'swipe_depth'
+     AND depth.received_at >= v_effective_from
+     AND depth.received_at < p_to
+    GROUP BY impressions.user_id, impressions.session_id, impressions.entity_id
+  ) AS visits;
+
+  v_event_metrics := v_event_metrics || v_depth_metrics;
+
+  SELECT coalesce(
+    pg_catalog.jsonb_agg(
+      pg_catalog.jsonb_build_object(
+        'date', pg_catalog.to_char(days.day, 'YYYY-MM-DD'),
+        'impressions', coalesce(daily.impressions, 0),
+        'viewable_impressions', coalesce(daily.viewable_impressions, 0),
+        'unique_viewers', coalesce(daily.unique_viewers, 0),
+        'active_seconds', coalesce(daily.active_seconds, 0)
+      ) ORDER BY days.day
+    ), '[]'::jsonb
+  )
+  INTO v_series
+  FROM pg_catalog.generate_series(
+    pg_catalog.date_trunc('day', v_effective_from),
+    pg_catalog.date_trunc('day', p_to - interval '1 microsecond'),
+    interval '1 day'
+  ) AS days(day)
+  LEFT JOIN LATERAL (
+    SELECT
+      pg_catalog.count(*) FILTER (WHERE e.event_type = 'impression') AS impressions,
+      pg_catalog.count(*) FILTER (WHERE e.event_type = 'viewable_impression') AS viewable_impressions,
+      pg_catalog.count(DISTINCT e.user_id) FILTER (WHERE e.event_type = 'viewable_impression') AS unique_viewers,
+      pg_catalog.round(
+        coalesce(pg_catalog.sum((e.metadata ->> 'duration_ms')::numeric)
+          FILTER (WHERE e.event_type = 'active_duration'), 0) / 1000, 1) AS active_seconds
+    FROM catho_private.feed_analytics_events AS e
+    WHERE e.entity_type = 'topic' AND e.entity_id = ANY(v_topic_ids)
+      AND e.received_at >= days.day AND e.received_at < days.day + interval '1 day'
+      AND e.received_at >= v_effective_from AND e.received_at < p_to
+  ) AS daily ON true
+  WHERE days.day < p_to AND days.day + interval '1 day' > v_effective_from;
+
+  SELECT pg_catalog.jsonb_build_object(
+    'period', pg_catalog.jsonb_build_object(
+      'likes', (SELECT pg_catalog.count(*) FROM public.topic_likes l WHERE l.topic_id = ANY(v_topic_ids) AND l.created_at >= p_from AND l.created_at < p_to),
+      'bookmarks', (SELECT pg_catalog.count(*) FROM public.bookmarks b WHERE b.topic_id = ANY(v_topic_ids) AND b.created_at >= p_from AND b.created_at < p_to),
+      'comments', (SELECT pg_catalog.count(*) FROM public.comments c WHERE c.topic_id = ANY(v_topic_ids) AND c.parent_id IS NULL AND c.is_deleted = false AND c.created_at >= p_from AND c.created_at < p_to),
+      'replies', (SELECT pg_catalog.count(*) FROM public.comments c WHERE c.topic_id = ANY(v_topic_ids) AND c.parent_id IS NOT NULL AND c.is_deleted = false AND c.created_at >= p_from AND c.created_at < p_to),
+      'comment_likes', (SELECT pg_catalog.count(*) FROM public.comment_likes cl JOIN public.comments c ON c.id = cl.comment_id WHERE c.topic_id = ANY(v_topic_ids) AND c.is_deleted = false AND cl.created_at >= p_from AND cl.created_at < p_to),
+      'completed_topics', (SELECT pg_catalog.count(*) FROM public.progress p WHERE p.topic_id = ANY(v_topic_ids) AND p.completed_at >= p_from AND p.completed_at < p_to)
+    ),
+    'lifetime', pg_catalog.jsonb_build_object(
+      'likes', (SELECT pg_catalog.count(*) FROM public.topic_likes l WHERE l.topic_id = ANY(v_topic_ids)),
+      'bookmarks', (SELECT pg_catalog.count(*) FROM public.bookmarks b WHERE b.topic_id = ANY(v_topic_ids)),
+      'comments', (SELECT pg_catalog.count(*) FROM public.comments c WHERE c.topic_id = ANY(v_topic_ids) AND c.parent_id IS NULL AND c.is_deleted = false),
+      'replies', (SELECT pg_catalog.count(*) FROM public.comments c WHERE c.topic_id = ANY(v_topic_ids) AND c.parent_id IS NOT NULL AND c.is_deleted = false),
+      'comment_likes', (SELECT pg_catalog.count(*) FROM public.comment_likes cl JOIN public.comments c ON c.id = cl.comment_id WHERE c.topic_id = ANY(v_topic_ids) AND c.is_deleted = false),
+      'completed_topics', (SELECT pg_catalog.count(*) FROM public.progress p WHERE p.topic_id = ANY(v_topic_ids) AND p.completed_at IS NOT NULL)
+    )
+  ) INTO v_interactions;
+
+  IF p_entity_type = 'category' THEN
+    SELECT pg_catalog.jsonb_build_object(
+      'total_topics', pg_catalog.count(*),
+      'published_topics', pg_catalog.count(*) FILTER (WHERE t.is_published = true),
+      'unpublished_topics', pg_catalog.count(*) FILTER (WHERE t.is_published = false)
+    )
+    INTO v_category_content
+    FROM public.topics AS t
+    WHERE t.category_slug = p_entity_id;
+
+    SELECT coalesce(
+      pg_catalog.jsonb_agg(
+        pg_catalog.jsonb_build_object(
+          'slug', ranked.slug,
+          'question', ranked.question,
+          'impressions', ranked.impressions,
+          'viewable_impressions', ranked.viewable_impressions,
+          'likes', ranked.likes,
+          'bookmarks', ranked.bookmarks,
+          'comments', ranked.comments,
+          'replies', ranked.replies,
+          'comment_likes', ranked.comment_likes,
+          'completed_topics', ranked.completed_topics
+        )
+        ORDER BY ranked.impressions DESC, ranked.likes DESC, ranked.bookmarks DESC,
+          ranked.comment_likes DESC, ranked.comments DESC, ranked.order_index, ranked.slug
+      ),
+      '[]'::jsonb
+    )
+    INTO v_top_topics
+    FROM (
+      SELECT
+        t.slug,
+        t.question,
+        t.order_index,
+        pg_catalog.count(e.event_id) FILTER (WHERE e.event_type = 'impression') AS impressions,
+        pg_catalog.count(e.event_id) FILTER (WHERE e.event_type = 'viewable_impression') AS viewable_impressions,
+        (SELECT pg_catalog.count(*) FROM public.topic_likes l WHERE l.topic_id = t.id AND l.created_at >= p_from AND l.created_at < p_to) AS likes,
+        (SELECT pg_catalog.count(*) FROM public.bookmarks b WHERE b.topic_id = t.id AND b.created_at >= p_from AND b.created_at < p_to) AS bookmarks,
+        (SELECT pg_catalog.count(*) FROM public.comments c WHERE c.topic_id = t.id AND c.parent_id IS NULL AND c.is_deleted = false AND c.created_at >= p_from AND c.created_at < p_to) AS comments,
+        (SELECT pg_catalog.count(*) FROM public.comments c WHERE c.topic_id = t.id AND c.parent_id IS NOT NULL AND c.is_deleted = false AND c.created_at >= p_from AND c.created_at < p_to) AS replies,
+        (SELECT pg_catalog.count(*) FROM public.comment_likes cl JOIN public.comments c ON c.id = cl.comment_id WHERE c.topic_id = t.id AND c.is_deleted = false AND cl.created_at >= p_from AND cl.created_at < p_to) AS comment_likes,
+        (SELECT pg_catalog.count(*) FROM public.progress p WHERE p.topic_id = t.id AND p.completed_at >= p_from AND p.completed_at < p_to) AS completed_topics
+      FROM public.topics AS t
+      LEFT JOIN catho_private.feed_analytics_events AS e
+        ON e.entity_type = 'topic'
+       AND e.entity_id = t.id
+       AND e.received_at >= v_effective_from
+       AND e.received_at < p_to
+      WHERE t.category_slug = p_entity_id
+        AND t.is_published = true
+      GROUP BY t.id
+      ORDER BY impressions DESC, likes DESC, bookmarks DESC, comment_likes DESC, comments DESC, t.order_index, t.slug
+      LIMIT 5
+    ) AS ranked;
+  END IF;
+
+  RETURN pg_catalog.jsonb_build_object(
+    'entity_type', p_entity_type, 'entity_id', p_entity_id,
+    'range_start', p_from, 'range_end', p_to,
+    'first_retained_event_at', v_first_retained_event_at,
+    'last_event_at', v_last_event_at, 'events', v_event_metrics,
+    'interactions', v_interactions,
+    'series', CASE WHEN v_first_retained_event_at IS NULL OR p_to <= v_first_retained_event_at THEN '[]'::jsonb ELSE v_series END,
+    'category_content', v_category_content,
+    'top_topics', v_top_topics
+  );
+END;
+$function$;
+
+ALTER FUNCTION public.get_admin_content_analytics(text, text, timestamptz, timestamptz) OWNER TO postgres;
+REVOKE ALL ON FUNCTION public.get_admin_content_analytics(text, text, timestamptz, timestamptz) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.get_admin_content_analytics(text, text, timestamptz, timestamptz) FROM anon;
+REVOKE ALL ON FUNCTION public.get_admin_content_analytics(text, text, timestamptz, timestamptz) FROM authenticated;
+GRANT EXECUTE ON FUNCTION public.get_admin_content_analytics(text, text, timestamptz, timestamptz) TO service_role;
+
+COMMENT ON FUNCTION public.get_admin_content_analytics(text, text, timestamptz, timestamptz) IS
+  'Returns privacy-safe aggregate analytics and historical interaction counts for server-authorized admin topic/category dashboards. Only service_role may execute; never returns user-level data.';
+
+NOTIFY pgrst, 'reload schema';
+-- End of CathoScroll application-schema and catalogue bootstrap.) THEN
+        RAISE EXCEPTION 'Invalid numeric analytics metadata' USING ERRCODE = '22023';
+      END IF;
+      IF v_key = 'duration_ms' AND (v_value #>> '{}')::numeric NOT BETWEEN 0 AND 60000 THEN
+        RAISE EXCEPTION 'Invalid duration' USING ERRCODE = '22023';
+      END IF;
+      IF v_key = 'slide_index' AND (v_value #>> '{}')::numeric NOT BETWEEN 0 AND 20 THEN
+        RAISE EXCEPTION 'Invalid slide index' USING ERRCODE = '22023';
+      END IF;
+      IF v_key = 'depth' AND (v_value #>> '{}')::numeric NOT BETWEEN 0 AND 20 THEN
+        RAISE EXCEPTION 'Invalid swipe depth' USING ERRCODE = '22023';
+      END IF;
+      IF v_key = 'completion_percent' AND (v_value #>> '{}')::numeric NOT BETWEEN 0 AND 100 THEN
+        RAISE EXCEPTION 'Invalid completion percentage' USING ERRCODE = '22023';
+      END IF;
+      IF v_key = 'source' AND (
+        jsonb_typeof(v_value) <> 'string'
+        OR v_value #>> '{}' NOT IN ('feed', 'topic', 'category', 'search', 'related', 'direct')
+      ) THEN
+        RAISE EXCEPTION 'Invalid analytics source' USING ERRCODE = '22023';
+      END IF;
+    END LOOP;
+
+    IF NOT EXISTS (
+      SELECT 1 FROM public.topics t WHERE t.id = v_entity_id AND t.is_published = true
+    ) THEN
+      RAISE EXCEPTION 'Analytics topic is unavailable' USING ERRCODE = '22023';
+    END IF;
+    INSERT INTO catho_private.feed_analytics_events (
+      user_id, event_id, event_type, entity_type, entity_id,
+      session_id, metadata, received_at
+    )
+    VALUES (
+      v_user_id, v_event_id, v_event_type, v_entity_type, v_entity_id,
+      v_session_id, v_metadata, statement_timestamp()
+    )
+    ON CONFLICT (user_id, event_id) DO NOTHING;
+    IF FOUND THEN v_inserted := v_inserted + 1; END IF;
+  END LOOP;
+  RETURN v_inserted;
+END;
+$function$;
+REVOKE ALL ON FUNCTION public.record_feed_analytics_events(jsonb) FROM PUBLIC, anon, service_role;
+GRANT EXECUTE ON FUNCTION public.record_feed_analytics_events(jsonb) TO authenticated;
+
+CREATE OR REPLACE FUNCTION catho_private.prune_feed_analytics_events(
+  p_before timestamptz DEFAULT statement_timestamp() - interval '180 days',
+  p_limit integer DEFAULT 5000
+)
+RETURNS integer
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog, catho_private
+AS $function$
+DECLARE
+  v_deleted integer := 0;
+BEGIN
+  IF p_before IS NULL
+     OR p_before > statement_timestamp() - interval '180 days'
+     OR p_limit IS NULL OR p_limit < 1 OR p_limit > 10000 THEN
+    RAISE EXCEPTION 'Invalid feed analytics retention parameters' USING ERRCODE = '22023';
+  END IF;
+  WITH expired AS (
+    SELECT event.ctid
+    FROM catho_private.feed_analytics_events AS event
+    WHERE event.received_at < p_before
+    ORDER BY event.received_at
+    LIMIT p_limit
+  )
+  DELETE FROM catho_private.feed_analytics_events AS event
+  USING expired
+  WHERE event.ctid = expired.ctid;
+  GET DIAGNOSTICS v_deleted = ROW_COUNT;
+  RETURN v_deleted;
+END;
+$function$;
+REVOKE ALL ON FUNCTION catho_private.prune_feed_analytics_events(timestamptz, integer)
+  FROM PUBLIC, anon, authenticated, service_role;
+
 -- DDL event triggers
 CREATE EVENT TRIGGER ensure_rls ON ddl_command_end EXECUTE FUNCTION public.rls_auto_enable();
 
@@ -3703,6 +4156,141 @@ BEGIN
   PERFORM cron.schedule('cathoscroll-prune-catalogue', '2,17,32,47 * * * *', 'SELECT public.offline_catalogue_prune_old(clock_timestamp() - interval ''31 days'', 1000);');
 END;
 $cron_restore$;
+
+
+-- Top-comment feed selection. The RPC is callable only by the server role;
+-- public clients use the rate-limited /api/content/top-comments endpoint.
+CREATE INDEX IF NOT EXISTS comments_top_level_visible_created_idx
+  ON public.comments (created_at DESC, id DESC)
+  WHERE parent_id IS NULL AND is_deleted = false;
+
+CREATE INDEX IF NOT EXISTS comments_visible_parent_created_idx
+  ON public.comments (parent_id, created_at DESC)
+  WHERE is_deleted = false;
+
+CREATE OR REPLACE FUNCTION public.get_top_feed_comments()
+RETURNS jsonb
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $function$
+  WITH candidates AS (
+    SELECT
+      comment_row.id AS comment_id,
+      topic.slug AS topic_slug,
+      topic.question AS topic_question,
+      category.name AS category_name,
+      COALESCE(
+        NULLIF(pg_catalog.btrim(profile.display_name), ''),
+        NULLIF(pg_catalog.btrim(profile.username), ''),
+        'CathoScroll member'
+      ) AS author_display_name,
+      NULLIF(pg_catalog.btrim(profile.username), '') AS author_username,
+      pg_catalog.left(comment_row.content, 600) AS content,
+      pg_catalog.char_length(comment_row.content) > 600 AS content_truncated,
+      comment_row.created_at,
+      comment_row.is_pinned,
+      likes.like_count,
+      replies.reply_count,
+      (
+        (
+          likes.like_count::numeric
+          + (2 * replies.unique_reply_authors::numeric)
+          + (0.5 * likes.recent_like_count::numeric)
+          + replies.recent_reply_authors::numeric
+        )
+        / (
+          1 + GREATEST(
+            0::double precision,
+            pg_catalog.date_part(
+              'epoch',
+              (pg_catalog.statement_timestamp() - comment_row.created_at)
+            ) / 604800
+          )
+        )
+      ) AS ranking_score
+    FROM public.comments AS comment_row
+    JOIN public.topics AS topic
+      ON topic.id = comment_row.topic_id
+     AND topic.is_published = true
+    JOIN public.categories AS category
+      ON category.slug = topic.category_slug
+     AND category.is_published = true
+    LEFT JOIN public.profiles AS profile
+      ON profile.id = comment_row.user_id
+    CROSS JOIN LATERAL (
+      SELECT
+        pg_catalog.count(*)::integer AS like_count,
+        pg_catalog.count(*) FILTER (
+          WHERE comment_like.created_at >= pg_catalog.statement_timestamp() - interval '14 days'
+        )::integer AS recent_like_count
+      FROM public.comment_likes AS comment_like
+      WHERE comment_like.comment_id = comment_row.id
+    ) AS likes
+    CROSS JOIN LATERAL (
+      SELECT
+        pg_catalog.count(*)::integer AS reply_count,
+        pg_catalog.count(DISTINCT reply.user_id)::integer AS unique_reply_authors,
+        pg_catalog.count(DISTINCT reply.user_id) FILTER (
+          WHERE reply.created_at >= pg_catalog.statement_timestamp() - interval '14 days'
+        )::integer AS recent_reply_authors
+      FROM public.comments AS reply
+      WHERE reply.parent_id = comment_row.id
+        AND reply.is_deleted = false
+    ) AS replies
+    WHERE comment_row.parent_id IS NULL
+      AND comment_row.is_deleted = false
+      AND pg_catalog.char_length(pg_catalog.btrim(comment_row.content)) > 0
+      AND comment_row.created_at >= pg_catalog.statement_timestamp() - interval '90 days'
+      AND likes.like_count + replies.unique_reply_authors >= 3
+      AND (
+        likes.like_count >= 2
+        OR replies.unique_reply_authors >= 1
+      )
+  ),
+  selected AS (
+    SELECT *
+    FROM candidates
+    ORDER BY ranking_score DESC, created_at DESC, comment_id DESC
+    LIMIT 5
+  )
+  SELECT pg_catalog.jsonb_build_object(
+    'comments',
+    COALESCE(
+      (
+        SELECT pg_catalog.jsonb_agg(
+          pg_catalog.jsonb_build_object(
+            'comment_id', selected.comment_id,
+            'topic_slug', selected.topic_slug,
+            'topic_question', selected.topic_question,
+            'category_name', selected.category_name,
+            'author_display_name', selected.author_display_name,
+            'author_username', selected.author_username,
+            'content', selected.content,
+            'content_truncated', selected.content_truncated,
+            'created_at', selected.created_at,
+            'is_pinned', selected.is_pinned,
+            'like_count', selected.like_count,
+            'reply_count', selected.reply_count
+          )
+          ORDER BY selected.ranking_score DESC, selected.created_at DESC, selected.comment_id DESC
+        )
+        FROM selected
+      ),
+      '[]'::jsonb
+    ),
+    'generated_at', pg_catalog.statement_timestamp()
+  );
+$function$;
+
+COMMENT ON FUNCTION public.get_top_feed_comments() IS
+  'Returns up to five recent, visible, top-level comments with meaningful engagement for feed interstitials. Deleted comments and unpublished topics/categories are excluded.';
+
+REVOKE ALL ON FUNCTION public.get_top_feed_comments() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.get_top_feed_comments() FROM anon;
+REVOKE ALL ON FUNCTION public.get_top_feed_comments() FROM authenticated;
+GRANT EXECUTE ON FUNCTION public.get_top_feed_comments() TO service_role;
 
 NOTIFY pgrst, 'reload schema';
 -- End of CathoScroll application-schema and catalogue bootstrap.
