@@ -18,8 +18,8 @@ Initial insertion cadence, measured in topic cards rather than total feed items:
 - Top comments: eligible approximately every 5 topic cards.
 - Sponsorships: eligible approximately every 10 topic cards.
 - If a card type has no eligible content, omit the card and continue the feed. Do not insert placeholders or empty cards.
-- Cadence is a target, not a guarantee: no eligible content, frequency caps, sponsor pacing, and user history can defer or suppress an insertion.
-- The scheduler must avoid consecutive non-topic cards and should not let one card type starve the other.
+- The schedules are independent. At the tenth-topic boundary, both are due: Top Comments appears first, followed by the sponsored card before the next topic. No topic advance is counted between them.
+- Missing or ineligible inventory omits only that card; it does not change the other card type's cadence. No blank placeholders are inserted.
 
 ## Sponsorship cards
 
@@ -45,11 +45,11 @@ A proposed commercial starting point is £25/month for one weight unit, with hig
 
 ## Sponsor management and accounts
 
-Add an administrator sponsorship area modelled on the existing Content Library management experience. Administrators can create and edit sponsors, approve or suspend them, manage creatives and destination URLs, set campaign dates, targeting, frequency caps, and paid weight, and review performance.
+Administrators manage sponsor organisations and account membership at `/admin/sponsors`. They can link an existing CathoScroll Auth account by exact email, assign owner/manager/analyst roles, and suspend, reactivate or revoke access. Assignment does not create an Auth user, send an invitation, or change email verification. The account must already exist.
 
-Sponsor accounts are distinct from administrator accounts. A sponsor user is linked to exactly the sponsor organisation they represent and can only view that sponsor's campaigns, creatives, invoices/status, and analytics. Sponsor users cannot access other sponsors, user-level data, admin tools, or raw event records. Sponsor membership and permissions are managed by administrators.
+Sponsor representatives use `/sponsor`. Owners and managers can submit and edit draft, pending or rejected campaign submissions; analysts are read-only. Sponsor users see only their organisation's campaigns, aggregate performance, invoices and recorded payments. They never receive user identities, raw events, other sponsors' data or administrator tools. Approved and paused campaigns cannot be edited by sponsor users; creative changes require administrator review.
 
-Billing is a later phase. The data model should be ready for a payment provider and subscription state, but do not store card details or trust client-submitted payment status.
+CathoScroll uses direct bank transfers, not in-app payment processing. Administrators issue invoices and record full/partial transfers against them, including bank reference/date and an optional unique statement transaction ID. Refunds are separate ledger entries. Campaign payment eligibility is derived from reconciled invoice balances and the agreed sponsor amount. Bank-statement import, automatic matching, tax-compliant PDF/email invoice delivery and payment-provider integration remain future work.
 
 ## Top-comment cards
 
@@ -57,7 +57,7 @@ A top-comment card contains up to five eligible top-level comments. Horizontal s
 
 The card has exactly as many positions as eligible comments (one to five). No eligible comments means no card. Previously seen comments should be deprioritised to avoid repetition. The first implementation tracks viewed comment IDs in memory for the active account/feed session and skips them in subsequent interstitials; persistent seen-state across sessions and devices is deferred.
 
-Only visible, non-deleted, non-empty top-level comments on published topics in published categories are eligible. Replies contribute to engagement but are not independently promoted. The initial server-side threshold is at least 3 combined likes and distinct reply authors, with at least 2 likes or 1 distinct reply author; counting distinct reply authors reduces the effect of repeated replies from one account. The first implementation considers comments from the previous 90 days. Ranking combines lifetime likes, distinct reply authors, activity in the previous 14 days, and a weekly age-decay factor; it is not lifetime-like ordering. Pinned comments do not bypass the threshold or moderation filters. The initial selector is deterministic and does not yet suppress comments already seen by a user; per-user seen-state should be added alongside comment-card analytics rather than guessed locally.
+Only visible, non-deleted, non-empty top-level comments on published topics in published categories are eligible. Replies contribute to engagement but are not independently promoted. The initial server-side threshold is at least 3 combined likes and distinct reply authors, with at least 2 likes or 1 distinct reply author; counting distinct reply authors reduces the effect of repeated replies from one account. The first implementation considers comments from the previous 90 days. Ranking combines lifetime likes, distinct reply authors, activity in the previous 14 days, and a weekly age-decay factor; it is not lifetime-like ordering. Pinned comments do not bypass the threshold or moderation filters. The client suppresses comments already viewed during the active in-memory feed session; persistent cross-session/device seen-state remains deferred.
 
 ## Quizzes (later phase)
 
@@ -146,19 +146,21 @@ Implementation status on 16 November 2026:
 3. **Topic interaction instrumentation:** implemented without changing the topic-card UI; deployed data collection begins when the combined release is deployed.
 4. **Recommendation weighting and diversity safeguards:** first telemetry-weighted model implemented; quality/freshness scoring and measured experimentation remain future work.
 5. **Top-comment feed cards and eligibility:** implemented; real inventory testing remains outstanding because production currently has no comments.
-6. **Sponsor organisations, campaign management, weighted delivery and sponsor reporting:** initial private sponsor registration and manual bank-transfer recording are implemented in the admin dashboard. Public sponsor delivery, campaign creatives/targeting, frequency caps, weighted allocation, sponsor reporting and sponsor accounts remain unimplemented.
+6. **Sponsor organisations, accounts, campaign management, weighted delivery, reporting and reconciliation:** implemented in the draft PR and live database schema. Existing Auth users can be assigned sponsor roles; sponsor users can submit/edit eligible campaign submissions; admins control approval and delivery; invoices, partial bank transfers, duplicate transaction protection and refunds are recorded in an audited private ledger. Bank statement imports and formal invoice PDF/email delivery remain outstanding.
 7. **Admin topic/category analytics and graphs:** implemented; admin/non-admin browser verification remains outstanding.
 8. **Quiz entities, five-question feed cards, attempts and dedicated routes:** not started.
-9. **Sponsor billing:** deferred until inventory, reporting, pricing and payment-provider requirements are validated.
+9. **Automated sponsor billing integrations:** deferred. Direct bank transfer and manual reconciliation are implemented; automatic bank matching and payment-provider processing are deliberately not included.
 
 Keep future phases independently reviewable. Do not merge or deploy until the relevant automated and deployed-client checks pass.
 
 
 ## Current sponsor-management implementation boundary
 
-The current implementation adds a private administrator-only sponsor register at `/admin/sponsors`. Administrators can record the sponsor name, contact details, website/logo URLs, description, placement dates, status, agreed amount, currency, bank-transfer status/reference, and private notes. A payment marked as received is timestamped by the server. Creation is recorded in the existing append-only administrator audit log.
+The current implementation provides an administrator-only sponsor register and membership manager at `/admin/sponsors`, a sponsor-facing portal at `/sponsor`, and campaign administration at `/admin/sponsor-campaigns`. Admins can assign existing Auth accounts to sponsor organisations with owner, manager or analyst roles. Membership changes are audited; the database prevents suspension/revocation of the last active owner. No invitation is sent and email verification is not changed.
 
-Sponsorship payments are made directly to the CathoScroll bank account and reconciled manually. The application does not collect bank details, initiate transfers, or integrate a payment provider. Sponsor records and campaigns are private. Campaign creation, approval, weighted delivery, targeting, frequency caps and aggregate performance reporting are now implemented; sponsor self-service accounts, campaign editing, invoices and billing remain future work.
+Sponsor users can submit campaigns for approval and edit only draft, pending or rejected submissions. Delivery weight and caps remain administrator-controlled. Campaigns require an active/scheduled sponsor, valid dates and targeting, and payment status `received` or `not_required` before delivery.
+
+Direct bank transfers are recorded against issued invoices. The private ledger supports partial/full payments, duplicate transaction keys, outstanding balances and refunds. Payment status is derived from the agreed sponsor amount and all outstanding issued invoices; the old direct “mark received” override is disabled. No bank details or card data are stored, and the app does not initiate payments. The sponsor portal exposes only its organisation's aggregate campaign metrics, invoice balances and recorded transactions. Automatic bank-statement import/matching and tax-compliant invoice PDFs/email delivery remain future work.
 
 
 ## Bounded feed ranking work
