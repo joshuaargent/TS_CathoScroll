@@ -297,6 +297,10 @@ fails, the app reports the issue and searches the saved catalogue locally.
 Local substring search is a fallback, not a replacement for ranked server
 search on a large catalogue.
 
+The weighted full-text index and ranked-search RPC are defined in
+[`docs/search_published_topics.sql`](docs/search_published_topics.sql). This SQL
+is included in the complete database bootstrap described below.
+
 #### Published catalogue synchronization
 
 `npm run native:build` exports the published catalogue using the public
@@ -684,6 +688,22 @@ The focus for now remains on growing the content library and improving the core 
 CathoScroll is deployed on [Vercel](https://vercel.com) and uses [Supabase](https://supabase.com) for authentication, database storage, and user management.
 
 Before deploying, configure the required environment variables in both Vercel and Supabase.
+
+### Supabase database recovery and bootstrap
+
+[`docs/cathoscroll-database-bootstrap.sql`](docs/cathoscroll-database-bootstrap.sql) is the consolidated snapshot of CathoScroll's application-owned PostgreSQL schema. It recreates the 27 application tables, constraints, indexes, 61 functions, 33 triggers, RLS configuration and policies, grants, the RLS DDL event trigger, and both scheduled retention jobs. It includes the ranked-search setup and current offline-sync protections.
+
+Use this file when creating a **fresh Supabase project** to restore the application schema:
+
+1. Create a new Supabase project using the same PostgreSQL major version as the source project.
+2. Open the new project's SQL Editor and run the complete bootstrap file once.
+3. Confirm that both retention jobs exist and are succeeding, then verify the RLS policies, function grants, and PostgREST RPCs.
+4. Restore the catalogue content and any other required data from a separate data export.
+5. Reconfigure Auth providers and redirect URLs, project secrets, Storage buckets/policies if used, Edge Functions, API settings, and the matching Vercel environment variables.
+
+The bootstrap intentionally refuses to run if CathoScroll application tables already exist. **Do not run it against the existing production project or use it as an upgrade script.** It restores schema, not data: it does not recreate Auth users/passwords, profiles or other user-generated rows, topic/category content, Storage objects, Auth settings, API keys, secrets, Edge Functions, or Supabase-managed platform internals. Keep a separate, regularly tested backup of database data and project configuration.
+
+The smaller SQL files in `docs/` document individual database features and are not substitutes for the full bootstrap. Update the consolidated snapshot whenever application database objects change, and test it on a disposable Supabase project before relying on it for disaster recovery.
 
 ## License
 

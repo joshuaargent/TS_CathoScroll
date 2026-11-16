@@ -6,7 +6,7 @@ export function NativeNavbar({ pathname, userId }: { pathname: string; userId: s
     <NavbarView
       pathname={pathname}
       isAuthenticated={Boolean(userId)}
-      showSpacer={false}
+      showSpacer={true}
       renderNotifications={(props) =>
         userId ? (
           <NativeNotificationBell key={userId} userId={userId} pathname={pathname} {...props} />
