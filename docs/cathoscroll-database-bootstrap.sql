@@ -3443,10 +3443,12 @@ GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON
 -- profile table access; clients obtain their own tier through the guarded RPC.
 --
 -- Comments expose only non-content metadata to anonymous clients. Authenticated
--- clients can read comment content and perform the same narrowly scoped writes
--- as the source project. Private moderation and internal columns remain hidden.
+-- clients can read only non-content metadata directly. Comment text is available
+-- exclusively through get_topic_comment_page, which enforces publication and
+-- deleted/hidden-comment rules. Authenticated inserts still accept content;
+-- private moderation and internal columns remain hidden.
 GRANT SELECT (id, topic_id, parent_id, user_id, created_at, edited_at, is_deleted, is_pinned) ON TABLE public.comments TO anon;
-GRANT SELECT (id, topic_id, parent_id, user_id, content, created_at, edited_at, is_deleted, is_pinned) ON TABLE public.comments TO authenticated;
+GRANT SELECT (id, topic_id, parent_id, user_id, created_at, edited_at, is_deleted, is_pinned) ON TABLE public.comments TO authenticated;
 GRANT INSERT (topic_id, parent_id, user_id, content) ON TABLE public.comments TO authenticated;
 GRANT UPDATE (content, edited_at, is_deleted) ON TABLE public.comments TO authenticated;
 
