@@ -45,6 +45,8 @@ export function NativePublicProfile({
   const [moderation, setModeration] = useState<{
     isAdmin: boolean;
     canManage: boolean;
+    canManageBans: boolean;
+    canManageRoles: boolean;
     activeBan: { reason: string } | null;
     profileIsAdmin: boolean;
   } | null>(null);
@@ -107,6 +109,8 @@ export function NativePublicProfile({
         let moderationData: {
           isAdmin: boolean;
           canManage: boolean;
+          canManageBans: boolean;
+          canManageRoles: boolean;
           activeBan: { reason: string } | null;
           profileIsAdmin: boolean;
         } | null = null;
@@ -273,25 +277,25 @@ export function NativePublicProfile({
       )}
       showAdminLink={Boolean(moderation?.isAdmin)}
       moderationControls={
-        moderation?.isAdmin && moderation.canManage ? (
+        moderation?.isAdmin ? (
           <>
             <CommentBanControl
               key={`comment-ban:${Boolean(moderation.activeBan)}:${moderation.activeBan?.reason ?? ''}`}
               userId={profile.id}
               activeBan={Boolean(moderation.activeBan)}
               reason={moderation.activeBan?.reason}
-              canChangeBan
+              canChangeBan={moderation.canManageBans}
               fetcher={adminFetcher}
               onChange={() => setAttempt((value) => value + 1)}
             />
-            <AdminRoleControl
+            {moderation.canManageRoles && <AdminRoleControl
               key={`admin-role:${moderation.profileIsAdmin}`}
               userId={profile.id}
               isAdmin={moderation.profileIsAdmin}
               canManage
               fetcher={adminFetcher}
               onChange={() => setAttempt((value) => value + 1)}
-            />
+            />}
           </>
         ) : null
       }
