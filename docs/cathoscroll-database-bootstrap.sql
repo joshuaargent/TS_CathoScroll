@@ -4530,7 +4530,6 @@ CREATE TABLE public.sponsors (
     OR (payment_status <> 'received' AND payment_received_at IS NULL)
   )
 );
-CREATE INDEX sponsors_status_dates_idx ON public.sponsors (status, starts_on, ends_on);
 CREATE INDEX sponsors_created_at_idx ON public.sponsors (created_at DESC);
 ALTER TABLE public.sponsors ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON TABLE public.sponsors FROM PUBLIC, anon, authenticated, service_role;
