@@ -18,6 +18,11 @@ globalThis.window = {
   addEventListener() {},
   removeEventListener() {},
 };
+globalThis.document = {
+  addEventListener() {},
+  removeEventListener() {},
+  visibilityState: 'visible',
+};
 Object.defineProperty(globalThis, 'navigator', {
   configurable: true,
   value: { onLine: false },
@@ -73,4 +78,34 @@ test('flushes a bounded batch and removes only acknowledged event IDs', async ()
   assert.equal(calls[0].events.length, 2);
   assert.equal(storage.has('cathoscroll.feed-analytics.v1.flush-account'), false);
   assert.equal(storage.has('cathoscroll.feed-analytics.v1.account-a'), true);
+});
+
+test('uses the authenticated remote API transport for native applications', async () => {
+  Object.defineProperty(globalThis, 'navigator', {
+    configurable: true,
+    value: { onLine: false },
+  });
+  analytics.recordFeedAnalyticsEvent('native-account', 'impression', 'topic-native');
+  const removeListeners = analytics.installFeedAnalyticsListeners('native-account', {
+    endpoint: 'https://www.cathoscroll.com/api/analytics/feed-events',
+    getAccessToken: async () => 'native-access-token',
+  });
+
+  const requests = [];
+  globalThis.fetch = async (url, options) => {
+    requests.push({ url, options });
+    return new Response(JSON.stringify({ accepted: 1 }), { status: 200 });
+  };
+  Object.defineProperty(globalThis, 'navigator', {
+    configurable: true,
+    value: { onLine: true },
+  });
+
+  await analytics.flushFeedAnalytics('native-account');
+  removeListeners();
+
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].url, 'https://www.cathoscroll.com/api/analytics/feed-events');
+  assert.equal(requests[0].options.headers.get('Authorization'), 'Bearer native-access-token');
+  assert.equal(requests[0].options.credentials, 'omit');
 });
