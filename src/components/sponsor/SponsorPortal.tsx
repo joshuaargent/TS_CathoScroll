@@ -46,6 +46,35 @@ export interface SponsorAnalytics {
   campaigns: CampaignMetric[];
 }
 
+interface SponsorInvoiceRecord {
+  id: string;
+  invoice_number: number;
+  description: string;
+  amount_minor: number;
+  currency: string;
+  issued_on: string;
+  due_on: string;
+  status: string;
+  paid_minor: number;
+  balance_minor: number;
+}
+
+interface SponsorPaymentRecord {
+  id: string;
+  invoice_id: string;
+  transaction_type: 'payment' | 'refund';
+  amount_minor: number;
+  currency: string;
+  bank_reference: string | null;
+  bank_transaction_date: string | null;
+  received_at: string;
+}
+
+export interface SponsorFinancials {
+  invoices: SponsorInvoiceRecord[];
+  transactions: SponsorPaymentRecord[];
+}
+
 interface CampaignForm {
   campaignName: string;
   headline: string;
@@ -57,6 +86,10 @@ interface CampaignForm {
   endsOn: string;
   targetCategorySlugs: string;
   targetTopicIds: string;
+}
+
+function humanize(value: string) {
+  return value.replaceAll('_', ' ').replace(/\\b\\w/g, (letter) => letter.toUpperCase());
 }
 
 function todayUtc() {
@@ -98,10 +131,12 @@ export function SponsorPortal({
   organizations,
   campaigns,
   analyticsBySponsor,
+  financialsBySponsor,
 }: {
   organizations: SponsorOrganization[];
   campaigns: SponsorCampaignRecord[];
   analyticsBySponsor: Record<string, SponsorAnalytics>;
+  financialsBySponsor: Record<string, SponsorFinancials>;
 }) {
   const router = useRouter();
   const [selectedSponsorId, setSelectedSponsorId] = useState(organizations[0]?.id ?? '');
@@ -322,6 +357,58 @@ export function SponsorPortal({
           </form>
         </section>
       )}
+
+      <section>
+        <div className="mb-4">
+          <h2 className="text-2xl font-bold">Invoices and payments</h2>
+          <p className="text-text-secondary mt-1 text-sm">
+            Your organisation's invoices and recorded bank transfers. Partial payments and outstanding balances are shown separately.
+          </p>
+        </div>
+        {(() => {
+          const financials = financialsBySponsor[selectedOrganization.id] ?? { invoices: [], transactions: [] };
+          return financials.invoices.length === 0 ? (
+            <div className="border-border rounded-xl border p-6 text-center">
+              <p className="font-semibold">No invoices yet</p>
+              <p className="text-text-secondary mt-1 text-sm">Invoices issued by CathoScroll will appear here.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {financials.invoices.map((invoice) => {
+                const invoiceTransactions = financials.transactions.filter((transaction) => transaction.invoice_id === invoice.id);
+                return (
+                  <article key={invoice.id} className="border-border rounded-xl border p-5">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <h3 className="font-semibold">CS-{invoice.issued_on.slice(0, 4)}-{String(invoice.invoice_number).padStart(6, '0')}</h3>
+                        <p className="text-text-secondary mt-1 text-sm">{invoice.description}</p>
+                        <p className="text-text-muted mt-1 text-xs">Issued {invoice.issued_on} · Due {invoice.due_on} · {humanize(invoice.status)}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-semibold tabular-nums">{formatMoney(invoice.amount_minor, invoice.currency)}</p>
+                        <p className="text-text-secondary mt-1 text-xs">Outstanding: {formatMoney(invoice.balance_minor, invoice.currency)}</p>
+                      </div>
+                    </div>
+                    {invoiceTransactions.length > 0 && (
+                      <div className="border-border mt-4 space-y-2 border-t pt-3">
+                        <p className="text-sm font-semibold">Recorded bank transactions</p>
+                        {invoiceTransactions.map((transaction) => (
+                          <div key={transaction.id} className="flex flex-wrap justify-between gap-2 text-sm">
+                            <span className="text-text-secondary">
+                              {humanize(transaction.transaction_type)} · {transaction.bank_reference || 'No bank reference'} · {transaction.bank_transaction_date || new Date(transaction.received_at).toLocaleDateString('en-GB')}
+                            </span>
+                            <span className="font-medium tabular-nums">{transaction.transaction_type === 'refund' ? '−' : ''}{formatMoney(transaction.amount_minor, transaction.currency)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </article>
+                );
+              })}
+            </div>
+          );
+        })()}
+      </section>
 
       <section>
         <div className="mb-4">
