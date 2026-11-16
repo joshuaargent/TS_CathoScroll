@@ -252,6 +252,14 @@ function NativeViewer(props: {
   const [pendingActions, setPendingActions] = useState(() => new Set<string>());
   const pendingRef = useRef(new Set<string>());
   const requestSignIn = useSignInPrompt();
+  const getAnalyticsAccessToken = useCallback(async () => {
+    const { data, error } = await createClient().auth.getSession();
+    if (error) {
+      console.error('Unable to obtain native analytics session:', error.message);
+      return null;
+    }
+    return data.session?.access_token ?? null;
+  }, []);
   const navigation = useContext(TopicNavigation);
   if (!navigation?.counts) throw new Error('Native topic navigation is unavailable.');
   const topicId = String(props.topics[props.topicIndex].id);
@@ -429,6 +437,8 @@ function NativeViewer(props: {
         <TopicSwipeViewer
           {...props}
           active={navigation.feedActive}
+          analyticsEndpoint={`${siteConfig.url.replace(/\/+$/, '')}/api/analytics/feed-events`}
+          getAnalyticsAccessToken={getAnalyticsAccessToken}
           userId={userId}
           currentActivity={
             !userId || currentSaved
