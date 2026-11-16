@@ -196,9 +196,11 @@ export function CommentSection({
   const getClient = useCallback(() => supabaseClient ?? createClient(), [supabaseClient]);
   const [comments, setComments] = useState<Comment[]>([]);
   const commentsRef = useRef<Comment[]>([]);
-  // Keep async pagination merges anchored to the latest rendered tree, not
+  // Keep async pagination merges anchored to the latest committed tree, not
   // the state snapshot captured when the request began.
-  commentsRef.current = comments;
+  useEffect(() => {
+    commentsRef.current = comments;
+  }, [comments]);
   const [hasMoreComments, setHasMoreComments] = useState(false);
   const [nextCommentCursor, setNextCommentCursor] = useState<CommentPageCursor | null>(null);
   const [loadingMoreComments, setLoadingMoreComments] = useState(false);
@@ -613,6 +615,7 @@ export function CommentSection({
       });
 
       sortComments(mergedRoots);
+      commentsRef.current = mergedRoots;
       setComments(mergedRoots);
       setUserId(user?.id ?? null);
       setCurrentProfile(user?.id ? profiles.get(user.id) ?? null : null);
