@@ -15,7 +15,7 @@ The authenticated pipeline consists of:
 - `catho_private.feed_analytics_event_limits`: database-enforced per-user event counter.
 - `POST /api/analytics/feed-events` and `public.record_feed_analytics_events(jsonb)`: bounded ingestion.
 
-Limits are 50 events and 16 KiB per request, 120 submitted events per user per minute at the database layer, plus the shared API rate limit. Event IDs are unique per user for idempotent retries. Raw rows are retained for 180 days; a bounded cleanup job runs every 15 minutes and removes at most 5,000 expired rows per run.
+Limits are 50 events and 16 KiB per request, 120 submitted events per user per minute at the database layer, plus the shared API rate limit. Event IDs are unique per user for idempotent retries. Raw rows are retained for 180 days; a bounded cleanup job runs every 15 minutes and removes at most 5,000 expired rows per run. `catho_private.feed_analytics_daily` stores user-free per-topic/day totals and is refreshed every five minutes from the raw event window. `catho_private.feed_analytics_daily_viewers` stores a restricted user/topic/day deduplication bridge so distinct viewers remain exact across multiple days; it is pruned in bounded batches on the same 180-day schedule. The daily aggregate table contains no user or session identifiers and is retained beyond raw-event deletion.
 
 The browser queue is localStorage-backed, namespaced per account and capped at 200 events. It retries on reconnect and page lifecycle changes. Native clients use the canonical site API with the current Supabase bearer token. This best-effort analytics queue is separate from the durable offline activity outbox and must never block learning actions.
 
@@ -37,7 +37,7 @@ Administrators can open:
 
 The contextual **View Analytics** action is shown beside topic actions and on category pages only when the current administrator session passes the existing admin/MFA check. Both analytics routes independently call `requireAdminPage()`, apply a per-admin shared rate limit and are marked noindex. Non-admins cannot use the aggregate RPC through the Data API.
 
-`public.get_admin_content_analytics(text,text,timestamptz,timestamptz)` aggregates raw events inside PostgreSQL. It is owned by `postgres`, uses `SECURITY DEFINER` with an empty search path, and is executable only by `service_role`. It returns aggregate counts and daily series only; it never returns user IDs, session IDs, comment text or raw events. The date window is validated and capped at 180 days.
+`public.get_admin_content_analytics(text,text,timestamptz,timestamptz)` serves event totals, daily series and category top-topic impression counts from indexed daily aggregates, combining raw events only for partial UTC-day boundaries and session-depth calculations. This keeps dashboard work proportional to active content/day rows rather than every event. It is owned by `postgres`, uses `SECURITY DEFINER` with an empty search path, and is executable only by `service_role`. It returns aggregate counts and daily series only; it never returns user IDs, session IDs, comment text or raw events. The date window is validated and capped at 180 days.
 
 Available feed metrics:
 - Impressions and viewable impressions.
@@ -72,8 +72,8 @@ Production Supabase changes for this work are additive. The canonical fresh-proj
 
 Verified:
 - Authenticated analytics ingestion, duplicate-event idempotency, invalid metadata rejection and database rate-limit response in rollback-only smoke tests.
-- Raw event table access is denied to authenticated and service-role clients; only the validated ingestion RPC is granted to authenticated users.
-- Retention scheduling is active and the pruning function is not executable by authenticated users.
+- Raw event and aggregate table access is denied to authenticated and service-role clients; only the validated ingestion RPC is granted to authenticated users. The daily-viewer bridge is private and has no client grants.
+- Retention scheduling is active; raw events and daily-viewer bridge rows are pruned in bounded batches, and the pruning function is not executable by authenticated users. The user-free daily aggregate table survives raw-event deletion.
 - Top-comment selector permissions: anon/authenticated denied; service_role allowed. Function owner is postgres, SECURITY DEFINER and empty search path.
 - Top-comment fixtures: engagement threshold, five-result cap, 90-day cutoff, unpublished content exclusion, deleted comment exclusion, reply exclusion, recency ranking and no user IDs.
 - Analytics aggregate fixtures: all feed metrics and daily series matched expected values; category aggregation across multiple topics worked; an empty selected period after prior telemetry returned zero counts while retaining the telemetry-present marker; ranges over 180 days were rejected; aggregate payload contained no user identifier. Rollback left zero test events.
@@ -99,3 +99,17 @@ Recommendation smoke tests used rollback-only fixtures to verify per-signal caps
 The current PR also adds a private administrator-only sponsor register at `/admin/sponsors`. Sponsor records live in `public.sponsors`, with RLS enabled and direct table privileges revoked from `anon` and `authenticated`. Only the server-side service role can read the table. Creation goes through `public.admin_create_sponsor`, which is executable only by `service_role`, verifies that the supplied actor is an administrator, writes the sponsor row and appends an audit record in the same database transaction.
 
 The form records the agreed amount in minor currency units, currency, placement dates, status, contact/creative metadata and manually reconciled bank-transfer state/reference. An administrator can create a record as awaiting payment and later use the **Mark received** action after confirming the transfer in the bank account; the receipt timestamp is set by the server and the action is audit logged. No bank details are stored and no payment provider or transfer is initiated. This is sponsor record management only: it does not publish adverts, deliver campaigns, or expose sponsor data to learners. Campaign delivery, targeting, caps, weighted allocation and sponsor reporting remain future work.
+
+
+## Daily analytics rollups and long-term query scaling
+
+The analytics pipeline now maintains two additional private tables:
+
+- `catho_private.feed_analytics_daily`: one row per UTC day and topic, containing impressions, viewable impressions, active duration, skips, completions and return visits. It contains no user IDs, session IDs or raw metadata.
+- `catho_private.feed_analytics_daily_viewers`: one row per UTC day/topic/user for exact distinct-viewer calculations across multi-day ranges. It is private, has no client grants and is retained for the same 180-day window as raw events.
+
+`catho_private.refresh_feed_analytics_daily(2)` recomputes today and the preceding two UTC days, using idempotent upserts for totals and rebuilding the bounded viewer bridge. It runs every five minutes. Recomputing the rolling window makes retries safe and captures events that arrive after a previous refresh. Admin aggregate queries use daily rows for complete days and raw events for partial-day boundaries; session-depth calculations remain based on raw events because they require per-session maxima. Category top-topic impression ranking also uses the daily table.
+
+The 180-day raw-event and viewer-bridge retention job runs every 15 minutes. Both raw events and viewer rows are deleted in bounded batches of at most 5,000 per invocation. User-free daily totals are retained after raw data expires, allowing historical trend preservation without retaining user-level analytics indefinitely. The admin UI's supported query window remains capped at 180 days.
+
+The raw event table is deliberately not partitioned yet. Its production size is currently very small, and partitioning it would require changing the current per-user event-ID uniqueness/idempotency key. Revisit monthly partitioning when measured raw-event volume or vacuum/retention timings justify it; preserve idempotency with a separate event-key ledger or a composite partition-aware key before doing so. Do not introduce partitioning speculatively.
