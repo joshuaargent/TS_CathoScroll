@@ -94,7 +94,7 @@ Feed signals use a 90-day window and a 30-day half-life:
 - Slide depth: up to +0.50 per reached slide event, capped at +1.50 per topic.
 - Completion: +2.50 per event, capped at +3.00 per topic.
 - Return visit: +0.75 per event, capped at +1.50 per topic.
-- Early skip: -1.50 per event, capped at -3.00, and applied only after at least two skips for that topic in the window.
+- Early skip: -1.50 per distinct feed session, capped at -3.00, and applied only after skips occur in at least two distinct sessions for that topic.
 
 The combined telemetry score is clamped between -4 and +6 per topic. Topic scores are aggregated by published category and combined with the existing explicit learning signals. The category weight remains at least 1, using the square root of the non-negative combined preference score; negative telemetry can reduce an existing preference but cannot eliminate baseline category exploration. The existing weighted round-robin selection and no-three-consecutive-category safeguard remain intact.
 
