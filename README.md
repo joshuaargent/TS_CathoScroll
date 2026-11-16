@@ -239,8 +239,10 @@ Supabase's security advisor may still flag these intentionally exposed
 Review the function grants and ownership checks before changing them; removing
 their execute grants indiscriminately would break public reads or account sync.
 The current Auth configuration also has leaked-password protection disabled.
-Enable it in Supabase Auth settings before broad public launch if supported by
-the project's plan. Admin MFA enforcement remains a separate rollout task:
+The CathoScroll Supabase organisation is currently on the Free plan; Supabase
+requires Pro or above for leaked-password protection. Upgrade before enabling
+it in Auth settings. Email verification is a separate setting and remains
+disabled. Admin MFA enforcement remains a separate rollout task:
 enrol and verify the owner/admin accounts first, then enable enforcement so
 administrators are not locked out.
 
