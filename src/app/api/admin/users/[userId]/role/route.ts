@@ -60,7 +60,7 @@ async function authorize(request: Request, mutation: boolean) {
     return { response: respond(request, { error: 'Unable to verify administrator permissions' }, { status: 500 }) };
   }
 
-  return { user, adminClient, isOwner: owner === true };
+  return { user, adminClient, isAdmin, isOwner: owner === true };
 }
 
 export function OPTIONS(request: Request) {
@@ -96,11 +96,18 @@ export async function GET(request: Request, { params }: RouteContext) {
   }
   if (!profileResult.data) return respond(request, { error: 'User profile not found.' }, { status: 404 });
 
+  const isSelf = auth.user.id === userId;
+  const profileIsAdmin = Boolean(adminResult.data);
   return respond(request, {
-    isAdmin: Boolean(adminResult.data),
-    canManage: auth.isOwner && auth.user.id !== userId,
+    // Viewer permissions and target-user state are deliberately separate.
+    // Every administrator can moderate other users; only the owner can
+    // grant/revoke administrator roles.
+    isAdmin: auth.isAdmin,
+    canManage: auth.isOwner && !isSelf,
+    canManageBans: auth.isAdmin && !isSelf,
+    canManageRoles: auth.isOwner && !isSelf,
     activeBan: banResult.data,
-    profileIsAdmin: Boolean(adminResult.data),
+    profileIsAdmin,
   });
 }
 
