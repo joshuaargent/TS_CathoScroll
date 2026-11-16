@@ -78,6 +78,19 @@ API rate-limit responses include `Retry-After` where applicable.
   31 days. Scheduled cleanup jobs run every five minutes and every 15 minutes
   respectively.
 
+## Feed analytics ingestion
+
+- Signed-in feed telemetry is accepted only through POST /api/analytics/feed-events or the authenticated record_feed_analytics_events RPC.
+- The database derives the actor from auth.uid(); clients cannot submit an arbitrary user ID.
+- Raw event and rate-limit tables live in catho_private, have RLS enabled, and have no direct Data API grants for anon, authenticated, or service_role.
+- The ingestion RPC validates event IDs, session IDs, published topic references, event types, metadata keys, metadata size, and batch bounds.
+- Event IDs are unique per user, making retries idempotent.
+- Each request is limited to 50 events and 16 KiB; database ingestion is limited to 120 submitted events per user per minute. The HTTP route also uses the shared PostgreSQL API rate limiter.
+- Client telemetry is queued per signed-in account and does not share or block the durable offline activity outbox.
+- Raw analytics events are retained for 180 days. A bounded database cleanup job runs every 15 minutes and removes at most 5,000 expired events per run. No long-term aggregate rollup is implemented yet.
+- Anonymous tracking is disabled. Analytics events contain no comment text, profile fields, or email addresses.
+- Sponsor and administrator reporting must use server-side aggregate functions; raw events and individual user identities must never be exposed to sponsor accounts.
+
 ## Comment invariants
 
 Database triggers enforce:
