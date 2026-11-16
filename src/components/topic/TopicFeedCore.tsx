@@ -472,7 +472,10 @@ export function TopicFeedCore({
             setShowSponsorCard(false);
             advanceToNextTopic();
           }}
-          onPreviousTopic={() => setShowSponsorCard(false)}
+          onPreviousTopic={() => {
+            setShowSponsorCard(false);
+            previousTopic();
+          }}
         />
       ) : showTopCommentCard && activeTopCommentCardComments.length > 0 ? (
         <TopCommentFeedCard
