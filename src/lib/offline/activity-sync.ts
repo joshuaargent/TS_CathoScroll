@@ -114,9 +114,7 @@ export class OfflineActivitySync {
       signal?.throwIfAborted();
       const receipts = this.sendBatch
         ? await this.sendBatch(operations, signal)
-        : await Promise.all(
-            operations.slice(0, 1).map((operation) => this.send(operation, signal))
-          );
+        : [await this.send(operations[0], signal)];
       signal?.throwIfAborted();
       if (!Array.isArray(receipts) || receipts.length < 1 || receipts.length > operations.length) {
         throw new Error('The server returned an invalid offline activity batch.');
