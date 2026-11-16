@@ -3441,6 +3441,21 @@ GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON
 -- Column-level grants are part of the source security model. In particular,
 -- subscription_tier is deliberately not writable/readable through direct
 -- profile table access; clients obtain their own tier through the guarded RPC.
+--
+-- Comments expose only non-content metadata to anonymous clients. Authenticated
+-- clients can read comment content and perform the same narrowly scoped writes
+-- as the source project. Private moderation and internal columns remain hidden.
+GRANT SELECT (id, topic_id, parent_id, user_id, created_at, edited_at, is_deleted, is_pinned) ON TABLE public.comments TO anon;
+GRANT SELECT (id, topic_id, parent_id, user_id, content, created_at, edited_at, is_deleted, is_pinned) ON TABLE public.comments TO authenticated;
+GRANT INSERT (topic_id, parent_id, user_id, content) ON TABLE public.comments TO authenticated;
+GRANT UPDATE (content, edited_at, is_deleted) ON TABLE public.comments TO authenticated;
+
+-- Like-table SELECT grants expose only the keys needed for ownership checks,
+-- duplicate detection, counts, and filtered deletes. RLS still limits rows.
+GRANT SELECT (comment_id, user_id) ON TABLE public.comment_likes TO authenticated;
+GRANT INSERT (id, user_id, comment_id, created_at) ON TABLE public.comment_likes TO authenticated;
+GRANT SELECT (topic_id, user_id) ON TABLE public.topic_likes TO authenticated;
+GRANT INSERT (id, user_id, topic_id, created_at) ON TABLE public.topic_likes TO authenticated;
 GRANT SELECT (id, username, display_name, bio) ON TABLE public.profiles TO anon;
 GRANT SELECT (id, username, display_name, bio) ON TABLE public.profiles TO authenticated;
 GRANT INSERT (id, username, display_name, bio) ON TABLE public.profiles TO authenticated;
