@@ -15,7 +15,7 @@
 --     the same PostgreSQL major version as the source project.
 --   * pg_cron and permission to create the ensure_rls event trigger are required.
 --
--- Object counts at export: 36 tables, 73 functions, 33 triggers, 32 policies,
+-- Object counts at export: 36 tables, 74 functions, 33 triggers, 32 policies,
 -- 15 categories and 86 topics.
 --
 DO $bootstrap_guard$
@@ -4961,6 +4961,8 @@ CREATE TABLE public.sponsor_campaigns (
 );
 CREATE INDEX sponsor_campaigns_eligibility_idx ON public.sponsor_campaigns (status, starts_on, ends_on, placement_weight DESC);
 CREATE INDEX sponsor_campaigns_sponsor_created_idx ON public.sponsor_campaigns (sponsor_id, created_at DESC);
+CREATE INDEX sponsor_campaigns_created_by_idx ON public.sponsor_campaigns (created_by);
+CREATE INDEX sponsor_campaigns_approved_by_idx ON public.sponsor_campaigns (approved_by);
 ALTER TABLE public.sponsor_campaigns ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON TABLE public.sponsor_campaigns FROM PUBLIC, anon, authenticated, service_role;
 GRANT ALL ON TABLE public.sponsor_campaigns TO service_role;
