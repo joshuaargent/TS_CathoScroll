@@ -113,3 +113,16 @@ The analytics pipeline now maintains two additional private tables:
 The 180-day raw-event and viewer-bridge retention job runs every 15 minutes. Both raw events and viewer rows are deleted in bounded batches of at most 5,000 per invocation. User-free daily totals are retained after raw data expires, allowing historical trend preservation without retaining user-level analytics indefinitely. The admin UI's supported query window remains capped at 180 days.
 
 The raw event table is deliberately not partitioned yet. Its production size is currently very small, and partitioning it would require changing the current per-user event-ID uniqueness/idempotency key. Revisit monthly partitioning when measured raw-event volume or vacuum/retention timings justify it; preserve idempotency with a separate event-key ledger or a composite partition-aware key before doing so. Do not introduce partitioning speculatively.
+
+
+## Sponsor campaign delivery and reporting
+
+Sponsor campaigns are stored in `public.sponsor_campaigns`, with direct table access restricted to the service role and RLS enabled. Campaign creation and state transitions are performed through administrator-verified, postgres-owned SECURITY DEFINER RPCs. Approval requires an active/scheduled sponsor with payment reconciled as received or explicitly not required. The sponsor payment itself remains a direct bank transfer outside CathoScroll.
+
+Weighted delivery is handled by `public.get_weighted_sponsor_campaigns`, which is service-role-only. It locks the requesting user's delivery transaction and the selected campaign rows, applies date/status/payment/category/topic eligibility, daily and lifetime caps, per-user 24-hour and lifetime frequency caps, and chooses campaigns using weighted random selection. It reserves up to five unique campaigns and records a served event before returning only public creative fields. Organic recommendation ranking is not modified.
+
+`catho_private.sponsor_campaign_events` stores served, viewable-impression and click events with per-event idempotency and one-viewable/one-click-per-campaign/session unique indexes. The event API derives the actor from the authenticated request, rate limits writes, and the database rejects viewability/clicks that do not correspond to a served campaign in the same session. Clicks additionally require a recorded viewable impression.
+
+`catho_private.sponsor_campaign_daily` stores user-free per-campaign/day served, viewable and click counts. The administrator campaign page reads 30-day metrics through `public.get_admin_sponsor_campaign_analytics`, an admin-verified, aggregate-only RPC. `catho_private.sponsor_campaign_user_frequency` stores the minimum per-user/campaign counters required to enforce frequency limits. Raw events are pruned in bounded batches after 180 days; frequency rows are removed in bounded batches after a campaign has ended for 180 days. Daily campaign totals contain no user IDs and remain available for historical reporting.
+
+The feed inserts a sponsor card after approximately ten topic advances, with a maximum of five campaign positions in one card. Campaign delivery is only requested for authenticated users in this release. Sponsor self-service accounts, campaign editing, anonymous visitor caps, invoices and bank integrations are intentionally out of scope.
