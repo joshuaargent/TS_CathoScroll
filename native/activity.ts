@@ -16,6 +16,7 @@ import type {
 
 type Transport = ActivityBootstrapTransport & {
   send(operation: PendingActivity, signal?: AbortSignal): Promise<ActivityResult>;
+  sendBatch(operations: PendingActivity[], signal?: AbortSignal): Promise<ActivityResult[]>;
 };
 
 export type NativeActivityStatus = {
@@ -41,8 +42,10 @@ export class NativeActivity {
     private readonly onChange: (status: NativeActivityStatus) => void,
     isOnline: () => boolean
   ) {
-    const sync = new OfflineActivitySync(store, (operation, signal) =>
-      transport.send(operation, signal)
+    const sync = new OfflineActivitySync(
+      store,
+      (operation, signal) => transport.send(operation, signal),
+      (operations, signal) => transport.sendBatch(operations, signal)
     );
     this.scheduler = new BackgroundActivitySync(
       sync,
@@ -84,7 +87,12 @@ export class NativeActivity {
           this.notify();
         }
       },
-      () => this.notify()
+      () => this.notify(),
+      () => {
+        this.error =
+          'Some saved changes are waiting for an activity limit to reset. They remain on this device and will retry automatically.';
+        this.notify();
+      }
     );
   }
 

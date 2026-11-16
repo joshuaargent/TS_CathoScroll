@@ -9,7 +9,7 @@ export default function Loading() {
           Search questions, answers, catechism references, and Scripture throughout CathoScroll.
         </p>
       </section>
-      <NativeGridSkeleton label="Loading search results" />
+      <NativeGridSkeleton label="Loading search" />
     </main>
   );
 }

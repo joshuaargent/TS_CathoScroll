@@ -1,6 +1,6 @@
 # CathoScroll security hardening reference
 
-**Updated:** 15 November 2026  
+**Updated:** 16 November 2026  
 **Scope:** Website, API, Supabase database, moderation and native administrator access.
 
 This is an operational reference, not an executable SQL script or a database migration. The Supabase schema and security changes are managed directly in the connected Supabase project, as requested. No migration files are used.
@@ -35,11 +35,11 @@ Private/internal tables intentionally have no direct API policies. Their access 
 
 | Operation | Limit |
 |---|---:|
-| Comment creation, replies and edits | 5 / 10 minutes, 20 / hour, 60 / day |
+| Comment creation, replies and edits | 10 / 10 minutes, 40 / hour, 120 / 24 hours |
 | Comment likes | 180 / hour |
 | Topic likes | 180 / hour |
 | Bookmark changes | 120 / hour |
-| Progress changes | 300 / hour |
+| Progress changes | 1,000 / hour |
 | Comment-ban appeals | 3 / 24 hours |
 | Direct recommendation RPC | 30 / minute |
 
@@ -49,7 +49,7 @@ These checks run in PostgreSQL and therefore also protect direct Supabase client
 
 Server routes use a shared PostgreSQL counter rather than in-memory process state. Counters use atomic updates and HMAC-keyed identifiers; raw client IP addresses are not stored. IP limits use the Vercel-provided `x-real-ip` header only when running on Vercel.
 
-- Public search: 30 / minute / IP.
+- Public search: 180 / minute / IP.
 - Public topic pagination: 120 / minute / IP.
 - Feed and sitemap: 60 / minute / IP.
 - Comment reports: database user limit plus IP abuse limit.
@@ -59,6 +59,24 @@ Server routes use a shared PostgreSQL counter rather than in-memory process stat
 - Administrator operations: stricter per-admin limits, with separate read and mutation policies.
 
 API rate-limit responses include `Retry-After` where applicable.
+
+
+## Offline activity sync protection
+
+- Native activity uploads use an authenticated batch RPC with a maximum of 100
+  ordered operations per request.
+- A per-account Postgres counter limits all offline activity RPC operations to
+  300 per minute, including attempts against unavailable topics.
+- Existing per-action limits still apply to the underlying bookmark, like and
+  progress writes. A rate-limited operation is deferred rather than discarded.
+- Device sequence numbers, operation receipts, and a client-confirmed
+  acknowledgement cursor make retries idempotent, including replay of a whole
+  batch after a lost response.
+- Acknowledged receipt and sequence rows are pruned when the client advances
+  its acknowledgement cursor. Unacknowledged operations remain available.
+- Activity and catalogue event histories are retained for approximately
+  31 days. Scheduled cleanup jobs run every five minutes and every 15 minutes
+  respectively.
 
 ## Comment invariants
 
@@ -130,4 +148,8 @@ Not yet completed:
 - Admin content-editor pagination; it currently loads catalogue data in batches.
 - Long-term cached profile-stat summaries if activity volumes grow substantially.
 
-The database hardening was applied before the application changes in PR #7 were merged. The current `main` branch still contains legacy direct profile/comment queries and must not be deployed against the hardened schema. Merge and deploy the compatibility changes before relying on the updated website.
+The database hardening and its application compatibility changes in PR #7
+were merged on 16 November 2026. The current `main` branch uses the bounded
+comment-page and public-profile RPCs. Keep the production deployment aligned
+with the merged `main` branch; do not deploy an older application build
+against the hardened schema.

@@ -92,7 +92,7 @@ export class SupabaseActivityTransport implements ActivityBootstrapTransport {
 
   private async rpc(
     name: string,
-    args: Record<string, string | boolean | number | null>,
+    args: Record<string, unknown>,
     signal?: AbortSignal
   ): Promise<unknown> {
     signal?.throwIfAborted();
@@ -161,54 +161,115 @@ export class SupabaseActivityTransport implements ActivityBootstrapTransport {
     };
   }
 
+  private parseReceipt(data: unknown, operation: PendingActivity): ActivityResult {
+    const receipt = record(data);
+    const operationId = text(receipt.operationId);
+    if (operationId !== operation.operationId) {
+      throw new Error('Offline activity server operation does not match.');
+    }
+    const userId = identity(receipt.userId, operation.userId);
+    if (receipt.status === 'deferred') {
+      if (receipt.reason !== 'rate_limited') {
+        throw new Error('Invalid deferred offline activity receipt.');
+      }
+      return { userId, operationId, status: 'deferred', reason: 'rate_limited' };
+    }
+    if (receipt.status === 'rejected') {
+      if (receipt.reason !== 'topic_unavailable' || !operation.value) {
+        throw new Error('Invalid offline activity rejection from server.');
+      }
+      return { userId, operationId, status: 'rejected', reason: 'topic_unavailable' };
+    }
+    if (
+      (receipt.status !== undefined && receipt.status !== 'applied') ||
+      typeof receipt.value !== 'boolean' ||
+      receipt.value !== operation.value
+    ) {
+      throw new Error('Offline activity server receipt value does not match.');
+    }
+    const receiptRevision = revision(receipt.revision);
+    if (receiptRevision === '0') throw new Error('Invalid offline activity receipt revision.');
+    return {
+      userId,
+      operationId,
+      revision: receiptRevision,
+      value: receipt.value,
+      completedAt: completedAt(operation.kind, receipt.value, receipt.completedAt),
+    };
+  }
+
   async send(operation: PendingActivity, signal?: AbortSignal): Promise<ActivityResult> {
     const sequence = revision(operation.sequence);
     const acknowledgedSequence = revision(operation.acknowledgedSequence);
     if (BigInt(sequence) <= BigInt(acknowledgedSequence)) {
       throw new Error('Invalid offline activity device sequence.');
     }
-    const data = record(
-      await this.rpc(
-        'offline_apply_activity_v2',
-        {
-          p_user: operation.userId,
-          p_operation: operation.operationId,
-          p_device: text(operation.deviceId),
-          p_sequence: sequence,
-          p_acknowledged: acknowledgedSequence,
-          p_kind: operation.kind,
-          p_topic: operation.topicId,
-          p_value: operation.value,
-          p_completed_at: completedAt(operation.kind, operation.value, operation.completedAt),
-        },
-        signal
-      )
+    const data = await this.rpc(
+      'offline_apply_activity_v2',
+      {
+        p_user: operation.userId,
+        p_operation: operation.operationId,
+        p_device: text(operation.deviceId),
+        p_sequence: sequence,
+        p_acknowledged: acknowledgedSequence,
+        p_kind: operation.kind,
+        p_topic: operation.topicId,
+        p_value: operation.value,
+        p_completed_at: completedAt(operation.kind, operation.value, operation.completedAt),
+      },
+      signal
     );
-    const operationId = text(data.operationId);
-    if (operationId !== operation.operationId) {
-      throw new Error('Offline activity server operation does not match.');
+    return this.parseReceipt(data, operation);
+  }
+
+  async sendBatch(operations: PendingActivity[], signal?: AbortSignal): Promise<ActivityResult[]> {
+    if (!Array.isArray(operations) || operations.length < 1 || operations.length > 100) {
+      throw new Error('Invalid offline activity batch size.');
     }
-    const userId = identity(data.userId, operation.userId);
-    if (data.status === 'rejected') {
-      if (data.reason !== 'topic_unavailable' || !operation.value) {
-        throw new Error('Invalid offline activity rejection from server.');
+    const first = operations[0];
+    const acknowledgedSequence = BigInt(revision(first.acknowledgedSequence));
+    const deviceId = text(first.deviceId);
+    let previousSequence: bigint | null = null;
+    for (const operation of operations) {
+      if (operation.userId !== first.userId || text(operation.deviceId) !== deviceId) {
+        throw new Error('Offline activity batch contains mixed account or device identities.');
       }
-      return { userId, operationId, status: 'rejected', reason: 'topic_unavailable' };
+      const sequence = BigInt(revision(operation.sequence));
+      if (
+        sequence <= acknowledgedSequence ||
+        BigInt(revision(operation.acknowledgedSequence)) !== acknowledgedSequence ||
+        (previousSequence !== null && sequence !== previousSequence + BigInt(1))
+      ) {
+        throw new Error('Offline activity batch sequence is not contiguous.');
+      }
+      previousSequence = sequence;
     }
-    if (data.status !== undefined && data.status !== 'applied') {
-      throw new Error('Invalid offline activity receipt status.');
+    const payload = operations.map((operation) => ({
+      operationId: operation.operationId,
+      deviceId: operation.deviceId,
+      sequence: operation.sequence,
+      acknowledgedSequence: operation.acknowledgedSequence,
+      topicId: operation.topicId,
+      kind: operation.kind,
+      value: operation.value,
+      completedAt: completedAt(operation.kind, operation.value, operation.completedAt),
+    }));
+    const data = await this.rpc(
+      'offline_apply_activity_batch',
+      { p_user: first.userId, p_operations: payload },
+      signal
+    );
+    if (!Array.isArray(data) || data.length < 1 || data.length > operations.length) {
+      throw new Error('Invalid offline activity batch response.');
     }
-    if (typeof data.value !== 'boolean' || data.value !== operation.value) {
-      throw new Error('Offline activity server receipt value does not match.');
+    const receipts = data.map((item, index) => this.parseReceipt(item, operations[index]));
+    const deferredIndex = receipts.findIndex((receipt) => receipt.status === 'deferred');
+    if (deferredIndex !== -1 && deferredIndex !== receipts.length - 1) {
+      throw new Error('Offline activity batch continued after a deferred operation.');
     }
-    const receiptRevision = revision(data.revision);
-    if (receiptRevision === '0') throw new Error('Invalid offline activity receipt revision.');
-    return {
-      userId,
-      operationId,
-      revision: receiptRevision,
-      value: data.value,
-      completedAt: completedAt(operation.kind, data.value, data.completedAt),
-    };
+    if (receipts.length < operations.length && deferredIndex === -1) {
+      throw new Error('Offline activity batch response is incomplete.');
+    }
+    return receipts;
   }
 }

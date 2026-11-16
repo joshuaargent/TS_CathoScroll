@@ -16,11 +16,22 @@ export interface ActivityRejection {
   reason: 'topic_unavailable';
 }
 
-export type ActivityResult = ActivityReceipt | ActivityRejection;
+export interface ActivityDeferred {
+  status: 'deferred';
+  operationId: string;
+  userId: string;
+  reason: 'rate_limited';
+}
+
+export type ActivityResult = ActivityReceipt | ActivityRejection | ActivityDeferred;
 export type SendActivity = (
   operation: PendingActivity,
   signal?: AbortSignal
 ) => Promise<ActivityResult>;
+export type SendActivityBatch = (
+  operations: PendingActivity[],
+  signal?: AbortSignal
+) => Promise<ActivityResult[]>;
 
 export interface ActivityPage {
   userId: string;
@@ -42,15 +53,25 @@ export type FetchActivity = (
   signal?: AbortSignal
 ) => Promise<ActivityPage>;
 
+export interface ActivityPushResult {
+  sent: number;
+  deferred: boolean;
+}
+
 export class OfflineActivitySync {
-  private running: Promise<number> | null = null;
+  private running: Promise<number | ActivityPushResult> | null = null;
 
   constructor(
     private readonly store: OfflineActivityStore,
-    private readonly send: SendActivity
+    private readonly send: SendActivity,
+    private readonly sendBatch?: SendActivityBatch
   ) {}
 
-  async push(userId: string, limit = 100, signal?: AbortSignal): Promise<number> {
+  async push(
+    userId: string,
+    limit = 100,
+    signal?: AbortSignal
+  ): Promise<ActivityPushResult> {
     if (!userId || userId.trim() !== userId) throw new Error('Invalid user ID.');
     if (!Number.isSafeInteger(limit) || limit < 1 || limit > 1000) {
       throw new Error('Invalid offline sync limit.');
@@ -87,47 +108,76 @@ export class OfflineActivitySync {
     }
   }
 
-  private async pushBatch(userId: string, limit: number, signal?: AbortSignal): Promise<number> {
+  private async pushBatch(
+    userId: string,
+    limit: number,
+    signal?: AbortSignal
+  ): Promise<ActivityPushResult> {
     if (!(await this.store.isBootstrapped(userId))) {
       throw new Error('Offline activity must be initialized before syncing.');
     }
     let sent = 0;
     while (sent < limit) {
       signal?.throwIfAborted();
-      const operation = await this.store.nextOperation(userId);
-      if (!operation) break;
-
+      const operations = await this.store.nextOperations(
+        userId,
+        this.sendBatch ? Math.min(100, limit - sent) : 1
+      );
+      if (!operations.length) break;
       signal?.throwIfAborted();
-      const receipt = await this.send(operation, signal);
+      const receipts = this.sendBatch
+        ? await this.sendBatch(operations, signal)
+        : [await this.send(operations[0], signal)];
       signal?.throwIfAborted();
-      if (
-        receipt.status !== undefined &&
-        receipt.status !== 'applied' &&
-        receipt.status !== 'rejected'
-      ) {
-        throw new Error('The server returned an invalid offline activity receipt status.');
+      if (!Array.isArray(receipts) || receipts.length < 1 || receipts.length > operations.length) {
+        throw new Error('The server returned an invalid offline activity batch.');
       }
-      if (receipt.operationId !== operation.operationId || receipt.userId !== userId) {
-        throw new Error('The server returned a mismatched offline activity receipt.');
-      }
-
-      if (receipt.status === 'rejected') {
-        if (receipt.reason !== 'topic_unavailable' || !operation.value) {
-          throw new Error('The server returned an invalid offline activity rejection.');
+      for (let index = 0; index < receipts.length; index++) {
+        const operation = operations[index];
+        const receipt = receipts[index];
+        if (
+          !receipt ||
+          receipt.operationId !== operation.operationId ||
+          receipt.userId !== userId
+        ) {
+          throw new Error('The server returned a mismatched offline activity receipt.');
         }
-        await this.store.rejectUnavailableTopic(userId, operation.operationId);
-      } else {
-        await this.store.acknowledge(
-          userId,
-          operation.operationId,
-          receipt.revision,
-          receipt.value,
-          receipt.completedAt
-        );
+        if (receipt.status === 'deferred') {
+          if (receipt.reason !== 'rate_limited' || index !== receipts.length - 1) {
+            throw new Error('The server returned an invalid deferred activity receipt.');
+          }
+          return { sent, deferred: true };
+        }
+        if (receipt.status === 'rejected') {
+          if (receipt.reason !== 'topic_unavailable' || !operation.value) {
+            throw new Error('The server returned an invalid offline activity rejection.');
+          }
+          await this.store.rejectUnavailableTopic(userId, operation.operationId);
+        } else {
+          if (receipt.status !== undefined && receipt.status !== 'applied') {
+            throw new Error('The server returned an invalid offline activity receipt status.');
+          }
+          if (
+            typeof receipt.value !== 'boolean' ||
+            receipt.value !== operation.value
+          ) {
+            throw new Error('The server returned an invalid offline activity receipt.');
+          }
+          await this.store.acknowledge(
+            userId,
+            operation.operationId,
+            receipt.revision,
+            receipt.value,
+            receipt.completedAt
+          );
+        }
+        sent += 1;
       }
-      sent += 1;
+      if (receipts.length < operations.length) {
+        throw new Error('The server returned an incomplete offline activity batch.');
+      }
     }
-    return sent;
+    return { sent, deferred: false };
   }
 
   private async pullPages(

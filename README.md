@@ -196,6 +196,66 @@ After the workflow completes, inspect the [GitHub Releases](https://github.com/j
 
 The CI packaging checks prove that the packages can be built; they do not replace real-device upgrade, migration, offline, reconnect, or platform-specific installation tests. See the release verification plan below.
 
+### Current rate limits
+
+PostgreSQL enforces the following account-level mutation limits. These also
+apply when a modified client calls Supabase directly rather than using the
+website routes.
+
+| Operation | Limit |
+| --- | ---: |
+| Comment creation, replies, and edits | 10 / 10 minutes, 40 / hour, 120 / 24 hours |
+| Comment likes | 180 / hour |
+| Topic likes | 180 / hour |
+| Bookmark changes | 120 / hour |
+| Progress changes | 1,000 / hour |
+| Comment-ban appeals | 3 / 24 hours |
+| Recommendation RPC | 30 / minute |
+| Offline activity RPC operations | 300 / minute |
+
+Vercel-facing IP limits additionally protect public search (180 / minute),
+topic pagination (120 / minute), feed and sitemap requests (60 / minute),
+and appeal submissions (5 / 10 minutes per IP). Appeal submissions also have
+a per-user cooldown of one per 10 minutes. Administrative routes have
+separate per-admin limits. The shared API limiter uses atomic Postgres
+counters and HMAC-derived identifiers; it does not store raw client IPs.
+Responses include `Retry-After` where the route returns a rate-limit response.
+
+## Security posture and operational checks
+
+The database intentionally exposes a small set of read-only
+`SECURITY DEFINER` RPCs for public profile metrics, published topic comments,
+topic like counts, and published offline catalogue data. These functions use
+fixed search paths and return only the public data required by those features.
+Account activity RPCs are restricted to authenticated users and compare the
+requested account with `auth.uid()`. Administrative mutation functions are
+restricted to the service role and are called only from trusted server code.
+The private `catho_private` schema has no direct client table grants; its
+RLS-enabled tables intentionally have no client policies because access is
+through the checked functions.
+
+Supabase's security advisor may still flag these intentionally exposed
+`SECURITY DEFINER` functions and RLS-enabled private tables without policies.
+Review the function grants and ownership checks before changing them; removing
+their execute grants indiscriminately would break public reads or account sync.
+The current Auth configuration also has leaked-password protection disabled.
+Enable it in Supabase Auth settings before broad public launch if supported by
+the project's plan. Admin MFA enforcement remains a separate rollout task:
+enrol and verify the owner/admin accounts first, then enable enforcement so
+administrators are not locked out.
+
+The production database is currently small, so unused-index warnings are not
+evidence that those indexes should be dropped. Keep indexes that support
+known keyset, retention, foreign-key, and activity queries until representative
+traffic and query plans show they are unnecessary. Review Supabase security
+and performance advisors after schema or traffic changes.
+
+The repository's CI checks source, tests, types, dependencies, secrets, and
+CodeQL. They do not prove production capacity. No production load test or
+independent penetration test is claimed. Perform concurrency tests on a
+separate staging project and verify deployed HTTP security headers, CSP
+enforcement, and real-device offline recovery before a large public launch.
+
 ## Configuration
 
 Copy `.env.example` to `.env.local` in the project root and fill in the values for your project. `.env.local` is ignored by Git; commit changes to `.env.example` when the required variables change, never your real credentials.
@@ -230,66 +290,182 @@ Admins can create and edit categories and topics from `/admin/content`, includin
 ### Offline apps and synchronization
 
 The website remains server-rendered and Supabase is the online source of truth.
-The bundled Android and Electron apps support offline feed, topic, category and
-local substring search. When online, search uses the website's ranked search RPC;
-if it is unavailable, the app reports the problem and searches saved topics.
-Local search scans catalogue text and is not optimized for very large catalogues.
-The ranked-search database setup is documented in `docs/search_published_topics.sql`. It adds the weighted `topics.search_vector` GIN index and the public, read-only `search_published_topics` RPC used by both the website and native app. The native app bundles the same font subsets as
-the website, including their Open Font License notices in `native/fonts`.
+Android and Electron bundle a validated SQLite catalogue so the feed, topics,
+categories, and local substring search remain available without a connection.
+Online search uses the ranked `search_published_topics` RPC; if that request
+fails, the app reports the issue and searches the saved catalogue locally.
+Local substring search is a fallback, not a replacement for ranked server
+search on a large catalogue.
+
+The weighted full-text index and ranked-search RPC are included in the complete database bootstrap described below.
+
+#### Published catalogue synchronization
 
 `npm run native:build` exports the published catalogue using the public
-Supabase configuration from `.env.local` or the environment. The export checks
-server counts and revision before replacing its previous snapshot, and
+Supabase configuration from `.env.local` or the environment. The export
+checks server counts and revision before replacing its previous snapshot, and
 `offline:database` verifies its checksum and SQLite integrity. A changing or
 incomplete export fails rather than packaging partial content.
 `native:build:local` uses an existing export and is intended for local testing.
-The Supabase offline sync and scheduled-pruning SQL supplied separately have
-been installed. Monitor the cleanup jobs for successful runs. RLS stays enabled
-on the public sync tables without granting direct access.
 
-The app stages incremental catalogue changes and publishes them atomically. It
-falls back to a checked full snapshot if history expires or a reset is needed.
-Interrupted updates leave the previous catalogue intact. The catalogue checksum
-and timestamp describe the original bundled import, while counts reflect the
-current local catalogue.
+The app starts with the bundled catalogue and stores its last applied server
+revision. When online, it requests only catalogue changes after that revision,
+applies the changes to a staging copy, validates the result, and publishes it
+atomically. An interrupted refresh leaves the previous catalogue intact. If
+the server has pruned the required change history or the local state is
+invalid, the app downloads and validates a complete replacement snapshot.
+Published categories and topics are reconciled, so unpublished or removed
+content does not remain available in the refreshed catalogue.
 
-Account activity, cached comments, topic counts, and encrypted note records are
-stored in the encrypted private database. Bootstrap and history-expiry recovery
-stage snapshots before publication, preserving pending edits. The server
-acknowledges device sequences to safely discard older write receipts. A rejected
-unavailable topic is retained and reported without blocking later edits.
-Legacy activity and cache tables are copied transactionally, then the encrypted
-database is checked for integrity and its migration marker is verified before
-the plaintext database and SQLite sidecars are removed. Android backup and
-device-transfer rules exclude both current and legacy private activity files.
-Electron removes both legacy activity database locations after verification;
-if cleanup fails, the private store remains usable and cleanup is retried on the
-next launch. Existing catalogue databases are checked on startup; a damaged
-catalogue is rebuilt from a validated bundled snapshot without touching private
-user data. Incremental catalogue refreshes compare the published category set
-so unpublished or deleted categories cannot remain in the offline cache.
-Electron copies legacy databases out of Chromium's managed directory when
-possible, but cannot recover data Chromium already removed.
+Catalogue change history is retained for approximately 31 days. A scheduled
+Supabase job prunes older events in bounded batches every 15 minutes. If a
+device has been offline longer than the retained history, it performs a full
+catalogue refresh rather than trying to replay an incomplete change feed.
+The bundled checksum and import timestamp describe the original packaged
+catalogue; local counts describe the current refreshed catalogue.
 
-Sign-in, sign-up and profile changes require a connection. Sessions use
-Android Keystore-backed storage or Electron's operating-system secure storage.
-Signing out requires a connection and is blocked while activity is queued.
-Encryption keys are device-specific and excluded from Android backup;
-unsynchronized changes cannot be expected to transfer to another device.
+#### Account activity synchronization
+
+Bookmarks, topic likes, and completed-topic progress are written to the local
+account database first. The interface therefore updates immediately and does
+not need a network round trip to save an action. Each change is also appended
+to a durable outbox with a unique operation ID, a monotonically increasing
+device sequence, and the affected account, topic, activity type, and value.
+The outbox survives application restarts and temporary loss of connectivity.
+
+When connectivity is available, the sync worker sends up to 100 queued
+operations in one authenticated `offline_apply_activity_batch` RPC. The
+server processes the operations in order and returns an individual receipt
+for each one. Receipts identify the account and operation and include the
+server activity revision. The client validates every receipt and removes only
+the operations that the server has confirmed. If a request succeeds on the
+server but its response is lost, retrying the same operation IDs returns the
+existing receipts rather than applying the actions twice or consuming another
+sync-rate-limit slot.
+
+Each device has its own sequence and acknowledgement cursor. All operations
+in one batch carry the same last client-confirmed acknowledgement, and their
+device sequence numbers must be contiguous. The server deliberately does not
+treat an earlier receipt in the same response as acknowledged: the client can
+only confirm the batch after it has received and committed the complete
+response locally. This means a lost response can safely replay the entire
+batch and receive the same receipts without duplicating writes. On the next
+batch, the client advances its acknowledgement cursor and the server can
+discard the earlier receipts and sequence mappings. An unavailable or
+unpublished topic is recorded as a rejection and archived locally; it does
+not block later queued actions. When
+the account is too far behind the retained change history, the client stages
+a fresh activity snapshot, reconciles changes made during the snapshot, and
+publishes the replacement atomically while preserving pending local edits.
+
+The batch endpoint is limited to 100 operations per request. Server-side
+activity writes are additionally limited to 300 operations per account per
+minute, including attempts against unavailable topics. Existing per-action
+limits also apply to the underlying writes: bookmarks are limited to 120 per
+hour, topic likes to 180 per hour, and progress changes to 1,000 per hour.
+When an action limit is reached, the batch returns a deferred receipt for the
+first unprocessed operation. Earlier successful receipts are retained and
+acknowledged; the deferred operation remains queued for a later retry. The
+native app displays that saved changes are waiting for the limit to reset,
+keeps sign-out blocked while the outbox is non-empty, and clears the message
+when syncing resumes. These limits are enforced in Postgres and cannot be
+bypassed by calling the RPC directly from a modified client.
+
+The in-process background worker retries failed requests after 30 seconds
+and normally checks for further changes every 60 seconds while the app is open
+and online. It is not an operating-system background task: closing the app
+stops network sync, but the durable outbox remains on disk and resumes on the
+next launch. A run uploads at most 100 operations and downloads at most 10
+change pages; if a limit is reached while work remains, it schedules another
+run. Each activity
+change page contains at most 100 server events. Snapshot pages contain at
+most 100 current activity records. These bounds prevent one reconnect from
+creating an unbounded request or transaction.
+
+Activity events are retained for approximately 31 days and pruned in bounded
+batches by a Supabase job that runs every five minutes. Acknowledged operation
+receipts and device-sequence mappings are discarded as the device confirms
+later operations; the device's server-side high-water marks remain, so old
+acknowledged sequence numbers cannot be replayed. Unacknowledged operations
+remain available for retry. Monitor both scheduled cleanup jobs and their
+latest run status in Supabase.
+
+The activity RPCs are account-bound: they compare the requested user with
+`auth.uid()`. Internal activity, receipt, device, and rate-limit tables are
+not directly exposed to anonymous or authenticated table access. RLS remains
+enabled on the public sync tables. The batch RPC is executable by authenticated
+users only. The existing single-operation `offline_apply_activity_v2` RPC
+remains available for compatibility and is subject to the same server-side
+per-account write limit. Do not grant
+clients direct write access to internal synchronization tables.
+
+#### Local account data and security
+
+Account activity, cached comments, topic counts, and note records are stored
+in the private local database. Android uses encrypted SQLite with a
+device-specific key protected by Android secure storage. Electron uses an
+encrypted SQLite database with its key protected by the operating system's
+secure storage; on Linux, a supported desktop secret-store backend is required.
+The catalogue is public content and is stored separately from private account
+data. Android backup and device-transfer rules exclude private activity
+databases and encryption keys.
+
+Bootstrap and history-expiry recovery stage snapshots before publication,
+preserving pending edits. Legacy activity and cache tables are copied
+transactionally, then the encrypted database is checked for integrity and its
+migration marker is verified before the plaintext database and SQLite
+sidecars are removed. Existing catalogue databases are checked on startup; a
+damaged catalogue is rebuilt from a validated bundled snapshot without
+touching private user data. Electron removes legacy activity database
+locations after verification; if cleanup fails, the private store remains
+usable and cleanup is retried on the next launch.
+
+Sign-in, sign-up, and profile changes require a connection. Sessions and
+encryption keys use Android Keystore-backed storage or Electron's
+operating-system secure storage. Signing out requires a connection and is
+blocked while activity is queued. Encryption keys are device-specific and
+excluded from Android backup; unsynchronized changes cannot be expected to
+transfer to another device. The app does not silently discard queued changes
+when an account signs out.
 
 Previously fetched comment discussions and counts can be read offline but may
 be incomplete or stale. Comment writes remain online-only. Notes can be edited
 online after the latest note has loaded; notes opened online are cached for
 read-only offline access. The latest 50 notifications and their unread count
-are stored in the encrypted account database. Notifications must first be
-loaded online; read changes made offline are queued and synced after reconnect.
-Marking all as read offline covers notifications known to that device, not
-notifications received afterwards. Reporting and moderation require an internet connection; native administrators can use the same moderation workflows as the website.
-Real-device upgrades, reconnects and packaged desktop releases still need
-end-to-end verification before distribution. Windows NSIS and Linux AppImage
-updates download in the background and install on app exit. Linux DEB updates
-also download automatically, but applying them requires system authorization
-through the package installer. macOS remains unsigned and uses a manual
+are stored in the private account database. Notifications must first be
+loaded online; read changes made offline are queued and synced after
+reconnect. Marking all as read offline covers notifications known to that
+device, not notifications received afterwards. Reporting and moderation
+require an internet connection; native administrators can use the same
+moderation workflows as the website.
+
+#### Operational and scale notes
+
+The database uses per-account activity revisions rather than a single global
+revision counter, so unrelated users do not contend on one shared activity
+head. The activity event stream, device receipts, rate-limit counters, and
+catalogue history have supporting indexes and bounded cleanup. The website
+uses keyset pagination for feed and category browsing, tagged caching for
+public content, and the ranked search GIN index; it does not download entire
+user activity tables to render a feed.
+
+These design choices bound normal requests and isolate most write contention
+by account, but they do not prove a particular concurrent-user capacity.
+Before a major public launch or a significant increase in traffic, run load
+tests against a separate staging Supabase project with representative data.
+Measure p50/p95/p99 API latency, database CPU and I/O, connection pool
+saturation, lock waits, slow queries, sync backlog drain time, and error rates.
+Test concurrent feed browsing, search, activity batches, comments, and
+reconnect storms. Do not run destructive or high-volume load tests against
+production. Increase Supabase compute and connection-pool capacity based on
+measured saturation, not estimated user counts.
+
+Real-device upgrades, reconnects, long-offline recovery, account switching,
+and packaged desktop releases still need end-to-end verification before
+distribution. Windows NSIS and Linux AppImage updates download in the
+background and install on app exit. Linux DEB updates also download
+automatically, but applying them requires system authorization through the
+package installer. macOS remains unsigned and uses a manual
 download-and-reinstall update flow.
 
 Signed-in feed recommendations require the `get_my_recommendation_page` RPC and supporting indexes supplied separately for Supabase. It aggregates each user's completed topics (weight 5), bookmarks (4), likes (3), and distinct commented topics (3) across the published catalogue into category preferences. For each category, a weight of `1 + sqrt(preference)` reduces the effect of very large histories while allowing every category to be explored. The RPC takes the next unfinished topic from indexed category streams, selecting the category with the smallest `served / weight` and avoiding three consecutive topics from the same category when alternatives exist. This approximates a globally personalized ranking without loading or sorting the whole catalogue. The per-category cursor and preference snapshot are carried across pages; a refresh picks up changed preferences. Progress is checked as pages load, and content edits or unpublishing can change subsequent results. If every topic is complete, the initial page falls back to completed topics. The cursor is limited to 200 published categories and 64 KiB; the RPC rejects larger catalogues explicitly. Recommendation responses are private and uncached. Signed-out users retain the shuffled feed.
@@ -510,6 +686,22 @@ The focus for now remains on growing the content library and improving the core 
 CathoScroll is deployed on [Vercel](https://vercel.com) and uses [Supabase](https://supabase.com) for authentication, database storage, and user management.
 
 Before deploying, configure the required environment variables in both Vercel and Supabase.
+
+### Supabase database recovery and bootstrap
+
+[`docs/cathoscroll-database-bootstrap.sql`](docs/cathoscroll-database-bootstrap.sql) is the consolidated snapshot of CathoScroll's application-owned PostgreSQL schema. It recreates the 27 application tables, constraints, indexes, 61 functions, 33 triggers, RLS configuration and policies, grants, the RLS DDL event trigger, and both scheduled retention jobs. It includes the ranked-search setup and current offline-sync protections.
+
+Use this file when creating a **fresh Supabase project** to restore the application schema:
+
+1. Create a new Supabase project using the same PostgreSQL major version as the source project.
+2. Open the new project's SQL Editor and run the complete bootstrap file once.
+3. Confirm that both retention jobs exist and are succeeding, then verify the RLS policies, function grants, and PostgREST RPCs.
+4. The bootstrap already seeds the 15 categories and 86 topics present at export time. Restore any additional or newer content and all required user data from a separate data export.
+5. Reconfigure Auth providers and redirect URLs, project secrets, Storage buckets/policies if used, Edge Functions, API settings, and the matching Vercel environment variables.
+
+The bootstrap intentionally refuses to run if CathoScroll application tables already exist. **Do not run it against the existing production project or use it as an upgrade script.** It restores schema and the public category/topic catalogue snapshot, not a full database backup: it does not restore Auth users/passwords, profile records, admin-owner/admin-role assignments, bookmarks, comments, notes, notifications, moderation history, other user-generated rows, Storage objects, Auth settings, API keys, secrets, Edge Functions, or Supabase-managed platform internals. The `profiles` table and its restricted column-level grants are part of the schema bootstrap, but profile rows must be restored separately. This bootstrap is not a substitute for Supabase's managed backups or point-in-time recovery. Use those for full-project recovery where available, and keep a separate, regularly tested backup of database data and project configuration.
+
+This is the single canonical SQL source for rebuilding the application database schema. Update it whenever application database objects change, and test it on a disposable Supabase project before relying on it for disaster recovery. Do not maintain a chain of manually applied SQL patches as a substitute for this snapshot.
 
 ## License
 

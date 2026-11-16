@@ -541,7 +541,14 @@ export class OfflineActivityStore {
   }
 
   async nextOperation(userId: string): Promise<PendingActivity | null> {
+    return (await this.nextOperations(userId, 1))[0] ?? null;
+  }
+
+  async nextOperations(userId: string, limit = 100): Promise<PendingActivity[]> {
     assertKey(userId, 'user ID');
+    if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100) {
+      throw new Error('Invalid offline activity batch size.');
+    }
     return this.database.transaction(async (db) => {
       const rows = await db.query(
         `SELECT outbox.operation_id, outbox.user_id, outbox.topic_id, outbox.kind,
@@ -550,26 +557,34 @@ export class OfflineActivityStore {
                 CAST(COALESCE(ack.sequence, 0) AS TEXT) AS acknowledged_sequence
          FROM offline_activity_outbox outbox
          LEFT JOIN offline_activity_acknowledgements ack ON ack.user_id = outbox.user_id
-         WHERE outbox.user_id = ? ORDER BY outbox.sequence LIMIT 1`,
-        [userId]
+         WHERE outbox.user_id = ? ORDER BY outbox.sequence LIMIT ?`,
+        [userId, limit]
       );
-      if (!rows.length) return null;
-      const { device_id, sequence, acknowledged_sequence } = rows[0];
-      if (
-        typeof device_id !== 'string' ||
-        typeof sequence !== 'string' ||
-        typeof acknowledged_sequence !== 'string' ||
-        revision(sequence) <= revision(acknowledged_sequence)
-      ) {
-        throw new Error('The offline activity device sequence is invalid.');
+      if (!rows.length) return [];
+      const { device_id } = rows[0];
+      if (typeof device_id !== 'string') {
+        throw new Error('The offline activity device sequence identity is invalid.');
       }
       assertKey(device_id, 'activity device ID');
-      return {
-        ...parseActivity(rows[0]),
-        deviceId: device_id,
-        sequence,
-        acknowledgedSequence: acknowledged_sequence,
-      };
+      const acknowledgedSequence = rows[0].acknowledged_sequence;
+      const operations: PendingActivity[] = [];
+      for (const row of rows) {
+        const { sequence } = row;
+        if (
+          typeof sequence !== 'string' ||
+          typeof acknowledgedSequence !== 'string' ||
+          revision(sequence) <= revision(acknowledgedSequence)
+        ) {
+          throw new Error('The offline activity device sequence is invalid.');
+        }
+        operations.push({
+          ...parseActivity(row),
+          deviceId: device_id,
+          sequence,
+          acknowledgedSequence,
+        });
+      }
+      return operations;
     });
   }
 
