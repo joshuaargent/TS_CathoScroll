@@ -201,8 +201,8 @@ export function SponsorManager({ sponsors, memberships }: { sponsors: SponsorRec
           <h2 className="text-2xl font-bold">Create sponsor</h2>
           <p className="text-text-secondary mt-2 max-w-3xl text-sm">
             Record a sponsor and its agreed placement period. Payments are made directly to the
-            CathoScroll bank account and reconciled manually here; this form does not collect bank
-            details or initiate a payment.
+            CathoScroll bank account. Issue invoices and reconcile transfers in Sponsor financials
+            below; this form does not collect bank details or initiate a payment.
           </p>
         </div>
 
