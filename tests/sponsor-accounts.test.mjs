@@ -40,12 +40,16 @@ test('sponsor memberships are private and support scoped organisation roles', ()
 test('admin sponsor membership changes are audited and service-role-only', () => {
   const add = functionBody('public.admin_add_sponsor_member');
   const status = functionBody('public.admin_set_sponsor_member_status');
+  const lookup = functionBody('public.admin_find_sponsor_user_by_email');
   assert.match(add, /public\.admin_users/);
   assert.match(add, /ON CONFLICT \(sponsor_id, user_id\) DO UPDATE/);
   assert.match(add, /sponsor\.member_added/);
   assert.match(status, /public\.admin_users/);
   assert.match(status, /'suspend', 'reactivate', 'revoke'/);
   assert.match(status, /sponsor\.member_/);
+  assert.match(lookup, /auth\.users/);
+  assert.match(lookup, /lower\(users\.email\)/);
+  assert.match(bootstrap, /GRANT EXECUTE ON FUNCTION public\.admin_find_sponsor_user_by_email[^;]+TO service_role/);
   assert.match(bootstrap, /GRANT EXECUTE ON FUNCTION public\.admin_add_sponsor_member[^;]+TO service_role/);
   assert.match(bootstrap, /GRANT EXECUTE ON FUNCTION public\.admin_set_sponsor_member_status[^;]+TO service_role/);
 });
@@ -72,7 +76,7 @@ test('sponsor analytics are aggregate-only and require active organisation membe
 
 test('admin account assignment resolves an existing Auth user and supports revocation', () => {
   assert.match(membershipRoute, /getAdminSessionFromRequest/);
-  assert.match(membershipRoute, /auth\.admin\.listUsers/);
+  assert.match(membershipRoute, /admin_find_sponsor_user_by_email/);
   assert.match(membershipRoute, /No CathoScroll account exists/);
   assert.match(membershipRoute, /admin_add_sponsor_member/);
   assert.match(membershipRoute, /admin_set_sponsor_member_status/);
