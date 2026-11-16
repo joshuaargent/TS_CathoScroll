@@ -3761,7 +3761,7 @@ BEGIN
           WHEN limits.window_started_at <= statement_timestamp() - interval '1 minute' THEN EXCLUDED.event_count
           ELSE limits.event_count + EXCLUDED.event_count END
   RETURNING event_count INTO v_count;
-  IF v_count > 120 THEN RAISE EXCEPTION 'Analytics event rate limit exceeded' USING ERRCODE = 'P0001'; END IF;
+  IF v_count > 120 THEN RETURN -1; END IF;
 
   FOR v_event IN SELECT value FROM jsonb_array_elements(p_events)
   LOOP
