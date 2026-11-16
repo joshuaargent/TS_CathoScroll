@@ -91,14 +91,20 @@ Recommendation smoke tests used rollback-only fixtures to verify per-signal caps
 - Verify native analytics ingestion and the comment card in Android and Electron builds.
 - Exercise comment gestures, discussion deep links, pagination boundaries, account switching and moderation refresh.
 - Run category aggregation with multiple topic fixtures and inspect query plans with representative event volume.
-- Do not enable sponsor campaigns or quiz cards until their own data models, reporting, eligibility and security work is implemented and tested.
+- Sponsor campaign delivery and reporting are implemented but remain inventory-empty in production until real sponsors and approved campaigns exist. Quiz cards remain out of scope.
 
 
-## Manual sponsor registration
+## Sponsor accounts and organisation permissions
 
-The current PR also adds a private administrator-only sponsor register at `/admin/sponsors`. Sponsor records live in `public.sponsors`, with RLS enabled and direct table privileges revoked from `anon` and `authenticated`. Only the server-side service role can read the table. Creation goes through `public.admin_create_sponsor`, which is executable only by `service_role`, verifies that the supplied actor is an administrator, writes the sponsor row and appends an audit record in the same database transaction.
+The sponsor register at `/admin/sponsors` is private. Administrators can link an existing Supabase Auth account to a sponsor by exact email, assign owner/manager/analyst roles, and suspend, reactivate or revoke access. Account lookup returns only a user UUID through an admin-only database function; it does not enumerate users, create Auth accounts, send invitations or change email verification. The database prevents the last active owner from being suspended or revoked.
 
-The form records the agreed amount in minor currency units, currency, placement dates, status, contact/creative metadata and manually reconciled bank-transfer state/reference. An administrator can create a record as awaiting payment and later use the **Mark received** action after confirming the transfer in the bank account; the receipt timestamp is set by the server and the action is audit logged. No bank details are stored and no payment provider or transfer is initiated. Creating a sponsor record alone does not publish an advert. Separately approved, paid and in-date campaigns are delivered through the authenticated weighted sponsored-feed API and measured through private campaign events and daily aggregates. Sponsor records remain private; sponsor self-service accounts, campaign editing, anonymous-user frequency controls and billing remain future work.
+The sponsor portal is `/sponsor`. Owners and managers can submit campaign creative and edit draft, pending-approval or rejected submissions. Analysts are read-only. Sponsor users see only their organisation's campaigns, aggregate metrics, invoices and bank-transfer records. They cannot set paid delivery weight or caps, approve their own campaigns, edit approved/paused campaigns or access raw user-level events. Campaign changes require administrator approval.
+
+## Invoice and bank-transfer reconciliation
+
+Sponsor payments remain direct bank transfers outside CathoScroll. Administrators create and issue invoices from the sponsor management page, then record the actual amount received after checking the bank statement. The private ledger supports partial payments, outstanding balances, optional unique bank-statement transaction IDs, duplicate protection and refunds linked to original payments. Overpayments and over-refunds are rejected. Invoice currency must match the sponsor agreement.
+
+Sponsor payment eligibility is recalculated from the agreed amount and all outstanding issued invoices. Creating an invoice returns the sponsor to pending payment status; fully reconciling all invoices and the agreed amount sets payment status to received. The former direct **Mark received** override is disabled. The app does not store bank account details, initiate transfers or use a payment processor. CSV statement imports, automatic matching and formal tax-compliant invoice PDF/email delivery remain future work.
 
 
 ## Daily analytics rollups and long-term query scaling
@@ -125,4 +131,4 @@ Weighted delivery is handled by `public.get_weighted_sponsor_campaigns`, which i
 
 `catho_private.sponsor_campaign_daily` stores user-free per-campaign/day served, viewable and click counts. The administrator campaign page reads 30-day metrics through `public.get_admin_sponsor_campaign_analytics`, an admin-verified, aggregate-only RPC. `catho_private.sponsor_campaign_user_frequency` stores the minimum per-user/campaign counters required to enforce frequency limits. Raw events are pruned in bounded batches after 180 days; frequency rows are removed in bounded batches after a campaign has ended for 180 days. The retention job also marks expired approved/paused campaigns completed, including campaigns whose sponsor has ended. Daily campaign totals contain no user IDs and remain available for historical reporting.
 
-The feed inserts a sponsor card after approximately ten topic advances, with a maximum of five campaign positions in one card. Campaign delivery is only requested for authenticated users in this release. Sponsor self-service accounts, campaign editing, anonymous visitor caps, invoices and bank integrations are intentionally out of scope.
+The feed inserts Top Comments every five topic advances and sponsor placements every ten topic advances, on independent schedules. If both are due at the tenth-topic boundary, Top Comments appears first and the sponsored card follows before the next topic. A missing inventory item suppresses only that card. A sponsor card can show up to five campaign positions. Campaign delivery is only requested for authenticated users in this release. Anonymous visitor frequency caps, bank statement imports, automatic matching and invoice PDF/email delivery remain out of scope.
