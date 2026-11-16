@@ -10,14 +10,12 @@
 }
 
 /*
- * Native routes share page components with the website, but the native shell
- * already accounts for the fixed navbar with its spacer. Remove any additional
- * top margin applied to the page root or its first heading wrapper so every
- * native page starts at the same content offset as the website. Match by the
- * presence of the page's h1 rather than DOM position alone: the native shell
- * can also render hidden feed content before the active route.
+ * The website and native shell both reserve the fixed navbar's 64px height
+ * and use the same container vertical padding. Several shared page headers
+ * also carry desktop-oriented top margins, which compound that padding in
+ * the native shell. Reset only the first content block inside native page
+ * containers; page-internal spacing and the Search page remain unchanged.
  */
-.native-content > :has(h1),
-.native-content > :has(h1) > :first-child:has(h1) {
+.native-content > .container.py-12 > :first-child {
   margin-top: 0;
 }
