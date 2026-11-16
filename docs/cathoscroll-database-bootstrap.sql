@@ -1455,7 +1455,6 @@ BEGIN
   WITH topic_scores AS (
     SELECT
       e.entity_id,
-      count(*) FILTER (WHERE e.event_type = 'skip') AS skip_count,
       least(
         1.20::numeric,
         coalesce(sum(
@@ -1527,21 +1526,7 @@ BEGIN
               )
             )
         ) FILTER (WHERE e.event_type = 'return_visit'), 0)
-      ) AS return_score,
-      least(
-        3.00::numeric,
-        coalesce(sum(
-          1.50::numeric
-          * pg_catalog.power(
-              0.5::numeric,
-              greatest(
-                0::numeric,
-                extract(epoch FROM (pg_catalog.statement_timestamp() - e.received_at))::numeric
-                  / 2592000
-              )
-            )
-        ) FILTER (WHERE e.event_type = 'skip'), 0)
-      ) AS negative_score
+      ) AS return_score
     FROM catho_private.feed_analytics_events AS e
     WHERE e.user_id = p_user_id
       AND e.received_at >= pg_catalog.statement_timestamp() - interval '90 days'
@@ -1549,33 +1534,64 @@ BEGIN
       AND e.event_type IN (
         'viewable_impression',
         'active_duration',
-        'skip',
         'swipe_depth',
         'completion',
         'return_visit'
       )
     GROUP BY e.entity_id
   ),
+  skip_by_session AS (
+    SELECT
+      e.entity_id,
+      e.session_id,
+      max(
+        1.50::numeric
+        * pg_catalog.power(
+            0.5::numeric,
+            greatest(
+              0::numeric,
+              extract(epoch FROM (pg_catalog.statement_timestamp() - e.received_at))::numeric
+                / 2592000
+            )
+          )
+      ) AS session_skip_score
+    FROM catho_private.feed_analytics_events AS e
+    WHERE e.user_id = p_user_id
+      AND e.event_type = 'skip'
+      AND e.received_at >= pg_catalog.statement_timestamp() - interval '90 days'
+      AND e.received_at < pg_catalog.statement_timestamp()
+    GROUP BY e.entity_id, e.session_id
+  ),
+  skip_scores AS (
+    SELECT
+      skip_by_session.entity_id,
+      count(*) AS skip_session_count,
+      least(3.00::numeric, sum(skip_by_session.session_skip_score)) AS negative_score
+    FROM skip_by_session
+    GROUP BY skip_by_session.entity_id
+  ),
+  combined_topic_scores AS (
+    SELECT
+      coalesce(topic_scores.entity_id, skip_scores.entity_id) AS entity_id,
+      coalesce(topic_scores.viewable_score, 0)
+        + coalesce(topic_scores.duration_score, 0)
+        + coalesce(topic_scores.depth_score, 0)
+        + coalesce(topic_scores.completion_score, 0)
+        + coalesce(topic_scores.return_score, 0)
+        + CASE
+            WHEN coalesce(skip_scores.skip_session_count, 0) >= 2
+              THEN -coalesce(skip_scores.negative_score, 0)
+            ELSE 0::numeric
+          END AS raw_topic_weight
+    FROM topic_scores
+    FULL OUTER JOIN skip_scores
+      ON skip_scores.entity_id = topic_scores.entity_id
+  ),
   bounded_topic_scores AS (
     SELECT
-      topic_scores.entity_id,
-      greatest(
-        -4::numeric,
-        least(
-          6::numeric,
-          topic_scores.viewable_score
-          + topic_scores.duration_score
-          + topic_scores.depth_score
-          + topic_scores.completion_score
-          + topic_scores.return_score
-          + CASE
-              WHEN topic_scores.skip_count >= 2
-                THEN -topic_scores.negative_score
-              ELSE 0::numeric
-            END
-        )
-      ) AS topic_weight
-    FROM topic_scores
+      combined_topic_scores.entity_id,
+      greatest(-4::numeric, least(6::numeric, combined_topic_scores.raw_topic_weight)) AS topic_weight
+    FROM combined_topic_scores
   )
   SELECT
     t.category_slug,
