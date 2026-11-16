@@ -74,7 +74,7 @@ export async function POST(request: Request) {
   }
 
   if (data === -1) {
-    return respond(request, { error: 'Analytics event rate limit exceeded.' }, 429);
+    return respond(request, { error: 'Analytics event rate limit exceeded.' }, 429, rateLimitResponseHeaders(60));
   }
 
   if (typeof data !== 'number' || !Number.isSafeInteger(data) || data < 0 || data > 50) {
