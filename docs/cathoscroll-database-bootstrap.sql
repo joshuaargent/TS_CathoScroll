@@ -4979,6 +4979,12 @@ CREATE TABLE catho_private.sponsor_campaign_events (
 CREATE INDEX sponsor_campaign_events_campaign_time_idx ON catho_private.sponsor_campaign_events (campaign_id, received_at DESC);
 CREATE INDEX sponsor_campaign_events_user_campaign_time_idx ON catho_private.sponsor_campaign_events (user_id, campaign_id, received_at DESC);
 CREATE INDEX sponsor_campaign_events_received_at_idx ON catho_private.sponsor_campaign_events (received_at);
+CREATE UNIQUE INDEX sponsor_campaign_events_one_viewable_per_session_idx
+  ON catho_private.sponsor_campaign_events (campaign_id, user_id, session_id)
+  WHERE event_type = 'viewable_impression';
+CREATE UNIQUE INDEX sponsor_campaign_events_one_click_per_session_idx
+  ON catho_private.sponsor_campaign_events (campaign_id, user_id, session_id)
+  WHERE event_type = 'click';
 
 CREATE TABLE catho_private.sponsor_campaign_daily (
   event_date date NOT NULL,
@@ -5270,7 +5276,7 @@ BEGIN
   INSERT INTO catho_private.sponsor_campaign_events
     (campaign_id,event_id,user_id,session_id,event_type,received_at)
   VALUES (p_campaign_id,p_event_id,p_user_id,p_session_id,p_event_type,pg_catalog.statement_timestamp())
-  ON CONFLICT (campaign_id,event_id) DO NOTHING;
+  ON CONFLICT DO NOTHING;
   GET DIAGNOSTICS v_inserted = ROW_COUNT;
   IF v_inserted=0 THEN RETURN false; END IF;
 
