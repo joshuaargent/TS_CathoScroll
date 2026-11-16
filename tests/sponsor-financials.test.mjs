@@ -81,7 +81,8 @@ test('legacy direct payment status override is revoked and new sponsors cannot b
   assert.doesNotMatch(bootstrap.slice(legacyPaymentRevoke), /GRANT EXECUTE ON FUNCTION public\.admin_mark_sponsor_payment_received/);
   const createSponsor = functionBody('public.admin_create_sponsor');
   assert.match(createSponsor, /p_payment_status NOT IN \('pending', 'not_required'\)/);
-  assert.match(createSponsor, /reconcile payments through an invoice/);
+  assert.match(createSponsor, /p_payment_status = 'not_required' AND coalesce\(p_agreed_amount_minor, 0\) > 0/);
+  assert.match(createSponsor, /agreed fee must use pending payment and invoice reconciliation/);
 });
 
 test('financial API routes enforce administrator, MFA, same-origin and rate limits', () => {
