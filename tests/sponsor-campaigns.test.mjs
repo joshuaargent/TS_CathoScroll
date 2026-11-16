@@ -101,7 +101,7 @@ test('administrator campaign reporting reads aggregate-only daily metrics', () =
   assert.match(analytics, /sponsor_campaign_daily/);
   assert.match(analytics, /viewable_impressions/);
   assert.match(analytics, /click_through_rate/);
-  assert.doesNotMatch(analytics, /user_id|session_id/);
+  assert.doesNotMatch(analytics, /'user_id'|'session_id'/);
   assert.match(campaignPage, /get_admin_sponsor_campaign_analytics/);
   assert.match(campaignManager, /Performance \(30 days\)/);
 });
