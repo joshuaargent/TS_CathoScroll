@@ -80,7 +80,7 @@ export async function POST(request: Request, { params }: RouteContext) {
   if (
     typeof email !== 'string' ||
     email.trim().length > 254 ||
-    !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email.trim()) ||
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) ||
     typeof role !== 'string' ||
     !['owner', 'manager', 'analyst'].includes(role)
   ) {
