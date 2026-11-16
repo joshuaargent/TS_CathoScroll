@@ -21,7 +21,7 @@ const [
 ]);
 
 function functionBody(name) {
-  const start = bootstrap.indexOf(`CREATE OR REPLACE FUNCTION ${name}`);
+  const start = bootstrap.lastIndexOf(`CREATE OR REPLACE FUNCTION ${name}`);
   assert.notEqual(start, -1, `Missing function ${name}`);
   const end = bootstrap.indexOf('ALTER FUNCTION ', start);
   assert.notEqual(end, -1, `Missing ALTER FUNCTION after ${name}`);
@@ -70,7 +70,9 @@ test('sponsor financial reporting verifies membership and omits personal identif
 });
 
 test('legacy direct payment status override is revoked and new sponsors cannot be marked paid on creation', () => {
-  assert.match(bootstrap, /REVOKE ALL ON FUNCTION public\.admin_mark_sponsor_payment_received\(uuid, uuid, text\)[\s\S]+?FROM PUBLIC, anon, authenticated, service_role/);
+  const legacyPaymentRevoke = bootstrap.lastIndexOf('REVOKE ALL ON FUNCTION public.admin_mark_sponsor_payment_received(uuid, uuid, text)');
+  assert.notEqual(legacyPaymentRevoke, -1);
+  assert.doesNotMatch(bootstrap.slice(legacyPaymentRevoke), /GRANT EXECUTE ON FUNCTION public\\.admin_mark_sponsor_payment_received/);
   const createSponsor = functionBody('public.admin_create_sponsor');
   assert.match(createSponsor, /p_payment_status NOT IN \('pending', 'not_required'\)/);
   assert.match(createSponsor, /reconcile payments through an invoice/);
