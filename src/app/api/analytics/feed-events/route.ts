@@ -67,13 +67,14 @@ export async function POST(request: Request) {
   });
 
   if (error) {
-    if (error.code === 'P0001') {
-      return respond(request, { error: 'Analytics event rate limit exceeded.' }, 429);
-    }
     if (error.code === '42501') return respond(request, { error: 'Authentication required.' }, 401);
     if (error.code === '22023') return respond(request, { error: 'Invalid analytics event batch.' }, 400);
     console.error('Unable to record feed analytics:', error.message);
     return respond(request, { error: 'Unable to record analytics.' }, 503);
+  }
+
+  if (data === -1) {
+    return respond(request, { error: 'Analytics event rate limit exceeded.' }, 429);
   }
 
   if (typeof data !== 'number' || !Number.isSafeInteger(data) || data < 0 || data > 50) {
