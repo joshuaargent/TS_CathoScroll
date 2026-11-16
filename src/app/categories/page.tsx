@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import Link from 'next/link';
 import type { Metadata } from 'next';
 
@@ -5,6 +6,8 @@ import { getPublishedCategories, getPublishedTopicCount } from '@/lib/content';
 import { siteConfig } from '@/lib/constants';
 import { Badge } from '@/components/ui/Badge';
 import { CategoriesGrid } from '@/components/categories/CategoriesGrid';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { NativeGridSkeleton } from '../../../native/skeletons';
 
 export const metadata: Metadata = {
   title: 'Categories',
@@ -40,27 +43,57 @@ export const metadata: Metadata = {
 
 export const dynamic = 'force-dynamic';
 
-export default async function CategoriesPage() {
-  const [categories, totalTopics] = await Promise.all([
-    getPublishedCategories(),
-    getPublishedTopicCount(),
-  ]);
+async function CategoriesCount({
+  categoriesPromise,
+  topicCountPromise,
+}: {
+  categoriesPromise: ReturnType<typeof getPublishedCategories>;
+  topicCountPromise: ReturnType<typeof getPublishedTopicCount>;
+}) {
+  const [categories, totalTopics] = await Promise.all([categoriesPromise, topicCountPromise]);
+
+  return (
+    <div className="mt-6">
+      <Badge variant="accent" size="lg">
+        {categories.length} Categories • {totalTopics} Topics
+      </Badge>
+    </div>
+  );
+}
+
+async function CategoriesGridContent({
+  categoriesPromise,
+}: {
+  categoriesPromise: ReturnType<typeof getPublishedCategories>;
+}) {
+  const categories = await categoriesPromise;
+  return <CategoriesGrid categories={categories} />;
+}
+
+function CategoriesCountSkeleton() {
+  return <div className="mt-6"><Skeleton className="h-8 w-44" /></div>;
+}
+
+export default function CategoriesPage() {
+  const categoriesPromise = getPublishedCategories();
+  const topicCountPromise = getPublishedTopicCount();
 
   return (
     <main className="container py-12">
       <div className="mt-8 mb-16">
         <h1 className="text-5xl font-extrabold md:text-7xl">Categories</h1>
-
         <p className="text-text-secondary mt-4 text-lg">Browse the Catholic faith by topic.</p>
-
-        <div className="mt-6">
-          <Badge variant="accent" size="lg">
-            {categories.length} Categories • {totalTopics} Topics
-          </Badge>
-        </div>
+        <Suspense fallback={<CategoriesCountSkeleton />}>
+          <CategoriesCount
+            categoriesPromise={categoriesPromise}
+            topicCountPromise={topicCountPromise}
+          />
+        </Suspense>
       </div>
 
-      <CategoriesGrid categories={categories} />
+      <Suspense fallback={<NativeGridSkeleton label="Loading categories" />}>
+        <CategoriesGridContent categoriesPromise={categoriesPromise} />
+      </Suspense>
 
       <section className="border-border mt-16 border-t pt-8 text-center">
         <Link

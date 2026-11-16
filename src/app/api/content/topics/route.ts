@@ -1,12 +1,27 @@
 import { NextResponse } from 'next/server';
 
 import { getPublishedTopicPage } from '@/lib/content';
+import { checkTrustedIpRateLimit, rateLimitResponseHeaders } from '@/lib/security/api-rate-limit';
 
 const cacheHeaders = {
   'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=3600',
 };
 
 export async function GET(request: Request) {
+  const rateLimit = await checkTrustedIpRateLimit(request, 'topics:ip', 120, 60);
+  if (rateLimit && !rateLimit.allowed) {
+    return NextResponse.json(
+      { error: rateLimit.unavailable ? 'Topics are temporarily unavailable.' : 'Too many topic requests. Please wait.' },
+      {
+        status: rateLimit.unavailable ? 503 : 429,
+        headers: {
+          'Cache-Control': 'private, no-store',
+          ...rateLimitResponseHeaders(rateLimit.retryAfterSeconds),
+        },
+      }
+    );
+  }
+
   const searchParams = new URL(request.url).searchParams;
   const afterOrder = searchParams.get('afterOrder');
   const afterId = searchParams.get('afterId');

@@ -3,7 +3,7 @@ import { Loader2 } from 'lucide-react';
 import { useSignInPrompt } from '@/components/providers/SignInPromptProvider';
 import { TopicNotesEditor } from '@/components/topic/TopicNotesEditor';
 import type { CachedNote, NativeNoteCache } from './note-cache';
-import { saveNativeNote } from './note-operations';
+import { loadNativeNote, saveNativeNote } from './note-operations';
 import {
   nativeNoteSaveKey,
   updateNativeNoteSaveState,
@@ -76,71 +76,70 @@ export function NativeNotes({
     let active = true;
     const accountId = userId;
     async function load() {
-      let note: CachedNote | null = null;
-      let warning = '';
-      let cacheReadable = true;
-      setState({ userId: accountId, topicId, note, loading: true, warning, verified: false });
-      try {
-        note = await cache.load(accountId, topicId);
-      } catch (error) {
-        console.error('Unable to load saved note:', error);
-        cacheReadable = false;
-        warning = 'Your saved note could not be opened on this device.';
-      }
-      if (!active) return;
-      if (!dirty.current) {
-        draft.current = note?.content ?? '';
-        setContent(draft.current);
-      }
-      setState({ userId: accountId, topicId, note, loading: false, warning, verified: false });
-      if (!navigator.onLine) return;
-      try {
-        const client = createClient();
-        const { data: sessionData, error: sessionError } = await client.auth.getSession();
-        if (sessionError) throw sessionError;
-        if (sessionData.session?.user.id !== accountId) {
-          throw new Error('The active account changed while loading a note.');
-        }
-        const result = await client
-          .from('notes')
-          .select('content')
-          .eq('user_id', accountId)
-          .eq('topic_id', topicId)
-          .maybeSingle();
-        if (result.error) throw result.error;
-        const row: unknown = result.data;
-        const content = noteContent(row);
-        if (!active) return;
-        note = { content, savedAt: new Date().toISOString() };
-        if (!dirty.current) {
-          draft.current = content ?? '';
-          setContent(draft.current);
-        }
-        if (cacheReadable) {
-          try {
-            await cache.save(accountId, topicId, content);
-            warning = '';
-          } catch (error) {
-            console.error('Unable to save note for offline viewing:', error);
-            warning = 'This note could not be saved for offline viewing.';
+      setState({ userId: accountId, topicId, note: null, loading: true, warning: '', verified: false });
+      const result = await loadNativeNote(
+        cache,
+        accountId,
+        topicId,
+        navigator.onLine
+          ? async () => {
+              const client = createClient();
+              const { data: sessionData, error: sessionError } = await client.auth.getSession();
+              if (sessionError) throw sessionError;
+              if (sessionData.session?.user.id !== accountId) {
+                throw new Error('The active account changed while loading a note.');
+              }
+              const response = await client
+                .from('notes')
+                .select('content')
+                .eq('user_id', accountId)
+                .eq('topic_id', topicId)
+                .maybeSingle();
+              if (response.error) throw response.error;
+              return noteContent(response.data);
+            }
+          : null,
+        (cachedNote, cachedWarning) => {
+          if (!active) return;
+          if (!dirty.current) {
+            draft.current = cachedNote?.content ?? '';
+            setContent(draft.current);
           }
-        }
-        if (active) {
-          setState({ userId: accountId, topicId, note, loading: false, warning, verified: true });
-        }
-      } catch (error) {
-        console.error('Unable to refresh note:', error);
-        if (active) {
           setState({
             userId: accountId,
             topicId,
-            note,
+            note: cachedNote,
             loading: false,
-            warning: warning || 'Your note could not be refreshed. Please try again.',
+            warning: cachedWarning,
             verified: false,
           });
-        }
+        },
+        () => active
+      );
+
+      if (result.cacheLoadError) {
+        console.error('Unable to load saved note:', result.cacheLoadError);
       }
+      if (result.refreshError) {
+        console.error('Unable to refresh note:', result.refreshError);
+      }
+      if (result.cacheSaveError) {
+        console.error('Unable to save note for offline viewing:', result.cacheSaveError);
+      }
+      if (!active) return;
+
+      if (!dirty.current) {
+        draft.current = result.note?.content ?? '';
+        setContent(draft.current);
+      }
+      setState({
+        userId: accountId,
+        topicId,
+        note: result.note,
+        loading: false,
+        warning: result.warning,
+        verified: result.verified,
+      });
     }
     void load();
     return () => {

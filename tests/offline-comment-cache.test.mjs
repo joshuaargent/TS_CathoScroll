@@ -83,7 +83,8 @@ test('persists public comment trees without account-specific or deleted content'
     assert.equal(snapshot.comments[0].content, 'Hello');
     assert.equal(snapshot.comments[0].likedByUser, false);
     assert.equal(snapshot.comments[0].profile.bio, null);
-    assert.equal(snapshot.comments[0].profile.subscription_tier, 'free');
+    assert.equal(snapshot.comments[0].profile.subscription_tier, undefined);
+    assert.equal(snapshot.comments[0].profile.created_at, undefined);
     assert.equal(snapshot.comments[0].replies[0].content, '');
     assert.ok(!Number.isNaN(Date.parse(snapshot.savedAt)));
     assert.equal(await cache.load('other'), null);

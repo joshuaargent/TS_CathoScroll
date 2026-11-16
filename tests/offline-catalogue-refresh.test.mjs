@@ -481,3 +481,19 @@ test('falls back to a snapshot when the incremental page limit is reached', asyn
     db.close();
   }
 });
+
+
+test('accepts large multilingual topic content without truncation or corrupting the snapshot', async () => {
+  const { db, adapter, transport, topics } = fixture();
+  try {
+    const largeAnswer = ('Faith, hope, and charity — 🕊️ e\u0301\n').repeat(100_000);
+    topics[0].answer = largeAnswer;
+    const service = new CatalogueRefresh(adapter, transport);
+    await service.initialize();
+    assert.equal(await service.refresh(), true);
+    const stored = db.prepare("SELECT answer FROM topics WHERE id = 'topic-000'").get().answer;
+    assert.equal(stored, largeAnswer);
+  } finally {
+    db.close();
+  }
+});

@@ -1,6 +1,6 @@
 {
   "name": "cathoscroll",
-  "version": "2.2.1",
+  "version": "2.2.2",
   "private": true,
   "description": "Learn Catholic teaching one swipe at a time",
   "scripts": {
@@ -74,5 +74,10 @@
   },
   "allowScripts": {
     "unrs-resolver@1.12.2": true
+  },
+  "overrides": {
+    "serialize-javascript@4.0.0": "7.1.4",
+    "minimatch@10.2.6": "11.0.8",
+    "uuid@7.0.3": "11.1.1"
   }
 }

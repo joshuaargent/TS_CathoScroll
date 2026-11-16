@@ -3,6 +3,7 @@
 import { Bell, CheckCheck, MessageCircle, ShieldAlert, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { NativeNotificationsSkeleton } from '../../../native/skeletons';
 
 export interface Notification {
   id: number;
@@ -206,9 +207,7 @@ export function NotificationList({
       )}
 
       {loading ? (
-        <article className="border-border rounded-2xl border p-6">
-          <p className="text-text-secondary">Loading notifications...</p>
-        </article>
+        <NativeNotificationsSkeleton />
       ) : error ? null : notifications.length === 0 ? (
         <article className="border-border rounded-2xl border p-8 text-center">
           <Bell className="text-text-muted mx-auto h-8 w-8" aria-hidden="true" />

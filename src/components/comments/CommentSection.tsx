@@ -21,13 +21,37 @@ interface CommentSectionProps {
   supabaseClient?: SupabaseClient;
 }
 
-const fallbackProfile: Profile = {
+interface CommentFeedRow {
+  id: number;
+  topic_id: string;
+  user_id: string;
+  parent_id: number | null;
+  content: string;
+  created_at: string;
+  edited_at: string | null;
+  is_deleted: boolean;
+  is_pinned: boolean;
+  likes: number;
+  liked_by_user: boolean;
+}
+
+interface CommentPageCursor {
+  created_at: string;
+  id: number;
+}
+
+interface CommentPageResult {
+  comments: CommentFeedRow[];
+  has_more: boolean;
+  next_cursor: CommentPageCursor | null;
+  total_count: number;
+}
+
+const fallbackProfile: Pick<Profile, 'id' | 'username' | 'display_name' | 'bio'> = {
   id: '',
   username: 'unknown',
   display_name: 'Unknown User',
   bio: null,
-  created_at: '',
-  subscription_tier: 'free',
 };
 
 /**
@@ -147,6 +171,21 @@ function cloneAndSortComments(comments: Comment[], sorter: (comments: Comment[])
   return cloned;
 }
 
+function flattenCommentTree(comments: Comment[]): Comment[] {
+  const flattened: Comment[] = [];
+
+  function visit(nodes: Comment[]) {
+    nodes.forEach((comment) => {
+      const { replies, ...commentWithoutReplies } = comment;
+      flattened.push({ ...commentWithoutReplies, replies: [] });
+      visit(replies);
+    });
+  }
+
+  visit(comments);
+  return flattened;
+}
+
 export function CommentSection({
   topicId,
   cache,
@@ -156,6 +195,20 @@ export function CommentSection({
   const requestSignIn = useSignInPrompt();
   const getClient = useCallback(() => supabaseClient ?? createClient(), [supabaseClient]);
   const [comments, setComments] = useState<Comment[]>([]);
+  const commentsRef = useRef<Comment[]>([]);
+  const commitComments = useCallback(
+    (next: Comment[] | ((previous: Comment[]) => Comment[])) => {
+      const resolved = typeof next === 'function' ? next(commentsRef.current) : next;
+      commentsRef.current = resolved;
+      setComments(resolved);
+    },
+    []
+  );
+  const [hasMoreComments, setHasMoreComments] = useState(false);
+  const [nextCommentCursor, setNextCommentCursor] = useState<CommentPageCursor | null>(null);
+  const [loadingMoreComments, setLoadingMoreComments] = useState(false);
+  const [loadMoreError, setLoadMoreError] = useState('');
+  const [totalCommentCount, setTotalCommentCount] = useState<number | null>(null);
 
   const [loading, setLoading] = useState(true);
 
@@ -169,7 +222,7 @@ export function CommentSection({
 
   const [userId, setUserId] = useState<string | null>(null);
 
-  const [currentProfile, setCurrentProfile] = useState<Profile | null>(null);
+  const [currentProfile, setCurrentProfile] = useState<Pick<Profile, 'id' | 'username' | 'display_name' | 'bio'> | null>(null);
 
   const [canPinComments, setCanPinComments] = useState(false);
 
@@ -181,8 +234,10 @@ export function CommentSection({
 
   const [pinningCommentId, setPinningCommentId] = useState<number | null>(null);
   const loadVersion = useRef(0);
+  const loadMoreInFlight = useRef(false);
 
-  const commentCount = useMemo(() => countComments(comments), [comments]);
+  const loadedCommentCount = useMemo(() => countComments(comments), [comments]);
+  const commentCount = totalCommentCount ?? loadedCommentCount;
 
   const hasPinnedComment = comments.some((comment) => comment.is_pinned);
 
@@ -209,6 +264,11 @@ export function CommentSection({
     const version = ++loadVersion.current;
     const isCurrent = () => version === loadVersion.current;
     setLoading(true);
+    setLoadingMoreComments(false);
+    setLoadMoreError('');
+    setHasMoreComments(false);
+    setNextCommentCursor(null);
+    setTotalCommentCount(null);
     setCommentLoadError('');
     setCacheWarning('');
     try {
@@ -222,43 +282,42 @@ export function CommentSection({
       if (!isCurrent()) return;
       setUserId(user?.id ?? null);
 
-      const commentsResult = await supabase
-        .from('comments')
-        .select('*')
-        .eq('topic_id', topicId)
-        .order('created_at', {
-          ascending: false,
-        });
+      const commentsResult = await supabase.rpc('get_topic_comment_page', {
+        p_topic_id: topicId,
+        p_limit: 50,
+      });
 
       if (!isCurrent()) return;
       if (commentsResult.error) {
         throw new Error(`Unable to load comments: ${commentsResult.error.message}`);
       }
 
-      const commentRows = commentsResult.data ?? [];
-      // Restrict the likes query to this topic's comment ids instead of loading
-      // the entire community's likes on every topic page.
-      const commentIds = commentRows.map((row) => row.id);
-
+      const page = commentsResult.data as CommentPageResult | null;
+      if (!page) throw new Error('The comment page response was empty.');
+      const commentRows = page.comments ?? [];
+      const nextCursor = page.next_cursor ?? null;
+      setHasMoreComments(Boolean(page.has_more && nextCursor));
+      setNextCommentCursor(nextCursor);
+      setTotalCommentCount(Number(page.total_count ?? commentRows.length));
       const userIds = [
-        ...new Set([...commentRows.map((row) => row.user_id), user?.id].filter(Boolean)),
+        ...new Set(
+          [...commentRows.map((row) => row.user_id), user?.id].filter(
+            (id): id is string => Boolean(id)
+          )
+        ),
       ];
 
-      const [likesResult, profilesResult, adminRoleResult, commentBanResult] = await Promise.all([
-        commentIds.length
-          ? supabase.from('comment_likes').select('comment_id,user_id').in('comment_id', commentIds)
-          : Promise.resolve({ data: [], error: null }),
-
+      const [profilesResult, adminRoleResult, commentBanResult] = await Promise.all([
         userIds.length
-          ? supabase.from('profiles').select('*').in('id', userIds)
+          ? supabase.from('profiles').select('id,username,display_name,bio').in('id', userIds)
           : Promise.resolve({
               data: [],
               error: null,
             }),
 
         user
-          ? supabase.from('admin_users').select('user_id').eq('user_id', user.id).maybeSingle()
-          : Promise.resolve({ data: null, error: null }),
+          ? supabase.rpc('is_cathoscroll_content_admin')
+          : Promise.resolve({ data: false, error: null }),
 
         user
           ? supabase
@@ -271,9 +330,8 @@ export function CommentSection({
       ]);
 
       if (!isCurrent()) return;
-      if (likesResult.error || profilesResult.error) {
-        const error = likesResult.error ?? profilesResult.error;
-        throw new Error(`Unable to load comment details: ${error?.message}`);
+      if (profilesResult.error) {
+        throw new Error(`Unable to load comment details: ${profilesResult.error.message}`);
       }
 
       if (adminRoleResult.error) {
@@ -292,12 +350,14 @@ export function CommentSection({
         setCommentBanCheckFailed(false);
       }
 
-      const profiles = new Map((profilesResult.data ?? []).map((profile) => [profile.id, profile]));
+      const profiles = new Map<string, Pick<Profile, 'id' | 'username' | 'display_name' | 'bio'>>(
+        (profilesResult.data ?? []).map((profile) => [profile.id, profile])
+      );
 
       if (user?.id && !profiles.has(user.id)) {
         const { data, error } = await supabase
           .from('profiles')
-          .select('*')
+          .select('id,username,display_name,bio')
           .eq('id', user.id)
           .single();
 
@@ -313,18 +373,6 @@ export function CommentSection({
       if (user?.id) {
         setCurrentProfile(profiles.get(user.id) ?? null);
       }
-
-      const likeCounts = new Map<number, number>();
-
-      const likedByUser = new Set<number>();
-
-      (likesResult.data ?? []).forEach((like) => {
-        likeCounts.set(like.comment_id, (likeCounts.get(like.comment_id) ?? 0) + 1);
-
-        if (like.user_id === user?.id) {
-          likedByUser.add(like.comment_id);
-        }
-      });
 
       const map = new Map<number, Comment>();
 
@@ -361,9 +409,9 @@ export function CommentSection({
             id: row.user_id,
           },
 
-          likes: likeCounts.get(row.id) ?? 0,
+          likes: Number(row.likes ?? 0),
 
-          likedByUser: likedByUser.has(row.id),
+          likedByUser: Boolean(row.liked_by_user),
 
           replies: [],
         });
@@ -383,7 +431,7 @@ export function CommentSection({
 
       sortComments(roots);
 
-      setComments(roots);
+      commitComments(roots);
       setCachedAt(null);
       setCommentLoadError('');
       if (cache) {
@@ -402,8 +450,11 @@ export function CommentSection({
           const cached = await cache.load(topicId);
           if (!isCurrent()) return;
           if (cached) {
-            setComments(cached.comments);
+            commitComments(cached.comments);
             setCachedAt(cached.savedAt);
+            setHasMoreComments(false);
+            setNextCommentCursor(null);
+            setTotalCommentCount(null);
             setUserId(null);
             setCurrentProfile(null);
             setCanPinComments(false);
@@ -416,8 +467,11 @@ export function CommentSection({
           return;
         }
       }
-      setComments([]);
+      commitComments([]);
       setCachedAt(null);
+      setHasMoreComments(false);
+      setNextCommentCursor(null);
+      setTotalCommentCount(null);
       setCommentLoadError(
         cache && !navigator.onLine
           ? 'Comments for this topic have not been saved on this device.'
@@ -426,7 +480,181 @@ export function CommentSection({
     } finally {
       if (isCurrent()) setLoading(false);
     }
-  }, [topicId, sortComments, cache, getClient]);
+  }, [topicId, sortComments, cache, getClient, commitComments]);
+
+  const loadMoreComments = useCallback(async () => {
+    const cursor = nextCommentCursor;
+    if (
+      !cursor ||
+      loadingMoreComments ||
+      loadMoreInFlight.current ||
+      !isOnline ||
+      cachedAt
+    ) {
+      return;
+    }
+
+    loadMoreInFlight.current = true;
+    setLoadingMoreComments(true);
+    setLoadMoreError('');
+    const version = loadVersion.current;
+
+    try {
+      const supabase = getClient();
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+      if (userError) throw userError;
+      if (version !== loadVersion.current) return;
+
+      const { data, error } = await supabase.rpc('get_topic_comment_page', {
+        p_topic_id: topicId,
+        p_before_created_at: cursor.created_at,
+        p_before_id: cursor.id,
+        p_limit: 50,
+      });
+      if (error) throw error;
+      const page = data as CommentPageResult | null;
+      if (!page) throw new Error('The next comment page response was empty.');
+      if (version !== loadVersion.current) return;
+
+      const existingFlat = flattenCommentTree(commentsRef.current);
+      const profiles = new Map<
+        string,
+        Pick<Profile, 'id' | 'username' | 'display_name' | 'bio'>
+      >();
+      existingFlat.forEach((comment) => profiles.set(comment.user_id, comment.profile));
+      if (user?.id && currentProfile) profiles.set(user.id, currentProfile);
+
+      const userIds = [
+        ...new Set(
+          [...page.comments.map((row) => row.user_id), user?.id].filter(
+            (id): id is string => Boolean(id)
+          )
+        ),
+      ].filter((id) => !profiles.has(id));
+
+      const [profilesResult, adminRoleResult, commentBanResult] = await Promise.all([
+        userIds.length
+          ? supabase.from('profiles').select('id,username,display_name,bio').in('id', userIds)
+          : Promise.resolve({ data: [], error: null }),
+        user
+          ? supabase.from('admin_users').select('user_id').eq('user_id', user.id).maybeSingle()
+          : Promise.resolve({ data: null, error: null }),
+        user
+          ? supabase
+              .from('user_comment_bans')
+              .select('id')
+              .eq('user_id', user.id)
+              .is('unbanned_at', null)
+              .maybeSingle()
+          : Promise.resolve({ data: null, error: null }),
+      ]);
+
+      if (version !== loadVersion.current) return;
+      if (profilesResult.error) throw profilesResult.error;
+
+      (profilesResult.data ?? []).forEach((profile) => profiles.set(profile.id, profile));
+
+      if (adminRoleResult.error) {
+        console.error('Unable to verify comment moderation role:', adminRoleResult.error.message);
+        setCanPinComments(false);
+      } else {
+        setCanPinComments(Boolean(adminRoleResult.data));
+      }
+
+      if (commentBanResult.error) {
+        console.error('Unable to check comment restriction:', commentBanResult.error.message);
+        setIsCommentBanned(false);
+        setCommentBanCheckFailed(true);
+      } else {
+        setIsCommentBanned(Boolean(commentBanResult.data));
+        setCommentBanCheckFailed(false);
+      }
+
+      const nodes = new Map<number, Comment>();
+      existingFlat.forEach((comment) => {
+        nodes.set(comment.id, { ...comment, replies: [] });
+      });
+
+      page.comments.forEach((row) => {
+        // A comment already on screen may have been edited, deleted, liked,
+        // pinned, or optimistically changed while this page was in flight.
+        // Keep that newer local version instead of replacing it with the
+        // older snapshot returned by the pagination request.
+        if (nodes.has(row.id)) return;
+        const previous = nodes.get(row.id);
+        nodes.set(row.id, {
+          id: row.id,
+          topic_id: row.topic_id,
+          user_id: row.user_id,
+          parent_id: row.parent_id,
+          content: row.content,
+          created_at: row.created_at,
+          edited_at: row.edited_at,
+          is_deleted: row.is_deleted,
+          is_pinned: row.is_pinned,
+          profile:
+            profiles.get(row.user_id) ??
+            previous?.profile ?? {
+              ...fallbackProfile,
+              id: row.user_id,
+            },
+          likes: Number(row.likes ?? 0),
+          likedByUser: Boolean(row.liked_by_user),
+          replies: [],
+          ...(previous?.optimistic ? { optimistic: true } : {}),
+        });
+      });
+
+      const mergedRoots: Comment[] = [];
+      nodes.forEach((comment) => {
+        if (comment.parent_id === null) {
+          mergedRoots.push(comment);
+          return;
+        }
+        nodes.get(comment.parent_id)?.replies.push(comment);
+      });
+
+      sortComments(mergedRoots);
+      commitComments(mergedRoots);
+      setUserId(user?.id ?? null);
+      setCurrentProfile(user?.id ? profiles.get(user.id) ?? null : null);
+      const nextCursor = page.next_cursor ?? null;
+      setHasMoreComments(Boolean(page.has_more && nextCursor));
+      setNextCommentCursor(nextCursor);
+      setTotalCommentCount(Number(page.total_count ?? mergedRoots.length));
+
+      if (cache) {
+        try {
+          await cache.save(topicId, mergedRoots);
+        } catch (cacheError) {
+          console.error('Unable to update saved comments:', cacheError);
+          setCacheWarning('Comments could not be saved for offline viewing.');
+        }
+      }
+    } catch (error) {
+      if (version === loadVersion.current) {
+        console.error('Unable to load more comments:', error);
+        setLoadMoreError('Unable to load more comments. Please try again.');
+      }
+    } finally {
+      loadMoreInFlight.current = false;
+      if (version === loadVersion.current) setLoadingMoreComments(false);
+    }
+  }, [
+    nextCommentCursor,
+    loadingMoreComments,
+    isOnline,
+    cachedAt,
+    getClient,
+    topicId,
+    currentProfile,
+    sortComments,
+    cache,
+    commitComments,
+  ]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -488,7 +716,7 @@ export function CommentSection({
       optimistic: true,
     };
 
-    setComments((prev) => cloneAndSortComments([tempComment, ...prev], sortComments));
+    commitComments((prev) => cloneAndSortComments([tempComment, ...prev], sortComments));
 
     const supabase = getClient();
 
@@ -500,15 +728,20 @@ export function CommentSection({
         content,
         parent_id: null,
       })
-      .select()
+      .select('id')
       .single();
 
     if (error || !data) {
       await loadComments();
-      throw new Error('Unable to post your comment. Please try again.');
+      throw new Error(
+        error?.code === 'P0001'
+          ? 'You have reached the comment posting limit. Please try again later.'
+          : 'Unable to post your comment. Please try again.'
+      );
     }
 
-    setComments((prev) => replaceCommentId(prev, tempId, data.id));
+    commitComments((prev) => replaceCommentId(prev, tempId, data.id));
+    setTotalCommentCount((previous) => (previous === null ? null : previous + 1));
     if (cache) await loadComments();
   }
 
@@ -542,7 +775,7 @@ export function CommentSection({
       optimistic: true,
     };
 
-    setComments((prev) => insertReplyIntoTree(prev, parentId, tempReply));
+    commitComments((prev) => insertReplyIntoTree(prev, parentId, tempReply));
 
     const supabase = getClient();
 
@@ -554,15 +787,20 @@ export function CommentSection({
         parent_id: parentId,
         content,
       })
-      .select()
+      .select('id')
       .single();
 
     if (error || !data) {
       await loadComments();
-      throw new Error('Unable to post your reply. Please try again.');
+      throw new Error(
+        error?.code === 'P0001'
+          ? 'You have reached the comment posting limit. Please try again later.'
+          : 'Unable to post your reply. Please try again.'
+      );
     }
 
-    setComments((prev) => replaceCommentId(prev, tempId, data.id));
+    commitComments((prev) => replaceCommentId(prev, tempId, data.id));
+    setTotalCommentCount((previous) => (previous === null ? null : previous + 1));
     if (cache) await loadComments();
   }
 
@@ -575,7 +813,7 @@ export function CommentSection({
 
     // Update the visible tree immediately; reload it from Supabase if the
     // persistent update fails so the UI returns to the saved value.
-    setComments((prev) =>
+    commitComments((prev) =>
       updateCommentTree(prev, commentId, (comment) => ({
         ...comment,
         content,
@@ -595,7 +833,11 @@ export function CommentSection({
 
     if (error) {
       await loadComments();
-      throw new Error('Unable to edit this comment. Your comment access may be restricted.');
+      throw new Error(
+        error.code === 'P0001'
+          ? 'You have reached the comment edit limit. Please try again later.'
+          : 'Unable to edit this comment. Your comment access may be restricted.'
+      );
     }
     if (cache) await loadComments();
   }
@@ -610,7 +852,7 @@ export function CommentSection({
     }
 
     setCommentActionError('');
-    setComments((prev) =>
+    commitComments((prev) =>
       updateCommentTree(prev, commentId, (comment) => ({
         ...comment,
         is_deleted: true,
@@ -658,7 +900,7 @@ export function CommentSection({
 
     setPinError('');
     setPinningCommentId(commentId);
-    setComments((previous) =>
+    commitComments((previous) =>
       cloneAndSortComments(
         previous.map((comment) => ({
           ...comment,
@@ -775,7 +1017,7 @@ export function CommentSection({
     setCommentActionError('');
     const wasLiked = comment.likedByUser;
 
-    setComments((prev) =>
+    commitComments((prev) =>
       cloneAndSortComments(
         updateCommentTree(prev, commentId, (comment) => ({
           ...comment,
@@ -806,7 +1048,11 @@ export function CommentSection({
     if (error) {
       console.error('Unable to update comment like:', error.message);
       await loadComments();
-      setCommentActionError('Unable to update your like. Please try again.');
+      setCommentActionError(
+        error.code === 'P0001'
+          ? 'You have reached the comment-like limit. Please try again later.'
+          : 'Unable to update your like. Please try again.'
+      );
     } else if (cache) {
       await loadComments();
     }
@@ -952,6 +1198,27 @@ export function CommentSection({
               pinActionPending={pinningCommentId !== null}
             />
           ))}
+        </div>
+      )}
+
+      {hasMoreComments && isOnline && !cachedAt && (
+        <div className="mt-6 flex flex-col items-center gap-3">
+          <p className="text-text-secondary text-sm">
+            Showing {loadedCommentCount} of {commentCount} comments
+          </p>
+          {loadMoreError && (
+            <p role="alert" className="text-sm text-red-600">
+              {loadMoreError}
+            </p>
+          )}
+          <button
+            type="button"
+            onClick={() => void loadMoreComments()}
+            disabled={loadingMoreComments}
+            className="border-border hover:bg-surface-secondary rounded-full border px-5 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {loadingMoreComments ? 'Loading more comments…' : 'Load more comments'}
+          </button>
         </div>
       )}
     </section>

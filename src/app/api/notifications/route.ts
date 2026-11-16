@@ -1,18 +1,53 @@
 import { NextResponse } from 'next/server';
 
-import { getAuthenticatedUser, isSameOrigin } from '@/lib/supabase/admin';
+import {
+  getAuthenticatedUserFromRequest,
+  isSameOriginOrNativeRequest,
+  nativeApiCorsHeaders,
+} from '@/lib/supabase/admin';
+import { readBoundedJson } from '@/lib/http/read-json';
+import { checkApiRateLimit, rateLimitResponseHeaders } from '@/lib/security/api-rate-limit';
+
+function respond(request: Request, body: unknown, init?: ResponseInit) {
+  const headers = nativeApiCorsHeaders(request);
+  new Headers(init?.headers).forEach((value, key) => headers.set(key, value));
+  headers.set('Cache-Control', 'private, no-store');
+  return NextResponse.json(body, { ...init, headers });
+}
+
+async function enforceUserLimit(userId: string, scope: string, limit: number) {
+  return checkApiRateLimit({
+    scope,
+    identifier: userId,
+    limit,
+    windowSeconds: 60,
+  });
+}
+
+export function OPTIONS(request: Request) {
+  const headers = nativeApiCorsHeaders(request);
+  if (!headers.has('Access-Control-Allow-Origin')) return new NextResponse(null, { status: 403 });
+  headers.set('Access-Control-Allow-Methods', 'GET, PATCH, OPTIONS');
+  return new NextResponse(null, { status: 204, headers });
+}
 
 export async function GET(request: Request) {
-  const { supabase, user } = await getAuthenticatedUser();
+  const { supabase, user } = await getAuthenticatedUserFromRequest(request);
+  if (!user) return respond(request, { error: 'Authentication required' }, { status: 401 });
 
-  if (!user) {
-    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+  const rateLimit = await enforceUserLimit(user.id, 'notifications:read', 60);
+  if (!rateLimit.allowed) {
+    return respond(
+      request,
+      { error: rateLimit.unavailable ? 'Notifications are temporarily unavailable' : 'Too many notification requests. Please wait.' },
+      {
+        status: rateLimit.unavailable ? 503 : 429,
+        headers: rateLimitResponseHeaders(rateLimit.retryAfterSeconds),
+      }
+    );
   }
 
   const countOnly = new URL(request.url).searchParams.get('countOnly') === '1';
-  // Keep the bell request cheap: it asks Postgres for an exact unread count
-  // without returning notification rows. The page request loads only the
-  // newest 50 rows; both queries are scoped by the user's RLS-protected id.
   const { count, error: countError } = await supabase
     .from('notifications')
     .select('id', { count: 'exact', head: true })
@@ -21,12 +56,9 @@ export async function GET(request: Request) {
 
   if (countError) {
     console.error('Unable to load unread notification count:', countError.message);
-    return NextResponse.json({ error: 'Unable to load notifications' }, { status: 500 });
+    return respond(request, { error: 'Unable to load notifications' }, { status: 500 });
   }
-
-  if (countOnly) {
-    return NextResponse.json({ unreadCount: count ?? 0 });
-  }
+  if (countOnly) return respond(request, { unreadCount: count ?? 0 });
 
   const { data: notificationRows, error: notificationsError } = await supabase
     .from('notifications')
@@ -37,7 +69,7 @@ export async function GET(request: Request) {
 
   if (notificationsError) {
     console.error('Unable to load notifications:', notificationsError.message);
-    return NextResponse.json({ error: 'Unable to load notifications' }, { status: 500 });
+    return respond(request, { error: 'Unable to load notifications' }, { status: 500 });
   }
 
   const topicIds = [
@@ -51,12 +83,11 @@ export async function GET(request: Request) {
 
   if (topicsError) {
     console.error('Unable to resolve notification topic links:', topicsError.message);
-    return NextResponse.json({ error: 'Unable to load notifications' }, { status: 500 });
+    return respond(request, { error: 'Unable to load notifications' }, { status: 500 });
   }
 
   const topicSlugById = new Map((topics ?? []).map((topic) => [String(topic.id), topic.slug]));
-
-  return NextResponse.json({
+  return respond(request, {
     notifications: (notificationRows ?? []).map((notification) => ({
       ...notification,
       topic_slug: notification.topic_id ? (topicSlugById.get(notification.topic_id) ?? null) : null,
@@ -66,23 +97,30 @@ export async function GET(request: Request) {
 }
 
 export async function PATCH(request: Request) {
-  if (!isSameOrigin(request)) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  if (!isSameOriginOrNativeRequest(request)) {
+    return respond(request, { error: 'Forbidden' }, { status: 403 });
   }
 
-  const { supabase, user } = await getAuthenticatedUser();
+  const { supabase, user } = await getAuthenticatedUserFromRequest(request);
+  if (!user) return respond(request, { error: 'Authentication required' }, { status: 401 });
 
-  if (!user) {
-    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+  const rateLimit = await enforceUserLimit(user.id, 'notifications:write', 30);
+  if (!rateLimit.allowed) {
+    return respond(
+      request,
+      { error: rateLimit.unavailable ? 'Notifications are temporarily unavailable' : 'Too many notification updates. Please wait.' },
+      {
+        status: rateLimit.unavailable ? 503 : 429,
+        headers: rateLimitResponseHeaders(rateLimit.retryAfterSeconds),
+      }
+    );
   }
 
-  let body: unknown;
-
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  const parsed = await readBoundedJson(request, 1024);
+  if (!parsed.ok) {
+    return respond(request, { error: parsed.error }, { status: parsed.status });
   }
+  const body = parsed.value;
 
   if (
     typeof body !== 'object' ||
@@ -95,7 +133,7 @@ export async function PATCH(request: Request) {
         !Number.isSafeInteger(body.notificationId) ||
         body.notificationId < 1))
   ) {
-    return NextResponse.json({ error: 'Invalid notification update' }, { status: 400 });
+    return respond(request, { error: 'Invalid notification update' }, { status: 400 });
   }
 
   const targetNotificationId =
@@ -103,9 +141,6 @@ export async function PATCH(request: Request) {
       ? body.notificationId
       : null;
 
-  // Restrict writes to the authenticated user's unread rows. The database RLS
-  // policy repeats this ownership check and clients only have read_at UPDATE
-  // permission, so the endpoint cannot alter notification content or ownership.
   let updateQuery = supabase
     .from('notifications')
     .update({ read_at: new Date().toISOString() })
@@ -117,15 +152,14 @@ export async function PATCH(request: Request) {
   }
 
   const { data, error } = await updateQuery.select('id');
-
   if (error) {
     console.error('Unable to mark notifications as read:', error.message);
-    return NextResponse.json({ error: 'Unable to update notifications' }, { status: 500 });
+    return respond(request, { error: 'Unable to update notifications' }, { status: 500 });
   }
 
   if (body.action === 'read' && targetNotificationId !== null && (!data || data.length === 0)) {
-    return NextResponse.json({ error: 'Notification not found' }, { status: 404 });
+    return respond(request, { error: 'Notification not found' }, { status: 404 });
   }
 
-  return NextResponse.json({ updated: data?.length ?? 0 });
+  return respond(request, { updated: data?.length ?? 0 });
 }

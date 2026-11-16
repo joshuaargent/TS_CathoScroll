@@ -1,0 +1,94 @@
+name: Security audit
+
+on:
+  pull_request:
+    branches:
+      - main
+      - 'release/**'
+  push:
+    branches:
+      - main
+  schedule:
+    - cron: '23 4 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-audit-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dependency-audit:
+    name: Dependency vulnerability audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up supported Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.0
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Audit root production and development dependencies
+        id: root-audit
+        continue-on-error: true
+        run: npm audit --audit-level=moderate
+
+      - name: Audit Electron production and development dependencies
+        id: electron-audit
+        continue-on-error: true
+        run: npm --prefix electron audit --audit-level=moderate
+
+      - name: Fail if either dependency tree has high or critical vulnerabilities
+        if: steps.root-audit.outcome == 'failure' || steps.electron-audit.outcome == 'failure'
+        run: |
+          echo "::error::High or critical dependency vulnerabilities remain. Review both audit reports above."
+          exit 1
+
+  codeql:
+    name: CodeQL JavaScript and TypeScript
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+          queries: security-extended
+          build-mode: none
+
+      - name: Analyze with CodeQL
+        uses: github/codeql-action/analyze@v3
+
+  secret-scan:
+    name: Secret scanning
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Check out full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Scan commits for exposed secrets
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

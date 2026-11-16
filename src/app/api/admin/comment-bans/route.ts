@@ -7,6 +7,8 @@ import {
   nativeApiCorsHeaders,
   isValidUuid,
 } from '@/lib/supabase/admin';
+import { readBoundedJson } from '@/lib/http/read-json';
+import { checkApiRateLimit, rateLimitResponseHeaders } from '@/lib/security/api-rate-limit';
 
 function respond(request: Request, body: unknown, init?: ResponseInit) {
   const headers = nativeApiCorsHeaders(request);
@@ -43,13 +45,23 @@ export async function POST(request: Request) {
     return respond(request, { error: 'Forbidden' }, { status: 403 });
   }
 
-  let body: unknown;
-
-  try {
-    body = await request.json();
-  } catch {
-    return respond(request, { error: 'Invalid JSON body' }, { status: 400 });
+  const rateLimit = await checkApiRateLimit({
+    scope: 'admin:moderation',
+    identifier: user.id,
+    limit: 10,
+    windowSeconds: 60,
+  });
+  if (!rateLimit.allowed) {
+    return respond(
+      request,
+      { error: rateLimit.unavailable ? 'Administrator services are temporarily unavailable' : 'Too many administrator requests. Please wait.' },
+      { status: rateLimit.unavailable ? 503 : 429, headers: rateLimitResponseHeaders(rateLimit.retryAfterSeconds) }
+    );
   }
+
+  const parsed = await readBoundedJson(request, 4096);
+  if (!parsed.ok) return respond(request, { error: parsed.error }, { status: parsed.status });
+  const body = parsed.value;
 
   if (
     typeof body !== 'object' ||

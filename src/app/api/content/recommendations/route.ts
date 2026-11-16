@@ -1,59 +1,71 @@
 import { NextResponse } from 'next/server';
 
 import { getRecommendationPage } from '@/lib/recommendations-server';
-import { createClient } from '@/lib/supabase/server';
+import { getAuthenticatedUserFromRequest, isSameOriginOrNativeRequest, nativeApiCorsHeaders } from '@/lib/supabase/admin';
+import { readBoundedJson } from '@/lib/http/read-json';
+import { checkApiRateLimit, rateLimitResponseHeaders } from '@/lib/security/api-rate-limit';
 
-const headers = { 'Cache-Control': 'private, no-store' };
+function respond(request: Request, body: unknown, status = 200, extraHeaders?: HeadersInit) {
+  const headers = nativeApiCorsHeaders(request);
+  headers.set('Cache-Control', 'private, no-store');
+  new Headers(extraHeaders).forEach((value, key) => headers.set(key, value));
+  return NextResponse.json(body, { status, headers });
+}
+
+export function OPTIONS(request: Request) {
+  const headers = nativeApiCorsHeaders(request);
+  if (!headers.has('Access-Control-Allow-Origin')) return new NextResponse(null, { status: 403 });
+  headers.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  return new NextResponse(null, { status: 204, headers });
+}
 
 export async function POST(request: Request) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  if (!isSameOriginOrNativeRequest(request)) {
+    return respond(request, { error: 'Forbidden' }, 403);
+  }
+  const { supabase, user } = await getAuthenticatedUserFromRequest(request);
 
   if (!user) {
-    return NextResponse.json(
-      { error: 'Sign in to load recommendations.' },
-      { status: 401, headers }
-    );
+    return respond(request, { error: 'Sign in to load recommendations.' }, 401);
   }
 
-  let body: unknown;
+  const parsed = await readBoundedJson(request, 2048);
+  if (!parsed.ok) {
+    return respond(request, { error: parsed.error }, parsed.status);
+  }
+  const body = parsed.value;
+
+  if (!body || typeof body !== 'object') {
+    return respond(request, { error: 'Invalid recommendation cursor.' }, 400);
+  }
+  const cursorValue = 'cursor' in body ? body.cursor : null;
+  if (
+    cursorValue !== null &&
+    (typeof cursorValue !== 'string' || cursorValue.length < 1 || cursorValue.length > 512)
+  ) {
+    return respond(request, { error: 'Invalid recommendation cursor.' }, 400);
+  }
+  const cursor: string | null = typeof cursorValue === 'string' ? cursorValue : null;
+
+  const rateLimit = await checkApiRateLimit({
+    scope: 'recommendations:user',
+    identifier: user.id,
+    limit: 30,
+    windowSeconds: 60,
+  });
+  if (!rateLimit.allowed) {
+    return respond(request, { error: rateLimit.unavailable ? 'Recommendations are temporarily unavailable.' : 'You have requested recommendations too frequently. Please try again shortly.' }, rateLimit.unavailable ? 503 : 429, rateLimitResponseHeaders(rateLimit.retryAfterSeconds));
+  }
+
   try {
-    const text = await request.text();
-    if (text.length > 65_536) {
-      return NextResponse.json(
-        { error: 'Recommendation cursor is too large.' },
-        { status: 400, headers }
-      );
-    }
-    body = JSON.parse(text);
-  } catch {
-    return NextResponse.json(
-      { error: 'Invalid recommendation request.' },
-      { status: 400, headers }
-    );
-  }
-
-  if (!body || typeof body !== 'object' || !('cursor' in body) || !body.cursor) {
-    return NextResponse.json({ error: 'Invalid recommendation cursor.' }, { status: 400, headers });
-  }
-
-  try {
-    const page = await getRecommendationPage(supabase, body.cursor);
-    return NextResponse.json(page, { headers });
+    const page = await getRecommendationPage(supabase, cursor);
+    return respond(request, page);
   } catch (error) {
     const cause = error instanceof Error ? error.cause : null;
     if (cause && typeof cause === 'object' && 'code' in cause && cause.code === '22023') {
-      return NextResponse.json(
-        { error: 'Invalid recommendation cursor.' },
-        { status: 400, headers }
-      );
+      return respond(request, { error: 'Invalid recommendation cursor.' }, 400);
     }
     console.error('Unable to load recommendations:', error);
-    return NextResponse.json(
-      { error: 'Unable to load recommendations. Please try again.' },
-      { status: 500, headers }
-    );
+    return respond(request, { error: 'Unable to load recommendations. Please try again.' }, 500);
   }
 }

@@ -122,3 +122,4 @@ test('rejects modified ciphertext and coalesces concurrent initial key creation'
     db.close();
   }
 });
+

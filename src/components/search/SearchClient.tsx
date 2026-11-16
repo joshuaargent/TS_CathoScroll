@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 
 import type { TopicSearchResult } from '@/lib/search';
+import { NativeGridSkeleton } from '../../../native/skeletons';
 
 import { SearchInput } from './SearchInput';
 import { SearchResults } from './SearchResults';
@@ -33,7 +34,7 @@ export function SearchClient() {
     // Wait briefly after typing before rerunning the local ranking algorithm.
     const timeout = setTimeout(() => {
       setDebouncedQuery(query);
-    }, 200);
+    }, 350);
 
     return () => clearTimeout(timeout);
   }, [query]);
@@ -115,6 +116,10 @@ export function SearchClient() {
         <p role="alert" className="mt-6 text-sm text-red-600">
           {searchError}
         </p>
+      ) : searching ? (
+        <div className="mt-6">
+          <NativeGridSkeleton label="Loading search results" />
+        </div>
       ) : (
         <SearchResults
           query={resultQuery === debouncedQuery ? debouncedQuery : ''}

@@ -8,6 +8,8 @@ import {
   isSameOriginOrNativeRequest,
   nativeApiCorsHeaders,
 } from '@/lib/supabase/admin';
+import { readBoundedJson } from '@/lib/http/read-json';
+import { checkApiRateLimit, rateLimitResponseHeaders } from '@/lib/security/api-rate-limit';
 
 type CategoryInput = Record<string, unknown> & {
   kind: 'category';
@@ -112,7 +114,7 @@ function topicRow(input: TopicInput) {
   };
 }
 
-async function authorize(request: Request) {
+async function authorize(request: Request, mutation = false) {
   if (!isSameOriginOrNativeRequest(request)) {
     return { response: respond(request, { error: 'Forbidden' }, { status: 403 }) };
   }
@@ -132,6 +134,22 @@ async function authorize(request: Request) {
     return { response: respond(request, { error: 'Forbidden' }, { status: 403 }) };
   }
 
+  const rateLimit = await checkApiRateLimit({
+    scope: 'admin:content',
+    identifier: user.id,
+    limit: mutation ? 10 : 30,
+    windowSeconds: 60,
+  });
+  if (!rateLimit.allowed) {
+    return {
+      response: respond(
+        request,
+        { error: rateLimit.unavailable ? 'Content editor is temporarily unavailable' : 'Too many content-editor requests. Please wait.' },
+        { status: rateLimit.unavailable ? 503 : 429, headers: rateLimitResponseHeaders(rateLimit.retryAfterSeconds) }
+      ),
+    };
+  }
+
   try {
     return { adminClient: createServiceRoleClient() };
   } catch (error) {
@@ -143,11 +161,11 @@ async function authorize(request: Request) {
 }
 
 async function readInput(request: Request): Promise<unknown | NextResponse> {
-  try {
-    return await request.json();
-  } catch {
-    return respond(request, { error: 'Invalid JSON body' }, { status: 400 });
+  const parsed = await readBoundedJson(request, 128 * 1024);
+  if (!parsed.ok) {
+    return respond(request, { error: parsed.error }, { status: parsed.status });
   }
+  return parsed.value;
 }
 
 function isResponse(value: unknown): value is NextResponse {
@@ -203,7 +221,7 @@ async function loadAllRows<T>(
 }
 
 export async function GET(request: Request) {
-  const authorization = await authorize(request);
+  const authorization = await authorize(request, false);
   if ('response' in authorization) return authorization.response;
 
   try {
@@ -235,7 +253,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const authorization = await authorize(request);
+  const authorization = await authorize(request, true);
   if ('response' in authorization) return authorization.response;
 
   const input = await readInput(request);
@@ -280,7 +298,7 @@ export async function POST(request: Request) {
 }
 
 export async function PATCH(request: Request) {
-  const authorization = await authorize(request);
+  const authorization = await authorize(request, true);
   if ('response' in authorization) return authorization.response;
 
   const input = await readInput(request);

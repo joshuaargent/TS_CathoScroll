@@ -94,7 +94,7 @@ export function TopicViewer({
     action: 'like' | 'bookmark' | 'progress',
     topicId: string,
     actorId: string,
-    mutation: () => PromiseLike<{ error: { message: string } | null }>
+    mutation: () => PromiseLike<{ error: { message: string; code?: string } | null }>
   ) {
     const key = `${action}:${topicId}`;
     if (pendingRef.current.has(key)) return;
@@ -104,6 +104,9 @@ export function TopicViewer({
 
     try {
       const { error } = await mutation();
+      if (error?.code === 'P0001') {
+        throw new Error('You have reached the topic-like limit. Please try again later.');
+      }
       if (error) throw new Error(error.message);
 
       // Reload after the write so a late read cannot overwrite its result.
@@ -113,8 +116,11 @@ export function TopicViewer({
       setRefreshVersion((previous) => previous + 1);
     } catch (error) {
       console.error(`Unable to update topic ${action}:`, error);
+      const rateLimitMessage = 'You have reached the topic-like limit. Please try again later.';
       setActionError(
-        `Unable to update ${action === 'progress' ? 'your progress' : `your ${action}`}. Please try again.`
+        error instanceof Error && error.message === rateLimitMessage
+          ? rateLimitMessage
+          : `Unable to update ${action === 'progress' ? 'your progress' : `your ${action}`}. Please try again.`
       );
     } finally {
       pendingRef.current.delete(key);

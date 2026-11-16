@@ -148,14 +148,12 @@ export function NativeAccount({
 
         clearNativeStatusNotice('account-profile-load:' + userId);
         try {
-          const { data: membership, error: membershipError } = await client
-            .from('profiles')
-            .select('subscription_tier')
-            .eq('id', userId)
-            .maybeSingle();
+          const { data: membership, error: membershipError } = await client.rpc(
+            'get_own_subscription_tier'
+          );
           if (membershipError) throw membershipError;
           if (active) {
-            setSubscriptionTier(membership?.subscription_tier ?? 'free');
+            setSubscriptionTier(typeof membership === 'string' ? membership : 'free');
             setMembershipUserId(userId);
             clearNativeStatusNotice('account-membership');
           }
@@ -212,8 +210,8 @@ export function NativeAccount({
       }
       if (profile.bio.length > 250) throw new Error('Bio cannot exceed 250 characters.');
       const passwordChanged = Boolean(newPassword.trim());
-      if (passwordChanged && newPassword.length < 8) {
-        throw new Error('Password must be at least 8 characters.');
+      if (passwordChanged && newPassword.length < 12) {
+        throw new Error('Password must be at least 12 characters.');
       }
       if (passwordChanged && newPassword !== confirmPassword) {
         throw new Error('Passwords do not match.');

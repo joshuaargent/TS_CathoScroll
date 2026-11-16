@@ -8,10 +8,16 @@ import { requireAdminPage } from '@/lib/moderation/require-admin';
 
 export default async function AdminPage() {
   const { adminClient, user } = await requireAdminPage();
-  const [{ items: reports }, { items: appeals }] = await Promise.all([
+  const [{ items: reports }, { items: appeals }, { data: isOwner, error: ownerError }] = await Promise.all([
     loadCommentReports(adminClient, 0, 10),
     loadCommentBanAppeals(adminClient, 0, 10),
+    adminClient.rpc('is_cathoscroll_admin_owner', { p_user_id: user.id }),
   ]);
+  if (ownerError) {
+    console.error('Unable to verify owner-only dashboard links:', ownerError.message);
+  }
+  const ownerCanViewAudit = isOwner === true;
+
 
   return (
     <main className="container py-12">
@@ -27,6 +33,13 @@ export default async function AdminPage() {
       <div className="mt-8">
         <AdminNavigation />
       </div>
+      {ownerCanViewAudit && (
+        <div className="mt-4">
+          <Link href="/admin/audit" className="text-accent text-sm font-semibold hover:underline">
+            View administrator audit log
+          </Link>
+        </div>
+      )}
 
       <section className="mb-14">
         <div className="mb-5 flex flex-wrap items-end justify-between gap-3">

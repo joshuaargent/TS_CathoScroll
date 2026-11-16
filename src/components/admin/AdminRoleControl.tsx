@@ -10,37 +10,44 @@ interface AdminRoleControlProps {
   onChange?: () => void;
 }
 
-export function AdminRoleControl({ userId, isAdmin, canManage, fetcher = fetch, onChange }: AdminRoleControlProps) {
+export function AdminRoleControl({
+  userId,
+  isAdmin,
+  canManage,
+  fetcher = fetch,
+  onChange,
+}: AdminRoleControlProps) {
   const [admin, setAdmin] = useState(isAdmin);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
   if (!canManage) return null;
 
-  async function grantAdminRole() {
-    if (
-      !window.confirm(
-        'Grant this account administrator access? They will be able to manage content and moderation.'
-      )
-    ) {
-      return;
-    }
+  async function changeAdminRole(grant: boolean) {
+    const confirmed = window.confirm(
+      grant
+        ? 'Grant this account administrator access? They will be able to manage content and moderation.'
+        : 'Revoke this account administrator access? They will immediately lose access to administrator tools.'
+    );
+    if (!confirmed) return;
 
     setBusy(true);
     setError('');
     try {
-      const response = await fetcher(`/api/admin/users/${userId}/role`, { method: 'POST' });
+      const response = await fetcher(`/api/admin/users/${userId}/role`, {
+        method: grant ? 'POST' : 'DELETE',
+      });
       const result = (await response.json()) as { error?: string; isAdmin?: boolean };
       if (!response.ok) {
-        setError(result.error ?? 'Unable to grant administrator access.');
+        setError(result.error ?? `Unable to ${grant ? 'grant' : 'revoke'} administrator access.`);
         return;
       }
 
       setAdmin(Boolean(result.isAdmin));
       onChange?.();
     } catch (requestError) {
-      console.error('Unable to grant administrator access:', requestError);
-      setError('Unable to grant administrator access. Please try again.');
+      console.error(`Unable to ${grant ? 'grant' : 'revoke'} administrator access:`, requestError);
+      setError(`Unable to ${grant ? 'grant' : 'revoke'} administrator access. Please try again.`);
     } finally {
       setBusy(false);
     }
@@ -58,17 +65,27 @@ export function AdminRoleControl({ userId, isAdmin, canManage, fetcher = fetch, 
           </p>
         </div>
         {admin ? (
-          <span className="bg-accent/10 text-accent rounded-full px-3 py-1.5 text-sm font-semibold">
-            Administrator
-          </span>
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="bg-accent/10 text-accent rounded-full px-3 py-1.5 text-sm font-semibold">
+              Administrator
+            </span>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => changeAdminRole(false)}
+              className="border-border rounded-xl border px-4 py-2.5 text-sm font-semibold hover:bg-bg-secondary disabled:opacity-50"
+            >
+              {busy ? 'Updating…' : 'Revoke access'}
+            </button>
+          </div>
         ) : (
           <button
             type="button"
             disabled={busy}
-            onClick={grantAdminRole}
+            onClick={() => changeAdminRole(true)}
             className="bg-accent rounded-xl px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
           >
-            {busy ? 'Granting access…' : 'Make administrator'}
+            {busy ? 'Updating…' : 'Make administrator'}
           </button>
         )}
       </div>

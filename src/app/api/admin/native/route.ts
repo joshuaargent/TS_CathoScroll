@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { checkApiRateLimit, rateLimitResponseHeaders } from '@/lib/security/api-rate-limit';
 
 import { loadCommentBanAppeals, loadCommentReports } from '@/lib/moderation/admin-data';
 import {
@@ -8,9 +9,10 @@ import {
   nativeApiCorsHeaders,
 } from '@/lib/supabase/admin';
 
-function respond(request: Request, body: unknown, status = 200) {
+function respond(request: Request, body: unknown, status = 200, extraHeaders?: HeadersInit) {
   const headers = nativeApiCorsHeaders(request);
-  headers.set('Cache-Control', 'no-store');
+  new Headers(extraHeaders).forEach((value, key) => headers.set(key, value));
+  headers.set('Cache-Control', 'private, no-store');
   return NextResponse.json(body, { status, headers });
 }
 
@@ -44,6 +46,21 @@ export async function GET(request: Request) {
     return respond(request, { error: 'Unable to verify admin access' }, 500);
   }
   if (!isAdmin) return respond(request, { error: 'Forbidden' }, 403);
+
+  const rateLimit = await checkApiRateLimit({
+    scope: 'admin:moderation',
+    identifier: user.id,
+    limit: 10,
+    windowSeconds: 60,
+  });
+  if (!rateLimit.allowed) {
+    return respond(
+      request,
+      { error: rateLimit.unavailable ? 'Administrator services are temporarily unavailable' : 'Too many administrator requests. Please wait.' },
+      rateLimit.unavailable ? 503 : 429,
+      rateLimitResponseHeaders(rateLimit.retryAfterSeconds)
+    );
+  }
 
   const url = new URL(request.url);
   const section = url.searchParams.get('section') ?? 'dashboard';

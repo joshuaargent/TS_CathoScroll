@@ -31,6 +31,23 @@ const subscribeToNothing = () => () => {};
 const getClientSnapshot = () => true;
 const getServerSnapshot = () => false;
 
+function readStoredTheme(): Theme | null {
+  try {
+    const storedTheme = window.localStorage.getItem('theme');
+    return storedTheme === 'light' || storedTheme === 'dark' ? storedTheme : null;
+  } catch {
+    return null;
+  }
+}
+
+function storeTheme(theme: Theme): void {
+  try {
+    window.localStorage.setItem('theme', theme);
+  } catch {
+    // Theme changes should still work for the current session if storage is unavailable.
+  }
+}
+
 // ============================================
 // Provider Component
 // ============================================
@@ -39,13 +56,14 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(() => {
     if (typeof window === 'undefined') return 'light';
 
-    const storedTheme = localStorage.getItem('theme') as Theme | null;
-    if (storedTheme === 'light' || storedTheme === 'dark') return storedTheme;
+    const storedTheme = readStoredTheme();
+    if (storedTheme) return storedTheme;
     return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   });
   const isMounted = useSyncExternalStore(subscribeToNothing, getClientSnapshot, getServerSnapshot);
 
-  // Apply theme to document when it changes
+  // Apply the selected theme without turning the initial system preference into
+  // a permanent user preference. Only an explicit user choice is persisted.
   useEffect(() => {
     if (!isMounted) return;
 
@@ -56,20 +74,17 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     } else {
       root.classList.remove('dark');
     }
-
-    localStorage.setItem('theme', theme);
   }, [theme, isMounted]);
 
-  // Listen for system theme changes
+  // Follow operating-system theme changes until the user explicitly chooses one.
   useEffect(() => {
     if (!isMounted) return;
 
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
 
-    const handleChange = (e: MediaQueryListEvent) => {
-      const storedTheme = localStorage.getItem('theme');
-      if (!storedTheme) {
-        setThemeState(e.matches ? 'dark' : 'light');
+    const handleChange = (event: MediaQueryListEvent) => {
+      if (!readStoredTheme()) {
+        setThemeState(event.matches ? 'dark' : 'light');
       }
     };
 
@@ -78,14 +93,19 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, [isMounted]);
 
   const toggleTheme = () => {
-    setThemeState((prev) => (prev === 'light' ? 'dark' : 'light'));
+    setThemeState((previous) => {
+      const next = previous === 'light' ? 'dark' : 'light';
+      storeTheme(next);
+      return next;
+    });
   };
 
   const setTheme = (newTheme: Theme) => {
+    storeTheme(newTheme);
     setThemeState(newTheme);
   };
 
-  // Prevent flash of wrong theme
+  // Prevent flash of the wrong theme during hydration.
   if (!isMounted) {
     return <>{children}</>;
   }
@@ -104,7 +124,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 export function useTheme() {
   const context = useContext(ThemeContext);
 
-  // Return default values if used outside ThemeProvider
+  // Return default values if used outside ThemeProvider.
   if (context === undefined) {
     return {
       theme: 'light' as Theme,

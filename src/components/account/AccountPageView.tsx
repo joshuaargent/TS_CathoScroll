@@ -149,7 +149,7 @@ export function AccountPageView(props: AccountPageViewProps) {
             value={props.newPassword}
             disabled={props.accountSettingsDisabled || props.saving}
             onChange={(event) => props.onNewPasswordChange(event.target.value)}
-            hint="Minimum 8 characters. Leave blank to keep your current password."
+            hint="Minimum 12 characters. Leave blank to keep your current password."
           />
           <Input
             label="Confirm New Password"

@@ -28,6 +28,7 @@ export function notificationTransport(
       .eq('user_id', userId)
       .is('read_at', null);
     if (error) throw error;
+    await checkAccount();
     if (count === null) throw new Error('Unable to load the unread notification count.');
     return count;
   }
@@ -42,6 +43,7 @@ export function notificationTransport(
     query = all ? query.lte('id', id) : query.eq('id', id);
     const { data, error } = await query.select('id');
     if (error) throw error;
+    await checkAccount();
     if (requireMatch && !data?.length) throw new Error('Notification not found.');
   }
 
@@ -56,12 +58,14 @@ export function notificationTransport(
         .order('created_at', { ascending: false })
         .limit(50);
       if (error) throw error;
+      await checkAccount();
       const rows: NotificationRow[] = data;
       const ids = [...new Set(rows.map((row) => row.topic_id).filter((id): id is string => !!id))];
       const { data: topics, error: topicsError } = ids.length
         ? await client.from('topics').select('id,slug').in('id', ids)
         : { data: [], error: null };
       if (topicsError) throw topicsError;
+      await checkAccount();
       const slugs = new Map((topics ?? []).map((topic) => [topic.id, topic.slug]));
       return {
         unreadCount: count,
@@ -80,6 +84,7 @@ export function notificationTransport(
           .eq('user_id', userId)
           .is('read_at', null);
         if (error) throw error;
+        await checkAccount();
       } else {
         await updateRead(id, false, true);
       }

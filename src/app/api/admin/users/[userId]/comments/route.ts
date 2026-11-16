@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { checkApiRateLimit, rateLimitResponseHeaders } from '@/lib/security/api-rate-limit';
 
 import { createServiceRoleClient, getAdminSessionFromRequest, isSameOriginOrNativeRequest, nativeApiCorsHeaders, isValidUuid } from '@/lib/supabase/admin';
 
@@ -57,6 +58,20 @@ export async function GET(request: Request, { params }: RouteContext) {
 
   if (!isAdmin) {
     return respond(request, { error: 'Forbidden' }, { status: 403 });
+  }
+
+  const rateLimit = await checkApiRateLimit({
+    scope: 'admin:moderation',
+    identifier: user.id,
+    limit: 10,
+    windowSeconds: 60,
+  });
+  if (!rateLimit.allowed) {
+    return respond(
+      request,
+      { error: rateLimit.unavailable ? 'Administrator services are temporarily unavailable' : 'Too many administrator requests. Please wait.' },
+      { status: rateLimit.unavailable ? 503 : 429, headers: rateLimitResponseHeaders(rateLimit.retryAfterSeconds) }
+    );
   }
 
   const { userId } = await params;

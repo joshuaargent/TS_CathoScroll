@@ -16,23 +16,27 @@ function snapshot(value: string): NotificationSnapshot {
   ) {
     throw new Error('Invalid saved notifications.');
   }
+  const ids = new Set<number>();
   for (const item of data.notifications) {
     if (
       !item ||
       typeof item !== 'object' ||
       !Number.isSafeInteger(item.id) ||
       item.id < 1 ||
-      typeof item.type !== 'string' ||
-      typeof item.title !== 'string' ||
-      typeof item.body !== 'string' ||
-      (item.topic_id !== null && typeof item.topic_id !== 'string') ||
-      (item.topic_slug !== null && typeof item.topic_slug !== 'string') ||
-      (item.comment_id !== null && !Number.isSafeInteger(item.comment_id)) ||
-      (item.read_at !== null && typeof item.read_at !== 'string') ||
-      typeof item.created_at !== 'string'
+      typeof item.id !== 'number' ||
+      typeof item.type !== 'string' || item.type.length === 0 || item.type.length > 128 ||
+      typeof item.title !== 'string' || item.title.length > 16_384 ||
+      typeof item.body !== 'string' || item.body.length > 65_536 ||
+      (item.topic_id !== null && (typeof item.topic_id !== 'string' || item.topic_id.length > 256)) ||
+      (item.topic_slug !== null && (typeof item.topic_slug !== 'string' || item.topic_slug.length > 256)) ||
+      (item.comment_id !== null && (typeof item.comment_id !== 'number' || !Number.isSafeInteger(item.comment_id) || item.comment_id < 1)) ||
+      (item.read_at !== null && (typeof item.read_at !== 'string' || Number.isNaN(Date.parse(item.read_at)))) ||
+      typeof item.created_at !== 'string' || Number.isNaN(Date.parse(item.created_at))
     ) {
       throw new Error('Invalid saved notification.');
     }
+    if (ids.has(item.id as number)) throw new Error('Duplicate saved notification.');
+    ids.add(item.id as number);
   }
   return parsed as NotificationSnapshot;
 }

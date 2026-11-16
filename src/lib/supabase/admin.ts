@@ -45,23 +45,95 @@ export async function getAuthenticatedUserFromRequest(request: Request) {
     global: { headers: { Authorization: `Bearer ${token}` } },
   });
   const { data, error } = await supabase.auth.getUser(token);
-  if (error) return { supabase, user: null };
-  return { supabase, user: data.user };
+  if (error) return { supabase, user: null, accessToken: token };
+  return { supabase, user: data.user, accessToken: token };
+}
+
+export function hasTotpAssuranceInAccessToken(accessToken: string): boolean {
+  try {
+    const payload = accessToken.split('.')[1];
+    if (!payload) return false;
+    const claims = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as {
+      aal?: unknown;
+      amr?: unknown;
+    };
+    return (
+      claims.aal === 'aal2' &&
+      Array.isArray(claims.amr) &&
+      claims.amr.some(
+        (entry) =>
+          typeof entry === 'object' &&
+          entry !== null &&
+          'method' in entry &&
+          entry.method === 'totp'
+      )
+    );
+  } catch {
+    return false;
+  }
+}
+
+async function adminMfaSatisfied(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  accessToken?: string
+) {
+  const serviceClient = createServiceRoleClient();
+  const { data: enforced, error: enforcementError } = await serviceClient.rpc(
+    'admin_mfa_enforcement_enabled'
+  );
+  if (enforcementError) throw new Error(enforcementError.message);
+  if (enforced !== true) return true;
+
+  let verifiedAccessToken = accessToken;
+  if (!verifiedAccessToken) {
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError) throw new Error(sessionError.message);
+    verifiedAccessToken = sessionData.session?.access_token;
+  }
+  if (!verifiedAccessToken || !hasTotpAssuranceInAccessToken(verifiedAccessToken)) {
+    return false;
+  }
+
+  const { data: hasVerifiedTotp, error: factorError } = await serviceClient.rpc(
+    'admin_user_has_verified_totp',
+    { p_user_id: userId }
+  );
+  if (factorError) throw new Error(factorError.message);
+  return hasVerifiedTotp === true;
 }
 
 export async function getAdminSessionFromRequest(request: Request) {
-  const { supabase, user } = await getAuthenticatedUserFromRequest(request);
-  if (!user) return { user: null, isAdmin: false, error: null };
+  const { supabase, user, accessToken } = await getAuthenticatedUserFromRequest(request);
+  if (!user) return { user: null, isAdmin: false, error: null, mfaRequired: false };
   const { data, error } = await supabase
     .from('admin_users')
     .select('user_id')
     .eq('user_id', user.id)
     .maybeSingle();
-  return {
-    user,
-    isAdmin: Boolean(data),
-    error: error ? new Error(error.message) : null,
-  };
+  if (error) {
+    return { user, isAdmin: false, error: new Error(error.message), mfaRequired: false };
+  }
+  if (!data) {
+    return { user, isAdmin: false, error: null, mfaRequired: false };
+  }
+
+  try {
+    const mfaSatisfied = await adminMfaSatisfied(supabase, user.id, accessToken);
+    return {
+      user,
+      isAdmin: mfaSatisfied,
+      error: null,
+      mfaRequired: !mfaSatisfied,
+    };
+  } catch (mfaError) {
+    return {
+      user,
+      isAdmin: false,
+      error: mfaError instanceof Error ? mfaError : new Error('Unable to verify administrator MFA'),
+      mfaRequired: false,
+    };
+  }
 }
 
 export async function getAdminSession() {
@@ -71,7 +143,7 @@ export async function getAdminSession() {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return { user: null, isAdmin: false, error: null };
+    return { user: null, isAdmin: false, error: null, mfaRequired: false };
   }
 
   // Resolve the role from the protected database table on every privileged
@@ -82,11 +154,29 @@ export async function getAdminSession() {
     .eq('user_id', user.id)
     .maybeSingle();
 
-  return {
-    user,
-    isAdmin: Boolean(data),
-    error: error ? new Error(error.message) : null,
-  };
+  if (error) {
+    return { user, isAdmin: false, error: new Error(error.message), mfaRequired: false };
+  }
+  if (!data) {
+    return { user, isAdmin: false, error: null, mfaRequired: false };
+  }
+
+  try {
+    const mfaSatisfied = await adminMfaSatisfied(supabase, user.id);
+    return {
+      user,
+      isAdmin: mfaSatisfied,
+      error: null,
+      mfaRequired: !mfaSatisfied,
+    };
+  } catch (mfaError) {
+    return {
+      user,
+      isAdmin: false,
+      error: mfaError instanceof Error ? mfaError : new Error('Unable to verify administrator MFA'),
+      mfaRequired: false,
+    };
+  }
 }
 
 export function createServiceRoleClient() {
@@ -124,5 +214,5 @@ export async function getAuthenticatedUser() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  return { supabase, user };
+  return { supabase, user, accessToken: undefined };
 }

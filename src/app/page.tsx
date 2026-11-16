@@ -39,7 +39,7 @@ export const metadata: Metadata = {
   },
 };
 
-export default async function HomePage() {
+async function HomeFeed() {
   const supabase = await createClient();
   const {
     data: { user },
@@ -61,4 +61,10 @@ export default async function HomePage() {
       <TopicFeed topics={topics} nextCursor={nextCursor} userId={user.id} personalized />
     </div>
   );
+}
+
+export default async function HomePage() {
+  // The home feed intentionally has no loading fallback. Keep the initial
+  // experience still while the feed and session are resolved.
+  return HomeFeed();
 }

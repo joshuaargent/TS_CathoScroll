@@ -43,10 +43,11 @@ export function NativeNotificationsProvider({
     let service: NativeNotificationService | null = null;
     const noticeId = "notifications-sync:" + accountId;
     const request = () => {
-      if (!service) return;
+      if (!active || !service) return;
       void service.sync().then(
         () => clearNativeStatusNotice(noticeId),
         (error: unknown) => {
+          if (!active) return;
           console.error('Unable to synchronize notification changes:', error);
           notifyNativeStatus('Your notification changes could not be synchronized.', {
             id: noticeId,
