@@ -35,15 +35,15 @@ The existing topic swipe viewer now records signed-in topic impressions, viewabi
 
 The browser client batches up to 50 events. A bounded localStorage queue is namespaced by the currently authenticated user ID so pending events from one account cannot be attributed to another account after a sign-out/sign-in switch. Events contain no comment text, profile details, email addresses or raw user identifiers. Queue writes and network failures are best-effort; they never block feed navigation or learning actions.
 
-The queue is retried when connectivity returns and flushed on page hide/visibility changes. Browser storage can be cleared by the user or the operating system, and abrupt process termination can still lose events that have not reached the server. This is analytics telemetry, not the durable offline activity outbox. A later native-specific phase should decide whether telemetry belongs in encrypted SQLite or remains best-effort.
+The queue is retried when connectivity returns and flushed on page hide/visibility changes. It is capped at 200 events per account; when full, the oldest unsent telemetry is discarded to keep storage bounded. Browser storage can be cleared by the user or the operating system, and abrupt process termination can still lose events that have not reached the server. This is analytics telemetry, not the durable offline activity outbox. A later native-specific phase should decide whether telemetry belongs in encrypted SQLite or remains best-effort.
 
-Active duration is measured only while the document is visible and the feed container is at least 50% visible. It is emitted in bounded chunks. The client does not send client timestamps; the server receipt time is used for reporting.
+A viewable impression requires at least 50% of the feed container to remain visible for one continuous second. Active duration is measured only while the document is visible and the feed container is viewable. It is emitted in bounded chunks. The client does not send client timestamps; the server receipt time is used for reporting.
 
 ## Privacy and reporting
 
 The initial implementation tracks signed-in feed usage only. Anonymous tracking is not enabled. Raw events are private and should be exposed only through server-side administrator aggregate queries. Sponsor dashboards must never expose individual user identities or raw events.
 
-No historical impressions or reading duration can be inferred from likes, bookmarks or comments. Those older metrics must be shown as unavailable, not zero. Aggregate rollups, retention cleanup, topic/category dashboards, comment and sponsor events, and recommendation weighting are separate follow-up phases.
+No historical impressions or reading duration can be inferred from likes, bookmarks or comments. Those older metrics must be shown as unavailable, not zero. Raw event data is retained for 180 days; a bounded cleanup job runs every 15 minutes and deletes up to 5,000 expired rows per run. Daily aggregate rollups are not implemented yet, so reporting beyond the raw retention window is not yet available. Topic/category dashboards, comment and sponsor events, and recommendation weighting are separate follow-up phases.
 
 ## Verification still required
 
