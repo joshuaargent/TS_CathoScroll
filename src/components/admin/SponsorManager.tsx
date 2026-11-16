@@ -62,6 +62,32 @@ export function SponsorManager({ sponsors, memberships }: { sponsors: SponsorRec
   const [memberEmails, setMemberEmails] = useState<Record<string, string>>({});
   const [memberRoles, setMemberRoles] = useState<Record<string, 'owner' | 'manager' | 'analyst'>>({});
   const [memberUpdatingId, setMemberUpdatingId] = useState<string | null>(null);
+  const [sponsorStatuses, setSponsorStatuses] = useState<Record<string, string>>({});
+  const [sponsorStatusUpdatingId, setSponsorStatusUpdatingId] = useState<string | null>(null);
+
+  async function updateSponsorStatus(sponsorId: string) {
+    if (sponsorStatusUpdatingId) return;
+    const status = sponsorStatuses[sponsorId];
+    if (!status) return;
+    setSponsorStatusUpdatingId(sponsorId);
+    setError(null);
+    setSuccess(null);
+    try {
+      const response = await fetch(`/api/admin/sponsors/${encodeURIComponent(sponsorId)}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      });
+      const result: { error?: string } = await response.json();
+      if (!response.ok) throw new Error(result.error ?? 'Unable to update sponsor status.');
+      setSuccess(`Sponsor status changed to ${status.replaceAll('_', ' ')}.`);
+      router.refresh();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Unable to update sponsor status.');
+    } finally {
+      setSponsorStatusUpdatingId(null);
+    }
+  }
 
   async function addSponsorMember(sponsorId: string) {
     if (memberUpdatingId) return;
@@ -389,7 +415,31 @@ export function SponsorManager({ sponsors, memberships }: { sponsors: SponsorRec
                     <td className="px-4 py-4 align-top">
                       {formatDate(sponsor.starts_on)} – {formatDate(sponsor.ends_on)}
                     </td>
-                    <td className="px-4 py-4 align-top">{humanize(sponsor.status)}</td>
+                    <td className="px-4 py-4 align-top">
+                      <div className="flex min-w-[180px] flex-col gap-2">
+                        <span className="font-medium">{humanize(sponsor.status)}</span>
+                        <select
+                          aria-label={`Sponsor status for ${sponsor.sponsor_name}`}
+                          value={sponsorStatuses[sponsor.id] ?? sponsor.status}
+                          onChange={(event) => setSponsorStatuses((current) => ({ ...current, [sponsor.id]: event.target.value }))}
+                          className="border-border bg-bg-primary rounded-md border px-2 py-1.5 text-xs"
+                        >
+                          <option value="draft">Draft</option>
+                          <option value="scheduled">Scheduled</option>
+                          <option value="active">Active</option>
+                          <option value="paused">Paused</option>
+                          <option value="completed">Completed</option>
+                        </select>
+                        <button
+                          type="button"
+                          disabled={sponsorStatusUpdatingId !== null || (sponsorStatuses[sponsor.id] ?? sponsor.status) === sponsor.status}
+                          onClick={() => void updateSponsorStatus(sponsor.id)}
+                          className="border-border rounded-md border px-2 py-1.5 text-xs font-semibold disabled:opacity-50"
+                        >
+                          {sponsorStatusUpdatingId === sponsor.id ? 'Saving…' : 'Update status'}
+                        </button>
+                      </div>
+                    </td>
                     <td className="px-4 py-4 align-top">
                       {formatMoney(sponsor.agreed_amount_minor, sponsor.currency)}
                     </td>
