@@ -5190,7 +5190,7 @@ BEGIN
           AND recent_served.received_at >= pg_catalog.statement_timestamp() - interval '24 hours')
         < campaign.frequency_cap_per_user_24h
       AND NOT (campaign.id = ANY(v_campaign_ids))
-    ORDER BY -pg_catalog.ln(pg_catalog.greatest(pg_catalog.random(), 0.000001))
+    ORDER BY -pg_catalog.ln(pg_catalog.greatest(pg_catalog.random(), 0.000001::double precision))
       / campaign.placement_weight::numeric, campaign.id
     LIMIT 1 FOR UPDATE OF campaign SKIP LOCKED;
 
