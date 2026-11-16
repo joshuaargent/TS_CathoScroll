@@ -48,11 +48,11 @@ export default async function AdminSponsorCampaignsPage() {
   }
 
   const sponsors = (sponsorData ?? []) as SponsorOption[];
-  const campaignAnalytics = new Map<string, SponsorCampaignAnalytics>(
+  const campaignAnalytics = Object.fromEntries(
     ((analyticsData as { campaigns?: SponsorCampaignAnalytics[] } | null)?.campaigns ?? [])
-      .map((item) => [item.campaign_id, item] as const)
-  );
-  const sponsorById = new Map(sponsors.map((sponsor) => [sponsor.id, sponsor]));
+      .map((item) => [item.campaign_id, item])
+  ) as Record<string, SponsorCampaignAnalytics>;
+  const sponsorById = new Map(sponsors.map((sponsor) => [sponsor.id, sponsor] as const));
   const campaigns = ((campaignData ?? []) as Omit<SponsorCampaignRecord, 'sponsor_name' | 'sponsor_payment_status' | 'sponsor_status'>[])
     .map((campaign) => ({
       ...campaign,
