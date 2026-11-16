@@ -224,17 +224,18 @@ export class SupabaseActivityTransport implements ActivityBootstrapTransport {
       throw new Error('Invalid offline activity batch size.');
     }
     const first = operations[0];
-    let previousSequence = revision(first.acknowledgedSequence);
+    const acknowledgedSequence = revision(first.acknowledgedSequence);
     const deviceId = text(first.deviceId);
+    let previousSequence: bigint | null = null;
     for (const operation of operations) {
       if (operation.userId !== first.userId || text(operation.deviceId) !== deviceId) {
         throw new Error('Offline activity batch contains mixed account or device identities.');
       }
       const sequence = revision(operation.sequence);
-      const acknowledgedSequence = revision(operation.acknowledgedSequence);
       if (
         sequence <= acknowledgedSequence ||
-        acknowledgedSequence !== previousSequence
+        revision(operation.acknowledgedSequence) !== acknowledgedSequence ||
+        (previousSequence !== null && sequence !== previousSequence + 1n)
       ) {
         throw new Error('Offline activity batch sequence is not contiguous.');
       }
