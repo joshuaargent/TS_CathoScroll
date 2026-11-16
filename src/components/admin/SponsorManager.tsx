@@ -49,6 +49,35 @@ export function SponsorManager({ sponsors }: { sponsors: SponsorRecord[] }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [updatingSponsorId, setUpdatingSponsorId] = useState<string | null>(null);
+  const [paymentReferences, setPaymentReferences] = useState<Record<string, string>>({});
+
+  async function markPaymentReceived(sponsorId: string) {
+    if (updatingSponsorId) return;
+    setUpdatingSponsorId(sponsorId);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const response = await fetch(`/api/admin/sponsors/${encodeURIComponent(sponsorId)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'mark_payment_received',
+          paymentReference: paymentReferences[sponsorId] ?? null,
+        }),
+      });
+      const result: { error?: string } = await response.json();
+      if (!response.ok) throw new Error(result.error ?? 'Unable to update sponsor payment.');
+
+      setSuccess('Bank transfer marked as received.');
+      router.refresh();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Unable to update sponsor payment.');
+    } finally {
+      setUpdatingSponsorId(null);
+    }
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -342,6 +371,31 @@ export function SponsorManager({ sponsors }: { sponsors: SponsorRecord[] }) {
                         <p className="text-text-muted mt-1 text-xs">
                           Received {new Date(sponsor.payment_received_at).toLocaleDateString('en-GB')}
                         </p>
+                      )}
+                      {sponsor.payment_status === 'pending' && (
+                        <div className="mt-3 flex flex-wrap items-center gap-2">
+                          <input
+                            aria-label={`Bank-transfer reference for ${sponsor.sponsor_name}`}
+                            value={paymentReferences[sponsor.id] ?? sponsor.payment_reference ?? ''}
+                            onChange={(event) =>
+                              setPaymentReferences((current) => ({
+                                ...current,
+                                [sponsor.id]: event.target.value.slice(0, 120),
+                              }))
+                            }
+                            maxLength={120}
+                            placeholder="Bank reference (optional)"
+                            className="border-border bg-bg-primary min-w-0 rounded-md border px-2 py-1.5 text-xs"
+                          />
+                          <button
+                            type="button"
+                            disabled={updatingSponsorId !== null}
+                            onClick={() => void markPaymentReceived(sponsor.id)}
+                            className="bg-accent text-white hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-60 rounded-md px-2.5 py-1.5 text-xs font-semibold"
+                          >
+                            {updatingSponsorId === sponsor.id ? 'Saving…' : 'Mark received'}
+                          </button>
+                        </div>
                       )}
                     </td>
                   </tr>
