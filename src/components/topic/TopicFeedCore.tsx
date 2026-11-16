@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState, type ComponentType } from 'react';
+import { useRouter } from 'next/navigation';
 
 import { shuffle } from '@/lib/utils';
 import {
@@ -96,7 +97,6 @@ export function TopicFeedCore({
   useEffect(() => {
     if (sponsorSessionUserId.current === userId) return;
     sponsorSessionUserId.current = userId;
-    /* eslint-disable react-hooks/set-state-in-effect */
     setActiveSponsorSessionId(null);
     sponsorCardsByTopicId.current.clear();
     sponsorLoadingRef.current = false;
@@ -105,7 +105,6 @@ export function TopicFeedCore({
     setShowSponsorCard(false);
     setTopicsSinceSponsorCard(0);
     setTopicsSinceTopCommentCard(0);
-    /* eslint-enable react-hooks/set-state-in-effect */
   }, [userId]);
 
   const loadSponsorCampaigns = useCallback(
@@ -335,7 +334,10 @@ export function TopicFeedCore({
         if (result.campaigns.length > 0 && result.sessionId) {
           setSponsorCampaigns(result.campaigns);
           setActiveSponsorSessionId(result.sessionId);
-          sponsorCardsByTopicId.current.set(currentTopic.id, result);
+          sponsorCardsByTopicId.current.set(currentTopic.id, {
+            campaigns: result.campaigns,
+            sessionId: result.sessionId,
+          });
           setShowTopCommentCard(false);
           setShowSponsorCard(true);
           lastInterstitialType.current = 'sponsor';
@@ -396,7 +398,7 @@ export function TopicFeedCore({
       return;
     }
 
-    window.location.assign(
+    router.push(
       `/topic/${encodeURIComponent(comment.topic_slug)}#comment-${comment.comment_id}`
     );
   };
