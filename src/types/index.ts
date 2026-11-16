@@ -39,6 +39,7 @@ export interface Topic {
 
   // The display name is resolved from the topic's database category relation.
   category: string;
+  categorySlug?: string;
 
   question: string;
 
