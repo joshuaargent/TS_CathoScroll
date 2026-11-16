@@ -297,9 +297,7 @@ fails, the app reports the issue and searches the saved catalogue locally.
 Local substring search is a fallback, not a replacement for ranked server
 search on a large catalogue.
 
-The weighted full-text index and ranked-search RPC are defined in
-[`docs/search_published_topics.sql`](docs/search_published_topics.sql). This SQL
-is included in the complete database bootstrap described below.
+The weighted full-text index and ranked-search RPC are included in the complete database bootstrap described below.
 
 #### Published catalogue synchronization
 
@@ -703,7 +701,7 @@ Use this file when creating a **fresh Supabase project** to restore the applicat
 
 The bootstrap intentionally refuses to run if CathoScroll application tables already exist. **Do not run it against the existing production project or use it as an upgrade script.** It restores schema and the public category/topic catalogue snapshot, not a full database backup: it does not recreate Auth users/passwords, profiles, admin-owner/admin-role assignments, bookmarks, comments, notes, notifications, moderation history, other user-generated rows, Storage objects, Auth settings, API keys, secrets, Edge Functions, or Supabase-managed platform internals. Keep a separate, regularly tested backup of database data and project configuration.
 
-The smaller SQL files in `docs/` document individual database features and are not substitutes for the full bootstrap. Update the consolidated snapshot whenever application database objects change, and test it on a disposable Supabase project before relying on it for disaster recovery.
+This is the single canonical SQL source for rebuilding the application database schema. Update it whenever application database objects change, and test it on a disposable Supabase project before relying on it for disaster recovery. Do not maintain a chain of manually applied SQL patches as a substitute for this snapshot.
 
 ## License
 
