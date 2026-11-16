@@ -1,6 +1,4 @@
-import { Suspense } from 'react';
 import { TopicFeed } from '@/components/topic/TopicFeed';
-import { Skeleton } from '@/components/ui/Skeleton';
 import { getPublishedTopicPage } from '@/lib/content';
 import { siteConfig } from '@/lib/constants';
 import { getRecommendationPage } from '@/lib/recommendations-server';
@@ -65,32 +63,8 @@ async function HomeFeed() {
   );
 }
 
-
-function HomeFeedSkeleton() {
-  return (
-    <div
-      role="status"
-      aria-label="Loading topic feed"
-      aria-busy="true"
-      className="h-[calc(100vh-4rem)] overflow-hidden"
-    >
-      <div className="container flex h-full items-center justify-center py-8">
-        <div className="border-border bg-bg-card w-full max-w-2xl rounded-2xl border p-6">
-          <Skeleton className="h-8 w-2/3" />
-          <Skeleton className="mt-6 h-4 w-full" />
-          <Skeleton className="mt-2 h-4 w-5/6" />
-          <Skeleton className="mt-8 h-48 w-full" variant="rectangular" />
-          <Skeleton className="mt-6 h-4 w-1/3" />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-export default function HomePage() {
-  return (
-    <Suspense fallback={<HomeFeedSkeleton />}>
-      <HomeFeed />
-    </Suspense>
-  );
+export default async function HomePage() {
+  // The home feed intentionally has no loading fallback. Keep the initial
+  // experience still while the feed and session are resolved.
+  return HomeFeed();
 }
