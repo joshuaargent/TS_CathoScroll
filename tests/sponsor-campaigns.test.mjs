@@ -38,6 +38,9 @@ test('weighted campaign selector enforces payment, dates, targeting, caps and co
     'public.get_weighted_sponsor_campaigns',
     'ALTER FUNCTION public.get_weighted_sponsor_campaigns'
   );
+  assert.match(selector, /sponsor\.status IN \\('active', 'scheduled'\\)/);
+  assert.match(selector, /sponsor\.starts_on IS NULL/);
+  assert.match(selector, /sponsor\.ends_on IS NULL/);
   assert.match(selector, /sponsor\.payment_status IN \('received', 'not_required'\)/);
   assert.match(selector, /campaign\.starts_on <= v_today AND campaign\.ends_on >= v_today/);
   assert.match(selector, /target_category_slugs/);
