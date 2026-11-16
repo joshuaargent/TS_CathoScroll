@@ -201,3 +201,10 @@ Bank transfers are made directly to the CathoScroll bank account and marked rece
 ## Feed analytics aggregate storage
 
 The daily analytics tables are in the non-exposed `catho_private` schema, have RLS enabled, and grant no direct access to `anon`, `authenticated` or `service_role`. Only postgres-owned SECURITY DEFINER maintenance and admin aggregate functions access them. The user/day/topic viewer bridge is pruned in bounded batches after 180 days; the daily totals table contains no user/session identifiers and can outlive raw event retention. The rollup maintenance function is restricted to the service role and scheduled through pg_cron; the cron job runs as its database owner. Admin aggregate queries continue to return aggregate-only payloads.
+
+
+## Sponsor campaign security controls
+
+Campaign inventory is protected by RLS with direct table access revoked from public, anonymous, authenticated and service-role clients; server-side service-role access is used only through validated API routes. Campaign creation, approval, pausing/resuming and aggregate reporting use postgres-owned SECURITY DEFINER functions with an empty search path and execution restricted to `service_role`. Administrator endpoints independently verify administrator MFA, same-origin/native requests, bounded JSON and per-admin rate limits.
+
+Campaign delivery and event recording are also service-role-only RPCs. Delivery verifies the authenticated user, serializes concurrent selection per user, locks selected campaign rows to enforce global caps, and filters by sponsor payment/status, campaign dates, targeting and frequency caps. The API returns only approved public creative fields. Event recording requires a matching served event in the same session; clicks require a prior viewable impression. Unique partial indexes prevent concurrent duplicate viewable/click events. Raw event rows and per-user frequency rows are retained only as long as required for reporting and caps; aggregate daily metrics contain no user identifiers.
