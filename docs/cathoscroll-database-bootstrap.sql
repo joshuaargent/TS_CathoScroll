@@ -15,7 +15,7 @@
 --     the same PostgreSQL major version as the source project.
 --   * pg_cron and permission to create the ensure_rls event trigger are required.
 --
--- Object counts at export: 30 tables, 67 functions, 33 triggers, 32 policies,
+-- Object counts at export: 30 tables, 68 functions, 33 triggers, 32 policies,
 -- 15 categories and 86 topics.
 --
 DO $bootstrap_guard$
@@ -4617,3 +4617,82 @@ REVOKE ALL ON FUNCTION public.admin_create_sponsor(
 GRANT EXECUTE ON FUNCTION public.admin_create_sponsor(
   uuid, text, text, text, text, text, date, date, text, bigint, text, text, text, text
 ) TO service_role;
+
+
+CREATE OR REPLACE FUNCTION public.admin_mark_sponsor_payment_received(
+  p_actor_user_id uuid,
+  p_sponsor_id uuid,
+  p_payment_reference text DEFAULT NULL
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $function$
+DECLARE
+  v_sponsor public.sponsors%ROWTYPE;
+BEGIN
+  IF p_actor_user_id IS NULL OR NOT EXISTS (
+    SELECT 1 FROM public.admin_users AS admins WHERE admins.user_id = p_actor_user_id
+  ) THEN
+    RAISE EXCEPTION 'Administrator access required' USING ERRCODE = '42501';
+  END IF;
+
+  SELECT * INTO v_sponsor
+  FROM public.sponsors AS sponsors
+  WHERE sponsors.id = p_sponsor_id
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Sponsor not found' USING ERRCODE = 'P0002';
+  END IF;
+
+  IF v_sponsor.payment_status = 'received' THEN
+    RETURN pg_catalog.jsonb_build_object(
+      'id', v_sponsor.id,
+      'payment_status', v_sponsor.payment_status,
+      'payment_received_at', v_sponsor.payment_received_at
+    );
+  END IF;
+
+  IF v_sponsor.payment_status <> 'pending' THEN
+    RAISE EXCEPTION 'Only pending bank transfers can be marked received' USING ERRCODE = '23514';
+  END IF;
+
+  UPDATE public.sponsors
+  SET payment_status = 'received',
+      payment_received_at = pg_catalog.statement_timestamp(),
+      payment_reference = coalesce(nullif(btrim(p_payment_reference), ''), payment_reference),
+      updated_at = pg_catalog.statement_timestamp()
+  WHERE id = p_sponsor_id
+  RETURNING * INTO v_sponsor;
+
+  INSERT INTO catho_private.admin_action_audit (
+    actor_user_id, action, target_type, target_id, details
+  )
+  VALUES (
+    p_actor_user_id,
+    'sponsor.payment_received',
+    'sponsor',
+    v_sponsor.id::text,
+    pg_catalog.jsonb_build_object(
+      'sponsor_name', v_sponsor.sponsor_name,
+      'payment_status', v_sponsor.payment_status,
+      'payment_reference', v_sponsor.payment_reference,
+      'payment_received_at', v_sponsor.payment_received_at
+    )
+  );
+
+  RETURN pg_catalog.jsonb_build_object(
+    'id', v_sponsor.id,
+    'payment_status', v_sponsor.payment_status,
+    'payment_received_at', v_sponsor.payment_received_at
+  );
+END;
+$function$;
+
+ALTER FUNCTION public.admin_mark_sponsor_payment_received(uuid, uuid, text) OWNER TO postgres;
+REVOKE ALL ON FUNCTION public.admin_mark_sponsor_payment_received(uuid, uuid, text)
+  FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.admin_mark_sponsor_payment_received(uuid, uuid, text)
+  TO service_role;
