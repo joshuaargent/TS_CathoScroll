@@ -90,20 +90,15 @@ export async function POST(request: Request, { params }: RouteContext) {
   try {
     const adminClient = createServiceRoleClient();
     const targetEmail = email.trim().toLowerCase();
-    let targetUserId: string | null = null;
-    const pageSize = 1000;
-    for (let page = 1; page <= 20; page += 1) {
-      const { data, error } = await adminClient.auth.admin.listUsers({ page, perPage: pageSize });
-      if (error) {
-        console.error('Unable to search Auth users for sponsor assignment:', error.message);
-        return respond(request, { error: 'Unable to look up the account. Try again later.' }, 503);
-      }
-      const match = data.users.find((candidate) => candidate.email?.toLowerCase() === targetEmail);
-      if (match) {
-        targetUserId = match.id;
-        break;
-      }
-      if (data.users.length < pageSize) break;
+    const { data: targetUserId, error: lookupError } = await adminClient.rpc('admin_find_sponsor_user_by_email', {
+      p_actor_user_id: access.user.id,
+      p_email: targetEmail,
+    });
+    if (lookupError) {
+      if (lookupError.code === '42501') return respond(request, { error: 'Administrator access required.' }, 403);
+      if (lookupError.code === '22023') return respond(request, { error: 'Enter a valid account email.' }, 400);
+      console.error('Unable to resolve Auth user for sponsor assignment:', lookupError.message);
+      return respond(request, { error: 'Unable to look up the account. Try again later.' }, 503);
     }
 
     if (!targetUserId) {
