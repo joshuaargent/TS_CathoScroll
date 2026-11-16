@@ -3927,8 +3927,8 @@ CREATE TABLE catho_private.feed_analytics_daily_viewers (
   user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   PRIMARY KEY (event_date, entity_id, user_id)
 );
-CREATE INDEX feed_analytics_daily_viewers_user_date_idx
-  ON catho_private.feed_analytics_daily_viewers (user_id, event_date DESC);
+CREATE INDEX feed_analytics_daily_viewers_entity_date_user_idx
+  ON catho_private.feed_analytics_daily_viewers (entity_id, event_date, user_id);
 ALTER TABLE catho_private.feed_analytics_daily ENABLE ROW LEVEL SECURITY;
 ALTER TABLE catho_private.feed_analytics_daily_viewers ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON TABLE catho_private.feed_analytics_daily FROM PUBLIC, anon, authenticated, service_role;
@@ -4463,8 +4463,16 @@ BEGIN
   WHERE event.ctid = expired.ctid;
   GET DIAGNOSTICS v_deleted = ROW_COUNT;
 
-  DELETE FROM catho_private.feed_analytics_daily_viewers
-  WHERE event_date < (p_before AT TIME ZONE 'UTC')::date;
+  WITH expired_viewers AS (
+    SELECT viewer.ctid
+    FROM catho_private.feed_analytics_daily_viewers AS viewer
+    WHERE viewer.event_date < (p_before AT TIME ZONE 'UTC')::date
+    ORDER BY viewer.event_date
+    LIMIT p_limit
+  )
+  DELETE FROM catho_private.feed_analytics_daily_viewers AS viewer
+  USING expired_viewers
+  WHERE viewer.ctid = expired_viewers.ctid;
 
   RETURN v_deleted;
 END;
