@@ -1,5 +1,6 @@
 import { AdminNavigation } from '@/components/admin/AdminNavigation';
 import { SponsorManager, type SponsorRecord } from '@/components/admin/SponsorManager';
+import { SponsorFinancialManager } from '@/components/admin/SponsorFinancialManager';
 import { requireAdminPage } from '@/lib/moderation/require-admin';
 
 export const metadata = {
@@ -51,6 +52,21 @@ export default async function AdminSponsorsPage() {
     username: profilesById.get(membership.user_id)?.username ?? null,
   }));
 
+  const financialEntries = await Promise.all(
+    (data ?? []).map(async (sponsor) => {
+      const { data: financials, error: financialError } = await adminClient.rpc('get_admin_sponsor_financials', {
+        p_actor_user_id: user.id,
+        p_sponsor_id: sponsor.id,
+      });
+      if (financialError) {
+        console.error('Unable to load sponsor financial records:', financialError.message);
+        return [sponsor.id, { invoices: [], transactions: [] }] as const;
+      }
+      return [sponsor.id, financials ?? { invoices: [], transactions: [] }] as const;
+    })
+  );
+  const financialsBySponsor = Object.fromEntries(financialEntries);
+
   return (
     <main className="container py-12">
       <div className="mt-8">
@@ -65,6 +81,10 @@ export default async function AdminSponsorsPage() {
         <AdminNavigation />
       </div>
       <SponsorManager sponsors={(data ?? []) as SponsorRecord[]} memberships={memberships} />
+      <SponsorFinancialManager
+        sponsors={(data ?? []) as SponsorRecord[]}
+        financialsBySponsor={financialsBySponsor}
+      />
     </main>
   );
 }
