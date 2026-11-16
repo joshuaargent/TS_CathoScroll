@@ -280,12 +280,17 @@ the operations that the server has confirmed. If a request succeeds on the
 server but its response is lost, retrying the same operation IDs returns the
 existing receipts rather than applying the actions twice.
 
-Each device has its own sequence and acknowledgement cursor. The server checks
-that operations arrive in sequence and that acknowledgements refer to
-operations previously recorded for that device. The client advances its local
-acknowledgement only after the corresponding receipt has been validated and
-committed locally. An unavailable or unpublished topic is recorded as a
-rejection and archived locally; it does not block later queued actions. When
+Each device has its own sequence and acknowledgement cursor. All operations
+in one batch carry the same last client-confirmed acknowledgement, and their
+device sequence numbers must be contiguous. The server deliberately does not
+treat an earlier receipt in the same response as acknowledged: the client can
+only confirm the batch after it has received and committed the complete
+response locally. This means a lost response can safely replay the entire
+batch and receive the same receipts without duplicating writes. On the next
+batch, the client advances its acknowledgement cursor and the server can
+discard the earlier receipts and sequence mappings. An unavailable or
+unpublished topic is recorded as a rejection and archived locally; it does
+not block later queued actions. When
 the account is too far behind the retained change history, the client stages
 a fresh activity snapshot, reconciles changes made during the snapshot, and
 publishes the replacement atomically while preserving pending local edits.
