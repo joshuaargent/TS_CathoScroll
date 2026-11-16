@@ -180,7 +180,11 @@ export class SupabaseActivityTransport implements ActivityBootstrapTransport {
       }
       return { userId, operationId, status: 'rejected', reason: 'topic_unavailable' };
     }
-    if (receipt.status !== 'applied' || typeof receipt.value !== 'boolean' || receipt.value !== operation.value) {
+    if (
+      receipt.status !== 'applied' ||
+      typeof receipt.value !== 'boolean' ||
+      receipt.value !== operation.value
+    ) {
       throw new Error('Offline activity server receipt value does not match.');
     }
     const receiptRevision = revision(receipt.revision);
