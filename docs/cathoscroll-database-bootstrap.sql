@@ -4503,6 +4503,9 @@ BEGIN
   v_through := (pg_catalog.timezone('UTC', statement_timestamp()))::date;
   v_from := v_through - p_days_back;
 
+  DELETE FROM catho_private.feed_analytics_daily
+  WHERE event_date BETWEEN v_from AND v_through;
+
   INSERT INTO catho_private.feed_analytics_daily (
     event_date, entity_id, impressions, viewable_impressions,
     active_duration_ms, skips, completions, return_visits, refreshed_at
