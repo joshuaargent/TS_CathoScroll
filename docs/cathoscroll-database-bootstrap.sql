@@ -3902,6 +3902,37 @@ CREATE TABLE catho_private.feed_analytics_event_limits (
   window_started_at timestamptz NOT NULL DEFAULT statement_timestamp(),
   event_count integer NOT NULL DEFAULT 0 CHECK (event_count >= 0)
 );
+
+-- Durable daily aggregates keep admin reporting inexpensive after raw-event retention.
+-- The viewer bridge is pseudonymous and is retained only for the same 180-day window.
+CREATE TABLE catho_private.feed_analytics_daily (
+  event_date date NOT NULL,
+  entity_id text NOT NULL REFERENCES public.topics(id) ON DELETE CASCADE,
+  impressions bigint NOT NULL DEFAULT 0 CHECK (impressions >= 0),
+  viewable_impressions bigint NOT NULL DEFAULT 0 CHECK (viewable_impressions >= 0),
+  active_duration_ms bigint NOT NULL DEFAULT 0 CHECK (active_duration_ms >= 0),
+  skips bigint NOT NULL DEFAULT 0 CHECK (skips >= 0),
+  completions bigint NOT NULL DEFAULT 0 CHECK (completions >= 0),
+  return_visits bigint NOT NULL DEFAULT 0 CHECK (return_visits >= 0),
+  unique_viewers bigint NOT NULL DEFAULT 0 CHECK (unique_viewers >= 0),
+  refreshed_at timestamptz NOT NULL DEFAULT statement_timestamp(),
+  PRIMARY KEY (event_date, entity_id)
+);
+CREATE INDEX feed_analytics_daily_entity_date_idx
+  ON catho_private.feed_analytics_daily (entity_id, event_date DESC);
+
+CREATE TABLE catho_private.feed_analytics_daily_viewers (
+  event_date date NOT NULL,
+  entity_id text NOT NULL REFERENCES public.topics(id) ON DELETE CASCADE,
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  PRIMARY KEY (event_date, entity_id, user_id)
+);
+CREATE INDEX feed_analytics_daily_viewers_user_date_idx
+  ON catho_private.feed_analytics_daily_viewers (user_id, event_date DESC);
+ALTER TABLE catho_private.feed_analytics_daily ENABLE ROW LEVEL SECURITY;
+ALTER TABLE catho_private.feed_analytics_daily_viewers ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE catho_private.feed_analytics_daily FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON TABLE catho_private.feed_analytics_daily_viewers FROM PUBLIC, anon, authenticated, service_role;
 CREATE INDEX feed_analytics_events_topic_time_idx
   ON catho_private.feed_analytics_events (entity_id, received_at DESC);
 
@@ -4338,11 +4369,88 @@ BEGIN
   USING expired
   WHERE event.ctid = expired.ctid;
   GET DIAGNOSTICS v_deleted = ROW_COUNT;
+
+  DELETE FROM catho_private.feed_analytics_daily_viewers
+  WHERE event_date < (p_before AT TIME ZONE 'UTC')::date;
+
   RETURN v_deleted;
 END;
 $function$;
 REVOKE ALL ON FUNCTION catho_private.prune_feed_analytics_events(timestamptz, integer)
   FROM PUBLIC, anon, authenticated, service_role;
+
+
+CREATE OR REPLACE FUNCTION catho_private.refresh_feed_analytics_daily(p_days_back integer DEFAULT 2)
+RETURNS integer
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog, catho_private
+AS $function$
+DECLARE
+  v_from date;
+  v_through date;
+  v_rows integer := 0;
+BEGIN
+  IF p_days_back IS NULL OR p_days_back < 0 OR p_days_back > 7 THEN
+    RAISE EXCEPTION 'Invalid analytics rollup window' USING ERRCODE = '22023';
+  END IF;
+
+  v_through := (pg_catalog.timezone('UTC', statement_timestamp()))::date;
+  v_from := v_through - p_days_back;
+
+  INSERT INTO catho_private.feed_analytics_daily (
+    event_date, entity_id, impressions, viewable_impressions,
+    active_duration_ms, skips, completions, return_visits,
+    unique_viewers, refreshed_at
+  )
+  SELECT
+    (event.received_at AT TIME ZONE 'UTC')::date,
+    event.entity_id,
+    count(*) FILTER (WHERE event.event_type = 'impression'),
+    count(*) FILTER (WHERE event.event_type = 'viewable_impression'),
+    coalesce(sum((event.metadata ->> 'duration_ms')::bigint)
+      FILTER (WHERE event.event_type = 'active_duration'), 0),
+    count(*) FILTER (WHERE event.event_type = 'skip'),
+    count(*) FILTER (WHERE event.event_type = 'completion'),
+    count(*) FILTER (WHERE event.event_type = 'return_visit'),
+    count(DISTINCT event.user_id) FILTER (WHERE event.event_type = 'viewable_impression'),
+    statement_timestamp()
+  FROM catho_private.feed_analytics_events AS event
+  WHERE event.received_at >= (v_from::timestamp AT TIME ZONE 'UTC')
+    AND event.received_at < ((v_through + 1)::timestamp AT TIME ZONE 'UTC')
+  GROUP BY (event.received_at AT TIME ZONE 'UTC')::date, event.entity_id
+  ON CONFLICT (event_date, entity_id) DO UPDATE
+  SET impressions = EXCLUDED.impressions,
+      viewable_impressions = EXCLUDED.viewable_impressions,
+      active_duration_ms = EXCLUDED.active_duration_ms,
+      skips = EXCLUDED.skips,
+      completions = EXCLUDED.completions,
+      return_visits = EXCLUDED.return_visits,
+      unique_viewers = EXCLUDED.unique_viewers,
+      refreshed_at = EXCLUDED.refreshed_at;
+
+  DELETE FROM catho_private.feed_analytics_daily_viewers
+  WHERE event_date BETWEEN v_from AND v_through;
+
+  INSERT INTO catho_private.feed_analytics_daily_viewers (event_date, entity_id, user_id)
+  SELECT DISTINCT
+    (event.received_at AT TIME ZONE 'UTC')::date,
+    event.entity_id,
+    event.user_id
+  FROM catho_private.feed_analytics_events AS event
+  WHERE event.event_type = 'viewable_impression'
+    AND event.received_at >= (v_from::timestamp AT TIME ZONE 'UTC')
+    AND event.received_at < ((v_through + 1)::timestamp AT TIME ZONE 'UTC')
+  ON CONFLICT DO NOTHING;
+
+  GET DIAGNOSTICS v_rows = ROW_COUNT;
+  RETURN v_rows;
+END;
+$function$;
+ALTER FUNCTION catho_private.refresh_feed_analytics_daily(integer) OWNER TO postgres;
+REVOKE ALL ON FUNCTION catho_private.refresh_feed_analytics_daily(integer)
+  FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION catho_private.refresh_feed_analytics_daily(integer) TO service_role;
 
 -- DDL event triggers
 CREATE EVENT TRIGGER ensure_rls ON ddl_command_end EXECUTE FUNCTION public.rls_auto_enable();
@@ -4359,6 +4467,16 @@ BEGIN
     PERFORM cron.unschedule(existing_job.jobid);
   END LOOP;
   PERFORM cron.schedule('cathoscroll-prune-catalogue', '2,17,32,47 * * * *', 'SELECT public.offline_catalogue_prune_old(clock_timestamp() - interval ''31 days'', 1000);');
+  FOR existing_job IN SELECT jobid FROM cron.job WHERE jobname = 'cathoscroll-rollup-feed-analytics' LOOP
+    PERFORM cron.unschedule(existing_job.jobid);
+  END LOOP;
+  PERFORM cron.schedule('cathoscroll-rollup-feed-analytics', '*/5 * * * *',
+    'SELECT catho_private.refresh_feed_analytics_daily(2);');
+  FOR existing_job IN SELECT jobid FROM cron.job WHERE jobname = 'cathoscroll-prune-feed-analytics' LOOP
+    PERFORM cron.unschedule(existing_job.jobid);
+  END LOOP;
+  PERFORM cron.schedule('cathoscroll-prune-feed-analytics', '*/15 * * * *',
+    'SELECT catho_private.prune_feed_analytics_events(clock_timestamp() - interval ''180 days'', 5000);');
 END;
 $cron_restore$;
 
