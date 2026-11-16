@@ -1,13 +1,3 @@
-ALTER TABLE catho_private.user_action_limits
-  ADD COLUMN IF NOT EXISTS offline_sync_window_started_at timestamptz,
-  ADD COLUMN IF NOT EXISTS offline_sync_count integer NOT NULL DEFAULT 0;
-
-ALTER TABLE catho_private.user_action_limits
-  DROP CONSTRAINT IF EXISTS user_action_limits_offline_sync_count_check;
-ALTER TABLE catho_private.user_action_limits
-  ADD CONSTRAINT user_action_limits_offline_sync_count_check
-  CHECK (offline_sync_count >= 0);
-
 CREATE OR REPLACE FUNCTION public.offline_apply_activity_v2(
   p_user uuid,
   p_operation uuid,
@@ -57,16 +47,13 @@ BEGIN
   RETURNING offline_sync_count INTO sync_count;
 
   IF sync_count > 300 THEN
-    RAISE EXCEPTION 'Offline activity sync rate limit exceeded'
-      USING ERRCODE = 'P0001';
+    RAISE EXCEPTION 'Offline activity sync rate limit exceeded' USING ERRCODE = 'P0001';
   END IF;
 
   IF p_device IS NULL OR p_operation IS NULL
     OR p_sequence IS NULL OR p_sequence !~ '^[1-9][0-9]{0,18}$'
     OR p_acknowledged IS NULL OR p_acknowledged !~ '^(0|[1-9][0-9]{0,18})$'
-  THEN
-    RAISE EXCEPTION 'Invalid activity device sequence';
-  END IF;
+  THEN RAISE EXCEPTION 'Invalid activity device sequence'; END IF;
 
   seq := p_sequence::bigint;
   ack := p_acknowledged::bigint;
@@ -85,9 +72,7 @@ BEGIN
   IF ack > state.acknowledged_sequence AND NOT EXISTS (
     SELECT 1 FROM catho_private.activity_receipt_sequences
     WHERE user_id = actor AND device_id = p_device AND sequence = ack
-  ) THEN
-    RAISE EXCEPTION 'Unknown activity acknowledgement';
-  END IF;
+  ) THEN RAISE EXCEPTION 'Unknown activity acknowledgement'; END IF;
 
   SELECT operation_id INTO mapped FROM catho_private.activity_receipt_sequences
   WHERE user_id = actor AND device_id = p_device AND sequence = seq;
@@ -96,15 +81,13 @@ BEGIN
     OR (NOT FOUND AND seq <= state.last_sequence) THEN
     RAISE EXCEPTION 'Activity device sequence was reused';
   END IF;
-  IF mapped IS NULL AND ack < state.last_sequence THEN
+  IF mapped IS NULL AND ack < state.last_sequence AND seq <> state.last_sequence + 1 THEN
     RAISE EXCEPTION 'Previous activity operation was not acknowledged';
   END IF;
   IF NOT FOUND AND EXISTS (
     SELECT 1 FROM catho_private.activity_receipt_sequences
     WHERE user_id = actor AND operation_id = p_operation
-  ) THEN
-    RAISE EXCEPTION 'Activity operation ID was reused';
-  END IF;
+  ) THEN RAISE EXCEPTION 'Activity operation ID was reused'; END IF;
 
   IF ack > state.acknowledged_sequence THEN
     DELETE FROM catho_private.activity_receipts r
@@ -156,6 +139,7 @@ DECLARE
   acknowledged_value text;
   previous_device uuid;
   previous_sequence text;
+  initial_acknowledgement text;
   operation_result jsonb;
   results jsonb := '[]'::jsonb;
   completed_at_value timestamptz;
@@ -199,8 +183,12 @@ BEGIN
 
     IF previous_device IS NOT NULL
       AND (device_id IS DISTINCT FROM previous_device
-        OR acknowledged_value IS DISTINCT FROM previous_sequence) THEN
+        OR acknowledged_value IS DISTINCT FROM initial_acknowledgement
+        OR sequence_value::bigint <> previous_sequence::bigint + 1) THEN
       RAISE EXCEPTION 'Offline activity batch sequence is not contiguous' USING ERRCODE = '22023';
+    END IF;
+    IF previous_device IS NULL THEN
+      initial_acknowledgement := acknowledged_value;
     END IF;
 
     completed_at_value := CASE
@@ -210,23 +198,14 @@ BEGIN
 
     BEGIN
       operation_result := public.offline_apply_activity_v2(
-        p_user,
-        operation_id,
-        device_id,
-        sequence_value,
-        acknowledged_value,
-        item->>'kind',
-        item->>'topicId',
-        (item->>'value')::boolean,
-        completed_at_value
+        p_user, operation_id, device_id, sequence_value, acknowledged_value,
+        item->>'kind', item->>'topicId', (item->>'value')::boolean, completed_at_value
       );
     EXCEPTION WHEN SQLSTATE 'P0001' THEN
       IF SQLERRM ILIKE '%rate limit%' THEN
         results := results || jsonb_build_array(jsonb_build_object(
-          'operationId', operation_id,
-          'userId', actor,
-          'status', 'deferred',
-          'reason', 'rate_limited'
+          'operationId', operation_id, 'userId', actor,
+          'status', 'deferred', 'reason', 'rate_limited'
         ));
         RETURN results;
       END IF;
