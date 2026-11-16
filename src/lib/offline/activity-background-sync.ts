@@ -82,14 +82,16 @@ export class BackgroundActivitySync {
       await this.initialize?.(userId, signal);
       const pushResult = await this.sync.push(userId, MAX_OPERATIONS, signal);
       if (pushResult.sent === MAX_OPERATIONS) this.requested = true;
-      const wasDeferred = this.deferred;
-      this.deferred = pushResult.deferred;
-      if (pushResult.deferred) {
-        if (!wasDeferred || this.failed) this.onDeferred?.(userId);
-        this.failed = false;
-      } else if (wasDeferred || this.failed) {
-        this.failed = false;
-        this.onRecovery(userId);
+      if (isCurrent()) {
+        const wasDeferred = this.deferred;
+        this.deferred = pushResult.deferred;
+        if (pushResult.deferred) {
+          if (!wasDeferred || this.failed) this.onDeferred?.(userId);
+          this.failed = false;
+        } else if (wasDeferred || this.failed) {
+          this.failed = false;
+          this.onRecovery(userId);
+        }
       }
 
       let pages = 0;
@@ -101,7 +103,7 @@ export class BackgroundActivitySync {
         pages++;
       }
       if (pages === MAX_PAGES) this.requested = true;
-      if (isCurrent() && (sent || received)) this.onChanged?.(userId);
+      if (isCurrent() && (pushResult.sent || received)) this.onChanged?.(userId);
       if (isCurrent() && this.failed && !pushResult.deferred) {
         this.failed = false;
         this.onRecovery(userId);
