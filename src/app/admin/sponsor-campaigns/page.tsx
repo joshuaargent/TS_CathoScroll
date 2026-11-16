@@ -1,6 +1,7 @@
 import { AdminNavigation } from '@/components/admin/AdminNavigation';
 import {
   SponsorCampaignManager,
+  type SponsorCampaignAnalytics,
   type SponsorCampaignRecord,
   type SponsorOption,
 } from '@/components/admin/SponsorCampaignManager';
@@ -47,9 +48,9 @@ export default async function AdminSponsorCampaignsPage() {
   }
 
   const sponsors = (sponsorData ?? []) as SponsorOption[];
-  const campaignAnalytics = new Map(
-    ((analyticsData as { campaigns?: Array<{ campaign_id: string; served: number; viewable_impressions: number; clicks: number; click_through_rate: number }> } | null)?.campaigns ?? [])
-      .map((item) => [item.campaign_id, item])
+  const campaignAnalytics = new Map<string, SponsorCampaignAnalytics>(
+    ((analyticsData as { campaigns?: SponsorCampaignAnalytics[] } | null)?.campaigns ?? [])
+      .map((item) => [item.campaign_id, item] as const)
   );
   const sponsorById = new Map(sponsors.map((sponsor) => [sponsor.id, sponsor]));
   const campaigns = ((campaignData ?? []) as Omit<SponsorCampaignRecord, 'sponsor_name' | 'sponsor_payment_status' | 'sponsor_status'>[])
