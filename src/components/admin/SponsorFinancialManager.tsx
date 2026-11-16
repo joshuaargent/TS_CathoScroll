@@ -55,7 +55,7 @@ function money(amountMinor: number, currency: string) {
 }
 
 function amountToMinor(value: FormDataEntryValue | null) {
-  if (typeof value !== 'string' || !/^(0|[1-9]\\d{0,8})(\\.\\d{1,2})?$/.test(value)) return null;
+  if (typeof value !== 'string' || !/^(0|[1-9]\d{0,8})(\.\d{1,2})?$/.test(value)) return null;
   const [whole, fraction = ''] = value.split('.');
   const amount = Number(whole) * 100 + Number(fraction.padEnd(2, '0'));
   return Number.isSafeInteger(amount) && amount > 0 ? amount : null;
@@ -337,7 +337,7 @@ function SponsorFinancialCard({
 }
 
 function humanize(value: string) {
-  return value.replaceAll('_', ' ').replace(/\\b\\w/g, (letter) => letter.toUpperCase());
+  return value.replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 export function SponsorFinancialManager({
