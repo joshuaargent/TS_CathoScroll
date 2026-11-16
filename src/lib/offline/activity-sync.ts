@@ -154,8 +154,10 @@ export class OfflineActivitySync {
           }
           await this.store.rejectUnavailableTopic(userId, operation.operationId);
         } else {
+          if (receipt.status !== undefined && receipt.status !== 'applied') {
+            throw new Error('The server returned an invalid offline activity receipt status.');
+          }
           if (
-            (receipt.status !== undefined && receipt.status !== 'applied') ||
             typeof receipt.value !== 'boolean' ||
             receipt.value !== operation.value
           ) {
