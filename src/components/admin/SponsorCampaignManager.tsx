@@ -73,7 +73,7 @@ export function SponsorCampaignManager({
 }: {
   campaigns: SponsorCampaignRecord[];
   sponsors: SponsorOption[];
-  analytics: Map<string, SponsorCampaignAnalytics>;
+  analytics: Record<string, SponsorCampaignAnalytics>;
   analyticsFrom: string;
   analyticsTo: string;
 }) {
@@ -370,7 +370,7 @@ export function SponsorCampaignManager({
                     </td>
                     <td className="px-4 py-4 tabular-nums">
                       {(() => {
-                        const stats = analytics.get(campaign.id);
+                        const stats = analytics[campaign.id];
                         return (
                           <>
                             <p>{(stats?.served ?? 0).toLocaleString('en-GB')} served</p>
