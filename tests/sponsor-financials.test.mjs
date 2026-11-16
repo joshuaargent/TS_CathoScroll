@@ -72,7 +72,7 @@ test('sponsor financial reporting verifies membership and omits personal identif
 test('legacy direct payment status override is revoked and new sponsors cannot be marked paid on creation', () => {
   const legacyPaymentRevoke = bootstrap.lastIndexOf('REVOKE ALL ON FUNCTION public.admin_mark_sponsor_payment_received(uuid, uuid, text)');
   assert.notEqual(legacyPaymentRevoke, -1);
-  assert.doesNotMatch(bootstrap.slice(legacyPaymentRevoke), /GRANT EXECUTE ON FUNCTION public\\.admin_mark_sponsor_payment_received/);
+  assert.doesNotMatch(bootstrap.slice(legacyPaymentRevoke), /GRANT EXECUTE ON FUNCTION public\.admin_mark_sponsor_payment_received/);
   const createSponsor = functionBody('public.admin_create_sponsor');
   assert.match(createSponsor, /p_payment_status NOT IN \('pending', 'not_required'\)/);
   assert.match(createSponsor, /reconcile payments through an invoice/);
