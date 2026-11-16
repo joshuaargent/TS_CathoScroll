@@ -16,12 +16,12 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 function validDate(value: unknown): string | null {
-  if (typeof value !== 'string' || !/^\\d{4}-\\d{2}-\\d{2}$/.test(value)) return null;
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
   const date = new Date(`${value}T00:00:00.000Z`);
   return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value ? value : null;
 }
 function amountMinor(value: unknown): number | null {
-  if (typeof value !== 'string' || !/^(0|[1-9]\\d{0,8})(\\.\\d{1,2})?$/.test(value)) return null;
+  if (typeof value !== 'string' || !/^(0|[1-9]\d{0,8})(\.\d{1,2})?$/.test(value)) return null;
   const [whole, fraction = ''] = value.split('.');
   const amount = Number(whole) * 100 + Number(fraction.padEnd(2, '0'));
   return Number.isSafeInteger(amount) && amount > 0 && amount <= 100000000000 ? amount : null;
