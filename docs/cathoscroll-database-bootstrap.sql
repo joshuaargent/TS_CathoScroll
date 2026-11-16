@@ -4954,9 +4954,8 @@ CREATE TABLE public.sponsor_campaigns (
   CONSTRAINT sponsor_campaigns_valid_dates CHECK (ends_on >= starts_on),
   CONSTRAINT sponsor_campaigns_target_category_limit CHECK (cardinality(target_category_slugs) <= 100),
   CONSTRAINT sponsor_campaigns_target_topic_limit CHECK (cardinality(target_topic_ids) <= 500),
-  CONSTRAINT sponsor_campaigns_approval_pair CHECK (
-    (approved_by IS NULL AND approved_at IS NULL)
-    OR (approved_by IS NOT NULL AND approved_at IS NOT NULL)
+  CONSTRAINT sponsor_campaigns_approval_timestamp CHECK (
+    status NOT IN ('approved', 'paused', 'completed') OR approved_at IS NOT NULL
   )
 );
 CREATE INDEX sponsor_campaigns_eligibility_idx ON public.sponsor_campaigns (status, starts_on, ends_on, placement_weight DESC);
@@ -4965,7 +4964,7 @@ CREATE INDEX sponsor_campaigns_created_by_idx ON public.sponsor_campaigns (creat
 CREATE INDEX sponsor_campaigns_approved_by_idx ON public.sponsor_campaigns (approved_by);
 ALTER TABLE public.sponsor_campaigns ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON TABLE public.sponsor_campaigns FROM PUBLIC, anon, authenticated, service_role;
-GRANT ALL ON TABLE public.sponsor_campaigns TO service_role;
+GRANT SELECT ON TABLE public.sponsor_campaigns TO service_role;
 
 CREATE TABLE catho_private.sponsor_campaign_events (
   campaign_id uuid NOT NULL REFERENCES public.sponsor_campaigns(id) ON DELETE CASCADE,
