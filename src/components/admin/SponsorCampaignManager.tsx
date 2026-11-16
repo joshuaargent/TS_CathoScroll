@@ -315,14 +315,14 @@ export function SponsorCampaignManager({
         <div className="mb-5">
           <h2 className="text-2xl font-bold">Campaign inventory</h2>
           <p className="text-text-secondary mt-1 text-sm">
-            Approval is blocked until the sponsor is active and its bank transfer is recorded as received.
+            Approval is blocked until the sponsor is active and its invoice balance/agreed payment is reconciled, or the sponsor is explicitly marked as payment-not-required.
             Performance below covers {formatDate(analyticsFrom)} to {formatDate(analyticsTo)}.
           </p>
         </div>
         {campaigns.length === 0 ? (
           <div className="border-border rounded-xl border px-5 py-10 text-center">
             <p className="font-semibold">No campaigns created</p>
-            <p className="text-text-secondary mt-1 text-sm">New campaigns will appear here as drafts.</p>
+            <p className="text-text-secondary mt-1 text-sm">New submissions will appear here for review. Until an eligible campaign is approved, the feed remains topic-only with no empty advertising slot.</p>
           </div>
         ) : (
           <div className="border-border overflow-x-auto rounded-xl border">
