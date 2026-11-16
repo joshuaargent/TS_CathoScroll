@@ -64,18 +64,21 @@ export async function POST(request: Request, { params }: RouteContext) {
 
   try {
     const client = createServiceRoleClient();
-    const { data: payment, error: lookupError } = await client
-      .from('sponsor_payment_transactions')
-      .select('id,sponsor_id,transaction_type')
-      .eq('id', paymentId)
-      .eq('sponsor_id', sponsorId)
-      .eq('transaction_type', 'payment')
-      .maybeSingle();
+    const { data: financials, error: lookupError } = await client.rpc('get_admin_sponsor_financials', {
+      p_actor_user_id: user.id,
+      p_sponsor_id: sponsorId,
+    });
     if (lookupError) {
       console.error('Unable to verify original sponsor payment:', lookupError.message);
       return respond(request, { error: 'Unable to verify original payment.' }, 503);
     }
-    if (!payment) return respond(request, { error: 'Original payment not found for this sponsor.' }, 404);
+    const recordedTransactions = isRecord(financials) && Array.isArray(financials.transactions)
+      ? financials.transactions
+      : [];
+    const originalPayment = recordedTransactions.find((transaction) =>
+      isRecord(transaction) && transaction.id === paymentId && transaction.transaction_type === 'payment'
+    );
+    if (!originalPayment) return respond(request, { error: 'Original payment not found for this sponsor.' }, 404);
 
     const { data, error: rpcError } = await client.rpc('admin_record_sponsor_refund', {
       p_actor_user_id: user.id, p_payment_id: paymentId, p_amount_minor: amount,
