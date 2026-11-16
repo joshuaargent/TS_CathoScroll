@@ -40,6 +40,30 @@ AS $function$
   WITH parsed_query AS (
     SELECT websearch_to_tsquery('english', coalesce(search_query, '')) AS query
   ),
+  matching_topic_ids AS (
+    -- Keep topic full-text matching isolated so PostgreSQL can use the GIN index.
+    SELECT topic.id
+    FROM public.topics AS topic
+    CROSS JOIN parsed_query
+    WHERE
+      topic.is_published = true
+      AND numnode(parsed_query.query) > 0
+      AND topic.search_vector @@ parsed_query.query
+
+    UNION
+
+    -- Category-name matches are expanded to their published topics separately.
+    SELECT topic.id
+    FROM public.categories AS category
+    INNER JOIN public.topics AS topic
+      ON topic.category_slug = category.slug
+    CROSS JOIN parsed_query
+    WHERE
+      topic.is_published = true
+      AND category.is_published = true
+      AND numnode(parsed_query.query) > 0
+      AND to_tsvector('english', coalesce(category.name, '')) @@ parsed_query.query
+  ),
   ranked_topics AS (
     SELECT
       topic.id,
@@ -64,18 +88,15 @@ AS $function$
           ELSE 0
         END
       )::real AS search_score
-    FROM public.topics AS topic
+    FROM matching_topic_ids AS matched
+    INNER JOIN public.topics AS topic
+      ON topic.id = matched.id
     INNER JOIN public.categories AS category
       ON category.slug = topic.category_slug
     CROSS JOIN parsed_query
     WHERE
       topic.is_published = true
       AND category.is_published = true
-      AND numnode(parsed_query.query) > 0
-      AND (
-        topic.search_vector @@ parsed_query.query
-        OR to_tsvector('english', coalesce(category.name, '')) @@ parsed_query.query
-      )
   )
   SELECT
     ranked_topics.id,
