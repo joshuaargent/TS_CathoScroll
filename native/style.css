@@ -19,3 +19,8 @@
 .native-content > .container.py-12 > :first-child {
   margin-top: 0;
 }
+
+/* Contact uses a padded shared PageHeader instead of a margin wrapper. */
+.native-content > .container.py-12 > header.py-12 {
+  padding-top: 0;
+}
