@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-const [bootstrap, feedCore, sponsorCard, campaignManager, deliveryRoute, eventRoute, campaignLib] = await Promise.all([
+const [bootstrap, feedCore, sponsorCard, campaignManager, deliveryRoute, eventRoute, campaignLib, campaignPage] = await Promise.all([
   readFile(new URL('../docs/cathoscroll-database-bootstrap.sql', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/TopicFeedCore.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/SponsorFeedCard.tsx', import.meta.url), 'utf8'),
@@ -10,6 +10,7 @@ const [bootstrap, feedCore, sponsorCard, campaignManager, deliveryRoute, eventRo
   readFile(new URL('../src/app/api/content/sponsored-campaigns/route.ts', import.meta.url), 'utf8'),
   readFile(new URL('../src/app/api/content/sponsor-campaign-events/route.ts', import.meta.url), 'utf8'),
   readFile(new URL('../src/lib/sponsor-campaigns.ts', import.meta.url), 'utf8'),
+  readFile(new URL('../src/app/admin/sponsor-campaigns/page.tsx', import.meta.url), 'utf8'),
 ]);
 
 function functionBody(name, nextMarker) {
@@ -88,4 +89,19 @@ test('campaign admin controls require bank reconciliation before approval', () =
   assert.match(campaignManager, /eligibleForApproval/);
   assert.match(campaignManager, /payment_status/);
   assert.match(bootstrap, /Campaign requires an active sponsor and reconciled payment before approval/);
+});
+
+test('administrator campaign reporting reads aggregate-only daily metrics', () => {
+  const analytics = functionBody(
+    'public.get_admin_sponsor_campaign_analytics',
+    'ALTER FUNCTION public.get_admin_sponsor_campaign_analytics'
+  );
+  assert.match(analytics, /admin_users/);
+  assert.match(analytics, /p_to - p_from > 179/);
+  assert.match(analytics, /sponsor_campaign_daily/);
+  assert.match(analytics, /viewable_impressions/);
+  assert.match(analytics, /click_through_rate/);
+  assert.doesNotMatch(analytics, /user_id|session_id/);
+  assert.match(campaignPage, /get_admin_sponsor_campaign_analytics/);
+  assert.match(campaignManager, /Performance \(30 days\)/);
 });
