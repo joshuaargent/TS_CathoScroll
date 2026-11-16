@@ -113,7 +113,7 @@ The repository has a recurring GitHub workflow for:
 - CodeQL extended JavaScript/TypeScript analysis.
 - Gitleaks full-history secret scanning.
 
-The dependency tree retains a low-severity `deepmerge` advisory in the legacy Workbox build chain. npm's only suggested automatic remediation downgrades `next-pwa` to 3.1.5, which is a breaking change; that downgrade was rejected to preserve PWA/offline behaviour. Vulnerable `serialize-javascript`, `minimatch` and `uuid` transitive versions are pinned to patched releases through targeted package overrides. The dependency audit is configured to fail on moderate or higher findings in both lockfiles.
+The dependency tree retains a low-severity `deepmerge` advisory in the legacy Workbox build chain. npm's only suggested automatic remediation downgrades `next-pwa` to 3.1.5, which is a breaking change; that downgrade was rejected to preserve PWA/offline behaviour. Vulnerable `serialize-javascript`, `minimatch` and `uuid` transitive versions are pinned to patched releases through targeted package overrides. The dependency audit is configured to fail on moderate or higher findings in both lockfiles. The latest completed audit found 5 low-severity findings in the root Workbox/deepmerge chain and zero vulnerabilities in the Electron dependency tree; there were no moderate or high findings.
 
 ## Validation and limitations
 
