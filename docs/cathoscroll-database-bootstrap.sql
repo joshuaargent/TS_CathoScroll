@@ -15,7 +15,7 @@
 --     the same PostgreSQL major version as the source project.
 --   * pg_cron and permission to create the ensure_rls event trigger are required.
 --
--- Object counts at export: 36 tables, 74 functions, 33 triggers, 32 policies,
+-- Object counts at export: 36 tables, 75 functions, 33 triggers, 32 policies,
 -- 15 categories and 86 topics.
 --
 DO $bootstrap_guard$
@@ -5341,3 +5341,71 @@ BEGIN
     'SELECT catho_private.prune_sponsor_campaign_events(clock_timestamp() - interval ''180 days'', 5000);');
 END;
 $sponsor_cron$;
+
+
+
+CREATE OR REPLACE FUNCTION public.get_admin_sponsor_campaign_analytics(
+  p_actor_user_id uuid,
+  p_from date DEFAULT (timezone('UTC', statement_timestamp()))::date - 29,
+  p_to date DEFAULT (timezone('UTC', statement_timestamp()))::date
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $function$
+DECLARE
+  v_result jsonb;
+BEGIN
+  IF p_actor_user_id IS NULL OR NOT EXISTS (
+    SELECT 1 FROM public.admin_users AS admins WHERE admins.user_id = p_actor_user_id
+  ) THEN
+    RAISE EXCEPTION 'Administrator access required' USING ERRCODE = '42501';
+  END IF;
+  IF p_from IS NULL OR p_to IS NULL OR p_to < p_from OR p_to - p_from > 179 THEN
+    RAISE EXCEPTION 'Invalid sponsor analytics date range' USING ERRCODE = '22023';
+  END IF;
+
+  SELECT pg_catalog.jsonb_build_object(
+    'from', p_from,
+    'to', p_to,
+    'campaigns', coalesce(
+      pg_catalog.jsonb_agg(
+        pg_catalog.jsonb_build_object(
+          'campaign_id', metrics.campaign_id,
+          'served', metrics.served,
+          'viewable_impressions', metrics.viewable_impressions,
+          'clicks', metrics.clicks,
+          'click_through_rate', CASE
+            WHEN metrics.viewable_impressions > 0
+              THEN pg_catalog.round(metrics.clicks::numeric * 100 / metrics.viewable_impressions, 2)
+            ELSE 0
+          END
+        ) ORDER BY metrics.served DESC, metrics.campaign_id
+      ),
+      '[]'::jsonb
+    )
+  )
+  INTO v_result
+  FROM (
+    SELECT
+      campaign.id AS campaign_id,
+      coalesce(sum(daily.served_count), 0) AS served,
+      coalesce(sum(daily.viewable_impressions), 0) AS viewable_impressions,
+      coalesce(sum(daily.clicks), 0) AS clicks
+    FROM public.sponsor_campaigns AS campaign
+    LEFT JOIN catho_private.sponsor_campaign_daily AS daily
+      ON daily.campaign_id = campaign.id
+      AND daily.event_date >= p_from
+      AND daily.event_date <= p_to
+    GROUP BY campaign.id
+  ) AS metrics;
+
+  RETURN v_result;
+END;
+$function$;
+ALTER FUNCTION public.get_admin_sponsor_campaign_analytics(uuid, date, date) OWNER TO postgres;
+REVOKE ALL ON FUNCTION public.get_admin_sponsor_campaign_analytics(uuid, date, date)
+  FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.get_admin_sponsor_campaign_analytics(uuid, date, date)
+  TO service_role;
