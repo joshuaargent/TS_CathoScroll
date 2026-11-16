@@ -9,3 +9,13 @@
   --font-mono: 'JetBrains Mono';
 }
 
+/*
+ * Native routes share page components with the website, but the native shell
+ * already accounts for the fixed navbar with its spacer. Remove any additional
+ * top margin applied to the first page-heading wrapper so every native page
+ * starts at the same content offset as the website. Scope this to the first
+ * heading block only; internal section spacing remains unchanged.
+ */
+.native-content > :first-child > :first-child:has(h1) {
+  margin-top: 0;
+}
