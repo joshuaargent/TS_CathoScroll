@@ -234,8 +234,7 @@ The bundled Android and Electron apps support offline feed, topic, category and
 local substring search. When online, search uses the website's ranked search RPC;
 if it is unavailable, the app reports the problem and searches saved topics.
 Local search scans catalogue text and is not optimized for very large catalogues.
-The installed Supabase project must have the website's `search_published_topics`
-RPC for ranked search to work. The native app bundles the same font subsets as
+The ranked-search database setup is documented in `docs/search_published_topics.sql`. It adds the weighted `topics.search_vector` GIN index and the public, read-only `search_published_topics` RPC used by both the website and native app. The native app bundles the same font subsets as
 the website, including their Open Font License notices in `native/fonts`.
 
 `npm run native:build` exports the published catalogue using the public
