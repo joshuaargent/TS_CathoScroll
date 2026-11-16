@@ -691,7 +691,7 @@ Before deploying, configure the required environment variables in both Vercel an
 
 ### Supabase database recovery and bootstrap
 
-[`docs/cathoscroll-database-bootstrap.sql`](docs/cathoscroll-database-bootstrap.sql) is the consolidated snapshot of CathoScroll's application-owned PostgreSQL schema. Sponsor organisation access, campaign submissions, invoice records and direct-bank-transfer reconciliation are described in [`docs/sponsor-platform.md`](docs/sponsor-platform.md). It recreates the 40 application tables, constraints, indexes, 88 functions, 33 triggers, RLS configuration and policies, grants, the RLS DDL event trigger, and scheduled retention jobs. It includes the ranked-search setup and current offline-sync protections.
+[`docs/cathoscroll-database-bootstrap.sql`](docs/cathoscroll-database-bootstrap.sql) is the consolidated snapshot of CathoScroll's application-owned PostgreSQL schema. Sponsor organisation access, campaign submissions, invoice records and direct-bank-transfer reconciliation are described in [`docs/sponsor-platform.md`](docs/sponsor-platform.md). It recreates the 40 application tables, constraints, indexes, 89 functions, 33 triggers, RLS configuration and policies, grants, the RLS DDL event trigger, and scheduled retention jobs. It includes the ranked-search setup and current offline-sync protections.
 
 Use this file when creating a **fresh Supabase project** to restore the application schema:
 
