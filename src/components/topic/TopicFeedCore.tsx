@@ -98,6 +98,7 @@ export function TopicFeedCore({
     if (sponsorSessionUserId.current === userId) return;
     sponsorSessionUserId.current = userId;
     sponsorSessionIdRef.current = createSponsorSessionId();
+    /* eslint-disable react-hooks/set-state-in-effect */
     setActiveSponsorSessionId(sponsorSessionIdRef.current);
     sponsorCardsByTopicId.current.clear();
     sponsorLoadingRef.current = false;
@@ -106,6 +107,7 @@ export function TopicFeedCore({
     setShowSponsorCard(false);
     setTopicsSinceSponsorCard(0);
     setTopicsSinceTopCommentCard(0);
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [userId]);
 
   const loadSponsorCampaigns = useCallback(
