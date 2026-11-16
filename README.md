@@ -196,6 +196,31 @@ After the workflow completes, inspect the [GitHub Releases](https://github.com/j
 
 The CI packaging checks prove that the packages can be built; they do not replace real-device upgrade, migration, offline, reconnect, or platform-specific installation tests. See the release verification plan below.
 
+### Current rate limits
+
+PostgreSQL enforces the following account-level mutation limits. These also
+apply when a modified client calls Supabase directly rather than using the
+website routes.
+
+| Operation | Limit |
+| --- | ---: |
+| Comment creation, replies, and edits | 10 / 10 minutes, 40 / hour, 120 / 24 hours |
+| Comment likes | 180 / hour |
+| Topic likes | 180 / hour |
+| Bookmark changes | 120 / hour |
+| Progress changes | 1,000 / hour |
+| Comment-ban appeals | 3 / 24 hours |
+| Recommendation RPC | 30 / minute |
+| Offline activity RPC operations | 300 / minute |
+
+Vercel-facing IP limits additionally protect public search (180 / minute),
+topic pagination (120 / minute), feed and sitemap requests (60 / minute),
+and appeal submissions (5 / 10 minutes per IP). Appeal submissions also have
+a per-user cooldown of one per 10 minutes. Administrative routes have
+separate per-admin limits. The shared API limiter uses atomic Postgres
+counters and HMAC-derived identifiers; it does not store raw client IPs.
+Responses include `Retry-After` where the route returns a rate-limit response.
+
 ## Security posture and operational checks
 
 The database intentionally exposes a small set of read-only
