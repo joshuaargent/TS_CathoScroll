@@ -271,6 +271,9 @@ export function TopicFeedCore({
   };
 
   const nextTopic = () => {
+    // Ignore repeated gestures while the due sponsor inventory request is in flight.
+    if (sponsorLoadingRef.current) return;
+
     // Never strand the user on an interstitial at the end of a page while the
     // next topic page is still loading.
     if (topicIndex >= feedTopics.length - 1 && nextCursor) {
