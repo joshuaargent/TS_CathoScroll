@@ -192,7 +192,6 @@ export class SupabaseActivityTransport implements ActivityBootstrapTransport {
     return {
       userId,
       operationId,
-      status: 'applied',
       revision: receiptRevision,
       value: receipt.value,
       completedAt: completedAt(operation.kind, receipt.value, receipt.completedAt),
@@ -228,18 +227,18 @@ export class SupabaseActivityTransport implements ActivityBootstrapTransport {
       throw new Error('Invalid offline activity batch size.');
     }
     const first = operations[0];
-    const acknowledgedSequence = revision(first.acknowledgedSequence);
+    const acknowledgedSequence = BigInt(revision(first.acknowledgedSequence));
     const deviceId = text(first.deviceId);
     let previousSequence: bigint | null = null;
     for (const operation of operations) {
       if (operation.userId !== first.userId || text(operation.deviceId) !== deviceId) {
         throw new Error('Offline activity batch contains mixed account or device identities.');
       }
-      const sequence = revision(operation.sequence);
+      const sequence = BigInt(revision(operation.sequence));
       if (
         sequence <= acknowledgedSequence ||
-        revision(operation.acknowledgedSequence) !== acknowledgedSequence ||
-        (previousSequence !== null && sequence !== previousSequence + 1n)
+        BigInt(revision(operation.acknowledgedSequence)) !== acknowledgedSequence ||
+        (previousSequence !== null && sequence !== previousSequence + BigInt(1))
       ) {
         throw new Error('Offline activity batch sequence is not contiguous.');
       }
