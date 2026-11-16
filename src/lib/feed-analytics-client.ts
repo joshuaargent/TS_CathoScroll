@@ -1,0 +1,181 @@
+'use client';
+
+export type FeedAnalyticsEventType =
+  | 'impression'
+  | 'viewable_impression'
+  | 'active_duration'
+  | 'skip'
+  | 'swipe_depth'
+  | 'completion'
+  | 'return_visit';
+
+type FeedAnalyticsMetadata = {
+  slide_index?: number;
+  duration_ms?: number;
+  source?: 'feed' | 'topic' | 'category' | 'search' | 'related' | 'direct';
+  depth?: number;
+  completion_percent?: number;
+};
+
+type QueuedFeedAnalyticsEvent = {
+  event_id: string;
+  session_id: string;
+  event_type: FeedAnalyticsEventType;
+  entity_type: 'topic';
+  entity_id: string;
+  metadata: FeedAnalyticsMetadata;
+};
+
+const queueLimit = 200;
+const batchLimit = 50;
+const storagePrefix = 'cathoscroll.feed-analytics.v1.';
+const sessionId = createUuid();
+const flushingUsers = new Set<string>();
+
+function createUuid(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (character) => {
+    const random = Math.floor(Math.random() * 16);
+    return (character === 'x' ? random : (random & 0x3) | 0x8).toString(16);
+  });
+}
+
+function storageKey(userId: string): string {
+  return storagePrefix + userId;
+}
+
+function readQueue(userId: string): QueuedFeedAnalyticsEvent[] {
+  try {
+    const raw = window.localStorage.getItem(storageKey(userId));
+    if (!raw) return [];
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(isQueuedEvent).slice(-queueLimit);
+  } catch {
+    return [];
+  }
+}
+
+function isQueuedEvent(value: unknown): value is QueuedFeedAnalyticsEvent {
+  if (!value || typeof value !== 'object') return false;
+  const event = value as Record<string, unknown>;
+  return (
+    typeof event.event_id === 'string' &&
+    typeof event.session_id === 'string' &&
+    typeof event.entity_id === 'string' &&
+    event.entity_type === 'topic' &&
+    typeof event.event_type === 'string' &&
+    [
+      'impression',
+      'viewable_impression',
+      'active_duration',
+      'skip',
+      'swipe_depth',
+      'completion',
+      'return_visit',
+    ].includes(event.event_type) &&
+    Boolean(event.metadata) &&
+    typeof event.metadata === 'object' &&
+    !Array.isArray(event.metadata)
+  );
+}
+
+function writeQueue(userId: string, events: QueuedFeedAnalyticsEvent[]): void {
+  try {
+    if (events.length === 0) {
+      window.localStorage.removeItem(storageKey(userId));
+    } else {
+      window.localStorage.setItem(storageKey(userId), JSON.stringify(events.slice(-queueLimit)));
+    }
+  } catch {
+    // Analytics are best-effort and must never interfere with learning actions.
+  }
+}
+
+export function recordFeedAnalyticsEvent(
+  userId: string | null,
+  eventType: FeedAnalyticsEventType,
+  topicId: string,
+  metadata: FeedAnalyticsMetadata = {}
+): void {
+  if (!userId || typeof window === 'undefined' || !topicId || topicId.length > 100) return;
+
+  const event: QueuedFeedAnalyticsEvent = {
+    event_id: createUuid(),
+    session_id: sessionId,
+    event_type: eventType,
+    entity_type: 'topic',
+    entity_id: topicId,
+    metadata,
+  };
+
+  const queue = readQueue(userId);
+  queue.push(event);
+  writeQueue(userId, queue);
+
+  if (navigator.onLine) void flushFeedAnalytics(userId);
+}
+
+export async function flushFeedAnalytics(userId: string, keepalive = false): Promise<void> {
+  if (typeof window === 'undefined' || !navigator.onLine || flushingUsers.has(userId)) return;
+
+  flushingUsers.add(userId);
+  try {
+    for (;;) {
+      const queue = readQueue(userId);
+      if (queue.length === 0) break;
+
+      const batch = queue.slice(0, batchLimit);
+      let response: Response;
+
+      try {
+        response = await fetch('/api/analytics/feed-events', {
+          method: 'POST',
+          credentials: 'same-origin',
+          cache: 'no-store',
+          keepalive,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ events: batch }),
+        });
+      } catch {
+        break;
+      }
+
+      if (!response.ok) break;
+
+      const acceptedIds = new Set(batch.map((event) => event.event_id));
+      const latestQueue = readQueue(userId);
+      writeQueue(
+        userId,
+        latestQueue.filter((event) => !acceptedIds.has(event.event_id))
+      );
+
+      if (keepalive) break;
+    }
+  } finally {
+    flushingUsers.delete(userId);
+  }
+}
+
+export function installFeedAnalyticsListeners(userId: string): () => void {
+  if (typeof window === 'undefined') return () => undefined;
+
+  const flush = () => void flushFeedAnalytics(userId);
+  const handleVisibility = () => {
+    if (document.visibilityState === 'hidden') {
+      void flushFeedAnalytics(userId, true);
+    }
+  };
+
+  window.addEventListener('online', flush);
+  window.addEventListener('pagehide', handleVisibility);
+  document.addEventListener('visibilitychange', handleVisibility);
+
+  return () => {
+    window.removeEventListener('online', flush);
+    window.removeEventListener('pagehide', handleVisibility);
+    document.removeEventListener('visibilitychange', handleVisibility);
+  };
+}
