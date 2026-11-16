@@ -195,6 +195,10 @@ export function CommentSection({
   const requestSignIn = useSignInPrompt();
   const getClient = useCallback(() => supabaseClient ?? createClient(), [supabaseClient]);
   const [comments, setComments] = useState<Comment[]>([]);
+  const commentsRef = useRef<Comment[]>([]);
+  // Keep async pagination merges anchored to the latest rendered tree, not
+  // the state snapshot captured when the request began.
+  commentsRef.current = comments;
   const [hasMoreComments, setHasMoreComments] = useState(false);
   const [nextCommentCursor, setNextCommentCursor] = useState<CommentPageCursor | null>(null);
   const [loadingMoreComments, setLoadingMoreComments] = useState(false);
@@ -510,7 +514,7 @@ export function CommentSection({
       if (!page) throw new Error('The next comment page response was empty.');
       if (version !== loadVersion.current) return;
 
-      const existingFlat = flattenCommentTree(comments);
+      const existingFlat = flattenCommentTree(commentsRef.current);
       const profiles = new Map<
         string,
         Pick<Profile, 'id' | 'username' | 'display_name' | 'bio'>
@@ -570,6 +574,11 @@ export function CommentSection({
       });
 
       page.comments.forEach((row) => {
+        // A comment already on screen may have been edited, deleted, liked,
+        // pinned, or optimistically changed while this page was in flight.
+        // Keep that newer local version instead of replacing it with the
+        // older snapshot returned by the pagination request.
+        if (nodes.has(row.id)) return;
         const previous = nodes.get(row.id);
         nodes.set(row.id, {
           id: row.id,
