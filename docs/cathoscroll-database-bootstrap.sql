@@ -4058,13 +4058,11 @@ END;
 $cron_restore$;
 
 
-CREATE OR REPLACE FUNCTION public.get_admin_content_analytics(
-  p_entity_type text, p_entity_id text, p_from timestamptz, p_to timestamptz
-)
-RETURNS jsonb
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = ''
+CREATE OR REPLACE FUNCTION public.get_admin_content_analytics(p_entity_type text, p_entity_id text, p_from timestamp with time zone, p_to timestamp with time zone)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
 AS $function$
 DECLARE
   v_first_retained_event_at timestamptz;
@@ -4182,83 +4180,7 @@ BEGIN
         raw_event.received_at >= (v_rollup_from::timestamp AT TIME ZONE 'UTC')
         AND raw_event.received_at < (v_rollup_to::timestamp AT TIME ZONE 'UTC')
       )
-  ) AS recent;TION public.get_admin_content_analytics(
-  p_entity_type text, p_entity_id text, p_from timestamptz, p_to timestamptz
-)
-RETURNS jsonb
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = ''
-AS $function$
-DECLARE
-  v_first_retained_event_at timestamptz;
-  v_effective_from timestamptz;
-  v_topic_ids text[];
-  v_event_metrics jsonb;
-  v_depth_metrics jsonb;
-  v_interactions jsonb;
-  v_series jsonb;
-  v_last_event_at timestamptz;
-  v_category_content jsonb;
-  v_top_topics jsonb := '[]'::jsonb;
-  v_rollup_from date;
-  v_rollup_to date;
-BEGIN
-  IF p_entity_type IS NULL OR p_entity_type NOT IN ('topic', 'category')
-     OR p_entity_id IS NULL OR pg_catalog.length(p_entity_id) < 1 OR pg_catalog.length(p_entity_id) > 150
-     OR p_from IS NULL OR p_to IS NULL OR p_to <= p_from
-     OR p_to > pg_catalog.statement_timestamp() + interval '1 day'
-     OR p_to - p_from > interval '180 days' THEN
-    RAISE EXCEPTION 'Invalid analytics query parameters' USING ERRCODE = '22023';
-  END IF;
-
-  IF p_entity_type = 'topic' THEN
-    SELECT pg_catalog.array_agg(t.id) INTO v_topic_ids
-    FROM public.topics AS t WHERE t.slug = p_entity_id;
-    IF v_topic_ids IS NULL THEN
-      RAISE EXCEPTION 'Analytics entity not found' USING ERRCODE = 'P0002';
-    END IF;
-  ELSE
-    IF NOT EXISTS (SELECT 1 FROM public.categories AS c WHERE c.slug = p_entity_id) THEN
-      RAISE EXCEPTION 'Analytics entity not found' USING ERRCODE = 'P0002';
-    END IF;
-    SELECT coalesce(pg_catalog.array_agg(t.id), ARRAY[]::text[]) INTO v_topic_ids
-    FROM public.topics AS t WHERE t.category_slug = p_entity_id;
-  END IF;
-
-  SELECT pg_catalog.min(e.received_at)
-  INTO v_first_retained_event_at
-  FROM catho_private.feed_analytics_events AS e;
-
-  v_effective_from := greatest(p_from, coalesce(v_first_retained_event_at, p_to));
-  v_rollup_from := (v_effective_from AT TIME ZONE 'UTC')::date
-    + CASE WHEN (v_effective_from AT TIME ZONE 'UTC')::time = time '00:00:00'
-      THEN 0 ELSE 1 END;
-  v_rollup_to := (p_to AT TIME ZONE 'UTC')::date;
-
-  SELECT pg_catalog.max(e.received_at)
-  INTO v_last_event_at
-  FROM catho_private.feed_analytics_events AS e
-  WHERE e.entity_type = 'topic' AND e.entity_id = ANY(v_topic_ids)
-    AND e.received_at >= coalesce(v_first_retained_event_at, p_to)
-    AND e.received_at < pg_catalog.statement_timestamp();
-
-  SELECT
-    pg_catalog.jsonb_build_object(
-      'impressions', pg_catalog.count(*) FILTER (WHERE e.event_type = 'impression'),
-      'viewable_impressions', pg_catalog.count(*) FILTER (WHERE e.event_type = 'viewable_impression'),
-      'unique_viewers', pg_catalog.count(DISTINCT e.user_id) FILTER (WHERE e.event_type = 'viewable_impression'),
-      'active_seconds', pg_catalog.round(
-        coalesce(pg_catalog.sum((e.metadata ->> 'duration_ms')::numeric)
-          FILTER (WHERE e.event_type = 'active_duration'), 0) / 1000, 1),
-      'skips', pg_catalog.count(*) FILTER (WHERE e.event_type = 'skip'),
-      'completions', pg_catalog.count(*) FILTER (WHERE e.event_type = 'completion'),
-      'return_visits', pg_catalog.count(*) FILTER (WHERE e.event_type = 'return_visit')
-    )
-  INTO v_event_metrics
-  FROM catho_private.feed_analytics_events AS e
-  WHERE e.entity_type = 'topic' AND e.entity_id = ANY(v_topic_ids)
-    AND e.received_at >= v_effective_from AND e.received_at < p_to;
+  ) AS recent;
 
   SELECT pg_catalog.jsonb_build_object(
     'average_slide_depth',
@@ -4328,16 +4250,9 @@ BEGIN
       FROM catho_private.feed_analytics_events AS raw_event
       WHERE raw_event.entity_type = 'topic'
         AND raw_event.entity_id = ANY(v_topic_ids)
-        AND raw_event.received_at >= greatest(
-          days.day AT TIME ZONE 'UTC', v_effective_from
-        )
-        AND raw_event.received_at < least(
-          (days.day + interval '1 day') AT TIME ZONE 'UTC', p_to
-        )
-        AND NOT (
-          days.day::date >= v_rollup_from
-          AND days.day::date < v_rollup_to
-        )
+        AND raw_event.received_at >= greatest(days.day AT TIME ZONE 'UTC', v_effective_from)
+        AND raw_event.received_at < least((days.day + interval '1 day') AT TIME ZONE 'UTC', p_to)
+        AND NOT (days.day::date >= v_rollup_from AND days.day::date < v_rollup_to)
       UNION ALL
       SELECT
         coalesce(sum(daily_row.impressions), 0),
@@ -4350,274 +4265,7 @@ BEGIN
         AND days.day::date >= v_rollup_from
         AND days.day::date < v_rollup_to
     ) AS part
-  ) AS daily ON true;CE FUNCTION public.get_admin_content_analytics(
-  p_entity_type text, p_entity_id text, p_from timestamptz, p_to timestamptz
-)
-RETURNS jsonb
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = ''
-AS $function$
-DECLARE
-  v_first_retained_event_at timestamptz;
-  v_effective_from timestamptz;
-  v_topic_ids text[];
-  v_event_metrics jsonb;
-  v_depth_metrics jsonb;
-  v_interactions jsonb;
-  v_series jsonb;
-  v_last_event_at timestamptz;
-  v_category_content jsonb;
-  v_top_topics jsonb := '[]'::jsonb;
-  v_rollup_from date;
-  v_rollup_to date;
-BEGIN
-  IF p_entity_type IS NULL OR p_entity_type NOT IN ('topic', 'category')
-     OR p_entity_id IS NULL OR pg_catalog.length(p_entity_id) < 1 OR pg_catalog.length(p_entity_id) > 150
-     OR p_from IS NULL OR p_to IS NULL OR p_to <= p_from
-     OR p_to > pg_catalog.statement_timestamp() + interval '1 day'
-     OR p_to - p_from > interval '180 days' THEN
-    RAISE EXCEPTION 'Invalid analytics query parameters' USING ERRCODE = '22023';
-  END IF;
-
-  IF p_entity_type = 'topic' THEN
-    SELECT pg_catalog.array_agg(t.id) INTO v_topic_ids
-    FROM public.topics AS t WHERE t.slug = p_entity_id;
-    IF v_topic_ids IS NULL THEN
-      RAISE EXCEPTION 'Analytics entity not found' USING ERRCODE = 'P0002';
-    END IF;
-  ELSE
-    IF NOT EXISTS (SELECT 1 FROM public.categories AS c WHERE c.slug = p_entity_id) THEN
-      RAISE EXCEPTION 'Analytics entity not found' USING ERRCODE = 'P0002';
-    END IF;
-    SELECT coalesce(pg_catalog.array_agg(t.id), ARRAY[]::text[]) INTO v_topic_ids
-    FROM public.topics AS t WHERE t.category_slug = p_entity_id;
-  END IF;
-
-  SELECT pg_catalog.min(e.received_at)
-  INTO v_first_retained_event_at
-  FROM catho_private.feed_analytics_events AS e;
-
-  v_effective_from := greatest(p_from, coalesce(v_first_retained_event_at, p_to));
-  v_rollup_from := (v_effective_from AT TIME ZONE 'UTC')::date
-    + CASE WHEN (v_effective_from AT TIME ZONE 'UTC')::time = time '00:00:00'
-      THEN 0 ELSE 1 END;
-  v_rollup_to := (p_to AT TIME ZONE 'UTC')::date;
-
-  SELECT pg_catalog.max(e.received_at)
-  INTO v_last_event_at
-  FROM catho_private.feed_analytics_events AS e
-  WHERE e.entity_type = 'topic' AND e.entity_id = ANY(v_topic_ids)
-    AND e.received_at >= coalesce(v_first_retained_event_at, p_to)
-    AND e.received_at < pg_catalog.statement_timestamp();
-
-  SELECT pg_catalog.jsonb_build_object(
-    'impressions', coalesce(rollup.impressions, 0) + coalesce(recent.impressions, 0),
-    'viewable_impressions', coalesce(rollup.viewable_impressions, 0) + coalesce(recent.viewable_impressions, 0),
-    'unique_viewers', (
-      SELECT pg_catalog.count(DISTINCT viewer.user_id)
-      FROM (
-        SELECT daily_viewer.user_id
-        FROM catho_private.feed_analytics_daily_viewers AS daily_viewer
-        WHERE daily_viewer.entity_id = ANY(v_topic_ids)
-          AND daily_viewer.event_date >= v_rollup_from
-          AND daily_viewer.event_date < v_rollup_to
-        UNION
-        SELECT raw_event.user_id
-        FROM catho_private.feed_analytics_events AS raw_event
-        WHERE raw_event.entity_type = 'topic'
-          AND raw_event.entity_id = ANY(v_topic_ids)
-          AND raw_event.event_type = 'viewable_impression'
-          AND raw_event.received_at >= v_effective_from
-          AND raw_event.received_at < p_to
-          AND NOT (
-            raw_event.received_at >= (v_rollup_from::timestamp AT TIME ZONE 'UTC')
-            AND raw_event.received_at < (v_rollup_to::timestamp AT TIME ZONE 'UTC')
-          )
-      ) AS viewer
-    ),
-    'active_seconds', pg_catalog.round(
-      (coalesce(rollup.active_duration_ms, 0) + coalesce(recent.active_duration_ms, 0)) / 1000.0, 1),
-    'skips', coalesce(rollup.skips, 0) + coalesce(recent.skips, 0),
-    'completions', coalesce(rollup.completions, 0) + coalesce(recent.completions, 0),
-    'return_visits', coalesce(rollup.return_visits, 0) + coalesce(recent.return_visits, 0)
-  )
-  INTO v_event_metrics
-  FROM (
-    SELECT
-      coalesce(sum(daily.impressions), 0) AS impressions,
-      coalesce(sum(daily.viewable_impressions), 0) AS viewable_impressions,
-      coalesce(sum(daily.active_duration_ms), 0) AS active_duration_ms,
-      coalesce(sum(daily.skips), 0) AS skips,
-      coalesce(sum(daily.completions), 0) AS completions,
-      coalesce(sum(daily.return_visits), 0) AS return_visits
-    FROM catho_private.feed_analytics_daily AS daily
-    WHERE daily.entity_id = ANY(v_topic_ids)
-      AND daily.event_date >= v_rollup_from
-      AND daily.event_date < v_rollup_to
-  ) AS rollup
-  CROSS JOIN (
-    SELECT
-      count(*) FILTER (WHERE raw_event.event_type = 'impression') AS impressions,
-      count(*) FILTER (WHERE raw_event.event_type = 'viewable_impression') AS viewable_impressions,
-      coalesce(sum((raw_event.metadata ->> 'duration_ms')::numeric)
-        FILTER (WHERE raw_event.event_type = 'active_duration'), 0) AS active_duration_ms,
-      count(*) FILTER (WHERE raw_event.event_type = 'skip') AS skips,
-      count(*) FILTER (WHERE raw_event.event_type = 'completion') AS completions,
-      count(*) FILTER (WHERE raw_event.event_type = 'return_visit') AS return_visits
-    FROM catho_private.feed_analytics_events AS raw_event
-    WHERE raw_event.entity_type = 'topic'
-      AND raw_event.entity_id = ANY(v_topic_ids)
-      AND raw_event.received_at >= v_effective_from
-      AND raw_event.received_at < p_to
-      AND NOT (
-        raw_event.received_at >= (v_rollup_from::timestamp AT TIME ZONE 'UTC')
-        AND raw_event.received_at < (v_rollup_to::timestamp AT TIME ZONE 'UTC')
-      )
-  ) AS recent;TION public.get_admin_content_analytics(
-  p_entity_type text, p_entity_id text, p_from timestamptz, p_to timestamptz
-)
-RETURNS jsonb
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = ''
-AS $function$
-DECLARE
-  v_first_retained_event_at timestamptz;
-  v_effective_from timestamptz;
-  v_topic_ids text[];
-  v_event_metrics jsonb;
-  v_depth_metrics jsonb;
-  v_interactions jsonb;
-  v_series jsonb;
-  v_last_event_at timestamptz;
-  v_category_content jsonb;
-  v_top_topics jsonb := '[]'::jsonb;
-  v_rollup_from date;
-  v_rollup_to date;
-BEGIN
-  IF p_entity_type IS NULL OR p_entity_type NOT IN ('topic', 'category')
-     OR p_entity_id IS NULL OR pg_catalog.length(p_entity_id) < 1 OR pg_catalog.length(p_entity_id) > 150
-     OR p_from IS NULL OR p_to IS NULL OR p_to <= p_from
-     OR p_to > pg_catalog.statement_timestamp() + interval '1 day'
-     OR p_to - p_from > interval '180 days' THEN
-    RAISE EXCEPTION 'Invalid analytics query parameters' USING ERRCODE = '22023';
-  END IF;
-
-  IF p_entity_type = 'topic' THEN
-    SELECT pg_catalog.array_agg(t.id) INTO v_topic_ids
-    FROM public.topics AS t WHERE t.slug = p_entity_id;
-    IF v_topic_ids IS NULL THEN
-      RAISE EXCEPTION 'Analytics entity not found' USING ERRCODE = 'P0002';
-    END IF;
-  ELSE
-    IF NOT EXISTS (SELECT 1 FROM public.categories AS c WHERE c.slug = p_entity_id) THEN
-      RAISE EXCEPTION 'Analytics entity not found' USING ERRCODE = 'P0002';
-    END IF;
-    SELECT coalesce(pg_catalog.array_agg(t.id), ARRAY[]::text[]) INTO v_topic_ids
-    FROM public.topics AS t WHERE t.category_slug = p_entity_id;
-  END IF;
-
-  SELECT pg_catalog.min(e.received_at)
-  INTO v_first_retained_event_at
-  FROM catho_private.feed_analytics_events AS e;
-
-  v_effective_from := greatest(p_from, coalesce(v_first_retained_event_at, p_to));
-  v_rollup_from := (v_effective_from AT TIME ZONE 'UTC')::date
-    + CASE WHEN (v_effective_from AT TIME ZONE 'UTC')::time = time '00:00:00'
-      THEN 0 ELSE 1 END;
-  v_rollup_to := (p_to AT TIME ZONE 'UTC')::date;
-
-  SELECT pg_catalog.max(e.received_at)
-  INTO v_last_event_at
-  FROM catho_private.feed_analytics_events AS e
-  WHERE e.entity_type = 'topic' AND e.entity_id = ANY(v_topic_ids)
-    AND e.received_at >= coalesce(v_first_retained_event_at, p_to)
-    AND e.received_at < pg_catalog.statement_timestamp();
-
-  SELECT
-    pg_catalog.jsonb_build_object(
-      'impressions', pg_catalog.count(*) FILTER (WHERE e.event_type = 'impression'),
-      'viewable_impressions', pg_catalog.count(*) FILTER (WHERE e.event_type = 'viewable_impression'),
-      'unique_viewers', pg_catalog.count(DISTINCT e.user_id) FILTER (WHERE e.event_type = 'viewable_impression'),
-      'active_seconds', pg_catalog.round(
-        coalesce(pg_catalog.sum((e.metadata ->> 'duration_ms')::numeric)
-          FILTER (WHERE e.event_type = 'active_duration'), 0) / 1000, 1),
-      'skips', pg_catalog.count(*) FILTER (WHERE e.event_type = 'skip'),
-      'completions', pg_catalog.count(*) FILTER (WHERE e.event_type = 'completion'),
-      'return_visits', pg_catalog.count(*) FILTER (WHERE e.event_type = 'return_visit')
-    )
-  INTO v_event_metrics
-  FROM catho_private.feed_analytics_events AS e
-  WHERE e.entity_type = 'topic' AND e.entity_id = ANY(v_topic_ids)
-    AND e.received_at >= v_effective_from AND e.received_at < p_to;
-
-  SELECT pg_catalog.jsonb_build_object(
-    'average_slide_depth',
-      pg_catalog.round(coalesce(pg_catalog.avg(coalesce(visits.max_depth, 0)), 0), 2),
-    'average_completion_percent',
-      pg_catalog.round(coalesce(pg_catalog.avg(coalesce(visits.max_depth, 0) / 4 * 100), 0), 1)
-  )
-  INTO v_depth_metrics
-  FROM (
-    SELECT
-      impressions.user_id,
-      impressions.session_id,
-      impressions.entity_id,
-      pg_catalog.max((depth.metadata ->> 'depth')::numeric) AS max_depth
-    FROM (
-      SELECT DISTINCT e.user_id, e.session_id, e.entity_id
-      FROM catho_private.feed_analytics_events AS e
-      WHERE e.entity_type = 'topic'
-        AND e.entity_id = ANY(v_topic_ids)
-        AND e.event_type = 'impression'
-        AND e.received_at >= v_effective_from
-        AND e.received_at < p_to
-    ) AS impressions
-    LEFT JOIN catho_private.feed_analytics_events AS depth
-      ON depth.user_id = impressions.user_id
-     AND depth.session_id = impressions.session_id
-     AND depth.entity_type = 'topic'
-     AND depth.entity_id = impressions.entity_id
-     AND depth.event_type = 'swipe_depth'
-     AND depth.received_at >= v_effective_from
-     AND depth.received_at < p_to
-    GROUP BY impressions.user_id, impressions.session_id, impressions.entity_id
-  ) AS visits;
-
-  v_event_metrics := v_event_metrics || v_depth_metrics;
-
-  SELECT coalesce(
-    pg_catalog.jsonb_agg(
-      pg_catalog.jsonb_build_object(
-        'date', pg_catalog.to_char(days.day, 'YYYY-MM-DD'),
-        'impressions', coalesce(daily.impressions, 0),
-        'viewable_impressions', coalesce(daily.viewable_impressions, 0),
-        'unique_viewers', coalesce(daily.unique_viewers, 0),
-        'active_seconds', coalesce(daily.active_seconds, 0)
-      ) ORDER BY days.day
-    ), '[]'::jsonb
-  )
-  INTO v_series
-  FROM pg_catalog.generate_series(
-    pg_catalog.date_trunc('day', v_effective_from),
-    pg_catalog.date_trunc('day', p_to - interval '1 microsecond'),
-    interval '1 day'
-  ) AS days(day)
-  LEFT JOIN LATERAL (
-    SELECT
-      pg_catalog.count(*) FILTER (WHERE e.event_type = 'impression') AS impressions,
-      pg_catalog.count(*) FILTER (WHERE e.event_type = 'viewable_impression') AS viewable_impressions,
-      pg_catalog.count(DISTINCT e.user_id) FILTER (WHERE e.event_type = 'viewable_impression') AS unique_viewers,
-      pg_catalog.round(
-        coalesce(pg_catalog.sum((e.metadata ->> 'duration_ms')::numeric)
-          FILTER (WHERE e.event_type = 'active_duration'), 0) / 1000, 1) AS active_seconds
-    FROM catho_private.feed_analytics_events AS e
-    WHERE e.entity_type = 'topic' AND e.entity_id = ANY(v_topic_ids)
-      AND e.received_at >= days.day AND e.received_at < days.day + interval '1 day'
-      AND e.received_at >= v_effective_from AND e.received_at < p_to
-  ) AS daily ON true
-  WHERE days.day < p_to AND days.day + interval '1 day' > v_effective_from;
+  ) AS daily ON true;
 
   SELECT pg_catalog.jsonb_build_object(
     'period', pg_catalog.jsonb_build_object(
@@ -4626,7 +4274,7 @@ BEGIN
       'comments', (SELECT pg_catalog.count(*) FROM public.comments c WHERE c.topic_id = ANY(v_topic_ids) AND c.parent_id IS NULL AND c.is_deleted = false AND c.created_at >= p_from AND c.created_at < p_to),
       'replies', (SELECT pg_catalog.count(*) FROM public.comments c WHERE c.topic_id = ANY(v_topic_ids) AND c.parent_id IS NOT NULL AND c.is_deleted = false AND c.created_at >= p_from AND c.created_at < p_to),
       'comment_likes', (SELECT pg_catalog.count(*) FROM public.comment_likes cl JOIN public.comments c ON c.id = cl.comment_id WHERE c.topic_id = ANY(v_topic_ids) AND c.is_deleted = false AND cl.created_at >= p_from AND cl.created_at < p_to),
-      'completed_topics', (SELECT pg_catalog.count(*) FROM public.progress p WHERE p.topic_id = ANY(v_topic_ids) AND p.completed_at >= p_from AND p.completed_at < p_to)
+      'completed_topics', (SELECT pg_catalog.count(*) FROM public.progress p WHERE p.topic_id = ANY(v_topic_ids) AND p.completed_at IS NOT NULL AND p.completed_at >= p_from AND p.completed_at < p_to)
     ),
     'lifetime', pg_catalog.jsonb_build_object(
       'likes', (SELECT pg_catalog.count(*) FROM public.topic_likes l WHERE l.topic_id = ANY(v_topic_ids)),
@@ -4634,7 +4282,7 @@ BEGIN
       'comments', (SELECT pg_catalog.count(*) FROM public.comments c WHERE c.topic_id = ANY(v_topic_ids) AND c.parent_id IS NULL AND c.is_deleted = false),
       'replies', (SELECT pg_catalog.count(*) FROM public.comments c WHERE c.topic_id = ANY(v_topic_ids) AND c.parent_id IS NOT NULL AND c.is_deleted = false),
       'comment_likes', (SELECT pg_catalog.count(*) FROM public.comment_likes cl JOIN public.comments c ON c.id = cl.comment_id WHERE c.topic_id = ANY(v_topic_ids) AND c.is_deleted = false),
-      'completed_topics', (SELECT pg_catalog.count(*) FROM public.progress p WHERE p.topic_id = ANY(v_topic_ids) AND p.completed_at IS NOT NULL)
+      'completed_topics', (SELECT pg_catalog.count(*) FROM public.progress p WHERE p.topic_id = ANY(v_topic_ids))
     )
   ) INTO v_interactions;
 
@@ -4712,12 +4360,19 @@ BEGIN
   END IF;
 
   RETURN pg_catalog.jsonb_build_object(
-    'entity_type', p_entity_type, 'entity_id', p_entity_id,
-    'range_start', p_from, 'range_end', p_to,
+    'entity_type', p_entity_type,
+    'entity_id', p_entity_id,
+    'range_start', p_from,
+    'range_end', p_to,
     'first_retained_event_at', v_first_retained_event_at,
-    'last_event_at', v_last_event_at, 'events', v_event_metrics,
+    'last_event_at', v_last_event_at,
+    'events', v_event_metrics,
     'interactions', v_interactions,
-    'series', CASE WHEN v_first_retained_event_at IS NULL OR p_to <= v_first_retained_event_at THEN '[]'::jsonb ELSE v_series END,
+    'series', CASE
+      WHEN v_first_retained_event_at IS NULL OR p_to <= v_first_retained_event_at
+        THEN '[]'::jsonb
+      ELSE v_series
+    END,
     'category_content', v_category_content,
     'top_topics', v_top_topics
   );
