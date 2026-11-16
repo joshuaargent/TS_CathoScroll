@@ -114,7 +114,7 @@ export function TopCommentFeedCard({
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col justify-center">
-        <article className="bg-bg-card border-border w-full rounded-3xl border p-6 shadow-sm">
+        <article className="bg-bg-card border-border w-full rounded-3xl border p-6">
           <div className="mb-5 flex flex-wrap items-center gap-2">
             <span className="bg-accent-light text-accent rounded-full px-3 py-1 text-xs font-semibold">
               {comment.category_name}
