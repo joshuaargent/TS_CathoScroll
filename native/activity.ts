@@ -16,6 +16,7 @@ import type {
 
 type Transport = ActivityBootstrapTransport & {
   send(operation: PendingActivity, signal?: AbortSignal): Promise<ActivityResult>;
+  sendBatch(operations: PendingActivity[], signal?: AbortSignal): Promise<ActivityResult[]>;
 };
 
 export type NativeActivityStatus = {
@@ -41,8 +42,10 @@ export class NativeActivity {
     private readonly onChange: (status: NativeActivityStatus) => void,
     isOnline: () => boolean
   ) {
-    const sync = new OfflineActivitySync(store, (operation, signal) =>
-      transport.send(operation, signal)
+    const sync = new OfflineActivitySync(
+      store,
+      (operation, signal) => transport.send(operation, signal),
+      (operations, signal) => transport.sendBatch(operations, signal)
     );
     this.scheduler = new BackgroundActivitySync(
       sync,
