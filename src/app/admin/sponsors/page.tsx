@@ -12,7 +12,7 @@ export const metadata = {
 };
 
 export default async function AdminSponsorsPage() {
-  const { adminClient } = await requireAdminPage('/admin/sponsors');
+  const { user, adminClient } = await requireAdminPage('/admin/sponsors');
   const { data, error } = await adminClient
     .from('sponsors')
     .select(
