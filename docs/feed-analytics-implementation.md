@@ -8,7 +8,7 @@ This phase adds a private, authenticated, bounded event pipeline for the existin
 
 ## Database
 
-The production Supabase project has an additive migration named `create_feed_analytics_foundation`, followed by `fix_feed_analytics_event_validation` and `harden_feed_analytics_payload_validation`.
+The production Supabase project has an additive migration named `create_feed_analytics_foundation`, followed by `fix_feed_analytics_event_validation`, `harden_feed_analytics_payload_validation`, `add_feed_analytics_event_idempotency_key`, `require_feed_analytics_event_ids`, `add_feed_analytics_retention`, and `persist_feed_analytics_rate_limit_decisions`.
 
 Objects:
 - `catho_private.feed_analytics_events`: append-only raw topic-feed events.
@@ -35,7 +35,7 @@ The existing topic swipe viewer now records signed-in topic impressions, viewabi
 
 The browser client batches up to 50 events. A bounded localStorage queue is namespaced by the currently authenticated user ID so pending events from one account cannot be attributed to another account after a sign-out/sign-in switch. Events contain no comment text, profile details, email addresses or raw user identifiers. Queue writes and network failures are best-effort; they never block feed navigation or learning actions.
 
-The queue is retried when connectivity returns and flushed on page hide/visibility changes. It is capped at 200 events per account; when full, the oldest unsent telemetry is discarded to keep storage bounded. Browser storage can be cleared by the user or the operating system, and abrupt process termination can still lose events that have not reached the server. This is analytics telemetry, not the durable offline activity outbox. A later native-specific phase should decide whether telemetry belongs in encrypted SQLite or remains best-effort.
+The queue is retried when connectivity returns and flushed on page hide/visibility changes. The native app sends to the canonical site API using its current Supabase access token; the website uses its same-origin cookie session. It is capped at 200 events per account; when full, the oldest unsent telemetry is discarded to keep storage bounded. Browser storage can be cleared by the user or the operating system, and abrupt process termination can still lose events that have not reached the server. This is analytics telemetry, not the durable offline activity outbox. A later native-specific phase should decide whether telemetry belongs in encrypted SQLite or remains best-effort.
 
 A viewable impression requires at least 50% of the feed container to remain visible for one continuous second. Active duration is measured only while the document is visible and the feed container is viewable. It is emitted in bounded chunks. The client does not send client timestamps; the server receipt time is used for reporting.
 
@@ -44,6 +44,11 @@ A viewable impression requires at least 50% of the feed container to remain visi
 The initial implementation tracks signed-in feed usage only. Anonymous tracking is not enabled. Raw events are private and should be exposed only through server-side administrator aggregate queries. Sponsor dashboards must never expose individual user identities or raw events.
 
 No historical impressions or reading duration can be inferred from likes, bookmarks or comments. Those older metrics must be shown as unavailable, not zero. Raw event data is retained for 180 days; a bounded cleanup job runs every 15 minutes and deletes up to 5,000 expired rows per run. Daily aggregate rollups are not implemented yet, so reporting beyond the raw retention window is not yet available. Topic/category dashboards, comment and sponsor events, and recommendation weighting are separate follow-up phases.
+
+## Verification
+
+- Supabase smoke tests passed for authenticated ingestion, duplicate-event idempotency, invalid metadata rejection, and the database rate-limit response. The smoke-test transaction was rolled back and left zero raw event rows.
+- Verified the authenticated RPC is executable by authenticated users but not anon, raw event tables cannot be read by authenticated or service_role, the retention function is not executable by authenticated users, and the scheduled retention job is active.
 
 ## Verification still required
 
