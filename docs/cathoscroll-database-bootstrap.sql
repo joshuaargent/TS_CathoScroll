@@ -4605,7 +4605,17 @@ STABLE
 SECURITY DEFINER
 SET search_path = ''
 AS $function$
-  WITH candidates AS (
+  WITH candidate_ids AS MATERIALIZED (
+    SELECT candidate.id
+    FROM public.comments AS candidate
+    WHERE candidate.parent_id IS NULL
+      AND candidate.is_deleted = false
+      AND pg_catalog.char_length(pg_catalog.btrim(candidate.content)) > 0
+      AND candidate.created_at >= pg_catalog.statement_timestamp() - interval '90 days'
+    ORDER BY candidate.created_at DESC, candidate.id DESC
+    LIMIT 5000
+  ),
+  candidates AS (
     SELECT
       comment_row.id AS comment_id,
       topic.slug AS topic_slug,
@@ -4641,6 +4651,7 @@ AS $function$
         )
       ) AS ranking_score
     FROM public.comments AS comment_row
+    JOIN candidate_ids AS candidate_pool ON candidate_pool.id = comment_row.id
     JOIN public.topics AS topic
       ON topic.id = comment_row.topic_id
      AND topic.is_published = true
@@ -4715,7 +4726,7 @@ AS $function$
 $function$;
 
 COMMENT ON FUNCTION public.get_top_feed_comments() IS
-  'Returns up to five recent, visible, top-level comments with meaningful engagement for feed interstitials. Deleted comments and unpublished topics/categories are excluded.';
+  'Returns up to five recent, visible, top-level comments with meaningful engagement for feed interstitials. Candidate scoring is bounded to the newest 5,000 eligible root comments in the 90-day window. Deleted comments and unpublished topics/categories are excluded.';
 
 REVOKE ALL ON FUNCTION public.get_top_feed_comments() FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.get_top_feed_comments() FROM anon;
@@ -4723,7 +4734,7 @@ REVOKE ALL ON FUNCTION public.get_top_feed_comments() FROM authenticated;
 GRANT EXECUTE ON FUNCTION public.get_top_feed_comments() TO service_role;
 
 NOTIFY pgrst, 'reload schema';
--- End of CathoScroll application-schema and catalogue bootstrap.
+-- Sponsor and campaign extensions to the application schema follow.
 
 -- Private-by-default sponsor records. Payments are reconciled manually after
 -- direct bank transfer; this table does not integrate with a payment provider.
@@ -5177,7 +5188,9 @@ BEGIN
     LEFT JOIN catho_private.sponsor_campaign_user_frequency AS frequency
       ON frequency.campaign_id = campaign.id AND frequency.user_id = p_user_id
     WHERE campaign.status = 'approved'
-      AND sponsor.status = 'active'
+      AND sponsor.status IN ('active', 'scheduled')
+      AND (sponsor.starts_on IS NULL OR sponsor.starts_on <= v_today)
+      AND (sponsor.ends_on IS NULL OR sponsor.ends_on >= v_today)
       AND sponsor.payment_status IN ('received', 'not_required')
       AND campaign.starts_on <= v_today AND campaign.ends_on >= v_today
       AND (cardinality(campaign.target_category_slugs) = 0
@@ -5300,10 +5313,6 @@ ALTER FUNCTION public.record_sponsor_campaign_event(uuid, uuid, uuid, uuid, text
 REVOKE ALL ON FUNCTION public.record_sponsor_campaign_event(uuid, uuid, uuid, uuid, text)
   FROM PUBLIC, anon, authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.record_sponsor_campaign_event(uuid, uuid, uuid, uuid, text) TO service_role;
-ALTER FUNCTION public.record_sponsor_campaign_event(uuid, uuid, uuid, uuid, text) OWNER TO postgres;
-REVOKE ALL ON FUNCTION public.record_sponsor_campaign_event(uuid, uuid, uuid, uuid, text)
-  FROM PUBLIC, anon, authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.record_sponsor_campaign_event(uuid, uuid, uuid, uuid, text) TO service_role;
 
 CREATE OR REPLACE FUNCTION catho_private.prune_sponsor_campaign_events(
   p_before timestamptz DEFAULT statement_timestamp() - interval '180 days', p_limit integer DEFAULT 5000
@@ -5316,6 +5325,25 @@ BEGIN
      OR p_limit IS NULL OR p_limit < 1 OR p_limit > 10000 THEN
     RAISE EXCEPTION 'Invalid sponsor campaign retention parameters' USING ERRCODE = '22023';
   END IF;
+  WITH expired_campaigns AS (
+    SELECT campaign.id
+    FROM public.sponsor_campaigns AS campaign
+    LEFT JOIN public.sponsors AS sponsor ON sponsor.id = campaign.sponsor_id
+    WHERE campaign.status IN ('approved', 'paused')
+      AND (
+        campaign.ends_on < (pg_catalog.timezone('UTC', pg_catalog.statement_timestamp()))::date
+        OR sponsor.status = 'completed'
+        OR (sponsor.ends_on IS NOT NULL
+          AND sponsor.ends_on < (pg_catalog.timezone('UTC', pg_catalog.statement_timestamp()))::date)
+      )
+    ORDER BY campaign.ends_on, campaign.id
+    LIMIT p_limit
+  )
+  UPDATE public.sponsor_campaigns AS campaign
+  SET status = 'completed', updated_at = pg_catalog.statement_timestamp()
+  FROM expired_campaigns
+  WHERE campaign.id = expired_campaigns.id;
+
   WITH expired AS (
     SELECT event.ctid FROM catho_private.sponsor_campaign_events AS event
     WHERE event.received_at < p_before ORDER BY event.received_at LIMIT p_limit
@@ -5328,7 +5356,9 @@ BEGIN
     SELECT frequency.ctid
     FROM catho_private.sponsor_campaign_user_frequency AS frequency
     JOIN public.sponsor_campaigns AS campaign ON campaign.id=frequency.campaign_id
-    WHERE campaign.status IN ('completed','rejected') AND campaign.updated_at < p_before
+    WHERE campaign.status IN ('completed','rejected')
+      AND (campaign.updated_at < p_before
+        OR campaign.ends_on < (p_before AT TIME ZONE 'UTC')::date)
     ORDER BY campaign.updated_at LIMIT p_limit
   )
   DELETE FROM catho_private.sponsor_campaign_user_frequency AS frequency USING expired_frequency
@@ -5417,3 +5447,6 @@ REVOKE ALL ON FUNCTION public.get_admin_sponsor_campaign_analytics(uuid, date, d
   FROM PUBLIC, anon, authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.get_admin_sponsor_campaign_analytics(uuid, date, date)
   TO service_role;
+
+NOTIFY pgrst, 'reload schema';
+-- End of CathoScroll application-schema and catalogue bootstrap.
