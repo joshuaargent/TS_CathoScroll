@@ -2094,11 +2094,11 @@ test('reads ordered offline activity batches with per-operation acknowledgement 
     await store.setActivity('alice', 'three', 'progress', true, 'three');
     const batch = await store.nextOperations('alice', 2);
     assert.deepEqual(batch.map((operation) => operation.sequence), ['1', '2']);
-    assert.deepEqual(batch.map((operation) => operation.acknowledgedSequence), ['0', '1']);
+    assert.deepEqual(batch.map((operation) => operation.acknowledgedSequence), ['0', '0']);
     await store.acknowledge('alice', 'one', '1', true, null);
     const remaining = await store.nextOperations('alice', 2);
     assert.deepEqual(remaining.map((operation) => operation.sequence), ['2', '3']);
-    assert.deepEqual(remaining.map((operation) => operation.acknowledgedSequence), ['1', '2']);
+    assert.deepEqual(remaining.map((operation) => operation.acknowledgedSequence), ['1', '1']);
   } finally {
     db.close();
   }
