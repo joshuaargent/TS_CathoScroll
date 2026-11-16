@@ -181,7 +181,7 @@ export class SupabaseActivityTransport implements ActivityBootstrapTransport {
       return { userId, operationId, status: 'rejected', reason: 'topic_unavailable' };
     }
     if (
-      receipt.status !== 'applied' ||
+      (receipt.status !== undefined && receipt.status !== 'applied') ||
       typeof receipt.value !== 'boolean' ||
       receipt.value !== operation.value
     ) {
