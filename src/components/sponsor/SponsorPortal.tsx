@@ -89,7 +89,7 @@ interface CampaignForm {
 }
 
 function humanize(value: string) {
-  return value.replaceAll('_', ' ').replace(/\\b\\w/g, (letter) => letter.toUpperCase());
+  return value.replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 function todayUtc() {
@@ -121,10 +121,6 @@ function emptyCampaignForm(): CampaignForm {
 function formatMoney(amountMinor: number | null, currency: string) {
   if (amountMinor === null) return 'Not specified';
   return new Intl.NumberFormat('en-GB', { style: 'currency', currency }).format(amountMinor / 100);
-}
-
-function humanize(value: string) {
-  return value.replaceAll('_', ' ').replace(/\\b\\w/g, (letter) => letter.toUpperCase());
 }
 
 export function SponsorPortal({
