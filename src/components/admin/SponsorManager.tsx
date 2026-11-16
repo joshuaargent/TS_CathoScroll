@@ -498,7 +498,7 @@ export function SponsorManager({ sponsors, memberships }: { sponsors: SponsorRec
                           ) : (
                             <button
                               type="button"
-                              disabled={memberUpdatingId !== null || membership.status === 'revoked'}
+                              disabled={memberUpdatingId !== null}
                               onClick={() => void updateSponsorMember(sponsor.id, membership.id, 'reactivate')}
                               className="border-border rounded-md border px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
                             >
