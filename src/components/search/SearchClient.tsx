@@ -5,7 +5,6 @@ import { useEffect, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 
 import type { TopicSearchResult } from '@/lib/search';
-import { NativeGridSkeleton } from '../../../native/skeletons';
 
 import { SearchInput } from './SearchInput';
 import { SearchResults } from './SearchResults';
@@ -116,11 +115,7 @@ export function SearchClient() {
         <p role="alert" className="mt-6 text-sm text-red-600">
           {searchError}
         </p>
-      ) : searching ? (
-        <div className="mt-6">
-          <NativeGridSkeleton label="Loading search results" />
-        </div>
-      ) : (
+      ) : searching ? null : (
         <SearchResults
           query={resultQuery === debouncedQuery ? debouncedQuery : ''}
           results={results}
