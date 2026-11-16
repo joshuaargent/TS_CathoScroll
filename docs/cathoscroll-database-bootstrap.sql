@@ -6532,6 +6532,127 @@ REVOKE ALL ON FUNCTION public.get_admin_sponsor_campaign_analytics(uuid, date, d
 GRANT EXECUTE ON FUNCTION public.get_admin_sponsor_campaign_analytics(uuid, date, date)
   TO service_role;
 
+
+CREATE OR REPLACE FUNCTION public.admin_create_sponsor_invoice(
+  p_actor_user_id uuid, p_sponsor_id uuid, p_description text, p_amount_minor bigint,
+  p_currency text, p_issued_on date, p_due_on date, p_issue_now boolean DEFAULT true
+)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
+AS $function$
+DECLARE
+  v_invoice catho_private.sponsor_invoices%ROWTYPE;
+  v_sponsor public.sponsors%ROWTYPE;
+BEGIN
+  IF p_actor_user_id IS NULL OR NOT EXISTS (
+    SELECT 1 FROM public.admin_users AS admins WHERE admins.user_id = p_actor_user_id
+  ) THEN RAISE EXCEPTION 'Administrator access required' USING ERRCODE = '42501'; END IF;
+  SELECT * INTO v_sponsor FROM public.sponsors WHERE id = p_sponsor_id;
+  IF NOT FOUND OR char_length(btrim(coalesce(p_description, ''))) NOT BETWEEN 2 AND 500
+     OR p_amount_minor IS NULL OR p_amount_minor NOT BETWEEN 1 AND 100000000000
+     OR p_currency IS NULL OR p_currency NOT IN ('GBP', 'EUR', 'USD')
+     OR p_currency <> v_sponsor.currency
+     OR p_issued_on IS NULL OR p_due_on IS NULL OR p_due_on < p_issued_on
+     OR p_issue_now IS NULL THEN
+    RAISE EXCEPTION 'Invoice details must match the sponsor agreement and use valid dates and amounts' USING ERRCODE = '22023';
+  END IF;
+  INSERT INTO catho_private.sponsor_invoices
+    (sponsor_id, description, amount_minor, currency, issued_on, due_on, status, created_by)
+  VALUES (p_sponsor_id, btrim(p_description), p_amount_minor, p_currency, p_issued_on, p_due_on,
+    CASE WHEN p_issue_now THEN 'issued' ELSE 'draft' END, p_actor_user_id)
+  RETURNING * INTO v_invoice;
+  IF p_issue_now THEN
+    UPDATE public.sponsors
+    SET payment_status = 'pending', payment_received_at = NULL, updated_at = statement_timestamp()
+    WHERE id = p_sponsor_id;
+  END IF;
+  INSERT INTO catho_private.admin_action_audit
+    (actor_user_id, action, target_type, target_id, details)
+  VALUES (p_actor_user_id, 'sponsor.invoice_created', 'sponsor_invoice', v_invoice.id::text,
+    jsonb_build_object('sponsor_id', p_sponsor_id, 'invoice_number', v_invoice.invoice_number,
+      'amount_minor', p_amount_minor, 'currency', p_currency, 'status', v_invoice.status));
+  RETURN jsonb_build_object('id', v_invoice.id, 'invoice_number', v_invoice.invoice_number,
+    'sponsor_id', v_invoice.sponsor_id, 'amount_minor', v_invoice.amount_minor,
+    'currency', v_invoice.currency, 'status', v_invoice.status);
+END;
+$function$;
+ALTER FUNCTION public.admin_create_sponsor_invoice(uuid, uuid, text, bigint, text, date, date, boolean) OWNER TO postgres;
+REVOKE ALL ON FUNCTION public.admin_create_sponsor_invoice(uuid, uuid, text, bigint, text, date, date, boolean)
+  FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.admin_create_sponsor_invoice(uuid, uuid, text, bigint, text, date, date, boolean) TO service_role;
+
+
+CREATE OR REPLACE FUNCTION public.admin_set_sponsor_member_status(
+  p_actor_user_id uuid, p_membership_id uuid, p_action text
+)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
+AS $function$
+DECLARE v_membership public.sponsor_memberships%ROWTYPE; v_status text;
+BEGIN
+  IF p_actor_user_id IS NULL OR NOT EXISTS (
+    SELECT 1 FROM public.admin_users AS admins WHERE admins.user_id = p_actor_user_id
+  ) THEN RAISE EXCEPTION 'Administrator access required' USING ERRCODE = '42501'; END IF;
+  IF p_membership_id IS NULL OR p_action IS NULL
+     OR p_action NOT IN ('suspend', 'reactivate', 'revoke') THEN
+    RAISE EXCEPTION 'Invalid membership action' USING ERRCODE = '22023';
+  END IF;
+  SELECT * INTO v_membership FROM public.sponsor_memberships
+  WHERE id = p_membership_id FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Sponsor membership not found' USING ERRCODE = 'P0002'; END IF;
+  IF v_membership.role = 'owner' AND p_action IN ('suspend', 'revoke')
+     AND NOT EXISTS (
+       SELECT 1 FROM public.sponsor_memberships AS other
+       WHERE other.sponsor_id = v_membership.sponsor_id
+         AND other.id <> v_membership.id AND other.role = 'owner' AND other.status = 'active'
+     ) THEN
+    RAISE EXCEPTION 'The last active sponsor owner cannot be suspended or revoked' USING ERRCODE = '23514';
+  END IF;
+  v_status := CASE p_action WHEN 'suspend' THEN 'suspended'
+    WHEN 'reactivate' THEN 'active' ELSE 'revoked' END;
+  UPDATE public.sponsor_memberships SET status = v_status, updated_at = statement_timestamp()
+  WHERE id = p_membership_id RETURNING * INTO v_membership;
+  INSERT INTO catho_private.admin_action_audit
+    (actor_user_id, action, target_type, target_id, details)
+  VALUES (p_actor_user_id, 'sponsor.member_' || p_action, 'sponsor_membership', v_membership.id::text,
+    jsonb_build_object('sponsor_id', v_membership.sponsor_id,
+      'user_id', v_membership.user_id, 'role', v_membership.role));
+  RETURN jsonb_build_object('id', v_membership.id, 'sponsor_id', v_membership.sponsor_id,
+    'user_id', v_membership.user_id, 'role', v_membership.role, 'status', v_membership.status);
+END;
+$function$;
+ALTER FUNCTION public.admin_set_sponsor_member_status(uuid, uuid, text) OWNER TO postgres;
+REVOKE ALL ON FUNCTION public.admin_set_sponsor_member_status(uuid, uuid, text)
+  FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.admin_set_sponsor_member_status(uuid, uuid, text) TO service_role;
+
+CREATE OR REPLACE FUNCTION public.admin_record_sponsor_refund(
+  p_actor_user_id uuid, p_sponsor_id uuid, p_payment_id uuid, p_amount_minor bigint,
+  p_bank_reference text DEFAULT NULL, p_bank_transaction_date date DEFAULT NULL,
+  p_bank_transaction_key text DEFAULT NULL
+)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
+AS $function$
+BEGIN
+  IF p_actor_user_id IS NULL OR NOT EXISTS (
+    SELECT 1 FROM public.admin_users AS admins WHERE admins.user_id = p_actor_user_id
+  ) THEN RAISE EXCEPTION 'Administrator access required' USING ERRCODE = '42501'; END IF;
+  IF p_sponsor_id IS NULL OR p_payment_id IS NULL OR NOT EXISTS (
+    SELECT 1 FROM catho_private.sponsor_payment_transactions AS payment
+    WHERE payment.id = p_payment_id AND payment.sponsor_id = p_sponsor_id
+      AND payment.transaction_type = 'payment'
+  ) THEN RAISE EXCEPTION 'Original payment not found for this sponsor' USING ERRCODE = 'P0002'; END IF;
+  RETURN public.admin_record_sponsor_refund(
+    p_actor_user_id, p_payment_id, p_amount_minor,
+    p_bank_reference, p_bank_transaction_date, p_bank_transaction_key
+  );
+END;
+$function$;
+ALTER FUNCTION public.admin_record_sponsor_refund(uuid, uuid, uuid, bigint, text, date, text) OWNER TO postgres;
+REVOKE ALL ON FUNCTION public.admin_record_sponsor_refund(uuid, uuid, uuid, bigint, text, date, text)
+  FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.admin_record_sponsor_refund(uuid, uuid, uuid, bigint, text, date, text) TO service_role;
+REVOKE ALL ON FUNCTION public.admin_record_sponsor_refund(uuid, uuid, bigint, text, date, text)
+  FROM PUBLIC, anon, authenticated, service_role;
+
 NOTIFY pgrst, 'reload schema';
 -- End of CathoScroll application-schema and catalogue bootstrap.
  THEN
