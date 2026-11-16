@@ -196,3 +196,8 @@ The initial sponsor register is administrator-only and does not serve adverts. `
 Sponsor creation and bank-transfer reconciliation use `public.admin_create_sponsor` and `public.admin_mark_sponsor_payment_received`. Both are postgres-owned SECURITY DEFINER functions with an empty search path, revoked from `PUBLIC`, `anon`, and `authenticated`, and executable only by `service_role`. They verify the supplied actor exists in `public.admin_users` and append an audit record in the same transaction as the sponsor change. The API independently enforces the admin/MFA session, same-origin/native request validation, bounded JSON and per-admin rate limits.
 
 Bank transfers are made directly to the CathoScroll bank account and marked received by an administrator after checking the bank statement. The database records the server receipt timestamp and optional reference. The application does not collect bank account details or initiate payments. No sponsor account, public sponsor endpoint, ad delivery, or sponsor analytics is implemented in this phase.
+
+
+## Feed analytics aggregate storage
+
+The daily analytics tables are in the non-exposed `catho_private` schema, have RLS enabled, and grant no direct access to `anon`, `authenticated` or `service_role`. Only postgres-owned SECURITY DEFINER maintenance and admin aggregate functions access them. The user/day/topic viewer bridge is pruned in bounded batches after 180 days; the daily totals table contains no user/session identifiers and can outlive raw event retention. The rollup maintenance function is restricted to the service role and scheduled through pg_cron; the cron job runs as its database owner. Admin aggregate queries continue to return aggregate-only payloads.
