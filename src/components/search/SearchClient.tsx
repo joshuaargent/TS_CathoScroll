@@ -34,7 +34,7 @@ export function SearchClient() {
     // Wait briefly after typing before rerunning the local ranking algorithm.
     const timeout = setTimeout(() => {
       setDebouncedQuery(query);
-    }, 200);
+    }, 350);
 
     return () => clearTimeout(timeout);
   }, [query]);
