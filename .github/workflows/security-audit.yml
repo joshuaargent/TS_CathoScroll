@@ -1,6 +1,10 @@
 name: Security audit
 
 on:
+  pull_request:
+    branches:
+      - main
+      - 'release/**'
   push:
     branches:
       - main
@@ -24,8 +28,6 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.ref_name }}
 
       - name: Set up supported Node.js
         uses: actions/setup-node@v4
