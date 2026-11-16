@@ -234,12 +234,11 @@ function SponsorFinancialCard({
             Amount
             <input name="amount" required type="number" min="0.01" step="0.01" defaultValue={sponsor.agreed_amount_minor === null ? '' : (sponsor.agreed_amount_minor / 100).toFixed(2)} className="border-border bg-bg-primary mt-1.5 w-full rounded-lg border px-3 py-2.5" />
           </label>
-          <label className="text-sm font-medium">
-            Currency
-            <select name="currency" defaultValue={sponsor.currency} className="border-border bg-bg-primary mt-1.5 w-full rounded-lg border px-3 py-2.5">
-              <option value="GBP">GBP (£)</option><option value="EUR">EUR (€)</option><option value="USD">USD ($)</option>
-            </select>
-          </label>
+          <div className="text-sm font-medium">
+            Invoice currency
+            <input type="hidden" name="currency" value={sponsor.currency} />
+            <p className="border-border bg-bg-primary mt-1.5 rounded-lg border px-3 py-2.5">{sponsor.currency}</p>
+          </div>
           <label className="text-sm font-medium">
             Issue date
             <input name="issuedOn" type="date" required defaultValue={today} className="border-border bg-bg-primary mt-1.5 w-full rounded-lg border px-3 py-2.5" />
