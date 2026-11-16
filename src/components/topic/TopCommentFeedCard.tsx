@@ -114,8 +114,8 @@ export function TopCommentFeedCard({
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col justify-center">
-        <article className="bg-bg-card border-border w-full rounded-3xl border p-6">
-          <div className="mb-5 flex flex-wrap items-center gap-2">
+        <article className="mx-auto w-full max-w-3xl text-center">
+          <div className="mb-5 flex flex-wrap items-center justify-center gap-2">
             <span className="bg-accent-light text-accent rounded-full px-3 py-1 text-xs font-semibold">
               {comment.category_name}
             </span>
@@ -127,16 +127,16 @@ export function TopCommentFeedCard({
             )}
           </div>
 
-          <p className="text-text-secondary mb-3 text-sm leading-relaxed">
+          <p className="text-text-secondary mx-auto mb-3 max-w-2xl text-sm leading-relaxed">
             On: {comment.topic_question}
           </p>
-          <p className="text-text-primary line-clamp-8 text-lg leading-relaxed">
+          <p className="text-text-primary mx-auto max-w-3xl text-lg leading-relaxed md:text-xl">
             {comment.content}
             {comment.content_truncated ? '…' : ''}
           </p>
 
-          <div className="border-border mt-6 flex flex-wrap items-center justify-between gap-3 border-t pt-4">
-            <div className="min-w-0">
+          <div className="border-border mx-auto mt-6 flex w-full max-w-2xl flex-wrap items-center justify-center gap-5 border-t pt-4">
+            <div className="min-w-0 text-center">
               <p className="text-text-primary truncate font-semibold">
                 {comment.author_display_name}
               </p>
