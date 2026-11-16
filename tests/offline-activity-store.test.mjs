@@ -2193,3 +2193,52 @@ test('background sync reports deferred activity and clears the message when it r
     background.dispose();
   }
 });
+
+
+test('replays an entire offline batch unchanged after a lost server response', async () => {
+  const db = new DatabaseSync(':memory:');
+  try {
+    const store = new OfflineActivityStore(adapter(db));
+    await store.initialize();
+    await bootstrap(store);
+    await store.setActivity('alice', 'one', 'bookmark', true, 'one');
+    await store.setActivity('alice', 'two', 'like', true, 'two');
+    await store.setActivity('alice', 'three', 'progress', true, 'three');
+    const attempts = [];
+    let loseResponse = true;
+    let serverRevision = 0;
+    const sync = new OfflineActivitySync(
+      store,
+      async () => {
+        throw new Error('The single-operation fallback should not be used.');
+      },
+      async (operations) => {
+        attempts.push(
+          operations.map(({ operationId, sequence, acknowledgedSequence }) => ({
+            operationId,
+            sequence,
+            acknowledgedSequence,
+          }))
+        );
+        if (loseResponse) {
+          loseResponse = false;
+          throw new Error('Connection lost after server commit');
+        }
+        return operations.map((operation) => ({
+          userId: operation.userId,
+          operationId: operation.operationId,
+          revision: String(++serverRevision),
+          value: operation.value,
+          completedAt: operation.completedAt,
+        }));
+      }
+    );
+    await assert.rejects(sync.push('alice'), /Connection lost after server commit/);
+    assert.equal(await store.pendingCount('alice'), 3);
+    assert.deepEqual(await sync.push('alice'), { sent: 3, deferred: false });
+    assert.deepEqual(attempts[0], attempts[1]);
+    assert.equal(await store.pendingCount('alice'), 0);
+  } finally {
+    db.close();
+  }
+});
