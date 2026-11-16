@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 
-import { SponsorPortal, type SponsorAnalytics, type SponsorCampaignRecord, type SponsorOrganization } from '@/components/sponsor/SponsorPortal';
+import { SponsorPortal, type SponsorAnalytics, type SponsorCampaignRecord, type SponsorFinancials, type SponsorOrganization } from '@/components/sponsor/SponsorPortal';
 import { createClient } from '@/lib/supabase/server';
 import { createServiceRoleClient } from '@/lib/supabase/admin';
 
@@ -72,6 +72,21 @@ export default async function SponsorPortalPage() {
 
   const analyticsBySponsor = Object.fromEntries(analyticsEntries) as Record<string, SponsorAnalytics>;
 
+  const financialEntries = await Promise.all(
+    organizations.map(async (organization) => {
+      const { data, error } = await adminClient.rpc('get_sponsor_financials', {
+        p_actor_user_id: user.id,
+        p_sponsor_id: organization.id,
+      });
+      if (error) {
+        console.error('Unable to load sponsor financial summary:', error.message);
+        return [organization.id, { invoices: [], transactions: [] }] as const;
+      }
+      return [organization.id, data as SponsorFinancials] as const;
+    })
+  );
+  const financialsBySponsor = Object.fromEntries(financialEntries) as Record<string, SponsorFinancials>;
+
   return (
     <main className="container py-12">
       <div className="mt-8">
@@ -87,6 +102,7 @@ export default async function SponsorPortalPage() {
           organizations={organizations}
           campaigns={campaigns}
           analyticsBySponsor={analyticsBySponsor}
+          financialsBySponsor={financialsBySponsor}
         />
       </div>
     </main>
