@@ -29,12 +29,12 @@ function functionBody(name) {
 }
 
 test('invoice and payment ledger tables are private and append-only from clients', () => {
-  assert.match(bootstrap, /CREATE TABLE catho_private\\.sponsor_invoices/);
-  assert.match(bootstrap, /CREATE TABLE catho_private\\.sponsor_payment_transactions/);
-  assert.match(bootstrap, /ALTER TABLE catho_private\\.sponsor_invoices ENABLE ROW LEVEL SECURITY/);
-  assert.match(bootstrap, /ALTER TABLE catho_private\\.sponsor_payment_transactions ENABLE ROW LEVEL SECURITY/);
-  assert.match(bootstrap, /REVOKE ALL ON TABLE catho_private\\.sponsor_invoices FROM PUBLIC, anon, authenticated, service_role/);
-  assert.match(bootstrap, /REVOKE ALL ON TABLE catho_private\\.sponsor_payment_transactions FROM PUBLIC, anon, authenticated, service_role/);
+  assert.match(bootstrap, /CREATE TABLE catho_private\.sponsor_invoices/);
+  assert.match(bootstrap, /CREATE TABLE catho_private\.sponsor_payment_transactions/);
+  assert.match(bootstrap, /ALTER TABLE catho_private\.sponsor_invoices ENABLE ROW LEVEL SECURITY/);
+  assert.match(bootstrap, /ALTER TABLE catho_private\.sponsor_payment_transactions ENABLE ROW LEVEL SECURITY/);
+  assert.match(bootstrap, /REVOKE ALL ON TABLE catho_private\.sponsor_invoices FROM PUBLIC, anon, authenticated, service_role/);
+  assert.match(bootstrap, /REVOKE ALL ON TABLE catho_private\.sponsor_payment_transactions FROM PUBLIC, anon, authenticated, service_role/);
   assert.match(bootstrap, /sponsor_payment_transactions_bank_key_idx/);
   assert.match(bootstrap, /refund_of_payment_id/);
 });
@@ -43,16 +43,16 @@ test('invoice creation and payment reconciliation require administrators', () =>
   const createInvoice = functionBody('public.admin_create_sponsor_invoice');
   const recordPayment = functionBody('public.admin_record_sponsor_payment');
   const refundPayment = functionBody('public.admin_record_sponsor_refund');
-  assert.match(createInvoice, /public\\.admin_users/);
-  assert.match(createInvoice, /sponsor\\.invoice_created/);
-  assert.match(recordPayment, /public\\.admin_users/);
+  assert.match(createInvoice, /public\.admin_users/);
+  assert.match(createInvoice, /sponsor\.invoice_created/);
+  assert.match(recordPayment, /public\.admin_users/);
   assert.match(recordPayment, /v_balance_minor/);
   assert.match(recordPayment, /p_amount_minor > v_balance_minor/);
   assert.match(recordPayment, /ON CONFLICT DO NOTHING/);
   assert.match(recordPayment, /bank_transaction_key/);
   assert.match(recordPayment, /v_outstanding_invoice_minor/);
   assert.match(recordPayment, /payment_status = CASE/);
-  assert.match(refundPayment, /public\\.admin_users/);
+  assert.match(refundPayment, /public\.admin_users/);
   assert.match(refundPayment, /refund_of_payment_id/);
   assert.match(refundPayment, /v_refunded_minor/);
   assert.match(refundPayment, /v_outstanding_invoice_minor/);
@@ -61,18 +61,18 @@ test('invoice creation and payment reconciliation require administrators', () =>
 test('sponsor financial reporting verifies membership and omits personal identifiers', () => {
   const adminFinancials = functionBody('public.get_admin_sponsor_financials');
   const sponsorFinancials = functionBody('public.get_sponsor_financials');
-  assert.match(adminFinancials, /public\\.admin_users/);
+  assert.match(adminFinancials, /public\.admin_users/);
   assert.match(adminFinancials, /sponsor_payment_transactions/);
-  assert.match(sponsorFinancials, /public\\.sponsor_memberships/);
-  assert.match(sponsorFinancials, /membership\\.status = 'active'/);
+  assert.match(sponsorFinancials, /public\.sponsor_memberships/);
+  assert.match(sponsorFinancials, /membership\.status = 'active'/);
   assert.match(sponsorFinancials, /'bank_reference'/);
   assert.doesNotMatch(sponsorFinancials, /'recorded_by'|'user_id'|'actor_user_id'/);
 });
 
 test('legacy direct payment status override is revoked and new sponsors cannot be marked paid on creation', () => {
-  assert.match(bootstrap, /REVOKE ALL ON FUNCTION public\\.admin_mark_sponsor_payment_received\\(uuid, uuid, text\\)[\\s\\S]+?FROM PUBLIC, anon, authenticated, service_role/);
+  assert.match(bootstrap, /REVOKE ALL ON FUNCTION public\.admin_mark_sponsor_payment_received\(uuid, uuid, text\)[\s\S]+?FROM PUBLIC, anon, authenticated, service_role/);
   const createSponsor = functionBody('public.admin_create_sponsor');
-  assert.match(createSponsor, /p_payment_status NOT IN \\('pending', 'not_required'\\)/);
+  assert.match(createSponsor, /p_payment_status NOT IN \('pending', 'not_required'\)/);
   assert.match(createSponsor, /reconcile payments through an invoice/);
 });
 
