@@ -64,6 +64,7 @@ export function TopicFeedCore({
   onOpenComment,
   getSponsorAccessToken,
 }: TopicFeedCoreProps) {
+  const router = useRouter();
   const [feedTopics, setFeedTopics] = useState<Topic[]>(topics);
   const [topComments, setTopComments] = useState<TopFeedComment[]>([]);
   const [topCommentCardComments, setTopCommentCardComments] = useState<TopFeedComment[]>([]);
