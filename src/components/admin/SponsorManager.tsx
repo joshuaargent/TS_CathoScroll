@@ -352,7 +352,7 @@ export function SponsorManager({ sponsors, memberships }: { sponsors: SponsorRec
           <div className="border-border rounded-xl border px-5 py-10 text-center">
             <p className="font-semibold">No sponsors recorded</p>
             <p className="text-text-secondary mt-1 text-sm">
-              Sponsors added above will appear here.
+              Sponsors added above will appear here. Until an approved campaign exists, the feed remains topic-only with no empty advertising slot.
             </p>
           </div>
         ) : (
