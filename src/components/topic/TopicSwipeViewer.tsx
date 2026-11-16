@@ -16,6 +16,8 @@ interface TopicSwipeViewerProps {
   topicIndex: number;
   active?: boolean;
   userId: string | null;
+  analyticsEndpoint?: string;
+  getAnalyticsAccessToken?: () => Promise<string | null>;
   currentActivity:
     | (Omit<TopicActivity, 'likes' | 'comments'> & {
         likes: number | null;
@@ -42,6 +44,8 @@ export function TopicSwipeViewer({
   topicIndex,
   active = true,
   userId,
+  analyticsEndpoint,
+  getAnalyticsAccessToken,
   currentActivity,
   currentActivityError,
   displayCounts,
@@ -86,6 +90,10 @@ export function TopicSwipeViewer({
   useEffect(() => {
     if (!userId || !active) return;
 
+    const removeAnalyticsListeners = installFeedAnalyticsListeners(userId, {
+      endpoint: analyticsEndpoint,
+      getAccessToken: getAnalyticsAccessToken,
+    });
     const viewKey = userId + ':' + currentTopicId;
     const wasViewed = viewedTopicsRef.current.has(viewKey);
     viewedTopicsRef.current.add(viewKey);
@@ -106,6 +114,7 @@ export function TopicSwipeViewer({
         viewabilityTimer = null;
         if (!isIntersecting || document.visibilityState !== 'visible') return;
         topicViewableRef.current = true;
+        topicActiveSinceRef.current = performance.now() - 1000;
         recordFeedAnalyticsEvent(userId, 'viewable_impression', currentTopicId, {
           source: 'feed',
         });
@@ -178,8 +187,6 @@ export function TopicSwipeViewer({
 
     const interval = window.setInterval(flushActiveDuration, 30000);
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    const removeAnalyticsListeners = installFeedAnalyticsListeners(userId);
-
     return () => {
       flushActiveDuration();
       window.clearInterval(interval);
@@ -188,7 +195,7 @@ export function TopicSwipeViewer({
       observer?.disconnect();
       removeAnalyticsListeners();
     };
-  }, [currentTopicId, userId, active]);
+  }, [currentTopicId, userId, active, analyticsEndpoint, getAnalyticsAccessToken]);
 
   useEffect(() => {
     if (!userId || slideIndex <= 0) return;
