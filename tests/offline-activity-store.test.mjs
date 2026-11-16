@@ -592,6 +592,13 @@ test('native activity refreshes an expired cursor and preserves changes made dur
         if (cursor === '1') return { userId, changes: [], hasMore: false, resetRequired: true };
         return { userId, changes: cursor === '3' ? events : [], hasMore: false };
       },
+      async sendBatch(operations) {
+        const receipts = [];
+        for (const operation of operations) {
+          receipts.push(await this.send(operation));
+        }
+        return receipts;
+      },
       async send(operation) {
         events.push({
           topicId: operation.topicId,
@@ -653,6 +660,13 @@ test('native account activity bootstraps, queues offline edits and synchronizes 
     },
     async changes(userId, cursor) {
       return { userId, changes: events.slice(Number(cursor)), hasMore: false };
+    },
+    async sendBatch(operations) {
+      const receipts = [];
+      for (const operation of operations) {
+        receipts.push(await this.send(operation));
+      }
+      return receipts;
     },
     async send(operation) {
       assert.equal(operation.userId, 'alice');
