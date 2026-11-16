@@ -45,6 +45,7 @@ test('invoice creation and payment reconciliation require administrators', () =>
   const refundPayment = functionBody('public.admin_record_sponsor_refund');
   assert.match(createInvoice, /public\.admin_users/);
   assert.match(createInvoice, /sponsor\.invoice_created/);
+  assert.match(createInvoice, /p_currency <> v_sponsor\.currency/);
   assert.match(recordPayment, /public\.admin_users/);
   assert.match(recordPayment, /v_balance_minor/);
   assert.match(recordPayment, /p_amount_minor > v_balance_minor/);
