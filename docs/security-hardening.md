@@ -187,3 +187,12 @@ were merged on 16 November 2026. The current `main` branch uses the bounded
 comment-page and public-profile RPCs. Keep the production deployment aligned
 with the merged `main` branch; do not deploy an older application build
 against the hardened schema.
+
+
+## Manual sponsor records
+
+The initial sponsor register is administrator-only and does not serve adverts. `public.sponsors` has RLS enabled, no client-facing policies, and direct table privileges revoked from `PUBLIC`, `anon`, and `authenticated`; only the server-side service role has table access. The no-policy RLS advisor notice is intentional for this private table.
+
+Sponsor creation and bank-transfer reconciliation use `public.admin_create_sponsor` and `public.admin_mark_sponsor_payment_received`. Both are postgres-owned SECURITY DEFINER functions with an empty search path, revoked from `PUBLIC`, `anon`, and `authenticated`, and executable only by `service_role`. They verify the supplied actor exists in `public.admin_users` and append an audit record in the same transaction as the sponsor change. The API independently enforces the admin/MFA session, same-origin/native request validation, bounded JSON and per-admin rate limits.
+
+Bank transfers are made directly to the CathoScroll bank account and marked received by an administrator after checking the bank statement. The database records the server receipt timestamp and optional reference. The application does not collect bank account details or initiate payments. No sponsor account, public sponsor endpoint, ad delivery, or sponsor analytics is implemented in this phase.
