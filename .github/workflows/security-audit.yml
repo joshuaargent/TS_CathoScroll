@@ -84,12 +84,12 @@ jobs:
       - name: Audit root production and development dependencies
         id: root-audit
         continue-on-error: true
-        run: npm audit --audit-level=high
+        run: npm audit --audit-level=moderate
 
       - name: Audit Electron production and development dependencies
         id: electron-audit
         continue-on-error: true
-        run: npm --prefix electron audit --audit-level=high
+        run: npm --prefix electron audit --audit-level=moderate
 
       - name: Fail if either dependency tree has high or critical vulnerabilities
         if: steps.root-audit.outcome == 'failure' || steps.electron-audit.outcome == 'failure'
