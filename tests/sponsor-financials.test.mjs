@@ -54,9 +54,9 @@ test('invoice creation and payment reconciliation require administrators', () =>
   assert.match(recordPayment, /payment_status = CASE/);
   assert.match(refundPayment, /public\.admin_users/);
   assert.match(refundPayment, /p_sponsor_id/);
-  assert.match(refundPayment, /payment\\.sponsor_id = p_sponsor_id/);
-  assert.match(refundPayment, /public\\.admin_record_sponsor_refund\\(/);
-  const refundLedgerStart = bootstrap.indexOf('CREATE OR REPLACE FUNCTION public.admin_record_sponsor_refund(\\n  p_actor_user_id uuid, p_payment_id uuid');
+  assert.match(refundPayment, /payment\.sponsor_id = p_sponsor_id/);
+  assert.match(refundPayment, /public\.admin_record_sponsor_refund\(/);
+  const refundLedgerStart = bootstrap.indexOf('CREATE OR REPLACE FUNCTION public.admin_record_sponsor_refund(\n  p_actor_user_id uuid, p_payment_id uuid');
   assert.notEqual(refundLedgerStart, -1);
   assert.match(bootstrap.slice(refundLedgerStart), /refund_of_payment_id/);
   assert.match(bootstrap.slice(refundLedgerStart), /v_refunded_minor/);
