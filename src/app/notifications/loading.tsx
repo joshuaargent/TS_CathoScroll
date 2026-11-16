@@ -1,5 +1,10 @@
-import { NativeNotificationsSkeleton } from '../../../native/skeletons';
+import { NotificationsPageView } from '@/components/notifications/NotificationsPageView';
+import { NativeNotificationsSkeleton } from '../../../../native/skeletons';
 
 export default function Loading() {
-  return <NativeNotificationsSkeleton />;
+  return (
+    <NotificationsPageView>
+      <NativeNotificationsSkeleton />
+    </NotificationsPageView>
+  );
 }
