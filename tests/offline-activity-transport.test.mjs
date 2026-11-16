@@ -252,7 +252,7 @@ test('sends ordered operations through the bounded batch RPC and validates each 
       operationId: 'second',
       deviceId: 'device',
       sequence: '5',
-      acknowledgedSequence: '4',
+      acknowledgedSequence: '3',
       topicId: 'topic-two',
       kind: 'like',
       value: true,
@@ -273,7 +273,7 @@ test('sends ordered operations through the bounded batch RPC and validates each 
   assert.equal(calls[0].args.p_user, 'alice');
   assert.deepEqual(calls[0].args.p_operations.map((item) => item.sequence), ['4', '5']);
   await assert.rejects(
-    transport.sendBatch([operations[0], { ...operations[1], acknowledgedSequence: '3' }]),
+    transport.sendBatch([operations[0], { ...operations[1], acknowledgedSequence: '4' }]),
     /not contiguous/
   );
   const deferred = fixture({
