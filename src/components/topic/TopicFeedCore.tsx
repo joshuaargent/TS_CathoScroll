@@ -197,6 +197,7 @@ export function TopicFeedCore({
     topCommentCadenceUserId.current = userId;
     topCommentCadenceAnchor.current = null;
     seenTopCommentIds.current.clear();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSeenTopCommentIdsForRender(new Set());
     clearTopCommentGroups();
     setShowTopCommentCard(false);
@@ -346,8 +347,8 @@ export function TopicFeedCore({
     if (group.length === 0) return;
 
     group.forEach((comment) => seenTopCommentIds.current.add(comment.comment_id));
-    setSeenTopCommentIdsForRender(new Set(seenTopCommentIds.current));
     // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSeenTopCommentIdsForRender(new Set(seenTopCommentIds.current));
     cacheTopCommentGroup(topic.id, group);
   }, [
     topicsSinceTopCommentCard,
@@ -507,6 +508,7 @@ export function TopicFeedCore({
     if (seenTopCommentUserId.current !== userId) {
       seenTopCommentUserId.current = userId;
       seenTopCommentIds.current.clear();
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSeenTopCommentIdsForRender(new Set());
       clearTopCommentGroups();
       currentCommentCadence = 0;
@@ -668,6 +670,7 @@ export function TopicFeedCore({
       if (seenTopCommentUserId.current !== userId) {
         seenTopCommentUserId.current = userId;
         seenTopCommentIds.current.clear();
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setSeenTopCommentIdsForRender(new Set());
         clearTopCommentGroups();
       }
@@ -692,6 +695,7 @@ export function TopicFeedCore({
     if (seenTopCommentUserId.current !== userId) {
       seenTopCommentUserId.current = userId;
       seenTopCommentIds.current.clear();
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSeenTopCommentIdsForRender(new Set());
       clearTopCommentGroups();
     }
