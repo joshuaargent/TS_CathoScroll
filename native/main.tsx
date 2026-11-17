@@ -1076,7 +1076,10 @@ function App() {
         }
       } catch (cause) {
         console.error(failure, cause);
-        if (active) setError(failure);
+        if (active) {
+          const detail = cause instanceof Error ? cause.message : 'Unknown startup error.';
+          setError(`${failure} ${detail.slice(0, 240)}`);
+        }
       } finally {
         openingContent = false;
       }
