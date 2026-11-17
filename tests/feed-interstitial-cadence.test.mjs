@@ -106,6 +106,11 @@ test('topic, comment and sponsor cards use the same structural layout component'
   assert.match(topCommentCard, /<Heart/);
   assert.match(topCommentCard, /<MessageCircle/);
   assert.match(topCommentCard, /<DoorOpen/);
+  assert.match(sponsorCard, /<DoorOpen/);
+  assert.match(sponsorCard, /<Share2/);
+  assert.match(sponsorCard, /onDoubleClick=/);
+  assert.doesNotMatch(sponsorCard, /bg-accent text-white hover:bg-accent\/90/);
+  assert.doesNotMatch(sponsorCard, /Previous sponsor|Next sponsor/);
   assert.match(topCommentCard, /onDoubleClick=/);
   assert.ok(topCommentCard.includes('encodeURIComponent(comment.author_username)'));
   assert.doesNotMatch(topCommentCard, /Open discussion/);
@@ -182,6 +187,7 @@ test('the ordered feed queue keeps topic, comments and sponsor entries in cadenc
   assert.doesNotMatch(feedCore, /consumeTopCommentGroup/);
   assert.match(sponsorCard, /progress={<TopicProgress current=\{safeIndex\} total=\{campaigns\.length\} \/>/);
   assert.match(topicViewer, /<TopicProgress current=\{slideIndex\} total=\{slides\.length\} \/>/);
+  assert.match(topicViewer, /pointer-events-none absolute inset-x-0 top-\[100%\]/);
   assert.match(progressSource, /bg-border h-1 w-full overflow-hidden rounded-full/);
   assert.match(progressSource, /bg-accent h-full transition-all duration-300/);
   assert.match(progressSource, /shrink-0 pb-5/);
@@ -189,6 +195,8 @@ test('the ordered feed queue keeps topic, comments and sponsor entries in cadenc
   assert.doesNotMatch(feedCore, /consumeTopCommentGroup\(currentTopic\.id\)/);
   assert.match(feedCore, /const previousQueueEntry = feedQueueWindow\.previous/);
   assert.match(feedCore, /nextEntryPreview=/);
+  assert.match(feedCore, /active && nextQueueEntryForPreview\s*\n\s*\? renderFeedQueueEntry\(nextQueueEntryForPreview, false\)/);
+  assert.match(feedCore, /active && feedQueueWindow\.next\s*\n\s*\? renderFeedQueueEntry\(feedQueueWindow\.next, false\)/);
   assert.match(feedCore, /const dueTopCommentPreviewEntry/);
   assert.match(feedCore, /unseenPreviewComments\.slice\(0, 5\)/);
   assert.match(interstitialMotion, /nextPreview\?: ReactNode/);
