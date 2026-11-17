@@ -104,4 +104,17 @@ test('topic, comment and sponsor cards use the same structural layout component'
   assert.ok(topCommentCard.includes('encodeURIComponent(comment.author_username)'));
   assert.doesNotMatch(topCommentCard, /Open discussion/);
   assert.doesNotMatch(topCommentCard, /<Button/);
+  assert.match(topCommentCard, /Top Comments/);
+  assert.match(topCommentCard, /rounded-full px-4 transition-colors/);
+  assert.match(topCommentCard, /h-11 w-11 items-center justify-center rounded-full/);
+  assert.match(topCommentCard, /topic_question/);
+  assert.match(topCommentCard, /mt-6 flex items-center justify-center/);
+  assert.match(topCommentCard, /href=\{\`\/profile\/\$\{encodeURIComponent\(comment\.author_username\)\}\`\}/);
+  assert.doesNotMatch(topCommentCard, /Pinned comment|Previous comment|Next comment/);
+  assert.doesNotMatch(topCommentCard, /footer=\{/);
+  assert.match(interstitialMotion, /absDx > width \* 0\.07 \|\| velocityX > 25/);
+  assert.match(interstitialMotion, /absDy > height \* 0\.07 \|\| velocityY > 25/);
+  assert.match(interstitialMotion, /event\.key === ' '/);
+  assert.match(interstitialMotion, /setPointerCapture\(event\.pointerId\)/);
+  assert.match(interstitialMotion, /flushSync\(\(\) =>/);
 });
