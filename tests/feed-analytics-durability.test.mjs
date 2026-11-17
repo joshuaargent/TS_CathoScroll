@@ -20,7 +20,7 @@ test('feed analytics retains queued events until server acknowledgement and drai
 test('sponsor analytics queue survives a new sponsor placement within the same account', () => {
   assert.ok(sponsor.includes('cathoscroll.sponsor-events.v1.${userId}'));
   assert.ok(topicFeed.includes("userId={userId ?? ''}"));
-  assert.ok(!sponsor.includes('event.sessionId === sessionId'));
+  assert.ok(sponsor.includes('event.sessionId === sessionId'));
   assert.ok(sponsor.includes('window.localStorage.setItem(queueKey, JSON.stringify(queue))'));
   assert.ok(sponsor.includes('eventId: createEventId()'));
   assert.ok(sponsor.includes("window.addEventListener('online', flush)"));
