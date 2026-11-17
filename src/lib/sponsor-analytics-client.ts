@@ -18,6 +18,20 @@ function storageKey(userId: string): string {
   return storagePrefix + userId;
 }
 
+function acknowledgeEvent(userId: string, eventId: string): boolean {
+  if (typeof window === 'undefined') return false;
+  const latest = readQueue(userId);
+  try {
+    window.localStorage.setItem(
+      storageKey(userId),
+      JSON.stringify(latest.filter((queued) => queued.eventId !== eventId))
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function readQueue(userId: string): QueuedSponsorCampaignEvent[] {
   if (typeof window === 'undefined') return [];
   try {
@@ -103,19 +117,21 @@ export async function flushSponsorCampaignEvents(
       } catch {
         break;
       }
-      if (!response.ok) break;
+      if (!response.ok) {
+        // A placement can expire while the device is offline. These client
+        // errors are terminal for that event; do not let one stale item block
+        // every newer sponsor event behind it. Transient auth/rate/server
+        // failures remain queued for a later retry.
+        if (
+          (response.status === 400 || response.status === 403) &&
+          acknowledgeEvent(userId, event.eventId)
+        ) continue;
+        break;
+      }
 
       // Stable IDs make replay safe if the server accepted the event but the
       // local acknowledgement write failed or the app closed mid-flight.
-      const latest = readQueue(userId);
-      try {
-        window.localStorage.setItem(
-          storageKey(userId),
-          JSON.stringify(latest.filter((queued) => queued.eventId !== event.eventId))
-        );
-      } catch {
-        break;
-      }
+      if (!acknowledgeEvent(userId, event.eventId)) break;
     }
   } finally {
     flushingUsers.delete(userId);
