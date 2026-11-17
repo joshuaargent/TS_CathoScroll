@@ -93,7 +93,7 @@ test('topic, comment and sponsor cards use the same structural layout component'
   for (const source of [topicCard, topCommentCard, sponsorCard]) {
     assert.match(source, /<TopicCardLayout/);
   }
-  assert.match(topicCardLayout, /flex h-full w-full flex-col/);
+  assert.match(topicCardLayout, /bg-bg-primary flex h-full w-full flex-col/);
   assert.match(topicCardLayout, /shrink-0 px-6 pt-6 md:px-8 md:pt-8/);
   assert.match(topicCardLayout, /flex min-h-0 flex-1 flex-col px-6 pb-6 md:px-8 md:pb-8/);
   assert.match(topicCardLayout, /cardClassName/);
