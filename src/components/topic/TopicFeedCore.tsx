@@ -835,6 +835,11 @@ export function TopicFeedCore({
               ? renderFeedQueueEntry(nextQueueEntryForPreview, false)
               : undefined
           }
+          previousEntryPreview={
+            active && feedQueueWindow.previous
+              ? renderFeedQueueEntry(feedQueueWindow.previous, false)
+              : undefined
+          }
         />
       );
     }
@@ -855,6 +860,11 @@ export function TopicFeedCore({
               ? renderFeedQueueEntry(feedQueueWindow.next, false)
               : undefined
           }
+          previousEntryPreview={
+            active && feedQueueWindow.previous
+              ? renderFeedQueueEntry(feedQueueWindow.previous, false)
+              : undefined
+          }
         />
       );
     }
@@ -872,6 +882,11 @@ export function TopicFeedCore({
         nextEntryPreview={
           active && nextQueueEntryForPreview
             ? renderFeedQueueEntry(nextQueueEntryForPreview, false)
+            : undefined
+        }
+        previousEntryPreview={
+          active && feedQueueWindow.previous
+            ? renderFeedQueueEntry(feedQueueWindow.previous, false)
             : undefined
         }
       />
