@@ -127,7 +127,6 @@ export function TopicFeedCore({
       : 'topic';
   const activeFeedQueueIndex = findFeedQueueEntryIndex(feedQueue, topicIndex, activeFeedQueueType);
   const feedQueueWindow = getFeedQueueWindow(feedQueue, activeFeedQueueIndex);
-  const activeFeedQueueEntry = feedQueueWindow.current;
 
 
   useEffect(() => {
@@ -556,11 +555,6 @@ export function TopicFeedCore({
     setTopicIndex(previousIndex);
   };
 
-  const currentTopCommentIds = new Set(topComments.map((comment) => comment.comment_id));
-  const activeTopCommentCardComments = topCommentCardComments.filter((comment) =>
-    currentTopCommentIds.has(comment.comment_id)
-  );
-
   const noop = () => {};
 
   const handleTopCommentNext = () => {
@@ -702,7 +696,7 @@ export function TopicFeedCore({
               </div>
             );
           })}
-      </div>}
+      </div>
     </div>
   );
 }
