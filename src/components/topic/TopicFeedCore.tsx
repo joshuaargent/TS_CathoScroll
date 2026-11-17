@@ -78,6 +78,9 @@ export function TopicFeedCore({
   const effectiveSponsorApiBaseUrl = sponsorApiBaseUrl ?? nativeSponsorApiBaseUrl;
   const [feedTopics, setFeedTopics] = useState<Topic[]>(topics);
   const [topComments, setTopComments] = useState<TopFeedComment[]>([]);
+  const [topCommentsNextOffset, setTopCommentsNextOffset] = useState<number | null>(null);
+  const [topCommentInventoryVersion, setTopCommentInventoryVersion] = useState(0);
+  const topCommentsPageLoading = useRef(false);
   const [topCommentCardComments, setTopCommentCardComments] = useState<TopFeedComment[]>([]);
   const [showTopCommentCard, setShowTopCommentCard] = useState(false);
   const seenTopCommentIds = useRef(new Set<number>());
@@ -159,7 +162,11 @@ export function TopicFeedCore({
     let cancelled = false;
     const refresh = createFeedRefreshCoordinator(async () => {
       try {
-        const response = await fetch(topCommentsEndpoint ?? '/api/content/top-comments', {
+        const endpoint = topCommentsEndpoint ?? '/api/content/top-comments';
+        const pageUrl = new URL(endpoint, window.location.origin);
+        pageUrl.searchParams.set('offset', '0');
+        pageUrl.searchParams.set('limit', '100');
+        const response = await fetch(pageUrl.toString(), {
           cache: 'default',
           credentials: topCommentsEndpoint ? 'omit' : 'same-origin',
         });
@@ -168,6 +175,10 @@ export function TopicFeedCore({
         const payload: unknown = await response.json();
         if (!cancelled) {
           const comments = parseTopFeedComments(payload);
+          const nextOffset = typeof payload === 'object' && payload !== null && 'next_offset' in payload &&
+            (payload.next_offset === null || (Number.isSafeInteger(payload.next_offset) && Number(payload.next_offset) >= 0))
+            ? payload.next_offset as number | null : null;
+          setTopCommentsNextOffset(nextOffset);
           const commentsById = new Map(
             comments.map((comment) => [comment.comment_id, comment] as const)
           );
@@ -218,6 +229,45 @@ export function TopicFeedCore({
       document.removeEventListener('visibilitychange', refreshWhenVisible);
     };
   }, [topCommentsEndpoint]);
+
+  useEffect(() => {
+    if (topCommentsPageLoading.current || topCommentsNextOffset === null) return;
+    const unseenCount = getUnseenTopFeedComments(topComments, seenTopCommentIds.current).length;
+    if (unseenCount > 10) return;
+
+    let cancelled = false;
+    topCommentsPageLoading.current = true;
+    const loadNextPage = async () => {
+      try {
+        const endpoint = topCommentsEndpoint ?? '/api/content/top-comments';
+        const pageUrl = new URL(endpoint, window.location.origin);
+        pageUrl.searchParams.set('offset', String(topCommentsNextOffset));
+        pageUrl.searchParams.set('limit', '100');
+        const response = await fetch(pageUrl.toString(), {
+          cache: 'default',
+          credentials: topCommentsEndpoint ? 'omit' : 'same-origin',
+        });
+        if (!response.ok) return;
+        const payload: unknown = await response.json();
+        if (cancelled || typeof payload !== 'object' || payload === null || !('comments' in payload)) return;
+        const nextComments = parseTopFeedComments(payload);
+        const nextOffset = 'next_offset' in payload &&
+          (payload.next_offset === null || (Number.isSafeInteger(payload.next_offset) && Number(payload.next_offset) >= 0))
+          ? payload.next_offset as number | null : null;
+        setTopComments((current) => {
+          const known = new Set(current.map((comment) => comment.comment_id));
+          return [...current, ...nextComments.filter((comment) => !known.has(comment.comment_id))];
+        });
+        setTopCommentsNextOffset(nextOffset);
+      } catch {
+        // Inventory paging is best-effort; existing feed content remains usable.
+      } finally {
+        topCommentsPageLoading.current = false;
+      }
+    };
+    void loadNextPage();
+    return () => { cancelled = true; };
+  }, [topComments, topCommentsNextOffset, topCommentInventoryVersion, topCommentsEndpoint]);
 
   // ----------------------------------
   // Initial Feed
@@ -368,8 +418,10 @@ export function TopicFeedCore({
 
         if (commentDue && unseenTopComments.length > 0) {
           setTopicsSinceTopCommentCard(0);
-          setTopCommentCardComments(unseenTopComments);
-          topCommentCardsByTopicId.current.set(currentTopic.id, unseenTopComments);
+          const nextTopCommentGroup = unseenTopComments.slice(0, 5);
+          nextTopCommentGroup.forEach((comment) => seenTopCommentIds.current.add(comment.comment_id));
+          setTopCommentCardComments(nextTopCommentGroup);
+          topCommentCardsByTopicId.current.set(currentTopic.id, nextTopCommentGroup);
           setShowSponsorCard(false);
           setShowTopCommentCard(true);
           return;
@@ -391,8 +443,10 @@ export function TopicFeedCore({
       setTopicsSinceTopCommentCard(0);
       const currentTopic = feedTopics[topicIndex];
       if (currentTopic) {
-        setTopCommentCardComments(unseenTopComments);
-        topCommentCardsByTopicId.current.set(currentTopic.id, unseenTopComments);
+        const nextTopCommentGroup = unseenTopComments.slice(0, 5);
+        nextTopCommentGroup.forEach((comment) => seenTopCommentIds.current.add(comment.comment_id));
+        setTopCommentCardComments(nextTopCommentGroup);
+        topCommentCardsByTopicId.current.set(currentTopic.id, nextTopCommentGroup);
         setShowSponsorCard(false);
         setShowTopCommentCard(true);
         return;
@@ -411,6 +465,7 @@ export function TopicFeedCore({
         topCommentCardsByTopicId.current.clear();
       }
       seenTopCommentIds.current.add(commentId);
+      setTopCommentInventoryVersion((version) => version + 1);
     },
     [userId]
   );
