@@ -2,9 +2,10 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-const [nativeMain, nativeNotes] = await Promise.all([
+const [nativeMain, nativeNotes, feedCore] = await Promise.all([
   readFile(new URL('../native/main.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../native/notes.tsx', import.meta.url), 'utf8'),
+  readFile(new URL('../src/components/topic/TopicFeedCore.tsx', import.meta.url), 'utf8'),
 ]);
 
 test('native renderer failures show a recoverable error boundary instead of a blank screen', () => {
@@ -46,4 +47,13 @@ test('native topic pages remain readable when optional comment or note caches fa
 
 test('native feed shows a retry state when both live and saved feed loading fail', () => {
   assert.ok(nativeMain.includes("setFeedLoadError('The topic feed could not be loaded. Check your connection or retry.')"));
+});
+
+
+test('native feed navigation is injected and does not require the Next.js App Router', () => {
+  assert.ok(!feedCore.includes("from 'next/navigation'"));
+  assert.ok(!feedCore.includes('useRouter('));
+  assert.ok(feedCore.includes('onOpenComment: (comment: TopFeedComment) => void;'));
+  assert.ok(feedCore.includes('    onOpenComment(comment);'));
+  assert.ok(nativeMain.includes('onOpenComment={(comment: TopFeedComment) =>'));
 });
