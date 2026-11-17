@@ -6,6 +6,7 @@ import { ConditionalFooter } from '@/components/layout/ConditionalFooter';
 import { ThemeProvider } from '@/components/providers/ThemeProvider';
 import { AuthProvider } from '@/components/providers/AuthProvider';
 import { SignInPromptProvider } from '@/components/providers/SignInPromptProvider';
+import { SponsorAnalyticsSync } from '@/components/providers/SponsorAnalyticsSync';
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import './globals.css';
@@ -140,6 +141,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           }}
         />
         <ThemeProvider>
+          <SponsorAnalyticsSync />
           <AuthProvider>
             <SignInPromptProvider>
               <Navbar />
