@@ -41,6 +41,7 @@ import {
 import { createClient, initializeNativeAuth } from './supabase';
 import { authStorageKey, secureAuthStorage } from './secure-auth-storage';
 import { SignInPromptProvider, useSignInPrompt } from '@/components/providers/SignInPromptProvider';
+import { SponsorAnalyticsSync } from '@/components/providers/SponsorAnalyticsSync';
 import { ThemeProvider } from '@/components/providers/ThemeProvider';
 import { OfflineCatalogue, type CatalogueCursor } from '@/lib/offline/catalogue';
 import { CatalogueRefresh } from '@/lib/offline/catalogue-refresh';
@@ -1346,6 +1347,7 @@ function App() {
 
   return (
     <ThemeProvider>
+      <SponsorAnalyticsSync apiBaseUrl={siteConfig.url} />
       <SignInPromptProvider>
         <NativeNotificationsProvider userId={user?.id ?? null}>
           <TopicNavigation.Provider
