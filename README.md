@@ -474,6 +474,15 @@ Signed-in feed recommendations require the `get_my_recommendation_page` RPC and 
 
 The feed viewer requests exact like and visible-comment counts and the signed-in user's activity for the current topic only. It does not download the full likes, comments, bookmarks, or progress tables. Exact counts still require database work proportional to the matching rows; very popular topics may eventually need maintained aggregate counters. Recommendation quality and query performance should be measured with real usage rather than assumed to match large commercial recommendation systems.
 
+### Feed analytics and recommendations
+
+The feed records topic impressions, viewable impressions, active reading time, skips, slide depth, completions, and return visits. Events are queued per signed-in account in persistent browser/WebView storage, sent in batches of up to 50, and removed only after the server accepts the batch. The queue is retained while offline and is flushed when connectivity returns, when the app becomes visible, and when the analytics transport is installed. Native apps use the same authenticated analytics endpoint and obtain the access token from the native Supabase session. This is a durable local queue across normal app restarts, not a guarantee against app-data deletion, storage eviction, or local storage quota exhaustion.
+
+The recommendation algorithm currently uses explicit account activity: completed topics (weight 5), bookmarks (4), topic likes (3), and distinct commented topics (3). It does **not** currently use the raw feed analytics events (impressions, reading duration, skips, slide depth, or completion telemetry) as ranking inputs. Analytics are collected for measurement and future tuning; they must not be described as behaviour-personalised ranking until the recommendation RPC has been deliberately updated, evaluated for feedback loops and popularity bias, and tested against a control cohort.
+
+Sponsor served events are recorded by the delivery API. Viewable-impression and click events are queued locally with stable event IDs and retried in order after reconnect. The server remains authoritative: it validates campaign/session state and deduplicates accepted events. Sponsor delivery itself remains online-only; cached ads are not shown offline. Local event storage is best-effort if the operating system clears app data or storage is exhausted.
+
+
 | Variable                        | Purpose                                                                                                              |
 | ------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
 | `NEXT_PUBLIC_SITE_URL`          | Optional. Canonical site URL used for metadata, sitemap, and feed generation. Defaults to `https://cathoscroll.com`. |
