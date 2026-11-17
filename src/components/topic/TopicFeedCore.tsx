@@ -19,6 +19,7 @@ import {
   type SponsorFeedCampaign,
 } from '@/lib/sponsor-campaigns';
 import { SponsorFeedCard } from './SponsorFeedCard';
+import { createFeedRefreshCoordinator } from '@/lib/feed-refresh-coordinator';
 import { siteConfig } from '@/lib/constants';
 
 import type { TopicPageCursor } from '@/lib/content';
@@ -158,14 +159,13 @@ export function TopicFeedCore({
 
   useEffect(() => {
     let cancelled = false;
-
-    const loadTopComments = async () => {
+    const refresh = createFeedRefreshCoordinator(async () => {
       try {
         const response = await fetch(topCommentsEndpoint ?? '/api/content/top-comments', {
           cache: 'default',
           credentials: topCommentsEndpoint ? 'omit' : 'same-origin',
         });
-        if (!response.ok) return;
+        if (!response.ok) return false;
 
         const payload: unknown = await response.json();
         if (!cancelled) {
@@ -184,7 +184,6 @@ export function TopicFeedCore({
 
           for (const [topicId, cardComments] of topCommentCardsByTopicId.current) {
             const remainingComments = reconcileComments(cardComments);
-
             if (remainingComments.length > 0) {
               topCommentCardsByTopicId.current.set(topicId, remainingComments);
             } else {
@@ -198,24 +197,26 @@ export function TopicFeedCore({
             topCommentCardsByTopicId.current.clear();
           }
         }
+        return true;
       } catch {
         // Top comments are optional feed inventory. A failed request must not
-        // interrupt topic navigation or display an empty interstitial.
+        // interrupt topic navigation; reconnect explicitly bypasses the cooldown.
+        return false;
       }
-    };
+    }, 30_000);
 
     const refreshWhenVisible = () => {
-      if (document.visibilityState === 'visible') {
-        void loadTopComments();
-      }
+      if (document.visibilityState === 'visible') void refresh.request();
     };
+    const refreshWhenOnline = () => void refresh.reconnect();
 
-    void loadTopComments();
-    window.addEventListener('online', loadTopComments);
+    void refresh.request();
+    window.addEventListener('online', refreshWhenOnline);
     document.addEventListener('visibilitychange', refreshWhenVisible);
     return () => {
       cancelled = true;
-      window.removeEventListener('online', loadTopComments);
+      refresh.dispose();
+      window.removeEventListener('online', refreshWhenOnline);
       document.removeEventListener('visibilitychange', refreshWhenVisible);
     };
   }, [topCommentsEndpoint]);
