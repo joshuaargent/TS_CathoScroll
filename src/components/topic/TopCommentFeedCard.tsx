@@ -23,6 +23,7 @@ export function TopCommentFeedCard({
 }: TopCommentFeedCardProps) {
   const [activeIndex, setActiveIndex] = useState(0);
   const pointerStart = useRef<{ x: number; y: number } | null>(null);
+  const navigationStarted = useRef(false);
 
   const safeIndex = Math.min(activeIndex, Math.max(0, comments.length - 1));
   const comment = comments[safeIndex];
@@ -33,6 +34,18 @@ export function TopCommentFeedCard({
   }, [activeCommentId, onCommentViewed]);
 
   if (!comment) return null;
+
+  const navigateNextTopic = () => {
+    if (navigationStarted.current) return;
+    navigationStarted.current = true;
+    onNextTopic();
+  };
+
+  const navigatePreviousTopic = () => {
+    if (navigationStarted.current) return;
+    navigationStarted.current = true;
+    onPreviousTopic();
+  };
 
   const showPreviousComment = () => {
     setActiveIndex(Math.max(0, safeIndex - 1));
@@ -63,8 +76,8 @@ export function TopCommentFeedCard({
       return;
     }
 
-    if (deltaY < 0) onNextTopic();
-    else onPreviousTopic();
+    if (deltaY < 0) navigateNextTopic();
+    else navigatePreviousTopic();
   };
 
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
@@ -76,10 +89,10 @@ export function TopCommentFeedCard({
       showNextComment();
     } else if (event.key === 'ArrowUp') {
       event.preventDefault();
-      onNextTopic();
+      navigateNextTopic();
     } else if (event.key === 'ArrowDown') {
       event.preventDefault();
-      onPreviousTopic();
+      navigatePreviousTopic();
     }
   };
 
@@ -171,7 +184,7 @@ export function TopCommentFeedCard({
       <footer className="flex flex-wrap items-center justify-between gap-3 pt-5">
         <button
           type="button"
-          onClick={onPreviousTopic}
+          onClick={navigatePreviousTopic}
           className="border-border text-text-secondary hover:bg-bg-secondary inline-flex min-h-11 items-center gap-2 rounded-full border px-4 text-sm font-medium transition-colors"
         >
           <ChevronLeft className="h-4 w-4" />
@@ -199,7 +212,7 @@ export function TopCommentFeedCard({
         </div>
         <button
           type="button"
-          onClick={onNextTopic}
+          onClick={navigateNextTopic}
           className="border-border text-text-secondary hover:bg-bg-secondary inline-flex min-h-11 items-center gap-2 rounded-full border px-4 text-sm font-medium transition-colors"
         >
           Next topic

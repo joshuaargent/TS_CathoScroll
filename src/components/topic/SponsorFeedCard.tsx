@@ -32,6 +32,7 @@ export function SponsorFeedCard({
 }: SponsorFeedCardProps) {
   const [activeIndex, setActiveIndex] = useState(0);
   const pointerStart = useRef<{ x: number; y: number } | null>(null);
+  const navigationStarted = useRef(false);
   const cardRef = useRef<HTMLElement>(null);
   const viewableCampaignIds = useRef(new Set<string>());
 
@@ -124,6 +125,18 @@ export function SponsorFeedCard({
 
   if (!campaign) return null;
 
+  const navigateNextTopic = () => {
+    if (navigationStarted.current) return;
+    navigationStarted.current = true;
+    onNextTopic();
+  };
+
+  const navigatePreviousTopic = () => {
+    if (navigationStarted.current) return;
+    navigationStarted.current = true;
+    onPreviousTopic();
+  };
+
   const showPreviousCampaign = () => setActiveIndex(Math.max(0, safeIndex - 1));
   const showNextCampaign = () => setActiveIndex(Math.min(campaigns.length - 1, safeIndex + 1));
 
@@ -144,8 +157,8 @@ export function SponsorFeedCard({
       else showPreviousCampaign();
       return;
     }
-    if (deltaY < 0) onNextTopic();
-    else onPreviousTopic();
+    if (deltaY < 0) navigateNextTopic();
+    else navigatePreviousTopic();
   };
 
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
@@ -157,10 +170,10 @@ export function SponsorFeedCard({
       showNextCampaign();
     } else if (event.key === 'ArrowUp') {
       event.preventDefault();
-      onNextTopic();
+      navigateNextTopic();
     } else if (event.key === 'ArrowDown') {
       event.preventDefault();
-      onPreviousTopic();
+      navigatePreviousTopic();
     }
   };
 
@@ -263,7 +276,7 @@ export function SponsorFeedCard({
       <footer className="flex flex-wrap items-center justify-between gap-3 pt-5">
         <button
           type="button"
-          onClick={onPreviousTopic}
+          onClick={navigatePreviousTopic}
           className="border-border text-text-secondary hover:bg-bg-secondary inline-flex min-h-11 items-center gap-2 rounded-full border px-4 text-sm font-medium transition-colors"
         >
           <ChevronLeft className="h-4 w-4" />
@@ -291,7 +304,7 @@ export function SponsorFeedCard({
         </div>
         <button
           type="button"
-          onClick={onNextTopic}
+          onClick={navigateNextTopic}
           className="border-border text-text-secondary hover:bg-bg-secondary inline-flex min-h-11 items-center gap-2 rounded-full border px-4 text-sm font-medium transition-colors"
         >
           Next topic

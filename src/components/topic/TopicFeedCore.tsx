@@ -493,6 +493,7 @@ export function TopicFeedCore({
         />
       ) : showTopCommentCard && activeTopCommentCardComments.length > 0 ? (
         <TopCommentFeedCard
+          key={userId ?? 'anonymous'}
           comments={activeTopCommentCardComments}
           onCommentViewed={markTopCommentViewed}
           onNextTopic={() => {

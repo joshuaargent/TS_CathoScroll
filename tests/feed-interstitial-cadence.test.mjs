@@ -3,13 +3,14 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import ts from 'typescript';
 
-const [commentSource, sponsorSource, feedCore, topicCard, topCommentCard, sponsorCard] = await Promise.all([
+const [commentSource, sponsorSource, feedCore, topicCard, topCommentCard, sponsorCard, topicViewer] = await Promise.all([
   readFile(new URL('../src/lib/feed-comments.ts', import.meta.url), 'utf8'),
   readFile(new URL('../src/lib/sponsor-campaigns.ts', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/TopicFeedCore.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/TopicCard.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/TopCommentFeedCard.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/SponsorFeedCard.tsx', import.meta.url), 'utf8'),
+  readFile(new URL('../src/components/topic/TopicSwipeViewer.tsx', import.meta.url), 'utf8'),
 ]);
 
 async function importTypeScript(source) {
@@ -63,8 +64,32 @@ test('sponsor fetches cannot race feed navigation or account changes', () => {
   assert.match(feedCore, /sponsorRequestVersion\.current \+= 1/);
   const previousTopic = feedCore.slice(feedCore.indexOf('const previousTopic ='));
   assert.match(previousTopic, /pendingSponsorAfterComment\.current = false/);
+  assert.match(feedCore, /<TopCommentFeedCard\s+key=\{userId \?\? 'anonymous'\}/);
 });
 
+
+test('interstitial navigation is one-shot across swipe, keyboard, and button inputs', () => {
+  for (const source of [topCommentCard, sponsorCard]) {
+    assert.match(source, /const navigationStarted = useRef\(false\)/);
+    assert.match(source, /if \(navigationStarted\.current\) return/);
+    assert.match(source, /navigationStarted\.current = true/);
+
+    const pointerHandler = source.match(/const handlePointerUp = \(event: PointerEvent<[\s\S]*?\n  };/);
+    const keyboardHandler = source.match(/const handleKeyDown = \(event: KeyboardEvent<[\s\S]*?\n  };/);
+    assert.ok(pointerHandler, 'pointer handler exists');
+    assert.ok(keyboardHandler, 'keyboard handler exists');
+    assert.match(pointerHandler[0], /navigateNextTopic\(\)/);
+    assert.match(pointerHandler[0], /navigatePreviousTopic\(\)/);
+    assert.match(keyboardHandler[0], /navigateNextTopic\(\)/);
+    assert.match(keyboardHandler[0], /navigatePreviousTopic\(\)/);
+    assert.match(source, /onClick=\{navigateNextTopic\}/);
+    assert.match(source, /onClick=\{navigatePreviousTopic\}/);
+  }
+  assert.match(topicViewer, /const animationLockRef = useRef\(false\)/);
+  assert.match(topicViewer, /if \(animationLockRef\.current\) return/);
+  assert.match(topicViewer, /animationLockRef\.current = true/);
+  assert.match(topicViewer, /animationLockRef\.current = false/);
+});
 test('interstitial content uses the topic feed visual language rather than a separate card shell', () => {
   assert.match(topicCard, /mx-auto text-center/);
   assert.match(topCommentCard, /mx-auto w-full max-w-3xl text-center/);
