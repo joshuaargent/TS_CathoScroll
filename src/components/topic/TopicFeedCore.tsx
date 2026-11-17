@@ -77,6 +77,9 @@ export function TopicFeedCore({
       : undefined;
   const effectiveSponsorApiBaseUrl = sponsorApiBaseUrl ?? nativeSponsorApiBaseUrl;
   const [feedTopics, setFeedTopics] = useState<Topic[]>(topics);
+  const feedTopicsRef = useRef(feedTopics);
+  const feedInitializedRef = useRef(false);
+  const previousPersonalizedRef = useRef(personalized);
   const [topComments, setTopComments] = useState<TopFeedComment[]>([]);
   const [topCommentCardComments, setTopCommentCardComments] = useState<TopFeedComment[]>([]);
   const [showTopCommentCard, setShowTopCommentCard] = useState(false);
@@ -107,6 +110,7 @@ export function TopicFeedCore({
 
   useEffect(() => {
     currentTopicId.current = feedTopics[topicIndex]?.id ?? null;
+    feedTopicsRef.current = feedTopics;
   }, [feedTopics, topicIndex]);
 
   useEffect(() => {
@@ -226,24 +230,60 @@ export function TopicFeedCore({
   // ----------------------------------
 
   useEffect(() => {
-    // Signed-out users get the existing shuffled feed; personalized server
-    // ranking is preserved for signed-in users and starts at its top result.
+    // Signed-out users get the existing shuffled feed. Signed-in users keep
+    // the server's analytics-ranked recommendation order and cursor.
     const shuffled = personalized ? topics : shuffle(topics);
-    const previousIndex = preservePositionOnUpdate
-      ? shuffled.findIndex((topic) => topic.id === currentTopicId.current)
-      : -1;
+    const sourceChanged = previousPersonalizedRef.current !== personalized;
+
+    if (preservePositionOnUpdate && feedInitializedRef.current) {
+      // Native catalogue/background updates must not replace the active
+      // session snapshot or discard pages already visited. Append only new IDs.
+      const knownIds = new Set(feedTopicsRef.current.map((topic) => topic.id));
+      const nextFeedTopics = [
+        ...feedTopicsRef.current,
+        ...shuffled.filter((topic) => {
+          if (knownIds.has(topic.id)) return false;
+          knownIds.add(topic.id);
+          return true;
+        }),
+      ];
+      const preservedIndex = nextFeedTopics.findIndex(
+        (topic) => topic.id === currentTopicId.current
+      );
+
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setFeedTopics(nextFeedTopics);
+      feedTopicsRef.current = nextFeedTopics;
+      if (preservedIndex >= 0) {
+        setTopicIndex(preservedIndex);
+      } else {
+        setTopicIndex((current) => Math.min(current, Math.max(0, nextFeedTopics.length - 1)));
+      }
+
+      if (sourceChanged) {
+        // Recommendation-to-catalogue fallback changes the pagination source,
+        // but not the already displayed session history.
+        generationRef.current += 1;
+        loadingRef.current = false;
+        setNextCursor(initialCursor);
+        setLoadingMore(false);
+        setLoadError('');
+      }
+      previousPersonalizedRef.current = personalized;
+      return;
+    }
+
     generationRef.current += 1;
     loadingRef.current = false;
-
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setFeedTopics(shuffled);
-
-    setTopicIndex(
-      previousIndex >= 0 ? previousIndex : personalized ? 0 : Math.floor(shuffled.length / 2)
-    );
+    feedTopicsRef.current = shuffled;
+    setTopicIndex(personalized ? 0 : Math.floor(shuffled.length / 2));
     setNextCursor(initialCursor);
     setLoadingMore(false);
     setLoadError('');
+    feedInitializedRef.current = true;
+    previousPersonalizedRef.current = personalized;
   }, [topics, initialCursor, personalized, preservePositionOnUpdate]);
 
   const loadMoreTopics = useCallback(async () => {
