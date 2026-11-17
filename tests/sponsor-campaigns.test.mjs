@@ -116,10 +116,14 @@ test('administrator campaign reporting reads aggregate-only daily metrics', () =
 });
 
 test('top-comment selection and sponsor retention work remain bounded', () => {
-  const topComments = functionBody(
-    'public.get_top_feed_comments',
-    'COMMENT ON FUNCTION public.get_top_feed_comments'
-  );
+  const topCommentsStart = bootstrap.indexOf('CREATE FUNCTION public.get_top_feed_comments(');
+  const topCommentsEnd = bootstrap.indexOf('COMMENT ON FUNCTION public.get_top_feed_comments(integer, integer)', topCommentsStart);
+  assert.ok(topCommentsStart >= 0 && topCommentsEnd > topCommentsStart);
+  const topComments = bootstrap.slice(topCommentsStart, topCommentsEnd);
+  assert.match(topComments, /p_offset integer DEFAULT 0/);
+  assert.match(topComments, /p_limit integer DEFAULT 100/);
+  assert.match(topComments, /LIMIT p_limit OFFSET p_offset/);
+  assert.match(topComments, /'next_offset'/);
   assert.match(topComments, /candidate_ids AS MATERIALIZED/);
   assert.match(topComments, /LIMIT 5000/);
   assert.match(topComments, /created_at DESC, candidate.id DESC/);
