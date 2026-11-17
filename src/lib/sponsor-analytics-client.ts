@@ -1,0 +1,147 @@
+'use client';
+
+export type SponsorCampaignEventType = 'viewable_impression' | 'click';
+
+export interface QueuedSponsorCampaignEvent {
+  campaignId: string;
+  eventId: string;
+  sessionId: string;
+  eventType: SponsorCampaignEventType;
+}
+
+type AccessTokenProvider = () => Promise<string | null>;
+
+const storagePrefix = 'cathoscroll.sponsor-events.v1.';
+const flushingUsers = new Set<string>();
+
+function storageKey(userId: string): string {
+  return storagePrefix + userId;
+}
+
+function readQueue(userId: string): QueuedSponsorCampaignEvent[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = window.localStorage.getItem(storageKey(userId));
+    if (!raw) return [];
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((event): event is QueuedSponsorCampaignEvent =>
+      Boolean(event) &&
+      typeof event === 'object' &&
+      typeof event.campaignId === 'string' &&
+      typeof event.eventId === 'string' &&
+      typeof event.sessionId === 'string' &&
+      (event.eventType === 'viewable_impression' || event.eventType === 'click')
+    );
+  } catch {
+    return [];
+  }
+}
+
+export function recordSponsorCampaignEvent(
+  userId: string,
+  event: QueuedSponsorCampaignEvent,
+  getAccessToken: AccessTokenProvider
+): boolean {
+  if (typeof window === 'undefined' || !userId) return false;
+  const queue = readQueue(userId);
+  const alreadyQueued = queue.some(
+    (queued) =>
+      queued.campaignId === event.campaignId &&
+      queued.sessionId === event.sessionId &&
+      queued.eventType === event.eventType
+  );
+  if (!alreadyQueued) {
+    queue.push(event);
+    try {
+      window.localStorage.setItem(storageKey(userId), JSON.stringify(queue));
+    } catch {
+      return false;
+    }
+  }
+  void flushSponsorCampaignEvents(userId, getAccessToken);
+  return true;
+}
+
+export async function flushSponsorCampaignEvents(
+  userId: string,
+  getAccessToken: AccessTokenProvider
+): Promise<void> {
+  if (
+    typeof window === 'undefined' ||
+    typeof navigator === 'undefined' ||
+    !navigator.onLine ||
+    flushingUsers.has(userId)
+  ) return;
+
+  flushingUsers.add(userId);
+  try {
+    for (;;) {
+      const event = readQueue(userId)[0];
+      if (!event) break;
+
+      let accessToken: string | null;
+      try {
+        accessToken = await getAccessToken();
+      } catch {
+        break;
+      }
+      if (!accessToken) break;
+
+      let response: Response;
+      try {
+        response = await fetch('/api/content/sponsor-campaign-events', {
+          method: 'POST',
+          credentials: 'same-origin',
+          keepalive: true,
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify(event),
+        });
+      } catch {
+        break;
+      }
+      if (!response.ok) break;
+
+      // Stable IDs make replay safe if the server accepted the event but the
+      // local acknowledgement write failed or the app closed mid-flight.
+      const latest = readQueue(userId);
+      try {
+        window.localStorage.setItem(
+          storageKey(userId),
+          JSON.stringify(latest.filter((queued) => queued.eventId !== event.eventId))
+        );
+      } catch {
+        break;
+      }
+    }
+  } finally {
+    flushingUsers.delete(userId);
+  }
+}
+
+export function installSponsorAnalyticsListeners(
+  userId: string,
+  getAccessToken: AccessTokenProvider
+): () => void {
+  if (typeof window === 'undefined') return () => undefined;
+
+  const flush = () => void flushSponsorCampaignEvents(userId, getAccessToken);
+  const onVisibilityChange = () => {
+    if (document.visibilityState === 'visible') flush();
+  };
+
+  window.addEventListener('online', flush);
+  window.addEventListener('pageshow', flush);
+  document.addEventListener('visibilitychange', onVisibilityChange);
+  // Drain any events left by a previous sponsor placement or app session.
+  flush();
+
+  return () => {
+    window.removeEventListener('online', flush);
+    window.removeEventListener('pageshow', flush);
+    document.removeEventListener('visibilitychange', onVisibilityChange);
+  };
+}
