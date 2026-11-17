@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils';
 interface TopCommentFeedCardProps {
   comments: TopFeedComment[];
   userId: string | null;
+  previewMode?: boolean;
   onNextTopic: () => void;
   onPreviousTopic: () => void;
   onOpenComment: (comment: TopFeedComment) => void;
@@ -21,6 +22,7 @@ interface TopCommentFeedCardProps {
 export function TopCommentFeedCard({
   comments,
   userId,
+  previewMode = false,
   onNextTopic,
   onPreviousTopic,
   onOpenComment,
@@ -90,6 +92,7 @@ export function TopCommentFeedCard({
 
     setLikeError('');
     setLikePending(true);
+    const requestVersion = likeRequestVersion.current;
     const wasLiked = isLiked;
     setIsLiked(!wasLiked);
     setLikeCount((count) => Math.max(0, count + (wasLiked ? -1 : 1)));
@@ -109,6 +112,7 @@ export function TopCommentFeedCard({
 
       if (result.error) throw result.error;
     } catch (error) {
+      if (likeRequestVersion.current !== requestVersion) return;
       setIsLiked(wasLiked);
       setLikeCount((count) => Math.max(0, count + (wasLiked ? 1 : -1)));
       setLikeError(
@@ -117,7 +121,7 @@ export function TopCommentFeedCard({
           : 'Unable to update your like. Please try again.'
       );
     } finally {
-      setLikePending(false);
+      if (likeRequestVersion.current === requestVersion) setLikePending(false);
     }
   };
 
