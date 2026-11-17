@@ -157,6 +157,7 @@ export function TopicFeedCore({
   useEffect(() => {
     if (seenTopCommentUserId.current === userId) return;
     seenTopCommentUserId.current = userId;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setFeedSessionUserId(userId);
     topCommentCadenceUserId.current = userId;
     topCommentCadenceAnchor.current = null;
