@@ -94,7 +94,7 @@ API rate-limit responses include `Retry-After` where applicable.
 - `public.get_admin_content_analytics(text,text,timestamptz,timestamptz)` is an on-demand aggregate RPC for topic/category dashboards. It is owned by postgres, uses SECURITY DEFINER with an empty search path, validates entity and date-window inputs (maximum 180 days), and is executable only by service_role. It returns counts and daily buckets only, never user IDs, session IDs or raw event rows.
 - The aggregate function also counts existing likes, bookmarks, visible top-level comments, visible replies and completed-topic records separately from feed telemetry. These historical interaction records are not used to infer impressions or reading time.
 - The admin pages call the existing server-side admin/MFA guard and apply a shared per-admin rate limit before invoking the aggregate RPC. The RPC is not directly executable by anon or authenticated roles.
-- `public.get_top_feed_comments()` is a separate server-only selector. It is SECURITY DEFINER with an empty search path and executable only by service_role. The public endpoint returns an explicit allowlist of public comment/author/topic fields, never user IDs, emails, profile bios, moderation notes or raw events. It excludes deleted/hidden comments, replies as candidates, and comments belonging to unpublished content.
+- `public.get_top_feed_comments(integer, integer)` is a separate server-only selector. It is SECURITY DEFINER with an empty search path and executable only by service_role. The public endpoint accepts bounded offset/limit pagination (up to 100 rows per page), returns an explicit allowlist of public comment/author/topic fields, and never exposes user IDs, emails, profile bios, moderation notes or raw events. It excludes deleted/hidden comments, replies as candidates, and comments belonging to unpublished content.
 
 ## Recommendation telemetry access
 
@@ -157,7 +157,7 @@ The dependency tree retains a low-severity `deepmerge` advisory in the legacy Wo
 
 ## Top-comment feed selection
 
-The top-comment feed selector is a server-only database function. `public.get_top_feed_comments()` is `SECURITY DEFINER`, owned by `postgres`, pins `search_path = ''`, and schema-qualifies its table and built-in function references. Execution is revoked from `PUBLIC`, `anon`, and `authenticated`; only `service_role` can execute it. Browser and native clients never call this RPC directly.
+The top-comment feed selector is a server-only database function. `public.get_top_feed_comments(integer, integer)` is `SECURITY DEFINER`, owned by `postgres`, pins `search_path = ''`, and schema-qualifies its table and built-in function references. Execution is revoked from `PUBLIC`, `anon`, and `authenticated`; only `service_role` can execute it. Browser and native clients never call this RPC directly.
 
 Clients use `GET /api/content/top-comments`. The route calls the RPC using the server-only service-role client and applies the shared trusted-IP database rate limiter at 120 requests per IP per minute. Native CORS is restricted to the application's allowlisted origins. Native fetches omit cookies and credentials.
 
