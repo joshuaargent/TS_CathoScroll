@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import ts from 'typescript';
 
-const [commentSource, sponsorSource, feedCore, topicCard, topCommentCard, sponsorCard, topicViewer, interstitialMotion, topicCardLayout, topCommentsRoute, feedQueueSource, progressSource] = await Promise.all([
+const [commentSource, sponsorSource, feedCore, topicCard, topCommentCard, sponsorCard, topicViewer, interstitialMotion, topicCardLayout, topCommentsRoute, progressSource] = await Promise.all([
   readFile(new URL('../src/lib/feed-comments.ts', import.meta.url), 'utf8'),
   readFile(new URL('../src/lib/sponsor-campaigns.ts', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/TopicFeedCore.tsx', import.meta.url), 'utf8'),
@@ -14,7 +14,6 @@ const [commentSource, sponsorSource, feedCore, topicCard, topCommentCard, sponso
   readFile(new URL('../src/components/topic/FeedInterstitialMotion.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/TopicCardLayout.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/app/api/content/top-comments/route.ts', import.meta.url), 'utf8'),
-  readFile(new URL('../src/lib/feed-queue.ts', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/TopicProgress.tsx', import.meta.url), 'utf8'),
 ]);
 
@@ -27,7 +26,6 @@ async function importTypeScript(source) {
 
 const comments = await importTypeScript(commentSource);
 const sponsors = await importTypeScript(sponsorSource);
-const feedQueue = await importTypeScript(feedQueueSource);
 
 test('Top Comments is due every five topic advances and sponsors every ten', () => {
   let commentCadence = 0;
@@ -132,24 +130,26 @@ test('topic, comment and sponsor cards use the same structural layout component'
 });
 
 
-test('top-comment inventory pages beyond five and reserves groups of at most five', () => {
-  const makeComment = (id) => ({
-    comment_id: id, topic_slug: 'topic', topic_question: 'Question?', category_name: 'Category',
-    author_display_name: 'Member', author_username: null, content: 'Comment',
-    content_truncated: false, created_at: '2026-11-01T00:00:00.000Z', is_pinned: false,
-    like_count: 2, reply_count: 1,
-  });
-  const parsed = comments.parseTopFeedComments({ comments: Array.from({ length: 120 }, (_, index) => makeComment(index + 1)) });
-  assert.equal(parsed.length, 100);
-  assert.equal(comments.getUnseenTopFeedComments(parsed, new Set([1, 2])).length, 98);
-  assert.match(topCommentsRoute, /p_offset: offset/);
-  assert.match(topCommentsRoute, /p_limit: limit/);
-  assert.match(topCommentsRoute, /data\.comments\.length > limit/);
-  assert.match(feedCore, /unseenTopComments\.slice\(0, 5\)/);
-  assert.match(feedCore, /nextTopCommentGroup\.forEach\(\(comment\) => seenTopCommentIds\.current\.add\(comment\.comment_id\)\)/);
-  assert.match(feedCore, /topCommentsNextOffset/);
-  assert.match(feedCore, /topCommentInventoryVersion/);
+test('the original analytics-ranked feed keeps interstitials in per-topic session caches', () => {
+  assert.match(feedCore, /const shuffled = personalized \? topics : shuffle\(topics\)/);
+  assert.match(feedCore, /const result = await loadPage\(nextCursor\)/);
+  assert.match(feedCore, /setTopicIndex\(\(prev\) => \(prev \+ 1\) % feedTopics\.length\)/);
+  assert.match(feedCore, /topCommentCardsByTopicId = useRef\(new Map/);
+  assert.match(feedCore, /sponsorCardsByTopicId = useRef\(new Map/);
+  assert.match(feedCore, /topCommentCardsByTopicId\.current\.set\(currentTopic\.id/);
+  assert.match(feedCore, /sponsorCardsByTopicId\.current\.set\(currentTopic\.id/);
+  assert.match(feedCore, /sponsorCardsByTopicId\.current\.get\(previousTopicId\)/);
+  assert.match(feedCore, /topCommentCardsByTopicId\.current\.get\(previousTopicId\)/);
+  assert.match(feedCore, /TOP_COMMENT_CADENCE/);
+  assert.match(feedCore, /SPONSOR_CARD_CADENCE/);
+  assert.match(feedCore, /pendingSponsorAfterComment\.current = sponsorDue/);
+  assert.match(feedCore, /sponsorRequestVersion\.current !== requestVersion/);
+  assert.doesNotMatch(feedCore, /buildFeedQueue|feedQueueWindow|renderFeedQueueEntry/);
+  assert.match(feedCore, /onPreviousTopic=\{\(\) => \{/);
+  assert.match(feedCore, /The comment card follows the current topic/);
+  assert.match(feedCore, /The sponsor is an interstitial after the current topic/);
 });
+
 
 
 test('the ordered feed queue keeps topic, comments and sponsor entries in cadence order', () => {
