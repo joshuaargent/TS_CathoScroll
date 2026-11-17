@@ -135,8 +135,8 @@ export function SponsorFeedCard({
     onPreviousTopic();
   };
 
-  const showPreviousCampaign = () => setActiveIndex(Math.max(0, safeIndex - 1));
-  const showNextCampaign = () => setActiveIndex(Math.min(campaigns.length - 1, safeIndex + 1));
+  const showPreviousCampaign = () => setActiveIndex((index) => Math.max(0, index - 1));
+  const showNextCampaign = () => setActiveIndex((index) => Math.min(campaigns.length - 1, index + 1));
 
   return (
     <FeedInterstitialMotion
