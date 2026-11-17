@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState, type PointerEvent, type Keybo
 import { ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react';
 
 import type { SponsorFeedCampaign } from '@/lib/sponsor-campaigns';
+import { recordSponsorCampaignEvent } from '@/lib/sponsor-analytics-client';
 
 interface SponsorFeedCardProps {
   campaigns: SponsorFeedCampaign[];
@@ -44,132 +45,22 @@ export function SponsorFeedCard({
   const campaign = campaigns[safeIndex];
   const campaignId = campaign?.campaign_id;
 
-  type QueuedSponsorEvent = {
-    campaignId: string;
-    eventId: string;
-    sessionId: string;
-    eventType: 'viewable_impression' | 'click';
-  };
-  // Scope the durable queue to the account, not the temporary sponsor placement.
-  // The placement session ID stays on each event so the server can validate it
-  // after the app has restarted and loaded a different sponsor card.
-  const queueKey = `cathoscroll.sponsor-events.v1.${userId}`;
-  const flushing = useRef(false);
-
-  const readEventQueue = useCallback((): QueuedSponsorEvent[] => {
-    try {
-      const raw = window.localStorage.getItem(queueKey);
-      if (!raw) return [];
-      const parsed: unknown = JSON.parse(raw);
-      if (!Array.isArray(parsed)) return [];
-      return parsed.filter((event): event is QueuedSponsorEvent =>
-        Boolean(event) &&
-        typeof event === 'object' &&
-        typeof event.campaignId === 'string' &&
-        typeof event.eventId === 'string' &&
-        typeof event.sessionId === 'string' &&
-        (event.eventType === 'viewable_impression' || event.eventType === 'click')
-      );
-    } catch {
-      return [];
-    }
-  }, [queueKey]);
-
-  const flushSponsorEvents = useCallback(async (): Promise<void> => {
-    if (previewMode || !navigator.onLine || flushing.current) return;
-    flushing.current = true;
-    try {
-      for (;;) {
-        const queue = readEventQueue();
-        const event = queue[0];
-        if (!event) break;
-        let accessToken: string | null;
-        try {
-          accessToken = await getAccessToken();
-        } catch {
-          break;
-        }
-        if (!accessToken) break;
-        let response: Response;
-        try {
-          response = await fetch('/api/content/sponsor-campaign-events', {
-            method: 'POST',
-            credentials: 'same-origin',
-            keepalive: true,
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${accessToken}`,
-            },
-            body: JSON.stringify(event),
-          });
-        } catch {
-          break;
-        }
-        if (!response.ok) break;
-        // The event ID is stable across retries. A successful HTTP response
-        // acknowledges either a newly recorded event or an idempotent replay.
-        const latest = readEventQueue();
-        try {
-          window.localStorage.setItem(
-            queueKey,
-            JSON.stringify(latest.filter((queued) => queued.eventId !== event.eventId))
-          );
-        } catch {
-          // Keep the acknowledged event locally if storage cannot be updated.
-          // Replaying its stable event ID is safe because the server deduplicates.
-          break;
-        }
-      }
-    } finally {
-      flushing.current = false;
-    }
-  }, [getAccessToken, previewMode, queueKey, readEventQueue]);
-
   const recordEvent = useCallback(
     async (targetCampaignId: string, eventType: 'viewable_impression' | 'click') => {
-      if (previewMode || typeof window === 'undefined') return false;
-      const queue = readEventQueue();
-      const alreadyQueued = queue.some(
-        (event) =>
-          event.campaignId === targetCampaignId &&
-          event.sessionId === sessionId &&
-          event.eventType === eventType
-      );
-      if (!alreadyQueued) {
-        queue.push({
+      if (previewMode) return false;
+      return recordSponsorCampaignEvent(
+        userId,
+        {
           campaignId: targetCampaignId,
           eventId: createEventId(),
           sessionId,
           eventType,
-        });
-        try {
-          window.localStorage.setItem(queueKey, JSON.stringify(queue));
-        } catch {
-          return false;
-        }
-      }
-      void flushSponsorEvents();
-      return true;
+        },
+        getAccessToken
+      );
     },
-    [flushSponsorEvents, previewMode, queueKey, readEventQueue, sessionId]
+    [getAccessToken, previewMode, sessionId, userId]
   );
-
-  useEffect(() => {
-    if (previewMode) return;
-    const flush = () => void flushSponsorEvents();
-    const onVisibilityChange = () => {
-      if (document.visibilityState === 'visible') flush();
-    };
-    window.addEventListener('online', flush);
-    window.addEventListener('pageshow', flush);
-    document.addEventListener('visibilitychange', onVisibilityChange);
-    flush();
-    return () => {
-      window.removeEventListener('online', flush);
-      window.removeEventListener('pageshow', flush);
-      document.removeEventListener('visibilitychange', onVisibilityChange);
-    };
-  }, [flushSponsorEvents, previewMode]);
 
   useEffect(() => {
     const node = cardRef.current;
