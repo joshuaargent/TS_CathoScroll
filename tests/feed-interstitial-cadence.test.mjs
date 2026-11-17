@@ -90,12 +90,16 @@ test('interstitial navigation is one-shot across swipe, keyboard, and button inp
   assert.match(topicViewer, /animationLockRef\.current = true/);
   assert.match(topicViewer, /animationLockRef\.current = false/);
 });
-test('interstitial content uses the topic feed visual language rather than a separate card shell', () => {
-  assert.match(topicCard, /mx-auto text-center/);
-  assert.match(topCommentCard, /mx-auto w-full max-w-3xl text-center/);
-  assert.match(sponsorCard, /mx-auto w-full max-w-3xl text-center/);
-  assert.match(topCommentCard, /text-text-primary mx-auto max-w-3xl text-lg leading-relaxed md:text-xl/);
-  assert.match(sponsorCard, /text-text-primary text-3xl leading-tight font-bold md:text-4xl/);
-  assert.doesNotMatch(topCommentCard, /bg-bg-card border-border w-full rounded-3xl border/);
-  assert.doesNotMatch(sponsorCard, /bg-bg-card border-border w-full overflow-hidden rounded-3xl border/);
+test('top comment card follows the topic-card layout and opens the comment in-place', () => {
+  assert.match(topicCard, /flex h-full w-full flex-col px-6 py-6 md:px-8 md:py-8/);
+  assert.match(topicCard, /bg-accent-light\\/5/);
+  assert.match(topCommentCard, /flex h-full min-h-0 w-full flex-col px-6 py-6 md:px-8 md:py-8/);
+  assert.match(topCommentCard, /safeIndex === 0 && 'bg-accent-light\\/5'/);
+  assert.match(topCommentCard, /<Heart/);
+  assert.match(topCommentCard, /<MessageCircle/);
+  assert.match(topCommentCard, /<DoorOpen/);
+  assert.match(topCommentCard, /onDoubleClick=\\{/);
+  assert.match(topCommentCard, /href=\\{\`\\/profile\\//);
+  assert.doesNotMatch(topCommentCard, /Open discussion/);
+  assert.doesNotMatch(topCommentCard, /<Button/);
 });
