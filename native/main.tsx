@@ -879,12 +879,10 @@ function App() {
 
   useEffect(() => {
     if (!catalogue || authStatus !== 'ready') return;
-    const localCatalogue = catalogue;
     let active = true;
     let controller: AbortController | null = null;
 
     async function loadFeed() {
-      controller?.abort();
       controller = new AbortController();
       try {
         if (!navigator.onLine) {
@@ -942,15 +940,10 @@ function App() {
       }
     }
 
-    const reconnect = () => void loadFeed();
     void loadFeed();
-    window.addEventListener('online', reconnect);
-    window.addEventListener('offline', reconnect);
     return () => {
       active = false;
       controller?.abort();
-      window.removeEventListener('online', reconnect);
-      window.removeEventListener('offline', reconnect);
     };
   }, [catalogue, authStatus, user?.id, feedAttempt]);
 
@@ -1202,11 +1195,8 @@ function App() {
           // A catalogue refresh updates the offline browse cache, not the live
           // personalized feed. Replacing its first page would also mismatch
           // the server-owned recommendation cursor used by subsequent pages.
-          if (!feedPersonalized) {
-            const page = await localCatalogue.topics();
-            if (!active) return;
-            setFirstPage(page);
-          }
+          // Keep the active feed snapshot untouched. New catalogue content is
+          // picked up when a new feed session starts, not during background sync.
           if (!active) return;
           setCatalogueVersion((version) => version + 1);
           uiNeedsReload = false;
@@ -1464,7 +1454,7 @@ function App() {
                   hidden={route?.kind !== 'feed'}
                 >
                   <TopicFeedCore
-                    key={feedPersonalized ? 'personalized' : 'catalogue'}
+                    key={user?.id ?? 'signed-out'}
                     topics={firstPage.topics}
                     nextCursor={firstPage.nextCursor}
                     personalized={feedPersonalized}
