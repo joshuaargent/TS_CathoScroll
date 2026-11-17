@@ -19,7 +19,6 @@ import {
   type SponsorFeedCampaign,
 } from '@/lib/sponsor-campaigns';
 import { SponsorFeedCard } from './SponsorFeedCard';
-import { installSponsorAnalyticsListeners } from '@/lib/sponsor-analytics-client';
 import { createFeedRefreshCoordinator } from '@/lib/feed-refresh-coordinator';
 import { siteConfig } from '@/lib/constants';
 
@@ -110,11 +109,6 @@ export function TopicFeedCore({
   useEffect(() => {
     currentTopicId.current = feedTopics[topicIndex]?.id ?? null;
   }, [feedTopics, topicIndex]);
-
-  useEffect(() => {
-    if (!userId || !getSponsorAccessToken) return;
-    return installSponsorAnalyticsListeners(userId, getSponsorAccessToken, effectiveSponsorApiBaseUrl);
-  }, [effectiveSponsorApiBaseUrl, getSponsorAccessToken, userId]);
 
   useEffect(() => {
     if (sponsorSessionUserId.current === userId) return;
