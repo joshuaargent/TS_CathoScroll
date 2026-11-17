@@ -601,7 +601,7 @@ export function TopicFeedCore({
             campaigns: result.campaigns,
             sessionId: result.sessionId,
           });
-                setShowTopCommentCard(false);
+            setShowTopCommentCard(false);
         setShowSponsorCard(true);
           return;
         }
@@ -737,8 +737,7 @@ export function TopicFeedCore({
     }
 
     pendingSponsorAfterComment.current = false;
-    const currentTopic = feedTopics[topicIndex];
-    if (!currentTopic || sponsorLoadingRef.current) {
+    if (!currentTopic) {
       setShowTopCommentCard(false);
       setTopicsSinceSponsorCard(0);
       advanceToNextTopic();
@@ -771,6 +770,7 @@ export function TopicFeedCore({
         return;
       }
 
+      consumeTopCommentGroup(currentTopic.id);
       setShowTopCommentCard(false);
       advanceToNextTopic();
     }).finally(() => {
