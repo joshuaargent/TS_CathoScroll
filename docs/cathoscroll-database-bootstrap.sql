@@ -4599,7 +4599,7 @@ CREATE INDEX IF NOT EXISTS comments_visible_parent_created_idx
   ON public.comments (parent_id, created_at DESC)
   WHERE is_deleted = false;
 
-DROP FUNCTION IF EXISTS public.get_top_feed_comments();
+DROP FUNCTION IF EXISTS public.get_top_feed_comments(integer, integer);
 CREATE FUNCTION public.get_top_feed_comments(p_offset integer DEFAULT 0, p_limit integer DEFAULT 100)
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -4738,10 +4738,10 @@ $function$;
 COMMENT ON FUNCTION public.get_top_feed_comments(integer, integer) IS
   'Returns a bounded page of recent, visible, top-level comments with meaningful engagement for feed interstitials. Pages are ordered by engagement score and bounded to the newest 5,000 eligible root comments in the 90-day window. Deleted comments and unpublished topics/categories are excluded.';
 
-REVOKE ALL ON FUNCTION public.get_top_feed_comments() FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.get_top_feed_comments() FROM anon;
-REVOKE ALL ON FUNCTION public.get_top_feed_comments() FROM authenticated;
-GRANT EXECUTE ON FUNCTION public.get_top_feed_comments() TO service_role;
+REVOKE ALL ON FUNCTION public.get_top_feed_comments(integer, integer) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.get_top_feed_comments(integer, integer) FROM anon;
+REVOKE ALL ON FUNCTION public.get_top_feed_comments(integer, integer) FROM authenticated;
+GRANT EXECUTE ON FUNCTION public.get_top_feed_comments(integer, integer) TO service_role;
 
 NOTIFY pgrst, 'reload schema';
 -- Sponsor and campaign extensions to the application schema follow.
