@@ -21,6 +21,7 @@ test('native startup and feed failures render visible retry states', () => {
 test('native feed uses the authenticated Supabase session for sponsor delivery and analytics', () => {
   assert.ok(nativeMain.includes('getNativeSponsorAccessToken'));
   assert.ok(nativeMain.includes('getSponsorAccessToken={getNativeSponsorAccessToken}'));
+  assert.ok(nativeMain.includes('sponsorApiBaseUrl={siteConfig.url}'));
 });
 
 test('optional offline caches cannot prevent the live native feed from opening', () => {
