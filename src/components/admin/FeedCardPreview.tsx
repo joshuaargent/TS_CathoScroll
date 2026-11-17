@@ -26,7 +26,6 @@ const previewComment: TopFeedComment = {
 const previewSponsor: SponsorFeedCampaign = {
   campaign_id: '00000000-0000-4000-8000-000000000001',
   sponsor_name: 'Preview Partner',
-  sponsor_logo_url: null,
   campaign_name: 'Sample sponsor campaign',
   headline: 'A sample sponsor headline',
   body:
