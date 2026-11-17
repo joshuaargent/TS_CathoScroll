@@ -65,6 +65,19 @@ test('sponsor fetches cannot race feed navigation or account changes', () => {
   assert.match(previousTopic, /pendingSponsorAfterComment\.current = false/);
 });
 
+
+test('interstitial navigation is one-shot across swipe, keyboard, and button inputs', () => {
+  for (const source of [topCommentCard, sponsorCard]) {
+    assert.match(source, /const navigationStarted = useRef\(false\)/);
+    assert.match(source, /if \(navigationStarted\.current\) return/);
+    assert.match(source, /navigationStarted\.current = true/);
+    assert.match(source, /onPointerUp[\s\S]*navigateNextTopic\(\)[\s\S]*navigatePreviousTopic\(\)/);
+    assert.match(source, /onKeyDown[\s\S]*navigateNextTopic\(\)[\s\S]*navigatePreviousTopic\(\)/);
+    assert.match(source, /onClick=\{navigateNextTopic\}/);
+    assert.match(source, /onClick=\{navigatePreviousTopic\}/);
+  }
+});
+
 test('interstitial content uses the topic feed visual language rather than a separate card shell', () => {
   assert.match(topicCard, /mx-auto text-center/);
   assert.match(topCommentCard, /mx-auto w-full max-w-3xl text-center/);
