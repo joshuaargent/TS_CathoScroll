@@ -487,7 +487,12 @@ export function TopicFeedCore({
       topComments,
       seenTopCommentIds.current
     );
+    const currentCommentTopic = feedTopics[topicIndex];
+    const commentGroupAlreadyPrepared = Boolean(
+      currentCommentTopic && topCommentCardsByTopicId.has(currentCommentTopic.id)
+    );
     const commentInventoryNeedsAnotherPage =
+      !commentGroupAlreadyPrepared &&
       currentCommentCadence === TOP_COMMENT_CADENCE - 1 &&
       unseenTopComments.length < 5 &&
       topCommentsNextOffset !== null;
