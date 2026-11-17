@@ -294,7 +294,7 @@ export function TopicFeedCore({
       window.removeEventListener('online', refreshWhenOnline);
       document.removeEventListener('visibilitychange', refreshWhenVisible);
     };
-  }, [topCommentsEndpoint]);
+  }, [topCommentsEndpoint, clearTopCommentGroups]);
 
   useEffect(() => {
     if (topCommentsPageLoading.current || topCommentsNextOffset === null) return;
