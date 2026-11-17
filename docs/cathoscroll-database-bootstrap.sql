@@ -4730,7 +4730,7 @@ BEGIN
     ),
     'next_offset', CASE WHEN (SELECT pg_catalog.count(*) FROM selected) = p_limit THEN p_offset + p_limit ELSE NULL END,
     'generated_at', pg_catalog.statement_timestamp()
-  );
+  )
   );
 END;
 $function$;
