@@ -16,6 +16,7 @@ interface TopicViewerProps {
   topics: Topic[];
   topicIndex: number;
   initialUserId: string | null;
+  active?: boolean;
 
   onNextTopic?: () => void;
   onPreviousTopic?: () => void;
@@ -25,6 +26,7 @@ export function TopicViewer({
   topics,
   topicIndex,
   initialUserId,
+  active = true,
   onNextTopic,
   onPreviousTopic,
 }: TopicViewerProps) {
@@ -62,7 +64,8 @@ export function TopicViewer({
   }, [supabase]);
 
   useEffect(() => {
-    let active = true;
+    if (!active) return;
+    let requestActive = true;
 
     // Actions only use activity for the currently selected topic and account.
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -71,13 +74,13 @@ export function TopicViewer({
     async function loadActivity() {
       try {
         const result = await loadTopicActivity(supabase, currentTopicId, userId);
-        if (active) {
+        if (requestActive) {
           setActivity(result);
           setActivityError(null);
         }
       } catch (error) {
         console.error('Unable to load topic activity:', error);
-        if (active) {
+        if (requestActive) {
           setActivity(null);
           setActivityError({ topicId: currentTopicId, userId });
         }
@@ -86,9 +89,9 @@ export function TopicViewer({
 
     void loadActivity();
     return () => {
-      active = false;
+      requestActive = false;
     };
-  }, [supabase, currentTopicId, userId, refreshVersion]);
+  }, [active, supabase, currentTopicId, userId, refreshVersion]);
 
   async function mutateActivity(
     action: 'like' | 'bookmark' | 'progress',
@@ -201,6 +204,7 @@ export function TopicViewer({
     <TopicSwipeViewer
       topics={topics}
       topicIndex={topicIndex}
+      active={active}
       userId={userId}
       currentActivity={currentActivity}
       displayCounts={currentActivityError ? null : activity}
