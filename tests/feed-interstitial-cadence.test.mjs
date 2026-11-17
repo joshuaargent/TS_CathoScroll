@@ -189,6 +189,8 @@ test('the ordered feed queue keeps topic, comments and sponsor entries in cadenc
   assert.doesNotMatch(feedCore, /consumeTopCommentGroup\(currentTopic\.id\)/);
   assert.match(feedCore, /const previousQueueEntry = feedQueueWindow\.previous/);
   assert.match(feedCore, /nextEntryPreview=/);
+  assert.match(feedCore, /const dueTopCommentPreviewEntry/);
+  assert.match(feedCore, /unseenPreviewComments\.slice\(0, 5\)/);
   assert.match(interstitialMotion, /nextPreview\?: ReactNode/);
   assert.match(interstitialMotion, /top-\[100%\] h-full opacity-90/);
   assert.match(feedCore, /sponsorPrefetchRef/);
