@@ -863,6 +863,7 @@ function App() {
   const [authStatus, setAuthStatus] = useState<'loading' | 'ready' | 'unavailable'>('loading');
   const [checkingAccount, setCheckingAccount] = useState(true);
   const [user, setUser] = useState<CachedIdentity | null>(null);
+  const feedUserIdRef = useRef<string | null>(null);
   const [activity, setActivity] = useState<NativeActivity | null>(null);
   const [activityStatus, setActivityStatus] = useState<NativeActivityStatus | null>(null);
   const [activityVersion, setActivityVersion] = useState(0);
