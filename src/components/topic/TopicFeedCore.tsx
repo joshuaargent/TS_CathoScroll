@@ -720,17 +720,43 @@ export function TopicFeedCore({
 
   const noop = () => {};
 
+  const handleSponsorNext = (topicId: string) => {
+    setSponsorCardsByTopicId((current) => {
+      if (!current.has(topicId)) return current;
+      const next = new Map(current);
+      next.delete(topicId);
+      return next;
+    });
+    if (sponsorPrefetchRef.current?.topicId === topicId) {
+      sponsorPrefetchRef.current = null;
+    }
+    if (sponsorCadenceAnchor.current?.topicId === topicId) {
+      sponsorCadenceAnchor.current = null;
+    }
+    advanceToNextTopic();
+  };
+
   const handleTopCommentNext = (): boolean => {
     if (sponsorLoadingRef.current) return false;
     const currentTopic = feedTopics[topicIndex];
     if (feedQueueWindow.next?.type === 'sponsor') {
-      if (currentTopic) consumeTopCommentGroup(currentTopic.id);
+      if (currentTopic) {
+        consumeTopCommentGroup(currentTopic.id);
+        if (topCommentCadenceAnchor.current?.topicId === currentTopic.id) {
+          topCommentCadenceAnchor.current = null;
+        }
+      }
       pendingSponsorAfterComment.current = false;
       activateFeedQueueEntry(feedQueueWindow.next);
       return true;
     }
     if (!pendingSponsorAfterComment.current) {
-      if (currentTopic) consumeTopCommentGroup(currentTopic.id);
+      if (currentTopic) {
+        consumeTopCommentGroup(currentTopic.id);
+        if (topCommentCadenceAnchor.current?.topicId === currentTopic.id) {
+          topCommentCadenceAnchor.current = null;
+        }
+      }
       setShowTopCommentCard(false);
       advanceToNextTopic();
       return true;
@@ -761,6 +787,9 @@ export function TopicFeedCore({
       setTopicsSinceSponsorCard(0);
       if (result.campaigns.length > 0 && result.sessionId) {
         consumeTopCommentGroup(currentTopic.id);
+        if (topCommentCadenceAnchor.current?.topicId === currentTopic.id) {
+          topCommentCadenceAnchor.current = null;
+        }
         cacheSponsorPlacement(currentTopic.id, {
           campaigns: result.campaigns,
           sessionId: result.sessionId,
@@ -771,6 +800,9 @@ export function TopicFeedCore({
       }
 
       consumeTopCommentGroup(currentTopic.id);
+      if (topCommentCadenceAnchor.current?.topicId === currentTopic.id) {
+        topCommentCadenceAnchor.current = null;
+      }
       setShowTopCommentCard(false);
       advanceToNextTopic();
     }).finally(() => {
