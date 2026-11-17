@@ -143,6 +143,8 @@ export function SponsorFeedCard({
       ariaLabel="Sponsored content"
       onSwipeLeft={showNextCampaign}
       onSwipeRight={showPreviousCampaign}
+      canSwipeLeft={() => safeIndex < campaigns.length - 1}
+      canSwipeRight={() => safeIndex > 0}
       onNextTopic={navigateNextTopic}
       onPreviousTopic={navigatePreviousTopic}
     >
