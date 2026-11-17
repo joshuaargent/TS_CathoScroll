@@ -32,7 +32,6 @@ export function FeedInterstitialMotion({
   const axisRef = useRef<'x' | 'y' | null>(null);
   const animationLockRef = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [axis, setAxis] = useState<'x' | 'y' | null>(null);
   const [isDragging, setIsDragging] = useState(false);
 
   const springHome = useCallback(() => {
@@ -85,7 +84,6 @@ export function FeedInterstitialMotion({
     setIsDragging(true);
     event.currentTarget.setPointerCapture(event.pointerId);
     axisRef.current = null;
-    setAxis(null);
     currentRef.current = { x: 0, y: 0 };
     startRef.current = { x: event.clientX, y: event.clientY };
   };
@@ -100,7 +98,6 @@ export function FeedInterstitialMotion({
       if (Math.abs(deltaX) > 2 || Math.abs(deltaY) > 2) {
         const nextAxis = Math.abs(deltaX) > Math.abs(deltaY) ? 'x' : 'y';
         axisRef.current = nextAxis;
-        setAxis(nextAxis);
       }
       return;
     }
