@@ -91,6 +91,7 @@ test('sponsored feed cards are disclosed and inserted separately from organic re
   assert.match(deliveryRoute, /getAuthenticatedUserFromRequest/);
   assert.match(deliveryRoute, /isSameOriginOrNativeRequest/);
   assert.match(deliveryRoute, /get_weighted_sponsor_campaigns/);
+  assert.match(deliveryRoute, /p_limit: 1/);
   assert.match(deliveryRoute, /data\.campaigns\.length > 1/);
 });
 
