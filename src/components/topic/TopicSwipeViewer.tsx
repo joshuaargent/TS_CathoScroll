@@ -1,7 +1,7 @@
 'use client';
 
 import { animate, motion, useMotionValue } from 'framer-motion';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { flushSync } from 'react-dom';
 import { Heart } from 'lucide-react';
 import type { Topic } from '@/types';
@@ -37,6 +37,7 @@ interface TopicSwipeViewerProps {
   onComplete: (topicId: string) => void;
   onNextTopic?: () => void;
   onPreviousTopic?: () => void;
+  nextEntryPreview?: ReactNode;
 }
 
 export function TopicSwipeViewer({
@@ -60,6 +61,7 @@ export function TopicSwipeViewer({
   onComplete,
   onNextTopic,
   onPreviousTopic,
+  nextEntryPreview,
 }: TopicSwipeViewerProps) {
   const [slideIndex, setSlideIndex] = useState(0);
   const [axis, setAxis] = useState<'x' | 'y' | null>(null);
@@ -648,7 +650,9 @@ export function TopicSwipeViewer({
 
           {
             <div className="absolute inset-x-0 top-[100%] h-full opacity-90">
-              <TopicCard type="question" title="Question" content={nextTopic.question} />
+              {nextEntryPreview ?? (
+                <TopicCard type="question" title="Question" content={nextTopic.question} />
+              )}
             </div>
           }
         </motion.div>
