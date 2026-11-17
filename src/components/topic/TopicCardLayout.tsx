@@ -25,11 +25,11 @@ export function TopicCardLayout({
         {header}
       </header>
 
-      <main className="flex min-h-0 flex-1 items-center justify-center">
+      <div className="flex min-h-0 flex-1 items-center justify-center">
         <div className={cn('mx-auto w-full text-center', contentWidthClassName, contentClassName)}>
           {children}
         </div>
-      </main>
+      </div>
 
       {footer && <footer className="shrink-0">{footer}</footer>}
     </div>
