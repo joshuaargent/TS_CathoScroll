@@ -55,8 +55,21 @@ export async function GET(request: Request) {
     );
   }
 
+  const requestUrl = new URL(request.url);
+  const rawOffset = requestUrl.searchParams.get('offset') ?? '0';
+  const rawLimit = requestUrl.searchParams.get('limit') ?? '100';
+  const offset = Number(rawOffset);
+  const limit = Number(rawLimit);
+  if (!Number.isSafeInteger(offset) || offset < 0 || offset > 5000 ||
+      !Number.isSafeInteger(limit) || limit < 1 || limit > 100) {
+    return respond(request, { error: 'Invalid top-comment page.' }, 400, { 'Cache-Control': 'private, no-store' });
+  }
+
   try {
-    const { data, error } = await createServiceRoleClient().rpc('get_top_feed_comments');
+    const { data, error } = await createServiceRoleClient().rpc('get_top_feed_comments', {
+      p_offset: offset,
+      p_limit: limit,
+    });
 
     if (error) {
       console.error('Unable to load top feed comments:', error.message);
@@ -73,7 +86,7 @@ export async function GET(request: Request) {
       typeof data !== 'object' ||
       !('comments' in data) ||
       !Array.isArray(data.comments) ||
-      data.comments.length > 5 ||
+      data.comments.length > limit ||
       !('generated_at' in data) ||
       typeof data.generated_at !== 'string' ||
       !Number.isFinite(Date.parse(data.generated_at))
@@ -104,6 +117,7 @@ export async function GET(request: Request) {
       request,
       {
         comments: validatedComments.map(toPublicTopFeedComment),
+        next_offset: data.next_offset === null ? null : data.next_offset,
         generated_at: data.generated_at,
       },
       200,
