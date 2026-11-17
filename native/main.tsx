@@ -1454,6 +1454,7 @@ function App() {
                     loadPage={loadPage}
                     userId={user?.id ?? null}
                     getSponsorAccessToken={getNativeSponsorAccessToken}
+                    sponsorApiBaseUrl={siteConfig.url}
                     viewer={NativeViewer}
                     topCommentsEndpoint={new URL(
                       '/api/content/top-comments',
