@@ -26,7 +26,6 @@ type QueuedFeedAnalyticsEvent = {
   metadata: FeedAnalyticsMetadata;
 };
 
-const queueLimit = 200;
 const batchLimit = 50;
 const storagePrefix = 'cathoscroll.feed-analytics.v1.';
 const sessionId = createUuid();
@@ -65,7 +64,7 @@ function readQueue(userId: string): QueuedFeedAnalyticsEvent[] {
     if (!raw) return [];
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter(isQueuedEvent).slice(-queueLimit);
+    return parsed.filter(isQueuedEvent);
   } catch {
     return [];
   }
@@ -100,7 +99,7 @@ function writeQueue(userId: string, events: QueuedFeedAnalyticsEvent[]): void {
     if (events.length === 0) {
       window.localStorage.removeItem(storageKey(userId));
     } else {
-      window.localStorage.setItem(storageKey(userId), JSON.stringify(events.slice(-queueLimit)));
+      window.localStorage.setItem(storageKey(userId), JSON.stringify(events));
     }
   } catch {
     // Analytics are best-effort and must never interfere with learning actions.
@@ -195,7 +194,10 @@ export function installFeedAnalyticsListeners(
   if (typeof window === 'undefined') return () => undefined;
 
   transports.set(userId, transport);
+  // Drain events left by a previous offline session as soon as the authenticated
+  // transport is installed. Native WebViews can restart without an `online` event.
   const flush = () => void flushFeedAnalytics(userId);
+  flush();
   const handleVisibility = () => {
     if (document.visibilityState === 'hidden') {
       void flushFeedAnalytics(userId, true);
