@@ -10,6 +10,7 @@ interface SponsorFeedCardProps {
   campaigns: SponsorFeedCampaign[];
   sessionId: string;
   userId: string;
+  previewMode?: boolean;
   getAccessToken: () => Promise<string | null>;
   onNextTopic: () => void;
   onPreviousTopic: () => void;
@@ -28,6 +29,7 @@ export function SponsorFeedCard({
   campaigns,
   sessionId,
   userId,
+  previewMode = false,
   getAccessToken,
   onNextTopic,
   onPreviousTopic,
@@ -74,7 +76,7 @@ export function SponsorFeedCard({
   }, [queueKey]);
 
   const flushSponsorEvents = useCallback(async (): Promise<void> => {
-    if (!navigator.onLine || flushing.current) return;
+    if (previewMode || !navigator.onLine || flushing.current) return;
     flushing.current = true;
     try {
       for (;;) {
@@ -121,11 +123,11 @@ export function SponsorFeedCard({
     } finally {
       flushing.current = false;
     }
-  }, [getAccessToken, queueKey, readEventQueue]);
+  }, [getAccessToken, previewMode, queueKey, readEventQueue]);
 
   const recordEvent = useCallback(
     async (targetCampaignId: string, eventType: 'viewable_impression' | 'click') => {
-      if (typeof window === 'undefined') return false;
+      if (previewMode || typeof window === 'undefined') return false;
       const queue = readEventQueue();
       const alreadyQueued = queue.some(
         (event) => event.campaignId === targetCampaignId && event.eventType === eventType
@@ -146,10 +148,11 @@ export function SponsorFeedCard({
       void flushSponsorEvents();
       return true;
     },
-    [flushSponsorEvents, queueKey, readEventQueue, sessionId]
+    [flushSponsorEvents, previewMode, queueKey, readEventQueue, sessionId]
   );
 
   useEffect(() => {
+    if (previewMode) return;
     const flush = () => void flushSponsorEvents();
     const onVisibilityChange = () => {
       if (document.visibilityState === 'visible') flush();
@@ -163,11 +166,11 @@ export function SponsorFeedCard({
       window.removeEventListener('pageshow', flush);
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };
-  }, [flushSponsorEvents]);
+  }, [flushSponsorEvents, previewMode]);
 
   useEffect(() => {
     const node = cardRef.current;
-    if (!node || !campaignId || viewableCampaignIds.current.has(campaignId)) return;
+    if (previewMode || !node || !campaignId || viewableCampaignIds.current.has(campaignId)) return;
 
     let timer: number | null = null;
     let visible = false;
@@ -218,7 +221,7 @@ export function SponsorFeedCard({
       observer?.disconnect();
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };
-  }, [campaignId, recordEvent]);
+  }, [campaignId, previewMode, recordEvent]);
 
   if (!campaign) return null;
 
@@ -356,7 +359,11 @@ export function SponsorFeedCard({
               href={campaign.destination_url}
               target="_blank"
               rel="noopener noreferrer sponsored"
-              onClick={() => {
+              onClick={(event) => {
+                if (previewMode) {
+                  event.preventDefault();
+                  return;
+                }
                 if (viewableCampaignIds.current.has(campaign.campaign_id)) {
                   void recordEvent(campaign.campaign_id, 'click');
                 }
