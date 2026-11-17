@@ -16,6 +16,7 @@ interface TopCommentFeedCardProps {
   comments: TopFeedComment[];
   userId: string | null;
   previewMode?: boolean;
+  active?: boolean;
   onNextTopic: () => void;
   onPreviousTopic: () => void;
   onOpenComment: (comment: TopFeedComment) => void;
@@ -132,6 +133,7 @@ export function TopCommentFeedCard({
   comments,
   userId,
   previewMode = false,
+  active = true,
   onNextTopic,
   onPreviousTopic,
   onOpenComment,
@@ -176,6 +178,7 @@ export function TopCommentFeedCard({
   return (
     <FeedInterstitialMotion
       ariaLabel="Top community comments"
+      active={active}
       onSwipeLeft={showNextComment}
       onSwipeRight={showPreviousComment}
       canSwipeLeft={() => safeIndex < comments.length - 1}
