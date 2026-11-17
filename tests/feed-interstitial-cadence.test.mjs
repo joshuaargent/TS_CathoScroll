@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import ts from 'typescript';
 
-const [commentSource, sponsorSource, feedCore, topicCard, topCommentCard, sponsorCard, topicViewer, interstitialMotion, topicCardLayout, topCommentsRoute, progressSource] = await Promise.all([
+const [commentSource, sponsorSource, feedCore, topicCard, topCommentCard, sponsorCard, topicViewer, interstitialMotion, topicCardLayout] = await Promise.all([
   readFile(new URL('../src/lib/feed-comments.ts', import.meta.url), 'utf8'),
   readFile(new URL('../src/lib/sponsor-campaigns.ts', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/TopicFeedCore.tsx', import.meta.url), 'utf8'),
@@ -13,8 +13,6 @@ const [commentSource, sponsorSource, feedCore, topicCard, topCommentCard, sponso
   readFile(new URL('../src/components/topic/TopicSwipeViewer.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/FeedInterstitialMotion.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/TopicCardLayout.tsx', import.meta.url), 'utf8'),
-  readFile(new URL('../src/app/api/content/top-comments/route.ts', import.meta.url), 'utf8'),
-  readFile(new URL('../src/components/topic/TopicProgress.tsx', import.meta.url), 'utf8'),
 ]);
 
 async function importTypeScript(source) {
@@ -149,6 +147,10 @@ test('the original analytics-ranked feed keeps interstitials in per-topic sessio
   assert.match(feedCore, /onPreviousTopic=\{\(\) => \{/);
   assert.match(feedCore, /The comment card follows the current topic/);
   assert.match(feedCore, /if \(sponsorPreviousIsComment\.current\)/);
+  assert.match(feedCore, /sponsorPreviousIsComment\.current = Boolean\(/);
+  assert.match(feedCore, /const cachedComments = topCommentCardsByTopicId\.current\.get\(currentTopic\.id\)/);
+  assert.match(feedCore, /const cachedSponsor = sponsorCardsByTopicId\.current\.get\(currentTopic\.id\)/);
+  assert.match(feedCore, /const shouldShowSponsorAfterComment = pendingSponsorAfterComment\.current/);
   assert.match(feedCore, /Re-entering a topic replays the exact interstitials already assigned to it/);
   assert.ok(feedCore.includes('if (preservePositionOnUpdate && feedInitializedRef.current)'));
   assert.ok(feedCore.includes('previousPersonalizedRef.current !== personalized'));
