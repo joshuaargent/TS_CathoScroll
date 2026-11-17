@@ -103,6 +103,9 @@ export function TopicFeedCore({
       next.set(topicId, comments);
       return next;
     });
+    if (!topCommentsPageLoading.current) {
+      setTopCommentInventoryVersion((version) => version + 1);
+    }
   }, []);
   const clearTopCommentGroups = useCallback(() => setTopCommentCardsByTopicId(new Map()), []);
   const cacheSponsorPlacement = useCallback((
@@ -116,9 +119,19 @@ export function TopicFeedCore({
     });
   }, []);
   const clearSponsorPlacements = useCallback(() => setSponsorCardsByTopicId(new Map()), []);
+
+  useEffect(() => {
+    feedMountedRef.current = true;
+    return () => {
+      feedMountedRef.current = false;
+      sponsorRequestVersion.current += 1;
+      sponsorLoadingRef.current = false;
+    };
+  }, []);
   const sponsorSessionUserId = useRef(userId);
   const sponsorLoadingRef = useRef(false);
   const sponsorRequestVersion = useRef(0);
+  const feedMountedRef = useRef(false);
   const sponsorRequestPreviousCadence = useRef(0);
   const sponsorPrefetchRef = useRef<{
     topicId: string;
@@ -225,6 +238,7 @@ export function TopicFeedCore({
     sponsorPrefetchRef.current = { topicId: topic.id, userId, promise };
     void promise.then((result) => {
       if (
+        !feedMountedRef.current ||
         sponsorPrefetchRef.current?.promise !== promise ||
         sponsorSessionUserId.current !== userId
       ) return;
@@ -328,7 +342,6 @@ export function TopicFeedCore({
     const unseenCount = getUnseenTopFeedComments(topComments, seenTopCommentIds.current).length;
     if (unseenCount > 10) return;
 
-    let cancelled = false;
     topCommentsPageLoading.current = true;
     const loadNextPage = async () => {
       try {
@@ -342,7 +355,7 @@ export function TopicFeedCore({
         });
         if (!response.ok) return;
         const payload: unknown = await response.json();
-        if (cancelled || typeof payload !== 'object' || payload === null || !('comments' in payload)) return;
+        if (!feedMountedRef.current || typeof payload !== 'object' || payload === null || !('comments' in payload)) return;
         const nextComments = parseTopFeedComments(payload);
         const nextOffset = 'next_offset' in payload &&
           (payload.next_offset === null || (Number.isSafeInteger(payload.next_offset) && Number(payload.next_offset) >= 0))
@@ -359,8 +372,7 @@ export function TopicFeedCore({
       }
     };
     void loadNextPage();
-    return () => { cancelled = true; };
-  }, [topComments, topCommentsNextOffset, topCommentInventoryVersion, topCommentsEndpoint, topCommentCardsByTopicId]);
+  }, [topComments, topCommentsNextOffset, topCommentInventoryVersion, topCommentsEndpoint]);
 
   // ----------------------------------
   // Initial Feed
@@ -572,7 +584,7 @@ export function TopicFeedCore({
         ? prefetched.promise
         : loadSponsorCampaigns(currentTopic);
       void sponsorRequest.then((result) => {
-        if (sponsorRequestVersion.current !== requestVersion ||
+        if (!feedMountedRef.current || sponsorRequestVersion.current !== requestVersion ||
             sponsorSessionUserId.current !== requestedUserId) return;
         if (result.campaigns.length > 0 && result.sessionId) {
           cacheSponsorPlacement(currentTopic.id, {
@@ -730,6 +742,7 @@ export function TopicFeedCore({
       : loadSponsorCampaigns(currentTopic);
     void sponsorRequest.then((result) => {
       if (
+        !feedMountedRef.current ||
         sponsorRequestVersion.current !== requestVersion ||
         sponsorSessionUserId.current !== requestedUserId
       ) return;
