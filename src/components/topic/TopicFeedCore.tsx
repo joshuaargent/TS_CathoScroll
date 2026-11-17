@@ -92,9 +92,11 @@ export function TopicFeedCore({
   const topCommentCadenceUserId = useRef(userId);
   const topCommentCardsByTopicId = useRef(new Map<string, TopFeedComment[]>());
   const [topicsSinceTopCommentCard, setTopicsSinceTopCommentCard] = useState(0);
+  const topCommentCadenceAnchor = useRef<{ topicId: string; value: number } | null>(null);
   const [sponsorCampaigns, setSponsorCampaigns] = useState<SponsorFeedCampaign[]>([]);
   const [showSponsorCard, setShowSponsorCard] = useState(false);
   const [topicsSinceSponsorCard, setTopicsSinceSponsorCard] = useState(0);
+  const sponsorCadenceAnchor = useRef<{ topicId: string; value: number } | null>(null);
   const sponsorCardsByTopicId = useRef(new Map<string, { campaigns: SponsorFeedCampaign[]; sessionId: string }>());
   const [activeSponsorSessionId, setActiveSponsorSessionId] = useState<string | null>(null);
   const sponsorSessionUserId = useRef(userId);
@@ -138,6 +140,7 @@ export function TopicFeedCore({
     if (seenTopCommentUserId.current === userId) return;
     seenTopCommentUserId.current = userId;
     topCommentCadenceUserId.current = userId;
+    topCommentCadenceAnchor.current = null;
     seenTopCommentIds.current.clear();
     topCommentCardsByTopicId.current.clear();
     setTopCommentCardComments([]);
@@ -149,6 +152,7 @@ export function TopicFeedCore({
     if (sponsorSessionUserId.current === userId) return;
     sponsorSessionUserId.current = userId;
     sponsorPrefetchRef.current = null;
+    sponsorCadenceAnchor.current = null;
     setActiveSponsorSessionId(null);
     sponsorCardsByTopicId.current.clear();
     sponsorRequestVersion.current += 1;
@@ -455,6 +459,19 @@ export function TopicFeedCore({
     const sponsorDue = shouldInsertSponsorCard(currentSponsorCadence, Boolean(userId));
     const nextCommentCadence = getNextTopCommentCadence(currentCommentCadence);
     const nextSponsorCadence = getNextSponsorCadence(currentSponsorCadence);
+    const cadenceTopic = feedTopics[topicIndex];
+    if (cadenceTopic && nextCommentCadence < currentCommentCadence) {
+      topCommentCadenceAnchor.current = {
+        topicId: cadenceTopic.id,
+        value: currentCommentCadence,
+      };
+    }
+    if (cadenceTopic && sponsorDue) {
+      sponsorCadenceAnchor.current = {
+        topicId: cadenceTopic.id,
+        value: currentSponsorCadence,
+      };
+    }
 
     const queuedNextEntry = feedQueueWindow.current?.type === 'topic'
       ? feedQueueWindow.next
@@ -609,12 +626,26 @@ export function TopicFeedCore({
       return;
     }
 
-    setTopicsSinceTopCommentCard((current) =>
-      (current + TOP_COMMENT_CADENCE - 1) % TOP_COMMENT_CADENCE
-    );
-    setTopicsSinceSponsorCard((current) =>
-      (current + SPONSOR_CARD_CADENCE - 1) % SPONSOR_CARD_CADENCE
-    );
+    const currentTopicId = feedTopics[topicIndex]?.id;
+    if (topCommentCadenceAnchor.current?.topicId === currentTopicId) {
+      setTopicsSinceTopCommentCard(
+        (topCommentCadenceAnchor.current.value + TOP_COMMENT_CADENCE - 1) % TOP_COMMENT_CADENCE
+      );
+    } else if (topCommentCadenceAnchor.current?.topicId === previousTopicId) {
+      setTopicsSinceTopCommentCard(topCommentCadenceAnchor.current.value);
+    } else {
+      setTopicsSinceTopCommentCard((current) => Math.max(0, current - 1));
+    }
+
+    if (sponsorCadenceAnchor.current?.topicId === currentTopicId) {
+      setTopicsSinceSponsorCard(
+        (sponsorCadenceAnchor.current.value + SPONSOR_CARD_CADENCE - 1) % SPONSOR_CARD_CADENCE
+      );
+    } else if (sponsorCadenceAnchor.current?.topicId === previousTopicId) {
+      setTopicsSinceSponsorCard(sponsorCadenceAnchor.current.value);
+    } else {
+      setTopicsSinceSponsorCard((current) => Math.max(0, current - 1));
+    }
     setTopicIndex(previousIndex);
   };
 
