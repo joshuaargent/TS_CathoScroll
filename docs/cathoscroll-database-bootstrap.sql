@@ -4599,13 +4599,19 @@ CREATE INDEX IF NOT EXISTS comments_visible_parent_created_idx
   ON public.comments (parent_id, created_at DESC)
   WHERE is_deleted = false;
 
-CREATE OR REPLACE FUNCTION public.get_top_feed_comments()
+DROP FUNCTION IF EXISTS public.get_top_feed_comments();
+CREATE FUNCTION public.get_top_feed_comments(p_offset integer DEFAULT 0, p_limit integer DEFAULT 100)
 RETURNS jsonb
-LANGUAGE sql
+LANGUAGE plpgsql
 STABLE
 SECURITY DEFINER
 SET search_path = ''
 AS $function$
+BEGIN
+  IF p_offset IS NULL OR p_offset < 0 OR p_offset > 5000 OR p_limit IS NULL OR p_limit < 1 OR p_limit > 100 THEN
+    RAISE EXCEPTION 'Invalid top-comment page' USING ERRCODE = '22023';
+  END IF;
+  RETURN (
   WITH candidate_ids AS MATERIALIZED (
     SELECT candidate.id
     FROM public.comments AS candidate
@@ -4695,7 +4701,7 @@ AS $function$
     SELECT *
     FROM candidates
     ORDER BY ranking_score DESC, created_at DESC, comment_id DESC
-    LIMIT 5
+    LIMIT p_limit OFFSET p_offset
   )
   SELECT pg_catalog.jsonb_build_object(
     'comments',
@@ -4722,12 +4728,15 @@ AS $function$
       ),
       '[]'::jsonb
     ),
+    'next_offset', CASE WHEN (SELECT pg_catalog.count(*) FROM selected) = p_limit THEN p_offset + p_limit ELSE NULL END,
     'generated_at', pg_catalog.statement_timestamp()
   );
+  );
+END;
 $function$;
 
-COMMENT ON FUNCTION public.get_top_feed_comments() IS
-  'Returns up to five recent, visible, top-level comments with meaningful engagement for feed interstitials. Candidate scoring is bounded to the newest 5,000 eligible root comments in the 90-day window. Deleted comments and unpublished topics/categories are excluded.';
+COMMENT ON FUNCTION public.get_top_feed_comments(integer, integer) IS
+  'Returns a bounded page of recent, visible, top-level comments with meaningful engagement for feed interstitials. Pages are ordered by engagement score and bounded to the newest 5,000 eligible root comments in the 90-day window. Deleted comments and unpublished topics/categories are excluded.';
 
 REVOKE ALL ON FUNCTION public.get_top_feed_comments() FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.get_top_feed_comments() FROM anon;
@@ -5210,8 +5219,13 @@ BEGIN
           AND recent_served.received_at >= pg_catalog.statement_timestamp() - interval '24 hours')
         < campaign.frequency_cap_per_user_24h
       AND NOT (campaign.id = ANY(v_campaign_ids))
-    ORDER BY -pg_catalog.ln(greatest(pg_catalog.random(), 0.000001::double precision))
-      / campaign.placement_weight::numeric, campaign.id
+    ORDER BY
+      coalesce((SELECT pg_catalog.sum(daily.viewable_impressions)::numeric
+        FROM catho_private.sponsor_campaign_daily AS daily
+        WHERE daily.campaign_id = campaign.id
+          AND daily.event_date >= v_today - 29 AND daily.event_date <= v_today), 0)
+        / campaign.placement_weight::numeric ASC,
+      pg_catalog.random(), campaign.id
     LIMIT 1 FOR UPDATE OF campaign SKIP LOCKED;
 
     IF NOT FOUND THEN EXIT; END IF;
