@@ -108,6 +108,14 @@ export function TopicFeedCore({
     }
   }, []);
   const clearTopCommentGroups = useCallback(() => setTopCommentCardsByTopicId(new Map()), []);
+  const consumeTopCommentGroup = useCallback((topicId: string) => {
+    setTopCommentCardsByTopicId((current) => {
+      if (!current.has(topicId)) return current;
+      const next = new Map(current);
+      next.delete(topicId);
+      return next;
+    });
+  }, []);
   const cacheSponsorPlacement = useCallback((
     topicId: string,
     placement: { campaigns: SponsorFeedCampaign[]; sessionId: string }
@@ -714,12 +722,15 @@ export function TopicFeedCore({
 
   const handleTopCommentNext = (): boolean => {
     if (sponsorLoadingRef.current) return false;
+    const currentTopic = feedTopics[topicIndex];
     if (feedQueueWindow.next?.type === 'sponsor') {
+      if (currentTopic) consumeTopCommentGroup(currentTopic.id);
       pendingSponsorAfterComment.current = false;
       activateFeedQueueEntry(feedQueueWindow.next);
       return true;
     }
     if (!pendingSponsorAfterComment.current) {
+      if (currentTopic) consumeTopCommentGroup(currentTopic.id);
       setShowTopCommentCard(false);
       advanceToNextTopic();
       return true;
@@ -750,6 +761,7 @@ export function TopicFeedCore({
       ) return;
       setTopicsSinceSponsorCard(0);
       if (result.campaigns.length > 0 && result.sessionId) {
+        consumeTopCommentGroup(currentTopic.id);
         cacheSponsorPlacement(currentTopic.id, {
           campaigns: result.campaigns,
           sessionId: result.sessionId,
