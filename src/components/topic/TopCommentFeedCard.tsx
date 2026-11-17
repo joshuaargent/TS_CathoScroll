@@ -236,6 +236,22 @@ export function TopCommentFeedCard({
             {comment.content}
             {comment.content_truncated ? '…' : ''}
           </p>
+          <div className="mt-6 flex items-center justify-center">
+            {comment.author_username ? (
+              <Link
+                href={`/profile/${encodeURIComponent(comment.author_username)}`}
+                onPointerDown={(event) => event.stopPropagation()}
+                onTouchStart={(event) => event.stopPropagation()}
+                onClick={(event) => event.stopPropagation()}
+                className="text-text-muted hover:text-text-primary text-sm font-medium transition-colors"
+              >
+                {comment.author_display_name}
+                <span className="ml-2 font-normal">@{comment.author_username}</span>
+              </Link>
+            ) : (
+              <span className="text-text-muted text-sm font-medium">{comment.author_display_name}</span>
+            )}
+          </div>
         </article>
       </TopicCardLayout>
     </FeedInterstitialMotion>
