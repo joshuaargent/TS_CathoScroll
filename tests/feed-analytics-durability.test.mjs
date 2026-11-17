@@ -37,12 +37,11 @@ test('sponsor analytics queue survives restarts and flushes even when no sponsor
   assert.ok(sponsorAnalytics.includes('queued.sessionId === event.sessionId'));
 });
 
-test('top-comment inventory refreshes are coalesced and throttled during foreground events', () => {
-  assert.ok(topicFeed.includes('let requestInFlight: Promise<void> | null = null'));
-  assert.ok(topicFeed.includes('const refreshCooldownMs = 30_000'));
-  assert.ok(topicFeed.includes('if (requestInFlight) return requestInFlight'));
-  assert.ok(topicFeed.includes('if (Date.now() - lastAttemptAt < refreshCooldownMs)'));
-  assert.ok(topicFeed.includes('if (requestInFlight === request) requestInFlight = null'));
+test('top-comment refreshes use the tested coordinator with an explicit reconnect retry', () => {
+  assert.ok(topicFeed.includes("import { createFeedRefreshCoordinator } from '@/lib/feed-refresh-coordinator'"));
+  assert.ok(topicFeed.includes('const refresh = createFeedRefreshCoordinator(async () => {'));
+  assert.ok(topicFeed.includes('const refreshWhenOnline = () => void refresh.reconnect()'));
+  assert.ok(topicFeed.includes('void refresh.request()'));
 });
 
 test('README documents bounded behavioural signals used by recommendation ranking', () => {
