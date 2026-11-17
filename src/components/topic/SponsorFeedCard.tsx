@@ -19,6 +19,7 @@ interface SponsorFeedCardProps {
   onNextTopic: () => void;
   onPreviousTopic: () => void;
   nextEntryPreview?: ReactNode;
+  previousEntryPreview?: ReactNode;
 }
 
 function createEventId() {
@@ -40,6 +41,7 @@ export function SponsorFeedCard({
   onNextTopic,
   onPreviousTopic,
   nextEntryPreview,
+  previousEntryPreview,
 }: SponsorFeedCardProps) {
   const [activeIndex, setActiveIndex] = useState(0);
   const navigationStarted = useRef(false);
@@ -182,6 +184,7 @@ export function SponsorFeedCard({
       onNextTopic={navigateNextTopic}
       onPreviousTopic={navigatePreviousTopic}
       nextPreview={nextEntryPreview}
+      previousPreview={previousEntryPreview}
     >
       <TopicCardLayout
         progress={<TopicProgress current={safeIndex} total={campaigns.length} />}
