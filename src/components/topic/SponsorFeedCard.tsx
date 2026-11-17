@@ -9,6 +9,7 @@ import type { SponsorFeedCampaign } from '@/lib/sponsor-campaigns';
 interface SponsorFeedCardProps {
   campaigns: SponsorFeedCampaign[];
   sessionId: string;
+  userId: string;
   getAccessToken: () => Promise<string | null>;
   onNextTopic: () => void;
   onPreviousTopic: () => void;
@@ -26,6 +27,7 @@ function createEventId() {
 export function SponsorFeedCard({
   campaigns,
   sessionId,
+  userId,
   getAccessToken,
   onNextTopic,
   onPreviousTopic,
@@ -46,7 +48,10 @@ export function SponsorFeedCard({
     sessionId: string;
     eventType: 'viewable_impression' | 'click';
   };
-  const queueKey = `cathoscroll.sponsor-events.v1.${sessionId}`;
+  // Scope the durable queue to the account, not the temporary sponsor placement.
+  // The placement session ID stays on each event so the server can validate it
+  // after the app has restarted and loaded a different sponsor card.
+  const queueKey = `cathoscroll.sponsor-events.v1.${userId}`;
   const flushing = useRef(false);
 
   const readEventQueue = useCallback((): QueuedSponsorEvent[] => {
@@ -61,7 +66,6 @@ export function SponsorFeedCard({
         typeof event.campaignId === 'string' &&
         typeof event.eventId === 'string' &&
         typeof event.sessionId === 'string' &&
-        event.sessionId === sessionId &&
         (event.eventType === 'viewable_impression' || event.eventType === 'click')
       );
     } catch {
@@ -103,10 +107,16 @@ export function SponsorFeedCard({
         // The event ID is stable across retries. A successful HTTP response
         // acknowledges either a newly recorded event or an idempotent replay.
         const latest = readEventQueue();
-        window.localStorage.setItem(
-          queueKey,
-          JSON.stringify(latest.filter((queued) => queued.eventId !== event.eventId))
-        );
+        try {
+          window.localStorage.setItem(
+            queueKey,
+            JSON.stringify(latest.filter((queued) => queued.eventId !== event.eventId))
+          );
+        } catch {
+          // Keep the acknowledged event locally if storage cannot be updated.
+          // Replaying its stable event ID is safe because the server deduplicates.
+          break;
+        }
       }
     } finally {
       flushing.current = false;
