@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { DoorOpen, Heart, MessageCircle } from 'lucide-react';
 
@@ -21,6 +21,7 @@ interface TopCommentFeedCardProps {
   onPreviousTopic: () => void;
   onOpenComment: (comment: TopFeedComment) => void;
   onCommentViewed: (commentId: number) => void;
+  nextEntryPreview?: ReactNode;
 }
 
 function CommentLikeControl({
@@ -138,6 +139,7 @@ export function TopCommentFeedCard({
   onPreviousTopic,
   onOpenComment,
   onCommentViewed,
+  nextEntryPreview,
 }: TopCommentFeedCardProps) {
   const [activeIndex, setActiveIndex] = useState(0);
   const navigationStarted = useRef(false);
@@ -189,6 +191,7 @@ export function TopCommentFeedCard({
       canSwipeRight={() => safeIndex > 0}
       onNextTopic={navigateNextTopic}
       onPreviousTopic={navigatePreviousTopic}
+      nextPreview={nextEntryPreview}
     >
       <TopicCardLayout
         className={safeIndex === 0 ? 'bg-accent-light/5' : undefined}
