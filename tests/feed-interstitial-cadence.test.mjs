@@ -169,5 +169,5 @@ test('the ordered feed queue keeps topic, comments and sponsor entries in cadenc
   assert.equal(window.next?.type, 'sponsor');
   assert.match(feedCore, /buildFeedQueue/);
   assert.match(feedCore, /getFeedQueueWindow/);
-  assert.match(feedCore, /activeFeedQueueEntry\\?\.type === 'sponsor'/);
+  assert.match(feedCore, /activeFeedQueueEntry\?\.type === 'sponsor'/);
 });
