@@ -109,7 +109,7 @@ test('topic, comment and sponsor cards use the same structural layout component'
   assert.match(topCommentCard, /h-11 w-11 items-center justify-center rounded-full/);
   assert.match(topCommentCard, /topic_question/);
   assert.match(topCommentCard, /mt-6 flex items-center justify-center/);
-  assert.match(topCommentCard, /href=\{\`\/profile\/\$\{encodeURIComponent\(comment\.author_username\)\}\`\}/);
+  assert.ok(topCommentCard.includes('href={`/profile/${encodeURIComponent(comment.author_username)}`}'));
   assert.doesNotMatch(topCommentCard, /Pinned comment|Previous comment|Next comment/);
   assert.doesNotMatch(topCommentCard, /footer=\{/);
   assert.match(interstitialMotion, /absDx > width \* 0\.07 \|\| velocityX > 25/);
