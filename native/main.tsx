@@ -880,6 +880,12 @@ function App() {
 
   useEffect(() => {
     if (!catalogue || authStatus !== 'ready') return;
+    const nextFeedUserId = user?.id ?? null;
+    if (feedUserIdRef.current !== nextFeedUserId) {
+      feedUserIdRef.current = nextFeedUserId;
+      setFirstPage(null);
+    }
+    const localCatalogue = catalogue;
     let active = true;
     let controller: AbortController | null = null;
 
@@ -1178,7 +1184,6 @@ function App() {
   useEffect(() => {
     if (!catalogueRefresh || !catalogue) return;
     const service = catalogueRefresh;
-    const localCatalogue = catalogue;
     let active = true;
     let lastAttempt = 0;
     let running = false;
