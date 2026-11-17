@@ -237,7 +237,7 @@ export function TopicFeedCore({
         sponsorPrefetchRef.current = null;
       }
     });
-  }, [feedTopics, topicIndex, topicsSinceSponsorCard, userId, loadSponsorCampaigns, cacheSponsorPlacement]);
+  }, [feedTopics, topicIndex, topicsSinceSponsorCard, userId, loadSponsorCampaigns, cacheSponsorPlacement, sponsorCardsByTopicId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -513,6 +513,7 @@ export function TopicFeedCore({
       setTopicsSinceTopCommentCard(commentDue ? currentCommentCadence : nextCommentCadence);
       sponsorRequestPreviousCadence.current = topicsSinceSponsorCard;
       setTopicsSinceSponsorCard(0);
+      pendingSponsorAfterComment.current = false;
 
       if (!currentTopic || sponsorLoadingRef.current) {
         advanceToNextTopic();
@@ -535,7 +536,7 @@ export function TopicFeedCore({
             sessionId: result.sessionId,
           });
                 setShowTopCommentCard(false);
-          setShowSponsorCard(true);
+        setShowSponsorCard(true);
           return;
         }
 
