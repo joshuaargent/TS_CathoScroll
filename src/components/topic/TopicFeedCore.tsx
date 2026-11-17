@@ -198,6 +198,7 @@ export function TopicFeedCore({
             ? payload.next_offset as number | null : null;
           setTopCommentsNextOffset(nextOffset);
           setTopComments((current) => {
+            if (nextOffset === null) return comments;
             const byId = new Map(current.map((comment) => [comment.comment_id, comment] as const));
             for (const comment of comments) byId.set(comment.comment_id, comment);
             return [...byId.values()];
