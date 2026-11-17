@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import ts from 'typescript';
 
-const [commentSource, sponsorSource, feedCore, topicCard, topCommentCard, sponsorCard, topicViewer] = await Promise.all([
+const [commentSource, sponsorSource, feedCore, topicCard, topCommentCard, sponsorCard, topicViewer, interstitialMotion] = await Promise.all([
   readFile(new URL('../src/lib/feed-comments.ts', import.meta.url), 'utf8'),
   readFile(new URL('../src/lib/sponsor-campaigns.ts', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/TopicFeedCore.tsx', import.meta.url), 'utf8'),
@@ -11,6 +11,7 @@ const [commentSource, sponsorSource, feedCore, topicCard, topCommentCard, sponso
   readFile(new URL('../src/components/topic/TopCommentFeedCard.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/SponsorFeedCard.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/TopicSwipeViewer.tsx', import.meta.url), 'utf8'),
+  readFile(new URL('../src/components/topic/FeedInterstitialMotion.tsx', import.meta.url), 'utf8'),
 ]);
 
 async function importTypeScript(source) {
@@ -68,30 +69,25 @@ test('sponsor fetches cannot race feed navigation or account changes', () => {
 });
 
 
-test('interstitial navigation is one-shot across swipe and keyboard inputs', () => {
+test('interstitial cards share the topic viewer swipe and animation model', () => {
+  assert.match(interstitialMotion, /duration: 0\.2, ease: 'easeOut'/);
+  assert.match(interstitialMotion, /stiffness: 1800, damping: 120/);
+  assert.match(interstitialMotion, /width \* 0\.07/);
+  assert.match(interstitialMotion, /height \* 0\.07/);
+  assert.match(interstitialMotion, /window.addEventListener\('keydown', handleKeyDown\)/);
   for (const source of [topCommentCard, sponsorCard]) {
-    assert.match(source, /const navigationStarted = useRef\(false\)/);
-    assert.match(source, /if \(navigationStarted\.current\) return/);
-    assert.match(source, /navigationStarted\.current = true/);
-
-    const pointerHandler = source.match(/const handlePointerUp = \(event: PointerEvent<[\s\S]*?\n  };/);
-    const keyboardHandler = source.match(/const handleKeyDown = \(event: KeyboardEvent<[\s\S]*?\n  };/);
-    assert.ok(pointerHandler, 'pointer handler exists');
-    assert.ok(keyboardHandler, 'keyboard handler exists');
-    assert.match(pointerHandler[0], /navigateNextTopic\(\)/);
-    assert.match(pointerHandler[0], /navigatePreviousTopic\(\)/);
-    assert.match(keyboardHandler[0], /navigateNextTopic\(\)/);
-    assert.match(keyboardHandler[0], /navigatePreviousTopic\(\)/);
+    assert.match(source, /<FeedInterstitialMotion/);
+    assert.match(source, /onNextTopic=\{navigateNextTopic\}/);
+    assert.match(source, /onPreviousTopic=\{navigatePreviousTopic\}/);
+    assert.match(source, /flex h-full w-full flex-col px-6 py-6 md:px-8 md:py-8/);
   }
   assert.match(topicViewer, /const animationLockRef = useRef\(false\)/);
-  assert.match(topicViewer, /if \(animationLockRef\.current\) return/);
-  assert.match(topicViewer, /animationLockRef\.current = true/);
-  assert.match(topicViewer, /animationLockRef\.current = false/);
+  assert.match(topicViewer, /duration: 0\.2/);
 });
 test('top comment card follows the topic-card layout and opens the comment in-place', () => {
   assert.ok(topicCard.includes('flex h-full w-full flex-col px-6 py-6 md:px-8 md:py-8'));
   assert.ok(topicCard.includes('bg-accent-light/5'));
-  assert.ok(topCommentCard.includes('flex h-full min-h-0 w-full flex-col px-6 py-6 md:px-8 md:py-8'));
+  assert.ok(topCommentCard.includes('flex h-full w-full flex-col px-6 py-6 md:px-8 md:py-8'));
   assert.ok(topCommentCard.includes("safeIndex === 0 && 'bg-accent-light/5'"));
   assert.ok(topCommentCard.includes('<Heart'));
   assert.ok(topCommentCard.includes('<MessageCircle'));
