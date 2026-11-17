@@ -2,7 +2,10 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-const nativeMain = await readFile(new URL('../native/main.tsx', import.meta.url), 'utf8');
+const [nativeMain, nativeNotes] = await Promise.all([
+  readFile(new URL('../native/main.tsx', import.meta.url), 'utf8'),
+  readFile(new URL('../native/notes.tsx', import.meta.url), 'utf8'),
+]);
 
 test('native renderer failures show a recoverable error boundary instead of a blank screen', () => {
   assert.ok(nativeMain.includes('class NativeErrorBoundary extends Component'));
@@ -37,7 +40,8 @@ test('native topic pages remain readable when optional comment or note caches fa
   assert.ok(nativeMain.includes('cache: OfflineCommentCache | null;'));
   assert.ok(nativeMain.includes('noteCache: NativeNoteCache | null;'));
   assert.ok(nativeMain.includes('cache={cache ?? undefined}'));
-  assert.ok(nativeMain.includes('Offline notes are unavailable on this device.'));
+  assert.ok(nativeMain.includes('cache={noteCache}'));
+  assert.ok(nativeNotes.includes('cache: NativeNoteCache | null;'));
 });
 
 test('native feed shows a retry state when both live and saved feed loading fail', () => {
