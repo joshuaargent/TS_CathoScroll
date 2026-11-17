@@ -238,6 +238,7 @@ function NativeViewer(props: {
   topics: Topic[];
   topicIndex: number;
   initialUserId: string | null;
+  active?: boolean;
   onNextTopic: () => void;
   onPreviousTopic: () => void;
 }) {
@@ -281,7 +282,7 @@ function NativeViewer(props: {
 
   useEffect(() => {
     let active = true;
-    if (!userId || !accountActivity || !accountReady) return;
+    if (props.active === false || !userId || !accountActivity || !accountReady) return;
     accountActivity.store.topicActivity(userId, topicId).then(
       (value) => {
         if (active) {
@@ -300,9 +301,10 @@ function NativeViewer(props: {
     return () => {
       active = false;
     };
-  }, [accountActivity, accountReady, userId, topicId, navigation.activityVersion, refresh]);
+  }, [props.active, accountActivity, accountReady, userId, topicId, navigation.activityVersion, refresh]);
 
   useEffect(() => {
+    if (props.active === false) return;
     let active = true;
     async function load() {
       setCountError('');
@@ -352,9 +354,10 @@ function NativeViewer(props: {
     return () => {
       active = false;
     };
-  }, [countCache, topicId, refresh, navigation.activityVersion]);
+  }, [props.active, countCache, topicId, refresh, navigation.activityVersion]);
 
   useEffect(() => {
+    if (props.active === false) return;
     const update = () => setRefresh((version) => version + 1);
     window.addEventListener('online', update);
     window.addEventListener('offline', update);
@@ -362,9 +365,10 @@ function NativeViewer(props: {
       window.removeEventListener('online', update);
       window.removeEventListener('offline', update);
     };
-  }, []);
+  }, [props.active]);
 
   useEffect(() => {
+    if (props.active === false) return;
     const noticeId = 'topic-counts:' + topicId;
     if (!countError) {
       clearNativeStatusNotice(noticeId);
@@ -374,7 +378,7 @@ function NativeViewer(props: {
       id: noticeId,
       action: { label: 'Retry', onClick: () => setRefresh((version) => version + 1) },
     });
-  }, [countError, topicId]);
+  }, [props.active, countError, topicId]);
 
   const currentCounts = counts?.topicId === topicId ? counts : null;
   const currentSaved =
@@ -447,7 +451,7 @@ function NativeViewer(props: {
       <div className="min-h-0 flex-1">
         <TopicSwipeViewer
           {...props}
-          active={navigation.feedActive}
+          active={props.active !== false && navigation.feedActive}
           analyticsEndpoint={`${siteConfig.url.replace(/\/+$/, '')}/api/analytics/feed-events`}
           getAnalyticsAccessToken={getAnalyticsAccessToken}
           userId={userId}
