@@ -13,6 +13,7 @@ interface FeedInterstitialMotionProps {
   onNextTopic: () => void;
   onPreviousTopic: () => void;
   ariaLabel: string;
+  active?: boolean;
 }
 
 export function FeedInterstitialMotion({
@@ -24,6 +25,7 @@ export function FeedInterstitialMotion({
   onNextTopic,
   onPreviousTopic,
   ariaLabel,
+  active = true,
 }: FeedInterstitialMotionProps) {
   const x = useMotionValue(0);
   const y = useMotionValue(0);
@@ -158,6 +160,7 @@ export function FeedInterstitialMotion({
   };
 
   useEffect(() => {
+    if (!active) return;
     const handleKeyDown = (event: globalThis.KeyboardEvent) => {
       if (event.repeat || animationLockRef.current) return;
 
@@ -197,7 +200,7 @@ export function FeedInterstitialMotion({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [move]);
+  }, [active, move]);
 
   return (
     <div ref={containerRef} className="h-full w-full overflow-hidden">
@@ -208,10 +211,10 @@ export function FeedInterstitialMotion({
         tabIndex={0}
         className="h-full w-full transform-gpu will-change-transform select-none"
         style={{ x, y, width: '100%', height: '100%', touchAction: 'none' }}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerCancel={handlePointerUp}
+        onPointerDown={active ? handlePointerDown : undefined}
+        onPointerMove={active ? handlePointerMove : undefined}
+        onPointerUp={active ? handlePointerUp : undefined}
+        onPointerCancel={active ? handlePointerUp : undefined}
       >
         {children}
       </motion.div>
