@@ -89,6 +89,7 @@ export function TopicFeedCore({
   const [feedSessionUserId, setFeedSessionUserId] = useState(userId);
   const [showTopCommentCard, setShowTopCommentCard] = useState(false);
   const seenTopCommentIds = useRef(new Set<number>());
+  const [seenTopCommentIdsForRender, setSeenTopCommentIdsForRender] = useState<Set<number>>(() => new Set());
   const seenTopCommentUserId = useRef(userId);
   const topCommentCadenceUserId = useRef(userId);
   const [topCommentCardsByTopicId, setTopCommentCardsByTopicId] = useState<Map<string, TopFeedComment[]>>(() => new Map());
@@ -168,7 +169,7 @@ export function TopicFeedCore({
   const activeFeedQueueIndex = findFeedQueueEntryIndex(feedQueue, topicIndex, activeFeedQueueType);
   const feedQueueWindow = getFeedQueueWindow(feedQueue, activeFeedQueueIndex);
   const activeTopicForPreview = feedTopics[topicIndex];
-  const unseenPreviewComments = getUnseenTopFeedComments(topComments, seenTopCommentIds.current);
+  const unseenPreviewComments = getUnseenTopFeedComments(topComments, seenTopCommentIdsForRender);
   const dueTopCommentPreviewEntry =
     feedQueueWindow.current?.type === 'topic' &&
     feedSessionUserId === userId &&
@@ -196,6 +197,7 @@ export function TopicFeedCore({
     topCommentCadenceUserId.current = userId;
     topCommentCadenceAnchor.current = null;
     seenTopCommentIds.current.clear();
+    setSeenTopCommentIdsForRender(new Set());
     clearTopCommentGroups();
     setShowTopCommentCard(false);
     setTopicsSinceTopCommentCard(0);
@@ -344,6 +346,7 @@ export function TopicFeedCore({
     if (group.length === 0) return;
 
     group.forEach((comment) => seenTopCommentIds.current.add(comment.comment_id));
+    setSeenTopCommentIdsForRender(new Set(seenTopCommentIds.current));
     // eslint-disable-next-line react-hooks/set-state-in-effect
     cacheTopCommentGroup(topic.id, group);
   }, [
@@ -504,6 +507,7 @@ export function TopicFeedCore({
     if (seenTopCommentUserId.current !== userId) {
       seenTopCommentUserId.current = userId;
       seenTopCommentIds.current.clear();
+      setSeenTopCommentIdsForRender(new Set());
       clearTopCommentGroups();
       currentCommentCadence = 0;
     }
@@ -622,6 +626,7 @@ export function TopicFeedCore({
           setTopicsSinceTopCommentCard(0);
           const nextTopCommentGroup = unseenTopComments.slice(0, 5);
           nextTopCommentGroup.forEach((comment) => seenTopCommentIds.current.add(comment.comment_id));
+          setSeenTopCommentIdsForRender(new Set(seenTopCommentIds.current));
           cacheTopCommentGroup(currentTopic.id, nextTopCommentGroup);
                 setShowSponsorCard(false);
           setShowTopCommentCard(true);
@@ -646,6 +651,7 @@ export function TopicFeedCore({
       if (currentTopic) {
         const nextTopCommentGroup = unseenTopComments.slice(0, 5);
         nextTopCommentGroup.forEach((comment) => seenTopCommentIds.current.add(comment.comment_id));
+        setSeenTopCommentIdsForRender(new Set(seenTopCommentIds.current));
         cacheTopCommentGroup(currentTopic.id, nextTopCommentGroup);
             setShowSponsorCard(false);
         setShowTopCommentCard(true);
@@ -662,9 +668,11 @@ export function TopicFeedCore({
       if (seenTopCommentUserId.current !== userId) {
         seenTopCommentUserId.current = userId;
         seenTopCommentIds.current.clear();
+        setSeenTopCommentIdsForRender(new Set());
         clearTopCommentGroups();
       }
       seenTopCommentIds.current.add(commentId);
+      setSeenTopCommentIdsForRender(new Set(seenTopCommentIds.current));
       setTopCommentInventoryVersion((version) => version + 1);
     },
     [userId, clearTopCommentGroups]
@@ -684,6 +692,7 @@ export function TopicFeedCore({
     if (seenTopCommentUserId.current !== userId) {
       seenTopCommentUserId.current = userId;
       seenTopCommentIds.current.clear();
+      setSeenTopCommentIdsForRender(new Set());
       clearTopCommentGroups();
     }
 
