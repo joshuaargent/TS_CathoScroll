@@ -186,7 +186,10 @@ export function TopCommentFeedCard({
 
   return (
     <div
-      className="flex min-h-0 flex-1 flex-col"
+      className={cn(
+        'flex h-full min-h-0 w-full flex-col px-6 py-6 md:px-8 md:py-8',
+        safeIndex === 0 && 'bg-accent-light/5'
+      )}
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}
       onPointerCancel={() => {
@@ -200,10 +203,7 @@ export function TopCommentFeedCard({
       aria-label="Top community comment"
     >
       <article
-        className={cn(
-          'flex min-h-0 flex-1 flex-col rounded-3xl transition-colors',
-          safeIndex === 0 && 'bg-accent-light/5'
-        )}
+        className="flex min-h-0 flex-1 flex-col"}
         onDoubleClick={(event) => {
           if ((event.target as HTMLElement).closest('button, a')) return;
           openComment();
