@@ -22,6 +22,7 @@ interface TopCommentFeedCardProps {
   onOpenComment: (comment: TopFeedComment) => void;
   onCommentViewed: (commentId: number) => void;
   nextEntryPreview?: ReactNode;
+  previousEntryPreview?: ReactNode;
 }
 
 function CommentLikeControl({
@@ -140,6 +141,7 @@ export function TopCommentFeedCard({
   onOpenComment,
   onCommentViewed,
   nextEntryPreview,
+  previousEntryPreview,
 }: TopCommentFeedCardProps) {
   const [activeIndex, setActiveIndex] = useState(0);
   const navigationStarted = useRef(false);
@@ -192,6 +194,7 @@ export function TopCommentFeedCard({
       onNextTopic={navigateNextTopic}
       onPreviousTopic={navigatePreviousTopic}
       nextPreview={nextEntryPreview}
+      previousPreview={previousEntryPreview}
     >
       <TopicCardLayout
         className={safeIndex === 0 ? 'bg-accent-light/5' : undefined}
