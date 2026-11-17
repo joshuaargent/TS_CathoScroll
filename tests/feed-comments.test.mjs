@@ -83,7 +83,7 @@ test('strips non-public fields before an API response is returned', () => {
   ]);
 });
 
-test('drops invalid entries and never accepts more than five comments', () => {
+test('drops invalid entries and caps each inventory page at 100 comments', () => {
   const comments = Array.from({ length: 7 }, (_, index) =>
     validComment({ comment_id: index + 1 })
   );
