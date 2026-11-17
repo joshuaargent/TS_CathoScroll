@@ -10,8 +10,8 @@ interface FeedInterstitialMotionProps {
   onSwipeRight: () => void;
   canSwipeLeft?: () => boolean;
   canSwipeRight?: () => boolean;
-  onNextTopic: () => void;
-  onPreviousTopic: () => void;
+  onNextTopic: () => void | Promise<void>;
+  onPreviousTopic: () => void | Promise<void>;
   ariaLabel: string;
   active?: boolean;
   nextPreview?: ReactNode;
@@ -70,13 +70,15 @@ export function FeedInterstitialMotion({
         ease: 'easeOut',
       });
 
+      let navigation: void | Promise<void>;
       flushSync(() => {
         if (direction === 'left') onSwipeLeft();
         else if (direction === 'right') onSwipeRight();
-        else if (direction === 'up') onNextTopic();
-        else onPreviousTopic();
+        else if (direction === 'up') navigation = onNextTopic();
+        else navigation = onPreviousTopic();
       });
 
+      if (navigation) await navigation;
       x.jump(0);
       y.jump(0);
     } finally {
