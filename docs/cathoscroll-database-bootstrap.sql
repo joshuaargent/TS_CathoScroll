@@ -4599,6 +4599,7 @@ CREATE INDEX IF NOT EXISTS comments_visible_parent_created_idx
   ON public.comments (parent_id, created_at DESC)
   WHERE is_deleted = false;
 
+DROP FUNCTION IF EXISTS public.get_top_feed_comments();
 DROP FUNCTION IF EXISTS public.get_top_feed_comments(integer, integer);
 CREATE FUNCTION public.get_top_feed_comments(p_offset integer DEFAULT 0, p_limit integer DEFAULT 100)
 RETURNS jsonb
