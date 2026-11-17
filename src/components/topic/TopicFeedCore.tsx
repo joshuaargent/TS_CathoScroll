@@ -157,6 +157,8 @@ export function TopicFeedCore({
   const loadingRef = useRef(false);
   const generationRef = useRef(0);
   const currentTopicId = useRef<string | null>(null);
+  const feedInitializedRef = useRef(false);
+  const previousPersonalizedRef = useRef(personalized);
 
   useEffect(() => {
     currentTopicId.current = feedTopics[topicIndex]?.id ?? null;
@@ -412,24 +414,47 @@ export function TopicFeedCore({
 
   useEffect(() => {
     // Signed-out users get the existing shuffled feed; personalized server
-    // ranking is preserved for signed-in users and starts at its top result.
+    // ranking is preserved for signed-in users and starts at their top result.
     const shuffled = personalized ? topics : shuffle(topics);
-    const nextFeedTopics = appendUniqueFeedTopics([], shuffled);
-    const previousIndex = preservePositionOnUpdate
-      ? nextFeedTopics.findIndex((topic) => topic.id === currentTopicId.current)
-      : -1;
-    generationRef.current += 1;
-    loadingRef.current = false;
+    const sourceChanged = previousPersonalizedRef.current !== personalized;
 
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setFeedTopics(nextFeedTopics);
+    if (preservePositionOnUpdate && feedInitializedRef.current) {
+      // Native catalogue updates and online/offline fallback may replace the
+      // incoming first page. Merge only new IDs so the active session's loaded
+      // history and ordering remain intact.
+      const nextFeedTopics = appendUniqueFeedTopics(feedTopics, shuffled);
+      const preservedIndex = nextFeedTopics.findIndex(
+        (topic) => topic.id === currentTopicId.current
+      );
+      setFeedTopics(nextFeedTopics);
+      if (preservedIndex >= 0) {
+        setTopicIndex(preservedIndex);
+      } else {
+        setTopicIndex((current) => Math.min(current, Math.max(0, nextFeedTopics.length - 1)));
+      }
 
-    setTopicIndex(
-      previousIndex >= 0 ? previousIndex : personalized ? 0 : Math.floor(nextFeedTopics.length / 2)
-    );
-    setNextCursor(initialCursor);
-    setLoadingMore(false);
-    setLoadError('');
+      if (sourceChanged) {
+        // A source switch invalidates the old pagination cursor, but does not
+        // invalidate topics the user has already seen in this feed session.
+        generationRef.current += 1;
+        loadingRef.current = false;
+        setNextCursor(initialCursor);
+        setLoadingMore(false);
+        setLoadError('');
+      }
+    } else {
+      const nextFeedTopics = appendUniqueFeedTopics([], shuffled);
+      generationRef.current += 1;
+      loadingRef.current = false;
+      setFeedTopics(nextFeedTopics);
+      setTopicIndex(personalized ? 0 : Math.floor(nextFeedTopics.length / 2));
+      setNextCursor(initialCursor);
+      setLoadingMore(false);
+      setLoadError('');
+    }
+
+    feedInitializedRef.current = true;
+    previousPersonalizedRef.current = personalized;
   }, [topics, initialCursor, personalized, preservePositionOnUpdate]);
 
   const loadMoreTopics = useCallback(async () => {
