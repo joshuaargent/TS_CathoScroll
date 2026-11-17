@@ -732,6 +732,7 @@ export function TopicFeedCore({
 
   const handleTopCommentNext = (): boolean => {
     if (sponsorLoadingRef.current) return false;
+    setTopicsSinceTopCommentCard(0);
     const currentTopic = feedTopics[topicIndex];
     if (feedQueueWindow.next?.type === 'sponsor') {
       pendingSponsorAfterComment.current = false;
