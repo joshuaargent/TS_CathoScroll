@@ -859,11 +859,13 @@ function App() {
   const [noteCache, setNoteCache] = useState<NativeNoteCache | null>(null);
   const [href, setHref] = useState(currentHref);
   const route = parseRoute(href);
+  const feedSnapshotMatchesUser = feedSnapshotUserId === (user?.id ?? null);
   const [error, setError] = useState('');
   const [authStatus, setAuthStatus] = useState<'loading' | 'ready' | 'unavailable'>('loading');
   const [checkingAccount, setCheckingAccount] = useState(true);
   const [user, setUser] = useState<CachedIdentity | null>(null);
   const feedUserIdRef = useRef<string | null>(null);
+  const [feedSnapshotUserId, setFeedSnapshotUserId] = useState<string | null>(null);
   const [activity, setActivity] = useState<NativeActivity | null>(null);
   const [activityStatus, setActivityStatus] = useState<NativeActivityStatus | null>(null);
   const [activityVersion, setActivityVersion] = useState(0);
@@ -883,6 +885,7 @@ function App() {
     const nextFeedUserId = user?.id ?? null;
     if (feedUserIdRef.current !== nextFeedUserId) {
       feedUserIdRef.current = nextFeedUserId;
+      setFeedSnapshotUserId(nextFeedUserId);
       setFirstPage(null);
     }
     const localCatalogue = catalogue;
@@ -1451,10 +1454,10 @@ function App() {
                 (!catalogue || !commentCache || !noteCache) && (
                   <NativeArticleSkeleton />
                 )}
-              {firstPage && !firstPage.topics.length && (
+              {feedSnapshotMatchesUser && firstPage && !firstPage.topics.length && (
                 <p className="px-6">No topics available.</p>
               )}
-              {firstPage && firstPage.topics.length > 0 && (
+              {feedSnapshotMatchesUser && firstPage && firstPage.topics.length > 0 && (
                 <div
                   className="h-[calc(100vh-4rem)] overflow-hidden"
                   hidden={route?.kind !== 'feed'}
