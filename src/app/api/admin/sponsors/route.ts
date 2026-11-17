@@ -110,7 +110,6 @@ export async function POST(request: Request) {
   const sponsorName = optionalText(body.sponsorName, 120);
   const contactEmail = optionalText(body.contactEmail, 254);
   const websiteUrl = optionalText(body.websiteUrl, 2048);
-  const logoUrl = optionalText(body.logoUrl, 2048);
   const description = optionalText(body.description, 500);
   const startsOn = validDate(body.startsOn);
   const endsOn = validDate(body.endsOn);
@@ -128,8 +127,6 @@ export async function POST(request: Request) {
     (contactEmail !== null && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail)) ||
     websiteUrl === undefined ||
     !validHttpsUrl(websiteUrl) ||
-    logoUrl === undefined ||
-    !validHttpsUrl(logoUrl) ||
     description === undefined ||
     startsOn === undefined ||
     endsOn === undefined ||
@@ -167,7 +164,6 @@ export async function POST(request: Request) {
       p_sponsor_name: sponsorName,
       p_contact_email: contactEmail,
       p_website_url: websiteUrl,
-      p_logo_url: logoUrl,
       p_description: description ?? '',
       p_starts_on: startsOn,
       p_ends_on: endsOn,
