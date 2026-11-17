@@ -500,8 +500,8 @@ function NativeTopicPage({
   showComments,
 }: {
   catalogue: OfflineCatalogue;
-  cache: OfflineCommentCache;
-  noteCache: NativeNoteCache;
+  cache: OfflineCommentCache | null;
+  noteCache: NativeNoteCache | null;
   userId: string | null;
   activity: NativeActivity | null;
   activityStatus: NativeActivityStatus | null;
@@ -584,13 +584,24 @@ function NativeTopicPage({
             version={activityVersion}
           />
           <TopicArticle topic={topic} />
-          <NativeNotes
-            key={`${userId ?? 'anonymous'}:${topic.id}`}
-            userId={userId}
+          {noteCache ? (
+            <NativeNotes
+              key={`${userId ?? 'anonymous'}:${topic.id}`}
+              userId={userId}
+              topicId={String(topic.id)}
+              cache={noteCache}
+            />
+          ) : (
+            <p className="text-text-secondary mb-16 text-sm">
+              Offline notes are unavailable on this device. Online topic reading is unaffected.
+            </p>
+          )}
+          <CommentSection
             topicId={String(topic.id)}
-            cache={noteCache}
+            cache={cache ?? undefined}
+            serverActionsAvailable
+            supabaseClient={createClient()}
           />
-          <CommentSection topicId={String(topic.id)} cache={cache} serverActionsAvailable supabaseClient={createClient()} />
         </>
       )}
     </div>
@@ -921,6 +932,7 @@ function App() {
         } catch (offlineCause) {
           console.error('Unable to load the saved topic feed:', offlineCause);
           if (active) {
+            setFeedLoadError('The topic feed could not be loaded. Check your connection or retry.');
             notifyNativeStatus('The topic feed could not be loaded. Please retry.', {
               id: 'feed-online',
               action: { label: 'Retry', onClick: () => setFeedAttempt((value) => value + 1) },
@@ -1560,7 +1572,7 @@ function App() {
                   slug={route.slug}
                 />
               )}
-              {catalogue && commentCache && noteCache && route?.kind === 'topic' && (
+              {catalogue && route?.kind === 'topic' && (
                 <NativeTopicPage
                   key={`${route.slug}-${catalogueVersion}`}
                   catalogue={catalogue}
