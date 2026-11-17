@@ -421,6 +421,7 @@ export function TopicFeedCore({
         if (sponsorRequestVersion.current !== requestVersion ||
             sponsorSessionUserId.current !== requestedUserId) return;
         if (result.campaigns.length > 0 && result.sessionId) {
+          sponsorPreviousIsComment.current = false;
           setSponsorCampaigns(result.campaigns);
           setActiveSponsorSessionId(result.sessionId);
           sponsorCardsByTopicId.current.set(currentTopic.id, {
@@ -504,6 +505,9 @@ export function TopicFeedCore({
       ? sponsorCardsByTopicId.current.get(previousTopicId)
       : undefined;
     if (previousSponsorCard?.campaigns.length) {
+      sponsorPreviousIsComment.current = Boolean(
+        topCommentCardsByTopicId.current.get(previousTopicId ?? '')?.length
+      );
       setSponsorCampaigns(previousSponsorCard.campaigns);
       setActiveSponsorSessionId(previousSponsorCard.sessionId);
       setShowTopCommentCard(false);
