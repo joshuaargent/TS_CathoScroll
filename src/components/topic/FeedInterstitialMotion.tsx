@@ -70,7 +70,7 @@ export function FeedInterstitialMotion({
         ease: 'easeOut',
       });
 
-      let navigation: void | Promise<void>;
+      let navigation: void | Promise<void> = undefined;
       flushSync(() => {
         if (direction === 'left') onSwipeLeft();
         else if (direction === 'right') onSwipeRight();
