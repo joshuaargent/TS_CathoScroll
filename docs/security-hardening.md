@@ -3,7 +3,7 @@
 **Updated:** 16 November 2026  
 **Scope:** Website, API, Supabase database, moderation and native administrator access.
 
-This is an operational reference, not an executable SQL script. Applied schema changes are recorded in `supabase/migrations/`; `docs/cathoscroll-database-bootstrap.sql` is the canonical fresh-project snapshot.
+This is an operational reference, not an executable SQL script. The repository intentionally contains no Supabase migration files. `docs/cathoscroll-database-bootstrap.sql` is the single canonical SQL source for rebuilding the complete CathoScroll application schema on a fresh Supabase project.
 
 ## Database security
 
