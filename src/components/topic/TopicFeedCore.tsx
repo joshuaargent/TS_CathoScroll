@@ -85,7 +85,9 @@ export function TopicFeedCore({
   const [topCommentsNextOffset, setTopCommentsNextOffset] = useState<number | null>(null);
   const [topCommentInventoryVersion, setTopCommentInventoryVersion] = useState(0);
   const topCommentsPageLoading = useRef(false);
-  const [topCommentCardComments, setTopCommentCardComments] = useState<TopFeedComment[]>([]);
+  const [feedQueueRevision, setFeedQueueRevision] = useState(0);
+  const [feedSessionUserId, setFeedSessionUserId] = useState(userId);
+  const bumpFeedQueueRevision = () => setFeedQueueRevision((revision) => revision + 1);
   const [showTopCommentCard, setShowTopCommentCard] = useState(false);
   const seenTopCommentIds = useRef(new Set<number>());
   const seenTopCommentUserId = useRef(userId);
@@ -93,12 +95,10 @@ export function TopicFeedCore({
   const topCommentCardsByTopicId = useRef(new Map<string, TopFeedComment[]>());
   const [topicsSinceTopCommentCard, setTopicsSinceTopCommentCard] = useState(0);
   const topCommentCadenceAnchor = useRef<{ topicId: string; value: number } | null>(null);
-  const [sponsorCampaigns, setSponsorCampaigns] = useState<SponsorFeedCampaign[]>([]);
   const [showSponsorCard, setShowSponsorCard] = useState(false);
   const [topicsSinceSponsorCard, setTopicsSinceSponsorCard] = useState(0);
   const sponsorCadenceAnchor = useRef<{ topicId: string; value: number } | null>(null);
   const sponsorCardsByTopicId = useRef(new Map<string, { campaigns: SponsorFeedCampaign[]; sessionId: string }>());
-  const [activeSponsorSessionId, setActiveSponsorSessionId] = useState<string | null>(null);
   const sponsorSessionUserId = useRef(userId);
   const sponsorLoadingRef = useRef(false);
   const sponsorRequestVersion = useRef(0);
@@ -126,12 +126,13 @@ export function TopicFeedCore({
     topCommentCardsByTopicId.current,
     sponsorCardsByTopicId.current
   );
-  const activeFeedQueueType =
-    showSponsorCard && sponsorSessionUserId.current === userId
+  const activeFeedQueueType = feedSessionUserId === userId
+    ? showSponsorCard
       ? 'sponsor'
-      : showTopCommentCard && seenTopCommentUserId.current === userId
+      : showTopCommentCard
         ? 'top-comments'
-        : 'topic';
+        : 'topic'
+    : 'topic';
   const activeFeedQueueIndex = findFeedQueueEntryIndex(feedQueue, topicIndex, activeFeedQueueType);
   const feedQueueWindow = getFeedQueueWindow(feedQueue, activeFeedQueueIndex);
 
@@ -139,11 +140,12 @@ export function TopicFeedCore({
   useEffect(() => {
     if (seenTopCommentUserId.current === userId) return;
     seenTopCommentUserId.current = userId;
+    setFeedSessionUserId(userId);
     topCommentCadenceUserId.current = userId;
     topCommentCadenceAnchor.current = null;
     seenTopCommentIds.current.clear();
     topCommentCardsByTopicId.current.clear();
-    setTopCommentCardComments([]);
+    bumpFeedQueueRevision();
     setShowTopCommentCard(false);
     setTopicsSinceTopCommentCard(0);
   }, [userId]);
@@ -153,12 +155,10 @@ export function TopicFeedCore({
     sponsorSessionUserId.current = userId;
     sponsorPrefetchRef.current = null;
     sponsorCadenceAnchor.current = null;
-    setActiveSponsorSessionId(null);
     sponsorCardsByTopicId.current.clear();
     sponsorRequestVersion.current += 1;
     sponsorLoadingRef.current = false;
     pendingSponsorAfterComment.current = false;
-    setSponsorCampaigns([]);
     setShowSponsorCard(false);
     setTopicsSinceSponsorCard(0);
     setTopicsSinceTopCommentCard(0);
@@ -212,12 +212,11 @@ export function TopicFeedCore({
         sponsorSessionUserId.current !== userId
       ) return;
       if (result.campaigns.length > 0 && result.sessionId) {
-        setSponsorCampaigns(result.campaigns);
-        setActiveSponsorSessionId(result.sessionId);
         sponsorCardsByTopicId.current.set(topic.id, {
           campaigns: result.campaigns,
           sessionId: result.sessionId,
         });
+        bumpFeedQueueRevision();
       } else if (sponsorPrefetchRef.current?.promise === promise) {
         // Retry at the due boundary in case eligibility changes after prefetch.
         sponsorPrefetchRef.current = null;
@@ -255,8 +254,8 @@ export function TopicFeedCore({
 
           if (comments.length === 0) {
             setShowTopCommentCard(false);
-            setTopCommentCardComments([]);
             topCommentCardsByTopicId.current.clear();
+            bumpFeedQueueRevision();
           }
         }
         return true;
@@ -400,15 +399,13 @@ export function TopicFeedCore({
       return;
     }
     if (entry.type === 'top-comments') {
-      setTopCommentCardComments(entry.comments);
       setShowSponsorCard(false);
       setShowTopCommentCard(true);
       return;
     }
     setTopicsSinceSponsorCard(0);
     pendingSponsorAfterComment.current = false;
-    setSponsorCampaigns(entry.campaigns);
-    setActiveSponsorSessionId(entry.sessionId);
+    bumpFeedQueueRevision();
     setShowTopCommentCard(false);
     setShowSponsorCard(true);
   };
@@ -443,8 +440,8 @@ export function TopicFeedCore({
 
     if (sponsorSessionUserId.current !== userId) {
       sponsorSessionUserId.current = userId;
-      setActiveSponsorSessionId(null);
       sponsorCardsByTopicId.current.clear();
+      bumpFeedQueueRevision();
       currentSponsorCadence = 0;
     }
 
@@ -521,12 +518,11 @@ export function TopicFeedCore({
         if (sponsorRequestVersion.current !== requestVersion ||
             sponsorSessionUserId.current !== requestedUserId) return;
         if (result.campaigns.length > 0 && result.sessionId) {
-          setSponsorCampaigns(result.campaigns);
-          setActiveSponsorSessionId(result.sessionId);
           sponsorCardsByTopicId.current.set(currentTopic.id, {
             campaigns: result.campaigns,
             sessionId: result.sessionId,
           });
+          bumpFeedQueueRevision();
           setShowTopCommentCard(false);
           setShowSponsorCard(true);
           return;
@@ -536,8 +532,8 @@ export function TopicFeedCore({
           setTopicsSinceTopCommentCard(0);
           const nextTopCommentGroup = unseenTopComments.slice(0, 5);
           nextTopCommentGroup.forEach((comment) => seenTopCommentIds.current.add(comment.comment_id));
-          setTopCommentCardComments(nextTopCommentGroup);
           topCommentCardsByTopicId.current.set(currentTopic.id, nextTopCommentGroup);
+          bumpFeedQueueRevision();
           setShowSponsorCard(false);
           setShowTopCommentCard(true);
           return;
@@ -561,8 +557,8 @@ export function TopicFeedCore({
       if (currentTopic) {
         const nextTopCommentGroup = unseenTopComments.slice(0, 5);
         nextTopCommentGroup.forEach((comment) => seenTopCommentIds.current.add(comment.comment_id));
-        setTopCommentCardComments(nextTopCommentGroup);
         topCommentCardsByTopicId.current.set(currentTopic.id, nextTopCommentGroup);
+        bumpFeedQueueRevision();
         setShowSponsorCard(false);
         setShowTopCommentCard(true);
         return;
@@ -609,8 +605,7 @@ export function TopicFeedCore({
       ? sponsorCardsByTopicId.current.get(previousTopicId)
       : undefined;
     if (previousSponsorCard?.campaigns.length) {
-      setSponsorCampaigns(previousSponsorCard.campaigns);
-      setActiveSponsorSessionId(previousSponsorCard.sessionId);
+      bumpFeedQueueRevision();
       setShowTopCommentCard(false);
       setShowSponsorCard(true);
       return;
@@ -621,7 +616,7 @@ export function TopicFeedCore({
       : undefined;
 
     if (previousCard?.length) {
-      setTopCommentCardComments(previousCard);
+      bumpFeedQueueRevision();
       setShowTopCommentCard(true);
       return;
     }
@@ -688,12 +683,11 @@ export function TopicFeedCore({
       ) return;
       setTopicsSinceSponsorCard(0);
       if (result.campaigns.length > 0 && result.sessionId) {
-        setSponsorCampaigns(result.campaigns);
-        setActiveSponsorSessionId(result.sessionId);
         sponsorCardsByTopicId.current.set(currentTopic.id, {
           campaigns: result.campaigns,
           sessionId: result.sessionId,
         });
+        bumpFeedQueueRevision();
         setShowTopCommentCard(false);
         setShowSponsorCard(true);
         return;
@@ -767,7 +761,7 @@ export function TopicFeedCore({
   }
 
   return (
-    <div className="h-full">
+    <div className="h-full" data-feed-queue-revision={feedQueueRevision}>
       {(loadingMore || loadError) && (
         <div className="bg-bg-primary/90 absolute top-20 left-1/2 z-20 -translate-x-1/2 rounded-full px-4 py-2 text-sm shadow">
           {loadError ? (
