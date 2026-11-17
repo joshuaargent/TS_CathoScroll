@@ -31,3 +31,15 @@ test('optional offline caches cannot prevent the live native feed from opening',
   assert.ok(nativeMain.includes('if (!navigation) throw new Error'));
   assert.ok(nativeMain.includes('if (countCache) {'));
 });
+
+test('native topic pages remain readable when optional comment or note caches fail', () => {
+  assert.ok(nativeMain.includes("{catalogue && route?.kind === 'topic' && ("));
+  assert.ok(nativeMain.includes('cache: OfflineCommentCache | null;'));
+  assert.ok(nativeMain.includes('noteCache: NativeNoteCache | null;'));
+  assert.ok(nativeMain.includes('cache={cache ?? undefined}'));
+  assert.ok(nativeMain.includes('Offline notes are unavailable on this device.'));
+});
+
+test('native feed shows a retry state when both live and saved feed loading fail', () => {
+  assert.ok(nativeMain.includes("setFeedLoadError('The topic feed could not be loaded. Check your connection or retry.')"));
+});
