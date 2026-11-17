@@ -504,6 +504,7 @@ export function TopicFeedCore({
         <TopCommentFeedCard
           key={userId ?? 'anonymous'}
           comments={activeTopCommentCardComments}
+          userId={userId}
           onCommentViewed={markTopCommentViewed}
           onNextTopic={() => {
             if (sponsorLoadingRef.current) return;
