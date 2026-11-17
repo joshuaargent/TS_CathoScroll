@@ -147,6 +147,10 @@ export function TopCommentFeedCard({
   const activeCommentId = comment?.comment_id;
 
   useEffect(() => {
+    if (active) navigationStarted.current = false;
+  }, [active, comments]);
+
+  useEffect(() => {
     if (activeCommentId !== undefined) onCommentViewed(activeCommentId);
   }, [activeCommentId, onCommentViewed]);
 
