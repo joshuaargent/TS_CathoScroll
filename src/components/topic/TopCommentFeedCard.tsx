@@ -167,6 +167,12 @@ export function TopCommentFeedCard({
     onPreviousTopic();
   };
 
+  const commentContentClasses = comment.content.length > 360
+    ? 'text-lg md:text-xl'
+    : comment.content.length > 180
+      ? 'text-xl md:text-2xl'
+      : 'text-2xl md:text-4xl';
+
   const showPreviousComment = () => setActiveIndex((index) => Math.max(0, index - 1));
   const showNextComment = () => setActiveIndex((index) => Math.min(comments.length - 1, index + 1));
 
@@ -279,7 +285,7 @@ export function TopCommentFeedCard({
               Pinned comment
             </div>
           )}
-          <p className="text-text-primary text-2xl leading-tight font-semibold md:text-4xl">
+          <p className={cn('text-text-primary leading-tight font-semibold', commentContentClasses)}>
             {comment.content}
             {comment.content_truncated ? '…' : ''}
           </p>
