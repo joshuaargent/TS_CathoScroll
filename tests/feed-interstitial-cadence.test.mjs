@@ -173,6 +173,11 @@ test('the ordered feed queue keeps topic, comments and sponsor entries in cadenc
   assert.equal(window.previous?.type, 'topic');
   assert.equal(window.current?.type, 'top-comments');
   assert.equal(window.next?.type, 'sponsor');
+  const sponsorWindow = feedQueue.getFeedQueueWindow(queue, 2);
+  assert.equal(sponsorWindow.current?.type, 'sponsor');
+  assert.equal(sponsorWindow.previous?.type, 'top-comments');
+  const topicWindow = feedQueue.getFeedQueueWindow(queue, 3);
+  assert.equal(topicWindow.previous?.type, 'sponsor');
   assert.match(feedCore, /buildFeedQueue/);
   assert.match(feedCore, /getFeedQueueWindow/);
   assert.match(feedCore, /navigateToPreviousQueueEntry/);
@@ -200,7 +205,13 @@ test('the ordered feed queue keeps topic, comments and sponsor entries in cadenc
   assert.match(feedCore, /const dueTopCommentPreviewEntry/);
   assert.match(feedCore, /unseenPreviewComments\.slice\(0, 5\)/);
   assert.match(interstitialMotion, /nextPreview\?: ReactNode/);
+  assert.match(interstitialMotion, /previousPreview\?: ReactNode/);
   assert.match(interstitialMotion, /top-\[100%\] h-full opacity-90/);
+  assert.match(interstitialMotion, /top-\[-100%\] h-full opacity-90/);
+  assert.match(feedCore, /previousEntryPreview=\{/);
+  assert.match(topCommentCard, /previousPreview=\{previousEntryPreview\}/);
+  assert.match(sponsorCard, /previousPreview=\{previousEntryPreview\}/);
+  assert.match(topicViewer, /previousEntryPreview=\{previousEntryPreview\}/);
   assert.match(feedCore, /sponsorPrefetchRef/);
   assert.match(feedCore, /SPONSOR_CARD_CADENCE - 1/);
   assert.match(feedCore, /prefetched\.promise/);
