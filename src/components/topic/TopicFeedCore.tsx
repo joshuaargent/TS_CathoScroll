@@ -601,7 +601,7 @@ export function TopicFeedCore({
             campaigns: result.campaigns,
             sessionId: result.sessionId,
           });
-            setShowTopCommentCard(false);
+        setShowTopCommentCard(false);
         setShowSponsorCard(true);
           return;
         }
