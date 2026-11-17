@@ -78,6 +78,7 @@ test('native network changes do not reload the first feed page and account chang
   assert.match(nativeMain, /key=\{user\?\.id \?\? 'signed-out'\}/);
   assert.match(nativeMain, /if \(feedUserIdRef\.current !== nextFeedUserId\)[\s\S]*?setFirstPage\(null\)/);
   assert.match(nativeMain, /feedSnapshotUserId === \(user\?\.id \?\? null\)/);
+  assert.equal(nativeMain.split('preservePositionOnUpdate').length - 1, 1);
   assert.match(nativeMain, /\[catalogue, feedPersonalized\]/);
   assert.match(feedCore, /feedInitializedRef/);
   assert.match(feedCore, /appendUniqueFeedTopics\(feedTopicsRef\.current, shuffled\)/);
