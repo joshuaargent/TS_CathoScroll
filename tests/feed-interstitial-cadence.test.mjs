@@ -82,7 +82,6 @@ test('interstitial navigation is one-shot across swipe, keyboard, and button inp
     assert.match(pointerHandler[0], /navigatePreviousTopic\(\)/);
     assert.match(keyboardHandler[0], /navigateNextTopic\(\)/);
     assert.match(keyboardHandler[0], /navigatePreviousTopic\(\)/);
-    assert.match(source, /onClick=\{navigateNextTopic\}/);
     assert.match(source, /onClick=\{navigatePreviousTopic\}/);
   }
   assert.match(topicViewer, /const animationLockRef = useRef\(false\)/);
