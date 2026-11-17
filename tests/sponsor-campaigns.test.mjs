@@ -53,6 +53,10 @@ test('weighted campaign selector enforces payment, dates, targeting, caps and co
   assert.match(selector, /pg_advisory_xact_lock/);
   assert.match(selector, /FOR UPDATE OF campaign SKIP LOCKED/);
   assert.match(selector, /campaign\.placement_weight/);
+  assert.match(selector, /daily\.viewable_impressions/);
+  assert.match(selector, /daily\.event_date >= v_today - 29/);
+  assert.match(selector, /viewable_impressions[\\s\\S]*placement_weight::numeric ASC/);
+  assert.doesNotMatch(selector, /ORDER BY -pg_catalog\.ln\\(greatest\\(pg_catalog\.random/);
 });
 
 test('sponsor event recording requires a served and viewable placement', () => {
