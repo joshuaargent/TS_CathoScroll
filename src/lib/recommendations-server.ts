@@ -9,10 +9,11 @@ export async function getRecommendationPage(
   supabase: Awaited<ReturnType<typeof createClient>>,
   cursor: unknown = null
 ): Promise<RecommendationPage> {
-  const { data, error } = await supabase.rpc('get_my_recommendation_page', {
-    feed_cursor: cursor,
+  const rpcArgs = {
+    ...(cursor == null ? {} : { feed_cursor: cursor }),
     page_limit: 50,
-  });
+  };
+  const { data, error } = await supabase.rpc('get_my_recommendation_page', rpcArgs);
 
   if (error) {
     throw new Error(`Unable to load recommendations: ${error.message}`, { cause: error });
