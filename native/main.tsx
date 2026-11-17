@@ -584,18 +584,12 @@ function NativeTopicPage({
             version={activityVersion}
           />
           <TopicArticle topic={topic} />
-          {noteCache ? (
-            <NativeNotes
-              key={`${userId ?? 'anonymous'}:${topic.id}`}
-              userId={userId}
-              topicId={String(topic.id)}
-              cache={noteCache}
-            />
-          ) : (
-            <p className="text-text-secondary mb-16 text-sm">
-              Offline notes are unavailable on this device. Online topic reading is unaffected.
-            </p>
-          )}
+          <NativeNotes
+            key={`${userId ?? 'anonymous'}:${topic.id}`}
+            userId={userId}
+            topicId={String(topic.id)}
+            cache={noteCache}
+          />
           <CommentSection
             topicId={String(topic.id)}
             cache={cache ?? undefined}
