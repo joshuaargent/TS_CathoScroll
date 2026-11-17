@@ -91,15 +91,15 @@ test('interstitial navigation is one-shot across swipe, keyboard, and button inp
   assert.match(topicViewer, /animationLockRef\.current = false/);
 });
 test('top comment card follows the topic-card layout and opens the comment in-place', () => {
-  assert.match(topicCard, /flex h-full w-full flex-col px-6 py-6 md:px-8 md:py-8/);
-  assert.match(topicCard, /bg-accent-light\\/5/);
-  assert.match(topCommentCard, /flex h-full min-h-0 w-full flex-col px-6 py-6 md:px-8 md:py-8/);
-  assert.match(topCommentCard, /safeIndex === 0 && 'bg-accent-light\\/5'/);
-  assert.match(topCommentCard, /<Heart/);
-  assert.match(topCommentCard, /<MessageCircle/);
-  assert.match(topCommentCard, /<DoorOpen/);
-  assert.match(topCommentCard, /onDoubleClick=\\{/);
-  assert.match(topCommentCard, /href=\\{\`\\/profile\\//);
-  assert.doesNotMatch(topCommentCard, /Open discussion/);
-  assert.doesNotMatch(topCommentCard, /<Button/);
+  assert.ok(topicCard.includes('flex h-full w-full flex-col px-6 py-6 md:px-8 md:py-8'));
+  assert.ok(topicCard.includes('bg-accent-light/5'));
+  assert.ok(topCommentCard.includes('flex h-full min-h-0 w-full flex-col px-6 py-6 md:px-8 md:py-8'));
+  assert.ok(topCommentCard.includes("safeIndex === 0 && 'bg-accent-light/5'"));
+  assert.ok(topCommentCard.includes('<Heart'));
+  assert.ok(topCommentCard.includes('<MessageCircle'));
+  assert.ok(topCommentCard.includes('<DoorOpen'));
+  assert.ok(topCommentCard.includes('onDoubleClick={'));
+  assert.ok(topCommentCard.includes('encodeURIComponent(comment.author_username)'));
+  assert.ok(!topCommentCard.includes('Open discussion'));
+  assert.ok(!topCommentCard.includes('<Button'));
 });
