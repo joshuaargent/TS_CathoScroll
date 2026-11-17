@@ -50,7 +50,7 @@ export function TopCommentFeedCard({
     setLikeError('');
     setLikePending(false);
     const requestVersion = ++likeRequestVersion.current;
-    if (!comment || !userId) return;
+    if (!comment || !userId || previewMode) return;
 
     let cancelled = false;
     void createClient()
@@ -71,14 +71,14 @@ export function TopCommentFeedCard({
     return () => {
       cancelled = true;
     };
-  }, [comment?.comment_id, comment?.like_count, userId]);
+  }, [comment?.comment_id, comment?.like_count, previewMode, userId]);
 
   if (!comment) return null;
 
   const openComment = () => onOpenComment(comment);
 
   const toggleLike = async () => {
-    if (likePending) return;
+    if (likePending || previewMode) return;
     if (!userId) {
       requestSignIn('like comments');
       return;
@@ -221,7 +221,7 @@ export function TopCommentFeedCard({
               onPointerDown={(event) => event.stopPropagation()}
               onTouchStart={(event) => event.stopPropagation()}
               onClick={() => void toggleLike()}
-              disabled={likePending}
+              disabled={likePending || previewMode}
               aria-label={isLiked ? 'Unlike comment' : 'Like comment'}
               aria-pressed={isLiked}
               className={cn(
