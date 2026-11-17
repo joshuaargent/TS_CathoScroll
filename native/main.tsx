@@ -1593,6 +1593,7 @@ class NativeErrorBoundary extends Component<
         <div className="bg-background text-text-primary flex min-h-screen flex-col items-center justify-center gap-4 px-6 text-center">
           <h1 className="text-xl font-semibold">CathoScroll encountered an error</h1>
           <p className="text-text-secondary max-w-xl text-sm">The app could not display this screen. Restart the app to try again.</p>
+          <p className="text-text-muted max-w-xl break-words text-xs" role="status">Diagnostic: {this.state.error.message.slice(0, 240) || this.state.error.name}</p>
           <button type="button" className="bg-accent rounded-lg px-5 py-3 text-sm font-semibold text-white" onClick={() => window.location.reload()}>
             Restart app
           </button>
