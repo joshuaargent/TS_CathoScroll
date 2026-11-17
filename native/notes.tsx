@@ -36,7 +36,7 @@ export function NativeNotes({
 }: {
   userId: string | null;
   topicId: string;
-  cache: NativeNoteCache;
+  cache: NativeNoteCache | null;
 }) {
   const [state, setState] = useState<NoteState | null>(null);
   const [attempt, setAttempt] = useState(0);
@@ -188,13 +188,17 @@ export function NativeNotes({
       if (!isCurrent()) return;
       dirty.current = draft.current !== savedContent;
       setMessageState({ ...target, value: 'Saved successfully.' });
-      try {
-        await cache.save(target.userId, target.topicId, savedContent);
-      } catch (error) {
-        console.error('Unable to save note for offline viewing:', error);
-        if (isCurrent()) {
-          setMessageState({ ...target, value: 'Saved online, but this note could not be saved for offline viewing.' });
+      if (cache) {
+        try {
+          await cache.save(target.userId, target.topicId, savedContent);
+        } catch (error) {
+          console.error('Unable to save note for offline viewing:', error);
+          if (isCurrent()) {
+            setMessageState({ ...target, value: 'Saved online, but this note could not be saved for offline viewing.' });
+          }
         }
+      } else if (isCurrent()) {
+        setMessageState({ ...target, value: 'Saved online. Offline note storage is unavailable on this device.' });
       }
     } catch (error) {
       console.error('Unable to save note:', error);
