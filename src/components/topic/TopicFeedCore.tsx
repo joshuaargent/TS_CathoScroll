@@ -167,6 +167,25 @@ export function TopicFeedCore({
     : 'topic';
   const activeFeedQueueIndex = findFeedQueueEntryIndex(feedQueue, topicIndex, activeFeedQueueType);
   const feedQueueWindow = getFeedQueueWindow(feedQueue, activeFeedQueueIndex);
+  const activeTopicForPreview = feedTopics[topicIndex];
+  const unseenPreviewComments = getUnseenTopFeedComments(topComments, seenTopCommentIds.current);
+  const dueTopCommentPreviewEntry =
+    feedQueueWindow.current?.type === 'topic' &&
+    feedSessionUserId === userId &&
+    activeTopicForPreview &&
+    !topCommentCardsByTopicId.has(activeTopicForPreview.id) &&
+    topicsSinceTopCommentCard === TOP_COMMENT_CADENCE - 1 &&
+    unseenPreviewComments.length > 0 &&
+    (unseenPreviewComments.length >= 5 || topCommentsNextOffset === null)
+      ? {
+          type: 'top-comments' as const,
+          id: `comments:${activeTopicForPreview.id}`,
+          topicId: activeTopicForPreview.id,
+          topicIndex,
+          comments: unseenPreviewComments.slice(0, 5),
+        }
+      : null;
+  const nextQueueEntryForPreview = dueTopCommentPreviewEntry ?? feedQueueWindow.next;
 
 
   useEffect(() => {
@@ -802,8 +821,8 @@ export function TopicFeedCore({
           onNextTopic={nextTopic}
           onPreviousTopic={previousTopic}
           nextEntryPreview={
-            active && feedQueueWindow.next && feedQueueWindow.next.type !== 'topic'
-              ? renderFeedQueueEntry(feedQueueWindow.next, false)
+            active && nextQueueEntryForPreview && nextQueueEntryForPreview.type !== 'topic'
+              ? renderFeedQueueEntry(nextQueueEntryForPreview, false)
               : undefined
           }
         />
@@ -841,8 +860,8 @@ export function TopicFeedCore({
         onNextTopic={() => handleSponsorNext(entry.topicId)}
         onPreviousTopic={navigateToPreviousQueueEntry}
         nextEntryPreview={
-          active && feedQueueWindow.next && feedQueueWindow.next.type !== 'topic'
-            ? renderFeedQueueEntry(feedQueueWindow.next, false)
+          active && nextQueueEntryForPreview && nextQueueEntryForPreview.type !== 'topic'
+            ? renderFeedQueueEntry(nextQueueEntryForPreview, false)
             : undefined
         }
       />
