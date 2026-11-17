@@ -164,50 +164,67 @@ export function TopicFeedCore({
 
   useEffect(() => {
     let cancelled = false;
+    let requestInFlight: Promise<void> | null = null;
+    let lastAttemptAt = 0;
+    const refreshCooldownMs = 30_000;
 
-    const loadTopComments = async () => {
-      try {
-        const response = await fetch(topCommentsEndpoint ?? '/api/content/top-comments', {
-          cache: 'default',
-          credentials: topCommentsEndpoint ? 'omit' : 'same-origin',
-        });
-        if (!response.ok) return;
+    const loadTopComments = (): Promise<void> => {
+      // Coalesce startup, reconnect and foreground events into one request.
+      if (requestInFlight) return requestInFlight;
+      // Foreground events can fire repeatedly while switching apps or tabs.
+      if (Date.now() - lastAttemptAt < refreshCooldownMs) return Promise.resolve();
 
-        const payload: unknown = await response.json();
-        if (!cancelled) {
-          const comments = parseTopFeedComments(payload);
-          const commentsById = new Map(
-            comments.map((comment) => [comment.comment_id, comment] as const)
-          );
-          const reconcileComments = (items: TopFeedComment[]) =>
-            items.flatMap((item) => {
-              const currentComment = commentsById.get(item.comment_id);
-              return currentComment ? [currentComment] : [];
-            });
+      lastAttemptAt = Date.now();
+      const request = (async () => {
+        try {
+          const response = await fetch(topCommentsEndpoint ?? '/api/content/top-comments', {
+            cache: 'default',
+            credentials: topCommentsEndpoint ? 'omit' : 'same-origin',
+          });
+          if (!response.ok) return;
 
-          setTopComments(comments);
-          setTopCommentCardComments((current) => reconcileComments(current));
+          const payload: unknown = await response.json();
+          if (!cancelled) {
+            const comments = parseTopFeedComments(payload);
+            const commentsById = new Map(
+              comments.map((comment) => [comment.comment_id, comment] as const)
+            );
+            const reconcileComments = (items: TopFeedComment[]) =>
+              items.flatMap((item) => {
+                const currentComment = commentsById.get(item.comment_id);
+                return currentComment ? [currentComment] : [];
+              });
 
-          for (const [topicId, cardComments] of topCommentCardsByTopicId.current) {
-            const remainingComments = reconcileComments(cardComments);
+            setTopComments(comments);
+            setTopCommentCardComments((current) => reconcileComments(current));
 
-            if (remainingComments.length > 0) {
-              topCommentCardsByTopicId.current.set(topicId, remainingComments);
-            } else {
-              topCommentCardsByTopicId.current.delete(topicId);
+            for (const [topicId, cardComments] of topCommentCardsByTopicId.current) {
+              const remainingComments = reconcileComments(cardComments);
+
+              if (remainingComments.length > 0) {
+                topCommentCardsByTopicId.current.set(topicId, remainingComments);
+              } else {
+                topCommentCardsByTopicId.current.delete(topicId);
+              }
+            }
+
+            if (comments.length === 0) {
+              setShowTopCommentCard(false);
+              setTopCommentCardComments([]);
+              topCommentCardsByTopicId.current.clear();
             }
           }
-
-          if (comments.length === 0) {
-            setShowTopCommentCard(false);
-            setTopCommentCardComments([]);
-            topCommentCardsByTopicId.current.clear();
-          }
+        } catch {
+          // Top comments are optional feed inventory. A failed request must not
+          // interrupt topic navigation or display an empty interstitial.
         }
-      } catch {
-        // Top comments are optional feed inventory. A failed request must not
-        // interrupt topic navigation or display an empty interstitial.
-      }
+      })();
+
+      requestInFlight = request;
+      void request.then(() => {
+        if (requestInFlight === request) requestInFlight = null;
+      });
+      return request;
     };
 
     const refreshWhenVisible = () => {
