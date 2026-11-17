@@ -155,7 +155,6 @@ export function FeedInterstitialMotion({
 
     currentRef.current = { x: 0, y: 0 };
     axisRef.current = null;
-    setAxis(null);
   };
 
   useEffect(() => {
