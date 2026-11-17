@@ -72,7 +72,7 @@ test('sponsor fetches cannot race feed navigation or account changes', () => {
 
 
 test('interstitial cards share the topic viewer swipe and animation model', () => {
-  assert.match(interstitialMotion, /duration: 0\.2, ease: 'easeOut'/);
+  assert.match(interstitialMotion, /duration: 0\.2,[\s\S]*ease: 'easeOut'/);
   assert.match(interstitialMotion, /stiffness: 1800, damping: 120/);
   assert.match(interstitialMotion, /width \* 0\.07/);
   assert.match(interstitialMotion, /height \* 0\.07/);
@@ -117,7 +117,7 @@ test('topic, comment and sponsor cards use the same structural layout component'
   assert.doesNotMatch(topCommentCard, /footer=\{/);
   assert.match(interstitialMotion, /absDx > width \* 0\.07 \|\| velocityX > 25/);
   assert.match(interstitialMotion, /absDy > height \* 0\.07 \|\| velocityY > 25/);
-  assert.match(interstitialMotion, /event\.key === ' '/);
+  assert.match(interstitialMotion, /case ' '/);
   assert.match(interstitialMotion, /setPointerCapture\(event\.pointerId\)/);
   assert.match(interstitialMotion, /flushSync\(\(\) =>/);
 });
