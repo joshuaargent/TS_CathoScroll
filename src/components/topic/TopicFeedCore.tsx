@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState, type ComponentType, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from 'react';
 
 import { shuffle } from '@/lib/utils';
 import {
@@ -168,10 +168,9 @@ export function TopicFeedCore({
   useEffect(() => {
     feedTopicsRef.current = feedTopics;
   }, [feedTopics]);
-  const feedQueue = buildFeedQueue(
-    feedTopics,
-    topCommentCardsByTopicId,
-    sponsorCardsByTopicId
+  const feedQueue = useMemo(
+    () => buildFeedQueue(feedTopics, topCommentCardsByTopicId, sponsorCardsByTopicId),
+    [feedTopics, topCommentCardsByTopicId, sponsorCardsByTopicId]
   );
   const activeFeedQueueType = feedSessionUserId === userId
     ? showSponsorCard
@@ -180,26 +179,49 @@ export function TopicFeedCore({
         ? 'top-comments'
         : 'topic'
     : 'topic';
-  const activeFeedQueueIndex = findFeedQueueEntryIndex(feedQueue, topicIndex, activeFeedQueueType);
-  const feedQueueWindow = getFeedQueueWindow(feedQueue, activeFeedQueueIndex);
+  const activeFeedQueueIndex = useMemo(
+    () => findFeedQueueEntryIndex(feedQueue, topicIndex, activeFeedQueueType),
+    [feedQueue, topicIndex, activeFeedQueueType]
+  );
+  const feedQueueWindow = useMemo(
+    () => getFeedQueueWindow(feedQueue, activeFeedQueueIndex),
+    [feedQueue, activeFeedQueueIndex]
+  );
   const activeTopicForPreview = feedTopics[topicIndex];
-  const unseenPreviewComments = getUnseenTopFeedComments(topComments, seenTopCommentIdsForRender);
-  const dueTopCommentPreviewEntry =
-    feedQueueWindow.current?.type === 'topic' &&
-    feedSessionUserId === userId &&
-    activeTopicForPreview &&
-    !topCommentCardsByTopicId.has(activeTopicForPreview.id) &&
-    topicsSinceTopCommentCard === TOP_COMMENT_CADENCE - 1 &&
-    unseenPreviewComments.length > 0 &&
-    (unseenPreviewComments.length >= 5 || topCommentsNextOffset === null)
-      ? {
-          type: 'top-comments' as const,
-          id: `comments:${activeTopicForPreview.id}`,
-          topicId: activeTopicForPreview.id,
-          topicIndex,
-          comments: unseenPreviewComments.slice(0, 5),
-        }
-      : null;
+  const unseenPreviewComments = useMemo(
+    () => getUnseenTopFeedComments(topComments, seenTopCommentIdsForRender),
+    [topComments, seenTopCommentIdsForRender]
+  );
+  const dueTopCommentPreviewEntry = useMemo(
+    () => (
+      feedQueueWindow.current?.type === 'topic' &&
+      feedSessionUserId === userId &&
+      activeTopicForPreview &&
+      !topCommentCardsByTopicId.has(activeTopicForPreview.id) &&
+      topicsSinceTopCommentCard === TOP_COMMENT_CADENCE - 1 &&
+      unseenPreviewComments.length > 0 &&
+      (unseenPreviewComments.length >= 5 || topCommentsNextOffset === null)
+        ? {
+            type: 'top-comments' as const,
+            id: `comments:${activeTopicForPreview.id}`,
+            topicId: activeTopicForPreview.id,
+            topicIndex,
+            comments: unseenPreviewComments.slice(0, 5),
+          }
+        : null
+    ),
+    [
+      feedQueueWindow.current,
+      feedSessionUserId,
+      userId,
+      activeTopicForPreview,
+      topCommentCardsByTopicId,
+      topicsSinceTopCommentCard,
+      unseenPreviewComments,
+      topCommentsNextOffset,
+      topicIndex,
+    ]
+  );
   const nextQueueEntryForPreview = dueTopCommentPreviewEntry ?? feedQueueWindow.next;
 
 
