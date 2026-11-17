@@ -61,7 +61,7 @@ export function TopicCard({
 
   return (
     <TopicCardLayout
-      className={type === 'question' ? 'bg-accent-light/5' : undefined}
+      cardClassName={type === 'question' ? 'bg-accent-light/5' : undefined}
       contentWidthClassName={type === 'question' ? 'max-w-2xl' : 'max-w-3xl'}
       header={
         <>
