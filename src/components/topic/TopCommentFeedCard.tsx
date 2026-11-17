@@ -203,7 +203,7 @@ export function TopCommentFeedCard({
       aria-label="Top community comment"
     >
       <article
-        className="flex min-h-0 flex-1 flex-col"}
+        className="flex min-h-0 flex-1 flex-col"
         onDoubleClick={(event) => {
           if ((event.target as HTMLElement).closest('button, a')) return;
           openComment();
