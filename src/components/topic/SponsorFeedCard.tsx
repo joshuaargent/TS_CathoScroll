@@ -1,6 +1,5 @@
 'use client';
 
-import Image from 'next/image';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { DoorOpen, Share2 } from 'lucide-react';
 
@@ -191,32 +190,13 @@ export function SponsorFeedCard({
         progress={<TopicProgress current={safeIndex} total={campaigns.length} />}
         header={
           <>
-            <div className="flex min-w-0 items-center gap-3">
-              {campaign.sponsor_logo_url ? (
-                <Image
-                  src={campaign.sponsor_logo_url}
-                  alt=""
-                  width={40}
-                  height={40}
-                  unoptimized
-                  className="h-10 w-10 shrink-0 rounded-lg border border-border bg-bg-secondary object-contain"
-                />
-              ) : (
-                <div
-                  aria-hidden="true"
-                  className="bg-bg-secondary text-text-secondary flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-sm font-semibold"
-                >
-                  {campaign.sponsor_name.slice(0, 1).toUpperCase()}
-                </div>
-              )}
-              <div className="min-w-0">
-                <p className="text-text-primary truncate text-sm font-semibold">
-                  {campaign.sponsor_name}
-                </p>
-                <p className="text-text-muted text-xs tracking-wider uppercase">
-                  {campaign.disclosure || 'Sponsored'}
-                </p>
-              </div>
+            <div className="min-w-0">
+              <p className="text-text-muted truncate text-sm font-medium">
+                {campaign.sponsor_name}
+              </p>
+              <p className="text-text-muted text-xs tracking-wider uppercase">
+                {campaign.disclosure || 'Sponsored'}
+              </p>
             </div>
             <div className="flex shrink-0 items-center gap-1">
               <button
