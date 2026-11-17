@@ -96,7 +96,12 @@ export function findFeedQueueEntryIndex(
   topicIndex: number,
   type: FeedQueueEntry['type']
 ): number {
-  return queue.findIndex((entry) => entry.topicIndex === topicIndex && entry.type === type);
+  const exactIndex = queue.findIndex((entry) => entry.topicIndex === topicIndex && entry.type === type);
+  if (exactIndex >= 0) return exactIndex;
+
+  // An interstitial can disappear only when a session is being reset or its
+  // inventory was unavailable. Never let a stale display flag blank the feed.
+  return queue.findIndex((entry) => entry.topicIndex === topicIndex && entry.type === 'topic');
 }
 
 export function getFeedQueueWindow(
@@ -107,9 +112,12 @@ export function getFeedQueueWindow(
     return { previous: null, current: null, next: null };
   }
 
+  const previousIndex = (activeIndex - 1 + queue.length) % queue.length;
+  const nextIndex = (activeIndex + 1) % queue.length;
+
   return {
-    previous: activeIndex > 0 ? queue[activeIndex - 1] : null,
+    previous: queue[previousIndex],
     current: queue[activeIndex],
-    next: activeIndex + 1 < queue.length ? queue[activeIndex + 1] : null,
+    next: queue[nextIndex],
   };
 }
