@@ -71,6 +71,7 @@ export function TopicSwipeViewer({
   const lastTapRef = useRef(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const [isAnimating, setIsAnimating] = useState(false);
+  const animationLockRef = useRef(false);
   const [showHeart, setShowHeart] = useState(false);
   const currentTopic = topics[topicIndex];
   const currentTopicId = String(currentTopic.id);
@@ -245,8 +246,8 @@ export function TopicSwipeViewer({
   };
 
   const moveSlide = async (direction: 'next' | 'previous') => {
-    if (isAnimating) return;
-
+    if (animationLockRef.current) return;
+    animationLockRef.current = true;
     setIsAnimating(true);
 
     try {
@@ -273,12 +274,14 @@ export function TopicSwipeViewer({
 
       x.jump(0);
     } finally {
+      animationLockRef.current = false;
       setIsAnimating(false);
     }
   };
 
   const moveTopic = async (direction: 'next' | 'previous') => {
-    if (isAnimating) return;
+    if (animationLockRef.current) return;
+    animationLockRef.current = true;
 
     if (direction === 'next' && userId) {
       const activeElapsed = topicActiveSinceRef.current === null
@@ -315,6 +318,7 @@ export function TopicSwipeViewer({
 
       y.jump(0);
     } finally {
+      animationLockRef.current = false;
       setIsAnimating(false);
     }
   };
