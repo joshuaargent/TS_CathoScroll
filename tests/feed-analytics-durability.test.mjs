@@ -227,3 +227,10 @@ test('expired sponsor placements are discarded without blocking later queued eve
     else delete globalThis.document;
   }
 });
+
+test('Top Comments refresh uses the tested coordinator with an explicit reconnect retry', () => {
+  assert.ok(topicFeed.includes("import { createFeedRefreshCoordinator } from '@/lib/feed-refresh-coordinator'"));
+  assert.ok(topicFeed.includes('const refresh = createFeedRefreshCoordinator(async () => {'));
+  assert.ok(topicFeed.includes('const refreshWhenOnline = () => void refresh.reconnect()'));
+  assert.ok(topicFeed.includes('void refresh.request()'));
+});
