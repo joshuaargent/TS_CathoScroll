@@ -19,7 +19,6 @@ interface TopCommentFeedCardProps {
   onCommentViewed: (commentId: number) => void;
 }
 
-
 function CommentLikeControl({
   comment,
   userId,
@@ -33,6 +32,7 @@ function CommentLikeControl({
   const [likeCount, setLikeCount] = useState(comment.like_count);
   const [likePending, setLikePending] = useState(false);
   const [likeError, setLikeError] = useState('');
+  const { requestSignIn } = useSignInPrompt();
 
   useEffect(() => {
     if (!userId || previewMode) return;
@@ -57,6 +57,102 @@ function CommentLikeControl({
       cancelled = true;
     };
   }, [comment.comment_id, previewMode, userId]);
+
+  const toggleLike = async () => {
+    if (likePending || previewMode) return;
+    if (!userId) {
+      requestSignIn('like comments');
+      return;
+    }
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      setLikeError('Connect to the internet to like this comment.');
+      return;
+    }
+
+    setLikeError('');
+    setLikePending(true);
+    const wasLiked = isLiked;
+    setIsLiked(!wasLiked);
+    setLikeCount((count) => Math.max(0, count + (wasLiked ? -1 : 1)));
+
+    try {
+      const supabase = createClient();
+      const result = wasLiked
+        ? await supabase
+            .from('comment_likes')
+            .delete()
+            .eq('user_id', userId)
+            .eq('comment_id', comment.comment_id)
+        : await supabase.from('comment_likes').insert({
+            user_id: userId,
+            comment_id: comment.comment_id,
+          });
+
+      if (result.error) throw result.error;
+    } catch (error) {
+      setIsLiked(wasLiked);
+      setLikeCount((count) => Math.max(0, count + (wasLiked ? 1 : -1)));
+      setLikeError(
+        error && typeof error === 'object' && 'code' in error && error.code === 'P0001'
+          ? 'You have reached the comment-like limit. Please try again later.'
+          : 'Unable to update your like. Please try again.'
+      );
+    } finally {
+      setLikePending(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col items-center">
+      <button
+        type="button"
+        onPointerDown={(event) => event.stopPropagation()}
+        onTouchStart={(event) => event.stopPropagation()}
+        onClick={() => void toggleLike()}
+        disabled={likePending || previewMode}
+        aria-label={isLiked ? 'Unlike comment' : 'Like comment'}
+        aria-pressed={isLiked}
+        className={cn(
+          'text-text-muted hover:bg-bg-secondary hover:text-text-primary flex h-11 items-center gap-2 rounded-full px-3 transition-colors disabled:opacity-50',
+          isLiked && 'bg-accent-light text-accent'
+        )}
+      >
+        <Heart className={cn('h-5 w-5', isLiked && 'fill-current')} />
+        <span className="text-xs font-medium tabular-nums">{likeCount}</span>
+      </button>
+      {likeError && (
+        <span role="status" className="text-text-muted max-w-48 text-right text-[10px] leading-tight">
+          {likeError}
+        </span>
+      )}
+    </div>
+  );
+}
+
+export function TopCommentFeedCard({
+  comments,
+  userId,
+  previewMode = false,
+  onNextTopic,
+  onPreviousTopic,
+  onOpenComment,
+  onCommentViewed,
+}: TopCommentFeedCardProps) {
+  const [activeIndex, setActiveIndex] = useState(0);
+  const pointerStart = useRef<{ x: number; y: number } | null>(null);
+  const navigationStarted = useRef(false);
+
+  const safeIndex = Math.min(activeIndex, Math.max(0, comments.length - 1));
+  const comment = comments[safeIndex];
+  const activeCommentId = comment?.comment_id;
+
+  useEffect(() => {
+    if (activeCommentId !== undefined) onCommentViewed(activeCommentId);
+  }, [activeCommentId, onCommentViewed]);
+
+  if (!comment) return null;
+
+  const openComment = () => onOpenComment(comment);
 
   const navigateNextTopic = () => {
     if (navigationStarted.current) return;
