@@ -20,7 +20,7 @@ test('feed analytics retains queued events until server acknowledgement and drai
 
 test('sponsor analytics queue survives restarts and flushes even when no sponsor card is visible', () => {
   assert.ok(sponsorAnalytics.includes('cathoscroll.sponsor-events.v1.'));
-  assert.ok(sponsorAnalytics.includes('latest.filter((queued) => queued.eventId !== event.eventId)'));
+  assert.ok(sponsorAnalytics.includes('latest.filter((queued) => queued.eventId !== eventId)'));
   assert.ok(sponsorAnalytics.includes("window.addEventListener('online', flush)"));
   assert.ok(sponsorAnalytics.includes("window.addEventListener('pageshow', flush)"));
   assert.ok(sponsorAnalytics.includes("document.addEventListener('visibilitychange', onVisibilityChange)"));
