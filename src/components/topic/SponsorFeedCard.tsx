@@ -130,7 +130,10 @@ export function SponsorFeedCard({
       if (previewMode || typeof window === 'undefined') return false;
       const queue = readEventQueue();
       const alreadyQueued = queue.some(
-        (event) => event.campaignId === targetCampaignId && event.eventType === eventType
+        (event) =>
+          event.campaignId === targetCampaignId &&
+          event.sessionId === sessionId &&
+          event.eventType === eventType
       );
       if (!alreadyQueued) {
         queue.push({
