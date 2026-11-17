@@ -96,8 +96,8 @@ By combining educational content, planned structured learning, and community dis
 ### Setup
 
 ```bash
-git clone https://github.com/joshuaargent/CathoScroll.git
-cd CathoScroll
+git clone https://github.com/joshuaargent/TS_CathoScroll.git
+cd TS_CathoScroll
 npm install
 cp .env.example .env.local
 npm run dev
@@ -181,13 +181,13 @@ CathoScroll uses two separate GitHub Actions workflows:
 
 ### Triggering a release
 
-Create and push an annotated version tag from the merged `main` commit. For example, for version 2.2.0:
+Create and push an annotated version tag from the merged `main` commit. For example, for the current 2.3.2 package version:
 
 ```bash
 git checkout main
 git pull origin main
-git tag -a v2.2.0 -m "CathoScroll v2.2.0"
-git push origin v2.2.0
+git tag -a v2.3.2 -m "CathoScroll v2.3.2"
+git push origin v2.3.2
 ```
 
 The tag push starts the release workflow. Do not create a separate manual release or upload build files yourself; the workflow creates/updates the GitHub release and publishes it after the platform builds and asset checks succeed. The workflow generates GitHub release notes automatically from the changes since the previous release.
