@@ -924,6 +924,7 @@ function App() {
           const page = await localCatalogue.topics();
           if (!active) return;
           setFirstPage(page);
+          setFeedLoadError('');
           setFeedPersonalized(false);
           notifyNativeStatus('The live feed is unavailable. Showing saved topics instead.', {
             id: 'feed-online',
