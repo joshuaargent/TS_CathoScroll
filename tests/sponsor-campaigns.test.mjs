@@ -89,6 +89,12 @@ test('sponsored feed cards are disclosed and inserted separately from organic re
   assert.match(sponsorCard, /target="_blank"/);
   assert.match(sponsorCard, /<DoorOpen/);
   assert.match(sponsorCard, /<Share2/);
+  assert.match(sponsorCard, /navigator\.share/);
+  assert.match(sponsorCard, /navigator\.clipboard\.writeText\(campaign\.destination_url\)/);
+  assert.match(sponsorCard, /title: campaign\.headline,[\s\S]*url: campaign\.destination_url/);
+  assert.match(sponsorCard, /Visit \{campaign\.sponsor_name\}/);
+  assert.doesNotMatch(sponsorCard, /campaign\.image_url|<Image/);
+  assert.doesNotMatch(sponsorCard, /shareStatus/);
   assert.match(sponsorCard, /onDoubleClick=/);
   assert.doesNotMatch(sponsorCard, /campaign\.cta_label\}\s*<ExternalLink/);
   assert.doesNotMatch(sponsorCard, /bg-accent text-white hover:bg-accent\/90/);
