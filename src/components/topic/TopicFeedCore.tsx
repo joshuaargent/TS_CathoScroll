@@ -120,14 +120,6 @@ export function TopicFeedCore({
   }, []);
   const clearSponsorPlacements = useCallback(() => setSponsorCardsByTopicId(new Map()), []);
 
-  useEffect(() => {
-    feedMountedRef.current = true;
-    return () => {
-      feedMountedRef.current = false;
-      sponsorRequestVersion.current += 1;
-      sponsorLoadingRef.current = false;
-    };
-  }, []);
   const sponsorSessionUserId = useRef(userId);
   const sponsorLoadingRef = useRef(false);
   const sponsorRequestVersion = useRef(0);
@@ -139,6 +131,15 @@ export function TopicFeedCore({
     promise: Promise<{ campaigns: SponsorFeedCampaign[]; sessionId: string | null }>;
   } | null>(null);
   const pendingSponsorAfterComment = useRef(false);
+
+  useEffect(() => {
+    feedMountedRef.current = true;
+    return () => {
+      feedMountedRef.current = false;
+      sponsorRequestVersion.current += 1;
+      sponsorLoadingRef.current = false;
+    };
+  }, []);
 
   const [topicIndex, setTopicIndex] = useState(personalized ? 0 : Math.floor(topics.length / 2));
   const [nextCursor, setNextCursor] = useState(initialCursor);
