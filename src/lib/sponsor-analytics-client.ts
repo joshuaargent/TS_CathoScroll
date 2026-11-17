@@ -27,11 +27,13 @@ function storageKey(userId: string): string {
 function acknowledgeEvent(userId: string, eventId: string): boolean {
   if (typeof window === 'undefined') return false;
   const latest = readQueue(userId);
+  const remaining = latest.filter((queued) => queued.eventId !== eventId);
   try {
-    window.localStorage.setItem(
-      storageKey(userId),
-      JSON.stringify(latest.filter((queued) => queued.eventId !== eventId))
-    );
+    if (remaining.length === 0) {
+      window.localStorage.removeItem(storageKey(userId));
+    } else {
+      window.localStorage.setItem(storageKey(userId), JSON.stringify(remaining));
+    }
     return true;
   } catch {
     return false;
