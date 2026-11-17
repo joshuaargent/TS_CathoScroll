@@ -14,6 +14,7 @@ interface FeedInterstitialMotionProps {
   onPreviousTopic: () => void;
   ariaLabel: string;
   active?: boolean;
+  nextPreview?: ReactNode;
 }
 
 export function FeedInterstitialMotion({
@@ -26,6 +27,7 @@ export function FeedInterstitialMotion({
   onPreviousTopic,
   ariaLabel,
   active = true,
+  nextPreview,
 }: FeedInterstitialMotionProps) {
   const x = useMotionValue(0);
   const y = useMotionValue(0);
@@ -209,7 +211,7 @@ export function FeedInterstitialMotion({
         aria-roledescription="feed card"
         aria-label={ariaLabel}
         tabIndex={0}
-        className="h-full w-full transform-gpu will-change-transform select-none"
+        className="relative h-full w-full transform-gpu will-change-transform select-none"
         style={{ x, y, width: '100%', height: '100%', touchAction: 'none' }}
         onPointerDown={active ? handlePointerDown : undefined}
         onPointerMove={active ? handlePointerMove : undefined}
@@ -217,6 +219,11 @@ export function FeedInterstitialMotion({
         onPointerCancel={active ? handlePointerUp : undefined}
       >
         {children}
+        {nextPreview ? (
+          <div className="pointer-events-none absolute inset-x-0 top-[100%] h-full opacity-90">
+            {nextPreview}
+          </div>
+        ) : null}
       </motion.div>
     </div>
   );
