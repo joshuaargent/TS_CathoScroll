@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState, type ComponentType } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from 'react';
 
 import { shuffle } from '@/lib/utils';
 import {
@@ -20,6 +20,7 @@ import {
 import { SponsorFeedCard } from './SponsorFeedCard';
 import { createFeedRefreshCoordinator } from '@/lib/feed-refresh-coordinator';
 import { siteConfig } from '@/lib/constants';
+import { buildFeedQueue, findFeedQueueEntryIndex, getFeedQueueWindow } from '@/lib/feed-queue';
 
 import type { TopicPageCursor } from '@/lib/content';
 import type { RecommendationCursor } from '@/lib/recommendations';
@@ -110,6 +111,23 @@ export function TopicFeedCore({
   useEffect(() => {
     currentTopicId.current = feedTopics[topicIndex]?.id ?? null;
   }, [feedTopics, topicIndex]);
+  const feedQueue = useMemo(
+    () => buildFeedQueue(
+      feedTopics,
+      topCommentCardsByTopicId.current,
+      sponsorCardsByTopicId.current
+    ),
+    [feedTopics, topCommentCardComments, sponsorCampaigns, showTopCommentCard, showSponsorCard, activeSponsorSessionId]
+  );
+  const activeFeedQueueType = showSponsorCard
+    ? 'sponsor'
+    : showTopCommentCard
+      ? 'top-comments'
+      : 'topic';
+  const activeFeedQueueIndex = findFeedQueueEntryIndex(feedQueue, topicIndex, activeFeedQueueType);
+  const feedQueueWindow = getFeedQueueWindow(feedQueue, activeFeedQueueIndex);
+  const activeFeedQueueEntry = feedQueueWindow.current;
+
 
   useEffect(() => {
     if (sponsorSessionUserId.current === userId) return;
@@ -524,10 +542,10 @@ export function TopicFeedCore({
           )}
         </div>
       )}
-      {showSponsorCard && sponsorCampaigns.length > 0 ? (
+      {activeFeedQueueEntry?.type === 'sponsor' ? (
         <SponsorFeedCard
-          campaigns={sponsorCampaigns}
-          sessionId={activeSponsorSessionId ?? ''}
+          campaigns={activeFeedQueueEntry.campaigns}
+          sessionId={activeFeedQueueEntry.sessionId}
           userId={userId ?? ''}
           sponsorApiBaseUrl={effectiveSponsorApiBaseUrl}
           getAccessToken={getSponsorAccessToken ?? (async () => null)}
@@ -540,7 +558,7 @@ export function TopicFeedCore({
             previousTopic();
           }}
         />
-      ) : showTopCommentCard && activeTopCommentCardComments.length > 0 ? (
+      ) : activeFeedQueueEntry?.type === 'top-comments' && activeTopCommentCardComments.length > 0 ? (
         <TopCommentFeedCard
           key={userId ?? 'anonymous'}
           comments={activeTopCommentCardComments}
