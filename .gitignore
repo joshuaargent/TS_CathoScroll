@@ -15,6 +15,7 @@
 /build
 
 # Misc
+.idea/caches/
 .DS_Store
 *.pem
 
