@@ -15,6 +15,7 @@ interface FeedInterstitialMotionProps {
   ariaLabel: string;
   active?: boolean;
   nextPreview?: ReactNode;
+  previousPreview?: ReactNode;
 }
 
 export function FeedInterstitialMotion({
@@ -28,6 +29,7 @@ export function FeedInterstitialMotion({
   ariaLabel,
   active = true,
   nextPreview,
+  previousPreview,
 }: FeedInterstitialMotionProps) {
   const x = useMotionValue(0);
   const y = useMotionValue(0);
@@ -218,6 +220,11 @@ export function FeedInterstitialMotion({
         onPointerUp={active ? handlePointerUp : undefined}
         onPointerCancel={active ? handlePointerUp : undefined}
       >
+        {previousPreview ? (
+          <div className="pointer-events-none absolute inset-x-0 top-[-100%] h-full opacity-90">
+            {previousPreview}
+          </div>
+        ) : null}
         {children}
         {nextPreview ? (
           <div className="pointer-events-none absolute inset-x-0 top-[100%] h-full opacity-90">
