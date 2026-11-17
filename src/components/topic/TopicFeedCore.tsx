@@ -810,7 +810,7 @@ export function TopicFeedCore({
   const renderFeedQueueEntry = (
     entry: NonNullable<typeof feedQueueWindow.current>,
     active: boolean
-  ) => {
+  ): ReactNode => {
     if (entry.type === 'topic') {
       return (
         <Viewer
