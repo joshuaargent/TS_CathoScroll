@@ -1693,7 +1693,7 @@ BEGIN
       jsonb_agg(
         jsonb_build_object(
           'slug', c.slug,
-          'weight', 1 + sqrt(greatest(coalesce(p.weight, 0), 0)::numeric),
+          'weight', round(1 + sqrt(greatest(coalesce(p.weight, 0), 0)::numeric), 6),
           'served', 0,
           'order', NULL,
           'id', NULL
