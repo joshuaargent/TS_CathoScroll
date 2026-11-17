@@ -85,20 +85,37 @@ export function TopicFeedCore({
   const [topCommentsNextOffset, setTopCommentsNextOffset] = useState<number | null>(null);
   const [topCommentInventoryVersion, setTopCommentInventoryVersion] = useState(0);
   const topCommentsPageLoading = useRef(false);
-  const [feedQueueRevision, setFeedQueueRevision] = useState(0);
   const [feedSessionUserId, setFeedSessionUserId] = useState(userId);
-  const bumpFeedQueueRevision = () => setFeedQueueRevision((revision) => revision + 1);
+  const cacheTopCommentGroup = (topicId: string, comments: TopFeedComment[]) => {
+    setTopCommentCardsByTopicId((current) => {
+      const next = new Map(current);
+      next.set(topicId, comments);
+      return next;
+    });
+  };
+  const clearTopCommentGroups = () => setTopCommentCardsByTopicId(new Map());
+  const cacheSponsorPlacement = (
+    topicId: string,
+    placement: { campaigns: SponsorFeedCampaign[]; sessionId: string }
+  ) => {
+    setSponsorCardsByTopicId((current) => {
+      const next = new Map(current);
+      next.set(topicId, placement);
+      return next;
+    });
+  };
+  const clearSponsorPlacements = () => setSponsorCardsByTopicId(new Map());
   const [showTopCommentCard, setShowTopCommentCard] = useState(false);
   const seenTopCommentIds = useRef(new Set<number>());
   const seenTopCommentUserId = useRef(userId);
   const topCommentCadenceUserId = useRef(userId);
-  const topCommentCardsByTopicId = useRef(new Map<string, TopFeedComment[]>());
+  const [topCommentCardsByTopicId, setTopCommentCardsByTopicId] = useState<Map<string, TopFeedComment[]>>(() => new Map());
   const [topicsSinceTopCommentCard, setTopicsSinceTopCommentCard] = useState(0);
   const topCommentCadenceAnchor = useRef<{ topicId: string; value: number } | null>(null);
   const [showSponsorCard, setShowSponsorCard] = useState(false);
   const [topicsSinceSponsorCard, setTopicsSinceSponsorCard] = useState(0);
   const sponsorCadenceAnchor = useRef<{ topicId: string; value: number } | null>(null);
-  const sponsorCardsByTopicId = useRef(new Map<string, { campaigns: SponsorFeedCampaign[]; sessionId: string }>());
+  const [sponsorCardsByTopicId, setSponsorCardsByTopicId] = useState<Map<string, { campaigns: SponsorFeedCampaign[]; sessionId: string }>>(() => new Map());
   const sponsorSessionUserId = useRef(userId);
   const sponsorLoadingRef = useRef(false);
   const sponsorRequestVersion = useRef(0);
@@ -123,8 +140,8 @@ export function TopicFeedCore({
   }, [feedTopics, topicIndex]);
   const feedQueue = buildFeedQueue(
     feedTopics,
-    topCommentCardsByTopicId.current,
-    sponsorCardsByTopicId.current
+    topCommentCardsByTopicId,
+    sponsorCardsByTopicId
   );
   const activeFeedQueueType = feedSessionUserId === userId
     ? showSponsorCard
@@ -144,8 +161,7 @@ export function TopicFeedCore({
     topCommentCadenceUserId.current = userId;
     topCommentCadenceAnchor.current = null;
     seenTopCommentIds.current.clear();
-    topCommentCardsByTopicId.current.clear();
-    bumpFeedQueueRevision();
+    clearTopCommentGroups();
     setShowTopCommentCard(false);
     setTopicsSinceTopCommentCard(0);
   }, [userId]);
@@ -155,7 +171,7 @@ export function TopicFeedCore({
     sponsorSessionUserId.current = userId;
     sponsorPrefetchRef.current = null;
     sponsorCadenceAnchor.current = null;
-    sponsorCardsByTopicId.current.clear();
+    clearSponsorPlacements();
     sponsorRequestVersion.current += 1;
     sponsorLoadingRef.current = false;
     pendingSponsorAfterComment.current = false;
@@ -200,7 +216,7 @@ export function TopicFeedCore({
   useEffect(() => {
     if (!userId || sponsorLoadingRef.current || topicsSinceSponsorCard !== SPONSOR_CARD_CADENCE - 1) return;
     const topic = feedTopics[topicIndex];
-    if (!topic || sponsorCardsByTopicId.current.has(topic.id)) return;
+    if (!topic || sponsorCardsByTopicId.has(topic.id)) return;
     const existing = sponsorPrefetchRef.current;
     if (existing?.topicId === topic.id && existing.userId === userId) return;
 
@@ -212,12 +228,11 @@ export function TopicFeedCore({
         sponsorSessionUserId.current !== userId
       ) return;
       if (result.campaigns.length > 0 && result.sessionId) {
-        sponsorCardsByTopicId.current.set(topic.id, {
+        cacheSponsorPlacement(topic.id, {
           campaigns: result.campaigns,
           sessionId: result.sessionId,
         });
-        bumpFeedQueueRevision();
-      } else if (sponsorPrefetchRef.current?.promise === promise) {
+          } else if (sponsorPrefetchRef.current?.promise === promise) {
         // Retry at the due boundary in case eligibility changes after prefetch.
         sponsorPrefetchRef.current = null;
       }
@@ -254,9 +269,8 @@ export function TopicFeedCore({
 
           if (comments.length === 0) {
             setShowTopCommentCard(false);
-            topCommentCardsByTopicId.current.clear();
-            bumpFeedQueueRevision();
-          }
+            clearTopCommentGroups();
+                  }
         }
         return true;
       } catch {
@@ -405,7 +419,6 @@ export function TopicFeedCore({
     }
     setTopicsSinceSponsorCard(0);
     pendingSponsorAfterComment.current = false;
-    bumpFeedQueueRevision();
     setShowTopCommentCard(false);
     setShowSponsorCard(true);
   };
@@ -429,7 +442,7 @@ export function TopicFeedCore({
     if (seenTopCommentUserId.current !== userId) {
       seenTopCommentUserId.current = userId;
       seenTopCommentIds.current.clear();
-      topCommentCardsByTopicId.current.clear();
+      clearTopCommentGroups();
       currentCommentCadence = 0;
     }
 
@@ -440,9 +453,8 @@ export function TopicFeedCore({
 
     if (sponsorSessionUserId.current !== userId) {
       sponsorSessionUserId.current = userId;
-      sponsorCardsByTopicId.current.clear();
-      bumpFeedQueueRevision();
-      currentSponsorCadence = 0;
+      clearSponsorPlacements();
+        currentSponsorCadence = 0;
     }
 
     const unseenTopComments = getUnseenTopFeedComments(
@@ -518,12 +530,11 @@ export function TopicFeedCore({
         if (sponsorRequestVersion.current !== requestVersion ||
             sponsorSessionUserId.current !== requestedUserId) return;
         if (result.campaigns.length > 0 && result.sessionId) {
-          sponsorCardsByTopicId.current.set(currentTopic.id, {
+          cacheSponsorPlacement(currentTopic.id, {
             campaigns: result.campaigns,
             sessionId: result.sessionId,
           });
-          bumpFeedQueueRevision();
-          setShowTopCommentCard(false);
+                setShowTopCommentCard(false);
           setShowSponsorCard(true);
           return;
         }
@@ -532,9 +543,8 @@ export function TopicFeedCore({
           setTopicsSinceTopCommentCard(0);
           const nextTopCommentGroup = unseenTopComments.slice(0, 5);
           nextTopCommentGroup.forEach((comment) => seenTopCommentIds.current.add(comment.comment_id));
-          topCommentCardsByTopicId.current.set(currentTopic.id, nextTopCommentGroup);
-          bumpFeedQueueRevision();
-          setShowSponsorCard(false);
+          cacheTopCommentGroup(currentTopic.id, nextTopCommentGroup);
+                setShowSponsorCard(false);
           setShowTopCommentCard(true);
           return;
         }
@@ -557,9 +567,8 @@ export function TopicFeedCore({
       if (currentTopic) {
         const nextTopCommentGroup = unseenTopComments.slice(0, 5);
         nextTopCommentGroup.forEach((comment) => seenTopCommentIds.current.add(comment.comment_id));
-        topCommentCardsByTopicId.current.set(currentTopic.id, nextTopCommentGroup);
-        bumpFeedQueueRevision();
-        setShowSponsorCard(false);
+        cacheTopCommentGroup(currentTopic.id, nextTopCommentGroup);
+            setShowSponsorCard(false);
         setShowTopCommentCard(true);
         return;
       }
@@ -574,7 +583,7 @@ export function TopicFeedCore({
       if (seenTopCommentUserId.current !== userId) {
         seenTopCommentUserId.current = userId;
         seenTopCommentIds.current.clear();
-        topCommentCardsByTopicId.current.clear();
+        clearTopCommentGroups();
       }
       seenTopCommentIds.current.add(commentId);
       setTopCommentInventoryVersion((version) => version + 1);
@@ -596,28 +605,26 @@ export function TopicFeedCore({
     if (seenTopCommentUserId.current !== userId) {
       seenTopCommentUserId.current = userId;
       seenTopCommentIds.current.clear();
-      topCommentCardsByTopicId.current.clear();
+      clearTopCommentGroups();
     }
 
     const previousIndex = (topicIndex - 1 + feedTopics.length) % feedTopics.length;
     const previousTopicId = feedTopics[previousIndex]?.id;
     const previousSponsorCard = previousTopicId
-      ? sponsorCardsByTopicId.current.get(previousTopicId)
+      ? sponsorCardsByTopicId.get(previousTopicId)
       : undefined;
     if (previousSponsorCard?.campaigns.length) {
-      bumpFeedQueueRevision();
-      setShowTopCommentCard(false);
+        setShowTopCommentCard(false);
       setShowSponsorCard(true);
       return;
     }
 
     const previousCard = previousTopicId
-      ? topCommentCardsByTopicId.current.get(previousTopicId)
+      ? topCommentCardsByTopicId.get(previousTopicId)
       : undefined;
 
     if (previousCard?.length) {
-      bumpFeedQueueRevision();
-      setShowTopCommentCard(true);
+        setShowTopCommentCard(true);
       return;
     }
 
@@ -683,12 +690,11 @@ export function TopicFeedCore({
       ) return;
       setTopicsSinceSponsorCard(0);
       if (result.campaigns.length > 0 && result.sessionId) {
-        sponsorCardsByTopicId.current.set(currentTopic.id, {
+        cacheSponsorPlacement(currentTopic.id, {
           campaigns: result.campaigns,
           sessionId: result.sessionId,
         });
-        bumpFeedQueueRevision();
-        setShowTopCommentCard(false);
+            setShowTopCommentCard(false);
         setShowSponsorCard(true);
         return;
       }
@@ -761,7 +767,7 @@ export function TopicFeedCore({
   }
 
   return (
-    <div className="h-full" data-feed-queue-revision={feedQueueRevision}>
+    <div className="h-full" >
       {(loadingMore || loadError) && (
         <div className="bg-bg-primary/90 absolute top-20 left-1/2 z-20 -translate-x-1/2 rounded-full px-4 py-2 text-sm shadow">
           {loadError ? (
