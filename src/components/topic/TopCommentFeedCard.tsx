@@ -10,6 +10,7 @@ import type { TopFeedComment } from '@/lib/feed-comments';
 import { cn } from '@/lib/utils';
 import { FeedInterstitialMotion } from './FeedInterstitialMotion';
 import { TopicCardLayout } from './TopicCardLayout';
+import { TopicProgress } from './TopicProgress';
 
 interface TopCommentFeedCardProps {
   comments: TopFeedComment[];
@@ -185,6 +186,7 @@ export function TopCommentFeedCard({
       <TopicCardLayout
         className={safeIndex === 0 ? 'bg-accent-light/5' : undefined}
         contentWidthClassName="max-w-3xl"
+        progress={<TopicProgress current={safeIndex} total={comments.length} />}
         header={
           <>
             <span className="text-text-muted text-xs tracking-wider uppercase">Top Comments</span>
