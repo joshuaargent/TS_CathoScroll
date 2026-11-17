@@ -181,6 +181,8 @@ export function TopCommentFeedCard({
       ariaLabel="Top community comments"
       onSwipeLeft={showNextComment}
       onSwipeRight={showPreviousComment}
+      canSwipeLeft={() => safeIndex < comments.length - 1}
+      canSwipeRight={() => safeIndex > 0}
       onNextTopic={navigateNextTopic}
       onPreviousTopic={navigatePreviousTopic}
     >
