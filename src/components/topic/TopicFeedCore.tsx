@@ -197,7 +197,7 @@ export function TopicFeedCore({
   );
 
   useEffect(() => {
-    if (!userId || topicsSinceSponsorCard !== SPONSOR_CARD_CADENCE - 1) return;
+    if (!userId || sponsorLoadingRef.current || topicsSinceSponsorCard !== SPONSOR_CARD_CADENCE - 1) return;
     const topic = feedTopics[topicIndex];
     if (!topic || sponsorCardsByTopicId.current.has(topic.id)) return;
     const existing = sponsorPrefetchRef.current;
@@ -217,6 +217,9 @@ export function TopicFeedCore({
           campaigns: result.campaigns,
           sessionId: result.sessionId,
         });
+      } else if (sponsorPrefetchRef.current?.promise === promise) {
+        // Retry at the due boundary in case eligibility changes after prefetch.
+        sponsorPrefetchRef.current = null;
       }
     });
   }, [feedTopics, topicIndex, topicsSinceSponsorCard, userId, loadSponsorCampaigns]);
@@ -402,6 +405,7 @@ export function TopicFeedCore({
       return;
     }
     setTopicsSinceSponsorCard(0);
+    pendingSponsorAfterComment.current = false;
     setSponsorCampaigns(entry.campaigns);
     setActiveSponsorSessionId(entry.sessionId);
     setShowTopCommentCard(false);
