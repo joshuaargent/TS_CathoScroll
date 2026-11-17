@@ -90,11 +90,15 @@ export function TopicSwipeViewer({
 
   useEffect(() => {
     if (!userId || !active) return;
-
-    const removeAnalyticsListeners = installFeedAnalyticsListeners(userId, {
+    return installFeedAnalyticsListeners(userId, {
       endpoint: analyticsEndpoint,
       getAccessToken: getAnalyticsAccessToken,
     });
+  }, [active, analyticsEndpoint, getAnalyticsAccessToken, userId]);
+
+  useEffect(() => {
+    if (!userId || !active) return;
+
     const viewKey = userId + ':' + currentTopicId;
     const wasViewed = viewedTopicsRef.current.has(viewKey);
     viewedTopicsRef.current.add(viewKey);
@@ -194,9 +198,8 @@ export function TopicSwipeViewer({
       if (viewabilityTimer !== null) window.clearTimeout(viewabilityTimer);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       observer?.disconnect();
-      removeAnalyticsListeners();
     };
-  }, [currentTopicId, userId, active, analyticsEndpoint, getAnalyticsAccessToken]);
+  }, [currentTopicId, userId, active]);
 
   useEffect(() => {
     if (!userId || slideIndex <= 0) return;
