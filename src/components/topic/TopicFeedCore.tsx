@@ -794,7 +794,7 @@ export function TopicFeedCore({
           campaigns: result.campaigns,
           sessionId: result.sessionId,
         });
-            setShowTopCommentCard(false);
+        setShowTopCommentCard(false);
         setShowSponsorCard(true);
         return;
       }
@@ -853,10 +853,7 @@ export function TopicFeedCore({
         previewMode={!active}
         sponsorApiBaseUrl={effectiveSponsorApiBaseUrl}
         getAccessToken={getSponsorAccessToken ?? (async () => null)}
-        onNextTopic={() => {
-          setShowSponsorCard(false);
-          advanceToNextTopic();
-        }}
+        onNextTopic={() => handleSponsorNext(entry.topicId)}
         onPreviousTopic={navigateToPreviousQueueEntry}
       />
     );
