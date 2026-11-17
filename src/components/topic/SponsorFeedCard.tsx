@@ -16,8 +16,8 @@ interface SponsorFeedCardProps {
   previewMode?: boolean;
   sponsorApiBaseUrl?: string;
   getAccessToken: () => Promise<string | null>;
-  onNextTopic: () => void;
-  onPreviousTopic: () => void;
+  onNextTopic: () => void | Promise<void>;
+  onPreviousTopic: () => void | Promise<void>;
   nextEntryPreview?: ReactNode;
   previousEntryPreview?: ReactNode;
 }
@@ -131,16 +131,16 @@ export function SponsorFeedCard({
 
   if (!campaign) return null;
 
-  const navigateNextTopic = () => {
+  const navigateNextTopic = async () => {
     if (navigationStarted.current) return;
     navigationStarted.current = true;
-    onNextTopic();
+    await onNextTopic();
   };
 
-  const navigatePreviousTopic = () => {
+  const navigatePreviousTopic = async () => {
     if (navigationStarted.current) return;
     navigationStarted.current = true;
-    onPreviousTopic();
+    await onPreviousTopic();
   };
 
   const showPreviousCampaign = () => setActiveIndex((index) => Math.max(0, index - 1));
