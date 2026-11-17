@@ -155,6 +155,10 @@ test('the original analytics-ranked feed keeps interstitials in per-topic sessio
   assert.match(feedCore, /const cachedComments = topCommentCardsByTopicId\.current\.get\(currentTopic\.id\)/);
   assert.match(feedCore, /const cachedSponsor = sponsorCardsByTopicId\.current\.get\(currentTopic\.id\)/);
   assert.match(feedCore, /const shouldShowSponsorAfterComment = pendingSponsorAfterComment\.current/);
+  assert.match(feedCore, /sponsorDueByTopicId = useRef\(new Set/);
+  assert.match(feedCore, /sponsorDueByTopicId\.current\.add\(currentTopic\.id\)/);
+  assert.match(feedCore, /sponsorDueByTopicId\.current\.has\(currentTopic\.id\)/);
+  assert.match(feedCore, /sponsorDueByTopicId\.current\.delete\(currentTopic\.id\)/);
   assert.match(feedCore, /Re-entering a topic replays the exact interstitials already assigned to it/);
   assert.ok(feedCore.includes('if (preservePositionOnUpdate && feedInitializedRef.current)'));
   assert.ok(feedCore.includes('previousPersonalizedRef.current !== personalized'));
