@@ -1481,7 +1481,6 @@ function App() {
                         `/topic/${encodeURIComponent(comment.topic_slug)}#comment-${comment.comment_id}`
                       )
                     }
-                    preservePositionOnUpdate
                   />
                 </div>
               )}
