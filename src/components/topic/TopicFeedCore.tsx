@@ -95,6 +95,7 @@ export function TopicFeedCore({
   const sponsorRequestVersion = useRef(0);
   const sponsorRequestPreviousCadence = useRef(0);
   const pendingSponsorAfterComment = useRef(false);
+  const sponsorPreviousIsComment = useRef(false);
 
   const [topicIndex, setTopicIndex] = useState(personalized ? 0 : Math.floor(topics.length / 2));
   const [nextCursor, setNextCursor] = useState(initialCursor);
@@ -496,9 +497,11 @@ export function TopicFeedCore({
             advanceToNextTopic();
           }}
           onPreviousTopic={() => {
-            // The sponsor is an interstitial after the current topic. Swiping
-            // back returns to that topic, not the topic before it.
             setShowSponsorCard(false);
+            if (sponsorPreviousIsComment.current) {
+              sponsorPreviousIsComment.current = false;
+              setShowTopCommentCard(true);
+            }
           }}
         />
       ) : showTopCommentCard && activeTopCommentCardComments.length > 0 ? (
@@ -532,6 +535,7 @@ export function TopicFeedCore({
                   sponsorSessionUserId.current !== requestedUserId) return;
               setTopicsSinceSponsorCard(0);
               if (result.campaigns.length > 0 && result.sessionId) {
+                sponsorPreviousIsComment.current = true;
                 setSponsorCampaigns(result.campaigns);
                 setActiveSponsorSessionId(result.sessionId);
                 sponsorCardsByTopicId.current.set(currentTopic.id, {
