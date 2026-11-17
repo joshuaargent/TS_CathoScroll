@@ -86,6 +86,9 @@ test('interstitial navigation is one-shot across swipe, keyboard, and button inp
     assert.match(source, /onClick=\{navigateNextTopic\}/);
     assert.match(source, /onClick=\{navigatePreviousTopic\}/);
   }
+  assert.match(topCommentCard, /navigationResetKey: string \| null/);
+  assert.match(topCommentCard, /navigationStarted\.current = false;[\s\S]*?\[navigationResetKey\]/);
+  assert.match(feedCore, /navigationResetKey=\{userId\}/);
   assert.match(topicViewer, /const animationLockRef = useRef\(false\)/);
   assert.match(topicViewer, /if \(animationLockRef\.current\) return/);
   assert.match(topicViewer, /animationLockRef\.current = true/);
