@@ -620,17 +620,17 @@ export function TopicFeedCore({
 
   const noop = () => {};
 
-  const handleTopCommentNext = () => {
-    if (sponsorLoadingRef.current) return;
+  const handleTopCommentNext = (): boolean => {
+    if (sponsorLoadingRef.current) return false;
     if (feedQueueWindow.next?.type === 'sponsor') {
       pendingSponsorAfterComment.current = false;
       activateFeedQueueEntry(feedQueueWindow.next);
-      return;
+      return true;
     }
     if (!pendingSponsorAfterComment.current) {
       setShowTopCommentCard(false);
       advanceToNextTopic();
-      return;
+      return true;
     }
 
     pendingSponsorAfterComment.current = false;
@@ -639,7 +639,7 @@ export function TopicFeedCore({
       setShowTopCommentCard(false);
       setTopicsSinceSponsorCard(0);
       advanceToNextTopic();
-      return;
+      return true;
     }
 
     sponsorLoadingRef.current = true;
@@ -675,6 +675,7 @@ export function TopicFeedCore({
         sponsorLoadingRef.current = false;
       }
     });
+    return true;
   };
 
   const renderFeedQueueEntry = (
