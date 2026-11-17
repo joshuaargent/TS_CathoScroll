@@ -66,6 +66,7 @@ test('sponsor fetches cannot race feed navigation or account changes', () => {
   assert.match(feedCore, /sponsorRequestPreviousCadence/);
   assert.match(feedCore, /sponsorRequestVersion\.current !== requestVersion/);
   assert.match(feedCore, /sponsorRequestVersion\.current \+= 1/);
+  assert.match(feedCore, /if \(sponsorLoadingRef\.current\) \{[\s\S]*?sponsorRequestVersion\.current \+= 1/);
   const previousTopic = feedCore.slice(feedCore.indexOf('const previousTopic ='));
   assert.match(previousTopic, /pendingSponsorAfterComment\.current = false/);
   assert.match(feedCore, /sponsorPreviousIsComment/);
