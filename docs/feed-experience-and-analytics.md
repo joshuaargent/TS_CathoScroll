@@ -31,13 +31,16 @@ Sponsors are selected from an approved, active campaign pool. Each campaign has 
 
 Paid weight controls a sponsor's proportional share of eligible sponsor impressions. For example, weights 2:1 produce an expected allocation of roughly two impressions to the first sponsor for every one to the second across a sufficiently large sample. This is probabilistic pacing, not a promise that every individual three-slot card contains exactly two and one.
 
+The scheduler uses viewable-impression pacing over a rolling 30-day window. For each eligible campaign it compares `viewable_impressions / placement_weight` and selects the least-delivered campaign first, randomising ties. This is weighted fair queuing: equal weights converge toward equal viewable impressions, while a 2:1 weight pair converges toward a 2:1 viewable-impression ratio. Served-but-never-viewed placements do not improve a campaign's delivery ratio. A campaign with no viewable impressions is treated as under-delivered. The eligible comparison set is recalculated for each matching user/category/topic opportunity, so campaigns that are not eligible for a slot do not distort its allocation.
+
 The scheduler must:
-- Use weighted selection among eligible campaigns.
+- Prioritise under-delivered campaigns using viewable impressions divided by paid placement weight.
 - Enforce campaign start/end dates and active status.
 - Apply per-user and global frequency caps.
 - Avoid immediate repetition where alternatives exist.
 - Keep category targeting and brand-suitability rules.
-- Record eligible opportunities, rendered impressions, clicks, and cap/eligibility decisions separately.
+- Record served placements, viewable impressions, clicks, and cap/eligibility decisions separately.
+- Use only the deduplicated `viewable_impression` event for pacing; served counts remain safeguards for caps and frequency limits.
 - Never count a sponsor impression until the placement meets a defined viewability threshold.
 - Keep sponsor events separate from organic topic recommendation signals.
 
@@ -55,9 +58,9 @@ CathoScroll uses direct bank transfers, not in-app payment processing. Administr
 
 A top-comment card contains up to five eligible top-level comments. Horizontal swipes move between comments inside the card; they do not immediately navigate away. Each comment shows its text, author, original topic, like count, reply count, and a clear action to open the original discussion. Tapping the comment or its discussion action opens the topic discussion focused on that comment.
 
-The card has exactly as many positions as eligible comments (one to five). No eligible comments means no card. Previously seen comments should be deprioritised to avoid repetition. The first implementation tracks viewed comment IDs in memory for the active account/feed session and skips them in subsequent interstitials; persistent seen-state across sessions and devices is deferred.
+Each group contains up to five comments and the progress indicator reflects the actual group size. No eligible unseen comments means no card. A comment is reserved as seen when its group is inserted, so navigating away or remounting the card cannot cause it to be selected again during the same feed session. There is no five-comment total session limit: the client requests further bounded pages as the unseen inventory runs low, and every five-topic boundary can receive a fresh group. The server ranks within a bounded pool of the newest 5,000 eligible root comments from the previous 90 days; pages contain at most 100 entries. Seen-state is session-memory only and resets when the account/feed session changes; persistent cross-session/device exclusion is not implied.
 
-Only visible, non-deleted, non-empty top-level comments on published topics in published categories are eligible. Replies contribute to engagement but are not independently promoted. The initial server-side threshold is at least 3 combined likes and distinct reply authors, with at least 2 likes or 1 distinct reply author; counting distinct reply authors reduces the effect of repeated replies from one account. The first implementation considers comments from the previous 90 days. Ranking combines lifetime likes, distinct reply authors, activity in the previous 14 days, and a weekly age-decay factor; it is not lifetime-like ordering. Pinned comments do not bypass the threshold or moderation filters. The client suppresses comments already viewed during the active in-memory feed session; persistent cross-session/device seen-state remains deferred.
+Only visible, non-deleted, non-empty top-level comments on published topics in published categories are eligible. Replies contribute to engagement but are not independently promoted. The initial server-side threshold is at least 3 combined likes and distinct reply authors, with at least 2 likes or 1 distinct reply author; counting distinct reply authors reduces the effect of repeated replies from one account. The selector considers comments from the previous 90 days. Ranking combines lifetime likes, distinct reply authors, activity in the previous 14 days, and a weekly age-decay factor; it is not lifetime-like ordering. The endpoint exposes a bounded offset/limit page and allowlists public fields. Pinned comments do not bypass the threshold or moderation filters. The client suppresses comments already viewed during the active in-memory feed session; persistent cross-session/device seen-state remains deferred.
 
 ## Quizzes (later phase)
 
