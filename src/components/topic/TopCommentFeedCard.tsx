@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { DoorOpen, Heart, MessageCircle, Pin } from 'lucide-react';
 
@@ -8,6 +8,7 @@ import { useSignInPrompt } from '@/components/providers/SignInPromptProvider';
 import { createClient } from '@/lib/supabase/client';
 import type { TopFeedComment } from '@/lib/feed-comments';
 import { cn } from '@/lib/utils';
+import { FeedInterstitialMotion } from './FeedInterstitialMotion';
 
 interface TopCommentFeedCardProps {
   comments: TopFeedComment[];
@@ -126,6 +127,7 @@ function CommentLikeControl({
         </span>
       )}
     </div>
+    </FeedInterstitialMotion>
   );
 }
 
@@ -139,7 +141,6 @@ export function TopCommentFeedCard({
   onCommentViewed,
 }: TopCommentFeedCardProps) {
   const [activeIndex, setActiveIndex] = useState(0);
-  const pointerStart = useRef<{ x: number; y: number } | null>(null);
   const navigationStarted = useRef(false);
 
   const safeIndex = Math.min(activeIndex, Math.max(0, comments.length - 1));
@@ -174,66 +175,19 @@ export function TopCommentFeedCard({
     setActiveIndex((index) => Math.min(comments.length - 1, index + 1));
   };
 
-  const handlePointerDown = (event: PointerEvent<HTMLDivElement>) => {
-    if ((event.target as HTMLElement).closest('button, a')) return;
-    pointerStart.current = { x: event.clientX, y: event.clientY };
-  };
-
-  const handlePointerUp = (event: PointerEvent<HTMLDivElement>) => {
-    const start = pointerStart.current;
-    pointerStart.current = null;
-    if (!start) return;
-
-    const deltaX = event.clientX - start.x;
-    const deltaY = event.clientY - start.y;
-    if (Math.max(Math.abs(deltaX), Math.abs(deltaY)) < 40) return;
-
-    if (Math.abs(deltaX) > Math.abs(deltaY)) {
-      if (deltaX < 0) showNextComment();
-      else showPreviousComment();
-      return;
-    }
-
-    if (deltaY < 0) navigateNextTopic();
-    else navigatePreviousTopic();
-  };
-
-  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === 'ArrowLeft') {
-      event.preventDefault();
-      showPreviousComment();
-    } else if (event.key === 'ArrowRight') {
-      event.preventDefault();
-      showNextComment();
-    } else if (event.key === 'ArrowUp') {
-      event.preventDefault();
-      navigateNextTopic();
-    } else if (event.key === 'ArrowDown') {
-      event.preventDefault();
-      navigatePreviousTopic();
-    } else if (event.key === 'Enter' && event.target === event.currentTarget) {
-      event.preventDefault();
-      openComment();
-    }
-  };
-
   return (
+    <FeedInterstitialMotion
+      ariaLabel="Top community comments"
+      onSwipeLeft={showNextComment}
+      onSwipeRight={showPreviousComment}
+      onNextTopic={navigateNextTopic}
+      onPreviousTopic={navigatePreviousTopic}
+    >
     <div
       className={cn(
-        'flex h-full min-h-0 w-full flex-col px-6 py-6 md:px-8 md:py-8',
+        'flex h-full w-full flex-col px-6 py-6 md:px-8 md:py-8',
         safeIndex === 0 && 'bg-accent-light/5'
       )}
-      onPointerDown={handlePointerDown}
-      onPointerUp={handlePointerUp}
-      onPointerCancel={() => {
-        pointerStart.current = null;
-      }}
-      onKeyDown={handleKeyDown}
-      style={{ touchAction: 'none' }}
-      tabIndex={0}
-      role="region"
-      aria-roledescription="feed card"
-      aria-label="Top community comment"
     >
       <article
         className="flex min-h-0 flex-1 flex-col"
@@ -245,7 +199,7 @@ export function TopCommentFeedCard({
       >
         <header className="flex items-center justify-between gap-3">
           <p className="text-text-muted min-w-0 flex-1 truncate text-xs tracking-wider uppercase">
-            {comment.topic_question}
+            Top Comments
           </p>
 
           <div className="flex shrink-0 items-center gap-1">
@@ -284,6 +238,9 @@ export function TopCommentFeedCard({
 
         <div className="flex flex-1 items-center justify-center py-8">
           <div className="mx-auto w-full max-w-3xl text-center">
+            <p className="text-text-muted mb-5 text-sm font-medium md:text-base">
+              {comment.topic_question}
+            </p>
             {comment.is_pinned && (
               <div className="mb-4 inline-flex items-center gap-1.5 text-xs font-medium text-accent">
                 <Pin className="h-3.5 w-3.5" />
