@@ -72,6 +72,7 @@ export function TopicFeed({ topics, nextCursor, personalized = false, userId }: 
   );
   return (
     <TopicFeedCore
+      key={activeUserId ?? 'signed-out'}
       topics={topics}
       nextCursor={nextCursor}
       personalized={personalized}
