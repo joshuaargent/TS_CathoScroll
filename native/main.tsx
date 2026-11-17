@@ -1239,7 +1239,7 @@ function App() {
       window.removeEventListener('focus', request);
       document.removeEventListener('visibilitychange', resume);
     };
-  }, [catalogueRefresh, catalogue, feedPersonalized]);
+  }, [catalogueRefresh, catalogue]);
 
   useEffect(() => {
     if (!user?.id || authStatus !== 'ready') return;
@@ -1385,7 +1385,7 @@ function App() {
       }
       return catalogue.topics({ cursor });
     },
-    [catalogue]
+    [catalogue, feedPersonalized]
   );
 
   return (
