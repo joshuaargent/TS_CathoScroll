@@ -4754,7 +4754,6 @@ CREATE TABLE public.sponsors (
   sponsor_name text NOT NULL CHECK (char_length(btrim(sponsor_name)) BETWEEN 2 AND 120),
   contact_email text CHECK (contact_email IS NULL OR char_length(contact_email) <= 254),
   website_url text CHECK (website_url IS NULL OR website_url ~ '^https://'),
-  logo_url text CHECK (logo_url IS NULL OR logo_url ~ '^https://'),
   description text NOT NULL DEFAULT '' CHECK (char_length(description) <= 500),
   starts_on date,
   ends_on date,
@@ -4777,6 +4776,10 @@ CREATE TABLE public.sponsors (
     OR (payment_status <> 'received' AND payment_received_at IS NULL)
   )
 );
+DROP FUNCTION IF EXISTS public.admin_create_sponsor(
+  uuid, text, text, text, text, text, date, date, text, bigint, text, text, text, text
+);
+
 CREATE INDEX sponsors_created_at_idx ON public.sponsors (created_at DESC);
 CREATE INDEX sponsors_created_by_idx ON public.sponsors (created_by);
 ALTER TABLE public.sponsors ENABLE ROW LEVEL SECURITY;
@@ -4788,7 +4791,6 @@ CREATE OR REPLACE FUNCTION public.admin_create_sponsor(
   p_sponsor_name text,
   p_contact_email text,
   p_website_url text,
-  p_logo_url text,
   p_description text,
   p_starts_on date,
   p_ends_on date,
@@ -4817,13 +4819,13 @@ BEGIN
   END IF;
 
   INSERT INTO public.sponsors (
-    sponsor_name, contact_email, website_url, logo_url, description,
+    sponsor_name, contact_email, website_url, description,
     starts_on, ends_on, status, agreed_amount_minor, currency,
     payment_status, payment_received_at, payment_reference, admin_notes, created_by
   )
   VALUES (
     btrim(p_sponsor_name), nullif(btrim(p_contact_email), ''),
-    nullif(btrim(p_website_url), ''), nullif(btrim(p_logo_url), ''),
+    nullif(btrim(p_website_url), ''),
     coalesce(p_description, ''), p_starts_on, p_ends_on, p_status,
     p_agreed_amount_minor, p_currency, p_payment_status,
     CASE WHEN p_payment_status = 'received' THEN pg_catalog.statement_timestamp() ELSE NULL END,
@@ -4856,13 +4858,13 @@ END;
 $function$;
 
 ALTER FUNCTION public.admin_create_sponsor(
-  uuid, text, text, text, text, text, date, date, text, bigint, text, text, text, text
+  uuid, text, text, text, text, date, date, text, bigint, text, text, text, text
 ) OWNER TO postgres;
 REVOKE ALL ON FUNCTION public.admin_create_sponsor(
-  uuid, text, text, text, text, text, date, date, text, bigint, text, text, text, text
+  uuid, text, text, text, text, date, date, text, bigint, text, text, text, text
 ) FROM PUBLIC, anon, authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.admin_create_sponsor(
-  uuid, text, text, text, text, text, date, date, text, bigint, text, text, text, text
+  uuid, text, text, text, text, date, date, text, bigint, text, text, text, text
 ) TO service_role;
 
 
@@ -5191,7 +5193,7 @@ BEGIN
 
   FOR v_slot IN 1..p_limit LOOP
     SELECT campaign.id, campaign.sponsor_id, sponsor.sponsor_name,
-      sponsor.logo_url AS sponsor_logo_url, campaign.headline, campaign.body,
+      campaign.headline, campaign.body,
       campaign.image_url, campaign.destination_url, campaign.cta_label, campaign.campaign_name
     INTO v_campaign
     FROM public.sponsor_campaigns AS campaign
@@ -5254,7 +5256,7 @@ BEGIN
     v_campaign_ids := pg_catalog.array_append(v_campaign_ids,v_campaign.id);
     v_campaigns := v_campaigns || pg_catalog.jsonb_build_array(pg_catalog.jsonb_build_object(
       'campaign_id',v_campaign.id,'sponsor_name',v_campaign.sponsor_name,
-      'sponsor_logo_url',v_campaign.sponsor_logo_url,'campaign_name',v_campaign.campaign_name,
+'campaign_name',v_campaign.campaign_name,
       'headline',v_campaign.headline,'body',v_campaign.body,'image_url',v_campaign.image_url,
       'destination_url',v_campaign.destination_url,'cta_label',v_campaign.cta_label,
       'disclosure','Sponsored'
@@ -5268,6 +5270,9 @@ ALTER FUNCTION public.get_weighted_sponsor_campaigns(uuid, uuid, text, text, int
 REVOKE ALL ON FUNCTION public.get_weighted_sponsor_campaigns(uuid, uuid, text, text, integer)
   FROM PUBLIC, anon, authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.get_weighted_sponsor_campaigns(uuid, uuid, text, text, integer) TO service_role;
+
+-- Remove the unused sponsor logo field after every database function has stopped referencing it.
+ALTER TABLE public.sponsors DROP COLUMN IF EXISTS logo_url;
 
 CREATE OR REPLACE FUNCTION public.record_sponsor_campaign_event(
   p_user_id uuid, p_campaign_id uuid, p_event_id uuid, p_session_id uuid, p_event_type text
@@ -6321,7 +6326,7 @@ GRANT EXECUTE ON FUNCTION public.get_sponsor_financials(uuid, uuid) TO service_r
 
 CREATE OR REPLACE FUNCTION public.admin_create_sponsor(
   p_actor_user_id uuid, p_sponsor_name text, p_contact_email text, p_website_url text,
-  p_logo_url text, p_description text, p_starts_on date, p_ends_on date, p_status text,
+  p_description text, p_starts_on date, p_ends_on date, p_status text,
   p_agreed_amount_minor bigint, p_currency text, p_payment_status text,
   p_payment_reference text, p_admin_notes text
 )
@@ -6336,12 +6341,12 @@ BEGIN
     RAISE EXCEPTION 'New sponsor payment status must be pending or not required; reconcile payments through an invoice' USING ERRCODE = '22023';
   END IF;
   INSERT INTO public.sponsors (
-    sponsor_name, contact_email, website_url, logo_url, description, starts_on, ends_on,
+    sponsor_name, contact_email, website_url, description, starts_on, ends_on,
     status, agreed_amount_minor, currency, payment_status, payment_received_at,
     payment_reference, admin_notes, created_by
   ) VALUES (
     btrim(p_sponsor_name), nullif(btrim(p_contact_email), ''), nullif(btrim(p_website_url), ''),
-    nullif(btrim(p_logo_url), ''), coalesce(p_description, ''), p_starts_on, p_ends_on,
+    coalesce(p_description, ''), p_starts_on, p_ends_on,
     p_status, p_agreed_amount_minor, p_currency, p_payment_status, NULL,
     NULL, coalesce(p_admin_notes, ''), p_actor_user_id
   ) RETURNING * INTO v_sponsor;
@@ -6355,10 +6360,10 @@ BEGIN
     'created_at', v_sponsor.created_at);
 END;
 $function$;
-ALTER FUNCTION public.admin_create_sponsor(uuid, text, text, text, text, text, date, date, text, bigint, text, text, text, text) OWNER TO postgres;
-REVOKE ALL ON FUNCTION public.admin_create_sponsor(uuid, text, text, text, text, text, date, date, text, bigint, text, text, text, text)
+ALTER FUNCTION public.admin_create_sponsor(uuid, text, text, text, text, date, date, text, bigint, text, text, text, text) OWNER TO postgres;
+REVOKE ALL ON FUNCTION public.admin_create_sponsor(uuid, text, text, text, text, date, date, text, bigint, text, text, text, text)
   FROM PUBLIC, anon, authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.admin_create_sponsor(uuid, text, text, text, text, text, date, date, text, bigint, text, text, text, text) TO service_role;
+GRANT EXECUTE ON FUNCTION public.admin_create_sponsor(uuid, text, text, text, text, date, date, text, bigint, text, text, text, text) TO service_role;
 
 REVOKE ALL ON FUNCTION public.admin_mark_sponsor_payment_received(uuid, uuid, text)
   FROM PUBLIC, anon, authenticated, service_role;
@@ -6807,7 +6812,7 @@ REVOKE ALL ON FUNCTION public.admin_record_sponsor_refund(uuid, uuid, bigint, te
 
 CREATE OR REPLACE FUNCTION public.admin_create_sponsor(
   p_actor_user_id uuid, p_sponsor_name text, p_contact_email text, p_website_url text,
-  p_logo_url text, p_description text, p_starts_on date, p_ends_on date, p_status text,
+  p_description text, p_starts_on date, p_ends_on date, p_status text,
   p_agreed_amount_minor bigint, p_currency text, p_payment_status text,
   p_payment_reference text, p_admin_notes text
 )
@@ -6825,12 +6830,12 @@ BEGIN
     RAISE EXCEPTION 'A sponsor with an agreed fee must use pending payment and invoice reconciliation' USING ERRCODE = '22023';
   END IF;
   INSERT INTO public.sponsors (
-    sponsor_name, contact_email, website_url, logo_url, description, starts_on, ends_on,
+    sponsor_name, contact_email, website_url, description, starts_on, ends_on,
     status, agreed_amount_minor, currency, payment_status, payment_received_at,
     payment_reference, admin_notes, created_by
   ) VALUES (
     btrim(p_sponsor_name), nullif(btrim(p_contact_email), ''), nullif(btrim(p_website_url), ''),
-    nullif(btrim(p_logo_url), ''), coalesce(p_description, ''), p_starts_on, p_ends_on,
+    coalesce(p_description, ''), p_starts_on, p_ends_on,
     p_status, p_agreed_amount_minor, p_currency, p_payment_status, NULL,
     NULL, coalesce(p_admin_notes, ''), p_actor_user_id
   ) RETURNING * INTO v_sponsor;
@@ -6844,10 +6849,10 @@ BEGIN
     'created_at', v_sponsor.created_at);
 END;
 $function$;
-ALTER FUNCTION public.admin_create_sponsor(uuid, text, text, text, text, text, date, date, text, bigint, text, text, text, text) OWNER TO postgres;
-REVOKE ALL ON FUNCTION public.admin_create_sponsor(uuid, text, text, text, text, text, date, date, text, bigint, text, text, text, text)
+ALTER FUNCTION public.admin_create_sponsor(uuid, text, text, text, text, date, date, text, bigint, text, text, text, text) OWNER TO postgres;
+REVOKE ALL ON FUNCTION public.admin_create_sponsor(uuid, text, text, text, text, date, date, text, bigint, text, text, text, text)
   FROM PUBLIC, anon, authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.admin_create_sponsor(uuid, text, text, text, text, text, date, date, text, bigint, text, text, text, text) TO service_role;
+GRANT EXECUTE ON FUNCTION public.admin_create_sponsor(uuid, text, text, text, text, date, date, text, bigint, text, text, text, text) TO service_role;
 
 -- Applied migration: index_sponsor_platform_foreign_keys
 
