@@ -5183,7 +5183,7 @@ DECLARE
   v_slot integer;
   v_today date := (pg_catalog.timezone('UTC', pg_catalog.statement_timestamp()))::date;
 BEGIN
-  IF p_user_id IS NULL OR p_session_id IS NULL OR p_limit IS NULL OR p_limit < 1 OR p_limit > 5
+  IF p_user_id IS NULL OR p_session_id IS NULL OR p_limit IS NULL OR p_limit < 1 OR p_limit > 1
      OR NOT EXISTS (SELECT 1 FROM auth.users AS account WHERE account.id = p_user_id) THEN
     RAISE EXCEPTION 'Invalid sponsor campaign request' USING ERRCODE = '22023';
   END IF;
