@@ -178,6 +178,8 @@ test('the ordered feed queue keeps topic, comments and sponsor entries in cadenc
   assert.match(feedCore, /topicsSinceTopCommentCard !== TOP_COMMENT_CADENCE - 1/);
   assert.match(feedCore, /cacheTopCommentGroup\(topic.id, group\)/);
   assert.match(feedCore, /commentInventoryNeedsAnotherPage/);
+  assert.match(feedCore, /const consumeTopCommentGroup/);
+  assert.match(feedCore, /consumeTopCommentGroup\(currentTopic\.id\)/);
   assert.match(feedCore, /sponsorPrefetchRef/);
   assert.match(feedCore, /SPONSOR_CARD_CADENCE - 1/);
   assert.match(feedCore, /prefetched\.promise/);
