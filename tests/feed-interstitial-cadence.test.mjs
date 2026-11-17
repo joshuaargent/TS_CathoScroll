@@ -111,6 +111,7 @@ test('topic, comment and sponsor cards use the same structural layout component'
   assert.match(sponsorCard, /onDoubleClick=/);
   assert.doesNotMatch(sponsorCard, /bg-accent text-white hover:bg-accent\/90/);
   assert.doesNotMatch(sponsorCard, /Previous sponsor|Next sponsor/);
+  assert.doesNotMatch(sponsorCard, /sponsor_logo_url|<Image/);
   assert.match(topCommentCard, /onDoubleClick=/);
   assert.ok(topCommentCard.includes('encodeURIComponent(comment.author_username)'));
   assert.doesNotMatch(topCommentCard, /Open discussion/);
