@@ -44,6 +44,7 @@ type ViewerProps = {
   onNextTopic: () => void;
   onPreviousTopic: () => void;
   nextEntryPreview?: ReactNode;
+  previousEntryPreview?: ReactNode;
 };
 type TopicFeedCoreProps = {
   topics: Topic[];
