@@ -69,7 +69,7 @@ test('sponsor fetches cannot race feed navigation or account changes', () => {
   assert.match(feedCore, /sponsorRequestVersion\.current \+= 1/);
   const previousTopic = feedCore.slice(feedCore.indexOf('const previousTopic ='));
   assert.match(previousTopic, /pendingSponsorAfterComment\.current = false/);
-  assert.match(feedCore, /<TopCommentFeedCard\s+key=\{userId \?\? 'anonymous'\}/);
+  assert.match(feedCore, /key=\{entry.id\}/);
 });
 
 
