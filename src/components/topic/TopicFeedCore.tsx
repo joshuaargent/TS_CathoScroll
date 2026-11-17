@@ -22,7 +22,7 @@ import {
 import { SponsorFeedCard } from './SponsorFeedCard';
 import { createFeedRefreshCoordinator } from '@/lib/feed-refresh-coordinator';
 import { siteConfig } from '@/lib/constants';
-import { buildFeedQueue, findFeedQueueEntryIndex, getFeedQueueWindow } from '@/lib/feed-queue';
+import { appendUniqueFeedTopics, buildFeedQueue, findFeedQueueEntryIndex, getFeedQueueWindow } from '@/lib/feed-queue';
 
 import type { TopicPageCursor } from '@/lib/content';
 import type { RecommendationCursor } from '@/lib/recommendations';
@@ -307,10 +307,9 @@ export function TopicFeedCore({
             return [...byId.values()];
           });
 
-          if (comments.length === 0) {
-            setShowTopCommentCard(false);
-            clearTopCommentGroups();
-                  }
+          // Refreshes only replenish inventory for future placements. Once an
+          // interstitial is queued, keep it stable for back/forward navigation
+          // until the feed session is explicitly reset.
         }
         return true;
       } catch {
@@ -409,17 +408,18 @@ export function TopicFeedCore({
     // Signed-out users get the existing shuffled feed; personalized server
     // ranking is preserved for signed-in users and starts at its top result.
     const shuffled = personalized ? topics : shuffle(topics);
+    const nextFeedTopics = appendUniqueFeedTopics([], shuffled);
     const previousIndex = preservePositionOnUpdate
-      ? shuffled.findIndex((topic) => topic.id === currentTopicId.current)
+      ? nextFeedTopics.findIndex((topic) => topic.id === currentTopicId.current)
       : -1;
     generationRef.current += 1;
     loadingRef.current = false;
 
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setFeedTopics(shuffled);
+    setFeedTopics(nextFeedTopics);
 
     setTopicIndex(
-      previousIndex >= 0 ? previousIndex : personalized ? 0 : Math.floor(shuffled.length / 2)
+      previousIndex >= 0 ? previousIndex : personalized ? 0 : Math.floor(nextFeedTopics.length / 2)
     );
     setNextCursor(initialCursor);
     setLoadingMore(false);
@@ -437,10 +437,9 @@ export function TopicFeedCore({
       const result = await loadPage(nextCursor);
       if (generation !== generationRef.current) return;
       const newTopics = result.topics;
-      setFeedTopics((previous) => [
-        ...previous,
-        ...(personalized ? newTopics : shuffle(newTopics)),
-      ]);
+      setFeedTopics((previous) =>
+        appendUniqueFeedTopics(previous, personalized ? newTopics : shuffle(newTopics))
+      );
       setNextCursor(result.nextCursor);
     } catch (error) {
       if (generation !== generationRef.current) return;
@@ -458,17 +457,18 @@ export function TopicFeedCore({
   // Navigation
   // ----------------------------------
 
-  // Modulo arithmetic wraps the finite catalogue into a circular feed.
+  // Preserve a linear feed. Never wrap to an earlier topic when pagination is
+  // exhausted; this avoids silently replaying the catalogue as new content.
   const advanceToNextTopic = () => {
     if (topicIndex >= feedTopics.length - 3 && nextCursor) {
       void loadMoreTopics();
     }
 
-    if (topicIndex >= feedTopics.length - 1 && nextCursor) {
+    if (topicIndex >= feedTopics.length - 1) {
       return;
     }
 
-    setTopicIndex((prev) => (prev + 1) % feedTopics.length);
+    setTopicIndex((previous) => Math.min(previous + 1, feedTopics.length - 1));
   };
 
   const activateFeedQueueEntry = (entry: NonNullable<typeof feedQueueWindow.current>) => {
@@ -704,7 +704,8 @@ export function TopicFeedCore({
       return;
     }
 
-    const previousIndex = (topicIndex - 1 + feedTopics.length) % feedTopics.length;
+    if (topicIndex <= 0) return;
+    const previousIndex = topicIndex - 1;
     const previousTopicId = feedTopics[previousIndex]?.id;
     const previousSponsorCard = previousTopicId
       ? sponsorCardsByTopicId.get(previousTopicId)
