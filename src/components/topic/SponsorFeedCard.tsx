@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react';
+import { DoorOpen, Share2 } from 'lucide-react';
 
 import type { SponsorFeedCampaign } from '@/lib/sponsor-campaigns';
 import { recordSponsorCampaignEvent } from '@/lib/sponsor-analytics-client';
@@ -43,6 +43,7 @@ export function SponsorFeedCard({
   nextEntryPreview,
 }: SponsorFeedCardProps) {
   const [activeIndex, setActiveIndex] = useState(0);
+  const [shareStatus, setShareStatus] = useState('');
   const navigationStarted = useRef(false);
   const cardRef = useRef<HTMLElement>(null);
   const viewableCampaignIds = useRef(new Set<string>());
@@ -145,6 +146,47 @@ export function SponsorFeedCard({
   const showPreviousCampaign = () => setActiveIndex((index) => Math.max(0, index - 1));
   const showNextCampaign = () => setActiveIndex((index) => Math.min(campaigns.length - 1, index + 1));
 
+  const recordCampaignClick = () => {
+    if (!previewMode && viewableCampaignIds.current.has(campaign.campaign_id)) {
+      void recordEvent(campaign.campaign_id, 'click');
+    }
+  };
+
+  const openDestination = () => {
+    if (previewMode) return;
+    recordCampaignClick();
+    window.open(campaign.destination_url, '_blank', 'noopener,noreferrer');
+  };
+
+  const shareCampaign = async () => {
+    if (previewMode) return;
+    setShareStatus('');
+
+    const shareData = {
+      title: campaign.headline,
+      text: `${campaign.sponsor_name}: ${campaign.body}`,
+      url: campaign.destination_url,
+    };
+
+    try {
+      if (typeof navigator.share === 'function') {
+        await navigator.share(shareData);
+        return;
+      }
+
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(campaign.destination_url);
+        setShareStatus('Sponsor link copied.');
+        return;
+      }
+
+      setShareStatus('Sharing is unavailable in this browser.');
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') return;
+      setShareStatus('Unable to share this sponsor link.');
+    }
+  };
+
   return (
     <FeedInterstitialMotion
       ariaLabel="Sponsored content"
@@ -161,103 +203,102 @@ export function SponsorFeedCard({
         progress={<TopicProgress current={safeIndex} total={campaigns.length} />}
         header={
           <>
-            <p className="text-accent text-xs font-semibold tracking-wider uppercase">Sponsored</p>
-            <span className="text-text-secondary rounded-full border px-3 py-1 text-sm tabular-nums">
-              {safeIndex + 1} / {campaigns.length}
-            </span>
-          </>
-        }
-        footer={
-          <div className="flex items-center justify-center pt-4">
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={showPreviousCampaign}
-                disabled={safeIndex === 0}
-                aria-label="Previous sponsor"
-                className="border-border rounded-full border p-2 disabled:opacity-35"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                onClick={showNextCampaign}
-                disabled={safeIndex >= campaigns.length - 1}
-                aria-label="Next sponsor"
-                className="border-border rounded-full border p-2 disabled:opacity-35"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </button>
+            <div className="flex min-w-0 items-center gap-3">
+              {campaign.sponsor_logo_url ? (
+                <Image
+                  src={campaign.sponsor_logo_url}
+                  alt=""
+                  width={40}
+                  height={40}
+                  unoptimized
+                  className="h-10 w-10 shrink-0 rounded-lg border border-border bg-bg-secondary object-contain"
+                />
+              ) : (
+                <div
+                  aria-hidden="true"
+                  className="bg-bg-secondary text-text-secondary flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-sm font-semibold"
+                >
+                  {campaign.sponsor_name.slice(0, 1).toUpperCase()}
+                </div>
+              )}
+              <div className="min-w-0">
+                <p className="text-text-primary truncate text-sm font-semibold">
+                  {campaign.sponsor_name}
+                </p>
+                <p className="text-text-muted text-xs tracking-wider uppercase">
+                  {campaign.disclosure || 'Sponsored'}
+                </p>
+              </div>
             </div>
-          </div>
+            <div className="flex shrink-0 items-center gap-1">
+              <button
+                type="button"
+                onPointerDown={(event) => event.stopPropagation()}
+                onTouchStart={(event) => event.stopPropagation()}
+                onClick={() => void shareCampaign()}
+                disabled={previewMode}
+                aria-label={`Share ${campaign.sponsor_name}`}
+                title="Share sponsor"
+                className="text-text-muted hover:bg-bg-secondary hover:text-text-primary flex h-11 w-11 items-center justify-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Share2 className="h-5 w-5" />
+              </button>
+              <a
+                href={campaign.destination_url}
+                target="_blank"
+                rel="noopener noreferrer sponsored"
+                onPointerDown={(event) => event.stopPropagation()}
+                onTouchStart={(event) => event.stopPropagation()}
+                onClick={(event) => {
+                  if (previewMode) {
+                    event.preventDefault();
+                    return;
+                  }
+                  recordCampaignClick();
+                }}
+                aria-label={`Visit ${campaign.sponsor_name} website`}
+                title={campaign.cta_label || 'Visit website'}
+                className="text-text-muted hover:bg-bg-secondary hover:text-text-primary flex h-11 w-11 items-center justify-center rounded-full transition-colors"
+              >
+                <DoorOpen className="h-5 w-5" />
+              </a>
+            </div>
+          </>
         }
       >
         <article
           ref={cardRef}
-          className="mx-auto w-full max-w-3xl text-center"
+          className="mx-auto w-full max-w-3xl cursor-pointer px-1 py-3 text-center md:px-4 md:py-5"
+          onDoubleClick={(event) => {
+            if ((event.target as HTMLElement).closest('button, a')) return;
+            openDestination();
+          }}
+          aria-label={`${campaign.sponsor_name} sponsored message. Double-click to visit their website.`}
+          title="Double-click to visit sponsor website"
         >
+          <h3 className="text-text-primary text-3xl leading-tight font-bold md:text-4xl">
+            {campaign.headline}
+          </h3>
+          <p className="text-text-secondary mx-auto mt-4 max-w-2xl whitespace-pre-line text-base leading-relaxed md:text-lg">
+            {campaign.body}
+          </p>
           {campaign.image_url && (
-            <div className="bg-bg-secondary relative mx-auto aspect-[16/7] w-full overflow-hidden rounded-2xl">
+            <div className="bg-bg-secondary relative mx-auto mt-6 aspect-[16/7] max-h-56 w-full max-w-2xl overflow-hidden rounded-2xl">
               <Image
                 src={campaign.image_url}
                 alt=""
                 fill
-                sizes="(max-width: 768px) 100vw, 720px"
+                sizes="(max-width: 768px) 100vw, 672px"
                 unoptimized
                 className="object-cover"
               />
             </div>
           )}
-          <div className="px-1 py-4 md:px-4 md:py-6">
-            <div className="mb-5 flex flex-wrap items-center justify-center gap-3">
-              {campaign.sponsor_logo_url && (
-                <Image
-                  src={campaign.sponsor_logo_url}
-                  alt=""
-                  width={44}
-                  height={44}
-                  unoptimized
-                  className="h-11 w-11 rounded-lg border border-border object-contain"
-                />
-              )}
-              <div className="min-w-0 text-left">
-                <p className="text-text-primary truncate font-semibold">{campaign.sponsor_name}</p>
-                <p className="text-text-muted text-xs">Paid partnership</p>
-              </div>
-              <span className="border-border text-text-secondary ml-auto rounded-full border px-2.5 py-1 text-xs font-semibold">
-                Sponsored
-              </span>
-            </div>
-
-            <p className="text-text-muted mb-2 text-xs font-semibold tracking-wider uppercase">
-              {campaign.campaign_name}
+          {shareStatus && (
+            <p role="status" className="text-text-muted mt-3 text-xs">
+              {shareStatus}
             </p>
-            <h3 className="text-text-primary text-3xl leading-tight font-bold md:text-4xl">
-              {campaign.headline}
-            </h3>
-            <p className="text-text-secondary mx-auto mt-3 max-w-2xl whitespace-pre-line text-lg leading-relaxed">
-              {campaign.body}
-            </p>
-
-            <a
-              href={campaign.destination_url}
-              target="_blank"
-              rel="noopener noreferrer sponsored"
-              onClick={(event) => {
-                if (previewMode) {
-                  event.preventDefault();
-                  return;
-                }
-                if (viewableCampaignIds.current.has(campaign.campaign_id)) {
-                  void recordEvent(campaign.campaign_id, 'click');
-                }
-              }}
-              className="bg-accent text-white hover:bg-accent/90 mt-6 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold transition-colors"
-            >
-              {campaign.cta_label}
-              <ExternalLink className="h-4 w-4" />
-            </a>
-          </div>
+          )}
         </article>
       </TopicCardLayout>
     </FeedInterstitialMotion>
