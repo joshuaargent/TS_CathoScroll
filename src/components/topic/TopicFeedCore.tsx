@@ -51,6 +51,7 @@ type TopicFeedCoreProps = {
   topCommentsEndpoint?: string;
   onOpenComment?: (comment: TopFeedComment) => void;
   getSponsorAccessToken?: () => Promise<string | null>;
+  sponsorApiBaseUrl?: string;
 };
 
 export function TopicFeedCore({
@@ -64,6 +65,7 @@ export function TopicFeedCore({
   topCommentsEndpoint,
   onOpenComment,
   getSponsorAccessToken,
+  sponsorApiBaseUrl,
 }: TopicFeedCoreProps) {
   const router = useRouter();
   const [feedTopics, setFeedTopics] = useState<Topic[]>(topics);
@@ -100,8 +102,8 @@ export function TopicFeedCore({
 
   useEffect(() => {
     if (!userId || !getSponsorAccessToken) return;
-    return installSponsorAnalyticsListeners(userId, getSponsorAccessToken);
-  }, [getSponsorAccessToken, userId]);
+    return installSponsorAnalyticsListeners(userId, getSponsorAccessToken, sponsorApiBaseUrl);
+  }, [getSponsorAccessToken, sponsorApiBaseUrl, userId]);
 
   useEffect(() => {
     if (sponsorSessionUserId.current === userId) return;
@@ -128,7 +130,10 @@ export function TopicFeedCore({
         const accessToken = await getSponsorAccessToken();
         const headers: Record<string, string> = { 'Content-Type': 'application/json' };
         if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
-        const response = await fetch('/api/content/sponsored-campaigns', {
+        const campaignsEndpoint = sponsorApiBaseUrl
+          ? new URL('/api/content/sponsored-campaigns', sponsorApiBaseUrl).toString()
+          : '/api/content/sponsored-campaigns';
+        const response = await fetch(campaignsEndpoint, {
           method: 'POST',
           credentials: 'same-origin',
           headers,
@@ -144,7 +149,7 @@ export function TopicFeedCore({
         return { campaigns: [], sessionId: null };
       }
     },
-    [getSponsorAccessToken, userId]
+    [getSponsorAccessToken, sponsorApiBaseUrl, userId]
   );
 
   useEffect(() => {
@@ -488,6 +493,7 @@ export function TopicFeedCore({
           campaigns={sponsorCampaigns}
           sessionId={activeSponsorSessionId ?? ''}
           userId={userId ?? ''}
+          sponsorApiBaseUrl={sponsorApiBaseUrl}
           getAccessToken={getSponsorAccessToken ?? (async () => null)}
           onNextTopic={() => {
             setShowSponsorCard(false);
