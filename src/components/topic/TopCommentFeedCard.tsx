@@ -127,7 +127,6 @@ function CommentLikeControl({
         </span>
       )}
     </div>
-    </FeedInterstitialMotion>
   );
 }
 
@@ -300,5 +299,6 @@ export function TopCommentFeedCard({
         </div>
       )}
     </div>
+    </FeedInterstitialMotion>
   );
 }
