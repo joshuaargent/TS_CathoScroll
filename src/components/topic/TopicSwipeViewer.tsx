@@ -281,7 +281,6 @@ export function TopicSwipeViewer({
 
   const moveTopic = async (direction: 'next' | 'previous') => {
     if (animationLockRef.current) return;
-    animationLockRef.current = true;
 
     if (direction === 'next' && userId) {
       const activeElapsed = topicActiveSinceRef.current === null
@@ -294,6 +293,7 @@ export function TopicSwipeViewer({
       }
     }
 
+    animationLockRef.current = true;
     setIsAnimating(true);
 
     try {
