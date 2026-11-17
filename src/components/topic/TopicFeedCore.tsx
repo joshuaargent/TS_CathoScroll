@@ -297,6 +297,31 @@ export function TopicFeedCore({
   }, [topCommentsEndpoint, clearTopCommentGroups]);
 
   useEffect(() => {
+    if (topicsSinceTopCommentCard !== TOP_COMMENT_CADENCE - 1) return;
+    if (seenTopCommentUserId.current !== userId) return;
+    const topic = feedTopics[topicIndex];
+    if (!topic || topCommentCardsByTopicId.has(topic.id)) return;
+
+    const unseen = getUnseenTopFeedComments(topComments, seenTopCommentIds.current);
+    if (unseen.length < 5 && topCommentsNextOffset !== null) return;
+    const group = unseen.slice(0, 5);
+    if (group.length === 0) return;
+
+    group.forEach((comment) => seenTopCommentIds.current.add(comment.comment_id));
+    cacheTopCommentGroup(topic.id, group);
+  }, [
+    topicsSinceTopCommentCard,
+    feedTopics,
+    topicIndex,
+    topComments,
+    topCommentsNextOffset,
+    topCommentCardsByTopicId,
+    topCommentInventoryVersion,
+    userId,
+    cacheTopCommentGroup,
+  ]);
+
+  useEffect(() => {
     if (topCommentsPageLoading.current || topCommentsNextOffset === null) return;
     const unseenCount = getUnseenTopFeedComments(topComments, seenTopCommentIds.current).length;
     if (unseenCount > 10) return;
@@ -413,6 +438,7 @@ export function TopicFeedCore({
       return;
     }
     if (entry.type === 'top-comments') {
+      setTopicsSinceTopCommentCard(0);
       setShowSponsorCard(false);
       setShowTopCommentCard(true);
       return;
@@ -461,6 +487,16 @@ export function TopicFeedCore({
       topComments,
       seenTopCommentIds.current
     );
+    const commentInventoryNeedsAnotherPage =
+      currentCommentCadence === TOP_COMMENT_CADENCE - 1 &&
+      unseenTopComments.length < 5 &&
+      topCommentsNextOffset !== null;
+    if (commentInventoryNeedsAnotherPage) {
+      if (!topCommentsPageLoading.current) {
+        setTopCommentInventoryVersion((version) => version + 1);
+      }
+      return;
+    }
     const commentDue = shouldInsertTopCommentCard(
       currentCommentCadence,
       unseenTopComments.length > 0
@@ -486,6 +522,7 @@ export function TopicFeedCore({
       ? feedQueueWindow.next
       : null;
     if (queuedNextEntry?.type === 'top-comments') {
+      pendingSponsorAfterComment.current = sponsorDue;
       activateFeedQueueEntry(queuedNextEntry);
       return;
     }
