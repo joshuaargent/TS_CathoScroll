@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import ts from 'typescript';
 
-const [commentSource, sponsorSource, feedCore, topicCard, topCommentCard, sponsorCard, topicViewer, interstitialMotion, topicCardLayout, topCommentsRoute] = await Promise.all([
+const [commentSource, sponsorSource, feedCore, topicCard, topCommentCard, sponsorCard, topicViewer, interstitialMotion, topicCardLayout, topCommentsRoute, feedQueueSource] = await Promise.all([
   readFile(new URL('../src/lib/feed-comments.ts', import.meta.url), 'utf8'),
   readFile(new URL('../src/lib/sponsor-campaigns.ts', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/TopicFeedCore.tsx', import.meta.url), 'utf8'),
@@ -14,6 +14,7 @@ const [commentSource, sponsorSource, feedCore, topicCard, topCommentCard, sponso
   readFile(new URL('../src/components/topic/FeedInterstitialMotion.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/TopicCardLayout.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/app/api/content/top-comments/route.ts', import.meta.url), 'utf8'),
+  readFile(new URL('../src/lib/feed-queue.ts', import.meta.url), 'utf8'),
 ]);
 
 async function importTypeScript(source) {
@@ -25,6 +26,7 @@ async function importTypeScript(source) {
 
 const comments = await importTypeScript(commentSource);
 const sponsors = await importTypeScript(sponsorSource);
+const feedQueue = await importTypeScript(feedQueueSource);
 
 test('Top Comments is due every five topic advances and sponsors every ten', () => {
   let commentCadence = 0;
@@ -140,4 +142,32 @@ test('top-comment inventory pages beyond five and reserves groups of at most fiv
   assert.match(feedCore, /nextTopCommentGroup\.forEach\(\(comment\) => seenTopCommentIds\.current\.add\(comment\.comment_id\)\)/);
   assert.match(feedCore, /topCommentsNextOffset/);
   assert.match(feedCore, /topCommentInventoryVersion/);
+});
+
+
+test('the ordered feed queue keeps topic, comments and sponsor entries in cadence order', () => {
+  const comment = {
+    comment_id: 1, topic_slug: 'topic-a', topic_question: 'Question?', category_name: 'Category',
+    author_display_name: 'Member', author_username: null, content: 'Comment',
+    content_truncated: false, created_at: '2026-11-01T00:00:00.000Z', is_pinned: false,
+    like_count: 2, reply_count: 1,
+  };
+  const campaign = {
+    campaign_id: '123e4567-e89b-12d3-a456-426614174000', sponsor_name: 'Sponsor', sponsor_logo_url: null,
+    campaign_name: 'Campaign', headline: 'Headline', body: 'Body', image_url: null,
+    destination_url: 'https://example.com', cta_label: 'Learn more', disclosure: 'Sponsored',
+  };
+  const queue = feedQueue.buildFeedQueue(
+    [{ id: 'topic-a' }, { id: 'topic-b' }],
+    new Map([['topic-a', [comment]]]),
+    new Map([['topic-a', { campaigns: [campaign], sessionId: 'session-a' }]])
+  );
+  assert.deepEqual(queue.map((entry) => entry.type), ['topic', 'top-comments', 'sponsor', 'topic']);
+  const window = feedQueue.getFeedQueueWindow(queue, 1);
+  assert.equal(window.previous?.type, 'topic');
+  assert.equal(window.current?.type, 'top-comments');
+  assert.equal(window.next?.type, 'sponsor');
+  assert.match(feedCore, /buildFeedQueue/);
+  assert.match(feedCore, /getFeedQueueWindow/);
+  assert.match(feedCore, /activeFeedQueueEntry\\?\\.type === 'sponsor'/);
 });
