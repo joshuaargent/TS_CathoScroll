@@ -20,6 +20,12 @@ export function AdminNavigation({ showContent = true }: { showContent?: boolean 
         Sponsor campaigns
       </a>
       <a
+        href="/admin/previews"
+        className="border-border hover:bg-bg-secondary rounded-lg border px-4 py-2 text-sm"
+      >
+        Feed card previews
+      </a>
+      <a
         href="/admin/reports"
         className="border-border hover:bg-bg-secondary rounded-lg border px-4 py-2 text-sm"
       >

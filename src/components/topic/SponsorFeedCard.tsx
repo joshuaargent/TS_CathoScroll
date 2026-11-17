@@ -5,10 +5,14 @@ import { useCallback, useEffect, useRef, useState, type PointerEvent, type Keybo
 import { ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react';
 
 import type { SponsorFeedCampaign } from '@/lib/sponsor-campaigns';
+import { recordSponsorCampaignEvent } from '@/lib/sponsor-analytics-client';
 
 interface SponsorFeedCardProps {
   campaigns: SponsorFeedCampaign[];
   sessionId: string;
+  userId: string;
+  previewMode?: boolean;
+  sponsorApiBaseUrl?: string;
   getAccessToken: () => Promise<string | null>;
   onNextTopic: () => void;
   onPreviousTopic: () => void;
@@ -26,6 +30,9 @@ function createEventId() {
 export function SponsorFeedCard({
   campaigns,
   sessionId,
+  userId,
+  previewMode = false,
+  sponsorApiBaseUrl,
   getAccessToken,
   onNextTopic,
   onPreviousTopic,
@@ -42,35 +49,25 @@ export function SponsorFeedCard({
 
   const recordEvent = useCallback(
     async (targetCampaignId: string, eventType: 'viewable_impression' | 'click') => {
-      try {
-        const accessToken = await getAccessToken();
-        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-        if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
-        const response = await fetch('/api/content/sponsor-campaign-events', {
-          method: 'POST',
-          credentials: 'same-origin',
-          keepalive: true,
-          headers,
-          body: JSON.stringify({
-            campaignId: targetCampaignId,
-            eventId: createEventId(),
-            sessionId,
-            eventType,
-          }),
-        });
-        if (!response.ok) return false;
-        const result: { recorded?: boolean } = await response.json();
-        return result.recorded === true;
-      } catch {
-        return false;
-      }
+      if (previewMode) return false;
+      return recordSponsorCampaignEvent(
+        userId,
+        {
+          campaignId: targetCampaignId,
+          eventId: createEventId(),
+          sessionId,
+          eventType,
+        },
+        getAccessToken,
+        sponsorApiBaseUrl
+      );
     },
-    [getAccessToken, sessionId]
+    [getAccessToken, previewMode, sessionId, sponsorApiBaseUrl, userId]
   );
 
   useEffect(() => {
     const node = cardRef.current;
-    if (!node || !campaignId || viewableCampaignIds.current.has(campaignId)) return;
+    if (previewMode || !node || !campaignId || viewableCampaignIds.current.has(campaignId)) return;
 
     let timer: number | null = null;
     let visible = false;
@@ -121,7 +118,7 @@ export function SponsorFeedCard({
       observer?.disconnect();
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };
-  }, [campaignId, recordEvent]);
+  }, [campaignId, previewMode, recordEvent]);
 
   if (!campaign) return null;
 
@@ -259,7 +256,11 @@ export function SponsorFeedCard({
               href={campaign.destination_url}
               target="_blank"
               rel="noopener noreferrer sponsored"
-              onClick={() => {
+              onClick={(event) => {
+                if (previewMode) {
+                  event.preventDefault();
+                  return;
+                }
                 if (viewableCampaignIds.current.has(campaign.campaign_id)) {
                   void recordEvent(campaign.campaign_id, 'click');
                 }

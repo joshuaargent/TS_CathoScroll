@@ -19,6 +19,8 @@ import {
   type SponsorFeedCampaign,
 } from '@/lib/sponsor-campaigns';
 import { SponsorFeedCard } from './SponsorFeedCard';
+import { createFeedRefreshCoordinator } from '@/lib/feed-refresh-coordinator';
+import { siteConfig } from '@/lib/constants';
 
 import type { TopicPageCursor } from '@/lib/content';
 import type { RecommendationCursor } from '@/lib/recommendations';
@@ -50,6 +52,7 @@ type TopicFeedCoreProps = {
   topCommentsEndpoint?: string;
   onOpenComment?: (comment: TopFeedComment) => void;
   getSponsorAccessToken?: () => Promise<string | null>;
+  sponsorApiBaseUrl?: string;
 };
 
 export function TopicFeedCore({
@@ -63,8 +66,18 @@ export function TopicFeedCore({
   topCommentsEndpoint,
   onOpenComment,
   getSponsorAccessToken,
+  sponsorApiBaseUrl,
 }: TopicFeedCoreProps) {
   const router = useRouter();
+  const nativeSponsorApiBaseUrl =
+    typeof window !== 'undefined' &&
+    (window.location.protocol === 'capacitor:' ||
+      window.location.protocol === 'capacitor-electron:' ||
+      window.location.origin === 'http://localhost' ||
+      window.location.origin === 'https://localhost')
+      ? siteConfig.url
+      : undefined;
+  const effectiveSponsorApiBaseUrl = sponsorApiBaseUrl ?? nativeSponsorApiBaseUrl;
   const [feedTopics, setFeedTopics] = useState<Topic[]>(topics);
   const [topComments, setTopComments] = useState<TopFeedComment[]>([]);
   const [topCommentCardComments, setTopCommentCardComments] = useState<TopFeedComment[]>([]);
@@ -122,7 +135,10 @@ export function TopicFeedCore({
         const accessToken = await getSponsorAccessToken();
         const headers: Record<string, string> = { 'Content-Type': 'application/json' };
         if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
-        const response = await fetch('/api/content/sponsored-campaigns', {
+        const campaignsEndpoint = effectiveSponsorApiBaseUrl
+          ? new URL('/api/content/sponsored-campaigns', effectiveSponsorApiBaseUrl).toString()
+          : '/api/content/sponsored-campaigns';
+        const response = await fetch(campaignsEndpoint, {
           method: 'POST',
           credentials: 'same-origin',
           headers,
@@ -138,19 +154,18 @@ export function TopicFeedCore({
         return { campaigns: [], sessionId: null };
       }
     },
-    [getSponsorAccessToken, userId]
+    [effectiveSponsorApiBaseUrl, getSponsorAccessToken, userId]
   );
 
   useEffect(() => {
     let cancelled = false;
-
-    const loadTopComments = async () => {
+    const refresh = createFeedRefreshCoordinator(async () => {
       try {
         const response = await fetch(topCommentsEndpoint ?? '/api/content/top-comments', {
           cache: 'default',
           credentials: topCommentsEndpoint ? 'omit' : 'same-origin',
         });
-        if (!response.ok) return;
+        if (!response.ok) return false;
 
         const payload: unknown = await response.json();
         if (!cancelled) {
@@ -169,7 +184,6 @@ export function TopicFeedCore({
 
           for (const [topicId, cardComments] of topCommentCardsByTopicId.current) {
             const remainingComments = reconcileComments(cardComments);
-
             if (remainingComments.length > 0) {
               topCommentCardsByTopicId.current.set(topicId, remainingComments);
             } else {
@@ -183,24 +197,26 @@ export function TopicFeedCore({
             topCommentCardsByTopicId.current.clear();
           }
         }
+        return true;
       } catch {
         // Top comments are optional feed inventory. A failed request must not
-        // interrupt topic navigation or display an empty interstitial.
+        // interrupt topic navigation; reconnect explicitly bypasses the cooldown.
+        return false;
       }
-    };
+    }, 30_000);
 
     const refreshWhenVisible = () => {
-      if (document.visibilityState === 'visible') {
-        void loadTopComments();
-      }
+      if (document.visibilityState === 'visible') void refresh.request();
     };
+    const refreshWhenOnline = () => void refresh.reconnect();
 
-    void loadTopComments();
-    window.addEventListener('online', loadTopComments);
+    void refresh.request();
+    window.addEventListener('online', refreshWhenOnline);
     document.addEventListener('visibilitychange', refreshWhenVisible);
     return () => {
       cancelled = true;
-      window.removeEventListener('online', loadTopComments);
+      refresh.dispose();
+      window.removeEventListener('online', refreshWhenOnline);
       document.removeEventListener('visibilitychange', refreshWhenVisible);
     };
   }, [topCommentsEndpoint]);
@@ -481,6 +497,8 @@ export function TopicFeedCore({
         <SponsorFeedCard
           campaigns={sponsorCampaigns}
           sessionId={activeSponsorSessionId ?? ''}
+          userId={userId ?? ''}
+          sponsorApiBaseUrl={effectiveSponsorApiBaseUrl}
           getAccessToken={getSponsorAccessToken ?? (async () => null)}
           onNextTopic={() => {
             setShowSponsorCard(false);

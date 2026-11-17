@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { Component, createContext, useCallback, useContext, useEffect, useRef, useState, type ErrorInfo, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { CommentSection } from '@/components/comments/CommentSection';
 import { TopicFeedCore } from '@/components/topic/TopicFeedCore';
@@ -41,6 +41,7 @@ import {
 import { createClient, initializeNativeAuth } from './supabase';
 import { authStorageKey, secureAuthStorage } from './secure-auth-storage';
 import { SignInPromptProvider, useSignInPrompt } from '@/components/providers/SignInPromptProvider';
+import { SponsorAnalyticsSync } from '@/components/providers/SponsorAnalyticsSync';
 import { ThemeProvider } from '@/components/providers/ThemeProvider';
 import { OfflineCatalogue, type CatalogueCursor } from '@/lib/offline/catalogue';
 import { CatalogueRefresh } from '@/lib/offline/catalogue-refresh';
@@ -267,7 +268,7 @@ function NativeViewer(props: {
     return data.session?.access_token ?? null;
   }, []);
   const navigation = useContext(TopicNavigation);
-  if (!navigation?.counts) throw new Error('Native topic navigation is unavailable.');
+  if (!navigation) throw new Error('Native topic navigation is unavailable.');
   const topicId = String(props.topics[props.topicIndex].id);
   const countCache = navigation.counts;
   const userId = navigation.userId;
@@ -305,14 +306,16 @@ function NativeViewer(props: {
     let active = true;
     async function load() {
       setCountError('');
-      try {
-        const cached = await countCache.load(topicId);
-        if (!active) return;
-        if (cached) setCounts({ topicId, value: cached, fresh: false });
-        else if (!navigator.onLine) setCounts(null);
-      } catch (error) {
-        console.error('Unable to load cached topic counts:', error);
-        if (active) setCountError('Saved topic counts could not be loaded.');
+      if (countCache) {
+        try {
+          const cached = await countCache.load(topicId);
+          if (!active) return;
+          if (cached) setCounts({ topicId, value: cached, fresh: false });
+          else if (!navigator.onLine) setCounts(null);
+        } catch (error) {
+          console.error('Unable to load cached topic counts:', error);
+          if (active) setCountError('Saved topic counts could not be loaded.');
+        }
       }
 
       if (!navigator.onLine || !active) return;
@@ -329,11 +332,13 @@ function NativeViewer(props: {
           fresh: true,
         });
         setCountError('');
-        try {
-          await countCache.save(topicId, result.likes, result.comments);
-        } catch (error) {
-          console.error('Unable to save topic counts:', error);
-          if (active) setCountError('Topic counts could not be saved for offline viewing.');
+        if (countCache) {
+          try {
+            await countCache.save(topicId, result.likes, result.comments);
+          } catch (error) {
+            console.error('Unable to save topic counts:', error);
+            if (active) setCountError('Topic counts could not be saved for offline viewing.');
+          }
         }
       } catch (error) {
         console.error('Unable to refresh topic counts:', error);
@@ -496,8 +501,8 @@ function NativeTopicPage({
   showComments,
 }: {
   catalogue: OfflineCatalogue;
-  cache: OfflineCommentCache;
-  noteCache: NativeNoteCache;
+  cache: OfflineCommentCache | null;
+  noteCache: NativeNoteCache | null;
   userId: string | null;
   activity: NativeActivity | null;
   activityStatus: NativeActivityStatus | null;
@@ -586,7 +591,12 @@ function NativeTopicPage({
             topicId={String(topic.id)}
             cache={noteCache}
           />
-          <CommentSection topicId={String(topic.id)} cache={cache} serverActionsAvailable supabaseClient={createClient()} />
+          <CommentSection
+            topicId={String(topic.id)}
+            cache={cache ?? undefined}
+            serverActionsAvailable
+            supabaseClient={createClient()}
+          />
         </>
       )}
     </div>
@@ -836,6 +846,7 @@ function App() {
   const [firstPage, setFirstPage] = useState<CataloguePage | null>(null);
   const [feedPersonalized, setFeedPersonalized] = useState(false);
   const [feedAttempt, setFeedAttempt] = useState(0);
+  const [feedLoadError, setFeedLoadError] = useState('');
   const [catalogueRefresh, setCatalogueRefresh] = useState<CatalogueRefresh | null>(null);
   const [catalogueVersion, setCatalogueVersion] = useState(0);
   const [catalogueMessage, setCatalogueMessage] = useState('');
@@ -853,6 +864,14 @@ function App() {
   const [activityVersion, setActivityVersion] = useState(0);
   const [activityAttempt, setActivityAttempt] = useState(0);
   const retryStartup = useRef<() => void>(() => {});
+  const getNativeSponsorAccessToken = useCallback(async () => {
+    const { data, error } = await createClient().auth.getSession();
+    if (error) {
+      console.error('Unable to obtain the native sponsor analytics session:', error.message);
+      return null;
+    }
+    return data.session?.access_token ?? null;
+  }, []);
 
   useEffect(() => {
     if (!catalogue || authStatus !== 'ready') return;
@@ -868,6 +887,7 @@ function App() {
           const page = await localCatalogue.topics();
           if (!active) return;
           setFirstPage(page);
+          setFeedLoadError('');
           setFeedPersonalized(false);
           clearNativeStatusNotice('feed-online');
           return;
@@ -889,6 +909,7 @@ function App() {
         }
         if (!active) return;
         setFirstPage(page);
+        setFeedLoadError('');
         setFeedPersonalized(Boolean(user?.id));
         clearNativeStatusNotice('feed-online');
       } catch (cause) {
@@ -898,6 +919,7 @@ function App() {
           const page = await localCatalogue.topics();
           if (!active) return;
           setFirstPage(page);
+          setFeedLoadError('');
           setFeedPersonalized(false);
           notifyNativeStatus('The live feed is unavailable. Showing saved topics instead.', {
             id: 'feed-online',
@@ -906,6 +928,7 @@ function App() {
         } catch (offlineCause) {
           console.error('Unable to load the saved topic feed:', offlineCause);
           if (active) {
+            setFeedLoadError('The topic feed could not be loaded. Check your connection or retry.');
             notifyNativeStatus('The topic feed could not be loaded. Please retry.', {
               id: 'feed-online',
               action: { label: 'Retry', onClick: () => setFeedAttempt((value) => value + 1) },
@@ -1016,21 +1039,45 @@ function App() {
         const localComments = new OfflineCommentCache(cacheDatabase);
         const localCounts = new OfflineTopicCountCache(cacheDatabase);
         const localNotes = new NativeNoteCache(cacheDatabase, secureAuthStorage);
-        failure = 'Unable to open saved comments. Please try again.';
-        await localComments.initialize();
-        failure = 'Unable to open saved topic counts. Please try again.';
-        await localCounts.initialize();
-        failure = 'Unable to open saved notes. Please try again.';
-        await localNotes.initialize();
+        let commentsReady = false;
+        let countsReady = false;
+        let notesReady = false;
+        try {
+          await localComments.initialize();
+          commentsReady = true;
+        } catch (cause) {
+          console.error('Offline comment cache is unavailable:', cause);
+          notifyNativeStatus('Saved comments are unavailable on this device. The live feed can still be used.', {
+            id: 'comments-cache-unavailable',
+          });
+        }
+        try {
+          await localCounts.initialize();
+          countsReady = true;
+        } catch (cause) {
+          console.error('Offline topic-count cache is unavailable:', cause);
+          notifyNativeStatus('Saved topic counts are unavailable on this device. Live counts can still be loaded.', {
+            id: 'counts-cache-unavailable',
+          });
+        }
+        try {
+          await localNotes.initialize();
+          notesReady = true;
+        } catch (cause) {
+          console.error('Offline notes cache is unavailable:', cause);
+          notifyNativeStatus('Saved notes are unavailable on this device.', {
+            id: 'notes-cache-unavailable',
+          });
+        }
         failure = 'Unable to open saved topics. Please try again.';
         const page = await localCatalogue.topics();
         if (active) {
           setError('');
           setFirstPage(page);
           setCatalogue(localCatalogue);
-          setCommentCache(localComments);
-          setCountCache(localCounts);
-          setNoteCache(localNotes);
+          setCommentCache(commentsReady ? localComments : null);
+          setCountCache(countsReady ? localCounts : null);
+          setNoteCache(notesReady ? localNotes : null);
           try {
             setCatalogueRefresh(
               new CatalogueRefresh(
@@ -1045,7 +1092,10 @@ function App() {
         }
       } catch (cause) {
         console.error(failure, cause);
-        if (active) setError(failure);
+        if (active) {
+          const detail = cause instanceof Error ? cause.message : 'Unknown startup error.';
+          setError(`${failure} ${detail.slice(0, 240)}`);
+        }
       } finally {
         openingContent = false;
       }
@@ -1346,6 +1396,11 @@ function App() {
 
   return (
     <ThemeProvider>
+      <SponsorAnalyticsSync
+        apiBaseUrl={siteConfig.url}
+        userId={user?.id ?? null}
+        getAccessToken={getNativeSponsorAccessToken}
+      />
       <SignInPromptProvider>
         <NativeNotificationsProvider userId={user?.id ?? null}>
           <TopicNavigation.Provider
@@ -1362,8 +1417,22 @@ function App() {
           >
             <NativeNavbar pathname={route?.pathname ?? '/'} userId={user?.id ?? null} />
             <main className="native-content">
-              {route?.kind === 'feed' && !error && !firstPage && (
+              {route?.kind === 'feed' && !error && !feedLoadError && !firstPage && (
                 <NativeFeedSkeleton />
+              )}
+              {error && (
+                <section className="mx-auto flex min-h-[55vh] max-w-xl flex-col items-center justify-center gap-4 px-6 text-center" role="alert">
+                  <h1 className="text-text-primary text-xl font-semibold">CathoScroll could not finish starting</h1>
+                  <p className="text-text-secondary text-sm">{error}</p>
+                  <button type="button" className="bg-accent rounded-lg px-5 py-3 text-sm font-semibold text-white" onClick={() => { setError(''); retryStartup.current(); }}>Retry startup</button>
+                </section>
+              )}
+              {route?.kind === 'feed' && feedLoadError && !error && (
+                <section className="mx-auto flex min-h-[55vh] max-w-xl flex-col items-center justify-center gap-4 px-6 text-center" role="alert">
+                  <h1 className="text-text-primary text-xl font-semibold">Your feed is unavailable</h1>
+                  <p className="text-text-secondary text-sm">{feedLoadError}</p>
+                  <button type="button" className="bg-accent rounded-lg px-5 py-3 text-sm font-semibold text-white" onClick={() => { setFeedLoadError(''); setFeedAttempt((value) => value + 1); }}>Retry feed</button>
+                </section>
               )}
               {!error && route?.kind === 'search' && !catalogue && (
                 <NativeGridSkeleton label="Loading search" />
@@ -1397,6 +1466,7 @@ function App() {
                     personalized={feedPersonalized}
                     loadPage={loadPage}
                     userId={user?.id ?? null}
+                    getSponsorAccessToken={getNativeSponsorAccessToken}
                     viewer={NativeViewer}
                     topCommentsEndpoint={new URL(
                       '/api/content/top-comments',
@@ -1503,7 +1573,7 @@ function App() {
                   slug={route.slug}
                 />
               )}
-              {catalogue && commentCache && noteCache && route?.kind === 'topic' && (
+              {catalogue && route?.kind === 'topic' && (
                 <NativeTopicPage
                   key={`${route.slug}-${catalogueVersion}`}
                   catalogue={catalogue}
@@ -1528,6 +1598,41 @@ function App() {
   );
 }
 
+class NativeErrorBoundary extends Component<
+  { children: ReactNode },
+  { error: Error | null }
+> {
+  state: { error: Error | null } = { error: null };
+
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error('Uncaught native application render error:', error, info.componentStack);
+  }
+
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="bg-background text-text-primary flex min-h-screen flex-col items-center justify-center gap-4 px-6 text-center">
+          <h1 className="text-xl font-semibold">CathoScroll encountered an error</h1>
+          <p className="text-text-secondary max-w-xl text-sm">The app could not display this screen. Restart the app to try again.</p>
+          <p className="text-text-muted max-w-xl break-words text-xs" role="status">Diagnostic: {this.state.error.message.slice(0, 240) || this.state.error.name}</p>
+          <button type="button" className="bg-accent rounded-lg px-5 py-3 text-sm font-semibold text-white" onClick={() => window.location.reload()}>
+            Restart app
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 const root = document.getElementById('root');
 if (!root) throw new Error('The application root is missing.');
-createRoot(root).render(<App />);
+createRoot(root).render(
+  <NativeErrorBoundary>
+    <App />
+  </NativeErrorBoundary>
+);

@@ -30,7 +30,7 @@ export interface NativeNoteLoadResult {
 }
 
 export async function loadNativeNote(
-  cache: Pick<NativeNoteCache, 'load' | 'save'>,
+  cache: Pick<NativeNoteCache, 'load' | 'save'> | null,
   userId: string,
   topicId: string,
   fetchOnline: (() => Promise<string | null>) | null,
@@ -41,11 +41,15 @@ export async function loadNativeNote(
   let warning = '';
   let cacheLoadError: unknown;
 
-  try {
-    note = await cache.load(userId, topicId);
-  } catch (error) {
-    cacheLoadError = error;
-    warning = 'Your saved note could not be opened on this device.';
+  if (cache) {
+    try {
+      note = await cache.load(userId, topicId);
+    } catch (error) {
+      cacheLoadError = error;
+      warning = 'Your saved note could not be opened on this device.';
+    }
+  } else {
+    warning = 'Offline note storage is unavailable on this device.';
   }
 
   onCached?.(note, warning);
@@ -72,15 +76,17 @@ export async function loadNativeNote(
   }
 
   note = { content, savedAt: new Date().toISOString() };
-  try {
-    // A successful server response is authoritative. This also repairs a
-    // corrupt ciphertext row; save() still refuses to replace a missing key
-    // when encrypted note rows already exist.
-    await cache.save(userId, topicId, content);
-    warning = '';
-  } catch (cacheSaveError) {
-    warning = 'This note could not be saved for offline viewing.';
-    return { note, warning, verified: true, cacheLoadError, cacheSaveError };
+  if (cache) {
+    try {
+      // A successful server response is authoritative. This also repairs a
+      // corrupt ciphertext row; save() still refuses to replace a missing key
+      // when encrypted note rows already exist.
+      await cache.save(userId, topicId, content);
+      warning = '';
+    } catch (cacheSaveError) {
+      warning = 'This note could not be saved for offline viewing.';
+      return { note, warning, verified: true, cacheLoadError, cacheSaveError };
+    }
   }
 
   return { note, warning, verified: true, cacheLoadError };

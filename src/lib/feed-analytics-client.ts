@@ -26,7 +26,6 @@ type QueuedFeedAnalyticsEvent = {
   metadata: FeedAnalyticsMetadata;
 };
 
-const queueLimit = 200;
 const batchLimit = 50;
 const storagePrefix = 'cathoscroll.feed-analytics.v1.';
 const sessionId = createUuid();
@@ -34,6 +33,7 @@ const flushingUsers = new Set<string>();
 type FeedAnalyticsTransport = {
   endpoint?: string;
   getAccessToken?: () => Promise<string | null>;
+  retired?: boolean;
 };
 const transports = new Map<string, FeedAnalyticsTransport>();
 
@@ -65,7 +65,7 @@ function readQueue(userId: string): QueuedFeedAnalyticsEvent[] {
     if (!raw) return [];
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter(isQueuedEvent).slice(-queueLimit);
+    return parsed.filter(isQueuedEvent);
   } catch {
     return [];
   }
@@ -100,7 +100,7 @@ function writeQueue(userId: string, events: QueuedFeedAnalyticsEvent[]): void {
     if (events.length === 0) {
       window.localStorage.removeItem(storageKey(userId));
     } else {
-      window.localStorage.setItem(storageKey(userId), JSON.stringify(events.slice(-queueLimit)));
+      window.localStorage.setItem(storageKey(userId), JSON.stringify(events));
     }
   } catch {
     // Analytics are best-effort and must never interfere with learning actions.
@@ -185,6 +185,10 @@ export async function flushFeedAnalytics(userId: string, keepalive = false): Pro
     }
   } finally {
     flushingUsers.delete(userId);
+    const transport = transports.get(userId);
+    if (transport?.retired && readQueue(userId).length === 0) {
+      transports.delete(userId);
+    }
   }
 }
 
@@ -194,8 +198,12 @@ export function installFeedAnalyticsListeners(
 ): () => void {
   if (typeof window === 'undefined') return () => undefined;
 
-  transports.set(userId, transport);
+  const installedTransport: FeedAnalyticsTransport = { ...transport };
+  transports.set(userId, installedTransport);
+  // Drain events left by a previous offline session as soon as the authenticated
+  // transport is installed. Native WebViews can restart without an `online` event.
   const flush = () => void flushFeedAnalytics(userId);
+  flush();
   const handleVisibility = () => {
     if (document.visibilityState === 'hidden') {
       void flushFeedAnalytics(userId, true);
@@ -207,9 +215,23 @@ export function installFeedAnalyticsListeners(
   document.addEventListener('visibilitychange', handleVisibility);
 
   return () => {
-    if (transports.get(userId) === transport) transports.delete(userId);
     window.removeEventListener('online', flush);
     window.removeEventListener('pagehide', handleVisibility);
     document.removeEventListener('visibilitychange', handleVisibility);
+
+    // The topic-duration effect also flushes during unmount. Retain the
+    // authenticated transport through the current cleanup turn so its final
+    // event cannot fall back to an unauthenticated relative endpoint.
+    if (transports.get(userId) === installedTransport) {
+      installedTransport.retired = true;
+      Promise.resolve().then(() => {
+        if (transports.get(userId) !== installedTransport) return;
+        if (readQueue(userId).length === 0 && !flushingUsers.has(userId)) {
+          transports.delete(userId);
+        } else {
+          void flushFeedAnalytics(userId);
+        }
+      });
+    }
   };
 }
