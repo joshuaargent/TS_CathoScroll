@@ -324,6 +324,7 @@ export function TopicFeedCore({
     if (group.length === 0) return;
 
     group.forEach((comment) => seenTopCommentIds.current.add(comment.comment_id));
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     cacheTopCommentGroup(topic.id, group);
   }, [
     topicsSinceTopCommentCard,
