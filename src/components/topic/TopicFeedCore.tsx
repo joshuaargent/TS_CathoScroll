@@ -527,6 +527,7 @@ export function TopicFeedCore({
         seenTopCommentUserId.current = userId;
         seenTopCommentIds.current.clear();
         topCommentCardsByTopicId.current.clear();
+        sponsorDueByTopicId.current.clear();
       }
       seenTopCommentIds.current.add(commentId);
     },
@@ -541,6 +542,7 @@ export function TopicFeedCore({
     if (sponsorLoadingRef.current) {
       sponsorRequestVersion.current += 1;
       sponsorLoadingRef.current = false;
+      setSponsorLoading(false);
       setTopicsSinceSponsorCard(sponsorRequestPreviousCadence.current);
     }
     pendingSponsorAfterComment.current = false;
