@@ -12,7 +12,6 @@ interface TopCommentFeedCardProps {
   onPreviousTopic: () => void;
   onOpenComment: (comment: TopFeedComment) => void;
   onCommentViewed: (commentId: number) => void;
-  navigationResetKey: string | null;
 }
 
 export function TopCommentFeedCard({
@@ -21,7 +20,6 @@ export function TopCommentFeedCard({
   onPreviousTopic,
   onOpenComment,
   onCommentViewed,
-  navigationResetKey,
 }: TopCommentFeedCardProps) {
   const [activeIndex, setActiveIndex] = useState(0);
   const pointerStart = useRef<{ x: number; y: number } | null>(null);
@@ -34,12 +32,6 @@ export function TopCommentFeedCard({
   useEffect(() => {
     if (activeCommentId !== undefined) onCommentViewed(activeCommentId);
   }, [activeCommentId, onCommentViewed]);
-
-  // A cancelled queued-sponsor request can leave this card mounted. Reset the
-  // one-shot lock when the account context changes so navigation stays usable.
-  useEffect(() => {
-    navigationStarted.current = false;
-  }, [navigationResetKey]);
 
   if (!comment) return null;
 
