@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import ts from 'typescript';
 
-const [commentSource, sponsorSource, feedCore, topicCard, topCommentCard, sponsorCard, topicViewer, interstitialMotion, topicCardLayout] = await Promise.all([
+const [commentSource, sponsorSource, feedCore, topicCard, topCommentCard, sponsorCard, topicViewer, interstitialMotion, topicCardLayout, sponsorLoadingCard] = await Promise.all([
   readFile(new URL('../src/lib/feed-comments.ts', import.meta.url), 'utf8'),
   readFile(new URL('../src/lib/sponsor-campaigns.ts', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/TopicFeedCore.tsx', import.meta.url), 'utf8'),
@@ -13,6 +13,7 @@ const [commentSource, sponsorSource, feedCore, topicCard, topCommentCard, sponso
   readFile(new URL('../src/components/topic/TopicSwipeViewer.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/FeedInterstitialMotion.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/TopicCardLayout.tsx', import.meta.url), 'utf8'),
+  readFile(new URL('../src/components/topic/SponsorLoadingCard.tsx', import.meta.url), 'utf8'),
 ]);
 
 async function importTypeScript(source) {
@@ -131,6 +132,15 @@ test('topic, comment and sponsor cards use the same structural layout component'
   assert.match(interstitialMotion, /case ' '/);
   assert.match(interstitialMotion, /setPointerCapture\(event\.pointerId\)/);
   assert.match(interstitialMotion, /flushSync\(\(\) =>/);
+  assert.match(interstitialMotion, /if \(navigation\) await navigation/);
+  assert.match(topicViewer, /if \(navigation\) await navigation/);
+  assert.match(topCommentCard, /await onNextTopic\(\)/);
+  assert.match(sponsorCard, /await onNextTopic\(\)/);
+  assert.match(feedCore, /const nextTopic = async \(\) =>/);
+  assert.match(feedCore, /sponsorLoading \? \(/);
+  assert.match(feedCore, /new SponsorLoadingCard/);
+  assert.match(sponsorLoadingCard, /role="status" aria-live="polite" aria-busy="true"/);
+  assert.match(sponsorLoadingCard, /cardClassName="bg-accent-light\/5"/);
 });
 
 
