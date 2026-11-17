@@ -98,7 +98,7 @@ export function TopicFeedCore({
   const sponsorRequestVersion = useRef(0);
   const sponsorRequestPreviousCadence = useRef(0);
   const pendingSponsorAfterComment = useRef(false);
-  const sponsorDueAfterCommentByTopicId = useRef(new Set<string>());
+  const sponsorDueByTopicId = useRef(new Set<string>());
   const sponsorPreviousIsComment = useRef(false);
 
   const [topicIndex, setTopicIndex] = useState(personalized ? 0 : Math.floor(topics.length / 2));
@@ -120,7 +120,7 @@ export function TopicFeedCore({
     sponsorPreviousIsComment.current = false;
     setActiveSponsorSessionId(null);
     sponsorCardsByTopicId.current.clear();
-    sponsorDueAfterCommentByTopicId.current.clear();
+    sponsorDueByTopicId.current.clear();
     sponsorRequestVersion.current += 1;
     sponsorLoadingRef.current = false;
     pendingSponsorAfterComment.current = false;
@@ -347,7 +347,7 @@ export function TopicFeedCore({
       if (cachedComments?.length) {
         setTopCommentCardComments(cachedComments);
         pendingSponsorAfterComment.current = !cachedSponsor?.campaigns.length &&
-          sponsorDueAfterCommentByTopicId.current.has(currentTopic.id);
+          sponsorDueByTopicId.current.has(currentTopic.id);
         setShowSponsorCard(false);
         setShowTopCommentCard(true);
         return;
@@ -358,6 +358,35 @@ export function TopicFeedCore({
         setActiveSponsorSessionId(cachedSponsor.sessionId);
         setShowTopCommentCard(false);
         setShowSponsorCard(true);
+        return;
+      }
+      if (sponsorDueByTopicId.current.has(currentTopic.id)) {
+        sponsorRequestPreviousCadence.current = topicsSinceSponsorCard;
+        setTopicsSinceSponsorCard(0);
+        sponsorLoadingRef.current = true;
+        const requestedUserId = userId;
+        const requestVersion = ++sponsorRequestVersion.current;
+        void loadSponsorCampaigns(currentTopic).then((result) => {
+          if (sponsorRequestVersion.current !== requestVersion ||
+              sponsorSessionUserId.current !== requestedUserId) return;
+          sponsorDueByTopicId.current.delete(currentTopic.id);
+          if (result.campaigns.length > 0 && result.sessionId) {
+            sponsorPreviousIsComment.current = false;
+            setSponsorCampaigns(result.campaigns);
+            setActiveSponsorSessionId(result.sessionId);
+            sponsorCardsByTopicId.current.set(currentTopic.id, {
+              campaigns: result.campaigns,
+              sessionId: result.sessionId,
+            });
+            setShowSponsorCard(true);
+            return;
+          }
+          advanceToNextTopic();
+        }).finally(() => {
+          if (sponsorRequestVersion.current === requestVersion) {
+            sponsorLoadingRef.current = false;
+          }
+        });
         return;
       }
     }
@@ -376,7 +405,7 @@ export function TopicFeedCore({
       seenTopCommentUserId.current = userId;
       seenTopCommentIds.current.clear();
       topCommentCardsByTopicId.current.clear();
-      sponsorDueAfterCommentByTopicId.current.clear();
+      sponsorDueByTopicId.current.clear();
       currentCommentCadence = 0;
     }
 
@@ -389,7 +418,7 @@ export function TopicFeedCore({
       sponsorSessionUserId.current = userId;
       setActiveSponsorSessionId(null);
       sponsorCardsByTopicId.current.clear();
-      sponsorDueAfterCommentByTopicId.current.clear();
+      sponsorDueByTopicId.current.clear();
       currentSponsorCadence = 0;
     }
 
@@ -410,6 +439,7 @@ export function TopicFeedCore({
 
     if (chooseSponsor) {
       const currentTopic = feedTopics[topicIndex];
+      if (currentTopic) sponsorDueByTopicId.current.add(currentTopic.id);
       setTopicsSinceTopCommentCard(commentDue ? currentCommentCadence : nextCommentCadence);
       sponsorRequestPreviousCadence.current = topicsSinceSponsorCard;
       setTopicsSinceSponsorCard(0);
@@ -433,6 +463,7 @@ export function TopicFeedCore({
             campaigns: result.campaigns,
             sessionId: result.sessionId,
           });
+          sponsorDueByTopicId.current.delete(currentTopic.id);
           setShowTopCommentCard(false);
           setShowSponsorCard(true);
           return;
@@ -447,6 +478,7 @@ export function TopicFeedCore({
           return;
         }
 
+        if (currentTopic) sponsorDueByTopicId.current.delete(currentTopic.id);
         advanceToNextTopic();
       }).finally(() => {
         if (sponsorRequestVersion.current === requestVersion) {
@@ -463,7 +495,7 @@ export function TopicFeedCore({
       setTopicsSinceTopCommentCard(0);
       const currentTopic = feedTopics[topicIndex];
       if (currentTopic && sponsorDue) {
-        sponsorDueAfterCommentByTopicId.current.add(currentTopic.id);
+        sponsorDueByTopicId.current.add(currentTopic.id);
       }
       if (currentTopic) {
         setTopCommentCardComments(unseenTopComments);
@@ -528,7 +560,7 @@ export function TopicFeedCore({
       : undefined;
 
     if (previousCard?.length) {
-      pendingSponsorAfterComment.current = sponsorDueAfterCommentByTopicId.current.has(previousTopicId ?? '');
+      pendingSponsorAfterComment.current = sponsorDueByTopicId.current.has(previousTopicId ?? '');
       setTopCommentCardComments(previousCard);
       setShowTopCommentCard(true);
       return;
@@ -634,13 +666,13 @@ export function TopicFeedCore({
                   campaigns: result.campaigns,
                   sessionId: result.sessionId,
                 });
-                sponsorDueAfterCommentByTopicId.current.delete(currentTopic.id);
+                sponsorDueByTopicId.current.delete(currentTopic.id);
                 setShowTopCommentCard(false);
                 setShowSponsorCard(true);
                 return;
               }
 
-              sponsorDueAfterCommentByTopicId.current.delete(currentTopic.id);
+              sponsorDueByTopicId.current.delete(currentTopic.id);
               setShowTopCommentCard(false);
               advanceToNextTopic();
             }).finally(() => {
