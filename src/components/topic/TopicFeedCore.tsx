@@ -89,6 +89,8 @@ export function TopicFeedCore({
       : undefined;
   const effectiveSponsorApiBaseUrl = sponsorApiBaseUrl ?? nativeSponsorApiBaseUrl;
   const [feedTopics, setFeedTopics] = useState<Topic[]>(topics);
+  const feedTopicsRef = useRef(feedTopics);
+  feedTopicsRef.current = feedTopics;
   const [topComments, setTopComments] = useState<TopFeedComment[]>([]);
   const [topCommentsNextOffset, setTopCommentsNextOffset] = useState<number | null>(null);
   const [topCommentInventoryVersion, setTopCommentInventoryVersion] = useState(0);
@@ -422,7 +424,7 @@ export function TopicFeedCore({
       // Native catalogue updates and online/offline fallback may replace the
       // incoming first page. Merge only new IDs so the active session's loaded
       // history and ordering remain intact.
-      const nextFeedTopics = appendUniqueFeedTopics(feedTopics, shuffled);
+      const nextFeedTopics = appendUniqueFeedTopics(feedTopicsRef.current, shuffled);
       const preservedIndex = nextFeedTopics.findIndex(
         (topic) => topic.id === currentTopicId.current
       );
