@@ -1,11 +1,12 @@
 'use client';
 
 import Image from 'next/image';
-import { useCallback, useEffect, useRef, useState, type PointerEvent, type KeyboardEvent } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react';
 
 import type { SponsorFeedCampaign } from '@/lib/sponsor-campaigns';
 import { recordSponsorCampaignEvent } from '@/lib/sponsor-analytics-client';
+import { FeedInterstitialMotion } from './FeedInterstitialMotion';
 
 interface SponsorFeedCardProps {
   campaigns: SponsorFeedCampaign[];
@@ -38,7 +39,6 @@ export function SponsorFeedCard({
   onPreviousTopic,
 }: SponsorFeedCardProps) {
   const [activeIndex, setActiveIndex] = useState(0);
-  const pointerStart = useRef<{ x: number; y: number } | null>(null);
   const navigationStarted = useRef(false);
   const cardRef = useRef<HTMLElement>(null);
   const viewableCampaignIds = useRef(new Set<string>());
@@ -137,68 +137,19 @@ export function SponsorFeedCard({
   const showPreviousCampaign = () => setActiveIndex(Math.max(0, safeIndex - 1));
   const showNextCampaign = () => setActiveIndex(Math.min(campaigns.length - 1, safeIndex + 1));
 
-  const handlePointerDown = (event: PointerEvent<HTMLDivElement>) => {
-    if ((event.target as HTMLElement).closest('a,button')) return;
-    pointerStart.current = { x: event.clientX, y: event.clientY };
-  };
-
-  const handlePointerUp = (event: PointerEvent<HTMLDivElement>) => {
-    const start = pointerStart.current;
-    pointerStart.current = null;
-    if (!start) return;
-    const deltaX = event.clientX - start.x;
-    const deltaY = event.clientY - start.y;
-    if (Math.max(Math.abs(deltaX), Math.abs(deltaY)) < 40) return;
-    if (Math.abs(deltaX) > Math.abs(deltaY)) {
-      if (deltaX < 0) showNextCampaign();
-      else showPreviousCampaign();
-      return;
-    }
-    if (deltaY < 0) navigateNextTopic();
-    else navigatePreviousTopic();
-  };
-
-  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === 'ArrowLeft') {
-      event.preventDefault();
-      showPreviousCampaign();
-    } else if (event.key === 'ArrowRight') {
-      event.preventDefault();
-      showNextCampaign();
-    } else if (event.key === 'ArrowUp') {
-      event.preventDefault();
-      navigateNextTopic();
-    } else if (event.key === 'ArrowDown') {
-      event.preventDefault();
-      navigatePreviousTopic();
-    }
-  };
-
   return (
-    <div
-      className="flex h-full min-h-0 flex-col px-6 pb-6"
-      onPointerDown={handlePointerDown}
-      onPointerUp={handlePointerUp}
-      onPointerCancel={() => {
-        pointerStart.current = null;
-      }}
-      onKeyDown={handleKeyDown}
-      style={{ touchAction: 'pan-y' }}
-      tabIndex={0}
-      role="region"
-      aria-roledescription="sponsored feed card"
-      aria-label="Sponsored content"
+    <FeedInterstitialMotion
+      ariaLabel="Sponsored content"
+      onSwipeLeft={showNextCampaign}
+      onSwipeRight={showPreviousCampaign}
+      onNextTopic={navigateNextTopic}
+      onPreviousTopic={navigatePreviousTopic}
     >
-      <header className="flex items-center justify-between gap-4 pt-4 pb-5">
-        <div>
-          <p className="text-accent text-xs font-semibold tracking-[0.16em] uppercase">
-            Sponsored
-          </p>
-          <h2 className="text-text-primary mt-1 text-xl font-bold">Partner message</h2>
-          <p className="text-text-secondary mt-1 text-sm">
-            Clearly labelled support for CathoScroll
-          </p>
-        </div>
+    <div className="flex h-full w-full flex-col px-6 py-6 md:px-8 md:py-8">
+      <header className="flex items-center justify-between gap-4">
+        <p className="text-accent text-xs font-semibold tracking-wider uppercase">
+          Sponsored
+        </p>
         <span className="text-text-secondary rounded-full border px-3 py-1 text-sm tabular-nums">
           {safeIndex + 1} / {campaigns.length}
         </span>
@@ -274,15 +225,7 @@ export function SponsorFeedCard({
         </article>
       </div>
 
-      <footer className="flex flex-wrap items-center justify-between gap-3 pt-5">
-        <button
-          type="button"
-          onClick={navigatePreviousTopic}
-          className="border-border text-text-secondary hover:bg-bg-secondary inline-flex min-h-11 items-center gap-2 rounded-full border px-4 text-sm font-medium transition-colors"
-        >
-          <ChevronLeft className="h-4 w-4" />
-          Previous topic
-        </button>
+      <footer className="flex items-center justify-center pt-4">
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -303,18 +246,8 @@ export function SponsorFeedCard({
             <ChevronRight className="h-4 w-4" />
           </button>
         </div>
-        <button
-          type="button"
-          onClick={navigateNextTopic}
-          className="border-border text-text-secondary hover:bg-bg-secondary inline-flex min-h-11 items-center gap-2 rounded-full border px-4 text-sm font-medium transition-colors"
-        >
-          Next topic
-          <ChevronRight className="h-4 w-4" />
-        </button>
       </footer>
-      <p className="text-text-muted pt-3 text-center text-xs">
-        Swipe horizontally to browse partners, or vertically to move through the feed
-      </p>
     </div>
+    </FeedInterstitialMotion>
   );
 }
