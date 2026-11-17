@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from 'react';
+import { useCallback, useEffect, useRef, useState, type ComponentType } from 'react';
 
 import { shuffle } from '@/lib/utils';
 import {
@@ -119,13 +119,10 @@ export function TopicFeedCore({
   useEffect(() => {
     currentTopicId.current = feedTopics[topicIndex]?.id ?? null;
   }, [feedTopics, topicIndex]);
-  const feedQueue = useMemo(
-    () => buildFeedQueue(
-      feedTopics,
-      topCommentCardsByTopicId.current,
-      sponsorCardsByTopicId.current
-    ),
-    [feedTopics, topCommentCardComments, sponsorCampaigns, showTopCommentCard, showSponsorCard, activeSponsorSessionId]
+  const feedQueue = buildFeedQueue(
+    feedTopics,
+    topCommentCardsByTopicId.current,
+    sponsorCardsByTopicId.current
   );
   const activeFeedQueueType =
     showSponsorCard && sponsorSessionUserId.current === userId
