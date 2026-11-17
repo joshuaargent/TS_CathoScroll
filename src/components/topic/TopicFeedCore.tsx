@@ -20,6 +20,7 @@ import {
 } from '@/lib/sponsor-campaigns';
 import { SponsorFeedCard } from './SponsorFeedCard';
 import { installSponsorAnalyticsListeners } from '@/lib/sponsor-analytics-client';
+import { createFeedRefreshCoordinator } from '@/lib/feed-refresh-coordinator';
 import { siteConfig } from '@/lib/constants';
 
 import type { TopicPageCursor } from '@/lib/content';
@@ -164,81 +165,64 @@ export function TopicFeedCore({
 
   useEffect(() => {
     let cancelled = false;
-    let requestInFlight: Promise<void> | null = null;
-    let lastAttemptAt = 0;
-    const refreshCooldownMs = 30_000;
+    const refresh = createFeedRefreshCoordinator(async () => {
+      try {
+        const response = await fetch(topCommentsEndpoint ?? '/api/content/top-comments', {
+          cache: 'default',
+          credentials: topCommentsEndpoint ? 'omit' : 'same-origin',
+        });
+        if (!response.ok) return false;
 
-    const loadTopComments = (): Promise<void> => {
-      // Coalesce startup, reconnect and foreground events into one request.
-      if (requestInFlight) return requestInFlight;
-      // Foreground events can fire repeatedly while switching apps or tabs.
-      if (Date.now() - lastAttemptAt < refreshCooldownMs) return Promise.resolve();
+        const payload: unknown = await response.json();
+        if (!cancelled) {
+          const comments = parseTopFeedComments(payload);
+          const commentsById = new Map(
+            comments.map((comment) => [comment.comment_id, comment] as const)
+          );
+          const reconcileComments = (items: TopFeedComment[]) =>
+            items.flatMap((item) => {
+              const currentComment = commentsById.get(item.comment_id);
+              return currentComment ? [currentComment] : [];
+            });
 
-      lastAttemptAt = Date.now();
-      const request = (async () => {
-        try {
-          const response = await fetch(topCommentsEndpoint ?? '/api/content/top-comments', {
-            cache: 'default',
-            credentials: topCommentsEndpoint ? 'omit' : 'same-origin',
-          });
-          if (!response.ok) return;
+          setTopComments(comments);
+          setTopCommentCardComments((current) => reconcileComments(current));
 
-          const payload: unknown = await response.json();
-          if (!cancelled) {
-            const comments = parseTopFeedComments(payload);
-            const commentsById = new Map(
-              comments.map((comment) => [comment.comment_id, comment] as const)
-            );
-            const reconcileComments = (items: TopFeedComment[]) =>
-              items.flatMap((item) => {
-                const currentComment = commentsById.get(item.comment_id);
-                return currentComment ? [currentComment] : [];
-              });
-
-            setTopComments(comments);
-            setTopCommentCardComments((current) => reconcileComments(current));
-
-            for (const [topicId, cardComments] of topCommentCardsByTopicId.current) {
-              const remainingComments = reconcileComments(cardComments);
-
-              if (remainingComments.length > 0) {
-                topCommentCardsByTopicId.current.set(topicId, remainingComments);
-              } else {
-                topCommentCardsByTopicId.current.delete(topicId);
-              }
-            }
-
-            if (comments.length === 0) {
-              setShowTopCommentCard(false);
-              setTopCommentCardComments([]);
-              topCommentCardsByTopicId.current.clear();
+          for (const [topicId, cardComments] of topCommentCardsByTopicId.current) {
+            const remainingComments = reconcileComments(cardComments);
+            if (remainingComments.length > 0) {
+              topCommentCardsByTopicId.current.set(topicId, remainingComments);
+            } else {
+              topCommentCardsByTopicId.current.delete(topicId);
             }
           }
-        } catch {
-          // Top comments are optional feed inventory. A failed request must not
-          // interrupt topic navigation or display an empty interstitial.
-        }
-      })();
 
-      requestInFlight = request;
-      void request.then(() => {
-        if (requestInFlight === request) requestInFlight = null;
-      });
-      return request;
-    };
+          if (comments.length === 0) {
+            setShowTopCommentCard(false);
+            setTopCommentCardComments([]);
+            topCommentCardsByTopicId.current.clear();
+          }
+        }
+        return true;
+      } catch {
+        // Top comments are optional feed inventory. A failed request must not
+        // interrupt topic navigation; reconnect explicitly bypasses the cooldown.
+        return false;
+      }
+    }, 30_000);
 
     const refreshWhenVisible = () => {
-      if (document.visibilityState === 'visible') {
-        void loadTopComments();
-      }
+      if (document.visibilityState === 'visible') void refresh.request();
     };
+    const refreshWhenOnline = () => void refresh.reconnect();
 
-    void loadTopComments();
-    window.addEventListener('online', loadTopComments);
+    void refresh.request();
+    window.addEventListener('online', refreshWhenOnline);
     document.addEventListener('visibilitychange', refreshWhenVisible);
     return () => {
       cancelled = true;
-      window.removeEventListener('online', loadTopComments);
+      refresh.dispose();
+      window.removeEventListener('online', refreshWhenOnline);
       document.removeEventListener('visibilitychange', refreshWhenVisible);
     };
   }, [topCommentsEndpoint]);
