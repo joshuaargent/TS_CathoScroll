@@ -48,6 +48,10 @@ export function SponsorFeedCard({
   const campaign = campaigns[safeIndex];
   const campaignId = campaign?.campaign_id;
 
+  useEffect(() => {
+    if (!previewMode) navigationStarted.current = false;
+  }, [previewMode, campaigns]);
+
   const recordEvent = useCallback(
     async (targetCampaignId: string, eventType: 'viewable_impression' | 'click') => {
       if (previewMode) return false;
