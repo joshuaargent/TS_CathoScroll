@@ -859,14 +859,6 @@ function App() {
   const [authStatus, setAuthStatus] = useState<'loading' | 'ready' | 'unavailable'>('loading');
   const [checkingAccount, setCheckingAccount] = useState(true);
   const [user, setUser] = useState<CachedIdentity | null>(null);
-  const getNativeSponsorAccessToken = useCallback(async () => {
-    const { data, error } = await createClient().auth.getSession();
-    if (error) {
-      console.error('Unable to obtain the native sponsor analytics session:', error.message);
-      return null;
-    }
-    return data.session?.access_token ?? null;
-  }, []);
   const [activity, setActivity] = useState<NativeActivity | null>(null);
   const [activityStatus, setActivityStatus] = useState<NativeActivityStatus | null>(null);
   const [activityVersion, setActivityVersion] = useState(0);
