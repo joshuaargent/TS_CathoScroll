@@ -451,6 +451,9 @@ export function TopicFeedCore({
       currentCommentCadence,
       unseenTopComments.length > 0
     );
+    const sponsorDue = shouldInsertSponsorCard(currentSponsorCadence, Boolean(userId));
+    const nextCommentCadence = getNextTopCommentCadence(currentCommentCadence);
+    const nextSponsorCadence = getNextSponsorCadence(currentSponsorCadence);
 
     const queuedNextEntry = feedQueueWindow.current?.type === 'topic'
       ? feedQueueWindow.next
@@ -460,7 +463,10 @@ export function TopicFeedCore({
       return;
     }
     if (queuedNextEntry?.type === 'sponsor' && !commentDue) {
-      setTopicsSinceSponsorCard(0);
+      if (sponsorDue) {
+        setTopicsSinceTopCommentCard(nextCommentCadence);
+        setTopicsSinceSponsorCard(0);
+      }
       activateFeedQueueEntry(queuedNextEntry);
       return;
     }
@@ -471,9 +477,6 @@ export function TopicFeedCore({
       return;
     }
 
-    const sponsorDue = shouldInsertSponsorCard(currentSponsorCadence, Boolean(userId));
-    const nextCommentCadence = getNextTopCommentCadence(currentCommentCadence);
-    const nextSponsorCadence = getNextSponsorCadence(currentSponsorCadence);
     // Keep the two cadences independent. If both are due, show the comment
     // first and then the sponsor placement at the same topic boundary.
     const chooseSponsor = sponsorDue && !commentDue;
