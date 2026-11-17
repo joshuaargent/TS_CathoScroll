@@ -75,6 +75,8 @@ test('interstitial cards share the topic viewer swipe and animation model', () =
   assert.match(interstitialMotion, /stiffness: 1800, damping: 120/);
   assert.match(interstitialMotion, /width \* 0\.07/);
   assert.match(interstitialMotion, /height \* 0\.07/);
+  assert.match(interstitialMotion, /canSwipeLeft/);
+  assert.match(interstitialMotion, /canSwipeRight/);
   assert.match(interstitialMotion, /window.addEventListener\('keydown', handleKeyDown\)/);
   for (const source of [topCommentCard, sponsorCard]) {
     assert.match(source, /<FeedInterstitialMotion/);
