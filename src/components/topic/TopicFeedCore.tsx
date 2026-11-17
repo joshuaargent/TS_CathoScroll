@@ -431,6 +431,7 @@ export function TopicFeedCore({
       const preservedIndex = nextFeedTopics.findIndex(
         (topic) => topic.id === currentTopicId.current
       );
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setFeedTopics(nextFeedTopics);
       if (preservedIndex >= 0) {
         setTopicIndex(preservedIndex);
@@ -451,6 +452,7 @@ export function TopicFeedCore({
       const nextFeedTopics = appendUniqueFeedTopics([], shuffled);
       generationRef.current += 1;
       loadingRef.current = false;
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setFeedTopics(nextFeedTopics);
       setTopicIndex(personalized ? 0 : Math.floor(nextFeedTopics.length / 2));
       setNextCursor(initialCursor);
