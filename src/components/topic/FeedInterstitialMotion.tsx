@@ -79,9 +79,11 @@ export function FeedInterstitialMotion({
       });
 
       if (navigation) await navigation;
+    } catch (error) {
+      console.error('Unable to navigate feed card:', error);
+    } finally {
       x.jump(0);
       y.jump(0);
-    } finally {
       animationLockRef.current = false;
     }
   }, [canSwipeLeft, canSwipeRight, onNextTopic, onPreviousTopic, onSwipeLeft, onSwipeRight, springHome, x, y]);
