@@ -19,40 +19,23 @@ interface TopCommentFeedCardProps {
   onCommentViewed: (commentId: number) => void;
 }
 
-export function TopCommentFeedCard({
-  comments,
+
+function CommentLikeControl({
+  comment,
   userId,
-  previewMode = false,
-  onNextTopic,
-  onPreviousTopic,
-  onOpenComment,
-  onCommentViewed,
-}: TopCommentFeedCardProps) {
-  const [activeIndex, setActiveIndex] = useState(0);
+  previewMode,
+}: {
+  comment: TopFeedComment;
+  userId: string | null;
+  previewMode: boolean;
+}) {
   const [isLiked, setIsLiked] = useState(false);
-  const [likeCount, setLikeCount] = useState(0);
+  const [likeCount, setLikeCount] = useState(comment.like_count);
   const [likePending, setLikePending] = useState(false);
   const [likeError, setLikeError] = useState('');
-  const pointerStart = useRef<{ x: number; y: number } | null>(null);
-  const navigationStarted = useRef(false);
-  const likeRequestVersion = useRef(0);
-  const { requestSignIn } = useSignInPrompt();
-
-  const safeIndex = Math.min(activeIndex, Math.max(0, comments.length - 1));
-  const comment = comments[safeIndex];
-  const activeCommentId = comment?.comment_id;
 
   useEffect(() => {
-    if (activeCommentId !== undefined) onCommentViewed(activeCommentId);
-  }, [activeCommentId, onCommentViewed]);
-
-  useEffect(() => {
-    setIsLiked(false);
-    setLikeCount(comment?.like_count ?? 0);
-    setLikeError('');
-    setLikePending(false);
-    const requestVersion = ++likeRequestVersion.current;
-    if (!comment || !userId || previewMode) return;
+    if (!userId || previewMode) return;
 
     let cancelled = false;
     void createClient()
@@ -62,7 +45,7 @@ export function TopCommentFeedCard({
       .eq('user_id', userId)
       .maybeSingle()
       .then(({ data, error }) => {
-        if (cancelled || likeRequestVersion.current !== requestVersion) return;
+        if (cancelled) return;
         if (error) {
           setLikeError('Like status is temporarily unavailable.');
           return;
@@ -73,57 +56,7 @@ export function TopCommentFeedCard({
     return () => {
       cancelled = true;
     };
-  }, [comment?.comment_id, comment?.like_count, previewMode, userId]);
-
-  if (!comment) return null;
-
-  const openComment = () => onOpenComment(comment);
-
-  const toggleLike = async () => {
-    if (likePending || previewMode) return;
-    if (!userId) {
-      requestSignIn('like comments');
-      return;
-    }
-    if (typeof navigator !== 'undefined' && !navigator.onLine) {
-      setLikeError('Connect to the internet to like this comment.');
-      return;
-    }
-
-    setLikeError('');
-    setLikePending(true);
-    const requestVersion = likeRequestVersion.current;
-    const wasLiked = isLiked;
-    setIsLiked(!wasLiked);
-    setLikeCount((count) => Math.max(0, count + (wasLiked ? -1 : 1)));
-
-    try {
-      const supabase = createClient();
-      const result = wasLiked
-        ? await supabase
-            .from('comment_likes')
-            .delete()
-            .eq('user_id', userId)
-            .eq('comment_id', comment.comment_id)
-        : await supabase.from('comment_likes').insert({
-            user_id: userId,
-            comment_id: comment.comment_id,
-          });
-
-      if (result.error) throw result.error;
-    } catch (error) {
-      if (likeRequestVersion.current !== requestVersion) return;
-      setIsLiked(wasLiked);
-      setLikeCount((count) => Math.max(0, count + (wasLiked ? 1 : -1)));
-      setLikeError(
-        error && typeof error === 'object' && 'code' in error && error.code === 'P0001'
-          ? 'You have reached the comment-like limit. Please try again later.'
-          : 'Unable to update your like. Please try again.'
-      );
-    } finally {
-      if (likeRequestVersion.current === requestVersion) setLikePending(false);
-    }
-  };
+  }, [comment.comment_id, previewMode, userId]);
 
   const navigateNextTopic = () => {
     if (navigationStarted.current) return;
@@ -220,22 +153,12 @@ export function TopCommentFeedCard({
           </p>
 
           <div className="flex shrink-0 items-center gap-1">
-            <button
-              type="button"
-              onPointerDown={(event) => event.stopPropagation()}
-              onTouchStart={(event) => event.stopPropagation()}
-              onClick={() => void toggleLike()}
-              disabled={likePending || previewMode}
-              aria-label={isLiked ? 'Unlike comment' : 'Like comment'}
-              aria-pressed={isLiked}
-              className={cn(
-                'text-text-muted hover:bg-bg-secondary hover:text-text-primary flex h-11 items-center gap-2 rounded-full px-3 transition-colors disabled:opacity-50',
-                isLiked && 'bg-accent-light text-accent'
-              )}
-            >
-              <Heart className={cn('h-5 w-5', isLiked && 'fill-current')} />
-              <span className="text-xs font-medium tabular-nums">{likeCount}</span>
-            </button>
+            <CommentLikeControl
+              key={comment.comment_id}
+              comment={comment}
+              userId={userId}
+              previewMode={previewMode}
+            />
 
             <button
               type="button"
@@ -297,12 +220,6 @@ export function TopCommentFeedCard({
           )}
         </footer>
       </article>
-
-      {likeError && (
-        <p role="status" className="text-text-muted pt-2 text-center text-xs">
-          {likeError}
-        </p>
-      )}
 
       {comments.length > 1 && (
         <div className="flex items-center justify-center gap-3 pt-4">
