@@ -18,6 +18,11 @@ test('native startup and feed failures render visible retry states', () => {
   assert.ok(nativeMain.includes('Retry feed'));
 });
 
+test('native feed uses the authenticated Supabase session for sponsor delivery and analytics', () => {
+  assert.ok(nativeMain.includes('getNativeSponsorAccessToken'));
+  assert.ok(nativeMain.includes('getSponsorAccessToken={getNativeSponsorAccessToken}'));
+});
+
 test('optional offline caches cannot prevent the live native feed from opening', () => {
   assert.ok(nativeMain.includes('let commentsReady = false;'));
   assert.ok(nativeMain.includes('let countsReady = false;'));
