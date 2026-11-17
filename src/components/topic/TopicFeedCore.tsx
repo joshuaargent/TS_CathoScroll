@@ -1,10 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ComponentType } from 'react';
 
 import { shuffle } from '@/lib/utils';
 import {
-  TOP_COMMENT_CADENCE,
   getNextTopCommentCadence,
   getUnseenTopFeedComments,
   parseTopFeedComments,
@@ -13,7 +12,6 @@ import {
 } from '@/lib/feed-comments';
 import { TopCommentFeedCard } from './TopCommentFeedCard';
 import {
-  SPONSOR_CARD_CADENCE,
   getNextSponsorCadence,
   parseSponsorFeedCampaigns,
   shouldInsertSponsorCard,
@@ -22,7 +20,6 @@ import {
 import { SponsorFeedCard } from './SponsorFeedCard';
 import { createFeedRefreshCoordinator } from '@/lib/feed-refresh-coordinator';
 import { siteConfig } from '@/lib/constants';
-import { appendUniqueFeedTopics, buildFeedQueue, findFeedQueueEntryIndex, getFeedQueueWindow } from '@/lib/feed-queue';
 
 import type { TopicPageCursor } from '@/lib/content';
 import type { RecommendationCursor } from '@/lib/recommendations';
@@ -32,25 +29,16 @@ type FeedCursor = TopicPageCursor | RecommendationCursor;
 type FeedPage = { topics: Topic[]; nextCursor: FeedCursor | null };
 
 function createSponsorSessionId(): string | null {
-  if (typeof crypto === 'undefined') return null;
-  if (typeof crypto.randomUUID === 'function') return crypto.randomUUID();
-  if (typeof crypto.getRandomValues !== 'function') return null;
-
-  const bytes = crypto.getRandomValues(new Uint8Array(16));
-  bytes[6] = (bytes[6] & 0x0f) | 0x40;
-  bytes[8] = (bytes[8] & 0x3f) | 0x80;
-  const hex = Array.from(bytes, (value) => value.toString(16).padStart(2, '0')).join('');
-  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+  return typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : null;
 }
 type ViewerProps = {
   topics: Topic[];
   topicIndex: number;
   initialUserId: string | null;
-  active?: boolean;
   onNextTopic: () => void;
   onPreviousTopic: () => void;
-  nextEntryPreview?: ReactNode;
-  previousEntryPreview?: ReactNode;
 };
 type TopicFeedCoreProps = {
   topics: Topic[];
@@ -89,67 +77,24 @@ export function TopicFeedCore({
       : undefined;
   const effectiveSponsorApiBaseUrl = sponsorApiBaseUrl ?? nativeSponsorApiBaseUrl;
   const [feedTopics, setFeedTopics] = useState<Topic[]>(topics);
-  const feedTopicsRef = useRef(feedTopics);
   const [topComments, setTopComments] = useState<TopFeedComment[]>([]);
-  const [topCommentsNextOffset, setTopCommentsNextOffset] = useState<number | null>(null);
-  const [topCommentInventoryVersion, setTopCommentInventoryVersion] = useState(0);
-  const topCommentsPageLoading = useRef(false);
-  const [feedSessionUserId, setFeedSessionUserId] = useState(userId);
+  const [topCommentCardComments, setTopCommentCardComments] = useState<TopFeedComment[]>([]);
   const [showTopCommentCard, setShowTopCommentCard] = useState(false);
   const seenTopCommentIds = useRef(new Set<number>());
-  const [seenTopCommentIdsForRender, setSeenTopCommentIdsForRender] = useState<Set<number>>(() => new Set());
   const seenTopCommentUserId = useRef(userId);
   const topCommentCadenceUserId = useRef(userId);
-  const [topCommentCardsByTopicId, setTopCommentCardsByTopicId] = useState<Map<string, TopFeedComment[]>>(() => new Map());
+  const topCommentCardsByTopicId = useRef(new Map<string, TopFeedComment[]>());
   const [topicsSinceTopCommentCard, setTopicsSinceTopCommentCard] = useState(0);
-  const topCommentCadenceAnchor = useRef<{ topicId: string; value: number } | null>(null);
+  const [sponsorCampaigns, setSponsorCampaigns] = useState<SponsorFeedCampaign[]>([]);
   const [showSponsorCard, setShowSponsorCard] = useState(false);
   const [topicsSinceSponsorCard, setTopicsSinceSponsorCard] = useState(0);
-  const sponsorCadenceAnchor = useRef<{ topicId: string; value: number } | null>(null);
-  const [sponsorCardsByTopicId, setSponsorCardsByTopicId] = useState<Map<string, { campaigns: SponsorFeedCampaign[]; sessionId: string }>>(() => new Map());
-  const cacheTopCommentGroup = useCallback((topicId: string, comments: TopFeedComment[]) => {
-    setTopCommentCardsByTopicId((current) => {
-      const next = new Map(current);
-      next.set(topicId, comments);
-      return next;
-    });
-    if (!topCommentsPageLoading.current) {
-      setTopCommentInventoryVersion((version) => version + 1);
-    }
-  }, []);
-  const clearTopCommentGroups = useCallback(() => setTopCommentCardsByTopicId(new Map()), []);
-  const cacheSponsorPlacement = useCallback((
-    topicId: string,
-    placement: { campaigns: SponsorFeedCampaign[]; sessionId: string }
-  ) => {
-    setSponsorCardsByTopicId((current) => {
-      const next = new Map(current);
-      next.set(topicId, placement);
-      return next;
-    });
-  }, []);
-  const clearSponsorPlacements = useCallback(() => setSponsorCardsByTopicId(new Map()), []);
-
+  const sponsorCardsByTopicId = useRef(new Map<string, { campaigns: SponsorFeedCampaign[]; sessionId: string }>());
+  const [activeSponsorSessionId, setActiveSponsorSessionId] = useState<string | null>(null);
   const sponsorSessionUserId = useRef(userId);
   const sponsorLoadingRef = useRef(false);
   const sponsorRequestVersion = useRef(0);
-  const feedMountedRef = useRef(false);
   const sponsorRequestPreviousCadence = useRef(0);
-  const sponsorPrefetchRef = useRef<{
-    topicId: string;
-    userId: string;
-    promise: Promise<{ campaigns: SponsorFeedCampaign[]; sessionId: string | null }>;
-  } | null>(null);
   const pendingSponsorAfterComment = useRef(false);
-
-  useEffect(() => {
-    feedMountedRef.current = true;
-    return () => {
-      feedMountedRef.current = false;
-      sponsorRequestVersion.current += 1;
-      sponsorLoadingRef.current = false;
-    };
-  }, []);
 
   const [topicIndex, setTopicIndex] = useState(personalized ? 0 : Math.floor(topics.length / 2));
   const [nextCursor, setNextCursor] = useState(initialCursor);
@@ -158,101 +103,24 @@ export function TopicFeedCore({
   const loadingRef = useRef(false);
   const generationRef = useRef(0);
   const currentTopicId = useRef<string | null>(null);
-  const feedInitializedRef = useRef(false);
-  const previousPersonalizedRef = useRef(personalized);
 
   useEffect(() => {
     currentTopicId.current = feedTopics[topicIndex]?.id ?? null;
   }, [feedTopics, topicIndex]);
 
   useEffect(() => {
-    feedTopicsRef.current = feedTopics;
-  }, [feedTopics]);
-  const feedQueue = useMemo(
-    () => buildFeedQueue(feedTopics, topCommentCardsByTopicId, sponsorCardsByTopicId),
-    [feedTopics, topCommentCardsByTopicId, sponsorCardsByTopicId]
-  );
-  const activeFeedQueueType = feedSessionUserId === userId
-    ? showSponsorCard
-      ? 'sponsor'
-      : showTopCommentCard
-        ? 'top-comments'
-        : 'topic'
-    : 'topic';
-  const activeFeedQueueIndex = useMemo(
-    () => findFeedQueueEntryIndex(feedQueue, topicIndex, activeFeedQueueType),
-    [feedQueue, topicIndex, activeFeedQueueType]
-  );
-  const feedQueueWindow = useMemo(
-    () => getFeedQueueWindow(feedQueue, activeFeedQueueIndex),
-    [feedQueue, activeFeedQueueIndex]
-  );
-  const activeTopicForPreview = feedTopics[topicIndex];
-  const unseenPreviewComments = useMemo(
-    () => getUnseenTopFeedComments(topComments, seenTopCommentIdsForRender),
-    [topComments, seenTopCommentIdsForRender]
-  );
-  const dueTopCommentPreviewEntry = useMemo(
-    () => (
-      feedQueueWindow.current?.type === 'topic' &&
-      feedSessionUserId === userId &&
-      activeTopicForPreview &&
-      !topCommentCardsByTopicId.has(activeTopicForPreview.id) &&
-      topicsSinceTopCommentCard === TOP_COMMENT_CADENCE - 1 &&
-      unseenPreviewComments.length > 0 &&
-      (unseenPreviewComments.length >= 5 || topCommentsNextOffset === null)
-        ? {
-            type: 'top-comments' as const,
-            id: `comments:${activeTopicForPreview.id}`,
-            topicId: activeTopicForPreview.id,
-            topicIndex,
-            comments: unseenPreviewComments.slice(0, 5),
-          }
-        : null
-    ),
-    [
-      feedQueueWindow.current,
-      feedSessionUserId,
-      userId,
-      activeTopicForPreview,
-      topCommentCardsByTopicId,
-      topicsSinceTopCommentCard,
-      unseenPreviewComments,
-      topCommentsNextOffset,
-      topicIndex,
-    ]
-  );
-  const nextQueueEntryForPreview = dueTopCommentPreviewEntry ?? feedQueueWindow.next;
-
-
-  useEffect(() => {
-    if (seenTopCommentUserId.current === userId) return;
-    seenTopCommentUserId.current = userId;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setFeedSessionUserId(userId);
-    topCommentCadenceUserId.current = userId;
-    topCommentCadenceAnchor.current = null;
-    seenTopCommentIds.current.clear();
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setSeenTopCommentIdsForRender(new Set());
-    clearTopCommentGroups();
-    setShowTopCommentCard(false);
-    setTopicsSinceTopCommentCard(0);
-  }, [userId, clearTopCommentGroups]);
-
-  useEffect(() => {
     if (sponsorSessionUserId.current === userId) return;
     sponsorSessionUserId.current = userId;
-    sponsorPrefetchRef.current = null;
-    sponsorCadenceAnchor.current = null;
-    clearSponsorPlacements();
+    setActiveSponsorSessionId(null);
+    sponsorCardsByTopicId.current.clear();
     sponsorRequestVersion.current += 1;
     sponsorLoadingRef.current = false;
     pendingSponsorAfterComment.current = false;
+    setSponsorCampaigns([]);
     setShowSponsorCard(false);
     setTopicsSinceSponsorCard(0);
     setTopicsSinceTopCommentCard(0);
-  }, [userId, clearSponsorPlacements]);
+  }, [userId]);
 
   const loadSponsorCampaigns = useCallback(
     async (topic: Topic): Promise<{ campaigns: SponsorFeedCampaign[]; sessionId: string | null }> => {
@@ -288,67 +156,44 @@ export function TopicFeedCore({
   );
 
   useEffect(() => {
-    if (feedSessionUserId !== userId || !userId || sponsorLoadingRef.current || topicsSinceSponsorCard !== SPONSOR_CARD_CADENCE - 1) return;
-    const topic = feedTopics[topicIndex];
-    if (!topic || sponsorCardsByTopicId.has(topic.id)) return;
-    const existing = sponsorPrefetchRef.current;
-    if (existing?.topicId === topic.id && existing.userId === userId) return;
-
-    const promise = loadSponsorCampaigns(topic);
-    sponsorPrefetchRef.current = { topicId: topic.id, userId, promise };
-    void promise.then((result) => {
-      if (
-        !feedMountedRef.current ||
-        sponsorPrefetchRef.current?.promise !== promise ||
-        sponsorSessionUserId.current !== userId
-      ) return;
-      if (result.campaigns.length > 0 && result.sessionId) {
-        cacheSponsorPlacement(topic.id, {
-          campaigns: result.campaigns,
-          sessionId: result.sessionId,
-        });
-          } else if (sponsorPrefetchRef.current?.promise === promise) {
-        // Retry at the due boundary in case eligibility changes after prefetch.
-        sponsorPrefetchRef.current = null;
-      }
-    });
-  }, [feedTopics, topicIndex, topicsSinceSponsorCard, userId, feedSessionUserId, loadSponsorCampaigns, cacheSponsorPlacement, sponsorCardsByTopicId]);
-
-  useEffect(() => {
     let cancelled = false;
-    let inventoryInitialized = false;
     const refresh = createFeedRefreshCoordinator(async () => {
-      if (inventoryInitialized) return true;
       try {
-        const endpoint = topCommentsEndpoint ?? '/api/content/top-comments';
-        const pageUrl = new URL(endpoint, window.location.origin);
-        pageUrl.searchParams.set('offset', '0');
-        pageUrl.searchParams.set('limit', '100');
-        const response = await fetch(pageUrl.toString(), {
+        const response = await fetch(topCommentsEndpoint ?? '/api/content/top-comments', {
           cache: 'default',
           credentials: topCommentsEndpoint ? 'omit' : 'same-origin',
         });
         if (!response.ok) return false;
 
         const payload: unknown = await response.json();
-        if (
-          typeof payload !== 'object' ||
-          payload === null ||
-          !('comments' in payload) ||
-          !Array.isArray(payload.comments)
-        ) return false;
-
         if (!cancelled) {
           const comments = parseTopFeedComments(payload);
-          const nextOffset = typeof payload === 'object' && payload !== null && 'next_offset' in payload &&
-            (payload.next_offset === null || (Number.isSafeInteger(payload.next_offset) && Number(payload.next_offset) >= 0))
-            ? payload.next_offset as number | null : null;
-          setTopCommentsNextOffset(nextOffset);
-          setTopComments(comments);
-          inventoryInitialized = true;
+          const commentsById = new Map(
+            comments.map((comment) => [comment.comment_id, comment] as const)
+          );
+          const reconcileComments = (items: TopFeedComment[]) =>
+            items.flatMap((item) => {
+              const currentComment = commentsById.get(item.comment_id);
+              return currentComment ? [currentComment] : [];
+            });
 
-          // Freeze the initial inventory snapshot for this feed session.
-          // Additional pages are loaded only when the feed needs them.
+          setTopComments(comments);
+          setTopCommentCardComments((current) => reconcileComments(current));
+
+          for (const [topicId, cardComments] of topCommentCardsByTopicId.current) {
+            const remainingComments = reconcileComments(cardComments);
+            if (remainingComments.length > 0) {
+              topCommentCardsByTopicId.current.set(topicId, remainingComments);
+            } else {
+              topCommentCardsByTopicId.current.delete(topicId);
+            }
+          }
+
+          if (comments.length === 0) {
+            setShowTopCommentCard(false);
+            setTopCommentCardComments([]);
+            topCommentCardsByTopicId.current.clear();
+          }
         }
         return true;
       } catch {
@@ -359,13 +204,9 @@ export function TopicFeedCore({
     }, 30_000);
 
     const refreshWhenVisible = () => {
-      if (!inventoryInitialized && document.visibilityState === 'visible') {
-        void refresh.request();
-      }
+      if (document.visibilityState === 'visible') void refresh.request();
     };
-    const refreshWhenOnline = () => {
-      if (!inventoryInitialized) void refresh.reconnect();
-    };
+    const refreshWhenOnline = () => void refresh.reconnect();
 
     void refresh.request();
     window.addEventListener('online', refreshWhenOnline);
@@ -378,120 +219,29 @@ export function TopicFeedCore({
     };
   }, [topCommentsEndpoint]);
 
-  useEffect(() => {
-    if (feedSessionUserId !== userId || topicsSinceTopCommentCard !== TOP_COMMENT_CADENCE - 1) return;
-    if (seenTopCommentUserId.current !== userId) return;
-    const topic = feedTopics[topicIndex];
-    if (!topic || topCommentCardsByTopicId.has(topic.id)) return;
-
-    const unseen = getUnseenTopFeedComments(topComments, seenTopCommentIds.current);
-    if (unseen.length < 5 && topCommentsNextOffset !== null) return;
-    const group = unseen.slice(0, 5);
-    if (group.length === 0) return;
-
-    group.forEach((comment) => seenTopCommentIds.current.add(comment.comment_id));
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setSeenTopCommentIdsForRender(new Set(seenTopCommentIds.current));
-    cacheTopCommentGroup(topic.id, group);
-  }, [
-    topicsSinceTopCommentCard,
-    feedTopics,
-    topicIndex,
-    topComments,
-    topCommentsNextOffset,
-    topCommentCardsByTopicId,
-    topCommentInventoryVersion,
-    userId,
-    feedSessionUserId,
-    cacheTopCommentGroup,
-  ]);
-
-  useEffect(() => {
-    if (topCommentsPageLoading.current || topCommentsNextOffset === null) return;
-    const unseenCount = getUnseenTopFeedComments(topComments, seenTopCommentIds.current).length;
-    if (unseenCount > 10) return;
-
-    topCommentsPageLoading.current = true;
-    const loadNextPage = async () => {
-      try {
-        const endpoint = topCommentsEndpoint ?? '/api/content/top-comments';
-        const pageUrl = new URL(endpoint, window.location.origin);
-        pageUrl.searchParams.set('offset', String(topCommentsNextOffset));
-        pageUrl.searchParams.set('limit', '100');
-        const response = await fetch(pageUrl.toString(), {
-          cache: 'default',
-          credentials: topCommentsEndpoint ? 'omit' : 'same-origin',
-        });
-        if (!response.ok) return;
-        const payload: unknown = await response.json();
-        if (!feedMountedRef.current || typeof payload !== 'object' || payload === null || !('comments' in payload)) return;
-        const nextComments = parseTopFeedComments(payload);
-        const nextOffset = 'next_offset' in payload &&
-          (payload.next_offset === null || (Number.isSafeInteger(payload.next_offset) && Number(payload.next_offset) >= 0))
-          ? payload.next_offset as number | null : null;
-        setTopComments((current) => {
-          const known = new Set(current.map((comment) => comment.comment_id));
-          return [...current, ...nextComments.filter((comment) => !known.has(comment.comment_id))];
-        });
-        setTopCommentsNextOffset(nextOffset);
-      } catch {
-        // Inventory paging is best-effort; existing feed content remains usable.
-      } finally {
-        topCommentsPageLoading.current = false;
-      }
-    };
-    void loadNextPage();
-  }, [topComments, topCommentsNextOffset, topCommentInventoryVersion, topCommentsEndpoint]);
-
   // ----------------------------------
   // Initial Feed
   // ----------------------------------
 
   useEffect(() => {
     // Signed-out users get the existing shuffled feed; personalized server
-    // ranking is preserved for signed-in users and starts at their top result.
+    // ranking is preserved for signed-in users and starts at its top result.
     const shuffled = personalized ? topics : shuffle(topics);
-    const sourceChanged = previousPersonalizedRef.current !== personalized;
+    const previousIndex = preservePositionOnUpdate
+      ? shuffled.findIndex((topic) => topic.id === currentTopicId.current)
+      : -1;
+    generationRef.current += 1;
+    loadingRef.current = false;
 
-    if (preservePositionOnUpdate && feedInitializedRef.current) {
-      // Native catalogue updates and online/offline fallback may replace the
-      // incoming first page. Merge only new IDs so the active session's loaded
-      // history and ordering remain intact.
-      const nextFeedTopics = appendUniqueFeedTopics(feedTopicsRef.current, shuffled);
-      const preservedIndex = nextFeedTopics.findIndex(
-        (topic) => topic.id === currentTopicId.current
-      );
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setFeedTopics(nextFeedTopics);
-      if (preservedIndex >= 0) {
-        setTopicIndex(preservedIndex);
-      } else {
-        setTopicIndex((current) => Math.min(current, Math.max(0, nextFeedTopics.length - 1)));
-      }
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setFeedTopics(shuffled);
 
-      if (sourceChanged) {
-        // A source switch invalidates the old pagination cursor, but does not
-        // invalidate topics the user has already seen in this feed session.
-        generationRef.current += 1;
-        loadingRef.current = false;
-        setNextCursor(initialCursor);
-        setLoadingMore(false);
-        setLoadError('');
-      }
-    } else {
-      const nextFeedTopics = appendUniqueFeedTopics([], shuffled);
-      generationRef.current += 1;
-      loadingRef.current = false;
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setFeedTopics(nextFeedTopics);
-      setTopicIndex(personalized ? 0 : Math.floor(nextFeedTopics.length / 2));
-      setNextCursor(initialCursor);
-      setLoadingMore(false);
-      setLoadError('');
-    }
-
-    feedInitializedRef.current = true;
-    previousPersonalizedRef.current = personalized;
+    setTopicIndex(
+      previousIndex >= 0 ? previousIndex : personalized ? 0 : Math.floor(shuffled.length / 2)
+    );
+    setNextCursor(initialCursor);
+    setLoadingMore(false);
+    setLoadError('');
   }, [topics, initialCursor, personalized, preservePositionOnUpdate]);
 
   const loadMoreTopics = useCallback(async () => {
@@ -505,9 +255,10 @@ export function TopicFeedCore({
       const result = await loadPage(nextCursor);
       if (generation !== generationRef.current) return;
       const newTopics = result.topics;
-      setFeedTopics((previous) =>
-        appendUniqueFeedTopics(previous, personalized ? newTopics : shuffle(newTopics))
-      );
+      setFeedTopics((previous) => [
+        ...previous,
+        ...(personalized ? newTopics : shuffle(newTopics)),
+      ]);
       setNextCursor(result.nextCursor);
     } catch (error) {
       if (generation !== generationRef.current) return;
@@ -525,51 +276,29 @@ export function TopicFeedCore({
   // Navigation
   // ----------------------------------
 
-  // Preserve a linear feed. Never wrap to an earlier topic when pagination is
-  // exhausted; this avoids silently replaying the catalogue as new content.
+  // Modulo arithmetic wraps the finite catalogue into a circular feed.
   const advanceToNextTopic = () => {
     if (topicIndex >= feedTopics.length - 3 && nextCursor) {
       void loadMoreTopics();
     }
 
-    if (topicIndex >= feedTopics.length - 1) {
+    if (topicIndex >= feedTopics.length - 1 && nextCursor) {
       return;
     }
 
-    setTopicIndex((previous) => Math.min(previous + 1, feedTopics.length - 1));
-  };
-
-  const activateFeedQueueEntry = (entry: NonNullable<typeof feedQueueWindow.current>) => {
-    if (entry.type === 'topic') {
-      setTopicIndex(entry.topicIndex);
-      setShowTopCommentCard(false);
-      setShowSponsorCard(false);
-      return;
-    }
-    if (entry.type === 'top-comments') {
-      setTopicsSinceTopCommentCard(0);
-      setShowSponsorCard(false);
-      setShowTopCommentCard(true);
-      return;
-    }
-    setTopicsSinceSponsorCard(0);
-    pendingSponsorAfterComment.current = false;
-    setShowTopCommentCard(false);
-    setShowSponsorCard(true);
-  };
-
-  const navigateToPreviousQueueEntry = () => {
-    const previousEntry = feedQueueWindow.previous;
-    if (previousEntry) {
-      activateFeedQueueEntry(previousEntry);
-      return;
-    }
-    previousTopic();
+    setTopicIndex((prev) => (prev + 1) % feedTopics.length);
   };
 
   const nextTopic = () => {
     // Ignore repeated gestures while the due sponsor inventory request is in flight.
     if (sponsorLoadingRef.current) return;
+
+    // Never strand the user on an interstitial at the end of a page while the
+    // next topic page is still loading.
+    if (topicIndex >= feedTopics.length - 1 && nextCursor) {
+      void loadMoreTopics();
+      return;
+    }
 
     let currentCommentCadence = topicsSinceTopCommentCard;
     let currentSponsorCadence = topicsSinceSponsorCard;
@@ -577,8 +306,7 @@ export function TopicFeedCore({
     if (seenTopCommentUserId.current !== userId) {
       seenTopCommentUserId.current = userId;
       seenTopCommentIds.current.clear();
-      setSeenTopCommentIdsForRender(new Set());
-      clearTopCommentGroups();
+      topCommentCardsByTopicId.current.clear();
       currentCommentCadence = 0;
     }
 
@@ -589,29 +317,15 @@ export function TopicFeedCore({
 
     if (sponsorSessionUserId.current !== userId) {
       sponsorSessionUserId.current = userId;
-      clearSponsorPlacements();
-        currentSponsorCadence = 0;
+      setActiveSponsorSessionId(null);
+      sponsorCardsByTopicId.current.clear();
+      currentSponsorCadence = 0;
     }
 
     const unseenTopComments = getUnseenTopFeedComments(
       topComments,
       seenTopCommentIds.current
     );
-    const currentCommentTopic = feedTopics[topicIndex];
-    const commentGroupAlreadyPrepared = Boolean(
-      currentCommentTopic && topCommentCardsByTopicId.has(currentCommentTopic.id)
-    );
-    const commentInventoryNeedsAnotherPage =
-      !commentGroupAlreadyPrepared &&
-      currentCommentCadence === TOP_COMMENT_CADENCE - 1 &&
-      unseenTopComments.length < 5 &&
-      topCommentsNextOffset !== null;
-    if (commentInventoryNeedsAnotherPage) {
-      if (!topCommentsPageLoading.current) {
-        setTopCommentInventoryVersion((version) => version + 1);
-      }
-      return;
-    }
     const commentDue = shouldInsertTopCommentCard(
       currentCommentCadence,
       unseenTopComments.length > 0
@@ -619,43 +333,6 @@ export function TopicFeedCore({
     const sponsorDue = shouldInsertSponsorCard(currentSponsorCadence, Boolean(userId));
     const nextCommentCadence = getNextTopCommentCadence(currentCommentCadence);
     const nextSponsorCadence = getNextSponsorCadence(currentSponsorCadence);
-    const cadenceTopic = feedTopics[topicIndex];
-    if (cadenceTopic && nextCommentCadence < currentCommentCadence) {
-      topCommentCadenceAnchor.current = {
-        topicId: cadenceTopic.id,
-        value: currentCommentCadence,
-      };
-    }
-    if (cadenceTopic && sponsorDue) {
-      sponsorCadenceAnchor.current = {
-        topicId: cadenceTopic.id,
-        value: currentSponsorCadence,
-      };
-    }
-
-    const queuedNextEntry = feedQueueWindow.current?.type === 'topic'
-      ? feedQueueWindow.next
-      : null;
-    if (queuedNextEntry?.type === 'top-comments') {
-      pendingSponsorAfterComment.current = sponsorDue;
-      activateFeedQueueEntry(queuedNextEntry);
-      return;
-    }
-    if (queuedNextEntry?.type === 'sponsor' && !commentDue) {
-      if (sponsorDue) {
-        setTopicsSinceTopCommentCard(nextCommentCadence);
-        setTopicsSinceSponsorCard(0);
-      }
-      activateFeedQueueEntry(queuedNextEntry);
-      return;
-    }
-
-    // Existing queue entries take priority over loading another topic page.
-    if (topicIndex >= feedTopics.length - 1 && nextCursor) {
-      void loadMoreTopics();
-      return;
-    }
-
     // Keep the two cadences independent. If both are due, show the comment
     // first and then the sponsor placement at the same topic boundary.
     const chooseSponsor = sponsorDue && !commentDue;
@@ -665,7 +342,6 @@ export function TopicFeedCore({
       setTopicsSinceTopCommentCard(commentDue ? currentCommentCadence : nextCommentCadence);
       sponsorRequestPreviousCadence.current = topicsSinceSponsorCard;
       setTopicsSinceSponsorCard(0);
-      pendingSponsorAfterComment.current = false;
 
       if (!currentTopic || sponsorLoadingRef.current) {
         advanceToNextTopic();
@@ -675,30 +351,26 @@ export function TopicFeedCore({
       sponsorLoadingRef.current = true;
       const requestedUserId = userId;
       const requestVersion = ++sponsorRequestVersion.current;
-      const prefetched = sponsorPrefetchRef.current;
-      const sponsorRequest = prefetched?.topicId === currentTopic.id && prefetched.userId === requestedUserId
-        ? prefetched.promise
-        : loadSponsorCampaigns(currentTopic);
-      void sponsorRequest.then((result) => {
-        if (!feedMountedRef.current || sponsorRequestVersion.current !== requestVersion ||
+      void loadSponsorCampaigns(currentTopic).then((result) => {
+        if (sponsorRequestVersion.current !== requestVersion ||
             sponsorSessionUserId.current !== requestedUserId) return;
         if (result.campaigns.length > 0 && result.sessionId) {
-          cacheSponsorPlacement(currentTopic.id, {
+          setSponsorCampaigns(result.campaigns);
+          setActiveSponsorSessionId(result.sessionId);
+          sponsorCardsByTopicId.current.set(currentTopic.id, {
             campaigns: result.campaigns,
             sessionId: result.sessionId,
           });
-        setShowTopCommentCard(false);
-        setShowSponsorCard(true);
+          setShowTopCommentCard(false);
+          setShowSponsorCard(true);
           return;
         }
 
         if (commentDue && unseenTopComments.length > 0) {
           setTopicsSinceTopCommentCard(0);
-          const nextTopCommentGroup = unseenTopComments.slice(0, 5);
-          nextTopCommentGroup.forEach((comment) => seenTopCommentIds.current.add(comment.comment_id));
-          setSeenTopCommentIdsForRender(new Set(seenTopCommentIds.current));
-          cacheTopCommentGroup(currentTopic.id, nextTopCommentGroup);
-                setShowSponsorCard(false);
+          setTopCommentCardComments(unseenTopComments);
+          topCommentCardsByTopicId.current.set(currentTopic.id, unseenTopComments);
+          setShowSponsorCard(false);
           setShowTopCommentCard(true);
           return;
         }
@@ -719,11 +391,9 @@ export function TopicFeedCore({
       setTopicsSinceTopCommentCard(0);
       const currentTopic = feedTopics[topicIndex];
       if (currentTopic) {
-        const nextTopCommentGroup = unseenTopComments.slice(0, 5);
-        nextTopCommentGroup.forEach((comment) => seenTopCommentIds.current.add(comment.comment_id));
-        setSeenTopCommentIdsForRender(new Set(seenTopCommentIds.current));
-        cacheTopCommentGroup(currentTopic.id, nextTopCommentGroup);
-            setShowSponsorCard(false);
+        setTopCommentCardComments(unseenTopComments);
+        topCommentCardsByTopicId.current.set(currentTopic.id, unseenTopComments);
+        setShowSponsorCard(false);
         setShowTopCommentCard(true);
         return;
       }
@@ -738,14 +408,11 @@ export function TopicFeedCore({
       if (seenTopCommentUserId.current !== userId) {
         seenTopCommentUserId.current = userId;
         seenTopCommentIds.current.clear();
-        setSeenTopCommentIdsForRender(new Set());
-        clearTopCommentGroups();
+        topCommentCardsByTopicId.current.clear();
       }
       seenTopCommentIds.current.add(commentId);
-      setSeenTopCommentIdsForRender(new Set(seenTopCommentIds.current));
-      setTopCommentInventoryVersion((version) => version + 1);
     },
-    [userId, clearTopCommentGroups]
+    [userId]
   );
 
   const openTopComment = (comment: TopFeedComment) => {
@@ -762,206 +429,39 @@ export function TopicFeedCore({
     if (seenTopCommentUserId.current !== userId) {
       seenTopCommentUserId.current = userId;
       seenTopCommentIds.current.clear();
-      setSeenTopCommentIdsForRender(new Set());
-      clearTopCommentGroups();
+      topCommentCardsByTopicId.current.clear();
     }
 
-    const previousQueueEntry = feedQueueWindow.previous;
-    if (previousQueueEntry && previousQueueEntry.type !== 'topic') {
-      activateFeedQueueEntry(previousQueueEntry);
-      return;
-    }
-
-    if (topicIndex <= 0) return;
-    const previousIndex = topicIndex - 1;
+    const previousIndex = (topicIndex - 1 + feedTopics.length) % feedTopics.length;
     const previousTopicId = feedTopics[previousIndex]?.id;
     const previousSponsorCard = previousTopicId
-      ? sponsorCardsByTopicId.get(previousTopicId)
+      ? sponsorCardsByTopicId.current.get(previousTopicId)
       : undefined;
     if (previousSponsorCard?.campaigns.length) {
-        setShowTopCommentCard(false);
+      setSponsorCampaigns(previousSponsorCard.campaigns);
+      setActiveSponsorSessionId(previousSponsorCard.sessionId);
+      setShowTopCommentCard(false);
       setShowSponsorCard(true);
       return;
     }
 
     const previousCard = previousTopicId
-      ? topCommentCardsByTopicId.get(previousTopicId)
+      ? topCommentCardsByTopicId.current.get(previousTopicId)
       : undefined;
 
     if (previousCard?.length) {
-        setShowTopCommentCard(true);
+      setTopCommentCardComments(previousCard);
+      setShowTopCommentCard(true);
       return;
     }
 
-    const currentTopicId = feedTopics[topicIndex]?.id;
-    if (topCommentCadenceAnchor.current?.topicId === currentTopicId) {
-      setTopicsSinceTopCommentCard(
-        (topCommentCadenceAnchor.current.value + TOP_COMMENT_CADENCE - 1) % TOP_COMMENT_CADENCE
-      );
-    } else if (topCommentCadenceAnchor.current?.topicId === previousTopicId) {
-      setTopicsSinceTopCommentCard(topCommentCadenceAnchor.current.value);
-    } else {
-      setTopicsSinceTopCommentCard((current) => Math.max(0, current - 1));
-    }
-
-    if (sponsorCadenceAnchor.current?.topicId === currentTopicId) {
-      setTopicsSinceSponsorCard(
-        (sponsorCadenceAnchor.current.value + SPONSOR_CARD_CADENCE - 1) % SPONSOR_CARD_CADENCE
-      );
-    } else if (sponsorCadenceAnchor.current?.topicId === previousTopicId) {
-      setTopicsSinceSponsorCard(sponsorCadenceAnchor.current.value);
-    } else {
-      setTopicsSinceSponsorCard((current) => Math.max(0, current - 1));
-    }
     setTopicIndex(previousIndex);
   };
 
-  const noop = () => {};
-
-  const handleSponsorNext = (topicId: string) => {
-    setShowSponsorCard(false);
-    if (sponsorPrefetchRef.current?.topicId === topicId) {
-      sponsorPrefetchRef.current = null;
-    }
-    if (sponsorCadenceAnchor.current?.topicId === topicId) {
-      sponsorCadenceAnchor.current = null;
-    }
-    advanceToNextTopic();
-  };
-
-  const handleTopCommentNext = (): boolean => {
-    if (sponsorLoadingRef.current) return false;
-    setTopicsSinceTopCommentCard(0);
-    const currentTopic = feedTopics[topicIndex];
-    if (feedQueueWindow.next?.type === 'sponsor') {
-      pendingSponsorAfterComment.current = false;
-      activateFeedQueueEntry(feedQueueWindow.next);
-      return true;
-    }
-    if (!pendingSponsorAfterComment.current) {
-      setShowTopCommentCard(false);
-      advanceToNextTopic();
-      return true;
-    }
-
-    pendingSponsorAfterComment.current = false;
-    if (!currentTopic) {
-      setShowTopCommentCard(false);
-      setTopicsSinceSponsorCard(0);
-      advanceToNextTopic();
-      return true;
-    }
-
-    sponsorLoadingRef.current = true;
-    sponsorRequestPreviousCadence.current = topicsSinceSponsorCard;
-    const requestedUserId = userId;
-    const requestVersion = ++sponsorRequestVersion.current;
-    const prefetched = sponsorPrefetchRef.current;
-    const sponsorRequest = prefetched?.topicId === currentTopic.id && prefetched.userId === requestedUserId
-      ? prefetched.promise
-      : loadSponsorCampaigns(currentTopic);
-    void sponsorRequest.then((result) => {
-      if (
-        !feedMountedRef.current ||
-        sponsorRequestVersion.current !== requestVersion ||
-        sponsorSessionUserId.current !== requestedUserId
-      ) return;
-      setTopicsSinceSponsorCard(0);
-      if (result.campaigns.length > 0 && result.sessionId) {
-        cacheSponsorPlacement(currentTopic.id, {
-          campaigns: result.campaigns,
-          sessionId: result.sessionId,
-        });
-        setShowTopCommentCard(false);
-        setShowSponsorCard(true);
-        return;
-      }
-
-      setShowTopCommentCard(false);
-      advanceToNextTopic();
-    }).finally(() => {
-      if (sponsorRequestVersion.current === requestVersion) {
-        sponsorLoadingRef.current = false;
-      }
-    });
-    return true;
-  };
-
-  const renderFeedQueueEntry = (
-    entry: NonNullable<typeof feedQueueWindow.current>,
-    active: boolean
-  ): ReactNode => {
-    if (entry.type === 'topic') {
-      return (
-        <Viewer
-          topics={feedTopics}
-          topicIndex={entry.topicIndex}
-          initialUserId={userId}
-          active={active}
-          onNextTopic={nextTopic}
-          onPreviousTopic={previousTopic}
-          nextEntryPreview={
-            active && nextQueueEntryForPreview
-              ? renderFeedQueueEntry(nextQueueEntryForPreview, false)
-              : undefined
-          }
-          previousEntryPreview={
-            active && feedQueueWindow.previous
-              ? renderFeedQueueEntry(feedQueueWindow.previous, false)
-              : undefined
-          }
-        />
-      );
-    }
-
-    if (entry.type === 'top-comments') {
-      return (
-        <TopCommentFeedCard
-          comments={entry.comments}
-          userId={userId}
-          previewMode={!active}
-          active={active}
-          onCommentViewed={active ? markTopCommentViewed : noop}
-          onNextTopic={handleTopCommentNext}
-          onPreviousTopic={navigateToPreviousQueueEntry}
-          onOpenComment={active ? openTopComment : noop}
-          nextEntryPreview={
-            active && feedQueueWindow.next
-              ? renderFeedQueueEntry(feedQueueWindow.next, false)
-              : undefined
-          }
-          previousEntryPreview={
-            active && feedQueueWindow.previous
-              ? renderFeedQueueEntry(feedQueueWindow.previous, false)
-              : undefined
-          }
-        />
-      );
-    }
-
-    return (
-      <SponsorFeedCard
-        campaigns={entry.campaigns}
-        sessionId={entry.sessionId}
-        userId={userId ?? ''}
-        previewMode={!active}
-        sponsorApiBaseUrl={effectiveSponsorApiBaseUrl}
-        getAccessToken={getSponsorAccessToken ?? (async () => null)}
-        onNextTopic={() => handleSponsorNext(entry.topicId)}
-        onPreviousTopic={navigateToPreviousQueueEntry}
-        nextEntryPreview={
-          active && nextQueueEntryForPreview
-            ? renderFeedQueueEntry(nextQueueEntryForPreview, false)
-            : undefined
-        }
-        previousEntryPreview={
-          active && feedQueueWindow.previous
-            ? renderFeedQueueEntry(feedQueueWindow.previous, false)
-            : undefined
-        }
-      />
-    );
-  };
+  const currentTopCommentIds = new Set(topComments.map((comment) => comment.comment_id));
+  const activeTopCommentCardComments = topCommentCardComments.filter((comment) =>
+    currentTopCommentIds.has(comment.comment_id)
+  );
 
   // ----------------------------------
   // Loading
@@ -972,7 +472,7 @@ export function TopicFeedCore({
   }
 
   return (
-    <div className="h-full" >
+    <div className="h-full">
       {(loadingMore || loadError) && (
         <div className="bg-bg-primary/90 absolute top-20 left-1/2 z-20 -translate-x-1/2 rounded-full px-4 py-2 text-sm shadow">
           {loadError ? (
@@ -984,23 +484,90 @@ export function TopicFeedCore({
           )}
         </div>
       )}
-      <div className="relative h-full">
-        {[feedQueueWindow.previous, feedQueueWindow.current, feedQueueWindow.next]
-          .filter((entry): entry is NonNullable<typeof entry> => entry !== null)
-          .map((entry) => {
-            const active = entry.id === feedQueueWindow.current?.id;
-            return (
-              <div
-                key={entry.id}
-                className={active ? 'absolute inset-0 h-full w-full' : 'hidden'}
-                aria-hidden={!active}
-                data-feed-queue-entry={entry.type}
-              >
-                {renderFeedQueueEntry(entry, active)}
-              </div>
-            );
-          })}
-      </div>
+      {showSponsorCard && sponsorCampaigns.length > 0 ? (
+        <SponsorFeedCard
+          campaigns={sponsorCampaigns}
+          sessionId={activeSponsorSessionId ?? ''}
+          userId={userId ?? ''}
+          sponsorApiBaseUrl={effectiveSponsorApiBaseUrl}
+          getAccessToken={getSponsorAccessToken ?? (async () => null)}
+          onNextTopic={() => {
+            setShowSponsorCard(false);
+            advanceToNextTopic();
+          }}
+          onPreviousTopic={() => {
+            // The sponsor is an interstitial after the current topic. Swiping
+            // back returns to that topic, not the topic before it.
+            setShowSponsorCard(false);
+          }}
+        />
+      ) : showTopCommentCard && activeTopCommentCardComments.length > 0 ? (
+        <TopCommentFeedCard
+          key={userId ?? 'anonymous'}
+          comments={activeTopCommentCardComments}
+          onCommentViewed={markTopCommentViewed}
+          onNextTopic={() => {
+            if (sponsorLoadingRef.current) return;
+            if (!pendingSponsorAfterComment.current) {
+              setShowTopCommentCard(false);
+              advanceToNextTopic();
+              return;
+            }
+
+            pendingSponsorAfterComment.current = false;
+            const currentTopic = feedTopics[topicIndex];
+            if (!currentTopic || sponsorLoadingRef.current) {
+              setShowTopCommentCard(false);
+              setTopicsSinceSponsorCard(0);
+              advanceToNextTopic();
+              return;
+            }
+
+            sponsorLoadingRef.current = true;
+            sponsorRequestPreviousCadence.current = topicsSinceSponsorCard;
+            const requestedUserId = userId;
+            const requestVersion = ++sponsorRequestVersion.current;
+            void loadSponsorCampaigns(currentTopic).then((result) => {
+              if (sponsorRequestVersion.current !== requestVersion ||
+                  sponsorSessionUserId.current !== requestedUserId) return;
+              setTopicsSinceSponsorCard(0);
+              if (result.campaigns.length > 0 && result.sessionId) {
+                setSponsorCampaigns(result.campaigns);
+                setActiveSponsorSessionId(result.sessionId);
+                sponsorCardsByTopicId.current.set(currentTopic.id, {
+                  campaigns: result.campaigns,
+                  sessionId: result.sessionId,
+                });
+                setShowTopCommentCard(false);
+                setShowSponsorCard(true);
+                return;
+              }
+
+              setShowTopCommentCard(false);
+              advanceToNextTopic();
+            }).finally(() => {
+              if (sponsorRequestVersion.current === requestVersion) {
+                sponsorLoadingRef.current = false;
+              }
+            });
+          }}
+          onPreviousTopic={() => {
+            pendingSponsorAfterComment.current = false;
+            // The comment card follows the current topic; reverse navigation
+            // restores that exact topic without decrementing the topic index.
+            setShowTopCommentCard(false);
+          }}
+          onOpenComment={openTopComment}
+        />
+      ) : (
+        <Viewer
+          topics={feedTopics}
+          topicIndex={topicIndex}
+          initialUserId={userId}
+          onNextTopic={nextTopic}
+          onPreviousTopic={previousTopic}
+        />
+      )}
     </div>
   );
 }
