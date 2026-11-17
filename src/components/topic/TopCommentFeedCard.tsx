@@ -17,7 +17,7 @@ interface TopCommentFeedCardProps {
   userId: string | null;
   previewMode?: boolean;
   active?: boolean;
-  onNextTopic: () => void | boolean;
+  onNextTopic: () => void | Promise<void>;
   onPreviousTopic: () => void;
   onOpenComment: (comment: TopFeedComment) => void;
   onCommentViewed: (commentId: number) => void;
