@@ -561,6 +561,110 @@ export function TopicFeedCore({
     currentTopCommentIds.has(comment.comment_id)
   );
 
+  const noop = () => {};
+
+  const handleTopCommentNext = () => {
+    if (sponsorLoadingRef.current) return;
+    if (feedQueueWindow.next?.type === 'sponsor') {
+      pendingSponsorAfterComment.current = false;
+      activateFeedQueueEntry(feedQueueWindow.next);
+      return;
+    }
+    if (!pendingSponsorAfterComment.current) {
+      setShowTopCommentCard(false);
+      advanceToNextTopic();
+      return;
+    }
+
+    pendingSponsorAfterComment.current = false;
+    const currentTopic = feedTopics[topicIndex];
+    if (!currentTopic || sponsorLoadingRef.current) {
+      setShowTopCommentCard(false);
+      setTopicsSinceSponsorCard(0);
+      advanceToNextTopic();
+      return;
+    }
+
+    sponsorLoadingRef.current = true;
+    sponsorRequestPreviousCadence.current = topicsSinceSponsorCard;
+    const requestedUserId = userId;
+    const requestVersion = ++sponsorRequestVersion.current;
+    void loadSponsorCampaigns(currentTopic).then((result) => {
+      if (
+        sponsorRequestVersion.current !== requestVersion ||
+        sponsorSessionUserId.current !== requestedUserId
+      ) return;
+      setTopicsSinceSponsorCard(0);
+      if (result.campaigns.length > 0 && result.sessionId) {
+        setSponsorCampaigns(result.campaigns);
+        setActiveSponsorSessionId(result.sessionId);
+        sponsorCardsByTopicId.current.set(currentTopic.id, {
+          campaigns: result.campaigns,
+          sessionId: result.sessionId,
+        });
+        setShowTopCommentCard(false);
+        setShowSponsorCard(true);
+        return;
+      }
+
+      setShowTopCommentCard(false);
+      advanceToNextTopic();
+    }).finally(() => {
+      if (sponsorRequestVersion.current === requestVersion) {
+        sponsorLoadingRef.current = false;
+      }
+    });
+  };
+
+  const renderFeedQueueEntry = (
+    entry: NonNullable<typeof feedQueueWindow.current>,
+    active: boolean
+  ) => {
+    if (entry.type === 'topic') {
+      return (
+        <Viewer
+          topics={feedTopics}
+          topicIndex={entry.topicIndex}
+          initialUserId={userId}
+          active={active}
+          onNextTopic={nextTopic}
+          onPreviousTopic={previousTopic}
+        />
+      );
+    }
+
+    if (entry.type === 'top-comments') {
+      return (
+        <TopCommentFeedCard
+          comments={entry.comments}
+          userId={userId}
+          previewMode={!active}
+          active={active}
+          onCommentViewed={active ? markTopCommentViewed : noop}
+          onNextTopic={handleTopCommentNext}
+          onPreviousTopic={navigateToPreviousQueueEntry}
+          onOpenComment={active ? openTopComment : noop}
+        />
+      );
+    }
+
+    return (
+      <SponsorFeedCard
+        campaigns={entry.campaigns}
+        sessionId={entry.sessionId}
+        userId={userId ?? ''}
+        previewMode={!active}
+        sponsorApiBaseUrl={effectiveSponsorApiBaseUrl}
+        getAccessToken={getSponsorAccessToken ?? (async () => null)}
+        onNextTopic={() => {
+          setShowSponsorCard(false);
+          advanceToNextTopic();
+        }}
+        onPreviousTopic={navigateToPreviousQueueEntry}
+      />
+    );
+  };
+
   // ----------------------------------
   // Loading
   // ----------------------------------
@@ -582,87 +686,23 @@ export function TopicFeedCore({
           )}
         </div>
       )}
-      {activeFeedQueueEntry?.type === 'sponsor' ? (
-        <SponsorFeedCard
-          campaigns={activeFeedQueueEntry.campaigns}
-          sessionId={activeFeedQueueEntry.sessionId}
-          userId={userId ?? ''}
-          sponsorApiBaseUrl={effectiveSponsorApiBaseUrl}
-          getAccessToken={getSponsorAccessToken ?? (async () => null)}
-          onNextTopic={() => {
-            setShowSponsorCard(false);
-            advanceToNextTopic();
-          }}
-          onPreviousTopic={navigateToPreviousQueueEntry}
-        />
-      ) : activeFeedQueueEntry?.type === 'top-comments' && activeTopCommentCardComments.length > 0 ? (
-        <TopCommentFeedCard
-          key={userId ?? 'anonymous'}
-          comments={activeTopCommentCardComments}
-          userId={userId}
-          onCommentViewed={markTopCommentViewed}
-          onNextTopic={() => {
-            if (sponsorLoadingRef.current) return;
-            if (feedQueueWindow.next?.type === 'sponsor') {
-              pendingSponsorAfterComment.current = false;
-              activateFeedQueueEntry(feedQueueWindow.next);
-              return;
-            }
-            if (!pendingSponsorAfterComment.current) {
-              setShowTopCommentCard(false);
-              advanceToNextTopic();
-              return;
-            }
-
-            pendingSponsorAfterComment.current = false;
-            const currentTopic = feedTopics[topicIndex];
-            if (!currentTopic || sponsorLoadingRef.current) {
-              setShowTopCommentCard(false);
-              setTopicsSinceSponsorCard(0);
-              advanceToNextTopic();
-              return;
-            }
-
-            sponsorLoadingRef.current = true;
-            sponsorRequestPreviousCadence.current = topicsSinceSponsorCard;
-            const requestedUserId = userId;
-            const requestVersion = ++sponsorRequestVersion.current;
-            void loadSponsorCampaigns(currentTopic).then((result) => {
-              if (sponsorRequestVersion.current !== requestVersion ||
-                  sponsorSessionUserId.current !== requestedUserId) return;
-              setTopicsSinceSponsorCard(0);
-              if (result.campaigns.length > 0 && result.sessionId) {
-                setSponsorCampaigns(result.campaigns);
-                setActiveSponsorSessionId(result.sessionId);
-                sponsorCardsByTopicId.current.set(currentTopic.id, {
-                  campaigns: result.campaigns,
-                  sessionId: result.sessionId,
-                });
-                setShowTopCommentCard(false);
-                setShowSponsorCard(true);
-                return;
-              }
-
-              setShowTopCommentCard(false);
-              advanceToNextTopic();
-            }).finally(() => {
-              if (sponsorRequestVersion.current === requestVersion) {
-                sponsorLoadingRef.current = false;
-              }
-            });
-          }}
-          onPreviousTopic={navigateToPreviousQueueEntry}
-          onOpenComment={openTopComment}
-        />
-      ) : (
-        <Viewer
-          topics={feedTopics}
-          topicIndex={topicIndex}
-          initialUserId={userId}
-          onNextTopic={nextTopic}
-          onPreviousTopic={previousTopic}
-        />
-      )}
+      <div className="relative h-full">
+        {[feedQueueWindow.previous, feedQueueWindow.current, feedQueueWindow.next]
+          .filter((entry): entry is NonNullable<typeof entry> => entry !== null)
+          .map((entry) => {
+            const active = entry.id === feedQueueWindow.current?.id;
+            return (
+              <div
+                key={entry.id}
+                className={active ? 'absolute inset-0 h-full w-full' : 'hidden'}
+                aria-hidden={!active}
+                data-feed-queue-entry={entry.type}
+              >
+                {renderFeedQueueEntry(entry, active)}
+              </div>
+            );
+          })}
+      </div>}
     </div>
   );
 }
