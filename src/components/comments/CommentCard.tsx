@@ -126,7 +126,11 @@ export function CommentCard({
 
   return (
     <div className="space-y-4">
-      <article className="border-border rounded-2xl border p-6">
+      <article
+        id={`comment-${comment.id}`}
+        tabIndex={-1}
+        className="border-border rounded-2xl border p-6"
+      >
         <div className="mb-4">
           {comment.is_pinned && (
             <div className="mb-3">

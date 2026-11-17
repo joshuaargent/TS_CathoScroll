@@ -1,6 +1,9 @@
 'use client';
 
-import { useCallback } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import { useRouter } from 'next/navigation';
+import type { TopFeedComment } from '@/lib/feed-comments';
 import type { TopicPageCursor } from '@/lib/content';
 import type { RecommendationCursor } from '@/lib/recommendations';
 import type { Topic } from '@/types';
@@ -13,6 +16,28 @@ type TopicFeedProps = { topics: Topic[]; userId: string | null } & (
 );
 
 export function TopicFeed({ topics, nextCursor, personalized = false, userId }: TopicFeedProps) {
+  const router = useRouter();
+  const supabase = useMemo(() => createClient(), []);
+  const [activeUserId, setActiveUserId] = useState(userId);
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setActiveUserId(session?.user.id ?? null);
+    });
+    return () => subscription.unsubscribe();
+  }, [supabase]);
+  const getSponsorAccessToken = useCallback(async () => {
+    const { data } = await supabase.auth.getSession();
+    return data.session?.access_token ?? null;
+  }, [supabase]);
+  const openTopComment = useCallback(
+    (comment: TopFeedComment) => {
+      router.push(
+        `/topic/${encodeURIComponent(comment.topic_slug)}#comment-${comment.comment_id}`
+      );
+    },
+    [router]
+  );
+
   const loadPage = useCallback(
     async (cursor: TopicPageCursor | RecommendationCursor) => {
       let response: Response;
@@ -51,8 +76,10 @@ export function TopicFeed({ topics, nextCursor, personalized = false, userId }: 
       nextCursor={nextCursor}
       personalized={personalized}
       loadPage={loadPage}
-      userId={userId}
+      userId={activeUserId}
+      getSponsorAccessToken={getSponsorAccessToken}
       viewer={TopicViewer}
+      onOpenComment={openTopComment}
     />
   );
 }

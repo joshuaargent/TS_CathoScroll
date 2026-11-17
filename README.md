@@ -239,8 +239,10 @@ Supabase's security advisor may still flag these intentionally exposed
 Review the function grants and ownership checks before changing them; removing
 their execute grants indiscriminately would break public reads or account sync.
 The current Auth configuration also has leaked-password protection disabled.
-Enable it in Supabase Auth settings before broad public launch if supported by
-the project's plan. Admin MFA enforcement remains a separate rollout task:
+The CathoScroll Supabase organisation is currently on the Free plan; Supabase
+requires Pro or above for leaked-password protection. Upgrade before enabling
+it in Auth settings. Email verification is a separate setting and remains
+disabled. Admin MFA enforcement remains a separate rollout task:
 enrol and verify the owner/admin accounts first, then enable enforcement so
 administrators are not locked out.
 
@@ -271,9 +273,9 @@ These redirects improve navigation but do not replace authorization. Supabase Ro
 
 ### Supabase write-permission hardening
 
-Before deploying the matching application changes, apply the corresponding SQL directly in the Supabase SQL Editor. It removes client write access to profile subscription tiers and comment pin state, while allowing authenticated users to create/update only the profile and comment fields used by the app. New profiles default to the free tier. No Supabase migration files are maintained in this repository.
+Before deploying matching application changes, apply the ordered migrations in `supabase/migrations/` to the target Supabase project. They remove client write access to profile subscription tiers and comment pin state while allowing authenticated users to create/update only the profile and comment fields used by the app. New profiles default to the free tier. The consolidated bootstrap is for fresh-project recovery, not incremental upgrades.
 
-Comment pinning and moderation use server endpoints and a database-backed `admin_users` role table. The service-role key is used only on the server and must never be exposed in a `NEXT_PUBLIC_*` variable. Add admin membership and the moderation tables, constraints, comment-ban insert/edit triggers, atomic moderation functions, and report throttling function using the SQL supplied by the project maintainer; no Supabase migration files are maintained in this repository.
+Comment pinning and moderation use server endpoints and a database-backed `admin_users` role table. The service-role key is used only on the server and must never be exposed in a `NEXT_PUBLIC_*` variable. The migration history includes the admin membership and moderation tables, constraints, comment-ban insert/edit triggers, atomic moderation functions and report throttling function. Keep migrations in version order and verify the target project's migration history before applying them.
 
 Authenticated users can privately report comments. Admins can review and dismiss reports, resolve them, or hide the reported comment. Comment restrictions prevent new comments, replies, and edits, but do not disable sign-in or other account features; users can still delete their own comments. Admins may optionally hide a user's existing visible comments when applying a restriction, while retaining them in moderation history. Restricted users can submit one pending appeal; admins can review paginated comment history with reply context and lift the restriction. Subscription tiers must only be changed by trusted billing/server-side code.
 
@@ -689,7 +691,7 @@ Before deploying, configure the required environment variables in both Vercel an
 
 ### Supabase database recovery and bootstrap
 
-[`docs/cathoscroll-database-bootstrap.sql`](docs/cathoscroll-database-bootstrap.sql) is the consolidated snapshot of CathoScroll's application-owned PostgreSQL schema. It recreates the 27 application tables, constraints, indexes, 61 functions, 33 triggers, RLS configuration and policies, grants, the RLS DDL event trigger, and both scheduled retention jobs. It includes the ranked-search setup and current offline-sync protections.
+[`docs/cathoscroll-database-bootstrap.sql`](docs/cathoscroll-database-bootstrap.sql) is the consolidated snapshot of CathoScroll's application-owned PostgreSQL schema. Sponsor organisation access, campaign submissions, invoice records and direct-bank-transfer reconciliation are described in [`docs/sponsor-platform.md`](docs/sponsor-platform.md). It recreates the 40 application tables, constraints, indexes, 89 functions, 33 triggers, RLS configuration and policies, grants, the RLS DDL event trigger, and scheduled retention jobs. It includes the ranked-search setup and current offline-sync protections.
 
 Use this file when creating a **fresh Supabase project** to restore the application schema:
 

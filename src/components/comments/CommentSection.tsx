@@ -235,6 +235,7 @@ export function CommentSection({
   const [pinningCommentId, setPinningCommentId] = useState<number | null>(null);
   const loadVersion = useRef(0);
   const loadMoreInFlight = useRef(false);
+  const commentAnchorAttempts = useRef(new Map<string, number>());
 
   const loadedCommentCount = useMemo(() => countComments(comments), [comments]);
   const commentCount = totalCommentCount ?? loadedCommentCount;
@@ -685,6 +686,62 @@ export function CommentSection({
       window.removeEventListener('offline', handleConnectivityChange);
     };
   }, [cache, loadComments]);
+
+  useEffect(() => {
+    if (loading || typeof window === 'undefined') return;
+
+    // The native shell keeps its route inside the outer hash, while the
+    // website uses a normal URL fragment. Match the comment anchor in either.
+    const anchorMatch = /#comment-(\d+)$/.exec(window.location.hash);
+    if (!anchorMatch) return;
+
+    const targetId = Number(anchorMatch[1]);
+    if (!Number.isSafeInteger(targetId) || targetId <= 0) return;
+
+    const attemptKey = topicId + ':' + targetId;
+    const targetLoaded = flattenCommentTree(comments).some(
+      (comment) => comment.id === targetId
+    );
+
+    if (targetLoaded) {
+      commentAnchorAttempts.current.delete(attemptKey);
+      const frame = window.requestAnimationFrame(() => {
+        const element = document.getElementById('comment-' + targetId);
+        element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        element?.focus({ preventScroll: true });
+      });
+      return () => window.cancelAnimationFrame(frame);
+    }
+
+    const attempts = commentAnchorAttempts.current.get(attemptKey) ?? 0;
+    if (
+      hasMoreComments &&
+      !loadingMoreComments &&
+      isOnline &&
+      !cachedAt &&
+      attempts < 5
+    ) {
+      commentAnchorAttempts.current.set(attemptKey, attempts + 1);
+      void loadMoreComments();
+      return;
+    }
+
+    if (!loadingMoreComments) {
+      document.getElementById('comments')?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      });
+    }
+  }, [
+    comments,
+    hasMoreComments,
+    loading,
+    loadingMoreComments,
+    cachedAt,
+    isOnline,
+    loadMoreComments,
+    topicId,
+  ]);
 
   async function createComment(content: string) {
     if (!navigator.onLine) {
