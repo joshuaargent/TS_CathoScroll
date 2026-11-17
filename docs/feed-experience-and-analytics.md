@@ -29,7 +29,7 @@ Topic pages are loaded ahead of the end of the current page. Sponsor inventory i
 
 ## Sponsorship cards
 
-A sponsorship card contains up to five sponsor positions. It loops/rotates through eligible sponsors and only renders populated positions. If fewer than five sponsors are eligible, the card has fewer positions; if none are eligible, the card is omitted.
+Each sponsor placement contains one selected campaign. The selector must not bundle every eligible campaign into one carousel: doing so would make campaigns with different paid weights receive the same opportunity whenever the eligible pool is small. If no campaign is eligible for the current topic, the sponsor card is omitted.
 
 Sponsors are selected from an approved, active campaign pool. Each campaign has a sponsor, creative, destination URL, schedule, eligible categories or topics, paid weight, frequency caps, and status. All outbound links are validated and opened safely. Every placement is labelled as sponsorship.
 
@@ -37,7 +37,7 @@ Sponsors are selected from an approved, active campaign pool. Each campaign has 
 
 Paid weight controls a sponsor's proportional share of eligible sponsor impressions. For example, weights 2:1 produce an expected allocation of roughly two impressions to the first sponsor for every one to the second across a sufficiently large sample. This is rolling weighted fair-queue pacing, not a promise that every individual three-slot card contains exactly two and one.
 
-The scheduler uses viewable-impression pacing over a rolling 30-day window. For each eligible campaign it compares `viewable_impressions / placement_weight` and selects the least-delivered campaign first, randomising ties. This is weighted fair queuing: equal weights converge toward equal viewable impressions, while a 2:1 weight pair converges toward a 2:1 viewable-impression ratio. Served-but-never-viewed placements do not improve a campaign's delivery ratio. A campaign with no viewable impressions is treated as under-delivered. The eligible comparison set is recalculated for each matching user/category/topic opportunity, so campaigns that are not eligible for a slot do not distort its allocation.
+The scheduler uses viewable-impression pacing over a rolling 30-day window. For each eligible campaign it compares `viewable_impressions / placement_weight` and selects the least-delivered campaign for the next single-campaign placement, randomising ties. This is weighted fair queuing: equal weights converge toward equal viewable impressions, while a 2:1 weight pair converges toward a 2:1 viewable-impression ratio. Served-but-never-viewed placements do not improve a campaign's delivery ratio. A campaign with no viewable impressions is treated as under-delivered. The eligible comparison set is recalculated for each matching user/category/topic opportunity, so campaigns that are not eligible for a slot do not distort its allocation.
 
 The scheduler must:
 - Prioritise under-delivered campaigns using viewable impressions divided by paid placement weight.
