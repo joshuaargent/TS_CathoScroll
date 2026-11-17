@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState, type ComponentType } from 'react';
-import { useRouter } from 'next/navigation';
 
 import { shuffle } from '@/lib/utils';
 import {
@@ -50,7 +49,7 @@ type TopicFeedCoreProps = {
   viewer: ComponentType<ViewerProps>;
   preservePositionOnUpdate?: boolean;
   topCommentsEndpoint?: string;
-  onOpenComment?: (comment: TopFeedComment) => void;
+  onOpenComment: (comment: TopFeedComment) => void;
   getSponsorAccessToken?: () => Promise<string | null>;
   sponsorApiBaseUrl?: string;
 };
@@ -68,7 +67,6 @@ export function TopicFeedCore({
   getSponsorAccessToken,
   sponsorApiBaseUrl,
 }: TopicFeedCoreProps) {
-  const router = useRouter();
   const nativeSponsorApiBaseUrl =
     typeof window !== 'undefined' &&
     (window.location.protocol === 'capacitor:' ||
@@ -418,14 +416,7 @@ export function TopicFeedCore({
   );
 
   const openTopComment = (comment: TopFeedComment) => {
-    if (onOpenComment) {
-      onOpenComment(comment);
-      return;
-    }
-
-    router.push(
-      `/topic/${encodeURIComponent(comment.topic_slug)}#comment-${comment.comment_id}`
-    );
+    onOpenComment(comment);
   };
 
   const previousTopic = () => {
