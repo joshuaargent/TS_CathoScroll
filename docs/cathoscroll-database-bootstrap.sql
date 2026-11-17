@@ -1628,7 +1628,7 @@ DECLARE
   last_category text;
   streak integer;
   include_completed boolean;
-  initial_page boolean := feed_cursor IS NULL;
+  initial_page boolean := feed_cursor IS NULL OR feed_cursor = 'null'::jsonb;
   item_count integer := 0;
 BEGIN
   IF current_user_id IS NULL THEN
