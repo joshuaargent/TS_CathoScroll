@@ -79,6 +79,7 @@ export function FeedCardPreview({ userId }: { userId: string }) {
           <TopCommentFeedCard
             comments={[previewComment]}
             userId={userId}
+            previewMode
             onNextTopic={noop}
             onPreviousTopic={noop}
             onOpenComment={noop}
