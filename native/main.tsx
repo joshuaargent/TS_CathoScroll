@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { Component, createContext, useCallback, useContext, useEffect, useRef, useState, type ErrorInfo, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { CommentSection } from '@/components/comments/CommentSection';
 import { TopicFeedCore } from '@/components/topic/TopicFeedCore';
@@ -836,6 +836,7 @@ function App() {
   const [firstPage, setFirstPage] = useState<CataloguePage | null>(null);
   const [feedPersonalized, setFeedPersonalized] = useState(false);
   const [feedAttempt, setFeedAttempt] = useState(0);
+  const [feedLoadError, setFeedLoadError] = useState('');
   const [catalogueRefresh, setCatalogueRefresh] = useState<CatalogueRefresh | null>(null);
   const [catalogueVersion, setCatalogueVersion] = useState(0);
   const [catalogueMessage, setCatalogueMessage] = useState('');
@@ -868,6 +869,7 @@ function App() {
           const page = await localCatalogue.topics();
           if (!active) return;
           setFirstPage(page);
+          setFeedLoadError('');
           setFeedPersonalized(false);
           clearNativeStatusNotice('feed-online');
           return;
@@ -889,6 +891,7 @@ function App() {
         }
         if (!active) return;
         setFirstPage(page);
+        setFeedLoadError('');
         setFeedPersonalized(Boolean(user?.id));
         clearNativeStatusNotice('feed-online');
       } catch (cause) {
@@ -1362,8 +1365,22 @@ function App() {
           >
             <NativeNavbar pathname={route?.pathname ?? '/'} userId={user?.id ?? null} />
             <main className="native-content">
-              {route?.kind === 'feed' && !error && !firstPage && (
+              {route?.kind === 'feed' && !error && !feedLoadError && !firstPage && (
                 <NativeFeedSkeleton />
+              )}
+              {error && (
+                <section className="mx-auto flex min-h-[55vh] max-w-xl flex-col items-center justify-center gap-4 px-6 text-center" role="alert">
+                  <h1 className="text-text-primary text-xl font-semibold">CathoScroll could not finish starting</h1>
+                  <p className="text-text-secondary text-sm">{error}</p>
+                  <button type="button" className="bg-accent rounded-lg px-5 py-3 text-sm font-semibold text-white" onClick={() => { setError(''); retryStartup.current(); }}>Retry startup</button>
+                </section>
+              )}
+              {route?.kind === 'feed' && feedLoadError && !error && (
+                <section className="mx-auto flex min-h-[55vh] max-w-xl flex-col items-center justify-center gap-4 px-6 text-center" role="alert">
+                  <h1 className="text-text-primary text-xl font-semibold">Your feed is unavailable</h1>
+                  <p className="text-text-secondary text-sm">{feedLoadError}</p>
+                  <button type="button" className="bg-accent rounded-lg px-5 py-3 text-sm font-semibold text-white" onClick={() => { setFeedLoadError(''); setFeedAttempt((value) => value + 1); }}>Retry feed</button>
+                </section>
               )}
               {!error && route?.kind === 'search' && !catalogue && (
                 <NativeGridSkeleton label="Loading search" />
@@ -1528,6 +1545,40 @@ function App() {
   );
 }
 
+class NativeErrorBoundary extends Component<
+  { children: ReactNode },
+  { error: Error | null }
+> {
+  state: { error: Error | null } = { error: null };
+
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error('Uncaught native application render error:', error, info.componentStack);
+  }
+
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="bg-background text-text-primary flex min-h-screen flex-col items-center justify-center gap-4 px-6 text-center">
+          <h1 className="text-xl font-semibold">CathoScroll encountered an error</h1>
+          <p className="text-text-secondary max-w-xl text-sm">The app could not display this screen. Restart the app to try again.</p>
+          <button type="button" className="bg-accent rounded-lg px-5 py-3 text-sm font-semibold text-white" onClick={() => window.location.reload()}>
+            Restart app
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 const root = document.getElementById('root');
 if (!root) throw new Error('The application root is missing.');
-createRoot(root).render(<App />);
+createRoot(root).render(
+  <NativeErrorBoundary>
+    <App />
+  </NativeErrorBoundary>
+);
