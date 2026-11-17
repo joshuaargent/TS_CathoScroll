@@ -7,6 +7,8 @@ interface FeedInterstitialMotionProps {
   children: ReactNode;
   onSwipeLeft: () => void;
   onSwipeRight: () => void;
+  canSwipeLeft?: () => boolean;
+  canSwipeRight?: () => boolean;
   onNextTopic: () => void;
   onPreviousTopic: () => void;
   ariaLabel: string;
@@ -16,6 +18,8 @@ export function FeedInterstitialMotion({
   children,
   onSwipeLeft,
   onSwipeRight,
+  canSwipeLeft,
+  canSwipeRight,
   onNextTopic,
   onPreviousTopic,
   ariaLabel,
@@ -35,6 +39,14 @@ export function FeedInterstitialMotion({
 
   const move = useCallback(async (direction: 'left' | 'right' | 'up' | 'down') => {
     if (locked.current) return;
+    if (direction === 'left' && canSwipeLeft && !canSwipeLeft()) {
+      springHome();
+      return;
+    }
+    if (direction === 'right' && canSwipeRight && !canSwipeRight()) {
+      springHome();
+      return;
+    }
     locked.current = true;
     try {
       const horizontal = direction === 'left' || direction === 'right';
@@ -52,7 +64,7 @@ export function FeedInterstitialMotion({
     } finally {
       locked.current = false;
     }
-  }, [onNextTopic, onPreviousTopic, onSwipeLeft, onSwipeRight, x, y]);
+  }, [canSwipeLeft, canSwipeRight, onNextTopic, onPreviousTopic, onSwipeLeft, onSwipeRight, springHome, x, y]);
 
   const handlePointerDown = (event: PointerEvent<HTMLDivElement>) => {
     if (locked.current || (event.target as HTMLElement).closest('button, a, input, textarea, [contenteditable="true"]')) return;
