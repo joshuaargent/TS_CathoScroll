@@ -546,7 +546,7 @@ export function TopicSwipeViewer({
           {actionError && <p>{actionError}</p>}
         </div>
       )}
-      <div className="px-6 pt-4 pb-4">
+      <div className="px-6 pt-6">
         <TopicProgress current={slideIndex} total={slides.length} />
       </div>
 
