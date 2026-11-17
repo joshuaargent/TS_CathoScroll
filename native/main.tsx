@@ -858,6 +858,14 @@ function App() {
   const [activityVersion, setActivityVersion] = useState(0);
   const [activityAttempt, setActivityAttempt] = useState(0);
   const retryStartup = useRef<() => void>(() => {});
+  const getNativeSponsorAccessToken = useCallback(async () => {
+    const { data, error } = await createClient().auth.getSession();
+    if (error) {
+      console.error('Unable to obtain the native sponsor analytics session:', error.message);
+      return null;
+    }
+    return data.session?.access_token ?? null;
+  }, []);
 
   useEffect(() => {
     if (!catalogue || authStatus !== 'ready') return;
@@ -1445,6 +1453,7 @@ function App() {
                     personalized={feedPersonalized}
                     loadPage={loadPage}
                     userId={user?.id ?? null}
+                    getSponsorAccessToken={getNativeSponsorAccessToken}
                     viewer={NativeViewer}
                     topCommentsEndpoint={new URL(
                       '/api/content/top-comments',
