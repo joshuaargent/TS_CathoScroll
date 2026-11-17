@@ -95,6 +95,8 @@ test('topic, comment and sponsor cards use the same structural layout component'
   assert.match(topicCardLayout, /flex min-h-0 flex-1 items-center justify-center/);
   assert.match(topicCardLayout, /mx-auto w-full text-center/);
   assert.match(topicCardLayout, /flex items-center justify-between gap-3/);
+  assert.match(topicCardLayout, /progress && <div className="shrink-0 pb-5">/);
+  assert.match(topCommentCard, /<TopicProgress current=\{safeIndex\} total=\{comments\.length\} \/>/);
   assert.ok(topicCard.includes('bg-accent-light/5'));
   assert.ok(topCommentCard.includes('bg-accent-light/5'));
   assert.match(topCommentCard, /<Heart/);
