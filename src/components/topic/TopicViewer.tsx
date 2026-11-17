@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { useSignInPrompt } from '@/components/providers/SignInPromptProvider';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
 import { Topic } from '@/types';
 import { loadTopicActivity, type TopicActivity } from '@/lib/topic-activity';
@@ -20,6 +20,7 @@ interface TopicViewerProps {
 
   onNextTopic?: () => void;
   onPreviousTopic?: () => void;
+  nextEntryPreview?: ReactNode;
 }
 
 export function TopicViewer({
@@ -29,6 +30,7 @@ export function TopicViewer({
   active = true,
   onNextTopic,
   onPreviousTopic,
+  nextEntryPreview,
 }: TopicViewerProps) {
   const router = useRouter();
   const requestSignIn = useSignInPrompt();
@@ -220,6 +222,7 @@ export function TopicViewer({
       onComplete={(topicId) => void markCompleted(topicId)}
       onNextTopic={onNextTopic}
       onPreviousTopic={onPreviousTopic}
+      nextEntryPreview={nextEntryPreview}
     />
   );
 }
