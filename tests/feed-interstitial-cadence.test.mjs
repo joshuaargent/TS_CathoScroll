@@ -3,13 +3,14 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import ts from 'typescript';
 
-const [commentSource, sponsorSource, feedCore, topicCard, topCommentCard, sponsorCard] = await Promise.all([
+const [commentSource, sponsorSource, feedCore, topicCard, topCommentCard, sponsorCard, topicViewer] = await Promise.all([
   readFile(new URL('../src/lib/feed-comments.ts', import.meta.url), 'utf8'),
   readFile(new URL('../src/lib/sponsor-campaigns.ts', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/TopicFeedCore.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/TopicCard.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/TopCommentFeedCard.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/SponsorFeedCard.tsx', import.meta.url), 'utf8'),
+  readFile(new URL('../src/components/topic/TopicSwipeViewer.tsx', import.meta.url), 'utf8'),
 ]);
 
 async function importTypeScript(source) {
@@ -76,6 +77,10 @@ test('interstitial navigation is one-shot across swipe, keyboard, and button inp
     assert.match(source, /onClick=\{navigateNextTopic\}/);
     assert.match(source, /onClick=\{navigatePreviousTopic\}/);
   }
+  assert.match(topicViewer, /const animationLockRef = useRef\(false\)/);
+  assert.match(topicViewer, /if \(animationLockRef\.current\) return/);
+  assert.match(topicViewer, /animationLockRef\.current = true/);
+  assert.match(topicViewer, /animationLockRef\.current = false/);
 });
 
 test('interstitial content uses the topic feed visual language rather than a separate card shell', () => {
