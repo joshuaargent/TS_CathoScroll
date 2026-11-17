@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react';
 
 import type { SponsorFeedCampaign } from '@/lib/sponsor-campaigns';
@@ -19,6 +19,7 @@ interface SponsorFeedCardProps {
   getAccessToken: () => Promise<string | null>;
   onNextTopic: () => void;
   onPreviousTopic: () => void;
+  nextEntryPreview?: ReactNode;
 }
 
 function createEventId() {
@@ -39,6 +40,7 @@ export function SponsorFeedCard({
   getAccessToken,
   onNextTopic,
   onPreviousTopic,
+  nextEntryPreview,
 }: SponsorFeedCardProps) {
   const [activeIndex, setActiveIndex] = useState(0);
   const navigationStarted = useRef(false);
@@ -153,6 +155,7 @@ export function SponsorFeedCard({
       canSwipeRight={() => safeIndex > 0}
       onNextTopic={navigateNextTopic}
       onPreviousTopic={navigatePreviousTopic}
+      nextPreview={nextEntryPreview}
     >
       <TopicCardLayout
         progress={<TopicProgress current={safeIndex} total={campaigns.length} />}
