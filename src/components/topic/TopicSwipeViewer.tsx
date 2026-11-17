@@ -35,8 +35,8 @@ interface TopicSwipeViewerProps {
   onComments: () => void;
   onShare: () => void;
   onComplete: (topicId: string) => void;
-  onNextTopic?: () => void;
-  onPreviousTopic?: () => void;
+  onNextTopic?: () => void | Promise<void>;
+  onPreviousTopic?: () => void | Promise<void>;
   nextEntryPreview?: ReactNode;
   previousEntryPreview?: ReactNode;
 }
@@ -313,16 +313,13 @@ export function TopicSwipeViewer({
         ease: 'easeOut',
       });
 
+      let navigation: void | Promise<void>;
       flushSync(() => {
         setSlideIndex(0);
-
-        if (direction === 'next') {
-          onNextTopic?.();
-        } else {
-          onPreviousTopic?.();
-        }
+        navigation = direction === 'next' ? onNextTopic?.() : onPreviousTopic?.();
       });
 
+      if (navigation) await navigation;
       y.jump(0);
     } finally {
       animationLockRef.current = false;
