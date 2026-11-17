@@ -492,7 +492,11 @@ export function TopicFeedCore({
       sponsorLoadingRef.current = true;
       const requestedUserId = userId;
       const requestVersion = ++sponsorRequestVersion.current;
-      void loadSponsorCampaigns(currentTopic).then((result) => {
+      const prefetched = sponsorPrefetchRef.current;
+      const sponsorRequest = prefetched?.topicId === currentTopic.id && prefetched.userId === requestedUserId
+        ? prefetched.promise
+        : loadSponsorCampaigns(currentTopic);
+      void sponsorRequest.then((result) => {
         if (sponsorRequestVersion.current !== requestVersion ||
             sponsorSessionUserId.current !== requestedUserId) return;
         if (result.campaigns.length > 0 && result.sessionId) {
@@ -638,7 +642,11 @@ export function TopicFeedCore({
     sponsorRequestPreviousCadence.current = topicsSinceSponsorCard;
     const requestedUserId = userId;
     const requestVersion = ++sponsorRequestVersion.current;
-    void loadSponsorCampaigns(currentTopic).then((result) => {
+    const prefetched = sponsorPrefetchRef.current;
+    const sponsorRequest = prefetched?.topicId === currentTopic.id && prefetched.userId === requestedUserId
+      ? prefetched.promise
+      : loadSponsorCampaigns(currentTopic);
+    void sponsorRequest.then((result) => {
       if (
         sponsorRequestVersion.current !== requestVersion ||
         sponsorSessionUserId.current !== requestedUserId
