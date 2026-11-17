@@ -20,6 +20,7 @@ import {
 } from '@/lib/sponsor-campaigns';
 import { SponsorFeedCard } from './SponsorFeedCard';
 import { installSponsorAnalyticsListeners } from '@/lib/sponsor-analytics-client';
+import { siteConfig } from '@/lib/constants';
 
 import type { TopicPageCursor } from '@/lib/content';
 import type { RecommendationCursor } from '@/lib/recommendations';
@@ -68,6 +69,15 @@ export function TopicFeedCore({
   sponsorApiBaseUrl,
 }: TopicFeedCoreProps) {
   const router = useRouter();
+  const nativeSponsorApiBaseUrl =
+    typeof window !== 'undefined' &&
+    (window.location.protocol === 'capacitor:' ||
+      window.location.protocol === 'capacitor-electron:' ||
+      window.location.origin === 'http://localhost' ||
+      window.location.origin === 'https://localhost')
+      ? siteConfig.url
+      : undefined;
+  const effectiveSponsorApiBaseUrl = sponsorApiBaseUrl ?? nativeSponsorApiBaseUrl;
   const [feedTopics, setFeedTopics] = useState<Topic[]>(topics);
   const [topComments, setTopComments] = useState<TopFeedComment[]>([]);
   const [topCommentCardComments, setTopCommentCardComments] = useState<TopFeedComment[]>([]);
@@ -102,8 +112,8 @@ export function TopicFeedCore({
 
   useEffect(() => {
     if (!userId || !getSponsorAccessToken) return;
-    return installSponsorAnalyticsListeners(userId, getSponsorAccessToken, sponsorApiBaseUrl);
-  }, [getSponsorAccessToken, sponsorApiBaseUrl, userId]);
+    return installSponsorAnalyticsListeners(userId, getSponsorAccessToken, effectiveSponsorApiBaseUrl);
+  }, [effectiveSponsorApiBaseUrl, getSponsorAccessToken, userId]);
 
   useEffect(() => {
     if (sponsorSessionUserId.current === userId) return;
@@ -130,8 +140,8 @@ export function TopicFeedCore({
         const accessToken = await getSponsorAccessToken();
         const headers: Record<string, string> = { 'Content-Type': 'application/json' };
         if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
-        const campaignsEndpoint = sponsorApiBaseUrl
-          ? new URL('/api/content/sponsored-campaigns', sponsorApiBaseUrl).toString()
+        const campaignsEndpoint = effectiveSponsorApiBaseUrl
+          ? new URL('/api/content/sponsored-campaigns', effectiveSponsorApiBaseUrl).toString()
           : '/api/content/sponsored-campaigns';
         const response = await fetch(campaignsEndpoint, {
           method: 'POST',
@@ -149,7 +159,7 @@ export function TopicFeedCore({
         return { campaigns: [], sessionId: null };
       }
     },
-    [getSponsorAccessToken, sponsorApiBaseUrl, userId]
+    [effectiveSponsorApiBaseUrl, getSponsorAccessToken, userId]
   );
 
   useEffect(() => {
@@ -493,7 +503,7 @@ export function TopicFeedCore({
           campaigns={sponsorCampaigns}
           sessionId={activeSponsorSessionId ?? ''}
           userId={userId ?? ''}
-          sponsorApiBaseUrl={sponsorApiBaseUrl}
+          sponsorApiBaseUrl={effectiveSponsorApiBaseUrl}
           getAccessToken={getSponsorAccessToken ?? (async () => null)}
           onNextTopic={() => {
             setShowSponsorCard(false);
