@@ -72,6 +72,25 @@ export function buildFeedQueue(
   return queue;
 }
 
+/**
+ * Append a page without changing the order or identity of entries already in
+ * the feed. Duplicate IDs can be returned by overlapping/retried cursors and
+ * must never create a second card in the active feed session.
+ */
+export function appendUniqueFeedTopics<T extends { id: string }>(
+  existing: ReadonlyArray<T>,
+  incoming: ReadonlyArray<T>
+): T[] {
+  const knownIds = new Set(existing.map((topic) => topic.id));
+  const appended: T[] = [];
+  for (const topic of incoming) {
+    if (knownIds.has(topic.id)) continue;
+    knownIds.add(topic.id);
+    appended.push(topic);
+  }
+  return [...existing, ...appended];
+}
+
 export function findFeedQueueEntryIndex(
   queue: ReadonlyArray<FeedQueueEntry>,
   topicIndex: number,
