@@ -115,7 +115,7 @@ function CommentLikeControl({
         aria-label={isLiked ? 'Unlike comment' : 'Like comment'}
         aria-pressed={isLiked}
         className={cn(
-          'text-text-muted hover:bg-bg-secondary hover:text-text-primary flex h-11 items-center gap-2 rounded-full px-4 transition-colors disabled:opacity-50',
+          'text-text-muted hover:bg-bg-secondary hover:text-text-primary flex h-11 items-center gap-2 rounded-full px-4 transition-colors disabled:cursor-not-allowed disabled:opacity-50',
           isLiked && 'bg-accent-light text-accent'
         )}
       >
