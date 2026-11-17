@@ -21,6 +21,12 @@ Initial insertion cadence, measured in topic cards rather than total feed items:
 - The schedules are independent. At the tenth-topic boundary, both are due: Top Comments appears first, followed by the sponsored card before the next topic. No topic advance is counted between them.
 - Missing or ineligible inventory omits only that card; it does not change the other card type's cadence. No blank placeholders are inserted.
 
+## Unified feed queue
+
+The feed controller builds one ordered queue of topic entries, Top Comments groups and sponsor placements. A topic is followed by its Top Comments group when due, then its sponsor placement when due; the two never swap order. The renderer keeps the previous, current and next queue entries mounted in a three-entry window. Neighbour entries are hidden and run in preview mode: they do not accept gestures, record comment views, or emit sponsor viewable impressions. Their component state is retained as they move into the active position, avoiding a teardown/rebuild flash when changing entry type.
+
+Topic pages are loaded ahead of the end of the current page. Sponsor inventory is fetched while the tenth topic is active and before the user advances into its due placement. The selected campaigns are cached against that topic and reused by the queue. A prepared placement still consumes the existing served/cap accounting; only a qualifying `viewable_impression` contributes to delivery pacing.
+
 ## Sponsorship cards
 
 A sponsorship card contains up to five sponsor positions. It loops/rotates through eligible sponsors and only renders populated positions. If fewer than five sponsors are eligible, the card has fewer positions; if none are eligible, the card is omitted.
