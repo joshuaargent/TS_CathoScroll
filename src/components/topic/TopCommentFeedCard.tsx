@@ -186,7 +186,7 @@ export function TopCommentFeedCard({
 
   return (
     <div
-      className={cn(\n        'flex h-full min-h-0 w-full flex-col px-6 py-6 md:px-8 md:py-8',\n        safeIndex === 0 && 'bg-accent-light/5'\n      )}
+      className="flex min-h-0 flex-1 flex-col"
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}
       onPointerCancel={() => {
