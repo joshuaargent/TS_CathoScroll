@@ -12,6 +12,7 @@ interface SponsorFeedCardProps {
   sessionId: string;
   userId: string;
   previewMode?: boolean;
+  sponsorApiBaseUrl?: string;
   getAccessToken: () => Promise<string | null>;
   onNextTopic: () => void;
   onPreviousTopic: () => void;
@@ -31,6 +32,7 @@ export function SponsorFeedCard({
   sessionId,
   userId,
   previewMode = false,
+  sponsorApiBaseUrl,
   getAccessToken,
   onNextTopic,
   onPreviousTopic,
@@ -56,10 +58,11 @@ export function SponsorFeedCard({
           sessionId,
           eventType,
         },
-        getAccessToken
+        getAccessToken,
+        sponsorApiBaseUrl
       );
     },
-    [getAccessToken, previewMode, sessionId, userId]
+    [getAccessToken, previewMode, sessionId, sponsorApiBaseUrl, userId]
   );
 
   useEffect(() => {
