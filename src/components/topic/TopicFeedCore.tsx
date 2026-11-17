@@ -831,7 +831,7 @@ export function TopicFeedCore({
           onNextTopic={nextTopic}
           onPreviousTopic={previousTopic}
           nextEntryPreview={
-            active && nextQueueEntryForPreview && nextQueueEntryForPreview.type !== 'topic'
+            active && nextQueueEntryForPreview
               ? renderFeedQueueEntry(nextQueueEntryForPreview, false)
               : undefined
           }
@@ -851,7 +851,7 @@ export function TopicFeedCore({
           onPreviousTopic={navigateToPreviousQueueEntry}
           onOpenComment={active ? openTopComment : noop}
           nextEntryPreview={
-            active && feedQueueWindow.next && feedQueueWindow.next.type !== 'topic'
+            active && feedQueueWindow.next
               ? renderFeedQueueEntry(feedQueueWindow.next, false)
               : undefined
           }
@@ -870,7 +870,7 @@ export function TopicFeedCore({
         onNextTopic={() => handleSponsorNext(entry.topicId)}
         onPreviousTopic={navigateToPreviousQueueEntry}
         nextEntryPreview={
-          active && nextQueueEntryForPreview && nextQueueEntryForPreview.type !== 'topic'
+          active && nextQueueEntryForPreview
             ? renderFeedQueueEntry(nextQueueEntryForPreview, false)
             : undefined
         }
