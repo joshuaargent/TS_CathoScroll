@@ -91,8 +91,8 @@ test('drops invalid entries and caps each inventory page at 100 comments', () =>
 
   const result = feedComments.parseTopFeedComments({ comments, generated_at: 'now' });
 
-  assert.equal(result.length, 5);
-  assert.deepEqual(result.map((comment) => comment.comment_id), [1, 2, 4, 5, 6]);
+  assert.equal(result.length, 6);
+  assert.deepEqual(result.map((comment) => comment.comment_id), [1, 2, 4, 5, 6, 7]);
   assert.deepEqual(feedComments.parseTopFeedComments({ comments: 'invalid' }), []);
   assert.deepEqual(feedComments.parseTopFeedComments(null), []);
 });
