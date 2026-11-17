@@ -7,6 +7,7 @@ import { ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react';
 import type { SponsorFeedCampaign } from '@/lib/sponsor-campaigns';
 import { recordSponsorCampaignEvent } from '@/lib/sponsor-analytics-client';
 import { FeedInterstitialMotion } from './FeedInterstitialMotion';
+import { TopicCardLayout } from './TopicCardLayout';
 
 interface SponsorFeedCardProps {
   campaigns: SponsorFeedCampaign[];
@@ -145,17 +146,40 @@ export function SponsorFeedCard({
       onNextTopic={navigateNextTopic}
       onPreviousTopic={navigatePreviousTopic}
     >
-    <div className="flex h-full w-full flex-col px-6 py-6 md:px-8 md:py-8">
-      <header className="flex items-center justify-between gap-4">
-        <p className="text-accent text-xs font-semibold tracking-wider uppercase">
-          Sponsored
-        </p>
-        <span className="text-text-secondary rounded-full border px-3 py-1 text-sm tabular-nums">
-          {safeIndex + 1} / {campaigns.length}
-        </span>
-      </header>
-
-      <div className="flex min-h-0 flex-1 flex-col justify-center">
+      <TopicCardLayout
+        header={
+          <>
+            <p className="text-accent text-xs font-semibold tracking-wider uppercase">Sponsored</p>
+            <span className="text-text-secondary rounded-full border px-3 py-1 text-sm tabular-nums">
+              {safeIndex + 1} / {campaigns.length}
+            </span>
+          </>
+        }
+        footer={
+          <div className="flex items-center justify-center pt-4">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={showPreviousCampaign}
+                disabled={safeIndex === 0}
+                aria-label="Previous sponsor"
+                className="border-border rounded-full border p-2 disabled:opacity-35"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={showNextCampaign}
+                disabled={safeIndex >= campaigns.length - 1}
+                aria-label="Next sponsor"
+                className="border-border rounded-full border p-2 disabled:opacity-35"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        }
+      >
         <article
           ref={cardRef}
           className="mx-auto w-full max-w-3xl text-center"
@@ -223,31 +247,7 @@ export function SponsorFeedCard({
             </a>
           </div>
         </article>
-      </div>
-
-      <footer className="flex items-center justify-center pt-4">
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={showPreviousCampaign}
-            disabled={safeIndex === 0}
-            aria-label="Previous sponsor"
-            className="border-border rounded-full border p-2 disabled:opacity-35"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            onClick={showNextCampaign}
-            disabled={safeIndex >= campaigns.length - 1}
-            aria-label="Next sponsor"
-            className="border-border rounded-full border p-2 disabled:opacity-35"
-          >
-            <ChevronRight className="h-4 w-4" />
-          </button>
-        </div>
-      </footer>
-    </div>
+      </TopicCardLayout>
     </FeedInterstitialMotion>
   );
 }
