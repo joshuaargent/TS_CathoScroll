@@ -316,7 +316,9 @@ export function TopicFeedCore({
 
   useEffect(() => {
     let cancelled = false;
+    let inventoryInitialized = false;
     const refresh = createFeedRefreshCoordinator(async () => {
+      if (inventoryInitialized) return true;
       try {
         const endpoint = topCommentsEndpoint ?? '/api/content/top-comments';
         const pageUrl = new URL(endpoint, window.location.origin);
@@ -329,22 +331,24 @@ export function TopicFeedCore({
         if (!response.ok) return false;
 
         const payload: unknown = await response.json();
+        if (
+          typeof payload !== 'object' ||
+          payload === null ||
+          !('comments' in payload) ||
+          !Array.isArray(payload.comments)
+        ) return false;
+
         if (!cancelled) {
           const comments = parseTopFeedComments(payload);
           const nextOffset = typeof payload === 'object' && payload !== null && 'next_offset' in payload &&
             (payload.next_offset === null || (Number.isSafeInteger(payload.next_offset) && Number(payload.next_offset) >= 0))
             ? payload.next_offset as number | null : null;
           setTopCommentsNextOffset(nextOffset);
-          setTopComments((current) => {
-            if (nextOffset === null) return comments;
-            const byId = new Map(current.map((comment) => [comment.comment_id, comment] as const));
-            for (const comment of comments) byId.set(comment.comment_id, comment);
-            return [...byId.values()];
-          });
+          setTopComments(comments);
+          inventoryInitialized = true;
 
-          // Refreshes only replenish inventory for future placements. Once an
-          // interstitial is queued, keep it stable for back/forward navigation
-          // until the feed session is explicitly reset.
+          // Freeze the initial inventory snapshot for this feed session.
+          // Additional pages are loaded only when the feed needs them.
         }
         return true;
       } catch {
@@ -355,9 +359,13 @@ export function TopicFeedCore({
     }, 30_000);
 
     const refreshWhenVisible = () => {
-      if (document.visibilityState === 'visible') void refresh.request();
+      if (!inventoryInitialized && document.visibilityState === 'visible') {
+        void refresh.request();
+      }
     };
-    const refreshWhenOnline = () => void refresh.reconnect();
+    const refreshWhenOnline = () => {
+      if (!inventoryInitialized) void refresh.reconnect();
+    };
 
     void refresh.request();
     window.addEventListener('online', refreshWhenOnline);
@@ -368,7 +376,7 @@ export function TopicFeedCore({
       window.removeEventListener('online', refreshWhenOnline);
       document.removeEventListener('visibilitychange', refreshWhenVisible);
     };
-  }, [topCommentsEndpoint, clearTopCommentGroups]);
+  }, [topCommentsEndpoint]);
 
   useEffect(() => {
     if (feedSessionUserId !== userId || topicsSinceTopCommentCard !== TOP_COMMENT_CADENCE - 1) return;
