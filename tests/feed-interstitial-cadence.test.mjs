@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import ts from 'typescript';
 
-const [commentSource, sponsorSource, feedCore, topicCard, topCommentCard, sponsorCard, topicViewer, interstitialMotion, topicCardLayout] = await Promise.all([
+const [commentSource, sponsorSource, feedCore, topicCard, topCommentCard, sponsorCard, topicViewer, interstitialMotion, topicCardLayout, topCommentsRoute] = await Promise.all([
   readFile(new URL('../src/lib/feed-comments.ts', import.meta.url), 'utf8'),
   readFile(new URL('../src/lib/sponsor-campaigns.ts', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/TopicFeedCore.tsx', import.meta.url), 'utf8'),
@@ -13,6 +13,7 @@ const [commentSource, sponsorSource, feedCore, topicCard, topCommentCard, sponso
   readFile(new URL('../src/components/topic/TopicSwipeViewer.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/FeedInterstitialMotion.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/TopicCardLayout.tsx', import.meta.url), 'utf8'),
+  readFile(new URL('../src/app/api/content/top-comments/route.ts', import.meta.url), 'utf8'),
 ]);
 
 async function importTypeScript(source) {
@@ -119,4 +120,24 @@ test('topic, comment and sponsor cards use the same structural layout component'
   assert.match(interstitialMotion, /event\.key === ' '/);
   assert.match(interstitialMotion, /setPointerCapture\(event\.pointerId\)/);
   assert.match(interstitialMotion, /flushSync\(\(\) =>/);
+});
+
+
+test('top-comment inventory pages beyond five and reserves groups of at most five', () => {
+  const makeComment = (id) => ({
+    comment_id: id, topic_slug: 'topic', topic_question: 'Question?', category_name: 'Category',
+    author_display_name: 'Member', author_username: null, content: 'Comment',
+    content_truncated: false, created_at: '2026-11-01T00:00:00.000Z', is_pinned: false,
+    like_count: 2, reply_count: 1,
+  });
+  const parsed = comments.parseTopFeedComments({ comments: Array.from({ length: 120 }, (_, index) => makeComment(index + 1)) });
+  assert.equal(parsed.length, 100);
+  assert.equal(comments.getUnseenTopFeedComments(parsed, new Set([1, 2])).length, 98);
+  assert.match(topCommentsRoute, /p_offset: offset/);
+  assert.match(topCommentsRoute, /p_limit: limit/);
+  assert.match(topCommentsRoute, /data\.comments\.length > limit/);
+  assert.match(feedCore, /unseenTopComments\.slice\(0, 5\)/);
+  assert.match(feedCore, /nextTopCommentGroup\.forEach\(\(comment\) => seenTopCommentIds\.current\.add\(comment\.comment_id\)\)/);
+  assert.match(feedCore, /topCommentsNextOffset/);
+  assert.match(feedCore, /topCommentInventoryVersion/);
 });
