@@ -24,7 +24,7 @@ export function TopicCardLayout({
   contentWidthClassName = 'max-w-3xl',
 }: TopicCardLayoutProps) {
   return (
-    <div className={cn('flex h-full w-full flex-col', className)}>
+    <div className={cn('bg-bg-primary flex h-full w-full flex-col', className)}>
       {progress && (
         <div className="shrink-0 px-6 pt-6 md:px-8 md:pt-8">
           {progress}
