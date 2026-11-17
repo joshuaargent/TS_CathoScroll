@@ -1471,6 +1471,7 @@ function App() {
                     userId={user?.id ?? null}
                     getSponsorAccessToken={getNativeSponsorAccessToken}
                     viewer={NativeViewer}
+                    preservePositionOnUpdate
                     topCommentsEndpoint={new URL(
                       '/api/content/top-comments',
                       siteConfig.url
