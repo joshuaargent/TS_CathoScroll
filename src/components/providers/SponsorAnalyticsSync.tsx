@@ -4,8 +4,23 @@ import { useEffect } from 'react';
 import { installSponsorAnalyticsListeners } from '@/lib/sponsor-analytics-client';
 import { createClient } from '@/lib/supabase/client';
 
-export function SponsorAnalyticsSync({ apiBaseUrl }: { apiBaseUrl?: string }) {
+type SponsorAnalyticsSyncProps = {
+  apiBaseUrl?: string;
+  userId?: string | null;
+  getAccessToken?: () => Promise<string | null>;
+};
+
+export function SponsorAnalyticsSync({
+  apiBaseUrl,
+  userId,
+  getAccessToken,
+}: SponsorAnalyticsSyncProps) {
   useEffect(() => {
+    if (getAccessToken) {
+      if (!userId) return;
+      return installSponsorAnalyticsListeners(userId, getAccessToken, apiBaseUrl);
+    }
+
     const supabase = createClient();
     let active = true;
     let currentUserId: string | null = null;
@@ -47,7 +62,7 @@ export function SponsorAnalyticsSync({ apiBaseUrl }: { apiBaseUrl?: string }) {
       authListener.subscription.unsubscribe();
       removeListeners?.();
     };
-  }, [apiBaseUrl]);
+  }, [apiBaseUrl, getAccessToken, userId]);
 
   return null;
 }
