@@ -179,26 +179,11 @@ export function TopicFeedCore({
             (payload.next_offset === null || (Number.isSafeInteger(payload.next_offset) && Number(payload.next_offset) >= 0))
             ? payload.next_offset as number | null : null;
           setTopCommentsNextOffset(nextOffset);
-          const commentsById = new Map(
-            comments.map((comment) => [comment.comment_id, comment] as const)
-          );
-          const reconcileComments = (items: TopFeedComment[]) =>
-            items.flatMap((item) => {
-              const currentComment = commentsById.get(item.comment_id);
-              return currentComment ? [currentComment] : [];
-            });
-
-          setTopComments(comments);
-          setTopCommentCardComments((current) => reconcileComments(current));
-
-          for (const [topicId, cardComments] of topCommentCardsByTopicId.current) {
-            const remainingComments = reconcileComments(cardComments);
-            if (remainingComments.length > 0) {
-              topCommentCardsByTopicId.current.set(topicId, remainingComments);
-            } else {
-              topCommentCardsByTopicId.current.delete(topicId);
-            }
-          }
+          setTopComments((current) => {
+            const byId = new Map(current.map((comment) => [comment.comment_id, comment] as const));
+            for (const comment of comments) byId.set(comment.comment_id, comment);
+            return [...byId.values()];
+          });
 
           if (comments.length === 0) {
             setShowTopCommentCard(false);
