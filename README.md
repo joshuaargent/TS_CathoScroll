@@ -44,6 +44,19 @@ Whether you're exploring Catholicism for the first time, returning to the faith,
 - **RSS feed** - public topic feed available at `/feed.xml`.
 - **Responsive design** - designed to work seamlessly across desktop and mobile devices.
 
+## Feed experience
+
+The topic feed is a single ordered experience. Topic cards, Top Comments groups, and sponsored placements share the same card layout, progress indicator, swipe gestures, keyboard navigation, and transition model.
+
+- **Stable session history:** Once a topic or interstitial has entered the active feed queue, back/forward navigation reuses that same entry and its content. Previously queued entries are not reshuffled when another page loads.
+- **Pagination:** Topic pages are appended in order. Duplicate topic IDs from overlapping or retried pages are ignored. The feed does not wrap to the beginning when the catalogue is exhausted.
+- **Top Comments:** A group of up to five eligible, high-engagement top-level comments is inserted after every five topic advances when inventory is available. Groups reserve their comment IDs for the current feed session and remain available when navigating backwards. Additional comment inventory is fetched in bounded pages of up to 100 comments; the server candidate scan is capped at 5,000 recent eligible comments.
+- **Sponsored placements:** Eligible campaigns are considered after every ten topic advances for signed-in users. A single campaign is selected for each placement using rolling 30-day weighted fair-queue pacing based on viewable impressions. Sponsored content is explicitly disclosed and does not affect organic recommendations.
+- **Session boundary:** The ordered queue and its navigation history are held in memory for the active feed session. Reloading the page or starting a new feed session rebuilds the queue. This is not an offline-persistent feed snapshot across app restarts.
+- **Preview safety:** Adjacent cards are pre-rendered for smoother transitions. Preview cards do not record comment views or sponsor viewable impressions and do not accept navigation gestures.
+
+Implementation and operational details are maintained in [Feed experience and analytics](docs/feed-experience-and-analytics.md), [Feed analytics implementation](docs/feed-analytics-implementation.md), and [Sponsor platform](docs/sponsor-platform.md).
+
 ## Why CathoScroll?
 
 The goal of CathoScroll is not simply to provide information.
