@@ -88,6 +88,9 @@ export async function GET(request: Request) {
       !Array.isArray(data.comments) ||
       data.comments.length > limit ||
       !('next_offset' in data) ||
+      (data.comments.length === limit
+        ? data.next_offset !== offset + limit
+        : data.next_offset !== null) ||
       (data.next_offset !== null && (!Number.isSafeInteger(data.next_offset) || Number(data.next_offset) <= offset || Number(data.next_offset) > 5000)) ||
       !('generated_at' in data) ||
       typeof data.generated_at !== 'string' ||
