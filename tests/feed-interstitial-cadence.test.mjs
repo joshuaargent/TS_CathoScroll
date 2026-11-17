@@ -93,13 +93,13 @@ test('topic, comment and sponsor cards use the same structural layout component'
   assert.match(topicCardLayout, /flex min-h-0 flex-1 items-center justify-center/);
   assert.match(topicCardLayout, /mx-auto w-full text-center/);
   assert.match(topicCardLayout, /flex items-center justify-between gap-3/);
-  assert.match(topicCard, /bg-accent-light\\/5/);
-  assert.match(topCommentCard, /bg-accent-light\\/5/);
+  assert.ok(topicCard.includes('bg-accent-light/5'));
+  assert.ok(topCommentCard.includes('bg-accent-light/5'));
   assert.match(topCommentCard, /<Heart/);
   assert.match(topCommentCard, /<MessageCircle/);
   assert.match(topCommentCard, /<DoorOpen/);
   assert.match(topCommentCard, /onDoubleClick=/);
-  assert.match(topCommentCard, /encodeURIComponent\\(comment\\.author_username\\)/);
+  assert.ok(topCommentCard.includes('encodeURIComponent(comment.author_username)'));
   assert.doesNotMatch(topCommentCard, /Open discussion/);
   assert.doesNotMatch(topCommentCard, /<Button/);
 });
