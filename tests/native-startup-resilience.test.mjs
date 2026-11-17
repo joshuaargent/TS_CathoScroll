@@ -77,6 +77,6 @@ test('native network changes do not reload the first feed page and account chang
   assert.doesNotMatch(loadFeedEffect, /window\.addEventListener\('offline', reconnect\)/);
   assert.match(nativeMain, /key=\{user\?\.id \?\? 'signed-out'\}/);
   assert.match(feedCore, /feedInitializedRef/);
-  assert.match(feedCore, /appendUniqueFeedTopics\(feedTopics, shuffled\)/);
+  assert.match(feedCore, /appendUniqueFeedTopics\(feedTopicsRef\.current, shuffled\)/);
   assert.match(feedCore, /if \(sourceChanged\)/);
 });
