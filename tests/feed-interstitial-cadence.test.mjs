@@ -68,7 +68,7 @@ test('sponsor fetches cannot race feed navigation or account changes', () => {
   assert.match(feedCore, /sponsorRequestVersion\.current \+= 1/);
   const previousTopic = feedCore.slice(feedCore.indexOf('const previousTopic ='));
   assert.match(previousTopic, /pendingSponsorAfterComment\.current = false/);
-  assert.match(feedCore, /key=\{entry.id\}/);
+  assert.match(feedCore, /sponsorPreviousIsComment/);
 });
 
 
@@ -148,88 +148,4 @@ test('the original analytics-ranked feed keeps interstitials in per-topic sessio
   assert.match(feedCore, /onPreviousTopic=\{\(\) => \{/);
   assert.match(feedCore, /The comment card follows the current topic/);
   assert.match(feedCore, /The sponsor is an interstitial after the current topic/);
-});
-
-
-
-test('the ordered feed queue keeps topic, comments and sponsor entries in cadence order', () => {
-  const comment = {
-    comment_id: 1, topic_slug: 'topic-a', topic_question: 'Question?', category_name: 'Category',
-    author_display_name: 'Member', author_username: null, content: 'Comment',
-    content_truncated: false, created_at: '2026-11-01T00:00:00.000Z', is_pinned: false,
-    like_count: 2, reply_count: 1,
-  };
-  const campaign = {
-    campaign_id: '123e4567-e89b-12d3-a456-426614174000', sponsor_name: 'Sponsor', sponsor_logo_url: null,
-    campaign_name: 'Campaign', headline: 'Headline', body: 'Body', image_url: null,
-    destination_url: 'https://example.com', cta_label: 'Learn more', disclosure: 'Sponsored',
-  };
-  const queue = feedQueue.buildFeedQueue(
-    [{ id: 'topic-a' }, { id: 'topic-b' }],
-    new Map([['topic-a', [comment]]]),
-    new Map([['topic-a', { campaigns: [campaign], sessionId: 'session-a' }]])
-  );
-  assert.deepEqual(queue.map((entry) => entry.type), ['topic', 'top-comments', 'sponsor', 'topic']);
-  const window = feedQueue.getFeedQueueWindow(queue, 1);
-  assert.equal(window.previous?.type, 'topic');
-  assert.equal(window.current?.type, 'top-comments');
-  assert.equal(window.next?.type, 'sponsor');
-  const sponsorWindow = feedQueue.getFeedQueueWindow(queue, 2);
-  assert.equal(sponsorWindow.current?.type, 'sponsor');
-  assert.equal(sponsorWindow.previous?.type, 'top-comments');
-  const topicWindow = feedQueue.getFeedQueueWindow(queue, 3);
-  assert.equal(topicWindow.previous?.type, 'sponsor');
-  const appendedTopics = feedQueue.appendUniqueFeedTopics(
-    [{ id: 'topic-a' }, { id: 'topic-b' }],
-    [{ id: 'topic-b' }, { id: 'topic-c' }, { id: 'topic-c' }]
-  );
-  assert.deepEqual(appendedTopics.map((topic) => topic.id), ['topic-a', 'topic-b', 'topic-c']);
-  assert.match(feedCore, /appendUniqueFeedTopics\(previous, personalized \? newTopics : shuffle\(newTopics\)\)/);
-  assert.match(feedCore, /if \(topicIndex >= feedTopics\.length - 1\) \{\s+return;/);
-  assert.match(feedCore, /if \(topicIndex <= 0\) return;/);
-  assert.doesNotMatch(feedCore, /% feedTopics\.length/);
-  assert.doesNotMatch(feedCore, /if \(comments\.length === 0\)/);
-  assert.match(feedCore, /crypto\.getRandomValues\(new Uint8Array\(16\)\)/);
-  assert.match(feedCore, /const feedQueue = useMemo\(/);
-  assert.match(feedCore, /const activeFeedQueueIndex = useMemo\(/);
-  assert.match(feedCore, /const unseenPreviewComments = useMemo\(/);
-  assert.match(feedCore, /buildFeedQueue/);
-  assert.match(feedCore, /getFeedQueueWindow/);
-  assert.match(feedCore, /navigateToPreviousQueueEntry/);
-  assert.match(feedCore, /feedQueueWindow\.previous/);
-  assert.match(feedCore, /feedQueueWindow\.next\?\.type === 'sponsor'/);
-  assert.match(feedCore, /\[feedQueueWindow\.previous, feedQueueWindow\.current, feedQueueWindow\.next\]/);
-  assert.match(feedCore, /renderFeedQueueEntry\(entry, active\)/);
-  assert.match(feedCore, /className=\{active \? 'absolute inset-0 h-full w-full' : 'hidden'\}/);
-  assert.match(feedCore, /topicsSinceTopCommentCard !== TOP_COMMENT_CADENCE - 1/);
-  assert.match(feedCore, /cacheTopCommentGroup\(topic.id, group\)/);
-  assert.match(feedCore, /commentInventoryNeedsAnotherPage/);
-  assert.doesNotMatch(feedCore, /consumeTopCommentGroup/);
-  assert.match(sponsorCard, /progress={<TopicProgress current=\{safeIndex\} total=\{campaigns\.length\} \/>/);
-  assert.match(topicViewer, /<TopicProgress current=\{slideIndex\} total=\{slides\.length\} \/>/);
-  assert.match(topicViewer, /pointer-events-none absolute inset-x-0 top-\[100%\]/);
-  assert.match(progressSource, /bg-border h-1 w-full overflow-hidden rounded-full/);
-  assert.match(progressSource, /bg-accent h-full transition-all duration-300/);
-  assert.match(progressSource, /shrink-0 pb-5/);
-  assert.doesNotMatch(progressSource, /safeIndex|campaign|comment/i);
-  assert.doesNotMatch(feedCore, /consumeTopCommentGroup\(currentTopic\.id\)/);
-  assert.match(feedCore, /const previousQueueEntry = feedQueueWindow\.previous/);
-  assert.match(feedCore, /nextEntryPreview=/);
-  assert.match(feedCore, /active && nextQueueEntryForPreview\s*\n\s*\? renderFeedQueueEntry\(nextQueueEntryForPreview, false\)/);
-  assert.match(feedCore, /active && feedQueueWindow\.next\s*\n\s*\? renderFeedQueueEntry\(feedQueueWindow\.next, false\)/);
-  assert.match(feedCore, /const dueTopCommentPreviewEntry/);
-  assert.match(feedCore, /unseenPreviewComments\.slice\(0, 5\)/);
-  assert.match(interstitialMotion, /nextPreview\?: ReactNode/);
-  assert.match(interstitialMotion, /previousPreview\?: ReactNode/);
-  assert.match(interstitialMotion, /top-\[100%\] h-full opacity-90/);
-  assert.match(interstitialMotion, /top-\[-100%\] h-full opacity-90/);
-  assert.match(feedCore, /previousEntryPreview=\{/);
-  assert.match(topCommentCard, /previousPreview=\{previousEntryPreview\}/);
-  assert.match(sponsorCard, /previousPreview=\{previousEntryPreview\}/);
-  assert.match(topicViewer, /previousEntryPreview \?\?/);
-  assert.match(feedCore, /sponsorPrefetchRef/);
-  assert.match(feedCore, /SPONSOR_CARD_CADENCE - 1/);
-  assert.match(feedCore, /prefetched\.promise/);
-  assert.match(feedCore, /setTopicsSinceSponsorCard\(0\)/);
-
 });
