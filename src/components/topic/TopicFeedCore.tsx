@@ -214,7 +214,7 @@ export function TopicFeedCore({
   );
 
   useEffect(() => {
-    if (!userId || sponsorLoadingRef.current || topicsSinceSponsorCard !== SPONSOR_CARD_CADENCE - 1) return;
+    if (feedSessionUserId !== userId || !userId || sponsorLoadingRef.current || topicsSinceSponsorCard !== SPONSOR_CARD_CADENCE - 1) return;
     const topic = feedTopics[topicIndex];
     if (!topic || sponsorCardsByTopicId.has(topic.id)) return;
     const existing = sponsorPrefetchRef.current;
@@ -237,7 +237,7 @@ export function TopicFeedCore({
         sponsorPrefetchRef.current = null;
       }
     });
-  }, [feedTopics, topicIndex, topicsSinceSponsorCard, userId, loadSponsorCampaigns, cacheSponsorPlacement, sponsorCardsByTopicId]);
+  }, [feedTopics, topicIndex, topicsSinceSponsorCard, userId, feedSessionUserId, loadSponsorCampaigns, cacheSponsorPlacement, sponsorCardsByTopicId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -297,7 +297,7 @@ export function TopicFeedCore({
   }, [topCommentsEndpoint, clearTopCommentGroups]);
 
   useEffect(() => {
-    if (topicsSinceTopCommentCard !== TOP_COMMENT_CADENCE - 1) return;
+    if (feedSessionUserId !== userId || topicsSinceTopCommentCard !== TOP_COMMENT_CADENCE - 1) return;
     if (seenTopCommentUserId.current !== userId) return;
     const topic = feedTopics[topicIndex];
     if (!topic || topCommentCardsByTopicId.has(topic.id)) return;
@@ -318,6 +318,7 @@ export function TopicFeedCore({
     topCommentCardsByTopicId,
     topCommentInventoryVersion,
     userId,
+    feedSessionUserId,
     cacheTopCommentGroup,
   ]);
 
