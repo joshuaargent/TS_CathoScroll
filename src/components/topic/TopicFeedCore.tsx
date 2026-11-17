@@ -342,9 +342,47 @@ export function TopicFeedCore({
     setTopicIndex((prev) => (prev + 1) % feedTopics.length);
   };
 
+  const activateFeedQueueEntry = (entry: NonNullable<typeof feedQueueWindow.current>) => {
+    if (entry.type === 'topic') {
+      setTopicIndex(entry.topicIndex);
+      setShowTopCommentCard(false);
+      setShowSponsorCard(false);
+      return;
+    }
+    if (entry.type === 'top-comments') {
+      setTopCommentCardComments(entry.comments);
+      setShowSponsorCard(false);
+      setShowTopCommentCard(true);
+      return;
+    }
+    setSponsorCampaigns(entry.campaigns);
+    setActiveSponsorSessionId(entry.sessionId);
+    setShowTopCommentCard(false);
+    setShowSponsorCard(true);
+  };
+
+  const navigateToPreviousQueueEntry = () => {
+    const previousEntry = feedQueueWindow.previous;
+    if (previousEntry) {
+      activateFeedQueueEntry(previousEntry);
+      return;
+    }
+    previousTopic();
+  };
+
   const nextTopic = () => {
     // Ignore repeated gestures while the due sponsor inventory request is in flight.
     if (sponsorLoadingRef.current) return;
+
+    // Re-enter an already prepared queue entry when moving forward after back-navigation.
+    if (
+      feedQueueWindow.current?.type === 'topic' &&
+      feedQueueWindow.next &&
+      feedQueueWindow.next.type !== 'topic'
+    ) {
+      activateFeedQueueEntry(feedQueueWindow.next);
+      return;
+    }
 
     // Never strand the user on an interstitial at the end of a page while the
     // next topic page is still loading.
@@ -553,10 +591,7 @@ export function TopicFeedCore({
             setShowSponsorCard(false);
             advanceToNextTopic();
           }}
-          onPreviousTopic={() => {
-            setShowSponsorCard(false);
-            previousTopic();
-          }}
+          onPreviousTopic={navigateToPreviousQueueEntry}
         />
       ) : activeFeedQueueEntry?.type === 'top-comments' && activeTopCommentCardComments.length > 0 ? (
         <TopCommentFeedCard
@@ -566,6 +601,11 @@ export function TopicFeedCore({
           onCommentViewed={markTopCommentViewed}
           onNextTopic={() => {
             if (sponsorLoadingRef.current) return;
+            if (feedQueueWindow.next?.type === 'sponsor') {
+              pendingSponsorAfterComment.current = false;
+              activateFeedQueueEntry(feedQueueWindow.next);
+              return;
+            }
             if (!pendingSponsorAfterComment.current) {
               setShowTopCommentCard(false);
               advanceToNextTopic();
@@ -609,11 +649,7 @@ export function TopicFeedCore({
               }
             });
           }}
-          onPreviousTopic={() => {
-            pendingSponsorAfterComment.current = false;
-            setShowTopCommentCard(false);
-            previousTopic();
-          }}
+          onPreviousTopic={navigateToPreviousQueueEntry}
           onOpenComment={openTopComment}
         />
       ) : (
