@@ -97,15 +97,15 @@ export function TopicFeedCore({
   const [topicsSinceSponsorCard, setTopicsSinceSponsorCard] = useState(0);
   const sponsorCadenceAnchor = useRef<{ topicId: string; value: number } | null>(null);
   const [sponsorCardsByTopicId, setSponsorCardsByTopicId] = useState<Map<string, { campaigns: SponsorFeedCampaign[]; sessionId: string }>>(() => new Map());
-  const cacheTopCommentGroup = (topicId: string, comments: TopFeedComment[]) => {
+  const cacheTopCommentGroup = useCallback((topicId: string, comments: TopFeedComment[]) => {
     setTopCommentCardsByTopicId((current) => {
       const next = new Map(current);
       next.set(topicId, comments);
       return next;
     });
-  };
-  const clearTopCommentGroups = () => setTopCommentCardsByTopicId(new Map());
-  const cacheSponsorPlacement = (
+  }, []);
+  const clearTopCommentGroups = useCallback(() => setTopCommentCardsByTopicId(new Map()), []);
+  const cacheSponsorPlacement = useCallback((
     topicId: string,
     placement: { campaigns: SponsorFeedCampaign[]; sessionId: string }
   ) => {
@@ -114,8 +114,8 @@ export function TopicFeedCore({
       next.set(topicId, placement);
       return next;
     });
-  };
-  const clearSponsorPlacements = () => setSponsorCardsByTopicId(new Map());
+  }, []);
+  const clearSponsorPlacements = useCallback(() => setSponsorCardsByTopicId(new Map()), []);
   const sponsorSessionUserId = useRef(userId);
   const sponsorLoadingRef = useRef(false);
   const sponsorRequestVersion = useRef(0);
@@ -164,7 +164,7 @@ export function TopicFeedCore({
     clearTopCommentGroups();
     setShowTopCommentCard(false);
     setTopicsSinceTopCommentCard(0);
-  }, [userId]);
+  }, [userId, clearTopCommentGroups]);
 
   useEffect(() => {
     if (sponsorSessionUserId.current === userId) return;
@@ -178,7 +178,7 @@ export function TopicFeedCore({
     setShowSponsorCard(false);
     setTopicsSinceSponsorCard(0);
     setTopicsSinceTopCommentCard(0);
-  }, [userId]);
+  }, [userId, clearSponsorPlacements]);
 
   const loadSponsorCampaigns = useCallback(
     async (topic: Topic): Promise<{ campaigns: SponsorFeedCampaign[]; sessionId: string | null }> => {
@@ -237,7 +237,7 @@ export function TopicFeedCore({
         sponsorPrefetchRef.current = null;
       }
     });
-  }, [feedTopics, topicIndex, topicsSinceSponsorCard, userId, loadSponsorCampaigns]);
+  }, [feedTopics, topicIndex, topicsSinceSponsorCard, userId, loadSponsorCampaigns, cacheSponsorPlacement]);
 
   useEffect(() => {
     let cancelled = false;
@@ -588,7 +588,7 @@ export function TopicFeedCore({
       seenTopCommentIds.current.add(commentId);
       setTopCommentInventoryVersion((version) => version + 1);
     },
-    [userId]
+    [userId, clearTopCommentGroups]
   );
 
   const openTopComment = (comment: TopFeedComment) => {
