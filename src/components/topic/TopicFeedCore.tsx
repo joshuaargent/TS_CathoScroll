@@ -19,6 +19,7 @@ import {
   type SponsorFeedCampaign,
 } from '@/lib/sponsor-campaigns';
 import { SponsorFeedCard } from './SponsorFeedCard';
+import { installSponsorAnalyticsListeners } from '@/lib/sponsor-analytics-client';
 
 import type { TopicPageCursor } from '@/lib/content';
 import type { RecommendationCursor } from '@/lib/recommendations';
@@ -96,6 +97,11 @@ export function TopicFeedCore({
   useEffect(() => {
     currentTopicId.current = feedTopics[topicIndex]?.id ?? null;
   }, [feedTopics, topicIndex]);
+
+  useEffect(() => {
+    if (!userId || !getSponsorAccessToken) return;
+    return installSponsorAnalyticsListeners(userId, getSponsorAccessToken);
+  }, [getSponsorAccessToken, userId]);
 
   useEffect(() => {
     if (sponsorSessionUserId.current === userId) return;
