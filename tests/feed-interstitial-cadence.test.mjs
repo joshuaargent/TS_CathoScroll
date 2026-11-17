@@ -211,7 +211,7 @@ test('the ordered feed queue keeps topic, comments and sponsor entries in cadenc
   assert.match(feedCore, /previousEntryPreview=\{/);
   assert.match(topCommentCard, /previousPreview=\{previousEntryPreview\}/);
   assert.match(sponsorCard, /previousPreview=\{previousEntryPreview\}/);
-  assert.match(topicViewer, /previousEntryPreview=\{previousEntryPreview\}/);
+  assert.match(topicViewer, /previousEntryPreview \?\?/);
   assert.match(feedCore, /sponsorPrefetchRef/);
   assert.match(feedCore, /SPONSOR_CARD_CADENCE - 1/);
   assert.match(feedCore, /prefetched\.promise/);
