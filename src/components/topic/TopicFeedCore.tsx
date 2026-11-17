@@ -639,6 +639,11 @@ export function TopicFeedCore({
             });
           }}
           onPreviousTopic={() => {
+            if (sponsorLoadingRef.current) {
+              sponsorRequestVersion.current += 1;
+              sponsorLoadingRef.current = false;
+              setTopicsSinceSponsorCard(sponsorRequestPreviousCadence.current);
+            }
             pendingSponsorAfterComment.current = false;
             // The comment card follows the current topic; reverse navigation
             // restores that exact topic without decrementing the topic index.
