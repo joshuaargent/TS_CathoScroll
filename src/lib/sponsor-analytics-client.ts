@@ -11,6 +11,12 @@ export interface QueuedSponsorCampaignEvent {
 
 type AccessTokenProvider = () => Promise<string | null>;
 
+function eventEndpoint(apiBaseUrl?: string): string {
+  return apiBaseUrl
+    ? new URL('/api/content/sponsor-campaign-events', apiBaseUrl).toString()
+    : '/api/content/sponsor-campaign-events';
+}
+
 const storagePrefix = 'cathoscroll.sponsor-events.v1.';
 const flushingUsers = new Set<string>();
 
@@ -55,7 +61,8 @@ function readQueue(userId: string): QueuedSponsorCampaignEvent[] {
 export function recordSponsorCampaignEvent(
   userId: string,
   event: QueuedSponsorCampaignEvent,
-  getAccessToken: AccessTokenProvider
+  getAccessToken: AccessTokenProvider,
+  apiBaseUrl?: string
 ): boolean {
   if (typeof window === 'undefined' || !userId) return false;
   const queue = readQueue(userId);
@@ -73,13 +80,14 @@ export function recordSponsorCampaignEvent(
       return false;
     }
   }
-  void flushSponsorCampaignEvents(userId, getAccessToken);
+  void flushSponsorCampaignEvents(userId, getAccessToken, apiBaseUrl);
   return true;
 }
 
 export async function flushSponsorCampaignEvents(
   userId: string,
-  getAccessToken: AccessTokenProvider
+  getAccessToken: AccessTokenProvider,
+  apiBaseUrl?: string
 ): Promise<void> {
   if (
     typeof window === 'undefined' ||
@@ -104,7 +112,7 @@ export async function flushSponsorCampaignEvents(
 
       let response: Response;
       try {
-        response = await fetch('/api/content/sponsor-campaign-events', {
+        response = await fetch(eventEndpoint(apiBaseUrl), {
           method: 'POST',
           credentials: 'same-origin',
           keepalive: true,
@@ -140,11 +148,12 @@ export async function flushSponsorCampaignEvents(
 
 export function installSponsorAnalyticsListeners(
   userId: string,
-  getAccessToken: AccessTokenProvider
+  getAccessToken: AccessTokenProvider,
+  apiBaseUrl?: string
 ): () => void {
   if (typeof window === 'undefined') return () => undefined;
 
-  const flush = () => void flushSponsorCampaignEvents(userId, getAccessToken);
+  const flush = () => void flushSponsorCampaignEvents(userId, getAccessToken, apiBaseUrl);
   const onVisibilityChange = () => {
     if (document.visibilityState === 'visible') flush();
   };
