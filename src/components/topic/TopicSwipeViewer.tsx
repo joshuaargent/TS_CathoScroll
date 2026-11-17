@@ -313,7 +313,7 @@ export function TopicSwipeViewer({
         ease: 'easeOut',
       });
 
-      let navigation: void | Promise<void>;
+      let navigation: void | Promise<void> = undefined;
       flushSync(() => {
         setSlideIndex(0);
         navigation = direction === 'next' ? onNextTopic?.() : onPreviousTopic?.();
