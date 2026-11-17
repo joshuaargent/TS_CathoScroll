@@ -90,7 +90,6 @@ export function TopicFeedCore({
   const effectiveSponsorApiBaseUrl = sponsorApiBaseUrl ?? nativeSponsorApiBaseUrl;
   const [feedTopics, setFeedTopics] = useState<Topic[]>(topics);
   const feedTopicsRef = useRef(feedTopics);
-  feedTopicsRef.current = feedTopics;
   const [topComments, setTopComments] = useState<TopFeedComment[]>([]);
   const [topCommentsNextOffset, setTopCommentsNextOffset] = useState<number | null>(null);
   const [topCommentInventoryVersion, setTopCommentInventoryVersion] = useState(0);
@@ -165,6 +164,10 @@ export function TopicFeedCore({
   useEffect(() => {
     currentTopicId.current = feedTopics[topicIndex]?.id ?? null;
   }, [feedTopics, topicIndex]);
+
+  useEffect(() => {
+    feedTopicsRef.current = feedTopics;
+  }, [feedTopics]);
   const feedQueue = buildFeedQueue(
     feedTopics,
     topCommentCardsByTopicId,
