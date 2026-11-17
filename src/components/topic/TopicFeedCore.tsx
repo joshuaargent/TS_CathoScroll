@@ -358,7 +358,7 @@ export function TopicFeedCore({
     };
     void loadNextPage();
     return () => { cancelled = true; };
-  }, [topComments, topCommentsNextOffset, topCommentInventoryVersion, topCommentsEndpoint]);
+  }, [topComments, topCommentsNextOffset, topCommentInventoryVersion, topCommentsEndpoint, topCommentCardsByTopicId]);
 
   // ----------------------------------
   // Initial Feed
