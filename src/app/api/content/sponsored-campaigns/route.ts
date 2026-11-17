@@ -36,7 +36,6 @@ function isCampaign(value: unknown): value is Record<string, unknown> {
     typeof campaign.sponsor_name === 'string' &&
     campaign.sponsor_name.length > 0 &&
     campaign.sponsor_name.length <= 120 &&
-    (campaign.sponsor_logo_url === null || safeHttpsUrl(campaign.sponsor_logo_url)) &&
     typeof campaign.campaign_name === 'string' &&
     campaign.campaign_name.length > 0 &&
     campaign.campaign_name.length <= 120 &&
