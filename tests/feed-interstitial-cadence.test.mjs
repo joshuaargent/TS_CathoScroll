@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import ts from 'typescript';
 
-const [commentSource, sponsorSource, feedCore, topicCard, topCommentCard, sponsorCard, topicViewer, interstitialMotion] = await Promise.all([
+const [commentSource, sponsorSource, feedCore, topicCard, topCommentCard, sponsorCard, topicViewer, interstitialMotion, topicCardLayout] = await Promise.all([
   readFile(new URL('../src/lib/feed-comments.ts', import.meta.url), 'utf8'),
   readFile(new URL('../src/lib/sponsor-campaigns.ts', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/TopicFeedCore.tsx', import.meta.url), 'utf8'),
@@ -12,6 +12,7 @@ const [commentSource, sponsorSource, feedCore, topicCard, topCommentCard, sponso
   readFile(new URL('../src/components/topic/SponsorFeedCard.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/TopicSwipeViewer.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/FeedInterstitialMotion.tsx', import.meta.url), 'utf8'),
+  readFile(new URL('../src/components/topic/TopicCardLayout.tsx', import.meta.url), 'utf8'),
 ]);
 
 async function importTypeScript(source) {
@@ -79,21 +80,26 @@ test('interstitial cards share the topic viewer swipe and animation model', () =
     assert.match(source, /<FeedInterstitialMotion/);
     assert.match(source, /onNextTopic=\{navigateNextTopic\}/);
     assert.match(source, /onPreviousTopic=\{navigatePreviousTopic\}/);
-    assert.match(source, /flex h-full w-full flex-col px-6 py-6 md:px-8 md:py-8/);
+    assert.match(source, /<TopicCardLayout/);
   }
   assert.match(topicViewer, /const animationLockRef = useRef\(false\)/);
   assert.match(topicViewer, /duration: 0\.2/);
 });
-test('top comment card follows the topic-card layout and opens the comment in-place', () => {
-  assert.ok(topicCard.includes('flex h-full w-full flex-col px-6 py-6 md:px-8 md:py-8'));
-  assert.ok(topicCard.includes('bg-accent-light/5'));
-  assert.ok(topCommentCard.includes('flex h-full w-full flex-col px-6 py-6 md:px-8 md:py-8'));
-  assert.ok(topCommentCard.includes("safeIndex === 0 && 'bg-accent-light/5'"));
-  assert.ok(topCommentCard.includes('<Heart'));
-  assert.ok(topCommentCard.includes('<MessageCircle'));
-  assert.ok(topCommentCard.includes('<DoorOpen'));
-  assert.ok(topCommentCard.includes('onDoubleClick={'));
-  assert.ok(topCommentCard.includes('encodeURIComponent(comment.author_username)'));
-  assert.ok(!topCommentCard.includes('Open discussion'));
-  assert.ok(!topCommentCard.includes('<Button'));
+test('topic, comment and sponsor cards use the same structural layout component', () => {
+  for (const source of [topicCard, topCommentCard, sponsorCard]) {
+    assert.match(source, /<TopicCardLayout/);
+  }
+  assert.match(topicCardLayout, /flex h-full w-full flex-col px-6 py-6 md:px-8 md:py-8/);
+  assert.match(topicCardLayout, /flex min-h-0 flex-1 items-center justify-center/);
+  assert.match(topicCardLayout, /mx-auto w-full text-center/);
+  assert.match(topicCardLayout, /flex items-center justify-between gap-3/);
+  assert.match(topicCard, /bg-accent-light\\/5/);
+  assert.match(topCommentCard, /bg-accent-light\\/5/);
+  assert.match(topCommentCard, /<Heart/);
+  assert.match(topCommentCard, /<MessageCircle/);
+  assert.match(topCommentCard, /<DoorOpen/);
+  assert.match(topCommentCard, /onDoubleClick=/);
+  assert.match(topCommentCard, /encodeURIComponent\\(comment\\.author_username\\)/);
+  assert.doesNotMatch(topCommentCard, /Open discussion/);
+  assert.doesNotMatch(topCommentCard, /<Button/);
 });
