@@ -17,7 +17,7 @@ interface TopCommentFeedCardProps {
   userId: string | null;
   previewMode?: boolean;
   active?: boolean;
-  onNextTopic: () => void | Promise<void>;
+  onNextTopic: () => void | boolean | Promise<void | boolean>;
   onPreviousTopic: () => void;
   onOpenComment: (comment: TopFeedComment) => void;
   onCommentViewed: (commentId: number) => void;
@@ -162,10 +162,15 @@ export function TopCommentFeedCard({
 
   const openComment = () => onOpenComment(comment);
 
-  const navigateNextTopic = () => {
+  const navigateNextTopic = async () => {
     if (navigationStarted.current) return;
     navigationStarted.current = true;
-    if (onNextTopic() === false) navigationStarted.current = false;
+    try {
+      if (await onNextTopic() === false) navigationStarted.current = false;
+    } catch (error) {
+      navigationStarted.current = false;
+      throw error;
+    }
   };
 
   const navigatePreviousTopic = () => {
