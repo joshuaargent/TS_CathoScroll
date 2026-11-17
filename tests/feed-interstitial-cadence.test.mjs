@@ -72,8 +72,15 @@ test('interstitial navigation is one-shot across swipe, keyboard, and button inp
     assert.match(source, /const navigationStarted = useRef\(false\)/);
     assert.match(source, /if \(navigationStarted\.current\) return/);
     assert.match(source, /navigationStarted\.current = true/);
-    assert.match(source, /onPointerUp[\s\S]*navigateNextTopic\(\)[\s\S]*navigatePreviousTopic\(\)/);
-    assert.match(source, /onKeyDown[\s\S]*navigateNextTopic\(\)[\s\S]*navigatePreviousTopic\(\)/);
+
+    const pointerHandler = source.match(/const handlePointerUp = \(event: PointerEvent<[\s\S]*?\n  };/);
+    const keyboardHandler = source.match(/const handleKeyDown = \(event: KeyboardEvent<[\s\S]*?\n  };/);
+    assert.ok(pointerHandler, 'pointer handler exists');
+    assert.ok(keyboardHandler, 'keyboard handler exists');
+    assert.match(pointerHandler[0], /navigateNextTopic\(\)/);
+    assert.match(pointerHandler[0], /navigatePreviousTopic\(\)/);
+    assert.match(keyboardHandler[0], /navigateNextTopic\(\)/);
+    assert.match(keyboardHandler[0], /navigatePreviousTopic\(\)/);
     assert.match(source, /onClick=\{navigateNextTopic\}/);
     assert.match(source, /onClick=\{navigatePreviousTopic\}/);
   }
@@ -82,7 +89,6 @@ test('interstitial navigation is one-shot across swipe, keyboard, and button inp
   assert.match(topicViewer, /animationLockRef\.current = true/);
   assert.match(topicViewer, /animationLockRef\.current = false/);
 });
-
 test('interstitial content uses the topic feed visual language rather than a separate card shell', () => {
   assert.match(topicCard, /mx-auto text-center/);
   assert.match(topCommentCard, /mx-auto w-full max-w-3xl text-center/);
