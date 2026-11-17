@@ -179,6 +179,16 @@ test('the ordered feed queue keeps topic, comments and sponsor entries in cadenc
   assert.equal(sponsorWindow.previous?.type, 'top-comments');
   const topicWindow = feedQueue.getFeedQueueWindow(queue, 3);
   assert.equal(topicWindow.previous?.type, 'sponsor');
+  const appendedTopics = feedQueue.appendUniqueFeedTopics(
+    [{ id: 'topic-a' }, { id: 'topic-b' }],
+    [{ id: 'topic-b' }, { id: 'topic-c' }, { id: 'topic-c' }]
+  );
+  assert.deepEqual(appendedTopics.map((topic) => topic.id), ['topic-a', 'topic-b', 'topic-c']);
+  assert.match(feedCore, /appendUniqueFeedTopics\(previous, personalized \? newTopics : shuffle\(newTopics\)\)/);
+  assert.match(feedCore, /if \(topicIndex >= feedTopics\.length - 1\) \{\s+return;/);
+  assert.match(feedCore, /if \(topicIndex <= 0\) return;/);
+  assert.doesNotMatch(feedCore, /% feedTopics\.length/);
+  assert.doesNotMatch(feedCore, /if \(comments\.length === 0\)/);
   assert.match(feedCore, /buildFeedQueue/);
   assert.match(feedCore, /getFeedQueueWindow/);
   assert.match(feedCore, /navigateToPreviousQueueEntry/);
