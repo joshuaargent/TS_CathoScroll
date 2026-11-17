@@ -71,7 +71,7 @@ export function SponsorFeedCard({
     } catch {
       return [];
     }
-  }, [queueKey, sessionId]);
+  }, [queueKey]);
 
   const flushSponsorEvents = useCallback(async (): Promise<void> => {
     if (!navigator.onLine || flushing.current) return;
