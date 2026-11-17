@@ -179,6 +179,15 @@ test('the ordered feed queue keeps topic, comments and sponsor entries in cadenc
   assert.match(feedCore, /cacheTopCommentGroup\(topic.id, group\)/);
   assert.match(feedCore, /commentInventoryNeedsAnotherPage/);
   assert.match(feedCore, /const consumeTopCommentGroup/);
+  const sponsorCard = read('src/components/topic/SponsorFeedCard.tsx');
+  const topicSwipeViewer = read('src/components/topic/TopicSwipeViewer.tsx');
+  const progress = read('src/components/topic/TopicProgress.tsx');
+  assert.match(sponsorCard, /progress={<TopicProgress current={safeIndex} total={campaigns.length} \/>}/);
+  assert.match(topicSwipeViewer, /<TopicProgress current={slideIndex} total={slides.length} \/>/);
+  assert.match(progress, /bg-border h-1 w-full overflow-hidden rounded-full/);
+  assert.match(progress, /bg-accent h-full transition-all duration-300/);
+  assert.match(progress, /shrink-0 pb-5/);
+  assert.doesNotMatch(progress, /safeIndex|campaign|comment/i);
   assert.match(feedCore, /consumeTopCommentGroup\(currentTopic\.id\)/);
   assert.match(feedCore, /sponsorPrefetchRef/);
   assert.match(feedCore, /SPONSOR_CARD_CADENCE - 1/);
