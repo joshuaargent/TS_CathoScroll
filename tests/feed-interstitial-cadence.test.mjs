@@ -62,6 +62,9 @@ test('sponsor fetches cannot race feed navigation or account changes', () => {
   assert.match(feedCore, /sponsorRequestPreviousCadence/);
   assert.match(feedCore, /sponsorRequestVersion\.current !== requestVersion/);
   assert.match(feedCore, /sponsorRequestVersion\.current \+= 1/);
+  // Remounting on account changes resets the interstitial's one-shot navigation
+  // guard if its queued sponsor request is cancelled while the card stays visible.
+  assert.match(feedCore, /<TopCommentFeedCard\\s+key=\\{userId \\?\\? 'anonymous'\\}/);
   const previousTopic = feedCore.slice(feedCore.indexOf('const previousTopic ='));
   assert.match(previousTopic, /pendingSponsorAfterComment\.current = false/);
 });
@@ -72,8 +75,14 @@ test('interstitial navigation is one-shot across swipe, keyboard, and button inp
     assert.match(source, /const navigationStarted = useRef\(false\)/);
     assert.match(source, /if \(navigationStarted\.current\) return/);
     assert.match(source, /navigationStarted\.current = true/);
-    assert.match(source, /onPointerUp[\s\S]*navigateNextTopic\(\)[\s\S]*navigatePreviousTopic\(\)/);
-    assert.match(source, /onKeyDown[\s\S]*navigateNextTopic\(\)[\s\S]*navigatePreviousTopic\(\)/);
+    const pointerHandler = source.match(/const handlePointerUp = \(event: PointerEvent<[\s\S]*?\n  };/);
+    const keyboardHandler = source.match(/const handleKeyDown = \(event: KeyboardEvent<[\s\S]*?\n  };/);
+    assert.ok(pointerHandler, 'pointer handler exists');
+    assert.ok(keyboardHandler, 'keyboard handler exists');
+    assert.match(pointerHandler[0], /navigateNextTopic\(\)/);
+    assert.match(pointerHandler[0], /navigatePreviousTopic\(\)/);
+    assert.match(keyboardHandler[0], /navigateNextTopic\(\)/);
+    assert.match(keyboardHandler[0], /navigatePreviousTopic\(\)/);
     assert.match(source, /onClick=\{navigateNextTopic\}/);
     assert.match(source, /onClick=\{navigatePreviousTopic\}/);
   }
