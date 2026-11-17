@@ -170,9 +170,9 @@ test('the ordered feed queue keeps topic, comments and sponsor entries in cadenc
   assert.match(feedCore, /buildFeedQueue/);
   assert.match(feedCore, /getFeedQueueWindow/);
   assert.match(feedCore, /navigateToPreviousQueueEntry/);
-  assert.match(feedCore, /feedQueueWindow\\.previous/);
-  assert.match(feedCore, /feedQueueWindow\\.next\\?\\.type === 'sponsor'/);
-  assert.match(feedCore, /\\[feedQueueWindow\\.previous, feedQueueWindow\\.current, feedQueueWindow\\.next\\]/);
-  assert.match(feedCore, /renderFeedQueueEntry\\(entry, active\\)/);
-  assert.match(feedCore, /className=\\{active \\? 'absolute inset-0 h-full w-full' : 'hidden'\\}/);
+  assert.match(feedCore, /feedQueueWindow\.previous/);
+  assert.match(feedCore, /feedQueueWindow\.next\?\.type === 'sponsor'/);
+  assert.match(feedCore, /\[feedQueueWindow\.previous, feedQueueWindow\.current, feedQueueWindow\.next\]/);
+  assert.match(feedCore, /renderFeedQueueEntry\(entry, active\)/);
+  assert.match(feedCore, /className=\{active \? 'absolute inset-0 h-full w-full' : 'hidden'\}/);
 });
