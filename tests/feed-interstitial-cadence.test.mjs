@@ -138,7 +138,7 @@ test('topic, comment and sponsor cards use the same structural layout component'
   assert.match(sponsorCard, /await onNextTopic\(\)/);
   assert.match(feedCore, /const nextTopic = async \(\) =>/);
   assert.match(feedCore, /sponsorLoading \? \(/);
-  assert.match(feedCore, /new SponsorLoadingCard/);
+  assert.match(feedCore, /<SponsorLoadingCard \/>/);
   assert.match(sponsorLoadingCard, /role="status" aria-live="polite" aria-busy="true"/);
   assert.match(sponsorLoadingCard, /cardClassName="bg-accent-light\/5"/);
 });
