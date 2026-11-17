@@ -43,7 +43,7 @@ test('queues events separately for each signed-in account', () => {
   assert.equal('user_id' in accountA[0], false);
 });
 
-test('bounds the persistent client queue to 200 events', () => {
+test('retains the full persistent client queue while offline', () => {
   for (let index = 0; index < 225; index += 1) {
     analytics.recordFeedAnalyticsEvent('bounded-account', 'swipe_depth', 'topic-one', {
       depth: index % 20,
@@ -52,7 +52,7 @@ test('bounds the persistent client queue to 200 events', () => {
   }
 
   const queue = JSON.parse(storage.get('cathoscroll.feed-analytics.v1.bounded-account'));
-  assert.equal(queue.length, 200);
+  assert.equal(queue.length, 225);
 });
 
 test('flushes a bounded batch and removes only acknowledged event IDs', async () => {
