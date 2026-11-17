@@ -2,9 +2,10 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-const [analytics, sponsor, readme] = await Promise.all([
+const [analytics, sponsor, topicFeed, readme] = await Promise.all([
   readFile(new URL('../src/lib/feed-analytics-client.ts', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/SponsorFeedCard.tsx', import.meta.url), 'utf8'),
+  readFile(new URL('../src/components/topic/TopicFeedCore.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../README.md', import.meta.url), 'utf8'),
 ]);
 
