@@ -38,6 +38,7 @@ type ViewerProps = {
   topics: Topic[];
   topicIndex: number;
   initialUserId: string | null;
+  active?: boolean;
   onNextTopic: () => void;
   onPreviousTopic: () => void;
 };
