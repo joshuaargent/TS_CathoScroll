@@ -2,9 +2,10 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-const [analytics, sponsor, topicFeed, readme] = await Promise.all([
+const [analytics, sponsor, sponsorAnalytics, topicFeed, readme] = await Promise.all([
   readFile(new URL('../src/lib/feed-analytics-client.ts', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/SponsorFeedCard.tsx', import.meta.url), 'utf8'),
+  readFile(new URL('../src/lib/sponsor-analytics-client.ts', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/TopicFeedCore.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../README.md', import.meta.url), 'utf8'),
 ]);
@@ -17,18 +18,18 @@ test('feed analytics retains queued events until server acknowledgement and drai
   assert.ok(analytics.includes('latestQueue.filter((event) => !acceptedIds.has(event.event_id))'));
 });
 
-test('sponsor analytics queue survives a new sponsor placement within the same account', () => {
-  assert.ok(sponsor.includes('cathoscroll.sponsor-events.v1.${userId}'));
+test('sponsor analytics queue survives restarts and flushes even when no sponsor card is visible', () => {
+  assert.ok(sponsorAnalytics.includes('cathoscroll.sponsor-events.v1.'));
+  assert.ok(sponsorAnalytics.includes('latest.filter((queued) => queued.eventId !== event.eventId)'));
+  assert.ok(sponsorAnalytics.includes("window.addEventListener('online', flush)"));
+  assert.ok(sponsorAnalytics.includes("window.addEventListener('pageshow', flush)"));
+  assert.ok(sponsorAnalytics.includes("document.addEventListener('visibilitychange', onVisibilityChange)"));
+  assert.ok(sponsorAnalytics.includes('if (!response.ok) break'));
+  assert.ok(topicFeed.includes('installSponsorAnalyticsListeners(userId, getSponsorAccessToken)'));
   assert.ok(topicFeed.includes("userId={userId ?? ''}"));
-  assert.ok(sponsor.includes('event.sessionId === sessionId'));
-  assert.ok(sponsor.includes('window.localStorage.setItem(queueKey, JSON.stringify(queue))'));
-  assert.ok(sponsor.includes('eventId: createEventId()'));
-  assert.ok(sponsor.includes("window.addEventListener('online', flush)"));
-  assert.ok(sponsor.includes("window.addEventListener('pageshow', flush)"));
-  assert.ok(sponsor.includes("document.addEventListener('visibilitychange', onVisibilityChange)"));
-  assert.ok(sponsor.includes('if (!response.ok) break'));
-  assert.ok(sponsor.includes('latest.filter((queued) => queued.eventId !== event.eventId)'));
+  assert.ok(sponsor.includes('recordSponsorCampaignEvent('));
   assert.ok(sponsor.includes('previewMode'));
+  assert.ok(sponsorAnalytics.includes('queued.sessionId === event.sessionId'));
 });
 
 test('README documents bounded behavioural signals used by recommendation ranking', () => {
