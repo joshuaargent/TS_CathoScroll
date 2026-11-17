@@ -1,6 +1,5 @@
 'use client';
 
-import Image from 'next/image';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { DoorOpen, Share2 } from 'lucide-react';
 
@@ -43,7 +42,6 @@ export function SponsorFeedCard({
   nextEntryPreview,
 }: SponsorFeedCardProps) {
   const [activeIndex, setActiveIndex] = useState(0);
-  const [shareStatus, setShareStatus] = useState('');
   const navigationStarted = useRef(false);
   const cardRef = useRef<HTMLElement>(null);
   const viewableCampaignIds = useRef(new Set<string>());
@@ -160,31 +158,17 @@ export function SponsorFeedCard({
 
   const shareCampaign = async () => {
     if (previewMode) return;
-    setShareStatus('');
-
-    const shareData = {
-      title: campaign.headline,
-      text: `${campaign.sponsor_name}: ${campaign.body}`,
-      url: campaign.destination_url,
-    };
-
     try {
-      if (typeof navigator.share === 'function') {
-        await navigator.share(shareData);
+      if (navigator.share) {
+        await navigator.share({
+          title: campaign.headline,
+          url: campaign.destination_url,
+        });
         return;
       }
 
-      if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(campaign.destination_url);
-        setShareStatus('Sponsor link copied.');
-        return;
-      }
-
-      setShareStatus('Sharing is unavailable in this browser.');
-    } catch (error) {
-      if (error instanceof Error && error.name === 'AbortError') return;
-      setShareStatus('Unable to share this sponsor link.');
-    }
+      await navigator.clipboard.writeText(campaign.destination_url);
+    } catch {}
   };
 
   return (
@@ -282,23 +266,25 @@ export function SponsorFeedCard({
           <p className="text-text-secondary mx-auto mt-4 max-w-2xl whitespace-pre-line text-base leading-relaxed md:text-lg">
             {campaign.body}
           </p>
-          {campaign.image_url && (
-            <div className="bg-bg-secondary relative mx-auto mt-6 aspect-[16/7] max-h-56 w-full max-w-2xl overflow-hidden rounded-2xl">
-              <Image
-                src={campaign.image_url}
-                alt=""
-                fill
-                sizes="(max-width: 768px) 100vw, 672px"
-                unoptimized
-                className="object-cover"
-              />
-            </div>
-          )}
-          {shareStatus && (
-            <p role="status" className="text-text-muted mt-3 text-xs">
-              {shareStatus}
-            </p>
-          )}
+          <div className="mt-6 flex items-center justify-center">
+            <a
+              href={campaign.destination_url}
+              target="_blank"
+              rel="noopener noreferrer sponsored"
+              onPointerDown={(event) => event.stopPropagation()}
+              onTouchStart={(event) => event.stopPropagation()}
+              onClick={(event) => {
+                if (previewMode) {
+                  event.preventDefault();
+                  return;
+                }
+                recordCampaignClick();
+              }}
+              className="text-text-muted hover:text-text-primary text-sm font-medium transition-colors"
+            >
+              Visit {campaign.sponsor_name}
+            </a>
+          </div>
         </article>
       </TopicCardLayout>
     </FeedInterstitialMotion>
