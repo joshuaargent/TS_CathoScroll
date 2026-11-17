@@ -147,7 +147,7 @@ test('the original analytics-ranked feed keeps interstitials in per-topic sessio
   assert.doesNotMatch(feedCore, /buildFeedQueue|feedQueueWindow|renderFeedQueueEntry/);
   assert.match(feedCore, /onPreviousTopic=\{\(\) => \{/);
   assert.match(feedCore, /The comment card follows the current topic/);
-  assert.match(feedCore, /The sponsor is an interstitial after the current topic/);
+  assert.match(feedCore, /if \(sponsorPreviousIsComment\.current\)/);
   assert.match(feedCore, /Re-entering a topic replays the exact interstitials already assigned to it/);
   assert.ok(feedCore.includes('if (preservePositionOnUpdate && feedInitializedRef.current)'));
   assert.ok(feedCore.includes('previousPersonalizedRef.current !== personalized'));
