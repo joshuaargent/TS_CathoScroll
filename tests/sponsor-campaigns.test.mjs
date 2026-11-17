@@ -55,7 +55,7 @@ test('weighted campaign selector enforces payment, dates, targeting, caps and co
   assert.match(selector, /campaign\.placement_weight/);
   assert.match(selector, /daily\.viewable_impressions/);
   assert.match(selector, /daily\.event_date >= v_today - 29/);
-  assert.match(selector, /viewable_impressions[\s\S]*placement_weight::numeric ASC/);
+  assert.match(selector, /viewable_impressions[\s\S]*placement_weight::numeric ASC/);\n  assert.match(selector, /p_limit > 1/);
   assert.doesNotMatch(selector, /ORDER BY -pg_catalog\.ln\(greatest\(pg_catalog\.random/);
 });
 
@@ -91,7 +91,7 @@ test('sponsored feed cards are disclosed and inserted separately from organic re
   assert.match(deliveryRoute, /getAuthenticatedUserFromRequest/);
   assert.match(deliveryRoute, /isSameOriginOrNativeRequest/);
   assert.match(deliveryRoute, /get_weighted_sponsor_campaigns/);
-  assert.match(deliveryRoute, /data\.campaigns\.length > 5/);
+  assert.match(deliveryRoute, /data\.campaigns\.length > 1/);
 });
 
 test('campaign admin controls require bank reconciliation before approval', () => {
