@@ -117,7 +117,7 @@ export async function POST(request: Request) {
       p_session_id: parsed.value.sessionId,
       p_category_slug: parsed.value.categorySlug,
       p_topic_id: parsed.value.topicId,
-      p_limit: 5,
+      p_limit: 1,
     });
     if (error) {
       console.error('Unable to select sponsor campaigns:', error.message);
@@ -128,7 +128,7 @@ export async function POST(request: Request) {
       data === null ||
       !('campaigns' in data) ||
       !Array.isArray(data.campaigns) ||
-      data.campaigns.length > 5 ||
+      data.campaigns.length > 1 ||
       !('generated_at' in data) ||
       typeof data.generated_at !== 'string' ||
       !Number.isFinite(Date.parse(data.generated_at)) ||
