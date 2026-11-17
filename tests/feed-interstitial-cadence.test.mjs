@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import ts from 'typescript';
 
-const [commentSource, sponsorSource, feedCore, topicCard, topCommentCard, sponsorCard, topicViewer, interstitialMotion, topicCardLayout, topCommentsRoute, feedQueueSource] = await Promise.all([
+const [commentSource, sponsorSource, feedCore, topicCard, topCommentCard, sponsorCard, topicViewer, interstitialMotion, topicCardLayout, topCommentsRoute, feedQueueSource, progressSource] = await Promise.all([
   readFile(new URL('../src/lib/feed-comments.ts', import.meta.url), 'utf8'),
   readFile(new URL('../src/lib/sponsor-campaigns.ts', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/TopicFeedCore.tsx', import.meta.url), 'utf8'),
@@ -15,6 +15,7 @@ const [commentSource, sponsorSource, feedCore, topicCard, topCommentCard, sponso
   readFile(new URL('../src/components/topic/TopicCardLayout.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/app/api/content/top-comments/route.ts', import.meta.url), 'utf8'),
   readFile(new URL('../src/lib/feed-queue.ts', import.meta.url), 'utf8'),
+  readFile(new URL('../src/components/topic/TopicProgress.tsx', import.meta.url), 'utf8'),
 ]);
 
 async function importTypeScript(source) {
@@ -179,15 +180,12 @@ test('the ordered feed queue keeps topic, comments and sponsor entries in cadenc
   assert.match(feedCore, /cacheTopCommentGroup\(topic.id, group\)/);
   assert.match(feedCore, /commentInventoryNeedsAnotherPage/);
   assert.match(feedCore, /const consumeTopCommentGroup/);
-  const sponsorCard = read('src/components/topic/SponsorFeedCard.tsx');
-  const topicSwipeViewer = read('src/components/topic/TopicSwipeViewer.tsx');
-  const progress = read('src/components/topic/TopicProgress.tsx');
-  assert.match(sponsorCard, /progress={<TopicProgress current={safeIndex} total={campaigns.length} \/>}/);
-  assert.match(topicSwipeViewer, /<TopicProgress current={slideIndex} total={slides.length} \/>/);
-  assert.match(progress, /bg-border h-1 w-full overflow-hidden rounded-full/);
-  assert.match(progress, /bg-accent h-full transition-all duration-300/);
-  assert.match(progress, /shrink-0 pb-5/);
-  assert.doesNotMatch(progress, /safeIndex|campaign|comment/i);
+  assert.match(sponsorCard, /progress={<TopicProgress current=\{safeIndex\} total=\{campaigns\.length\} \/>/);
+  assert.match(topicViewer, /<TopicProgress current=\{slideIndex\} total=\{slides\.length\} \/>/);
+  assert.match(progressSource, /bg-border h-1 w-full overflow-hidden rounded-full/);
+  assert.match(progressSource, /bg-accent h-full transition-all duration-300/);
+  assert.match(progressSource, /shrink-0 pb-5/);
+  assert.doesNotMatch(progressSource, /safeIndex|campaign|comment/i);
   assert.match(feedCore, /consumeTopCommentGroup\(currentTopic\.id\)/);
   assert.match(feedCore, /sponsorPrefetchRef/);
   assert.match(feedCore, /SPONSOR_CARD_CADENCE - 1/);
