@@ -102,7 +102,7 @@ test('topic, comment and sponsor cards use the same structural layout component'
   assert.match(topicCardLayout, /progress &&/);
   assert.match(topCommentCard, /<TopicProgress current=\{safeIndex\} total=\{comments\.length\} \/>/);
   assert.ok(topicCard.includes("cardClassName={type === 'question' ? 'bg-accent-light/5' : undefined}"));
-  assert.ok(topCommentCard.includes("cardClassName={safeIndex === 0 ? 'bg-accent-light/5' : undefined}"));
+  assert.ok(topCommentCard.includes('cardClassName="bg-accent-light/5"'));
   assert.match(topCommentCard, /<Heart/);
   assert.match(topCommentCard, /<MessageCircle/);
   assert.match(topCommentCard, /<DoorOpen/);
