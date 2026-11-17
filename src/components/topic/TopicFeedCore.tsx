@@ -130,6 +130,17 @@ export function TopicFeedCore({
 
 
   useEffect(() => {
+    if (seenTopCommentUserId.current === userId) return;
+    seenTopCommentUserId.current = userId;
+    topCommentCadenceUserId.current = userId;
+    seenTopCommentIds.current.clear();
+    topCommentCardsByTopicId.current.clear();
+    setTopCommentCardComments([]);
+    setShowTopCommentCard(false);
+    setTopicsSinceTopCommentCard(0);
+  }, [userId]);
+
+  useEffect(() => {
     if (sponsorSessionUserId.current === userId) return;
     sponsorSessionUserId.current = userId;
     setActiveSponsorSessionId(null);
