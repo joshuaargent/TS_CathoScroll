@@ -120,11 +120,12 @@ export function TopicFeedCore({
     ),
     [feedTopics, topCommentCardComments, sponsorCampaigns, showTopCommentCard, showSponsorCard, activeSponsorSessionId]
   );
-  const activeFeedQueueType = showSponsorCard
-    ? 'sponsor'
-    : showTopCommentCard
-      ? 'top-comments'
-      : 'topic';
+  const activeFeedQueueType =
+    showSponsorCard && sponsorSessionUserId.current === userId
+      ? 'sponsor'
+      : showTopCommentCard && seenTopCommentUserId.current === userId
+        ? 'top-comments'
+        : 'topic';
   const activeFeedQueueIndex = findFeedQueueEntryIndex(feedQueue, topicIndex, activeFeedQueueType);
   const feedQueueWindow = getFeedQueueWindow(feedQueue, activeFeedQueueIndex);
 
