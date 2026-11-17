@@ -267,7 +267,7 @@ function NativeViewer(props: {
     return data.session?.access_token ?? null;
   }, []);
   const navigation = useContext(TopicNavigation);
-  if (!navigation?.counts) throw new Error('Native topic navigation is unavailable.');
+  if (!navigation) throw new Error('Native topic navigation is unavailable.');
   const topicId = String(props.topics[props.topicIndex].id);
   const countCache = navigation.counts;
   const userId = navigation.userId;
@@ -305,14 +305,16 @@ function NativeViewer(props: {
     let active = true;
     async function load() {
       setCountError('');
-      try {
-        const cached = await countCache.load(topicId);
-        if (!active) return;
-        if (cached) setCounts({ topicId, value: cached, fresh: false });
-        else if (!navigator.onLine) setCounts(null);
-      } catch (error) {
-        console.error('Unable to load cached topic counts:', error);
-        if (active) setCountError('Saved topic counts could not be loaded.');
+      if (countCache) {
+        try {
+          const cached = await countCache.load(topicId);
+          if (!active) return;
+          if (cached) setCounts({ topicId, value: cached, fresh: false });
+          else if (!navigator.onLine) setCounts(null);
+        } catch (error) {
+          console.error('Unable to load cached topic counts:', error);
+          if (active) setCountError('Saved topic counts could not be loaded.');
+        }
       }
 
       if (!navigator.onLine || !active) return;
@@ -329,11 +331,13 @@ function NativeViewer(props: {
           fresh: true,
         });
         setCountError('');
-        try {
-          await countCache.save(topicId, result.likes, result.comments);
-        } catch (error) {
-          console.error('Unable to save topic counts:', error);
-          if (active) setCountError('Topic counts could not be saved for offline viewing.');
+        if (countCache) {
+          try {
+            await countCache.save(topicId, result.likes, result.comments);
+          } catch (error) {
+            console.error('Unable to save topic counts:', error);
+            if (active) setCountError('Topic counts could not be saved for offline viewing.');
+          }
         }
       } catch (error) {
         console.error('Unable to refresh topic counts:', error);
@@ -1019,21 +1023,45 @@ function App() {
         const localComments = new OfflineCommentCache(cacheDatabase);
         const localCounts = new OfflineTopicCountCache(cacheDatabase);
         const localNotes = new NativeNoteCache(cacheDatabase, secureAuthStorage);
-        failure = 'Unable to open saved comments. Please try again.';
-        await localComments.initialize();
-        failure = 'Unable to open saved topic counts. Please try again.';
-        await localCounts.initialize();
-        failure = 'Unable to open saved notes. Please try again.';
-        await localNotes.initialize();
+        let commentsReady = false;
+        let countsReady = false;
+        let notesReady = false;
+        try {
+          await localComments.initialize();
+          commentsReady = true;
+        } catch (cause) {
+          console.error('Offline comment cache is unavailable:', cause);
+          notifyNativeStatus('Saved comments are unavailable on this device. The live feed can still be used.', {
+            id: 'comments-cache-unavailable',
+          });
+        }
+        try {
+          await localCounts.initialize();
+          countsReady = true;
+        } catch (cause) {
+          console.error('Offline topic-count cache is unavailable:', cause);
+          notifyNativeStatus('Saved topic counts are unavailable on this device. Live counts can still be loaded.', {
+            id: 'counts-cache-unavailable',
+          });
+        }
+        try {
+          await localNotes.initialize();
+          notesReady = true;
+        } catch (cause) {
+          console.error('Offline notes cache is unavailable:', cause);
+          notifyNativeStatus('Saved notes are unavailable on this device.', {
+            id: 'notes-cache-unavailable',
+          });
+        }
         failure = 'Unable to open saved topics. Please try again.';
         const page = await localCatalogue.topics();
         if (active) {
           setError('');
           setFirstPage(page);
           setCatalogue(localCatalogue);
-          setCommentCache(localComments);
-          setCountCache(localCounts);
-          setNoteCache(localNotes);
+          setCommentCache(commentsReady ? localComments : null);
+          setCountCache(countsReady ? localCounts : null);
+          setNoteCache(notesReady ? localNotes : null);
           try {
             setCatalogueRefresh(
               new CatalogueRefresh(
