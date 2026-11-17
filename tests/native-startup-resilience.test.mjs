@@ -61,7 +61,7 @@ test('native feed navigation is injected and does not require the Next.js App Ro
 
 test('native background catalogue sync does not replace the active feed snapshot', () => {
   const refreshStart = nativeMain.indexOf('const service = catalogueRefresh;');
-  const refreshEnd = nativeMain.indexOf('}, [catalogueRefresh, catalogue, feedPersonalized]);', refreshStart);
+  const refreshEnd = nativeMain.indexOf('}, [catalogueRefresh, catalogue]);', refreshStart);
   assert.ok(refreshStart >= 0 && refreshEnd > refreshStart);
   const refreshEffect = nativeMain.slice(refreshStart, refreshEnd);
   assert.doesNotMatch(refreshEffect, /setFirstPage/);
