@@ -78,10 +78,14 @@ test('reconnect retries once when it overlaps a failed in-flight refresh', async
   coordinator.dispose();
 });
 
-test('Top Comments refresh uses the tested coordinator and reconnect bypass', () => {
+test('Top Comments inventory is frozen after its first successful load', () => {
   assert.ok(feed.includes("import { createFeedRefreshCoordinator } from '@/lib/feed-refresh-coordinator'"));
-  assert.ok(feed.includes('const refresh = createFeedRefreshCoordinator(async () => {'));
-  assert.ok(feed.includes('const refreshWhenOnline = () => void refresh.reconnect()'));
+  assert.ok(feed.includes('let inventoryInitialized = false;'));
+  assert.ok(feed.includes('if (inventoryInitialized) return true;'));
+  assert.ok(feed.includes('if (!inventoryInitialized) void refresh.reconnect()'));
+  assert.ok(feed.includes('if (!inventoryInitialized && document.visibilityState === \'visible\')'));
+  assert.ok(feed.includes('inventoryInitialized = true;'));
+  assert.ok(feed.includes('setTopComments(comments);'));
   assert.ok(feed.includes('void refresh.request()'));
 });
 
