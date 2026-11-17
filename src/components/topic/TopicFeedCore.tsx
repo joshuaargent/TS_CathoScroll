@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState, type ComponentType } from 'react';
+import { useCallback, useEffect, useRef, useState, type ComponentType, type ReactNode } from 'react';
 
 import { shuffle } from '@/lib/utils';
 import {
@@ -43,6 +43,7 @@ type ViewerProps = {
   active?: boolean;
   onNextTopic: () => void;
   onPreviousTopic: () => void;
+  nextEntryPreview?: ReactNode;
 };
 type TopicFeedCoreProps = {
   topics: Topic[];
@@ -108,14 +109,6 @@ export function TopicFeedCore({
     }
   }, []);
   const clearTopCommentGroups = useCallback(() => setTopCommentCardsByTopicId(new Map()), []);
-  const consumeTopCommentGroup = useCallback((topicId: string) => {
-    setTopCommentCardsByTopicId((current) => {
-      if (!current.has(topicId)) return current;
-      const next = new Map(current);
-      next.delete(topicId);
-      return next;
-    });
-  }, []);
   const cacheSponsorPlacement = useCallback((
     topicId: string,
     placement: { campaigns: SponsorFeedCampaign[]; sessionId: string }
@@ -675,6 +668,12 @@ export function TopicFeedCore({
       clearTopCommentGroups();
     }
 
+    const previousQueueEntry = feedQueueWindow.previous;
+    if (previousQueueEntry && previousQueueEntry.type !== 'topic') {
+      activateFeedQueueEntry(previousQueueEntry);
+      return;
+    }
+
     const previousIndex = (topicIndex - 1 + feedTopics.length) % feedTopics.length;
     const previousTopicId = feedTopics[previousIndex]?.id;
     const previousSponsorCard = previousTopicId
@@ -721,12 +720,7 @@ export function TopicFeedCore({
   const noop = () => {};
 
   const handleSponsorNext = (topicId: string) => {
-    setSponsorCardsByTopicId((current) => {
-      if (!current.has(topicId)) return current;
-      const next = new Map(current);
-      next.delete(topicId);
-      return next;
-    });
+    setShowSponsorCard(false);
     if (sponsorPrefetchRef.current?.topicId === topicId) {
       sponsorPrefetchRef.current = null;
     }
@@ -740,23 +734,11 @@ export function TopicFeedCore({
     if (sponsorLoadingRef.current) return false;
     const currentTopic = feedTopics[topicIndex];
     if (feedQueueWindow.next?.type === 'sponsor') {
-      if (currentTopic) {
-        consumeTopCommentGroup(currentTopic.id);
-        if (topCommentCadenceAnchor.current?.topicId === currentTopic.id) {
-          topCommentCadenceAnchor.current = null;
-        }
-      }
       pendingSponsorAfterComment.current = false;
       activateFeedQueueEntry(feedQueueWindow.next);
       return true;
     }
     if (!pendingSponsorAfterComment.current) {
-      if (currentTopic) {
-        consumeTopCommentGroup(currentTopic.id);
-        if (topCommentCadenceAnchor.current?.topicId === currentTopic.id) {
-          topCommentCadenceAnchor.current = null;
-        }
-      }
       setShowTopCommentCard(false);
       advanceToNextTopic();
       return true;
@@ -786,10 +768,6 @@ export function TopicFeedCore({
       ) return;
       setTopicsSinceSponsorCard(0);
       if (result.campaigns.length > 0 && result.sessionId) {
-        consumeTopCommentGroup(currentTopic.id);
-        if (topCommentCadenceAnchor.current?.topicId === currentTopic.id) {
-          topCommentCadenceAnchor.current = null;
-        }
         cacheSponsorPlacement(currentTopic.id, {
           campaigns: result.campaigns,
           sessionId: result.sessionId,
@@ -799,10 +777,6 @@ export function TopicFeedCore({
         return;
       }
 
-      consumeTopCommentGroup(currentTopic.id);
-      if (topCommentCadenceAnchor.current?.topicId === currentTopic.id) {
-        topCommentCadenceAnchor.current = null;
-      }
       setShowTopCommentCard(false);
       advanceToNextTopic();
     }).finally(() => {
@@ -826,6 +800,11 @@ export function TopicFeedCore({
           active={active}
           onNextTopic={nextTopic}
           onPreviousTopic={previousTopic}
+          nextEntryPreview={
+            active && feedQueueWindow.next && feedQueueWindow.next.type !== 'topic'
+              ? renderFeedQueueEntry(feedQueueWindow.next, false)
+              : undefined
+          }
         />
       );
     }
@@ -841,6 +820,11 @@ export function TopicFeedCore({
           onNextTopic={handleTopCommentNext}
           onPreviousTopic={navigateToPreviousQueueEntry}
           onOpenComment={active ? openTopComment : noop}
+          nextEntryPreview={
+            active && feedQueueWindow.next && feedQueueWindow.next.type !== 'topic'
+              ? renderFeedQueueEntry(feedQueueWindow.next, false)
+              : undefined
+          }
         />
       );
     }
@@ -855,6 +839,11 @@ export function TopicFeedCore({
         getAccessToken={getSponsorAccessToken ?? (async () => null)}
         onNextTopic={() => handleSponsorNext(entry.topicId)}
         onPreviousTopic={navigateToPreviousQueueEntry}
+        nextEntryPreview={
+          active && feedQueueWindow.next && feedQueueWindow.next.type !== 'topic'
+            ? renderFeedQueueEntry(feedQueueWindow.next, false)
+            : undefined
+        }
       />
     );
   };
