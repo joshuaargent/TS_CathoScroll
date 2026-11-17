@@ -68,7 +68,7 @@ test('sponsor fetches cannot race feed navigation or account changes', () => {
 });
 
 
-test('interstitial navigation is one-shot across swipe, keyboard, and button inputs', () => {
+test('interstitial navigation is one-shot across swipe and keyboard inputs', () => {
   for (const source of [topCommentCard, sponsorCard]) {
     assert.match(source, /const navigationStarted = useRef\(false\)/);
     assert.match(source, /if \(navigationStarted\.current\) return/);
