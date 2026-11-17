@@ -18,8 +18,8 @@ interface TopicViewerProps {
   initialUserId: string | null;
   active?: boolean;
 
-  onNextTopic?: () => void;
-  onPreviousTopic?: () => void;
+  onNextTopic?: () => void | Promise<void>;
+  onPreviousTopic?: () => void | Promise<void>;
   nextEntryPreview?: ReactNode;
   previousEntryPreview?: ReactNode;
 }
