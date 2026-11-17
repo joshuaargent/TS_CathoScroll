@@ -9,6 +9,7 @@ import { createClient } from '@/lib/supabase/client';
 import type { TopFeedComment } from '@/lib/feed-comments';
 import { cn } from '@/lib/utils';
 import { FeedInterstitialMotion } from './FeedInterstitialMotion';
+import { TopicCardLayout } from './TopicCardLayout';
 
 interface TopCommentFeedCardProps {
   comments: TopFeedComment[];
@@ -166,13 +167,8 @@ export function TopCommentFeedCard({
     onPreviousTopic();
   };
 
-  const showPreviousComment = () => {
-    setActiveIndex((index) => Math.max(0, index - 1));
-  };
-
-  const showNextComment = () => {
-    setActiveIndex((index) => Math.min(comments.length - 1, index + 1));
-  };
+  const showPreviousComment = () => setActiveIndex((index) => Math.max(0, index - 1));
+  const showNextComment = () => setActiveIndex((index) => Math.min(comments.length - 1, index + 1));
 
   return (
     <FeedInterstitialMotion
@@ -182,123 +178,113 @@ export function TopCommentFeedCard({
       onNextTopic={navigateNextTopic}
       onPreviousTopic={navigatePreviousTopic}
     >
-    <div
-      className={cn(
-        'flex h-full w-full flex-col px-6 py-6 md:px-8 md:py-8',
-        safeIndex === 0 && 'bg-accent-light/5'
-      )}
-    >
-      <article
-        className="flex min-h-0 flex-1 flex-col"
-        onDoubleClick={(event) => {
-          if ((event.target as HTMLElement).closest('button, a')) return;
-          openComment();
-        }}
-        aria-label="Community comment. Double-click to open the discussion."
-      >
-        <header className="flex items-center justify-between gap-3">
-          <p className="text-text-muted min-w-0 flex-1 truncate text-xs tracking-wider uppercase">
-            Top Comments
-          </p>
-
-          <div className="flex shrink-0 items-center gap-1">
-            <CommentLikeControl
-              key={comment.comment_id}
-              comment={comment}
-              userId={userId}
-              previewMode={previewMode}
-            />
-
-            <button
-              type="button"
-              onPointerDown={(event) => event.stopPropagation()}
-              onTouchStart={(event) => event.stopPropagation()}
-              onClick={openComment}
-              aria-label={`Open ${comment.reply_count} replies`}
-              className="text-text-muted hover:bg-bg-secondary hover:text-text-primary flex h-11 items-center gap-2 rounded-full px-3 transition-colors"
-            >
-              <MessageCircle className="h-5 w-5" />
-              <span className="text-xs font-medium tabular-nums">{comment.reply_count}</span>
-            </button>
-
-            <button
-              type="button"
-              onPointerDown={(event) => event.stopPropagation()}
-              onTouchStart={(event) => event.stopPropagation()}
-              onClick={openComment}
-              aria-label="Open this comment"
-              title="Open comment"
-              className="text-text-muted hover:bg-bg-secondary hover:text-text-primary flex h-11 w-11 items-center justify-center rounded-full transition-colors"
-            >
-              <DoorOpen className="h-5 w-5" />
-            </button>
-          </div>
-        </header>
-
-        <div className="flex flex-1 items-center justify-center py-8">
-          <div className="mx-auto w-full max-w-3xl text-center">
-            <p className="text-text-muted mb-5 text-sm font-medium md:text-base">
-              {comment.topic_question}
+      <TopicCardLayout
+        className={safeIndex === 0 ? 'bg-accent-light/5' : undefined}
+        contentWidthClassName="max-w-3xl"
+        header={
+          <>
+            <p className="text-text-muted min-w-0 flex-1 truncate text-xs tracking-wider uppercase">
+              Top Comments
             </p>
-            {comment.is_pinned && (
-              <div className="mb-4 inline-flex items-center gap-1.5 text-xs font-medium text-accent">
-                <Pin className="h-3.5 w-3.5" />
-                Pinned comment
+            <div className="flex shrink-0 items-center gap-1">
+              <CommentLikeControl
+                key={comment.comment_id}
+                comment={comment}
+                userId={userId}
+                previewMode={previewMode}
+              />
+              <button
+                type="button"
+                onPointerDown={(event) => event.stopPropagation()}
+                onTouchStart={(event) => event.stopPropagation()}
+                onClick={openComment}
+                aria-label={`Open ${comment.reply_count} replies`}
+                className="text-text-muted hover:bg-bg-secondary hover:text-text-primary flex h-11 items-center gap-2 rounded-full px-3 transition-colors"
+              >
+                <MessageCircle className="h-5 w-5" />
+                <span className="text-xs font-medium tabular-nums">{comment.reply_count}</span>
+              </button>
+              <button
+                type="button"
+                onPointerDown={(event) => event.stopPropagation()}
+                onTouchStart={(event) => event.stopPropagation()}
+                onClick={openComment}
+                aria-label="Open this comment"
+                title="Open comment"
+                className="text-text-muted hover:bg-bg-secondary hover:text-text-primary flex h-11 w-11 items-center justify-center rounded-full transition-colors"
+              >
+                <DoorOpen className="h-5 w-5" />
+              </button>
+            </div>
+          </>
+        }
+        footer={
+          <div className="flex flex-col items-center gap-3 pt-4">
+            <div className="flex items-center justify-center pb-1">
+              {comment.author_username ? (
+                <Link
+                  href={`/profile/${encodeURIComponent(comment.author_username)}`}
+                  onClick={(event) => event.stopPropagation()}
+                  className="text-text-primary hover:text-accent text-sm font-semibold transition-colors"
+                >
+                  {comment.author_display_name}
+                  <span className="text-text-muted ml-2 font-normal">@{comment.author_username}</span>
+                </Link>
+              ) : (
+                <span className="text-text-primary text-sm font-semibold">{comment.author_display_name}</span>
+              )}
+            </div>
+            {comments.length > 1 && (
+              <div className="flex items-center justify-center gap-3">
+                <button
+                  type="button"
+                  onClick={showPreviousComment}
+                  disabled={safeIndex === 0}
+                  aria-label="Previous comment"
+                  className="text-text-muted hover:bg-bg-secondary rounded-full p-2 transition-colors disabled:opacity-30"
+                >
+                  <span aria-hidden="true">←</span>
+                </button>
+                <span className="text-text-muted text-xs tabular-nums">
+                  {safeIndex + 1} / {comments.length}
+                </span>
+                <button
+                  type="button"
+                  onClick={showNextComment}
+                  disabled={safeIndex >= comments.length - 1}
+                  aria-label="Next comment"
+                  className="text-text-muted hover:bg-bg-secondary rounded-full p-2 transition-colors disabled:opacity-30"
+                >
+                  <span aria-hidden="true">→</span>
+                </button>
               </div>
             )}
-            <p className="text-text-primary text-2xl leading-tight font-semibold md:text-4xl">
-              {comment.content}
-              {comment.content_truncated ? '…' : ''}
-            </p>
           </div>
-        </div>
-
-        <footer className="flex items-center justify-center pb-2">
-          {comment.author_username ? (
-            <Link
-              href={`/profile/${encodeURIComponent(comment.author_username)}`}
-              onClick={(event) => event.stopPropagation()}
-              className="text-text-primary hover:text-accent text-sm font-semibold transition-colors"
-            >
-              {comment.author_display_name}
-              <span className="text-text-muted ml-2 font-normal">
-                @{comment.author_username}
-              </span>
-            </Link>
-          ) : (
-            <span className="text-text-primary text-sm font-semibold">
-              {comment.author_display_name}
-            </span>
+        }
+      >
+        <article
+          className="w-full"
+          onDoubleClick={(event) => {
+            if ((event.target as HTMLElement).closest('button, a')) return;
+            openComment();
+          }}
+          aria-label="Community comment. Double-click to open the discussion."
+        >
+          <p className="text-text-muted mb-5 text-sm font-medium md:text-base">
+            {comment.topic_question}
+          </p>
+          {comment.is_pinned && (
+            <div className="mb-4 inline-flex items-center gap-1.5 text-xs font-medium text-accent">
+              <Pin className="h-3.5 w-3.5" />
+              Pinned comment
+            </div>
           )}
-        </footer>
-      </article>
-
-      {comments.length > 1 && (
-        <div className="flex items-center justify-center gap-3 pt-4">
-          <button
-            type="button"
-            onClick={showPreviousComment}
-            disabled={safeIndex === 0}
-            aria-label="Previous comment"
-            className="text-text-muted hover:bg-bg-secondary rounded-full p-2 transition-colors disabled:opacity-30"
-          >
-            <span aria-hidden="true">←</span>
-          </button>
-          <span className="text-text-muted text-xs tabular-nums">
-            {safeIndex + 1} / {comments.length}
-          </span>
-          <button
-            type="button"
-            onClick={showNextComment}
-            disabled={safeIndex >= comments.length - 1}
-            aria-label="Next comment"
-            className="text-text-muted hover:bg-bg-secondary rounded-full p-2 transition-colors disabled:opacity-30"
-          >
-            <span aria-hidden="true">→</span>
-          </button>
-        </div>
-      )}
-    </div>
+          <p className="text-text-primary text-2xl leading-tight font-semibold md:text-4xl">
+            {comment.content}
+            {comment.content_truncated ? '…' : ''}
+          </p>
+        </article>
+      </TopicCardLayout>
     </FeedInterstitialMotion>
   );
 }
