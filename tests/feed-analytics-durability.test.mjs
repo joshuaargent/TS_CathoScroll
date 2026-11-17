@@ -16,13 +16,16 @@ async function importTypeScript(relativePath, instance = '') {
   return import('data:text/javascript;base64,' + encoded + (instance ? '#' + instance : ''));
 }
 
-const [analytics, sponsor, sponsorAnalytics, topicFeed, readme, sponsorClient] = await Promise.all([
+const [analytics, sponsor, sponsorAnalytics, topicFeed, readme, sponsorClient, sync, layout, nativeMain] = await Promise.all([
   readFile(new URL('../src/lib/feed-analytics-client.ts', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/SponsorFeedCard.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/lib/sponsor-analytics-client.ts', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/TopicFeedCore.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../README.md', import.meta.url), 'utf8'),
   importTypeScript('../src/lib/sponsor-analytics-client.ts'),
+  readFile(new URL('../src/components/providers/SponsorAnalyticsSync.tsx', import.meta.url), 'utf8'),
+  readFile(new URL('../src/app/layout.tsx', import.meta.url), 'utf8'),
+  readFile(new URL('../native/main.tsx', import.meta.url), 'utf8'),
 ]);
 
 test('feed analytics retains queued events until server acknowledgement and drains on startup', () => {
@@ -42,7 +45,11 @@ test('sponsor analytics queue survives restarts and flushes even when no sponsor
   assert.ok(sponsorAnalytics.includes('response.status === 400 || response.status === 403'));
   assert.ok(sponsorAnalytics.includes('Transient auth/rate/server'));
   assert.ok(sponsorAnalytics.includes('if (!response.ok)'));
-  assert.ok(topicFeed.includes('installSponsorAnalyticsListeners(userId, getSponsorAccessToken, effectiveSponsorApiBaseUrl)'));
+  assert.ok(sync.includes('installSponsorAnalyticsListeners('));
+  assert.ok(sync.includes('supabase.auth.onAuthStateChange'));
+  assert.ok(layout.includes('<SponsorAnalyticsSync />'));
+  assert.ok(nativeMain.includes('<SponsorAnalyticsSync'));
+  assert.ok(nativeMain.includes('getAccessToken={getNativeSponsorAccessToken}'));
   assert.ok(topicFeed.includes("new URL('/api/content/sponsored-campaigns', effectiveSponsorApiBaseUrl)"));
   assert.ok(topicFeed.includes("window.location.protocol === 'capacitor:'"));
   assert.ok(sponsorAnalytics.includes("new URL('/api/content/sponsor-campaign-events', apiBaseUrl)"));
