@@ -320,8 +320,10 @@ export function TopicSwipeViewer({
       });
 
       if (navigation) await navigation;
-      y.jump(0);
+    } catch (error) {
+      console.error('Unable to navigate topic feed:', error);
     } finally {
+      y.jump(0);
       animationLockRef.current = false;
       setIsAnimating(false);
     }
