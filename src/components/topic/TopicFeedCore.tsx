@@ -481,6 +481,7 @@ export function TopicFeedCore({
         <SponsorFeedCard
           campaigns={sponsorCampaigns}
           sessionId={activeSponsorSessionId ?? ''}
+          userId={userId ?? ''}
           getAccessToken={getSponsorAccessToken ?? (async () => null)}
           onNextTopic={() => {
             setShowSponsorCard(false);
