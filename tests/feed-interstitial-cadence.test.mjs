@@ -189,6 +189,7 @@ test('the ordered feed queue keeps topic, comments and sponsor entries in cadenc
   assert.match(feedCore, /if \(topicIndex <= 0\) return;/);
   assert.doesNotMatch(feedCore, /% feedTopics\.length/);
   assert.doesNotMatch(feedCore, /if \(comments\.length === 0\)/);
+  assert.match(feedCore, /crypto\.getRandomValues\(new Uint8Array\(16\)\)/);
   assert.match(feedCore, /buildFeedQueue/);
   assert.match(feedCore, /getFeedQueueWindow/);
   assert.match(feedCore, /navigateToPreviousQueueEntry/);
