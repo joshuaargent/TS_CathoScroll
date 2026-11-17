@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { DoorOpen, Heart, MessageCircle, Pin } from 'lucide-react';
+import { DoorOpen, Heart, MessageCircle } from 'lucide-react';
 
 import { useSignInPrompt } from '@/components/providers/SignInPromptProvider';
 import { createClient } from '@/lib/supabase/client';
@@ -115,18 +115,14 @@ function CommentLikeControl({
         aria-label={isLiked ? 'Unlike comment' : 'Like comment'}
         aria-pressed={isLiked}
         className={cn(
-          'text-text-muted hover:bg-bg-secondary hover:text-text-primary flex h-11 items-center gap-2 rounded-full px-3 transition-colors disabled:opacity-50',
+          'text-text-muted hover:bg-bg-secondary hover:text-text-primary flex h-11 items-center gap-2 rounded-full px-4 transition-colors disabled:opacity-50',
           isLiked && 'bg-accent-light text-accent'
         )}
       >
         <Heart className={cn('h-5 w-5', isLiked && 'fill-current')} />
         <span className="text-xs font-medium tabular-nums">{likeCount}</span>
       </button>
-      {likeError && (
-        <span role="status" className="text-text-muted max-w-48 text-right text-[10px] leading-tight">
-          {likeError}
-        </span>
-      )}
+      {likeError && <span role="status" className="sr-only">{likeError}</span>}
     </div>
   );
 }
@@ -191,10 +187,8 @@ export function TopCommentFeedCard({
         contentWidthClassName="max-w-3xl"
         header={
           <>
-            <p className="text-text-muted min-w-0 flex-1 truncate text-xs tracking-wider uppercase">
-              Top Comments
-            </p>
-            <div className="flex shrink-0 items-center gap-1">
+            <span className="text-text-muted text-xs tracking-wider uppercase">Top Comments</span>
+            <div className="flex items-center gap-2">
               <CommentLikeControl
                 key={comment.comment_id}
                 comment={comment}
@@ -207,7 +201,7 @@ export function TopCommentFeedCard({
                 onTouchStart={(event) => event.stopPropagation()}
                 onClick={openComment}
                 aria-label={`Open ${comment.reply_count} replies`}
-                className="text-text-muted hover:bg-bg-secondary hover:text-text-primary flex h-11 items-center gap-2 rounded-full px-3 transition-colors"
+                className="text-text-muted hover:bg-bg-secondary hover:text-text-primary flex h-11 items-center gap-2 rounded-full px-4 transition-colors"
               >
                 <MessageCircle className="h-5 w-5" />
                 <span className="text-xs font-medium tabular-nums">{comment.reply_count}</span>
@@ -217,57 +211,14 @@ export function TopCommentFeedCard({
                 onPointerDown={(event) => event.stopPropagation()}
                 onTouchStart={(event) => event.stopPropagation()}
                 onClick={openComment}
-                aria-label="Open this comment"
-                title="Open comment"
+                aria-label="See more about this comment"
+                title="See more"
                 className="text-text-muted hover:bg-bg-secondary hover:text-text-primary flex h-11 w-11 items-center justify-center rounded-full transition-colors"
               >
                 <DoorOpen className="h-5 w-5" />
               </button>
             </div>
           </>
-        }
-        footer={
-          <div className="flex flex-col items-center gap-3 pt-4">
-            <div className="flex items-center justify-center pb-1">
-              {comment.author_username ? (
-                <Link
-                  href={`/profile/${encodeURIComponent(comment.author_username)}`}
-                  onClick={(event) => event.stopPropagation()}
-                  className="text-text-primary hover:text-accent text-sm font-semibold transition-colors"
-                >
-                  {comment.author_display_name}
-                  <span className="text-text-muted ml-2 font-normal">@{comment.author_username}</span>
-                </Link>
-              ) : (
-                <span className="text-text-primary text-sm font-semibold">{comment.author_display_name}</span>
-              )}
-            </div>
-            {comments.length > 1 && (
-              <div className="flex items-center justify-center gap-3">
-                <button
-                  type="button"
-                  onClick={showPreviousComment}
-                  disabled={safeIndex === 0}
-                  aria-label="Previous comment"
-                  className="text-text-muted hover:bg-bg-secondary rounded-full p-2 transition-colors disabled:opacity-30"
-                >
-                  <span aria-hidden="true">←</span>
-                </button>
-                <span className="text-text-muted text-xs tabular-nums">
-                  {safeIndex + 1} / {comments.length}
-                </span>
-                <button
-                  type="button"
-                  onClick={showNextComment}
-                  disabled={safeIndex >= comments.length - 1}
-                  aria-label="Next comment"
-                  className="text-text-muted hover:bg-bg-secondary rounded-full p-2 transition-colors disabled:opacity-30"
-                >
-                  <span aria-hidden="true">→</span>
-                </button>
-              </div>
-            )}
-          </div>
         }
       >
         <article
@@ -281,12 +232,6 @@ export function TopCommentFeedCard({
           <p className="text-text-muted mb-5 text-sm font-medium md:text-base">
             {comment.topic_question}
           </p>
-          {comment.is_pinned && (
-            <div className="mb-4 inline-flex items-center gap-1.5 text-xs font-medium text-accent">
-              <Pin className="h-3.5 w-3.5" />
-              Pinned comment
-            </div>
-          )}
           <p className={cn('text-text-primary leading-tight font-semibold', commentContentClasses)}>
             {comment.content}
             {comment.content_truncated ? '…' : ''}
