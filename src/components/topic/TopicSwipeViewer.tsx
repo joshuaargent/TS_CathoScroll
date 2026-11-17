@@ -649,7 +649,7 @@ export function TopicSwipeViewer({
           {/* BOTTOM */}
 
           {
-            <div className="absolute inset-x-0 top-[100%] h-full opacity-90">
+            <div className="pointer-events-none absolute inset-x-0 top-[100%] h-full opacity-90">
               {nextEntryPreview ?? (
                 <TopicCard type="question" title="Question" content={nextTopic.question} />
               )}
