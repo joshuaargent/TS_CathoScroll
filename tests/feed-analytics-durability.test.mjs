@@ -24,7 +24,9 @@ test('sponsor analytics queue survives restarts and flushes even when no sponsor
   assert.ok(sponsorAnalytics.includes("window.addEventListener('online', flush)"));
   assert.ok(sponsorAnalytics.includes("window.addEventListener('pageshow', flush)"));
   assert.ok(sponsorAnalytics.includes("document.addEventListener('visibilitychange', onVisibilityChange)"));
-  assert.ok(sponsorAnalytics.includes('if (!response.ok) break'));
+  assert.ok(sponsorAnalytics.includes('response.status === 400 || response.status === 403'));
+  assert.ok(sponsorAnalytics.includes('Transient auth/rate/server'));
+  assert.ok(sponsorAnalytics.includes('if (!response.ok)'));
   assert.ok(topicFeed.includes('installSponsorAnalyticsListeners(userId, getSponsorAccessToken)'));
   assert.ok(topicFeed.includes("userId={userId ?? ''}"));
   assert.ok(sponsor.includes('recordSponsorCampaignEvent('));
