@@ -496,6 +496,7 @@ export function TopicFeedCore({
           key={userId ?? 'anonymous'}
           comments={activeTopCommentCardComments}
           onCommentViewed={markTopCommentViewed}
+          navigationResetKey={userId}
           onNextTopic={() => {
             if (sponsorLoadingRef.current) return;
             if (!pendingSponsorAfterComment.current) {
