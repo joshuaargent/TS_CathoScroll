@@ -86,6 +86,17 @@ export function TopicFeedCore({
   const [topCommentInventoryVersion, setTopCommentInventoryVersion] = useState(0);
   const topCommentsPageLoading = useRef(false);
   const [feedSessionUserId, setFeedSessionUserId] = useState(userId);
+  const [showTopCommentCard, setShowTopCommentCard] = useState(false);
+  const seenTopCommentIds = useRef(new Set<number>());
+  const seenTopCommentUserId = useRef(userId);
+  const topCommentCadenceUserId = useRef(userId);
+  const [topCommentCardsByTopicId, setTopCommentCardsByTopicId] = useState<Map<string, TopFeedComment[]>>(() => new Map());
+  const [topicsSinceTopCommentCard, setTopicsSinceTopCommentCard] = useState(0);
+  const topCommentCadenceAnchor = useRef<{ topicId: string; value: number } | null>(null);
+  const [showSponsorCard, setShowSponsorCard] = useState(false);
+  const [topicsSinceSponsorCard, setTopicsSinceSponsorCard] = useState(0);
+  const sponsorCadenceAnchor = useRef<{ topicId: string; value: number } | null>(null);
+  const [sponsorCardsByTopicId, setSponsorCardsByTopicId] = useState<Map<string, { campaigns: SponsorFeedCampaign[]; sessionId: string }>>(() => new Map());
   const cacheTopCommentGroup = (topicId: string, comments: TopFeedComment[]) => {
     setTopCommentCardsByTopicId((current) => {
       const next = new Map(current);
@@ -105,17 +116,6 @@ export function TopicFeedCore({
     });
   };
   const clearSponsorPlacements = () => setSponsorCardsByTopicId(new Map());
-  const [showTopCommentCard, setShowTopCommentCard] = useState(false);
-  const seenTopCommentIds = useRef(new Set<number>());
-  const seenTopCommentUserId = useRef(userId);
-  const topCommentCadenceUserId = useRef(userId);
-  const [topCommentCardsByTopicId, setTopCommentCardsByTopicId] = useState<Map<string, TopFeedComment[]>>(() => new Map());
-  const [topicsSinceTopCommentCard, setTopicsSinceTopCommentCard] = useState(0);
-  const topCommentCadenceAnchor = useRef<{ topicId: string; value: number } | null>(null);
-  const [showSponsorCard, setShowSponsorCard] = useState(false);
-  const [topicsSinceSponsorCard, setTopicsSinceSponsorCard] = useState(0);
-  const sponsorCadenceAnchor = useRef<{ topicId: string; value: number } | null>(null);
-  const [sponsorCardsByTopicId, setSponsorCardsByTopicId] = useState<Map<string, { campaigns: SponsorFeedCampaign[]; sessionId: string }>>(() => new Map());
   const sponsorSessionUserId = useRef(userId);
   const sponsorLoadingRef = useRef(false);
   const sponsorRequestVersion = useRef(0);
