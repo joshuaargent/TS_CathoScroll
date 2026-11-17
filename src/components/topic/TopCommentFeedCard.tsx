@@ -197,7 +197,7 @@ export function TopCommentFeedCard({
       previousPreview={previousEntryPreview}
     >
       <TopicCardLayout
-        cardClassName={safeIndex === 0 ? 'bg-accent-light/5' : undefined}
+        cardClassName="bg-accent-light/5"
         contentWidthClassName="max-w-3xl"
         progress={<TopicProgress current={safeIndex} total={comments.length} />}
         header={
