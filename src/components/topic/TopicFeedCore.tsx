@@ -112,6 +112,7 @@ export function TopicFeedCore({
   useEffect(() => {
     if (sponsorSessionUserId.current === userId) return;
     sponsorSessionUserId.current = userId;
+    sponsorPreviousIsComment.current = false;
     setActiveSponsorSessionId(null);
     sponsorCardsByTopicId.current.clear();
     sponsorRequestVersion.current += 1;
@@ -293,6 +294,30 @@ export function TopicFeedCore({
   const nextTopic = () => {
     // Ignore repeated gestures while the due sponsor inventory request is in flight.
     if (sponsorLoadingRef.current) return;
+
+    // Re-entering a topic replays the exact interstitials already assigned to
+    // it. This keeps the user's feed mapping stable across reverse/forward
+    // navigation and across loops through the loaded recommendation sequence.
+    const currentTopic = feedTopics[topicIndex];
+    if (currentTopic) {
+      const cachedComments = topCommentCardsByTopicId.current.get(currentTopic.id);
+      const cachedSponsor = sponsorCardsByTopicId.current.get(currentTopic.id);
+      if (cachedComments?.length) {
+        setTopCommentCardComments(cachedComments);
+        pendingSponsorAfterComment.current = Boolean(cachedSponsor?.campaigns.length);
+        setShowSponsorCard(false);
+        setShowTopCommentCard(true);
+        return;
+      }
+      if (cachedSponsor?.campaigns.length) {
+        sponsorPreviousIsComment.current = false;
+        setSponsorCampaigns(cachedSponsor.campaigns);
+        setActiveSponsorSessionId(cachedSponsor.sessionId);
+        setShowTopCommentCard(false);
+        setShowSponsorCard(true);
+        return;
+      }
+    }
 
     // Never strand the user on an interstitial at the end of a page while the
     // next topic page is still loading.
@@ -511,14 +536,27 @@ export function TopicFeedCore({
           onCommentViewed={markTopCommentViewed}
           onNextTopic={() => {
             if (sponsorLoadingRef.current) return;
+            const currentTopic = feedTopics[topicIndex];
+            const cachedSponsor = currentTopic
+              ? sponsorCardsByTopicId.current.get(currentTopic.id)
+              : undefined;
+            pendingSponsorAfterComment.current = false;
+
+            if (cachedSponsor?.campaigns.length) {
+              sponsorPreviousIsComment.current = true;
+              setSponsorCampaigns(cachedSponsor.campaigns);
+              setActiveSponsorSessionId(cachedSponsor.sessionId);
+              setShowTopCommentCard(false);
+              setShowSponsorCard(true);
+              return;
+            }
+
             if (!pendingSponsorAfterComment.current) {
               setShowTopCommentCard(false);
               advanceToNextTopic();
               return;
             }
 
-            pendingSponsorAfterComment.current = false;
-            const currentTopic = feedTopics[topicIndex];
             if (!currentTopic || sponsorLoadingRef.current) {
               setShowTopCommentCard(false);
               setTopicsSinceSponsorCard(0);
