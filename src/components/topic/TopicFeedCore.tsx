@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType }
 
 import { shuffle } from '@/lib/utils';
 import {
+  TOP_COMMENT_CADENCE,
   getNextTopCommentCadence,
   getUnseenTopFeedComments,
   parseTopFeedComments,
@@ -12,6 +13,7 @@ import {
 } from '@/lib/feed-comments';
 import { TopCommentFeedCard } from './TopCommentFeedCard';
 import {
+  SPONSOR_CARD_CADENCE,
   getNextSponsorCadence,
   parseSponsorFeedCampaigns,
   shouldInsertSponsorCard,
@@ -99,6 +101,11 @@ export function TopicFeedCore({
   const sponsorLoadingRef = useRef(false);
   const sponsorRequestVersion = useRef(0);
   const sponsorRequestPreviousCadence = useRef(0);
+  const sponsorPrefetchRef = useRef<{
+    topicId: string;
+    userId: string;
+    promise: Promise<{ campaigns: SponsorFeedCampaign[]; sessionId: string | null }>;
+  } | null>(null);
   const pendingSponsorAfterComment = useRef(false);
 
   const [topicIndex, setTopicIndex] = useState(personalized ? 0 : Math.floor(topics.length / 2));
@@ -144,6 +151,7 @@ export function TopicFeedCore({
   useEffect(() => {
     if (sponsorSessionUserId.current === userId) return;
     sponsorSessionUserId.current = userId;
+    sponsorPrefetchRef.current = null;
     setActiveSponsorSessionId(null);
     sponsorCardsByTopicId.current.clear();
     sponsorRequestVersion.current += 1;
@@ -187,6 +195,31 @@ export function TopicFeedCore({
     },
     [effectiveSponsorApiBaseUrl, getSponsorAccessToken, userId]
   );
+
+  useEffect(() => {
+    if (!userId || topicsSinceSponsorCard !== SPONSOR_CARD_CADENCE - 1) return;
+    const topic = feedTopics[topicIndex];
+    if (!topic || sponsorCardsByTopicId.current.has(topic.id)) return;
+    const existing = sponsorPrefetchRef.current;
+    if (existing?.topicId === topic.id && existing.userId === userId) return;
+
+    const promise = loadSponsorCampaigns(topic);
+    sponsorPrefetchRef.current = { topicId: topic.id, userId, promise };
+    void promise.then((result) => {
+      if (
+        sponsorPrefetchRef.current?.promise !== promise ||
+        sponsorSessionUserId.current !== userId
+      ) return;
+      if (result.campaigns.length > 0 && result.sessionId) {
+        setSponsorCampaigns(result.campaigns);
+        setActiveSponsorSessionId(result.sessionId);
+        sponsorCardsByTopicId.current.set(topic.id, {
+          campaigns: result.campaigns,
+          sessionId: result.sessionId,
+        });
+      }
+    });
+  }, [feedTopics, topicIndex, topicsSinceSponsorCard, userId, loadSponsorCampaigns]);
 
   useEffect(() => {
     let cancelled = false;
@@ -368,6 +401,7 @@ export function TopicFeedCore({
       setShowTopCommentCard(true);
       return;
     }
+    setTopicsSinceSponsorCard(0);
     setSponsorCampaigns(entry.campaigns);
     setActiveSponsorSessionId(entry.sessionId);
     setShowTopCommentCard(false);
@@ -386,23 +420,6 @@ export function TopicFeedCore({
   const nextTopic = () => {
     // Ignore repeated gestures while the due sponsor inventory request is in flight.
     if (sponsorLoadingRef.current) return;
-
-    // Re-enter an already prepared queue entry when moving forward after back-navigation.
-    if (
-      feedQueueWindow.current?.type === 'topic' &&
-      feedQueueWindow.next &&
-      feedQueueWindow.next.type !== 'topic'
-    ) {
-      activateFeedQueueEntry(feedQueueWindow.next);
-      return;
-    }
-
-    // Never strand the user on an interstitial at the end of a page while the
-    // next topic page is still loading.
-    if (topicIndex >= feedTopics.length - 1 && nextCursor) {
-      void loadMoreTopics();
-      return;
-    }
 
     let currentCommentCadence = topicsSinceTopCommentCard;
     let currentSponsorCadence = topicsSinceSponsorCard;
@@ -434,6 +451,26 @@ export function TopicFeedCore({
       currentCommentCadence,
       unseenTopComments.length > 0
     );
+
+    const queuedNextEntry = feedQueueWindow.current?.type === 'topic'
+      ? feedQueueWindow.next
+      : null;
+    if (queuedNextEntry?.type === 'top-comments') {
+      activateFeedQueueEntry(queuedNextEntry);
+      return;
+    }
+    if (queuedNextEntry?.type === 'sponsor' && !commentDue) {
+      setTopicsSinceSponsorCard(0);
+      activateFeedQueueEntry(queuedNextEntry);
+      return;
+    }
+
+    // Existing queue entries take priority over loading another topic page.
+    if (topicIndex >= feedTopics.length - 1 && nextCursor) {
+      void loadMoreTopics();
+      return;
+    }
+
     const sponsorDue = shouldInsertSponsorCard(currentSponsorCadence, Boolean(userId));
     const nextCommentCadence = getNextTopCommentCadence(currentCommentCadence);
     const nextSponsorCadence = getNextSponsorCadence(currentSponsorCadence);
@@ -564,6 +601,12 @@ export function TopicFeedCore({
       return;
     }
 
+    setTopicsSinceTopCommentCard((current) =>
+      (current + TOP_COMMENT_CADENCE - 1) % TOP_COMMENT_CADENCE
+    );
+    setTopicsSinceSponsorCard((current) =>
+      (current + SPONSOR_CARD_CADENCE - 1) % SPONSOR_CARD_CADENCE
+    );
     setTopicIndex(previousIndex);
   };
 
