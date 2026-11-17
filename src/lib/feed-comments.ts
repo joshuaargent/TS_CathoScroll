@@ -57,7 +57,7 @@ export function isTopFeedComment(value: unknown): value is TopFeedComment {
 
 export function parseTopFeedComments(value: unknown): TopFeedComment[] {
   if (!isRecord(value) || !Array.isArray(value.comments)) return [];
-  return value.comments.filter(isTopFeedComment).slice(0, 5);
+  return value.comments.filter(isTopFeedComment).slice(0, 100);
 }
 
 export function shouldInsertTopCommentCard(
