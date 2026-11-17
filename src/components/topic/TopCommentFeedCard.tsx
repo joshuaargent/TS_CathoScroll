@@ -32,7 +32,7 @@ function CommentLikeControl({
   const [likeCount, setLikeCount] = useState(comment.like_count);
   const [likePending, setLikePending] = useState(false);
   const [likeError, setLikeError] = useState('');
-  const { requestSignIn } = useSignInPrompt();
+  const requestSignIn = useSignInPrompt();
 
   useEffect(() => {
     if (!userId || previewMode) return;
