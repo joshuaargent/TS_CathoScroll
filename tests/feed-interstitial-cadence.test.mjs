@@ -177,7 +177,7 @@ test('the ordered feed queue keeps topic, comments and sponsor entries in cadenc
   assert.match(feedCore, /className=\{active \? 'absolute inset-0 h-full w-full' : 'hidden'\}/);
   assert.match(feedCore, /sponsorPrefetchRef/);
   assert.match(feedCore, /SPONSOR_CARD_CADENCE - 1/);
-  assert.match(feedCore, /prefetched\\.promise/);
-  assert.match(feedCore, /setTopicsSinceSponsorCard\\(0\\)/);
+  assert.match(feedCore, /prefetched\.promise/);
+  assert.match(feedCore, /setTopicsSinceSponsorCard\(0\)/);
 
 });
