@@ -23,7 +23,7 @@ export function TopicCardLayout({
 }: TopicCardLayoutProps) {
   return (
     <div className={cn('flex h-full w-full flex-col px-6 py-6 md:px-8 md:py-8', className)}>
-      {progress && <div className="shrink-0 pb-5">{progress}</div>}
+      {progress}
       <header className="flex items-center justify-between gap-3">
         {header}
       </header>
