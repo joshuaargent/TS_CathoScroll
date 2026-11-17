@@ -540,6 +540,7 @@ export function TopicFeedCore({
             const cachedSponsor = currentTopic
               ? sponsorCardsByTopicId.current.get(currentTopic.id)
               : undefined;
+            const shouldShowSponsorAfterComment = pendingSponsorAfterComment.current;
             pendingSponsorAfterComment.current = false;
 
             if (cachedSponsor?.campaigns.length) {
@@ -551,7 +552,7 @@ export function TopicFeedCore({
               return;
             }
 
-            if (!pendingSponsorAfterComment.current) {
+            if (!shouldShowSponsorAfterComment) {
               setShowTopCommentCard(false);
               advanceToNextTopic();
               return;
