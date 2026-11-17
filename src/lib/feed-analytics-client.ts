@@ -33,6 +33,7 @@ const flushingUsers = new Set<string>();
 type FeedAnalyticsTransport = {
   endpoint?: string;
   getAccessToken?: () => Promise<string | null>;
+  retired?: boolean;
 };
 const transports = new Map<string, FeedAnalyticsTransport>();
 
@@ -184,6 +185,10 @@ export async function flushFeedAnalytics(userId: string, keepalive = false): Pro
     }
   } finally {
     flushingUsers.delete(userId);
+    const transport = transports.get(userId);
+    if (transport?.retired && readQueue(userId).length === 0) {
+      transports.delete(userId);
+    }
   }
 }
 
@@ -193,7 +198,8 @@ export function installFeedAnalyticsListeners(
 ): () => void {
   if (typeof window === 'undefined') return () => undefined;
 
-  transports.set(userId, transport);
+  const installedTransport: FeedAnalyticsTransport = { ...transport };
+  transports.set(userId, installedTransport);
   // Drain events left by a previous offline session as soon as the authenticated
   // transport is installed. Native WebViews can restart without an `online` event.
   const flush = () => void flushFeedAnalytics(userId);
@@ -209,9 +215,23 @@ export function installFeedAnalyticsListeners(
   document.addEventListener('visibilitychange', handleVisibility);
 
   return () => {
-    if (transports.get(userId) === transport) transports.delete(userId);
     window.removeEventListener('online', flush);
     window.removeEventListener('pagehide', handleVisibility);
     document.removeEventListener('visibilitychange', handleVisibility);
+
+    // The topic-duration effect also flushes during unmount. Retain the
+    // authenticated transport through the current cleanup turn so its final
+    // event cannot fall back to an unauthenticated relative endpoint.
+    if (transports.get(userId) === installedTransport) {
+      installedTransport.retired = true;
+      Promise.resolve().then(() => {
+        if (transports.get(userId) !== installedTransport) return;
+        if (readQueue(userId).length === 0 && !flushingUsers.has(userId)) {
+          transports.delete(userId);
+        } else {
+          void flushFeedAnalytics(userId);
+        }
+      });
+    }
   };
 }
