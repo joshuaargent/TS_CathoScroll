@@ -38,6 +38,7 @@ interface TopicSwipeViewerProps {
   onNextTopic?: () => void;
   onPreviousTopic?: () => void;
   nextEntryPreview?: ReactNode;
+  previousEntryPreview?: ReactNode;
 }
 
 export function TopicSwipeViewer({
@@ -62,6 +63,7 @@ export function TopicSwipeViewer({
   onNextTopic,
   onPreviousTopic,
   nextEntryPreview,
+  previousEntryPreview,
 }: TopicSwipeViewerProps) {
   const [slideIndex, setSlideIndex] = useState(0);
   const [axis, setAxis] = useState<'x' | 'y' | null>(null);
@@ -570,8 +572,10 @@ export function TopicSwipeViewer({
           {/* TOP */}
 
           {
-            <div className="absolute inset-x-0 top-[-100%] h-full opacity-90">
-              <TopicCard type="question" title="Question" content={previousTopic.question} />
+            <div className="pointer-events-none absolute inset-x-0 top-[-100%] h-full opacity-90">
+              {previousEntryPreview ?? (
+                <TopicCard type="question" title="Question" content={previousTopic.question} />
+              )}
             </div>
           }
 
