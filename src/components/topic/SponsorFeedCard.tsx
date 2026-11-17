@@ -141,6 +141,7 @@ export function SponsorFeedCard({
   return (
     <FeedInterstitialMotion
       ariaLabel="Sponsored content"
+      active={!previewMode}
       onSwipeLeft={showNextCampaign}
       onSwipeRight={showPreviousCampaign}
       canSwipeLeft={() => safeIndex < campaigns.length - 1}
