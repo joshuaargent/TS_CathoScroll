@@ -2,9 +2,10 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-const [bootstrap, feedCore, sponsorCard, campaignManager, deliveryRoute, eventRoute, campaignLib, campaignPage] = await Promise.all([
+const [bootstrap, feedCore, cardRegistry, sponsorCard, campaignManager, deliveryRoute, eventRoute, campaignLib, campaignPage] = await Promise.all([
   readFile(new URL('../docs/cathoscroll-database-bootstrap.sql', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/TopicFeedCore.tsx', import.meta.url), 'utf8'),
+  readFile(new URL('../src/components/topic/feed-card-registry.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/SponsorFeedCard.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/admin/SponsorCampaignManager.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/app/api/content/sponsored-campaigns/route.ts', import.meta.url), 'utf8'),
@@ -91,7 +92,7 @@ test('sponsored feed cards are disclosed and inserted separately from organic re
   assert.doesNotMatch(feedCore, /lastInterstitialType/);
   assert.match(feedCore, /const nextSponsorBoundary = boundaries/);
   assert.match(feedCore, /sponsorCadenceAfter/);
-  assert.match(feedCore, /SponsorFeedCard/);
+  assert.match(cardRegistry, /SponsorFeedCard/);
   assert.match(sponsorCard, /Sponsored/);
   assert.match(sponsorCard, /viewable_impression/);
   assert.match(sponsorCard, /IntersectionObserver/);
