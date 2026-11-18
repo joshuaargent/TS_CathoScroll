@@ -17,7 +17,7 @@ The two interstitial schedules are independent:
 
 A row in `public.sponsors` represents a business or organisation. It is not a login account.
 
-Sponsor identity is text-only. The feed displays the sponsor name as text; sponsor logos are not part of sponsor records or campaign payloads. Campaign `image_url` remains separate creative media, not a company logo. The legacy logo column and logo-accepting RPC overload have been removed from the live database; fresh bootstrap schema and admin APIs are logo-free.
+Sponsor identity is text-only. The feed displays the sponsor name as text; sponsor logos are not stored in the database or rendered. Campaign `image_url` remains separate creative media, not a company logo. The live `sponsors.logo_url` column is absent. Until the logo-free application is deployed, a service-role-only compatibility RPC accepts but ignores the old `p_logo_url` argument, and the campaign selector returns `sponsor_logo_url: null` solely for the currently deployed client's validation. Apply [`sponsor-logo-removal.sql`](sponsor-logo-removal.sql) after deployment to remove that temporary API compatibility surface.
 
 Administrators manage sponsor organisations and access at `/admin/sponsors`. They can pause or reactivate an entire sponsor organisation; a paused/completed sponsor is immediately excluded from delivery even if an individual campaign remains approved. Membership changes are audited, and the database prevents suspending or revoking the last active owner.
 
