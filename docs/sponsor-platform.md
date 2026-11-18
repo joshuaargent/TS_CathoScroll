@@ -17,7 +17,7 @@ The two interstitial schedules are independent:
 
 A row in `public.sponsors` represents a business or organisation. It is not a login account.
 
-Sponsor identity is text-only. The feed displays the sponsor name as text; sponsor logos are not part of sponsor records or campaign payloads. Campaign `image_url` remains separate creative media, not a company logo. The compatibility RPC migration is applied first; after the logo-free application version is deployed, apply [`sponsor-logo-removal.sql`](sponsor-logo-removal.sql) to drop the legacy column and RPC signature.
+Sponsor identity is text-only. The feed displays the sponsor name as text; sponsor logos are not part of sponsor records or campaign payloads. Campaign `image_url` remains separate creative media, not a company logo. The legacy logo column and logo-accepting RPC overload have been removed from the live database; fresh bootstrap schema and admin APIs are logo-free.
 
 Administrators manage sponsor organisations and access at `/admin/sponsors`. They can pause or reactivate an entire sponsor organisation; a paused/completed sponsor is immediately excluded from delivery even if an individual campaign remains approved. Membership changes are audited, and the database prevents suspending or revoking the last active owner.
 
@@ -77,7 +77,7 @@ The current workflow supports administrator-entered invoices, partial/full bank-
 
 ## Reporting and privacy
 
-The sponsor portal reports campaign served counts, viewable impressions, clicks and click-through rate from aggregate daily metrics. It does not expose individual users, user IDs, session IDs, reading histories, raw event rows or comment data.
+The sponsor portal reports campaign served counts, viewable impressions, clicks and click-through rate from aggregate daily metrics. Client-side viewable/click events are retained in an account-scoped offline queue capped at 1,000 pending events; acknowledged events are removed and retries reuse stable event IDs. It does not expose individual users, user IDs, session IDs, reading histories, raw event rows or comment data.
 
 Administrators retain the complete sponsor and campaign view. Sponsor members see only their own organisation's campaigns, aggregate performance and invoices. Membership changes, campaign submissions and financial operations are audited.
 
