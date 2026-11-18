@@ -31,6 +31,24 @@ function createEventId() {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
+// Sponsor cards unmount during ordinary feed navigation. Keep viewability
+// attribution for the placement/session, not the component instance, so a
+// revisit does not lose the fact that the impression was already recorded.
+const viewableSponsorPlacements = new Set<string>();
+
+function getSponsorPlacementKey(userId: string, sessionId: string, campaignId: string) {
+  return JSON.stringify([userId, sessionId, campaignId]);
+}
+
+function rememberViewableSponsorPlacement(key: string) {
+  viewableSponsorPlacements.delete(key);
+  viewableSponsorPlacements.add(key);
+  if (viewableSponsorPlacements.size > 5000) {
+    const oldestKey = viewableSponsorPlacements.values().next().value;
+    if (oldestKey !== undefined) viewableSponsorPlacements.delete(oldestKey);
+  }
+}
+
 export function SponsorFeedCard({
   campaigns,
   sessionId,
@@ -46,7 +64,9 @@ export function SponsorFeedCard({
   const [activeIndex, setActiveIndex] = useState(0);
   const navigationStarted = useRef(false);
   const cardRef = useRef<HTMLElement>(null);
-  const viewableCampaignIds = useRef(new Set<string>());
+  const viewablePlacementKey = campaignId
+    ? getSponsorPlacementKey(userId, sessionId, campaignId)
+    : null;
 
   const safeIndex = Math.min(activeIndex, Math.max(0, campaigns.length - 1));
   const campaign = campaigns[safeIndex];
@@ -76,7 +96,7 @@ export function SponsorFeedCard({
 
   useEffect(() => {
     const node = cardRef.current;
-    if (previewMode || !node || !campaignId || viewableCampaignIds.current.has(campaignId)) return;
+    if (previewMode || !node || !campaignId || !viewablePlacementKey || viewableSponsorPlacements.has(viewablePlacementKey)) return;
 
     let timer: number | null = null;
     let visible = false;
@@ -95,7 +115,7 @@ export function SponsorFeedCard({
         timer = null;
         if (!visible || document.visibilityState !== 'visible' || cancelled) return;
         void recordEvent(campaignId, 'viewable_impression').then((recorded) => {
-          if (recorded && !cancelled) viewableCampaignIds.current.add(campaignId);
+          if (recorded) rememberViewableSponsorPlacement(viewablePlacementKey);
         });
       }, 1000);
     };
@@ -127,7 +147,7 @@ export function SponsorFeedCard({
       observer?.disconnect();
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };
-  }, [campaignId, previewMode, recordEvent]);
+  }, [campaignId, previewMode, recordEvent, viewablePlacementKey]);
 
   if (!campaign) return null;
 
@@ -157,7 +177,7 @@ export function SponsorFeedCard({
   const showNextCampaign = () => setActiveIndex((index) => Math.min(campaigns.length - 1, index + 1));
 
   const recordCampaignClick = () => {
-    if (!previewMode && viewableCampaignIds.current.has(campaign.campaign_id)) {
+    if (!previewMode && viewablePlacementKey && viewableSponsorPlacements.has(viewablePlacementKey)) {
       void recordEvent(campaign.campaign_id, 'click');
     }
   };
