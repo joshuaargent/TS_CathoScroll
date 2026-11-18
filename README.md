@@ -56,7 +56,7 @@ The topic feed retains the original recommendation-driven navigation model. Sign
 - **Card surfaces:** The progress-bar region stays on the neutral feed background. The subtle accent tint is applied only to the topic/comment card surface beneath it.
 - **Analytics:** Feed impressions, viewable impressions, active duration, early skips, slide depth, completion and repeat visits continue through the existing analytics pipeline. Visit/completion deduplication survives topic-viewer unmounts when interstitials appear. Sponsor served, viewable-impression and click events use their separate durable, authenticated reporting pipeline. Both queues are best-effort and never block navigation; offline topic telemetry is bounded to 200 unacknowledged events per account, and sponsor reporting retains up to 1,000 pending placement events.
 
-Implementation and operational details are maintained in [Feed experience and analytics](docs/feed-experience-and-analytics.md), [Feed analytics implementation](docs/feed-analytics-implementation.md), and [Sponsor platform](docs/sponsor-platform.md).
+Implementation and operational details are maintained in [Feed experience and analytics](docs/feed-experience-and-analytics.md), [Feed analytics implementation](docs/feed-analytics-implementation.md), and [Sponsor platform](docs/sponsor-platform.md). The temporary logo-free deployment bridge and final cleanup are documented in [sponsor-logo-compatibility.sql](docs/sponsor-logo-compatibility.sql) and [sponsor-logo-removal.sql](docs/sponsor-logo-removal.sql); the narrow upstream dependency exception is documented in [security-dependency-exceptions.md](docs/security-dependency-exceptions.md).
 
 ## Why CathoScroll?
 
@@ -714,7 +714,7 @@ Before deploying, configure the required environment variables in both Vercel an
 
 ### Supabase database recovery and bootstrap
 
-[`docs/cathoscroll-database-bootstrap.sql`](docs/cathoscroll-database-bootstrap.sql) is the consolidated snapshot of CathoScroll's application-owned PostgreSQL schema. Sponsor organisation access, campaign submissions, invoice records and direct-bank-transfer reconciliation are described in [`docs/sponsor-platform.md`](docs/sponsor-platform.md). It recreates the 40 application tables, constraints, indexes, 89 functions, 33 triggers, RLS configuration and policies, grants, the RLS DDL event trigger, and scheduled retention jobs. It includes the ranked-search setup and current offline-sync protections.
+[`docs/cathoscroll-database-bootstrap.sql`](docs/cathoscroll-database-bootstrap.sql) is the consolidated snapshot of CathoScroll's application-owned PostgreSQL schema. Sponsor organisation access, campaign submissions, invoice records and direct-bank-transfer reconciliation are described in [`docs/sponsor-platform.md`](docs/sponsor-platform.md). It recreates the 40 application tables, constraints, indexes, 98 functions, 33 triggers, RLS configuration and policies, grants, the RLS DDL event trigger, and scheduled retention jobs. It includes the ranked-search setup and current offline-sync protections.
 
 Use this file when creating a **fresh Supabase project** to restore the application schema:
 
