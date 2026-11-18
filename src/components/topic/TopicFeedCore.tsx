@@ -464,6 +464,14 @@ export function TopicFeedCore({
       boundaries,
       byTopicId,
     };
+    for (const boundary of planned.boundaries) {
+      const sponsorEntry = boundary.entries.find((entry) => entry.type === 'sponsor');
+      if (sponsorEntry && sponsorEntry.type === 'sponsor' && sponsorEntry.status !== 'empty') {
+        sponsorDueByTopicId.current.add(boundary.topicId);
+      } else {
+        sponsorDueByTopicId.current.delete(boundary.topicId);
+      }
+    }
 
     // Resolve only the next sponsor slot. Fetching every future campaign
     // would consume per-user delivery caps for cards the user may never reach.
