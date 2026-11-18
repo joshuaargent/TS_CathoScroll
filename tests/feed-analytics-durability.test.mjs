@@ -16,11 +16,12 @@ async function importTypeScript(relativePath, instance = '') {
   return import('data:text/javascript;base64,' + encoded + (instance ? '#' + instance : ''));
 }
 
-const [analytics, sponsor, sponsorAnalytics, topicFeed, readme, sponsorClient, sync, layout, nativeMain] = await Promise.all([
+const [analytics, sponsor, sponsorAnalytics, topicFeed, cardRegistry, readme, sponsorClient, sync, layout, nativeMain] = await Promise.all([
   readFile(new URL('../src/lib/feed-analytics-client.ts', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/SponsorFeedCard.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/lib/sponsor-analytics-client.ts', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/TopicFeedCore.tsx', import.meta.url), 'utf8'),
+  readFile(new URL('../src/components/topic/feed-card-registry.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../README.md', import.meta.url), 'utf8'),
   importTypeScript('../src/lib/sponsor-analytics-client.ts'),
   readFile(new URL('../src/components/providers/SponsorAnalyticsSync.tsx', import.meta.url), 'utf8'),
@@ -55,7 +56,7 @@ test('sponsor analytics queue survives restarts and flushes even when no sponsor
   assert.ok(topicFeed.includes("new URL('/api/content/sponsored-campaigns', effectiveSponsorApiBaseUrl)"));
   assert.ok(topicFeed.includes("window.location.protocol === 'capacitor:'"));
   assert.ok(sponsorAnalytics.includes("new URL('/api/content/sponsor-campaign-events', apiBaseUrl)"));
-  assert.ok(topicFeed.includes("userId={userId ?? ''}"));
+  assert.ok(cardRegistry.includes("userId={context.userId ?? ''}"));
   assert.ok(sponsor.includes('recordSponsorCampaignEvent('));
   assert.ok(sponsor.includes('previewMode'));
   assert.ok(sponsorAnalytics.includes('queued.sessionId === event.sessionId'));
