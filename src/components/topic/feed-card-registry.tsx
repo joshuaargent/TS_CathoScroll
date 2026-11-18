@@ -16,6 +16,11 @@ export function createFeedCardRegistry(
 ): FeedEntryRegistration<FeedCardRendererContext>[] {
   let registrations: FeedEntryRegistration<FeedCardRendererContext>[] = [];
   registrations = [
+    registerFeedEntry<Extract<FeedEntry, { type: 'topic' }>, FeedCardRendererContext>('topic', {
+      render: () => context.topicCard ?? null,
+      onNext: context.navigateNext,
+      onPrevious: context.navigatePrevious,
+    }),
     registerFeedEntry<Extract<FeedEntry, { type: 'top-comments' }>, FeedCardRendererContext>('top-comments', {
       render: (entry) => (
         <TopCommentFeedCard
