@@ -105,6 +105,8 @@ export function TopicFeedCore({
   const [sponsorLoading, setSponsorLoading] = useState(false);
   const [topicsSinceSponsorCard, setTopicsSinceSponsorCard] = useState(0);
   const sponsorCardsByTopicId = useRef(new Map<string, { campaigns: SponsorFeedCampaign[]; sessionId: string }>());
+  const sponsorResultsByTopicId = useRef(new Map<string, { campaigns: SponsorFeedCampaign[]; sessionId: string | null }>());
+  const sponsorRequestsByTopicId = useRef(new Map<string, Promise<{ campaigns: SponsorFeedCampaign[]; sessionId: string | null }>>());
   const [activeSponsorSessionId, setActiveSponsorSessionId] = useState<string | null>(null);
   const sponsorSessionUserId = useRef(userId);
   const sponsorLoadingRef = useRef(false);
@@ -134,6 +136,8 @@ export function TopicFeedCore({
     sponsorPreviousIsComment.current = false;
     setActiveSponsorSessionId(null);
     sponsorCardsByTopicId.current.clear();
+    sponsorResultsByTopicId.current.clear();
+    sponsorRequestsByTopicId.current.clear();
     sponsorDueByTopicId.current.clear();
     sponsorRequestVersion.current += 1;
     sponsorLoadingRef.current = false;
@@ -249,6 +253,42 @@ export function TopicFeedCore({
       document.removeEventListener('visibilitychange', refreshWhenVisible);
     };
   }, [topCommentsEndpoint]);
+
+  const getSponsorCampaignResult = useCallback(
+    (topic: Topic): Promise<{ campaigns: SponsorFeedCampaign[]; sessionId: string | null }> => {
+      const cached = sponsorResultsByTopicId.current.get(topic.id);
+      if (cached) return Promise.resolve(cached);
+
+      const inFlight = sponsorRequestsByTopicId.current.get(topic.id);
+      if (inFlight) return inFlight;
+
+      const requestedUserId = userId;
+      const request = loadSponsorCampaigns(topic)
+        .then((result) => {
+          // Cache both successful and empty results. A missing placement is a
+          // stable decision for this topic during the current feed session.
+          if (sponsorSessionUserId.current === requestedUserId) {
+            sponsorResultsByTopicId.current.set(topic.id, result);
+            if (result.campaigns.length > 0 && result.sessionId) {
+              sponsorCardsByTopicId.current.set(topic.id, {
+                campaigns: result.campaigns,
+                sessionId: result.sessionId,
+              });
+            } else {
+              sponsorDueByTopicId.current.delete(topic.id);
+            }
+          }
+          return result;
+        })
+        .finally(() => {
+          sponsorRequestsByTopicId.current.delete(topic.id);
+        });
+
+      sponsorRequestsByTopicId.current.set(topic.id, request);
+      return request;
+    },
+    [loadSponsorCampaigns, userId]
+  );
 
   // ----------------------------------
   // Initial Feed
@@ -378,7 +418,7 @@ export function TopicFeedCore({
       const cachedSponsor = sponsorCardsByTopicId.current.get(currentTopic.id);
       if (cachedComments?.length) {
         setTopCommentCardComments(cachedComments);
-        pendingSponsorAfterComment.current = !cachedSponsor?.campaigns.length &&
+        pendingSponsorAfterComment.current = Boolean(cachedSponsor?.campaigns.length) ||
           sponsorDueByTopicId.current.has(currentTopic.id);
         setShowSponsorCard(false);
         setShowTopCommentCard(true);
@@ -400,7 +440,7 @@ export function TopicFeedCore({
         const requestedUserId = userId;
         const requestVersion = ++sponsorRequestVersion.current;
         try {
-          const result = await loadSponsorCampaigns(currentTopic);
+          const result = await getSponsorCampaignResult(currentTopic);
           if (sponsorRequestVersion.current !== requestVersion ||
               sponsorSessionUserId.current !== requestedUserId) return;
           sponsorDueByTopicId.current.delete(currentTopic.id);
@@ -490,12 +530,13 @@ export function TopicFeedCore({
         return;
       }
 
+      const preparedSponsor = sponsorResultsByTopicId.current.get(currentTopic.id);
       sponsorLoadingRef.current = true;
-      setSponsorLoading(true);
+      if (!preparedSponsor) setSponsorLoading(true);
       const requestedUserId = userId;
       const requestVersion = ++sponsorRequestVersion.current;
       try {
-        const result = await loadSponsorCampaigns(currentTopic);
+        const result = await getSponsorCampaignResult(currentTopic);
         if (sponsorRequestVersion.current !== requestVersion ||
             sponsorSessionUserId.current !== requestedUserId) return;
         if (result.campaigns.length > 0 && result.sessionId) {
@@ -538,10 +579,20 @@ export function TopicFeedCore({
         sponsorDueByTopicId.current.add(currentTopic.id);
       }
       if (currentTopic) {
+        // Reserve the complete group as soon as it is assigned. Unviewed
+        // comments remain part of this card when revisiting and cannot leak
+        // into a later group for another topic.
+        for (const comment of unseenTopComments) {
+          seenTopCommentIds.current.add(comment.comment_id);
+        }
         setTopCommentCardComments(unseenTopComments);
         topCommentCardsByTopicId.current.set(currentTopic.id, unseenTopComments);
         setShowSponsorCard(false);
         setShowTopCommentCard(true);
+
+        // Prefetch the sponsor at the same topic boundary while the comment
+        // card is being read. The following card can then appear immediately.
+        if (sponsorDue) void getSponsorCampaignResult(currentTopic);
         return;
       }
     }
@@ -718,13 +769,14 @@ export function TopicFeedCore({
             }
 
             sponsorPreviousIsComment.current = true;
+            const preparedSponsor = sponsorResultsByTopicId.current.get(currentTopic.id);
             sponsorLoadingRef.current = true;
-            setSponsorLoading(true);
+            if (!preparedSponsor) setSponsorLoading(true);
             sponsorRequestPreviousCadence.current = topicsSinceSponsorCard;
             const requestedUserId = userId;
             const requestVersion = ++sponsorRequestVersion.current;
             try {
-              const result = await loadSponsorCampaigns(currentTopic);
+              const result = await getSponsorCampaignResult(currentTopic);
               if (sponsorRequestVersion.current !== requestVersion ||
                   sponsorSessionUserId.current !== requestedUserId) return;
               setTopicsSinceSponsorCard(0);
@@ -734,6 +786,7 @@ export function TopicFeedCore({
                   campaigns: result.campaigns,
                   sessionId: result.sessionId,
                 });
+                sponsorResultsByTopicId.current.set(currentTopic.id, result);
                 sponsorDueByTopicId.current.delete(currentTopic.id);
                 flushSync(() => {
                   setSponsorCampaigns(result.campaigns);
