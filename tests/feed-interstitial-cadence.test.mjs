@@ -3,10 +3,11 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import ts from 'typescript';
 
-const [commentSource, sponsorSource, feedCore, topicCard, topCommentCard, sponsorCard, topicViewer, interstitialMotion, topicCardLayout, sponsorLoadingCard] = await Promise.all([
+const [commentSource, sponsorSource, feedCore, topicFeed, topicCard, topCommentCard, sponsorCard, topicViewer, interstitialMotion, topicCardLayout, sponsorLoadingCard] = await Promise.all([
   readFile(new URL('../src/lib/feed-comments.ts', import.meta.url), 'utf8'),
   readFile(new URL('../src/lib/sponsor-campaigns.ts', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/TopicFeedCore.tsx', import.meta.url), 'utf8'),
+  readFile(new URL('../src/components/topic/TopicFeed.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/TopicCard.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/TopCommentFeedCard.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/SponsorFeedCard.tsx', import.meta.url), 'utf8'),
@@ -183,6 +184,7 @@ test('the original analytics-ranked feed keeps interstitials in per-topic sessio
   assert.match(feedCore, /sponsorDueByTopicId\.current\.delete\(currentTopic\.id\)/);
   assert.match(feedCore, /Re-entering a topic replays the exact interstitials already assigned to/);
   assert.ok(feedCore.includes('if (preservePositionOnUpdate && feedInitializedRef.current)'));
+  assert.match(topicFeed, /preservePositionOnUpdate/);
   assert.ok(feedCore.includes('previousPersonalizedRef.current !== personalized'));
   assert.match(feedCore, /function appendUniqueFeedTopics\(existing: Topic\[\], incoming: Topic\[\]\)/);
   assert.match(feedCore, /const loadMoreTopComments = useCallback\(async \(\) =>/);
