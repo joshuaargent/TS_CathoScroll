@@ -193,3 +193,48 @@ test('final native reading-time events retain the authenticated transport throug
     else delete globalThis.document;
   }
 });
+
+
+test('feed topic visit attribution ignores StrictMode effect replays', () => {
+  const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
+  const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+  const originalNow = Date.now;
+  const values = new Map();
+  let now = 1000;
+  Date.now = () => now;
+  Object.defineProperty(globalThis, 'window', {
+    configurable: true,
+    value: {
+      localStorage: {
+        getItem: (key) => values.get(key) ?? null,
+        setItem: (key, value) => values.set(key, value),
+        removeItem: (key) => values.delete(key),
+      },
+    },
+  });
+  Object.defineProperty(globalThis, 'navigator', {
+    configurable: true,
+    value: { onLine: false },
+  });
+
+  try {
+    const userId = 'strict-mode-feed-visit-test';
+    analyticsModule.recordFeedTopicVisit(userId, 'topic-repeat');
+    analyticsModule.recordFeedTopicVisit(userId, 'topic-repeat');
+    let queued = JSON.parse(values.get('cathoscroll.feed-analytics.v1.' + userId));
+    assert.equal(queued.filter((event) => event.event_type === 'impression').length, 1);
+    assert.equal(queued.filter((event) => event.event_type === 'return_visit').length, 0);
+
+    now += 101;
+    analyticsModule.recordFeedTopicVisit(userId, 'topic-repeat');
+    queued = JSON.parse(values.get('cathoscroll.feed-analytics.v1.' + userId));
+    assert.equal(queued.filter((event) => event.event_type === 'impression').length, 2);
+    assert.equal(queued.filter((event) => event.event_type === 'return_visit').length, 1);
+  } finally {
+    Date.now = originalNow;
+    if (originalWindow) Object.defineProperty(globalThis, 'window', originalWindow);
+    else delete globalThis.window;
+    if (originalNavigator) Object.defineProperty(globalThis, 'navigator', originalNavigator);
+    else delete globalThis.navigator;
+  }
+});
