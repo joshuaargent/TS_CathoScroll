@@ -311,7 +311,7 @@ export function TopicSwipeViewer({
         navigation = direction === 'next' ? onNextTopic?.() : onPreviousTopic?.();
       });
 
-      if (navigation) await navigation;
+      await navigation;
     } catch (error) {
       console.error('Unable to navigate topic feed:', error);
     } finally {
