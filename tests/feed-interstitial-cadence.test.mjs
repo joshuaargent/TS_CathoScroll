@@ -93,9 +93,9 @@ test('interstitial cards share the topic viewer swipe and animation model', () =
   assert.match(topicViewer, /const animationLockRef = useRef\(false\)/);
   assert.match(topicViewer, /duration: 0\.2/);
 });
-test('topic, comment and sponsor cards use the same structural layout component', () => {
+test('topic, comment and sponsor cards use the same shared base card', () => {
   for (const source of [topicCard, topCommentCard, sponsorCard]) {
-    assert.match(source, /<TopicCardLayout/);
+    assert.match(source, /<BaseFeedCard/);
   }
   assert.match(baseFeedCard, /bg-bg-primary flex h-full w-full flex-col/);
   assert.match(baseFeedCard, /px-6 pt-6 pb-6 md:px-8 md:pt-8 md:pb-8/);
