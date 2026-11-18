@@ -102,6 +102,7 @@ export function TopicFeedCore({
   const seenTopCommentUserId = useRef(userId);
   const topCommentCadenceUserId = useRef(userId);
   const topCommentCardsByTopicId = useRef(new Map<string, TopFeedComment[]>());
+  const topCommentIndexByTopicId = useRef(new Map<string, number>());
   const [topicsSinceTopCommentCard, setTopicsSinceTopCommentCard] = useState(0);
   const [sponsorCampaigns, setSponsorCampaigns] = useState<SponsorFeedCampaign[]>([]);
   const [showSponsorCard, setShowSponsorCard] = useState(false);
@@ -688,6 +689,7 @@ export function TopicFeedCore({
         }
         setTopCommentCardComments(unseenTopComments);
         topCommentCardsByTopicId.current.set(currentTopic.id, unseenTopComments);
+        topCommentIndexByTopicId.current.set(currentTopic.id, 0);
         setShowSponsorCard(false);
         setShowTopCommentCard(true);
 
@@ -749,6 +751,9 @@ export function TopicFeedCore({
       sponsorIsPreviousEntry.current = true;
       topCommentIsPreviousEntry.current = Boolean(previousCard?.length);
       pendingSponsorAfterComment.current = Boolean(previousCard?.length);
+      if (previousCard?.length) {
+        setTopCommentCardComments(previousCard);
+      }
       setSponsorCampaigns(previousSponsorCard.campaigns);
       setActiveSponsorSessionId(previousSponsorCard.sessionId);
       setShowTopCommentCard(false);
@@ -875,6 +880,15 @@ export function TopicFeedCore({
           key={userId ?? 'anonymous'}
           userId={userId}
           comments={activeTopCommentCardComments}
+          initialActiveIndex={
+            activeInterstitialTopicId.current
+              ? topCommentIndexByTopicId.current.get(activeInterstitialTopicId.current) ?? 0
+              : 0
+          }
+          onActiveIndexChange={(index) => {
+            const topicId = activeInterstitialTopicId.current;
+            if (topicId) topCommentIndexByTopicId.current.set(topicId, index);
+          }}
           onCommentViewed={markTopCommentViewed}
           onNextTopic={async () => {
             if (sponsorLoadingRef.current) return;
