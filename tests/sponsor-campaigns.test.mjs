@@ -53,6 +53,8 @@ test('weighted campaign selector enforces payment, dates, targeting, caps and co
   assert.match(selector, /frequency_cap_per_user_24h/);
   assert.match(selector, /recent_viewable\.event_type = 'viewable_impression'/);
   assert.doesNotMatch(selector, /recent_served\.event_type = 'served'/);
+  assert.match(selector, /recent_viewable\.event_type = 'viewable_impression'/);
+  assert.doesNotMatch(selector, /recent_served\.event_type = 'served'/);
   assert.match(selector, /frequency_cap_per_user_total/);
   assert.match(selector, /pg_advisory_xact_lock/);
   assert.match(selector, /FOR UPDATE OF campaign SKIP LOCKED/);
@@ -92,6 +94,9 @@ test('sponsored feed cards are disclosed and inserted separately from organic re
   assert.match(placementRegistry, /id: DEFAULT_FEED_CARD_RULES\.sponsor\.id/);
   assert.match(placementRegistry, /interval: sponsorInterval/);
   assert.match(feedCore, /prefetchMappedSponsor/);
+  assert.match(feedCore, /Keep the placement in the feed and expose an explicit retry action/);
+  assert.match(cardRegistry, /error=\{entry\.status === 'error'\}/);
+  assert.match(cardRegistry, /onRetry=\{\(\) => context\.retrySponsorEntry\(entry\)\}/);
   assert.doesNotMatch(feedCore, /lastInterstitialType/);
   assert.match(feedCore, /const nextSponsorBoundary = boundaries/);
   assert.match(feedCore, /sponsorCadenceAfter/);
