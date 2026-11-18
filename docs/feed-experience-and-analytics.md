@@ -139,6 +139,24 @@ Category analytics aggregate topic-level metrics and show topic leaders, topic d
 
 Sponsor analytics are separate and show eligible opportunities, viewable impressions, unique reach where measurable, clicks, click-through rate, frequency, and campaign trends. Sponsor dashboards expose only aggregate metrics for their own sponsor and never user identities or raw events.
 
+## Unified feed manual acceptance matrix
+
+Run these checks against a preview with test comments and at least two eligible sponsor campaigns. Use a fresh account/session for the first pass, then repeat after navigating away and back.
+
+1. **Cadence and ordering:** after five topic advances, Top Comments appears once. At the shared tenth-topic boundary, the order is topic → Top Comments → Sponsored → next topic. No topic is duplicated to make room for either interstitial.
+2. **Forward/reverse traversal:** verify topic A → comment group A → sponsor A → topic B, then reverse topic B → sponsor A → comment group A → topic A. Repeat several times without refreshing.
+3. **Comment position:** move to the second or later comment in a group, leave the group, then revisit it in both directions. The same group and active comment position must return.
+4. **Sponsor identity:** revisiting a sponsor placement must reuse the same campaign and placement/session ID. It must not select a new campaign or increment served count again.
+5. **No eligible sponsor:** the due slot is omitted without a blank card, duplicated topic or stuck loading surface. The same empty result is reused for that topic during the session.
+6. **Slow/failing sponsor request:** throttle the network, advance from Top Comments while prefetch is pending, then reverse and advance again. The loading card must remain swipeable, time out cleanly, and ignore late responses after the active entry changes.
+7. **Pagination boundary:** throttle the next topic page and swipe forward at the final loaded topic. A successful page satisfies the pending gesture once; a reverse gesture cancels it. Duplicate IDs never append and prior topic positions remain unchanged.
+8. **Comment inventory:** consume the first 100 comments, load another page, and verify IDs are deduplicated. Refresh the first page while a later page is loaded; cached groups and later inventory must not disappear unexpectedly.
+9. **Refresh/account reset:** a full page/app reload or account change starts a fresh topic/interstitial mapping. Ordinary forward/reverse navigation and background inventory refresh do not.
+10. **Sponsor analytics:** confirm one server-side served event per placement, one qualifying viewable impression, and a click only after a viewable impression. Revisit the same placement and verify event IDs/session IDs prevent double counting. Test offline queuing and stable-ID retry.
+11. **Native background updates:** update the catalogue while a user is on a topic or interstitial. The active entry and all earlier/later ordering must remain stable; only unseen topic IDs may append.
+
+Do not mark the feed release-ready until this matrix passes on desktop web, mobile web and the native WebView, including an account switch and a forced refresh.
+
 ## Security, privacy, performance, and reliability
 
 - Enforce admin and sponsor authorization on the server and in database policies.
@@ -156,13 +174,13 @@ Sponsor analytics are separate and show eligible opportunities, viewable impress
 
 ## Delivery sequence
 
-Implementation status on 16 November 2026:
+Implementation status on 18 November 2026:
 
 1. **Feed/admin/comment/offline architecture review:** existing systems were inspected for this work; the offline activity architecture was preserved.
-2. **Validated event schema, ingestion, deduplication and retention:** implemented; automated source checks pass, with deployed browser/native verification still outstanding.
+2. **Validated event schema, ingestion, deduplication and retention:** implemented; source tests and build checks are being rerun after the latest navigation and audit-policy changes, with deployed browser/native verification still outstanding.
 3. **Topic interaction instrumentation:** implemented without changing the topic-card UI; deployed data collection begins when the combined release is deployed.
 4. **Recommendation weighting and diversity safeguards:** first telemetry-weighted model implemented; quality/freshness scoring and measured experimentation remain future work.
-5. **Top-comment feed cards and eligibility:** implemented; real inventory testing remains outstanding because production currently has no comments.
+5. **Top-comment feed cards and eligibility:** implemented, including topic-bound group caching, active-comment restoration and incremental inventory pagination; real inventory testing remains outstanding because production currently has no comments.
 6. **Sponsor organisations, accounts, campaign management, weighted delivery, reporting and reconciliation:** implemented in the draft PR and live database schema. Existing Auth users can be assigned sponsor roles; sponsor users can submit/edit eligible campaign submissions; admins control approval and delivery; invoices, partial bank transfers, duplicate transaction protection and refunds are recorded in an audited private ledger. Bank statement imports and formal invoice PDF/email delivery remain outstanding.
 7. **Admin topic/category analytics and graphs:** implemented; admin/non-admin browser verification remains outstanding.
 8. **Quiz entities, five-question feed cards, attempts and dedicated routes:** not started.
