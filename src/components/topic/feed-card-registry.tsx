@@ -4,6 +4,7 @@ import { TopCommentFeedCard } from './TopCommentFeedCard';
 import { SponsorFeedCard } from './SponsorFeedCard';
 import { SponsorLoadingCard } from './SponsorLoadingCard';
 import {
+  invokeRegisteredFeedEntryAction,
   registerFeedEntry,
   type FeedEntryRegistration,
 } from '@/lib/feed-entry-registry';
@@ -13,7 +14,8 @@ import type { FeedCardRendererContext } from './feed-card-registry.types';
 export function createFeedCardRegistry(
   context: FeedCardRendererContext
 ): FeedEntryRegistration<FeedCardRendererContext>[] {
-  return [
+  let registrations: FeedEntryRegistration<FeedCardRendererContext>[] = [];
+  registrations = [
     registerFeedEntry<Extract<FeedEntry, { type: 'top-comments' }>, FeedCardRendererContext>('top-comments', {
       render: (entry) => (
         <TopCommentFeedCard
@@ -23,13 +25,13 @@ export function createFeedCardRegistry(
           initialActiveIndex={context.activeTopCommentIndex}
           onActiveIndexChange={(index) => context.onTopCommentIndexChange(entry.topicId, index)}
           onCommentViewed={context.onCommentViewed}
-          onNextTopic={() => context.onNext(entry)}
-          onPreviousTopic={() => context.onPrevious(entry)}
+          onNextTopic={() => invokeRegisteredFeedEntryAction(entry, 'next', registrations, context)}
+          onPreviousTopic={() => invokeRegisteredFeedEntryAction(entry, 'previous', registrations, context)}
           onOpenComment={context.onOpenComment}
         />
       ),
-      onNext: context.onNext,
-      onPrevious: context.onPrevious,
+      onNext: context.navigateNext,
+      onPrevious: context.navigatePrevious,
       onEnter: (entry, _direction, _entries, cardContext) => {
         cardContext.activateInterstitialTopic(entry.topicId);
         for (const comment of entry.comments) cardContext.markCommentSeen(comment.comment_id);
@@ -44,8 +46,8 @@ export function createFeedCardRegistry(
     registerFeedEntry<Extract<FeedEntry, { type: 'sponsor' }>, FeedCardRendererContext>('sponsor', {
       render: (entry) => entry.status === 'pending' ? (
         <SponsorLoadingCard
-          onNextTopic={() => context.onNext(entry)}
-          onPreviousTopic={() => context.onPrevious(entry)}
+          onNextTopic={() => invokeRegisteredFeedEntryAction(entry, 'next', registrations, context)}
+          onPreviousTopic={() => invokeRegisteredFeedEntryAction(entry, 'previous', registrations, context)}
         />
       ) : (
         <SponsorFeedCard
@@ -54,8 +56,8 @@ export function createFeedCardRegistry(
           userId={context.userId ?? ''}
           sponsorApiBaseUrl={context.sponsorApiBaseUrl}
           getAccessToken={context.getSponsorAccessToken ?? (async () => null)}
-          onNextTopic={() => context.onNext(entry)}
-          onPreviousTopic={() => context.onPrevious(entry)}
+          onNextTopic={() => invokeRegisteredFeedEntryAction(entry, 'next', registrations, context)}
+          onPreviousTopic={() => invokeRegisteredFeedEntryAction(entry, 'previous', registrations, context)}
         />
       ),
       onNext: context.onNext,
@@ -71,4 +73,5 @@ export function createFeedCardRegistry(
       },
     }),
   ];
+  return registrations;
 }
