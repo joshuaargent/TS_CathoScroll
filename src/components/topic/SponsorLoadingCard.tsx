@@ -2,7 +2,7 @@
 
 import { FeedInterstitialMotion } from './FeedInterstitialMotion';
 import { TopicCardLayout } from './TopicCardLayout';
-import { TopicProgress } from './TopicProgress';
+import { FeedProgress } from './FeedProgress';
 
 interface SponsorLoadingCardProps {
   onNextTopic: () => void | Promise<void>;
@@ -23,7 +23,7 @@ export function SponsorLoadingCard({
     >
       <div className="h-full w-full" role="status" aria-live="polite" aria-busy="true">
         <TopicCardLayout
-          progress={<TopicProgress current={0} total={1} />}
+          progress={<FeedProgress current={0} total={1} />}
           header={
             <span className="text-text-muted text-xs tracking-wider uppercase">
               Sponsored
