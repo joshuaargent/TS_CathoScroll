@@ -332,7 +332,11 @@ export function TopicFeedCore({
           return result;
         })
         .finally(() => {
-          sponsorRequestsByTopicId.current.delete(topic.id);
+          // An older request can finish after a retry has already replaced it.
+          // Only the promise currently registered for this topic may clear it.
+          if (sponsorRequestsByTopicId.current.get(topic.id) === request) {
+            sponsorRequestsByTopicId.current.delete(topic.id);
+          }
         });
 
       sponsorRequestsByTopicId.current.set(topic.id, request);
