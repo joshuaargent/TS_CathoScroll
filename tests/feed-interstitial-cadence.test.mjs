@@ -3,11 +3,12 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import ts from 'typescript';
 
-const [commentSource, sponsorSource, feedCore, topicFeed, topicCard, topCommentCard, sponsorCard, topicViewer, interstitialMotion, topicCardLayout, sponsorLoadingCard] = await Promise.all([
+const [commentSource, sponsorSource, feedCore, topicFeed, cardRegistry, topicCard, topCommentCard, sponsorCard, topicViewer, interstitialMotion, topicCardLayout, sponsorLoadingCard] = await Promise.all([
   readFile(new URL('../src/lib/feed-comments.ts', import.meta.url), 'utf8'),
   readFile(new URL('../src/lib/sponsor-campaigns.ts', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/TopicFeedCore.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/TopicFeed.tsx', import.meta.url), 'utf8'),
+  readFile(new URL('../src/components/topic/feed-card-registry.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/TopicCard.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/TopCommentFeedCard.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/SponsorFeedCard.tsx', import.meta.url), 'utf8'),
@@ -102,7 +103,7 @@ test('topic, comment and sponsor cards use the same structural layout component'
   assert.match(topicCardLayout, /mx-auto w-full text-center/);
   assert.match(topicCardLayout, /flex items-center justify-between gap-3/);
   assert.match(topicCardLayout, /progress &&/);
-  assert.match(topCommentCard, /<TopicProgress current=\{safeIndex\} total=\{comments\.length\} \/>/);
+  assert.match(topCommentCard, /<FeedProgress current=\{safeIndex\} total=\{comments\.length\} \/>/);
   assert.ok(topicCard.includes("cardClassName={type === 'question' ? 'bg-accent-light/5' : undefined}"));
   assert.ok(topCommentCard.includes('cardClassName="bg-accent-light/5"'));
   assert.match(topCommentCard, /<Heart/);
@@ -139,9 +140,9 @@ test('topic, comment and sponsor cards use the same structural layout component'
   assert.match(sponsorCard, /navigationStarted\.current = false/);
   assert.match(sponsorCard, /catch \(error\)/);
   assert.match(feedCore, /const nextTopic = async \(\) =>/);
-  assert.match(feedCore, /sponsorLoading \? \(/);
-  assert.match(feedCore, /<SponsorLoadingCard/);
-  assert.match(feedCore, /onPreviousTopic=\{\(\) => \{/);
+  assert.match(feedCore, /activeFeedEntryKey/);
+  assert.match(cardRegistry, /<SponsorLoadingCard/);
+  assert.match(cardRegistry, /onPreviousTopic=\{\(\) => context\.onPrevious\(entry\)\}/);
   assert.match(feedCore, /const firstSponsor = planned\.boundaries/);
   assert.match(feedCore, /prefetchMappedSponsor\(firstSponsor\.topicId\)/);
   assert.match(feedCore, /const nextSponsorBoundary = boundaries/);
@@ -150,7 +151,7 @@ test('topic, comment and sponsor cards use the same structural layout component'
   assert.match(feedCore, /topCommentCardsByTopicId\.current\.set\(currentTopic\.id, commentGroup\)/);
   assert.match(feedCore, /sponsorResultsByTopicId = useRef\(new Map/);
   assert.match(feedCore, /sponsorRequestsByTopicId = useRef\(new Map/);
-  assert.match(feedCore, /userId=\{userId\}/);
+  assert.match(cardRegistry, /userId=\{context\.userId\}/);
   assert.match(sponsorLoadingCard, /role="status" aria-live="polite" aria-busy="true"/);
   assert.match(sponsorLoadingCard, /<FeedInterstitialMotion/);
   assert.match(feedCore, /window\.setTimeout\(\(\) => controller\.abort\(\), 8000\)/);
@@ -188,7 +189,7 @@ test('the original analytics-ranked topic feed is retained and interstitials are
   assert.match(feedCore, /const nextTopics = appendUniqueFeedTopics\(feedTopicsRef\.current, newTopics\)/);
   assert.match(feedCore, /pendingAdvanceAfterPageRef\.current = true/);
   assert.match(feedCore, /activeInterstitialTopicIdRef = useRef<string \| null>\(null\)/);
-  assert.match(feedCore, /initialActiveIndex=\{activeTopCommentIndex\}/);
+  assert.match(cardRegistry, /initialActiveIndex=\{context\.activeTopCommentIndex\}/);
   assert.match(topCommentCard, /initialActiveIndex\?: number/);
   assert.match(topCommentCard, /onActiveIndexChange\?\.\(nextIndex\)/);
   assert.match(feedCore, /sponsorRequestVersion\.current !== requestVersion/);
