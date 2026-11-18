@@ -1003,7 +1003,7 @@ export function TopicFeedCore({
       <FeedRenderer
         activeEntry={activeMappedEntry}
         progress={<FeedProgress current={feedProgress.current} total={feedProgress.total} />}
-        topicViewer={
+        topicCard={
           <Viewer
             topics={feedTopics}
             topicIndex={topicIndex}
