@@ -101,9 +101,8 @@ export function TopicSwipeViewer({
   useLayoutEffect(() => {
     if (previousTopicIndexRef.current === topicIndex) return;
     previousTopicIndexRef.current = topicIndex;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSlideIndex(0);
-    setAxis(null);
-    setIsDragging(false);
     x.jump(0);
     y.jump(0);
   }, [topicIndex, x, y]);
