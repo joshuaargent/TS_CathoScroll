@@ -93,6 +93,9 @@ export function TopicFeedCore({
   const feedInitializedRef = useRef(false);
   const previousPersonalizedRef = useRef(personalized);
   const [topComments, setTopComments] = useState<TopFeedComment[]>([]);
+  const topCommentsRef = useRef<TopFeedComment[]>([]);
+  const topCommentsNextOffsetRef = useRef<number | null>(null);
+  const topCommentsLoadingRef = useRef(false);
   const [topCommentCardComments, setTopCommentCardComments] = useState<TopFeedComment[]>([]);
   const [showTopCommentCard, setShowTopCommentCard] = useState(false);
   const seenTopCommentIds = useRef(new Set<number>());
@@ -203,8 +206,23 @@ export function TopicFeedCore({
         const payload: unknown = await response.json();
         if (!cancelled) {
           const comments = parseTopFeedComments(payload);
+          const nextOffset =
+            typeof payload === 'object' && payload !== null && 'next_offset' in payload &&
+            (payload.next_offset === null ||
+              (Number.isSafeInteger(payload.next_offset) && Number(payload.next_offset) >= 0))
+              ? payload.next_offset as number | null
+              : null;
+          // Refresh the first ranked page without discarding already loaded
+          // later pages from this session. Duplicate IDs are merged once.
+          const firstPageIds = new Set(comments.map((comment) => comment.comment_id));
+          const mergedComments = [
+            ...comments,
+            ...topCommentsRef.current.filter((comment) => !firstPageIds.has(comment.comment_id)),
+          ];
+          topCommentsRef.current = mergedComments;
+          topCommentsNextOffsetRef.current = nextOffset;
           const commentsById = new Map(
-            comments.map((comment) => [comment.comment_id, comment] as const)
+            mergedComments.map((comment) => [comment.comment_id, comment] as const)
           );
           const reconcileComments = (items: TopFeedComment[]) =>
             items.flatMap((item) => {
@@ -212,7 +230,7 @@ export function TopicFeedCore({
               return currentComment ? [currentComment] : [];
             });
 
-          setTopComments(comments);
+          setTopComments(mergedComments);
           setTopCommentCardComments((current) => reconcileComments(current));
 
           for (const [topicId, cardComments] of topCommentCardsByTopicId.current) {
@@ -225,6 +243,9 @@ export function TopicFeedCore({
           }
 
           if (comments.length === 0) {
+            topCommentsRef.current = [];
+            topCommentsNextOffsetRef.current = null;
+            setTopComments([]);
             setShowTopCommentCard(false);
             setTopCommentCardComments([]);
             topCommentCardsByTopicId.current.clear();
@@ -289,6 +310,48 @@ export function TopicFeedCore({
     },
     [loadSponsorCampaigns, userId]
   );
+
+  const loadMoreTopComments = useCallback(async () => {
+    const offset = topCommentsNextOffsetRef.current;
+    if (offset === null || topCommentsLoadingRef.current) return;
+    topCommentsLoadingRef.current = true;
+
+    try {
+      const endpoint = topCommentsEndpoint ?? '/api/content/top-comments';
+      const separator = endpoint.includes('?') ? '&' : '?';
+      const response = await fetch(`${endpoint}${separator}offset=${offset}&limit=100`, {
+        cache: 'default',
+        credentials: topCommentsEndpoint ? 'omit' : 'same-origin',
+      });
+      if (!response.ok) return;
+
+      const payload: unknown = await response.json();
+      const comments = parseTopFeedComments(payload);
+      const nextOffset =
+        typeof payload === 'object' && payload !== null && 'next_offset' in payload &&
+        (payload.next_offset === null ||
+          (Number.isSafeInteger(payload.next_offset) && Number(payload.next_offset) > offset))
+          ? payload.next_offset as number | null
+          : null;
+
+      const knownIds = new Set(topCommentsRef.current.map((comment) => comment.comment_id));
+      const additions = comments.filter((comment) => {
+        if (knownIds.has(comment.comment_id)) return false;
+        knownIds.add(comment.comment_id);
+        return true;
+      });
+      const mergedComments = additions.length > 0
+        ? [...topCommentsRef.current, ...additions]
+        : topCommentsRef.current;
+      topCommentsRef.current = mergedComments;
+      topCommentsNextOffsetRef.current = nextOffset;
+      if (additions.length > 0) setTopComments(mergedComments);
+    } catch {
+      // Additional comment inventory is optional and can be retried later.
+    } finally {
+      topCommentsLoadingRef.current = false;
+    }
+  }, [topCommentsEndpoint]);
 
   // ----------------------------------
   // Initial Feed
@@ -508,6 +571,9 @@ export function TopicFeedCore({
       topComments,
       seenTopCommentIds.current
     );
+    if (unseenTopComments.length <= 10 && topCommentsNextOffsetRef.current !== null) {
+      void loadMoreTopComments();
+    }
     const commentDue = shouldInsertTopCommentCard(
       currentCommentCadence,
       unseenTopComments.length > 0
