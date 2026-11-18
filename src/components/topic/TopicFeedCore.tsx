@@ -433,6 +433,7 @@ export function TopicFeedCore({
   useEffect(() => {
     if (feedTopics.length === 0) {
       feedEntryMapRef.current = null;
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setFeedEntryMap(null);
       return;
     }
@@ -519,6 +520,7 @@ export function TopicFeedCore({
     const currentTopic = feedTopics[topicIndex];
     const nextKey = currentTopic ? `topic:${currentTopic.id}` : null;
     if (nextKey !== activeFeedEntryKey) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setActiveFeedEntryKey(nextKey);
     }
   }, [activeFeedEntryKey, feedTopics, topicIndex, setActiveFeedEntryKey]);
@@ -897,13 +899,10 @@ export function TopicFeedCore({
     cancelSponsorRequest,
   };
   // The registry stores deferred event callbacks; captured refs are read only when those callbacks run.
-  // eslint-disable-next-line react-hooks/refs
   feedCardRenderers = createFeedCardRegistry(feedCardRendererContext);
   // Renderer actions are deferred to user interaction and do not read captured refs during render.
   // eslint-disable-next-line react-hooks/refs
-  const renderedFeedCard = activeFeedCardEntry
-    ? renderRegisteredFeedEntry(activeFeedCardEntry, feedCardRenderers, feedCardRendererContext!)
-    : null;
+  const renderedFeedCard = activeFeedCardEntry ? renderRegisteredFeedEntry(activeFeedCardEntry, feedCardRenderers, feedCardRendererContext!) : null;
 
   // ----------------------------------
   // Loading
