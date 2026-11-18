@@ -260,6 +260,7 @@ export function TopicFeedCore({
             setShowTopCommentCard(false);
             setTopCommentCardComments([]);
             topCommentCardsByTopicId.current.clear();
+            topCommentIndexByTopicId.current.clear();
           }
         }
         return true;
