@@ -285,7 +285,7 @@ export function SponsorCampaignManager({
             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
               <label className="block text-sm font-medium">
                 Max impressions per user / 24h
-                <input name="frequencyCapPerUser24h" type="number" min="1" max="5" step="1" defaultValue="1" required className="border-border bg-bg-primary mt-2 w-full rounded-lg border px-3 py-2.5" />
+                <input name="frequencyCapPerUser24h" type="number" min="1" max="25" step="1" defaultValue="1" required className="border-border bg-bg-primary mt-2 w-full rounded-lg border px-3 py-2.5" />
               </label>
               <label className="block text-sm font-medium">
                 Max impressions per user / campaign
