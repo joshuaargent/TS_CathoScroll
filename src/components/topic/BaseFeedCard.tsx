@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 
 interface BaseFeedCardProps {
   title: ReactNode;
+  header?: ReactNode;
   actions?: ReactNode;
   children: ReactNode;
   contentClassName?: string;
@@ -25,6 +26,7 @@ interface BaseFeedCardProps {
  */
 export function BaseFeedCard({
   title,
+  header,
   actions,
   children,
   contentClassName,
@@ -41,8 +43,12 @@ export function BaseFeedCard({
 
       <div className={cn('flex min-h-0 flex-1 flex-col px-6 pt-6 pb-6 md:px-8 md:pt-8 md:pb-8', cardClassName)}>
       <header className="flex items-center justify-between">
-        <div className="min-w-0">{title}</div>
-        {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
+        {header ?? (
+          <>
+            <div className="min-w-0">{title}</div>
+            {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
+          </>
+        )}
       </header>
 
       <div className="flex flex-1 items-center justify-center">
