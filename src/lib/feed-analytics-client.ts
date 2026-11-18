@@ -38,6 +38,48 @@ type FeedAnalyticsTransport = {
 };
 const transports = new Map<string, FeedAnalyticsTransport>();
 
+// These session-scoped sets live outside React components so conditional
+// rendering of interstitial cards cannot reset visit/completion attribution.
+const visitedTopicsByUser = new Map<string, Set<string>>();
+const completedTopicsByUser = new Map<string, Set<string>>();
+const maxTrackedTopicsPerUser = 5000;
+
+function rememberTopic(
+  collection: Map<string, Set<string>>,
+  userId: string,
+  topicId: string
+): boolean {
+  let topics = collection.get(userId);
+  if (!topics) {
+    topics = new Set<string>();
+    collection.set(userId, topics);
+  }
+  if (topics.has(topicId)) return false;
+  topics.add(topicId);
+  if (topics.size > maxTrackedTopicsPerUser) {
+    const oldestTopicId = topics.values().next().value;
+    if (oldestTopicId !== undefined) topics.delete(oldestTopicId);
+  }
+  return true;
+}
+
+export function recordFeedTopicVisit(userId: string | null, topicId: string): void {
+  if (!userId || !topicId) return;
+  const isReturnVisit = !rememberTopic(visitedTopicsByUser, userId, topicId);
+  recordFeedAnalyticsEvent(userId, 'impression', topicId, { source: 'feed' });
+  if (isReturnVisit) {
+    recordFeedAnalyticsEvent(userId, 'return_visit', topicId, { source: 'feed' });
+  }
+}
+
+export function recordFeedTopicCompletion(userId: string | null, topicId: string): void {
+  if (!userId || !topicId || !rememberTopic(completedTopicsByUser, userId, topicId)) return;
+  recordFeedAnalyticsEvent(userId, 'completion', topicId, {
+    completion_percent: 100,
+  });
+}
+
+
 function createUuid(): string | null {
   if (typeof crypto === 'undefined') return null;
   if (typeof crypto.randomUUID === 'function') return crypto.randomUUID();
