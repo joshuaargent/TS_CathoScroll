@@ -2,10 +2,11 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-const [bootstrap, feedCore, cardRegistry, sponsorCard, campaignManager, deliveryRoute, eventRoute, campaignLib, campaignPage] = await Promise.all([
+const [bootstrap, feedCore, cardRegistry, placementRegistry, sponsorCard, campaignManager, deliveryRoute, eventRoute, campaignLib, campaignPage] = await Promise.all([
   readFile(new URL('../docs/cathoscroll-database-bootstrap.sql', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/TopicFeedCore.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/feed-card-registry.tsx', import.meta.url), 'utf8'),
+  readFile(new URL('../src/lib/feed-card-placement-registry.ts', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/SponsorFeedCard.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/admin/SponsorCampaignManager.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/app/api/content/sponsored-campaigns/route.ts', import.meta.url), 'utf8'),
@@ -86,9 +87,9 @@ test('sponsor event recording requires a served and viewable placement', () => {
 test('sponsored feed cards are disclosed and inserted separately from organic recommendations', () => {
   assert.match(campaignLib, /SPONSOR_CARD_CADENCE = 10/);
   assert.match(feedCore, /buildFeedEntryMap/);
-  assert.match(feedCore, /const sponsorEntry = boundary\.entries\.find/);
+  assert.match(placementRegistry, /id: DEFAULT_FEED_CARD_RULES\.sponsor\.id/);
+  assert.match(placementRegistry, /interval: sponsorInterval/);
   assert.match(feedCore, /prefetchMappedSponsor/);
-  assert.match(feedCore, /pendingSponsorAfterComment/);
   assert.doesNotMatch(feedCore, /lastInterstitialType/);
   assert.match(feedCore, /const nextSponsorBoundary = boundaries/);
   assert.match(feedCore, /sponsorCadenceAfter/);
