@@ -185,6 +185,10 @@ test('the original analytics-ranked feed keeps interstitials in per-topic sessio
   assert.ok(feedCore.includes('if (preservePositionOnUpdate && feedInitializedRef.current)'));
   assert.ok(feedCore.includes('previousPersonalizedRef.current !== personalized'));
   assert.match(feedCore, /function appendUniqueFeedTopics\(existing: Topic\[\], incoming: Topic\[\]\)/);
+  assert.match(feedCore, /const loadMoreTopComments = useCallback\(async \(\) =>/);
+  assert.match(feedCore, /offset=\\$\{offset\}&limit=100/);
+  assert.match(feedCore, /unseenTopComments\.length <= 10/);
+  assert.match(feedCore, /topCommentsNextOffsetRef\.current = nextOffset/);
   assert.match(feedCore, /const nextTopics = appendUniqueFeedTopics\(feedTopicsRef\.current, newTopics\)/);
   assert.match(feedCore, /pendingAdvanceAfterPageRef\.current = true/);
   assert.match(feedCore, /if \(nextTopics\.length > previousLength\) \{[\s\S]*?setTopicIndex\(previousLength\)/);
