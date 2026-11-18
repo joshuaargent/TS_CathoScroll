@@ -16,8 +16,14 @@ import {
 import { createFeedRefreshCoordinator } from '@/lib/feed-refresh-coordinator';
 import { siteConfig } from '@/lib/constants';
 import { buildFeedEntryMap, flattenFeedEntryMap, type FeedEntry, type FeedEntryMap } from '@/lib/feed-entry-map';
-import { renderRegisteredFeedEntry, type FeedEntryLike } from '@/lib/feed-entry-registry';
+import {
+  invokeRegisteredFeedEntryLifecycle,
+  renderRegisteredFeedEntry,
+  type FeedEntryDirection,
+  type FeedEntryLike,
+} from '@/lib/feed-entry-registry';
 import { createFeedCardRegistry } from './feed-card-registry';
+import type { FeedCardRendererContext } from './feed-card-registry.types';
 import { getAdjacentFeedEntry, getFeedEntryKey, reconcileFeedEntryCursor } from '@/lib/feed-entry-cursor';
 
 import type { TopicPageCursor } from '@/lib/content';
@@ -120,6 +126,8 @@ export function TopicFeedCore({
     );
   };
   const [activeFeedEntryKey, setActiveFeedEntryKeyState] = useState<string | null>(null);
+  let feedCardRendererContext: FeedCardRendererContext;
+  let feedCardRenderers: ReturnType<typeof createFeedCardRegistry> = [];
   const activeFeedEntryKeyRef = useRef<string | null>(null);
   const setActiveFeedEntryKey = useCallback((key: string | null) => {
     activeFeedEntryKeyRef.current = key;
@@ -686,11 +694,10 @@ export function TopicFeedCore({
 
   const activateFeedEntry = async (
     entry: FeedEntry,
-    direction: 'next' | 'previous',
+    direction: FeedEntryDirection,
     entries: readonly FeedEntry[]
   ) => {
-    const entryKey = getFeedEntryKey(entry);
-    setActiveFeedEntryKey(entryKey);
+    setActiveFeedEntryKey(getFeedEntryKey(entry));
 
     if (entry.type === 'topic') {
       activateInterstitialTopic(null);
@@ -700,100 +707,92 @@ export function TopicFeedCore({
     }
 
     activateInterstitialTopic(entry.topicId);
+    await invokeRegisteredFeedEntryLifecycle(
+      entry,
+      'enter',
+      direction,
+      entries,
+      feedCardRenderers,
+      feedCardRendererContext
+    );
+  };
 
-    if (entry.type === 'top-comments') {
-      for (const comment of entry.comments) {
-        seenTopCommentIds.current.add(comment.comment_id);
+  const loadSponsorEntry = async (
+    entry: Extract<FeedEntry, { type: 'sponsor' }>,
+    direction: FeedEntryDirection,
+    entries: readonly FeedEntryLike[]
+  ) => {
+    const sponsorTopic = feedTopics.find((topic) => topic.id === entry.topicId);
+    const entryKey = getFeedEntryKey(entry);
+    const skipEntry = async () => {
+      const adjacent = getAdjacentFeedEntry(entries, entryKey, direction);
+      if (adjacent) {
+        await activateFeedEntry(adjacent.entry, direction, entries as readonly FeedEntry[]);
+      } else if (direction === 'next') {
+        setActiveFeedEntryKey(null);
+        advanceToNextTopic();
+      } else {
+        setActiveFeedEntryKey(null);
+        const anchorIndex = feedTopics.findIndex((topic) => topic.id === entry.topicId);
+        const previousIndex = anchorIndex >= 0
+          ? (anchorIndex - 1 + feedTopics.length) % feedTopics.length
+          : Math.max(0, feedTopics.length - 1);
+        setTopicIndex(previousIndex);
+        activateInterstitialTopic(null);
       }
-      topCommentCardsByTopicId.current.set(entry.topicId, entry.comments);
-      const savedIndex = topCommentIndexByTopicId.current.get(entry.topicId) ?? 0;
-      const safeIndex = Math.min(savedIndex, Math.max(0, entry.comments.length - 1));
-      topCommentIndexByTopicId.current.set(entry.topicId, safeIndex);
-      setActiveTopCommentIndex(safeIndex);
+    };
+
+    if (!sponsorTopic) {
+      await skipEntry();
       return;
     }
 
-    if (entry.type === 'sponsor') {
-      const skipEntry = async () => {
-        const adjacent = getAdjacentFeedEntry(entries, entryKey, direction);
-        if (adjacent) {
-          await activateFeedEntry(adjacent.entry, direction, entries);
-        } else if (direction === 'next') {
-          setActiveFeedEntryKey(null);
-          advanceToNextTopic();
-        } else {
-          setActiveFeedEntryKey(null);
-          const anchorIndex = feedTopics.findIndex((topic) => topic.id === entry.topicId);
-          const previousIndex = anchorIndex >= 0
-            ? (anchorIndex - 1 + feedTopics.length) % feedTopics.length
-            : Math.max(0, feedTopics.length - 1);
-          setTopicIndex(previousIndex);
-          activateInterstitialTopic(null);
-        }
-      };
+    sponsorLoadingRef.current = true;
+    setSponsorLoading(true);
+    const requestedUserId = userId;
+    const requestVersion = ++sponsorRequestVersion.current;
+    try {
+      const result = await getSponsorCampaignResult(sponsorTopic);
+      if (
+        sponsorRequestVersion.current !== requestVersion ||
+        sponsorSessionUserId.current !== requestedUserId
+      ) return;
 
-      if (entry.status === 'ready' && entry.campaigns.length > 0 && entry.sessionId) return;
-      if (entry.status === 'empty') {
+      if (result.campaigns.length > 0 && result.sessionId) {
+        entry.campaigns = result.campaigns;
+        entry.sessionId = result.sessionId;
+        entry.status = 'ready';
+        sponsorCardsByTopicId.current.set(entry.topicId, {
+          campaigns: result.campaigns,
+          sessionId: result.sessionId,
+        });
+        sponsorResultsByTopicId.current.set(entry.topicId, result);
+        sponsorDueByTopicId.current.delete(entry.topicId);
+        setSponsorLoading(false);
+        return;
+      }
+
+      if (!result.retryable) {
+        entry.status = 'empty';
         const boundary = feedEntryMapRef.current?.byTopicId.get(entry.topicId);
         if (boundary) {
           boundary.entries = boundary.entries.filter((candidate) => candidate.type !== 'sponsor');
         }
-        await skipEntry();
-        return;
       }
-      if (entry.status === 'pending') {
-        const sponsorTopic = feedTopics.find((topic) => topic.id === entry.topicId);
-        if (!sponsorTopic) {
-          await skipEntry();
-          return;
-        }
-
-        sponsorLoadingRef.current = true;
-        setSponsorLoading(true);
-        const requestedUserId = userId;
-        const requestVersion = ++sponsorRequestVersion.current;
-        try {
-          const result = await getSponsorCampaignResult(sponsorTopic);
-          if (
-            sponsorRequestVersion.current !== requestVersion ||
-            sponsorSessionUserId.current !== requestedUserId
-          ) return;
-
-          if (result.campaigns.length > 0 && result.sessionId) {
-            entry.campaigns = result.campaigns;
-            entry.sessionId = result.sessionId;
-            entry.status = 'ready';
-            sponsorCardsByTopicId.current.set(entry.topicId, {
-              campaigns: result.campaigns,
-              sessionId: result.sessionId,
-            });
-            sponsorResultsByTopicId.current.set(entry.topicId, result);
-            sponsorDueByTopicId.current.delete(entry.topicId);
-            setSponsorLoading(false);
-            return;
-          }
-
-          if (!result.retryable) {
-            entry.status = 'empty';
-            const boundary = feedEntryMapRef.current?.byTopicId.get(entry.topicId);
-            if (boundary) {
-              boundary.entries = boundary.entries.filter((candidate) => candidate.type !== 'sponsor');
-            }
-          }
-
-          await skipEntry();
-        } finally {
-          if (sponsorRequestVersion.current === requestVersion) {
-            sponsorLoadingRef.current = false;
-            setSponsorLoading(false);
-          }
-        }
+      await skipEntry();
+    } finally {
+      if (sponsorRequestVersion.current === requestVersion) {
+        sponsorLoadingRef.current = false;
+        setSponsorLoading(false);
       }
-      return;
     }
+  };
 
-    // Future registered card types need only a placement rule and renderer.
-    // Their own component owns any additional card-specific interaction state.
+  const cancelSponsorRequest = () => {
+    if (!sponsorLoadingRef.current) return;
+    sponsorRequestVersion.current += 1;
+    sponsorLoadingRef.current = false;
+    setSponsorLoading(false);
   };
 
   const navigateFeedEntry = async (direction: 'next' | 'previous') => {
@@ -818,10 +817,15 @@ export function TopicFeedCore({
       }
     }
 
-    if (currentEntry?.type === 'sponsor' && sponsorLoadingRef.current) {
-      sponsorRequestVersion.current += 1;
-      sponsorLoadingRef.current = false;
-      setSponsorLoading(false);
+    if (currentEntry && currentEntry.type !== 'topic') {
+      await invokeRegisteredFeedEntryLifecycle(
+        currentEntry,
+        'exit',
+        direction,
+        entries,
+        feedCardRenderers,
+        feedCardRendererContext
+      );
     }
 
     const adjacent = getAdjacentFeedEntry(entries, currentKey, direction);
@@ -875,7 +879,7 @@ export function TopicFeedCore({
       ? activeMappedEntry
       : null;
 
-  const feedCardRendererContext = {
+  feedCardRendererContext = {
     userId,
     sponsorApiBaseUrl: effectiveSponsorApiBaseUrl,
     getSponsorAccessToken,
@@ -888,8 +892,14 @@ export function TopicFeedCore({
     onOpenComment: openTopComment,
     onNext: () => nextTopic(),
     onPrevious: () => previousTopic(),
+    activateInterstitialTopic,
+    markCommentSeen: (commentId) => seenTopCommentIds.current.add(commentId),
+    cacheCommentGroup: (topicId, comments) => topCommentCardsByTopicId.current.set(topicId, comments),
+    getTopCommentIndex: (topicId) => topCommentIndexByTopicId.current.get(topicId) ?? 0,
+    loadSponsorEntry,
+    cancelSponsorRequest,
   };
-  const feedCardRenderers = createFeedCardRegistry(feedCardRendererContext);
+  feedCardRenderers = createFeedCardRegistry(feedCardRendererContext);
   const renderedFeedCard = activeFeedCardEntry
     ? renderRegisteredFeedEntry(activeFeedCardEntry, feedCardRenderers, feedCardRendererContext)
     : null;
