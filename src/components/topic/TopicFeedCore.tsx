@@ -770,7 +770,6 @@ export function TopicFeedCore({
       if (sponsorEntry.status === 'pending') {
         activateInterstitialTopic(currentTopic.id);
         activateSponsorEntry(currentTopic.id);
-        activateSponsorEntry(entry.topicId);
         sponsorRequestPreviousCadence.current = topicsSinceSponsorCard;
         sponsorLoadingRef.current = true;
         setSponsorLoading(true);
