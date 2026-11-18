@@ -775,6 +775,7 @@ export function TopicFeedCore({
 
       if (!result.retryable) {
         entry.status = 'empty';
+        sponsorDueByTopicId.current.delete(entry.topicId);
         const boundary = feedEntryMapRef.current?.byTopicId.get(entry.topicId);
         if (boundary) {
           boundary.entries = boundary.entries.filter((candidate) => candidate.type !== 'sponsor');
