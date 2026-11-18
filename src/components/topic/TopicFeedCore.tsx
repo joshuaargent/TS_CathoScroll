@@ -473,14 +473,15 @@ export function TopicFeedCore({
             }),
           }))
       : [];
-    const unseenComments = getUnseenTopFeedComments(topComments, seenTopCommentIds.current);
+    const reservedCommentIds = collectReservedCommentIds(prefix, seenTopCommentIds.current);
+    const unseenComments = getUnseenTopFeedComments(topComments, reservedCommentIds);
     if (unseenComments.length <= 10 && topCommentsNextOffsetRef.current !== null) {
       void loadMoreTopComments();
     }
     const planned = buildFeedEntryMap({
       topics: feedTopics.slice(startIndex),
       comments: unseenComments,
-      seenCommentIds: seenTopCommentIds.current,
+      seenCommentIds: reservedCommentIds,
       userId,
       commentCadence: topicsSinceTopCommentCardRef.current,
       sponsorCadence: topicsSinceSponsorCardRef.current,
