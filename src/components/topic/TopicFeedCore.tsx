@@ -120,6 +120,7 @@ export function TopicFeedCore({
   const sponsorPreviousIsComment = useRef(false);
   const topCommentIsPreviousEntry = useRef(false);
   const sponsorIsPreviousEntry = useRef(false);
+  const activeInterstitialTopicId = useRef<string | null>(null);
 
   const [topicIndex, setTopicIndex] = useState(personalized ? 0 : Math.floor(topics.length / 2));
   const [nextCursor, setNextCursor] = useState(initialCursor);
@@ -139,6 +140,7 @@ export function TopicFeedCore({
     if (sponsorSessionUserId.current === userId) return;
     sponsorSessionUserId.current = userId;
     sponsorPreviousIsComment.current = false;
+    activeInterstitialTopicId.current = null;
     setActiveSponsorSessionId(null);
     sponsorCardsByTopicId.current.clear();
     sponsorResultsByTopicId.current.clear();
@@ -495,6 +497,7 @@ export function TopicFeedCore({
       const cachedComments = topCommentCardsByTopicId.current.get(currentTopic.id);
       const cachedSponsor = sponsorCardsByTopicId.current.get(currentTopic.id);
       if (cachedComments?.length) {
+        activeInterstitialTopicId.current = currentTopic.id;
         topCommentIsPreviousEntry.current = false;
         setTopCommentCardComments(cachedComments);
         pendingSponsorAfterComment.current = Boolean(cachedSponsor?.campaigns.length) ||
@@ -504,6 +507,7 @@ export function TopicFeedCore({
         return;
       }
       if (cachedSponsor?.campaigns.length) {
+        activeInterstitialTopicId.current = currentTopic.id;
         sponsorPreviousIsComment.current = false;
         sponsorIsPreviousEntry.current = false;
         setSponsorCampaigns(cachedSponsor.campaigns);
@@ -513,6 +517,7 @@ export function TopicFeedCore({
         return;
       }
       if (sponsorDueByTopicId.current.has(currentTopic.id)) {
+        activeInterstitialTopicId.current = currentTopic.id;
         sponsorRequestPreviousCadence.current = topicsSinceSponsorCard;
         setTopicsSinceSponsorCard(0);
         sponsorLoadingRef.current = true;
@@ -604,6 +609,7 @@ export function TopicFeedCore({
     const chooseSponsor = sponsorDue && !commentDue;
 
     if (chooseSponsor) {
+      activeInterstitialTopicId.current = currentTopic?.id ?? null;
       sponsorIsPreviousEntry.current = false;
       if (currentTopic) sponsorDueByTopicId.current.add(currentTopic.id);
       setTopicsSinceTopCommentCard(nextCommentCadence);
@@ -666,6 +672,7 @@ export function TopicFeedCore({
         sponsorDueByTopicId.current.add(currentTopic.id);
       }
       if (currentTopic) {
+        activeInterstitialTopicId.current = currentTopic.id;
         topCommentIsPreviousEntry.current = false;
         // Reserve the complete group as soon as it is assigned. Unviewed
         // comments remain part of this card when revisiting and cannot leak
@@ -731,6 +738,7 @@ export function TopicFeedCore({
       : undefined;
 
     if (previousSponsorCard?.campaigns.length) {
+      activeInterstitialTopicId.current = previousTopicId ?? null;
       sponsorPreviousIsComment.current = Boolean(previousCard?.length);
       sponsorIsPreviousEntry.current = true;
       topCommentIsPreviousEntry.current = Boolean(previousCard?.length);
@@ -743,6 +751,7 @@ export function TopicFeedCore({
     }
 
     if (previousCard?.length) {
+      activeInterstitialTopicId.current = previousTopicId ?? null;
       // We are traversing backward from the following topic. Leaving this
       // comment card backward must therefore move to the previous topic;
       // leaving it forward must return to the following topic.
@@ -792,13 +801,14 @@ export function TopicFeedCore({
             sponsorRequestVersion.current += 1;
             sponsorLoadingRef.current = false;
             setSponsorLoading(false);
-            const currentTopic = feedTopics[topicIndex];
-            if (currentTopic) sponsorDueByTopicId.current.delete(currentTopic.id);
+            const interstitialTopicId = activeInterstitialTopicId.current;
+            if (interstitialTopicId) sponsorDueByTopicId.current.delete(interstitialTopicId);
             pendingSponsorAfterComment.current = false;
             sponsorPreviousIsComment.current = false;
             const wasPreviousEntry = sponsorIsPreviousEntry.current;
             sponsorIsPreviousEntry.current = false;
             topCommentIsPreviousEntry.current = false;
+            activeInterstitialTopicId.current = null;
             setShowTopCommentCard(false);
             if (!wasPreviousEntry) advanceToNextTopic();
           }}
@@ -813,8 +823,11 @@ export function TopicFeedCore({
             sponsorIsPreviousEntry.current = false;
             if (previousWasComment) {
               setShowTopCommentCard(true);
-            } else if (wasPreviousEntry) {
-              setTopicIndex((previous) => (previous - 1 + feedTopics.length) % feedTopics.length);
+            } else {
+              activeInterstitialTopicId.current = null;
+              if (wasPreviousEntry) {
+                setTopicIndex((previous) => (previous - 1 + feedTopics.length) % feedTopics.length);
+              }
             }
           }}
         />
@@ -831,6 +844,7 @@ export function TopicFeedCore({
             sponsorIsPreviousEntry.current = false;
             sponsorPreviousIsComment.current = false;
             topCommentIsPreviousEntry.current = false;
+            activeInterstitialTopicId.current = null;
             if (!wasPreviousEntry) advanceToNextTopic();
           }}
           onPreviousTopic={() => {
@@ -841,8 +855,11 @@ export function TopicFeedCore({
             sponsorIsPreviousEntry.current = false;
             if (previousWasComment) {
               setShowTopCommentCard(true);
-            } else if (wasPreviousEntry) {
-              setTopicIndex((previous) => (previous - 1 + feedTopics.length) % feedTopics.length);
+            } else {
+              activeInterstitialTopicId.current = null;
+              if (wasPreviousEntry) {
+                setTopicIndex((previous) => (previous - 1 + feedTopics.length) % feedTopics.length);
+              }
             }
           }}
         />
@@ -855,7 +872,10 @@ export function TopicFeedCore({
           onNextTopic={async () => {
             if (sponsorLoadingRef.current) return;
             const commentWasPreviousEntry = topCommentIsPreviousEntry.current;
-            const currentTopic = feedTopics[topicIndex];
+            const interstitialTopicId = activeInterstitialTopicId.current;
+            const currentTopic = interstitialTopicId
+              ? feedTopics.find((topic) => topic.id === interstitialTopicId)
+              : undefined;
             const cachedSponsor = currentTopic
               ? sponsorCardsByTopicId.current.get(currentTopic.id)
               : undefined;
@@ -875,6 +895,7 @@ export function TopicFeedCore({
             if (!shouldShowSponsorAfterComment) {
               setShowTopCommentCard(false);
               topCommentIsPreviousEntry.current = false;
+              activeInterstitialTopicId.current = null;
               if (!commentWasPreviousEntry) advanceToNextTopic();
               return;
             }
@@ -883,6 +904,7 @@ export function TopicFeedCore({
               setShowTopCommentCard(false);
               setTopicsSinceSponsorCard(0);
               topCommentIsPreviousEntry.current = false;
+              activeInterstitialTopicId.current = null;
               if (!commentWasPreviousEntry) advanceToNextTopic();
               return;
             }
@@ -923,6 +945,7 @@ export function TopicFeedCore({
                 setShowTopCommentCard(false);
                 setSponsorLoading(false);
                 topCommentIsPreviousEntry.current = false;
+                activeInterstitialTopicId.current = null;
                 if (!commentWasPreviousEntry) advanceToNextTopic();
               });
             } finally {
@@ -946,6 +969,7 @@ export function TopicFeedCore({
             // When the comment was reached by swiping backward from a later
             // topic, leaving it backward must continue to the earlier topic.
             setShowTopCommentCard(false);
+            activeInterstitialTopicId.current = null;
             if (wasPreviousEntry) {
               setTopicIndex((previous) => (previous - 1 + feedTopics.length) % feedTopics.length);
             }
