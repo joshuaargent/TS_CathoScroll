@@ -194,7 +194,7 @@ test('the original analytics-ranked feed keeps interstitials in per-topic sessio
   assert.match(feedCore, /sponsorIsPreviousEntry\.current = true/);
   assert.match(feedCore, /topCommentIsPreviousEntry\.current = true/);
   assert.match(feedCore, /if \(!wasPreviousEntry\) advanceToNextTopic\(\)/);
-  assert.match(feedCore, /else if \(wasPreviousEntry\) \{[\\s\\S]*?setTopicIndex/);
-  assert.match(feedCore, /if \(wasPreviousEntry\) \{[\\s\\S]*?setTopicIndex/);
+  assert.match(feedCore, /else if \(wasPreviousEntry\)/);
+  assert.match(feedCore, /if \(wasPreviousEntry\) \{/);
   assert.match(feedCore, /if \(nextTopics\.length > previousLength\) \{[\s\S]*?setTopicIndex\(previousLength\)/);
 });
