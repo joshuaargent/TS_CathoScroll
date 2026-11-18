@@ -158,35 +158,35 @@ test('topic, comment and sponsor cards use the same structural layout component'
 
 
 test('the original analytics-ranked topic feed is retained and interstitials are precomputed in one boundary map', () => {
-  assert.match(feedCore, /const shuffled = personalized \\? topics : shuffle\\(topics\\)/);
-  assert.match(feedCore, /const result = await loadPage\\(nextCursor\\)/);
-  assert.match(feedCore, /setTopicIndex\\(\\(prev\\) => \\(prev \\+ 1\\) % feedTopics\\.length\\)/);
+  assert.match(feedCore, /const shuffled = personalized \? topics : shuffle\(topics\)/);
+  assert.match(feedCore, /const result = await loadPage\(nextCursor\)/);
+  assert.match(feedCore, /setTopicIndex\(\(prev\) => \(prev \+ 1\) % feedTopics\.length\)/);
   assert.match(feedCore, /feedEntryMapRef = useRef/);
-  assert.match(feedCore, /buildFeedEntryMap\\(/);
-  assert.match(feedCore, /const boundary = feedEntryMapRef\\.current\\?\\.byTopicId\\.get\\(currentTopic\\.id\\)/);
-  assert.match(feedCore, /const commentEntry = boundary\\.entries\\.find/);
-  assert.match(feedCore, /const sponsorEntry = boundary\\.entries\\.find/);
+  assert.match(feedCore, /buildFeedEntryMap\(/);
+  assert.match(feedCore, /const boundary = feedEntryMapRef\.current\?\.byTopicId\.get\(currentTopic\.id\)/);
+  assert.match(feedCore, /const commentEntry = boundary\.entries\.find/);
+  assert.match(feedCore, /const sponsorEntry = boundary\.entries\.find/);
   assert.match(feedCore, /commentCadenceAfter/);
   assert.match(feedCore, /sponsorCadenceAfter/);
-  assert.match(feedCore, /getSponsorCampaignResult\\(topic\\)/);
+  assert.match(feedCore, /getSponsorCampaignResult\(topic\)/);
   assert.doesNotMatch(feedCore, /shouldInsertTopCommentCard|shouldInsertSponsorCard|getNextTopCommentCadence|getNextSponsorCadence/);
   assert.doesNotMatch(feedCore, /const commentDue =|const sponsorDue =/);
-  assert.match(feedCore, /topCommentCardsByTopicId = useRef\\(new Map/);
-  assert.match(feedCore, /sponsorCardsByTopicId = useRef\\(new Map/);
-  assert.match(feedCore, /processedTopicBoundariesByTopicId = useRef\\(new Set<string>\\(\\)\\)/);
-  assert.match(feedCore, /if \\(preservePositionOnUpdate && feedInitializedRef\\.current\\)/);
+  assert.match(feedCore, /topCommentCardsByTopicId = useRef\(new Map/);
+  assert.match(feedCore, /sponsorCardsByTopicId = useRef\(new Map/);
+  assert.match(feedCore, /processedTopicBoundariesByTopicId = useRef\(new Set<string>\(\)\)/);
+  assert.match(feedCore, /if \(preservePositionOnUpdate && feedInitializedRef\.current\)/);
   assert.match(topicFeed, /preservePositionOnUpdate/);
-  assert.match(feedCore, /function appendUniqueFeedTopics\\(existing: Topic\\[\\], incoming: Topic\\[\\]\\)/);
-  assert.match(feedCore, /const loadMoreTopComments = useCallback\\(async \\(\\) =>/);
+  assert.match(feedCore, /function appendUniqueFeedTopics\(existing: Topic\[\], incoming: Topic\[\]\)/);
+  assert.match(feedCore, /const loadMoreTopComments = useCallback\(async \(\) =>/);
   assert.match(feedCore, /offset=.*limit=100/);
-  assert.match(feedCore, /topCommentsNextOffsetRef\\.current = nextOffset/);
-  assert.match(feedCore, /const nextTopics = appendUniqueFeedTopics\\(feedTopicsRef\\.current, newTopics\\)/);
-  assert.match(feedCore, /pendingAdvanceAfterPageRef\\.current = true/);
-  assert.match(feedCore, /activeInterstitialTopicIdRef = useRef<string \\| null>\\(null\\)/);
-  assert.match(feedCore, /initialActiveIndex=\\{activeTopCommentIndex\\}/);
-  assert.match(topCommentCard, /initialActiveIndex\\?: number/);
-  assert.match(topCommentCard, /onActiveIndexChange\\?\\.\\(nextIndex\\)/);
-  assert.match(feedCore, /sponsorRequestVersion\\.current !== requestVersion/);
+  assert.match(feedCore, /topCommentsNextOffsetRef\.current = nextOffset/);
+  assert.match(feedCore, /const nextTopics = appendUniqueFeedTopics\(feedTopicsRef\.current, newTopics\)/);
+  assert.match(feedCore, /pendingAdvanceAfterPageRef\.current = true/);
+  assert.match(feedCore, /activeInterstitialTopicIdRef = useRef<string \| null>\(null\)/);
+  assert.match(feedCore, /initialActiveIndex=\{activeTopCommentIndex\}/);
+  assert.match(topCommentCard, /initialActiveIndex\?: number/);
+  assert.match(topCommentCard, /onActiveIndexChange\?\.\(nextIndex\)/);
+  assert.match(feedCore, /sponsorRequestVersion\.current !== requestVersion/);
 });
 
 test('topic navigation freezes index-derived adjacent previews until the card resets', () => {
