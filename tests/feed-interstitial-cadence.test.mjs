@@ -52,10 +52,10 @@ test('missing inventory suppresses only its own card schedule', () => {
 });
 
 test('the tenth-topic collision is planned as comment then sponsor before navigation', () => {
-  assert.match(feedCore, /const sponsorEntry = boundary\\.entries\\.find\\(\\(entry\\) => entry\\.type === 'sponsor'\\)/);
-  assert.match(feedCore, /const commentEntry = boundary\\.entries\\.find\\(\\(entry\\) => entry\\.type === 'top-comments'\\)/);
-  assert.match(feedCore, /pendingSponsorAfterComment\\.current = Boolean\\(/);
-  assert.match(feedCore, /if \\(cachedSponsor\\?\\.campaigns\\.length\\)/);
+  assert.match(feedCore, /const sponsorEntry = boundary\.entries\.find\(\(entry\) => entry\.type === 'sponsor'\)/);
+  assert.match(feedCore, /const commentEntry = boundary\.entries\.find\(\(entry\) => entry\.type === 'top-comments'\)/);
+  assert.match(feedCore, /pendingSponsorAfterComment\.current = Boolean\(/);
+  assert.match(feedCore, /if \(cachedSponsor\?\.campaigns\.length\)/);
   assert.doesNotMatch(feedCore, /const chooseSponsor = sponsorDue && !commentDue/);
   assert.doesNotMatch(feedCore, /const commentDue = shouldInsertTopCommentCard/);
 });
