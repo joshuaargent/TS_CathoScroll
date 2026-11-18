@@ -163,6 +163,7 @@ export function TopicFeedCore({
     topCommentCardsByTopicId.current.clear();
     topCommentIndexByTopicId.current.clear();
     processedTopicBoundariesByTopicId.current.clear();
+    feedEntryMapRef.current = null;
     activeInterstitialTopicIdRef.current = null;
     setActiveSponsorSessionId(null);
     sponsorCardsByTopicId.current.clear();
@@ -174,6 +175,9 @@ export function TopicFeedCore({
     pendingSponsorAfterComment.current = false;
     setSponsorCampaigns([]);
     setShowSponsorCard(false);
+    setShowTopCommentCard(false);
+    setTopCommentCardComments([]);
+    setActiveTopCommentIndex(0);
     setSponsorLoading(false);
     setTopicsSinceSponsorCard(0);
     setTopicsSinceTopCommentCard(0);
