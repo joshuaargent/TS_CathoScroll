@@ -1,9 +1,13 @@
+import type { ReactNode } from 'react';
 import type { TopFeedComment } from '@/lib/feed-comments';
 import type { FeedEntry } from '@/lib/feed-entry-map';
 import type { FeedEntryLike, FeedEntryDirection } from '@/lib/feed-entry-registry';
 
 export type FeedCardRendererContext = {
   userId: string | null;
+  previewMode?: boolean;
+  nextEntryPreview?: ReactNode;
+  previousEntryPreview?: ReactNode;
   sponsorApiBaseUrl?: string;
   getSponsorAccessToken?: () => Promise<string | null>;
   activeTopCommentIndex: number;
