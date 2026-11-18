@@ -482,6 +482,10 @@ export function TopicFeedCore({
     }
 
     pendingAdvanceAfterPageRef.current = false;
+    activeInterstitialTopicId.current = null;
+    topCommentIsPreviousEntry.current = false;
+    sponsorIsPreviousEntry.current = false;
+    sponsorPreviousIsComment.current = false;
     setTopicIndex((prev) => (prev + 1) % feedTopics.length);
   };
 
