@@ -98,15 +98,13 @@ test('topic, comment and sponsor cards use the same shared base card', () => {
   for (const source of [topicCard, topCommentCard, sponsorCard, sponsorLoadingCard]) {
     assert.match(source, /<BaseFeedCard/);
   }
-  assert.match(baseFeedCard, /bg-bg-primary flex h-full w-full flex-col/);
-  assert.match(baseFeedCard, /px-6 pt-6 pb-6 md:px-8 md:pt-8 md:pb-8/);
-  assert.match(baseFeedCard, /flex min-h-0 flex-1 flex-col px-6 pt-6 pb-6 md:px-8 md:pt-8 md:pb-8/);
+  assert.match(baseFeedCard, /flex h-full w-full flex-col px-6 py-6 md:px-8 md:py-8/);
   assert.match(baseFeedCard, /cardClassName/);
-  assert.ok(baseFeedCard.indexOf('{progress &&') < baseFeedCard.indexOf("className={cn('flex min-h-0 flex-1 flex-col px-6 pt-6 pb-6 md:px-8 md:pt-8 md:pb-8', cardClassName)}"));
+  assert.match(baseFeedCard, /flex items-center justify-between/);
+  assert.match(baseFeedCard, /flex flex-1 items-center justify-center/);
   assert.match(baseFeedCard, /flex flex-1 items-center justify-center/);
   assert.match(baseFeedCard, /mx-auto text-center/);
   assert.match(baseFeedCard, /flex items-center justify-between/);
-  assert.match(baseFeedCard, /progress &&/);
   assert.match(topCommentCard, /onProgressChange\(safeIndex, comments\.length\)/);
   assert.doesNotMatch(topCommentCard, /<FeedProgress current=/);
   assert.doesNotMatch(sponsorCard, /<FeedProgress current=/);
@@ -207,16 +205,17 @@ test('the original analytics-ranked topic feed is retained and interstitials are
   assert.match(feedCore, /sponsorRequestVersion\.current !== requestVersion/);
 });
 
-test('topic viewer stays mounted beneath interstitial cards and is inactive while covered', () => {
+test('topics, comments and sponsors occupy one exclusive feed-card slot', () => {
   assert.match(feedRenderer, /className="relative min-h-0 flex-1"/);
   assert.match(feedRenderer, /isTopic \? topicCard : interstitialCard/);
-  assert.doesNotMatch(feedRenderer, /absolute inset-0 z-10|invisible pointer-events-none/);
+  assert.doesNotMatch(feedRenderer, /absolute inset-0 z-10|invisible pointer-events-none|topicViewer/);
+  assert.match(feedRenderer, /No card is mounted underneath another card/);
   assert.match(feedRenderer, /activeEntry: FeedEntry \| null/);
   assert.match(feedCore, /<FeedRenderer/);
   assert.match(feedCore, /topicCard=\{/);
   assert.match(feedCore, /activeEntry=\{activeMappedEntry\}/);
   assert.match(feedCore, /active=\{!activeFeedCardEntry\}/);
-  assert.match(feedRenderer, /isTopic \? topicCard : interstitialCard/);
+  assert.match(feedCore, /interstitialCard=\{renderedFeedCard\}/);
   assert.doesNotMatch(feedCore, /renderedFeedCard \?\? \(/);
 });
 
