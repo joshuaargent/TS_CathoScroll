@@ -34,8 +34,9 @@ test('ordered cursor traversal is shared by feed navigation', () => {
   assert.match(core, /flattenFeedEntryMap\(feedEntryMapRef\.current\)/);
   assert.match(core, /getAdjacentFeedEntry\(entries, currentKey, 'previous'\)/);
   assert.match(core, /getAdjacentFeedEntry\(entries, currentKey, 'next'\)/);
-  assert.match(core, /const genericEntry: FeedEntryLike = nextEntry/);
-  assert.match(core, /previousEntry = getAdjacentFeedEntry\(entries, activeKey, 'previous'\)/);
+  assert.match(core, /const navigateFeedEntry = async/);
+  assert.match(core, /await activateFeedEntry\(adjacent\.entry, direction, entries\)/);
+  assert.match(core, /Future registered card types need only a placement rule and renderer/);
   assert.match(cursor, /export function getAdjacentFeedEntry/);
   assert.match(cursor, /export function reconcileFeedEntryCursor/);
 });
