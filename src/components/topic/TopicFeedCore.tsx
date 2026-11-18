@@ -835,12 +835,14 @@ export function TopicFeedCore({
       }
 
       if (entry.status === 'pending') {
+        const sponsorTopic = feedTopics.find((topic) => topic.id === entry.topicId);
+        if (!sponsorTopic) return;
         sponsorRequestPreviousCadence.current = topicsSinceSponsorCard;
         sponsorLoadingRef.current = true;
         setSponsorLoading(true);
         const requestedUserId = userId;
         const requestVersion = ++sponsorRequestVersion.current;
-        void getSponsorCampaignResult(feedTopics.find((topic) => topic.id === entry.topicId) ?? currentTopic)
+        void getSponsorCampaignResult(sponsorTopic)
           .then((result) => {
             if (
               sponsorRequestVersion.current !== requestVersion ||
