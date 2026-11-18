@@ -80,11 +80,11 @@ export function buildFeedEntryMap({
 
   for (const topic of topics) {
     const entries: FeedEntry[] = [{ type: 'topic', topicId: topic.id, topic }];
-    nextCommentCadence += 1;
-    nextSponsorCadence += 1;
+    nextCommentCadence = (nextCommentCadence + 1) % commentInterval;
+    nextSponsorCadence = (nextSponsorCadence + 1) % sponsorInterval;
 
-    const commentDue = nextCommentCadence >= commentInterval && availableComments.length > 0;
-    const sponsorDue = nextSponsorCadence >= sponsorInterval && Boolean(userId);
+    const commentDue = nextCommentCadence === 0 && availableComments.length > 0;
+    const sponsorDue = nextSponsorCadence === 0 && Boolean(userId);
 
     if (commentDue) {
       const group = availableComments.splice(0, commentGroupSize);
