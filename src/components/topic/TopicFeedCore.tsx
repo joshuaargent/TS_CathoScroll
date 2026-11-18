@@ -126,7 +126,7 @@ export function TopicFeedCore({
     );
   };
   const [activeFeedEntryKey, setActiveFeedEntryKeyState] = useState<string | null>(null);
-  let feedCardRendererContext: FeedCardRendererContext;
+  let feedCardRendererContext: FeedCardRendererContext | null = null;
   let feedCardRenderers: ReturnType<typeof createFeedCardRegistry> = [];
   const activeFeedEntryKeyRef = useRef<string | null>(null);
   const setActiveFeedEntryKey = useCallback((key: string | null) => {
@@ -707,6 +707,7 @@ export function TopicFeedCore({
     }
 
     activateInterstitialTopic(entry.topicId);
+    if (!feedCardRendererContext) return;
     await invokeRegisteredFeedEntryLifecycle(
       entry,
       'enter',
@@ -817,7 +818,7 @@ export function TopicFeedCore({
       }
     }
 
-    if (currentEntry && currentEntry.type !== 'topic') {
+    if (currentEntry && currentEntry.type !== 'topic' && feedCardRendererContext) {
       await invokeRegisteredFeedEntryLifecycle(
         currentEntry,
         'exit',
@@ -901,7 +902,7 @@ export function TopicFeedCore({
   };
   feedCardRenderers = createFeedCardRegistry(feedCardRendererContext);
   const renderedFeedCard = activeFeedCardEntry
-    ? renderRegisteredFeedEntry(activeFeedCardEntry, feedCardRenderers, feedCardRendererContext)
+    ? renderRegisteredFeedEntry(activeFeedCardEntry, feedCardRenderers, feedCardRendererContext!)
     : null;
 
   // ----------------------------------
