@@ -581,14 +581,6 @@ export function TopicFeedCore({
       return;
     }
 
-    // A topic boundary is evaluated once per feed session. Replaying a topic
-    // with no interstitial must not consume the cadence at the new frontier
-    // and unexpectedly insert a card into the user's already-seen sequence.
-    if (currentTopic && processedTopicBoundariesByTopicId.current.has(currentTopic.id)) {
-      advanceToNextTopic();
-      return;
-    }
-
     let currentCommentCadence = topicsSinceTopCommentCard;
     let currentSponsorCadence = topicsSinceSponsorCard;
 
@@ -613,6 +605,14 @@ export function TopicFeedCore({
       sponsorCardsByTopicId.current.clear();
       sponsorDueByTopicId.current.clear();
       currentSponsorCadence = 0;
+    }
+
+    // A topic boundary is evaluated once per feed session. Replaying a topic
+    // with no interstitial must not consume the cadence at the new frontier
+    // and unexpectedly insert a card into the user's already-seen sequence.
+    if (currentTopic && processedTopicBoundariesByTopicId.current.has(currentTopic.id)) {
+      advanceToNextTopic();
+      return;
     }
 
     const unseenTopComments = getUnseenTopFeedComments(
