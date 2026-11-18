@@ -14,7 +14,7 @@ export function FeedProgress({ current, total }: FeedProgressProps) {
   const percentage = ((safeCurrent + 1) / safeTotal) * 100;
 
   return (
-    <div className="shrink-0 pb-5">
+    <div className="shrink-0 pb-4">
       <div className="bg-border h-1 w-full overflow-hidden rounded-full">
         <div
           className="bg-accent h-full transition-all duration-300"
