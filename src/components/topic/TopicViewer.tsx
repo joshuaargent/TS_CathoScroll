@@ -22,6 +22,7 @@ interface TopicViewerProps {
   onPreviousTopic?: () => void | Promise<void>;
   nextEntryPreview?: ReactNode;
   previousEntryPreview?: ReactNode;
+  onProgressChange: (current: number, total: number) => void;
 }
 
 export function TopicViewer({
@@ -33,6 +34,7 @@ export function TopicViewer({
   onPreviousTopic,
   nextEntryPreview,
   previousEntryPreview,
+  onProgressChange,
 }: TopicViewerProps) {
   const router = useRouter();
   const requestSignIn = useSignInPrompt();
@@ -226,6 +228,7 @@ export function TopicViewer({
       onPreviousTopic={onPreviousTopic}
       nextEntryPreview={nextEntryPreview}
       previousEntryPreview={previousEntryPreview}
+      onProgressChange={onProgressChange}
     />
   );
 }
