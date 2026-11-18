@@ -1,7 +1,7 @@
 'use client';
 
 import { FeedInterstitialMotion } from './FeedInterstitialMotion';
-import { TopicCardLayout } from './TopicCardLayout';
+import { BaseFeedCard } from './BaseFeedCard';
 
 interface SponsorLoadingCardProps {
   onNextTopic: () => void | Promise<void>;
@@ -25,12 +25,8 @@ export function SponsorLoadingCard({
       onPreviousTopic={onPreviousTopic}
     >
       <div className="h-full w-full" role="status" aria-live="polite" aria-busy={!error}>
-        <TopicCardLayout
-          header={
-            <span className="text-text-muted text-xs tracking-wider uppercase">
-              Sponsored
-            </span>
-          }
+        <BaseFeedCard
+          title={<span className="text-text-muted text-xs tracking-wider uppercase">Sponsored</span>}
         >
           {error ? (
             <div className="mx-auto w-full max-w-3xl space-y-4 text-center">
@@ -53,7 +49,7 @@ export function SponsorLoadingCard({
               <div className="bg-bg-secondary mx-auto mt-8 h-11 w-40 rounded-full" />
             </div>
           )}
-        </TopicCardLayout>
+        </BaseFeedCard>
         <span className="sr-only">{error ? 'Sponsored content unavailable' : 'Loading sponsored content'}</span>
       </div>
     </FeedInterstitialMotion>
