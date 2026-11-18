@@ -305,7 +305,7 @@ export function TopicFeedCore({
       window.removeEventListener('online', refreshWhenOnline);
       document.removeEventListener('visibilitychange', refreshWhenVisible);
     };
-  }, [topCommentsEndpoint]);
+  }, [topCommentsEndpoint, setActiveFeedEntryKey]);
 
   const getSponsorCampaignResult = useCallback(
     (topic: Topic): Promise<{ campaigns: SponsorFeedCampaign[]; sessionId: string | null; retryable?: boolean }> => {
@@ -900,6 +900,7 @@ export function TopicFeedCore({
     cancelSponsorRequest,
   };
   // The registry stores deferred event callbacks; captured refs are read only when those callbacks run.
+  // eslint-disable-next-line react-hooks/refs
   feedCardRenderers = createFeedCardRegistry(feedCardRendererContext);
   // Renderer actions are deferred to user interaction and do not read captured refs during render.
   // eslint-disable-next-line react-hooks/refs
