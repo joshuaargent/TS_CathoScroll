@@ -165,6 +165,8 @@ Run these checks against a preview with test comments and at least two eligible 
 10. **Sponsor analytics:** confirm one server-side served event per placement, one qualifying viewable impression, and a click only after a viewable impression. Revisit the same placement and verify event IDs/session IDs prevent double counting. Test offline queuing and stable-ID retry.
 11. **Web/native data updates:** refresh server topic props on web and update the catalogue in the native shell while a user is on a topic or interstitial. The active entry and all earlier/later ordering must remain stable; only unseen topic IDs may append.
 
+**Route round-trip:** open the original discussion from a comment card, then use browser Back to return to the feed. The same topic, comment group, active comment and sponsor placement should be restored; a full browser/app reload should start a new mapping. If the route remount loses the snapshot, add a root-level in-memory feed-session store before merging.
+
 Do not mark the feed release-ready until this matrix passes on desktop web, mobile web and the native WebView, including an account switch and a forced refresh.
 
 ## Security, privacy, performance, and reliability
