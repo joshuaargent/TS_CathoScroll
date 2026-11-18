@@ -18,6 +18,7 @@ function eventEndpoint(apiBaseUrl?: string): string {
 }
 
 const storagePrefix = 'cathoscroll.sponsor-events.v1.';
+const queueLimit = 1000;
 const flushingUsers = new Set<string>();
 
 function storageKey(userId: string): string {
@@ -75,6 +76,8 @@ export function recordSponsorCampaignEvent(
       queued.eventType === event.eventType
   );
   if (!alreadyQueued) {
+    // Preserve older unacknowledged sponsor events and bound offline storage.
+    if (queue.length >= queueLimit) return false;
     queue.push(event);
     try {
       window.localStorage.setItem(storageKey(userId), JSON.stringify(queue));
