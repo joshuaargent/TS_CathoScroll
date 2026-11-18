@@ -5,6 +5,7 @@ import type { FeedEntryLike, FeedEntryDirection } from '@/lib/feed-entry-registr
 
 export type FeedCardRendererContext = {
   userId: string | null;
+  topicCard?: ReactNode;
   previewMode?: boolean;
   nextEntryPreview?: ReactNode;
   previousEntryPreview?: ReactNode;
