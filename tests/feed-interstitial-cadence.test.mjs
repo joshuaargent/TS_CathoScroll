@@ -206,15 +206,17 @@ test('the original analytics-ranked topic feed is retained and interstitials are
 
 test('topics, comments and sponsors occupy one exclusive feed-card slot', () => {
   assert.match(feedRenderer, /className="relative min-h-0 flex-1"/);
-  assert.match(feedRenderer, /isTopic \? topicCard : interstitialCard/);
-  assert.doesNotMatch(feedRenderer, /absolute inset-0 z-10|invisible pointer-events-none|topicViewer/);
+  assert.match(feedRenderer, /entryCard: ReactNode/);
+  assert.match(feedRenderer, /\{entryCard\}/);
+  assert.doesNotMatch(feedRenderer, /absolute inset-0 z-10|invisible pointer-events-none|topicViewer|activeEntry/);
   assert.match(feedRenderer, /No card is mounted underneath another card/);
   assert.match(feedRenderer, /activeEntry: FeedEntry \| null/);
   assert.match(feedCore, /<FeedRenderer/);
-  assert.match(feedCore, /topicCard=\{/);
-  assert.match(feedCore, /activeEntry=\{activeMappedEntry\}/);
+  assert.match(feedCore, /const topicCard = \(/);
+  assert.match(feedCore, /const renderedActiveEntry = activeMappedEntry/);
+  assert.match(feedCore, /entryCard=\{renderedActiveEntry\}/);
+  assert.match(cardRegistry, /registerFeedEntry<Extract<FeedEntry, \{ type: 'topic' \}>/);
   assert.match(feedCore, /active=\{!activeFeedCardEntry\}/);
-  assert.match(feedCore, /interstitialCard=\{renderedFeedCard\}/);
   assert.doesNotMatch(feedCore, /renderedFeedCard \?\? \(/);
 });
 
