@@ -1,6 +1,5 @@
 import type { TopFeedComment } from '@/lib/feed-comments';
 import type { FeedEntry } from '@/lib/feed-entry-map';
-import type { SponsorFeedCampaign } from '@/lib/sponsor-campaigns';
 
 export type FeedCardRendererContext = {
   userId: string | null;
