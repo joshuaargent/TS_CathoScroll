@@ -1,5 +1,6 @@
 import type { TopFeedComment } from '@/lib/feed-comments';
-import type { FeedEntry, FeedEntryLike, FeedEntryDirection } from '@/lib/feed-entry-map';
+import type { FeedEntry } from '@/lib/feed-entry-map';
+import type { FeedEntryLike, FeedEntryDirection } from '@/lib/feed-entry-registry';
 
 export type FeedCardRendererContext = {
   userId: string | null;
