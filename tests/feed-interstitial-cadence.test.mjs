@@ -175,4 +175,8 @@ test('the original analytics-ranked feed keeps interstitials in per-topic sessio
   assert.match(feedCore, /Re-entering a topic replays the exact interstitials already assigned to it/);
   assert.ok(feedCore.includes('if (preservePositionOnUpdate && feedInitializedRef.current)'));
   assert.ok(feedCore.includes('previousPersonalizedRef.current !== personalized'));
+  assert.match(feedCore, /function appendUniqueFeedTopics\(existing: Topic\[\], incoming: Topic\[\]\)/);
+  assert.match(feedCore, /const nextTopics = appendUniqueFeedTopics\(feedTopicsRef\.current, newTopics\)/);
+  assert.match(feedCore, /pendingAdvanceAfterPageRef\.current = true/);
+  assert.match(feedCore, /if \(nextTopics\.length > previousLength\) \{[\s\S]*?setTopicIndex\(previousLength\)/);
 });
