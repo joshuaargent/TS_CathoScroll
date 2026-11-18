@@ -12,7 +12,7 @@ const [core, registry, cursor, placementRegistry, entryMap] = await Promise.all(
 
 test('feed core delegates card rendering to the registry instead of importing card components', () => {
   assert.match(core, /createFeedCardRegistry\(feedCardRendererContext\)/);
-  assert.match(core, /renderRegisteredFeedEntry\(activeFeedCardEntry, feedCardRenderers, feedCardRendererContext\)/);
+  assert.match(core, /renderRegisteredFeedEntry\(activeFeedCardEntry, feedCardRenderers, feedCardRendererContext!\)/);
   assert.doesNotMatch(core, /from ['"]\.\/TopCommentFeedCard['"]/);
   assert.doesNotMatch(core, /from ['"]\.\/SponsorFeedCard['"]/);
   assert.doesNotMatch(core, /from ['"]\.\/SponsorLoadingCard['"]/);
@@ -21,7 +21,7 @@ test('feed core delegates card rendering to the registry instead of importing ca
 test('card renderer registrations own the component selection and receive shared navigation actions', () => {
   assert.match(registry, /registerFeedEntry<Extract<FeedEntry, \{ type: 'top-comments' \}>/);
   assert.match(registry, /registerFeedEntry<Extract<FeedEntry, \{ type: 'sponsor' \}>/);
-  assert.match(registry, /onNext: context\.onNext/);
+  assert.match(registry, /onNext: context\.navigateNext/);
   assert.match(registry, /onPrevious: context\.navigatePrevious/);
   assert.match(registry, /invokeRegisteredFeedEntryAction/);
   assert.match(registry, /entry\.status === 'pending'/);
@@ -57,11 +57,10 @@ test('one active entry key replaces separate comment and sponsor visibility stat
 
 test('ordered cursor traversal is shared by feed navigation', () => {
   assert.match(core, /flattenFeedEntryMap\(feedEntryMapRef\.current\)/);
-  assert.match(core, /getAdjacentFeedEntry\(entries, currentKey, 'previous'\)/);
-  assert.match(core, /getAdjacentFeedEntry\(entries, currentKey, 'next'\)/);
+  assert.match(core, /getAdjacentFeedEntry\(entries, currentKey, direction\)/);
+  assert.match(core, /invokeRegisteredFeedEntryLifecycle/);
   assert.match(core, /const navigateFeedEntry = async/);
   assert.match(core, /await activateFeedEntry\(adjacent\.entry, direction, entries\)/);
-  assert.match(core, /Future registered card types need only a placement rule and renderer/);
   assert.match(cursor, /export function getAdjacentFeedEntry/);
   assert.match(cursor, /export function reconcileFeedEntryCursor/);
 });
