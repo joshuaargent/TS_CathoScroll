@@ -24,7 +24,6 @@ export function SponsorLoadingCard({
       <div className="h-full w-full" role="status" aria-live="polite" aria-busy="true">
         <TopicCardLayout
           progress={<TopicProgress current={0} total={1} />}
-          cardClassName="bg-accent-light/5"
           header={
             <span className="text-text-muted text-xs tracking-wider uppercase">
               Sponsored
