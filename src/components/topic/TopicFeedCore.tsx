@@ -1127,7 +1127,6 @@ export function TopicFeedCore({
     currentTopCommentIds.has(comment.comment_id)
   );
 
-  const activeInterstitialTopicId = activeInterstitialTopicIdRef.current;
   const flattenedEntries = feedEntryMapRef.current
     ? flattenFeedEntryMap(feedEntryMapRef.current)
     : [];
