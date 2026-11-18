@@ -26,7 +26,7 @@ export function TopicCardLayout({
   return (
     <div className={cn('bg-bg-primary flex h-full w-full flex-col', className)}>
       {progress && (
-        <div className="shrink-0 px-6 pt-6 md:px-8 md:pt-8">
+        <div className="shrink-0 px-6 pt-4 pb-4">
           {progress}
         </div>
       )}
