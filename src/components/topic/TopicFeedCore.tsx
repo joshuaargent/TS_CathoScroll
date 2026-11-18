@@ -1001,11 +1001,16 @@ export function TopicFeedCore({
       nextEntryPreview: undefined,
       previousEntryPreview: undefined,
     };
+    // The registry stores deferred callbacks; refs are read only when users interact with the preview's active counterpart.
+    // eslint-disable-next-line react-hooks/refs
     const previewRegistry = createFeedCardRegistry(previewContext);
+    // eslint-disable-next-line react-hooks/refs
     return renderRegisteredFeedEntry(entry, previewRegistry, previewContext);
   };
 
+  // eslint-disable-next-line react-hooks/refs
   const nextEntryPreview = renderFeedEntryPreview(nextFeedEntry);
+  // eslint-disable-next-line react-hooks/refs
   const previousEntryPreview = renderFeedEntryPreview(previousFeedEntry);
   const topicCard = (
     <Viewer
@@ -1027,14 +1032,17 @@ export function TopicFeedCore({
     nextEntryPreview,
     previousEntryPreview,
   };
+  // The registry stores deferred callbacks; refs are read only when users interact with the rendered card.
+  // eslint-disable-next-line react-hooks/refs
   const feedCardRenderers = createFeedCardRegistry(feedCardRendererContext);
   useLayoutEffect(() => {
     feedCardRendererContextRef.current = feedCardRendererContext;
     feedCardRenderersRef.current = feedCardRenderers;
-  }, [feedCardRendererContext, feedCardRenderers]);
+  });
 
   // Resolve every active entry—including topics—through the same registry.
   const renderedActiveEntry = activeMappedEntry
+    // eslint-disable-next-line react-hooks/refs
     ? renderRegisteredFeedEntry(activeMappedEntry, feedCardRenderers, feedCardRendererContext)
     : topicCard;
 
