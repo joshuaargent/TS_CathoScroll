@@ -796,9 +796,8 @@ export function TopicFeedCore({
   };
 
   const navigateFeedEntry = async (direction: 'next' | 'previous') => {
-    const entries = feedEntryMapRef.current
-      ? flattenFeedEntryMap(feedEntryMapRef.current)
-      : [];
+    if (!feedEntryMapRef.current) return;
+    const entries = flattenFeedEntryMap(feedEntryMapRef.current);
     const currentTopic = feedTopics[topicIndex];
     const currentKey = activeFeedEntryKeyRef.current ?? (
       currentTopic
