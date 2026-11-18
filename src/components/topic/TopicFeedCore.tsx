@@ -250,6 +250,7 @@ export function TopicFeedCore({
               topCommentCardsByTopicId.current.set(topicId, remainingComments);
             } else {
               topCommentCardsByTopicId.current.delete(topicId);
+              topCommentIndexByTopicId.current.delete(topicId);
             }
           }
 
@@ -711,6 +712,7 @@ export function TopicFeedCore({
         seenTopCommentUserId.current = userId;
         seenTopCommentIds.current.clear();
         topCommentCardsByTopicId.current.clear();
+        topCommentIndexByTopicId.current.clear();
         sponsorDueByTopicId.current.clear();
       }
       seenTopCommentIds.current.add(commentId);
@@ -735,6 +737,7 @@ export function TopicFeedCore({
       seenTopCommentUserId.current = userId;
       seenTopCommentIds.current.clear();
       topCommentCardsByTopicId.current.clear();
+      topCommentIndexByTopicId.current.clear();
     }
 
     const previousIndex = (topicIndex - 1 + feedTopics.length) % feedTopics.length;
