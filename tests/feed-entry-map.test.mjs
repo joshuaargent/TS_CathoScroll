@@ -19,7 +19,7 @@ const placementRegistryUrl = `data:text/javascript;base64,${Buffer.from(compiled
 const compiled = ts.transpileModule(source, compilerOptions).outputText
   .replaceAll("from './feed-entry-system'", `from '${systemUrl}'`)
   .replaceAll("from './feed-card-placement-registry'", `from '${placementRegistryUrl}'`);
-const { buildFeedEntryMap, flattenFeedEntryMap } = await import(
+const { buildFeedEntryMap, flattenFeedEntryMap, collectReservedCommentIds } = await import(
   `data:text/javascript;base64,${Buffer.from(compiled).toString('base64')}`
 );
 
@@ -57,6 +57,20 @@ function campaign() {
     disclosure: 'Sponsored',
   };
 }
+
+test('preserved comment groups remain reserved when unseen and pages are appended', () => {
+  const prefix = [{
+    topicId: '5',
+    entries: [{
+      type: 'top-comments',
+      topicId: '5',
+      comments: [comment(1), comment(2)],
+    }],
+  }];
+
+  const reserved = collectReservedCommentIds(prefix, new Set([3]));
+  assert.deepEqual([...reserved], [3, 1, 2]);
+});
 
 test('precomputes the original topic order with Top Comments every five topics', () => {
   const topics = Array.from({ length: 12 }, (_, index) => topic(String(index + 1)));
