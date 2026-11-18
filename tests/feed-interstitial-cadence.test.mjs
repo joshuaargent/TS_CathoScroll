@@ -209,7 +209,7 @@ test('topics, comments and sponsors occupy one exclusive feed-card slot', () => 
   assert.match(feedRenderer, /entryCard: ReactNode/);
   assert.match(feedRenderer, /\{entryCard\}/);
   assert.doesNotMatch(feedRenderer, /absolute inset-0 z-10|invisible pointer-events-none|topicViewer|activeEntry/);
-  assert.match(feedRenderer, /No card is mounted underneath another card/);
+  assert.match(feedRenderer, /No inactive card is mounted beneath it/);
   assert.match(feedCore, /<FeedRenderer/);
   assert.match(feedCore, /const topicCard = \(/);
   assert.match(feedCore, /const renderedActiveEntry = activeMappedEntry/);
