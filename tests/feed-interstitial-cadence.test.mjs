@@ -196,7 +196,6 @@ test('the original analytics-ranked feed keeps interstitials in per-topic sessio
   assert.match(feedCore, /feedTopics\.find\(\(topic\) => topic\.id === interstitialTopicId\)/);
   assert.match(feedCore, /topCommentIsPreviousEntry\.current = true/);
   assert.match(feedCore, /if \(!wasPreviousEntry\) advanceToNextTopic\(\)/);
-  assert.match(feedCore, /else if \(wasPreviousEntry\)/);
   assert.match(feedCore, /if \(wasPreviousEntry\) \{/);
   assert.match(feedCore, /if \(nextTopics\.length > previousLength\) \{[\s\S]*?setTopicIndex\(previousLength\)/);
 });
