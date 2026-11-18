@@ -31,7 +31,9 @@ test('card enter and exit lifecycles are registered beside their renderers', () 
   assert.match(registry, /onEnter: \(entry/);
   assert.match(registry, /onExit: \(entry/);
   assert.match(core, /invokeRegisteredFeedEntryLifecycle/);
-  assert.doesNotMatch(core, /if \(entry\.type === 'top-comments'\)/);
+  // The only remaining type-specific branch updates the persistent progress value;
+  // card selection and enter/exit behaviour stay inside the registry.
+  assert.match(core, /if \(entry\.type === 'top-comments'\) \{\s*setFeedProgress\(/);
   assert.doesNotMatch(core, /if \(entry\.type === 'sponsor'\)/);
 });
 
