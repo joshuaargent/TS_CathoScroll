@@ -171,8 +171,8 @@ test('the original analytics-ranked feed keeps interstitials in per-topic sessio
   assert.match(feedCore, /sponsorRequestVersion\.current !== requestVersion/);
   assert.doesNotMatch(feedCore, /buildFeedQueue|feedQueueWindow|renderFeedQueueEntry/);
   assert.match(feedCore, /onPreviousTopic=\{\(\) => \{/);
-  assert.match(feedCore, /The comment card follows the current topic/);
-  assert.match(feedCore, /if \(sponsorPreviousIsComment\.current\)/);
+  assert.match(feedCore, /When the comment was reached by swiping backward from a later/);
+  assert.match(feedCore, /const previousWasComment = sponsorPreviousIsComment\.current/);
   assert.match(feedCore, /sponsorPreviousIsComment\.current = Boolean\(/);
   assert.match(feedCore, /const cachedComments = topCommentCardsByTopicId\.current\.get\(currentTopic\.id\)/);
   assert.match(feedCore, /const cachedSponsor = sponsorCardsByTopicId\.current\.get\(currentTopic\.id\)/);
