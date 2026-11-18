@@ -19,7 +19,7 @@ export function createFeedCardRegistry(
     registerFeedEntry<Extract<FeedEntry, { type: 'top-comments' }>, FeedCardRendererContext>('top-comments', {
       render: (entry) => (
         <TopCommentFeedCard
-          key={context.userId ?? 'anonymous'}
+          key={`${context.userId ?? 'anonymous'}:${entry.topicId}`}
           userId={context.userId}
           comments={entry.comments}
           initialActiveIndex={context.activeTopCommentIndex}
@@ -46,11 +46,13 @@ export function createFeedCardRegistry(
     registerFeedEntry<Extract<FeedEntry, { type: 'sponsor' }>, FeedCardRendererContext>('sponsor', {
       render: (entry) => entry.status === 'pending' ? (
         <SponsorLoadingCard
+          key={`sponsor-loading:${entry.topicId}`}
           onNextTopic={() => invokeRegisteredFeedEntryAction(entry, 'next', registrations, context)}
           onPreviousTopic={() => invokeRegisteredFeedEntryAction(entry, 'previous', registrations, context)}
         />
       ) : (
         <SponsorFeedCard
+          key={`sponsor:${entry.topicId}:${entry.sessionId ?? 'pending'}`}
           campaigns={entry.campaigns}
           sessionId={entry.sessionId ?? ''}
           userId={context.userId ?? ''}
