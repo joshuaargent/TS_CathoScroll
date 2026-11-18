@@ -200,7 +200,6 @@ test('the original analytics-ranked feed keeps interstitials in per-topic sessio
   assert.match(feedCore, /activeInterstitialTopicId/);
   assert.match(feedCore, /setTopCommentCardComments\(previousCard\)/);
   assert.match(feedCore, /const activateInterstitialTopic/);
-  assert.match(feedCore, /topCommentIndexByTopicId\\.current\\.get\\(topicId\\)/);
   assert.match(feedCore, /topCommentIndexByTopicId\.current\.get\(topicId\)/);
   assert.match(feedCore, /initialActiveIndex=\{activeTopCommentIndex\}/);
   assert.match(topCommentCard, /initialActiveIndex\?: number/);
