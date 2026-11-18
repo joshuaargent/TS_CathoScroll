@@ -18,8 +18,9 @@ test('initial recommendation request is smaller while cursor pagination retains 
   assert.ok(recommendations.includes('page_limit: cursor == null ? 24 : 50'));
 });
 
-test('topic previews stay hidden on the first frame after returning from an interstitial', () => {
-  assert.ok(topicViewer.includes('const [showEntryPreviews, setShowEntryPreviews] = useState(false)'));
-  assert.ok(topicViewer.includes('window.requestAnimationFrame(() => setShowEntryPreviews(true))'));
-  assert.ok(topicViewer.includes('setShowEntryPreviews(false)'));
+test('topic previews use adjacent-entry gating without a delayed reveal or remount flash', () => {
+  assert.ok(!topicViewer.includes('showEntryPreviews'));
+  assert.ok(topicViewer.includes('previousEntryPreview !== null'));
+  assert.ok(topicViewer.includes('nextEntryPreview !== null'));
+  assert.ok(topicViewer.includes('nextEntryPreview === undefined'));
 });
