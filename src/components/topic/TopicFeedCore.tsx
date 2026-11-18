@@ -18,7 +18,7 @@ import { siteConfig } from '@/lib/constants';
 import { buildFeedEntryMap, flattenFeedEntryMap, type FeedEntry, type FeedEntryMap } from '@/lib/feed-entry-map';
 import { renderRegisteredFeedEntry } from '@/lib/feed-entry-registry';
 import { createFeedCardRegistry } from './feed-card-registry';
-import { getAdjacentFeedEntry, getFeedEntryKey } from '@/lib/feed-entry-cursor';
+import { getAdjacentFeedEntry, getFeedEntryKey, reconcileFeedEntryCursor } from '@/lib/feed-entry-cursor';
 
 import type { TopicPageCursor } from '@/lib/content';
 import type { RecommendationCursor } from '@/lib/recommendations';
@@ -534,6 +534,28 @@ export function TopicFeedCore({
       prefetchMappedSponsor(firstSponsor.topicId);
     }
   }, [feedTopics, topComments, userId, getSponsorCampaignResult, prefetchMappedSponsor, loadMoreTopComments]);
+
+  // Keep the active entry cursor stable when inventory is refreshed or a
+  // page is appended. If a card disappears, return to its original topic anchor.
+  useEffect(() => {
+    if (!activeFeedEntryKey || !activeInterstitialTopicIdRef.current) return;
+    const entries = feedEntryMapRef.current
+      ? flattenFeedEntryMap(feedEntryMapRef.current)
+      : [];
+    const cursor = reconcileFeedEntryCursor(
+      entries,
+      activeFeedEntryKey,
+      activeInterstitialTopicIdRef.current
+    );
+    if (cursor?.key === activeFeedEntryKey) return;
+    setActiveFeedEntryKey(null);
+    if (cursor?.key.startsWith('topic:')) {
+      const topicId = cursor.key.slice('topic:'.length);
+      const index = feedTopics.findIndex((topic) => topic.id === topicId);
+      if (index >= 0) setTopicIndex(index);
+    }
+    activateInterstitialTopic(null);
+  }, [activeFeedEntryKey, feedTopics, topComments, userId]);
 
   // ----------------------------------
   // Initial Feed
