@@ -998,21 +998,30 @@ export function TopicFeedCore({
           )}
         </div>
       )}
-      <div className="shrink-0 px-6 pt-4 pb-4">
+      <div className="shrink-0 px-6 pt-4">
         <FeedProgress current={feedProgress.current} total={feedProgress.total} />
       </div>
-      <div className="min-h-0 flex-1">
-        {renderedFeedCard ?? (
+      <div className="relative min-h-0 flex-1">
+        <div
+          className={activeFeedCardEntry ? 'invisible pointer-events-none absolute inset-0' : 'absolute inset-0'}
+          aria-hidden={Boolean(activeFeedCardEntry)}
+        >
           <Viewer
             topics={feedTopics}
             topicIndex={topicIndex}
             initialUserId={userId}
+            active={!activeFeedCardEntry}
             onNextTopic={nextTopic}
             onPreviousTopic={previousTopic}
             onProgressChange={updateFeedProgress}
             nextEntryPreview={nextEntryPreview}
             previousEntryPreview={previousEntryPreview}
           />
+        </div>
+        {renderedFeedCard && (
+          <div className="absolute inset-0 z-10">
+            {renderedFeedCard}
+          </div>
         )}
       </div>
     </div>
