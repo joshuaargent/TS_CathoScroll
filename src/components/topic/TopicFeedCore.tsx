@@ -104,6 +104,7 @@ export function TopicFeedCore({
   const topCommentCadenceUserId = useRef(userId);
   const topCommentCardsByTopicId = useRef(new Map<string, TopFeedComment[]>());
   const topCommentIndexByTopicId = useRef(new Map<string, number>());
+  const processedTopicBoundariesByTopicId = useRef(new Set<string>());
   const [topicsSinceTopCommentCard, setTopicsSinceTopCommentCard] = useState(0);
   const [sponsorCampaigns, setSponsorCampaigns] = useState<SponsorFeedCampaign[]>([]);
   const [showSponsorCard, setShowSponsorCard] = useState(false);
@@ -580,6 +581,14 @@ export function TopicFeedCore({
       return;
     }
 
+    // A topic boundary is evaluated once per feed session. Replaying a topic
+    // with no interstitial must not consume the cadence at the new frontier
+    // and unexpectedly insert a card into the user's already-seen sequence.
+    if (currentTopic && processedTopicBoundariesByTopicId.current.has(currentTopic.id)) {
+      advanceToNextTopic();
+      return;
+    }
+
     let currentCommentCadence = topicsSinceTopCommentCard;
     let currentSponsorCadence = topicsSinceSponsorCard;
 
@@ -588,6 +597,7 @@ export function TopicFeedCore({
       seenTopCommentIds.current.clear();
       topCommentCardsByTopicId.current.clear();
       topCommentIndexByTopicId.current.clear();
+      processedTopicBoundariesByTopicId.current.clear();
       sponsorDueByTopicId.current.clear();
       currentCommentCadence = 0;
     }
@@ -626,7 +636,10 @@ export function TopicFeedCore({
     if (chooseSponsor) {
       activateInterstitialTopic(currentTopic?.id ?? null);
       sponsorIsPreviousEntry.current = false;
-      if (currentTopic) sponsorDueByTopicId.current.add(currentTopic.id);
+      if (currentTopic) {
+        processedTopicBoundariesByTopicId.current.add(currentTopic.id);
+        sponsorDueByTopicId.current.add(currentTopic.id);
+      }
       setTopicsSinceTopCommentCard(nextCommentCadence);
       sponsorRequestPreviousCadence.current = topicsSinceSponsorCard;
       setTopicsSinceSponsorCard(0);
@@ -683,8 +696,9 @@ export function TopicFeedCore({
     if (commentDue) {
       pendingSponsorAfterComment.current = sponsorDue;
       setTopicsSinceTopCommentCard(0);
-      if (currentTopic && sponsorDue) {
-        sponsorDueByTopicId.current.add(currentTopic.id);
+      if (currentTopic) {
+        processedTopicBoundariesByTopicId.current.add(currentTopic.id);
+        if (sponsorDue) sponsorDueByTopicId.current.add(currentTopic.id);
       }
       if (currentTopic) {
         sponsorPreviousIsComment.current = false;
@@ -710,6 +724,7 @@ export function TopicFeedCore({
       }
     }
 
+    if (currentTopic) processedTopicBoundariesByTopicId.current.add(currentTopic.id);
     setTopicsSinceTopCommentCard(nextCommentCadence);
     advanceToNextTopic();
   };
@@ -721,6 +736,7 @@ export function TopicFeedCore({
         seenTopCommentIds.current.clear();
         topCommentCardsByTopicId.current.clear();
         topCommentIndexByTopicId.current.clear();
+        processedTopicBoundariesByTopicId.current.clear();
         sponsorDueByTopicId.current.clear();
       }
       seenTopCommentIds.current.add(commentId);
