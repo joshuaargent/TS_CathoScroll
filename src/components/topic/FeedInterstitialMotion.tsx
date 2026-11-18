@@ -78,7 +78,7 @@ export function FeedInterstitialMotion({
         else navigation = onPreviousTopic();
       });
 
-      if (navigation) await navigation;
+      await navigation;
     } catch (error) {
       console.error('Unable to navigate feed card:', error);
     } finally {
