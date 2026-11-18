@@ -43,7 +43,7 @@ interface TopicSwipeViewerProps {
   onPreviousTopic?: () => void | Promise<void>;
   nextEntryPreview?: ReactNode;
   previousEntryPreview?: ReactNode;
-  onProgressChange: (current: number, total: number) => void;
+  onProgressChange?: (current: number, total: number) => void;
 }
 
 export function TopicSwipeViewer({
@@ -91,7 +91,7 @@ export function TopicSwipeViewer({
   const currentSlide = slides[slideIndex];
 
   useLayoutEffect(() => {
-    if (active) onProgressChange(slideIndex, slides.length);
+    if (active) onProgressChange?.(slideIndex, slides.length);
   }, [active, currentTopicId, onProgressChange, slideIndex, slides.length]);
 
   // Interstitial navigation can select a different topic without going
@@ -101,7 +101,6 @@ export function TopicSwipeViewer({
   useLayoutEffect(() => {
     if (previousTopicIdRef.current === currentTopicId) return;
     previousTopicIdRef.current = currentTopicId;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSlideIndex(0);
     x.jump(0);
     y.jump(0);
