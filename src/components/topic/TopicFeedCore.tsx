@@ -112,7 +112,7 @@ export function TopicFeedCore({
   const [topicsSinceSponsorCard, setTopicsSinceSponsorCard] = useState(0);
   const sponsorCardsByTopicId = useRef(new Map<string, { campaigns: SponsorFeedCampaign[]; sessionId: string }>());
   const sponsorResultsByTopicId = useRef(new Map<string, { campaigns: SponsorFeedCampaign[]; sessionId: string | null }>());
-  const sponsorRequestsByTopicId = useRef(new Map<string, Promise<{ campaigns: SponsorFeedCampaign[]; sessionId: string | null }>>());
+  const sponsorRequestsByTopicId = useRef(new Map<string, Promise<{ campaigns: SponsorFeedCampaign[]; sessionId: string | null; retryable?: boolean }>>());
   const [activeSponsorSessionId, setActiveSponsorSessionId] = useState<string | null>(null);
   const sponsorSessionUserId = useRef(userId);
   const sponsorLoadingRef = useRef(false);
@@ -167,16 +167,17 @@ export function TopicFeedCore({
   }, [userId]);
 
   const loadSponsorCampaigns = useCallback(
-    async (topic: Topic): Promise<{ campaigns: SponsorFeedCampaign[]; sessionId: string | null }> => {
-      if (!userId || !getSponsorAccessToken) return { campaigns: [], sessionId: null };
+    async (topic: Topic): Promise<{ campaigns: SponsorFeedCampaign[]; sessionId: string | null; retryable?: boolean }> => {
+      if (!userId || !getSponsorAccessToken) return { campaigns: [], sessionId: null, retryable: true };
       // Give each sponsor-card placement its own ID for reliable event attribution.
       const sessionId = createSponsorSessionId();
-      if (!sessionId) return { campaigns: [], sessionId: null };
+      if (!sessionId) return { campaigns: [], sessionId: null, retryable: true };
 
       try {
         const accessToken = await getSponsorAccessToken();
         const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-        if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+        if (!accessToken) return { campaigns: [], sessionId: null, retryable: true };
+        headers.Authorization = `Bearer ${accessToken}`;
         const campaignsEndpoint = effectiveSponsorApiBaseUrl
           ? new URL('/api/content/sponsored-campaigns', effectiveSponsorApiBaseUrl).toString()
           : '/api/content/sponsored-campaigns';
@@ -194,13 +195,17 @@ export function TopicFeedCore({
               topicId: topic.id,
             }),
           });
-          if (!response.ok) return { campaigns: [], sessionId: null };
+          if (!response.ok) {
+            console.warn('Sponsor campaign request was not successful:', response.status);
+            return { campaigns: [], sessionId: null, retryable: true };
+          }
           return { campaigns: parseSponsorFeedCampaigns(await response.json()), sessionId };
         } finally {
           window.clearTimeout(timeoutId);
         }
       } catch {
-        return { campaigns: [], sessionId: null };
+        console.warn('Sponsor campaign request failed; the placement can be retried.');
+        return { campaigns: [], sessionId: null, retryable: true };
       }
     },
     [effectiveSponsorApiBaseUrl, getSponsorAccessToken, userId]
@@ -298,7 +303,7 @@ export function TopicFeedCore({
   }, [topCommentsEndpoint]);
 
   const getSponsorCampaignResult = useCallback(
-    (topic: Topic): Promise<{ campaigns: SponsorFeedCampaign[]; sessionId: string | null }> => {
+    (topic: Topic): Promise<{ campaigns: SponsorFeedCampaign[]; sessionId: string | null; retryable?: boolean }> => {
       const cached = sponsorResultsByTopicId.current.get(topic.id);
       if (cached) return Promise.resolve(cached);
 
@@ -310,7 +315,10 @@ export function TopicFeedCore({
         .then((result) => {
           // Cache both successful and empty results. A missing placement is a
           // stable decision for this topic during the current feed session.
-          if (sponsorSessionUserId.current === requestedUserId) {
+          if (sponsorSessionUserId.current === requestedUserId && !result.retryable) {
+            // Cache a successful placement or a successful empty eligibility
+            // result. Never pin a transient auth/network/server failure as the
+            // permanent no-campaign decision for this topic in this session.
             sponsorResultsByTopicId.current.set(topic.id, result);
             if (result.campaigns.length > 0 && result.sessionId) {
               sponsorCardsByTopicId.current.set(topic.id, {
@@ -543,7 +551,7 @@ export function TopicFeedCore({
           const result = await getSponsorCampaignResult(currentTopic);
           if (sponsorRequestVersion.current !== requestVersion ||
               sponsorSessionUserId.current !== requestedUserId) return;
-          sponsorDueByTopicId.current.delete(currentTopic.id);
+          if (!result.retryable) sponsorDueByTopicId.current.delete(currentTopic.id);
           const sessionId = result.sessionId;
           if (result.campaigns.length > 0 && sessionId) {
             sponsorPreviousIsComment.current = false;
@@ -677,7 +685,7 @@ export function TopicFeedCore({
           return;
         }
 
-        sponsorDueByTopicId.current.delete(currentTopic.id);
+        if (!result.retryable) sponsorDueByTopicId.current.delete(currentTopic.id);
         flushSync(() => {
           setSponsorLoading(false);
           advanceToNextTopic();
@@ -986,7 +994,7 @@ export function TopicFeedCore({
                 return;
               }
 
-              sponsorDueByTopicId.current.delete(currentTopic.id);
+              if (!result.retryable) sponsorDueByTopicId.current.delete(currentTopic.id);
               flushSync(() => {
                 setShowTopCommentCard(false);
                 setSponsorLoading(false);
