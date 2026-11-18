@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState, type ComponentType } from 'react';
-import { flushSync } from 'react-dom';
 
 import { shuffle } from '@/lib/utils';
 import {
@@ -126,6 +125,7 @@ export function TopicFeedCore({
     );
   };
   const [activeFeedEntryKey, setActiveFeedEntryKeyState] = useState<string | null>(null);
+  const [feedEntryMap, setFeedEntryMap] = useState<FeedEntryMap | null>(null);
   let feedCardRendererContext: FeedCardRendererContext | null = null;
   let feedCardRenderers: ReturnType<typeof createFeedCardRegistry> = [];
   const activeFeedEntryKeyRef = useRef<string | null>(null);
@@ -158,6 +158,7 @@ export function TopicFeedCore({
     topCommentIndexByTopicId.current.clear();
     processedTopicBoundariesByTopicId.current.clear();
     feedEntryMapRef.current = null;
+    setFeedEntryMap(null);
     activeInterstitialTopicIdRef.current = null;
     sponsorCardsByTopicId.current.clear();
     sponsorResultsByTopicId.current.clear();
@@ -170,7 +171,7 @@ export function TopicFeedCore({
     setSponsorLoading(false);
     topicsSinceSponsorCardRef.current = 0;
     topicsSinceTopCommentCardRef.current = 0;
-  }, [userId]);
+  }, [userId, setActiveFeedEntryKey]);
 
   const loadSponsorCampaigns = useCallback(
     async (topic: Topic): Promise<{ campaigns: SponsorFeedCampaign[]; sessionId: string | null; retryable?: boolean }> => {
@@ -432,6 +433,7 @@ export function TopicFeedCore({
   useEffect(() => {
     if (feedTopics.length === 0) {
       feedEntryMapRef.current = null;
+      setFeedEntryMap(null);
       return;
     }
 
@@ -485,11 +487,13 @@ export function TopicFeedCore({
     });
     const boundaries = [...prefix, ...planned.boundaries];
     const byTopicId = new Map(boundaries.map((boundary) => [boundary.topicId, boundary] as const));
-    feedEntryMapRef.current = {
+    const nextFeedEntryMap: FeedEntryMap = {
       ...planned,
       boundaries,
       byTopicId,
     };
+    feedEntryMapRef.current = nextFeedEntryMap;
+    setFeedEntryMap(nextFeedEntryMap);
     for (const boundary of planned.boundaries) {
       const sponsorEntry = boundary.entries.find((entry) => entry.type === 'sponsor');
       if (sponsorEntry && sponsorEntry.type === 'sponsor' && sponsorEntry.status !== 'empty') {
@@ -515,7 +519,6 @@ export function TopicFeedCore({
     const currentTopic = feedTopics[topicIndex];
     const nextKey = currentTopic ? `topic:${currentTopic.id}` : null;
     if (nextKey !== activeFeedEntryKey) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setActiveFeedEntryKey(nextKey);
     }
   }, [activeFeedEntryKey, feedTopics, topicIndex, setActiveFeedEntryKey]);
@@ -527,9 +530,7 @@ export function TopicFeedCore({
       activeFeedEntryKey.startsWith('topic:') ||
       !activeInterstitialTopicIdRef.current
     ) return;
-    const entries = feedEntryMapRef.current
-      ? flattenFeedEntryMap(feedEntryMapRef.current)
-      : [];
+    const entries = feedEntryMap ? flattenFeedEntryMap(feedEntryMap) : [];
     const cursor = reconcileFeedEntryCursor(
       entries,
       activeFeedEntryKey,
@@ -537,20 +538,17 @@ export function TopicFeedCore({
     );
     if (cursor?.key === activeFeedEntryKey) return;
     activeFeedEntryKeyRef.current = null;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setActiveFeedEntryKeyState(null);
     if (cursor?.key.startsWith('topic:')) {
       const topicId = cursor.key.slice('topic:'.length);
       const index = feedTopics.findIndex((topic) => topic.id === topicId);
       if (index >= 0) {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setTopicIndex(index);
+          setTopicIndex(index);
       }
     }
     activeInterstitialTopicIdRef.current = null;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setActiveTopCommentIndex(0);
-  }, [activeFeedEntryKey, feedTopics, topComments, userId]);
+  }, [activeFeedEntryKey, feedEntryMap, feedTopics, topComments, userId]);
 
   // ----------------------------------
   // Initial Feed
@@ -870,9 +868,7 @@ export function TopicFeedCore({
     onOpenComment(comment);
   };
 
-  const flattenedEntries = feedEntryMapRef.current
-    ? flattenFeedEntryMap(feedEntryMapRef.current)
-    : [];
+  const flattenedEntries = feedEntryMap ? flattenFeedEntryMap(feedEntryMap) : [];
   const activeMappedEntry = activeFeedEntryKey
     ? flattenedEntries.find((entry) => getFeedEntryKey(entry) === activeFeedEntryKey)
     : null;
@@ -901,7 +897,11 @@ export function TopicFeedCore({
     loadSponsorEntry,
     cancelSponsorRequest,
   };
+  // The registry stores deferred event callbacks; captured refs are read only when those callbacks run.
+  // eslint-disable-next-line react-hooks/refs
   feedCardRenderers = createFeedCardRegistry(feedCardRendererContext);
+  // Renderer actions are deferred to user interaction and do not read captured refs during render.
+  // eslint-disable-next-line react-hooks/refs
   const renderedFeedCard = activeFeedCardEntry
     ? renderRegisteredFeedEntry(activeFeedCardEntry, feedCardRenderers, feedCardRendererContext!)
     : null;
