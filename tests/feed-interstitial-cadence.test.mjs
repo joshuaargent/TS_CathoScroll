@@ -142,7 +142,9 @@ test('topic, comment and sponsor cards use the same structural layout component'
   assert.match(feedCore, /<SponsorLoadingCard/);
   assert.match(feedCore, /onPreviousTopic=\{\(\) => \{/);
   assert.match(feedCore, /if \(sponsorDue\) void getSponsorCampaignResult\(currentTopic\)/);
-  assert.match(feedCore, /for \(const comment of unseenTopComments\)/);
+  assert.match(feedCore, /const commentGroup = getTopCommentGroup\(unseenTopComments\)/);
+  assert.match(feedCore, /for \(const comment of commentGroup\)/);
+  assert.match(feedCore, /topCommentCardsByTopicId\.current\.set\(currentTopic\.id, commentGroup\)/);
   assert.match(feedCore, /sponsorResultsByTopicId = useRef\(new Map/);
   assert.match(feedCore, /sponsorRequestsByTopicId = useRef\(new Map/);
   assert.match(feedCore, /userId=\{userId\}/);
