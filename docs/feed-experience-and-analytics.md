@@ -139,6 +139,12 @@ Category analytics aggregate topic-level metrics and show topic leaders, topic d
 
 Sponsor analytics are separate and show eligible opportunities, viewable impressions, unique reach where measurable, clicks, click-through rate, frequency, and campaign trends. Sponsor dashboards expose only aggregate metrics for their own sponsor and never user identities or raw events.
 
+## Sponsor placement eligibility and retry behaviour
+
+The feed distinguishes a successful empty campaign selection from a failed sponsor request. A successful empty response is cached for the topic/session so the same ineligible slot is not repeatedly requested. Authentication, HTTP, timeout and network failures are not cached as empty inventory; the topic's due sponsor slot remains eligible for a retry when revisited. A stale request cannot clear a newer in-flight retry.
+
+The sponsor API can correctly return an empty campaign list when every campaign is ineligible because of date, approval/payment status, targeting, impression caps or per-user frequency caps. This is not a rendering failure: the feed skips the unavailable placement and continues without duplicating a topic. In particular, test campaigns with a five-serves-per-user-per-24-hour cap stop appearing after five successful served events until that rolling cap permits another serve.
+
 ## Future topic-card artwork
 
 Public-domain painting backgrounds are a good visual direction, but should be a separate design change after feed navigation is stable.
