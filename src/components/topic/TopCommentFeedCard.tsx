@@ -21,6 +21,8 @@ interface TopCommentFeedCardProps {
   onPreviousTopic: () => void;
   onOpenComment: (comment: TopFeedComment) => void;
   onCommentViewed: (commentId: number) => void;
+  initialActiveIndex?: number;
+  onActiveIndexChange?: (index: number) => void;
   nextEntryPreview?: ReactNode;
   previousEntryPreview?: ReactNode;
 }
@@ -140,10 +142,12 @@ export function TopCommentFeedCard({
   onPreviousTopic,
   onOpenComment,
   onCommentViewed,
+  initialActiveIndex = 0,
+  onActiveIndexChange,
   nextEntryPreview,
   previousEntryPreview,
 }: TopCommentFeedCardProps) {
-  const [activeIndex, setActiveIndex] = useState(0);
+  const [activeIndex, setActiveIndex] = useState(initialActiveIndex);
   const navigationStarted = useRef(false);
 
   const safeIndex = Math.min(activeIndex, Math.max(0, comments.length - 1));
@@ -153,6 +157,14 @@ export function TopCommentFeedCard({
   useEffect(() => {
     if (active) navigationStarted.current = false;
   }, [active, comments]);
+
+  useEffect(() => {
+    const nextIndex = Math.min(
+      Math.max(0, initialActiveIndex),
+      Math.max(0, comments.length - 1)
+    );
+    setActiveIndex(nextIndex);
+  }, [comments.length, initialActiveIndex]);
 
   useEffect(() => {
     if (activeCommentId !== undefined) onCommentViewed(activeCommentId);
@@ -185,8 +197,13 @@ export function TopCommentFeedCard({
       ? 'text-xl md:text-2xl'
       : 'text-2xl md:text-4xl';
 
-  const showPreviousComment = () => setActiveIndex((index) => Math.max(0, index - 1));
-  const showNextComment = () => setActiveIndex((index) => Math.min(comments.length - 1, index + 1));
+  const updateActiveIndex = (index: number) => {
+    const nextIndex = Math.min(Math.max(0, index), comments.length - 1);
+    setActiveIndex(nextIndex);
+    onActiveIndexChange?.(nextIndex);
+  };
+  const showPreviousComment = () => updateActiveIndex(safeIndex - 1);
+  const showNextComment = () => updateActiveIndex(safeIndex + 1);
 
   return (
     <FeedInterstitialMotion
