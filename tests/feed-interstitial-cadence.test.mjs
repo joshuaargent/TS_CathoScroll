@@ -137,6 +137,8 @@ test('topic, comment and sponsor cards use the same structural layout component'
   assert.match(topicViewer, /await navigation;/);
   assert.match(topCommentCard, /await onNextTopic\(\)/);
   assert.match(sponsorCard, /await onNextTopic\(\)/);
+  assert.match(sponsorCard, /navigationStarted\.current = false/);
+  assert.match(sponsorCard, /catch \(error\)/);
   assert.match(feedCore, /const nextTopic = async \(\) =>/);
   assert.match(feedCore, /sponsorLoading \? \(/);
   assert.match(feedCore, /<SponsorLoadingCard/);
