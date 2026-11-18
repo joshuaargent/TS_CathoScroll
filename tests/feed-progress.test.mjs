@@ -27,7 +27,8 @@ test('every feed card type uses the original shared topic progress implementatio
   assert.match(compatibility, /export \{ FeedProgress as TopicProgress \} from '\.\/FeedProgress'/);
 });
 
-test('shared card layout preserves the original topic card vertical padding', () => {
+test('shared card layout preserves the original topic card and progress spacing', () => {
+  assert.match(layout, /px-6 pt-4 pb-4/);
   assert.match(layout, /px-6 pt-6 pb-6 md:px-8 md:pt-8 md:pb-8/);
 });
 
