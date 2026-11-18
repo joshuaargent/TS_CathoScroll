@@ -76,6 +76,7 @@ export function TopicFeed({ topics, nextCursor, personalized = false, userId }: 
       topics={topics}
       nextCursor={nextCursor}
       personalized={personalized}
+      preservePositionOnUpdate
       loadPage={loadPage}
       userId={activeUserId}
       getSponsorAccessToken={getSponsorAccessToken}
