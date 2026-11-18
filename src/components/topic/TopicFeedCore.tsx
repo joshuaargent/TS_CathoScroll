@@ -159,16 +159,24 @@ export function TopicFeedCore({
         const campaignsEndpoint = effectiveSponsorApiBaseUrl
           ? new URL('/api/content/sponsored-campaigns', effectiveSponsorApiBaseUrl).toString()
           : '/api/content/sponsored-campaigns';
-        const response = await fetch(campaignsEndpoint, {
-          method: 'POST',
-          credentials: 'same-origin',
-          headers,
-          body: JSON.stringify({
+        const controller = new AbortController();
+        const timeoutId = window.setTimeout(() => controller.abort(), 8000);
+        let response: Response;
+        try {
+          response = await fetch(campaignsEndpoint, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers,
+            signal: controller.signal,
+            body: JSON.stringify({
             sessionId,
             categorySlug: topic.categorySlug ?? null,
             topicId: topic.id,
-          }),
-        });
+            }),
+          });
+        } finally {
+          window.clearTimeout(timeoutId);
+        }
         if (!response.ok) return { campaigns: [], sessionId: null };
         return { campaigns: parseSponsorFeedCampaigns(await response.json()), sessionId };
       } catch {
@@ -631,7 +639,28 @@ export function TopicFeedCore({
         </div>
       )}
       {sponsorLoading ? (
-        <SponsorLoadingCard />
+        <SponsorLoadingCard
+          onNextTopic={() => {
+            sponsorRequestVersion.current += 1;
+            sponsorLoadingRef.current = false;
+            setSponsorLoading(false);
+            const currentTopic = feedTopics[topicIndex];
+            if (currentTopic) sponsorDueByTopicId.current.delete(currentTopic.id);
+            pendingSponsorAfterComment.current = false;
+            setShowTopCommentCard(false);
+            advanceToNextTopic();
+          }}
+          onPreviousTopic={() => {
+            sponsorRequestVersion.current += 1;
+            sponsorLoadingRef.current = false;
+            setSponsorLoading(false);
+            setTopicsSinceSponsorCard(sponsorRequestPreviousCadence.current);
+            if (sponsorPreviousIsComment.current) {
+              sponsorPreviousIsComment.current = false;
+              setShowTopCommentCard(true);
+            }
+          }}
+        />
       ) : showSponsorCard && sponsorCampaigns.length > 0 ? (
         <SponsorFeedCard
           campaigns={sponsorCampaigns}
@@ -654,6 +683,7 @@ export function TopicFeedCore({
       ) : showTopCommentCard && activeTopCommentCardComments.length > 0 ? (
         <TopCommentFeedCard
           key={userId ?? 'anonymous'}
+          userId={userId}
           comments={activeTopCommentCardComments}
           onCommentViewed={markTopCommentViewed}
           onNextTopic={async () => {
@@ -687,6 +717,7 @@ export function TopicFeedCore({
               return;
             }
 
+            sponsorPreviousIsComment.current = true;
             sponsorLoadingRef.current = true;
             setSponsorLoading(true);
             sponsorRequestPreviousCadence.current = topicsSinceSponsorCard;
