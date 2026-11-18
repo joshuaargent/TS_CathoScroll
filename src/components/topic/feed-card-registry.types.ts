@@ -22,6 +22,7 @@ export type FeedCardRendererContext = {
     direction: FeedEntryDirection,
     entries: readonly FeedEntryLike[]
   ) => Promise<void>;
+  retrySponsorEntry: (entry: Extract<FeedEntry, { type: 'sponsor' }>) => void;
   cancelSponsorRequest: (
     entry: Extract<FeedEntry, { type: 'sponsor' }>,
     direction: FeedEntryDirection
