@@ -31,6 +31,8 @@ The existing topic viewer and interstitial cards use the same vertical gesture c
 
 Topic pagination starts before the final loaded entries. New pages append only unseen topic IDs; an in-flight page can satisfy a pending forward gesture exactly once. A reverse gesture cancels that pending advance. If a page fails, the existing topic remains visible and the user can retry; the feed never appends duplicate topics or changes already visited topic positions. Native background catalogue updates use the same deduplicating append rule and preserve the active topic.
 
+Sponsor served events are recorded by the server when a placement is prepared. Viewable-impression and click events are sent through the authenticated sponsor-events endpoint and retained in a separate account-scoped local queue capped at 1,000 events; stable event IDs make retries idempotent. A click is accepted only after a matching viewable impression. These paid-delivery signals never feed organic topic ranking.
+
 Sponsor selection still uses the existing server-side weighted fair-queue allocator. Each placement selects one campaign, records a served event before returning creative, and retains the same placement/session ID when revisited. Only a qualifying viewable impression affects the rolling delivery ratio. Clicks are accepted only after a viewable impression, and sponsor analytics remain separate from organic recommendation signals.
 
 ## Sponsorship cards
