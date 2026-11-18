@@ -211,7 +211,7 @@ export function FeedInterstitialMotion({
   }, [active, move]);
 
   return (
-    <div ref={containerRef} className="h-full w-full overflow-hidden">
+    <div ref={containerRef} className="h-full w-full overflow-hidden" aria-hidden={!active} inert={!active}>
       <motion.div
         role="region"
         aria-roledescription="feed card"
