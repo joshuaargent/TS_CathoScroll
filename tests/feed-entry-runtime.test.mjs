@@ -10,10 +10,7 @@ const [registrySource, cursorSource] = await Promise.all([
 const options = { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } };
 const compile = (source) => ts.transpileModule(source, options).outputText;
 const cursorUrl = `data:text/javascript;base64,${Buffer.from(compile(cursorSource)).toString('base64')}`;
-const registryJs = compile(registrySource).replace(
-  "from './feed-entry-map'",
-  "from './feed-entry-map'"
-);
+const registryJs = compile(registrySource);
 const registryUrl = `data:text/javascript;base64,${Buffer.from(registryJs).toString('base64')}`;
 const { getFeedEntryKey, getAdjacentFeedEntry, reconcileFeedEntryCursor } = await import(cursorUrl);
 const { registerFeedEntry, renderRegisteredFeedEntry, invokeRegisteredFeedEntryAction, invokeRegisteredFeedEntryLifecycle } = await import(registryUrl);
