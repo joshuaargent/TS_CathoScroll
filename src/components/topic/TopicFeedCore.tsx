@@ -473,7 +473,7 @@ export function TopicFeedCore({
           })
           .map((boundary) => ({
             ...boundary,
-            entries: boundary.entries.flatMap((entry) => {
+            entries: boundary.entries.flatMap<import('@/lib/feed-entry-map').FeedEntry>((entry) => {
               if (entry.type !== 'top-comments') return [entry];
               const currentComments = entry.comments.flatMap((comment) => {
                 const currentComment = commentsById.get(comment.comment_id);
@@ -724,17 +724,18 @@ export function TopicFeedCore({
             sponsorSessionUserId.current !== requestedUserId
           ) return;
 
-          if (result.campaigns.length > 0 && result.sessionId) {
+          const readySessionId = result.sessionId;
+          if (result.campaigns.length > 0 && readySessionId) {
             sponsorEntry.campaigns = result.campaigns;
-            sponsorEntry.sessionId = result.sessionId;
+            sponsorEntry.sessionId = readySessionId;
             sponsorEntry.status = 'ready';
             sponsorPreviousIsComment.current = false;
             flushSync(() => {
               setSponsorCampaigns(result.campaigns);
-              setActiveSponsorSessionId(result.sessionId);
+              setActiveSponsorSessionId(readySessionId);
               sponsorCardsByTopicId.current.set(currentTopic.id, {
                 campaigns: result.campaigns,
-                sessionId: result.sessionId,
+                sessionId: readySessionId,
               });
               setSponsorLoading(false);
               setShowSponsorCard(true);
