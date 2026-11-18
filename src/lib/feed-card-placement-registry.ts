@@ -1,6 +1,4 @@
 import type { Topic } from '@/types';
-import type { TopFeedComment } from '@/lib/feed-comments';
-import type { SponsorFeedCampaign } from '@/lib/sponsor-campaigns';
 import { buildOrderedFeedSequence, type FeedCardRule } from './feed-entry-system';
 import type { BuildFeedEntryMapOptions, FeedCardEntry } from './feed-entry-map';
 
@@ -37,9 +35,7 @@ export function createFeedCardPlacementRules({
   commentGroupSize = 5,
   sponsorResults = new Map(),
 }: FeedCardPlacementContext): FeedCardRule<Topic, FeedCardEntry>[] {
-  const availableComments = comments.filter(
-    (comment: TopFeedComment) => !reservedCommentIds.has(comment.comment_id)
-  );
+  const availableComments = comments.filter((comment) => !reservedCommentIds.has(comment.comment_id));
 
   const rules: FeedCardRule<Topic, FeedCardEntry>[] = [
     {
