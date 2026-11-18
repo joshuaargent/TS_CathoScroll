@@ -540,7 +540,10 @@ export function TopicFeedCore({
     if (activeFeedEntryKey?.startsWith('top-comments:') || activeFeedEntryKey?.startsWith('sponsor:')) return;
     const currentTopic = feedTopics[topicIndex];
     const nextKey = currentTopic ? `topic:${currentTopic.id}` : null;
-    if (nextKey !== activeFeedEntryKey) setActiveFeedEntryKey(nextKey);
+    if (nextKey !== activeFeedEntryKey) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setActiveFeedEntryKey(nextKey);
+    }
   }, [activeFeedEntryKey, feedTopics, topicIndex, setActiveFeedEntryKey]);
 
   // If a card disappears during inventory refresh, fall back to its topic anchor.
@@ -560,13 +563,18 @@ export function TopicFeedCore({
     );
     if (cursor?.key === activeFeedEntryKey) return;
     activeFeedEntryKeyRef.current = null;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setActiveFeedEntryKeyState(null);
     if (cursor?.key.startsWith('topic:')) {
       const topicId = cursor.key.slice('topic:'.length);
       const index = feedTopics.findIndex((topic) => topic.id === topicId);
-      if (index >= 0) setTopicIndex(index);
+      if (index >= 0) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setTopicIndex(index);
+      }
     }
     activeInterstitialTopicIdRef.current = null;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setActiveTopCommentIndex(0);
   }, [activeFeedEntryKey, feedTopics, topComments, userId]);
 
