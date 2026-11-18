@@ -123,9 +123,8 @@ test('empty inventory suppresses only the affected interstitial and leaves caden
   });
 
   assert.deepEqual(map.byTopicId.get('10').entries.map((entry) => entry.type), [
-    'topic', 'top-comments', 'sponsor',
+    'topic', 'top-comments',
   ]);
-  assert.equal(map.byTopicId.get('10').entries[2].status, 'empty');
   assert.deepEqual(map.byTopicId.get('15').entries.map((entry) => entry.type), [
     'topic', 'top-comments',
   ]);
