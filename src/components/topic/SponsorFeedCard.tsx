@@ -134,13 +134,23 @@ export function SponsorFeedCard({
   const navigateNextTopic = async () => {
     if (navigationStarted.current) return;
     navigationStarted.current = true;
-    await onNextTopic();
+    try {
+      await onNextTopic();
+    } catch (error) {
+      navigationStarted.current = false;
+      throw error;
+    }
   };
 
   const navigatePreviousTopic = async () => {
     if (navigationStarted.current) return;
     navigationStarted.current = true;
-    await onPreviousTopic();
+    try {
+      await onPreviousTopic();
+    } catch (error) {
+      navigationStarted.current = false;
+      throw error;
+    }
   };
 
   const showPreviousCampaign = () => setActiveIndex((index) => Math.max(0, index - 1));
