@@ -3,14 +3,13 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 const root = new URL('../src/components/topic/', import.meta.url);
-const [progress, topic, comments, sponsor, sponsorLoading, topicCard, layout, compatibility, feedCore, baseCard, renderer] = await Promise.all([
+const [progress, topic, comments, sponsor, sponsorLoading, topicCard, compatibility, feedCore, baseCard, renderer] = await Promise.all([
   readFile(new URL('FeedProgress.tsx', root), 'utf8'),
   readFile(new URL('TopicSwipeViewer.tsx', root), 'utf8'),
   readFile(new URL('TopCommentFeedCard.tsx', root), 'utf8'),
   readFile(new URL('SponsorFeedCard.tsx', root), 'utf8'),
   readFile(new URL('SponsorLoadingCard.tsx', root), 'utf8'),
   readFile(new URL('TopicCard.tsx', root), 'utf8'),
-  readFile(new URL('TopicCardLayout.tsx', root), 'utf8'),
   readFile(new URL('TopicProgress.tsx', root), 'utf8'),
   readFile(new URL('TopicFeedCore.tsx', root), 'utf8'),
   readFile(new URL('BaseFeedCard.tsx', root), 'utf8'),
