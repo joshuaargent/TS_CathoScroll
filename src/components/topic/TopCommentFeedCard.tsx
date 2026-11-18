@@ -159,15 +159,6 @@ export function TopCommentFeedCard({
   }, [active, comments]);
 
   useEffect(() => {
-    const nextIndex = Math.min(
-      Math.max(0, initialActiveIndex),
-      Math.max(0, comments.length - 1)
-    );
-    setActiveIndex(nextIndex);
-    if (nextIndex !== initialActiveIndex) onActiveIndexChange?.(nextIndex);
-  }, [comments.length, initialActiveIndex, onActiveIndexChange]);
-
-  useEffect(() => {
     if (activeCommentId !== undefined) onCommentViewed(activeCommentId);
   }, [activeCommentId, onCommentViewed]);
 
