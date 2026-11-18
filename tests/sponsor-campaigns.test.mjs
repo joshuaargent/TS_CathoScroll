@@ -51,6 +51,8 @@ test('weighted campaign selector enforces payment, dates, targeting, caps and co
   assert.match(selector, /daily_impression_cap/);
   assert.match(selector, /total_impression_cap/);
   assert.match(selector, /frequency_cap_per_user_24h/);
+  assert.match(selector, /recent_viewable\.event_type = 'viewable_impression'/);
+  assert.doesNotMatch(selector, /recent_served\.event_type = 'served'/);
   assert.match(selector, /frequency_cap_per_user_total/);
   assert.match(selector, /pg_advisory_xact_lock/);
   assert.match(selector, /FOR UPDATE OF campaign SKIP LOCKED/);
@@ -163,5 +165,7 @@ test('top-comment selection and sponsor retention work remain bounded', () => {
   );
   assert.match(prune, /SET status = 'completed'/);
   assert.match(prune, /campaign.ends_on < \(p_before AT TIME ZONE 'UTC'\)::date/);
+  assert.match(bootstrap, /prune_sponsor_campaign_events\(statement_timestamp\(\) - interval ''180 days'', 5000\)/);
+  assert.doesNotMatch(bootstrap, /prune_sponsor_campaign_events\(clock_timestamp\(\)/);
   assert.match(bootstrap, /NOTIFY pgrst, 'reload schema';\s*-- End of CathoScroll application-schema and catalogue bootstrap\./);
 });
