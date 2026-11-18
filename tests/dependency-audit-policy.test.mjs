@@ -44,6 +44,20 @@ test('fails when any package has a different advisory', () => {
   assert.ok(result.errors.some((error) => error.includes('GHSA-AAAA-BBBB-CCCC')));
 });
 
+test('allows cyclic transitive dependency paths when they terminate in the approved advisory', () => {
+  const result = classifyAuditReport({
+    vulnerabilities: {
+      picomatch: { via: [allowedAdvisory] },
+      'app-builder-lib': { via: ['dmg-builder', 'picomatch'] },
+      'dmg-builder': { via: ['app-builder-lib', 'picomatch'] },
+    },
+  });
+
+  assert.equal(result.allowed, true);
+  assert.deepEqual(result.advisoryIds, ['GHSA-FC5Q-39XC-VJPF']);
+  assert.deepEqual(result.errors, []);
+});
+
 test('fails when a transitive advisory chain cannot be resolved', () => {
   const result = classifyAuditReport({
     vulnerabilities: {
