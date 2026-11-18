@@ -189,9 +189,18 @@ export function TopicFeedCore({
       if (!sessionId) return { campaigns: [], sessionId: null, retryable: true };
 
       try {
-        const accessToken = await getSponsorAccessToken();
+        let accessToken = await getSponsorAccessToken();
+        if (!accessToken) {
+          // Auth state can briefly lag the feed's signed-in state during
+          // session hydration. Retry once before treating the request as transient.
+          await new Promise((resolve) => window.setTimeout(resolve, 250));
+          accessToken = await getSponsorAccessToken();
+        }
         const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-        if (!accessToken) return { campaigns: [], sessionId: null, retryable: true };
+        if (!accessToken) {
+          console.warn('Sponsor campaign request deferred because no access token is available yet.');
+          return { campaigns: [], sessionId: null, retryable: true };
+        }
         headers.Authorization = `Bearer ${accessToken}`;
         const campaignsEndpoint = effectiveSponsorApiBaseUrl
           ? new URL('/api/content/sponsored-campaigns', effectiveSponsorApiBaseUrl).toString()
@@ -431,6 +440,19 @@ export function TopicFeedCore({
         currentSponsor.status = 'ready';
       } else {
         currentBoundary.entries = currentBoundary.entries.filter((item) => item.type !== 'sponsor');
+      }
+      // Publish the resolved placement immutably. The ref is used by the
+      // cursor, while React state drives the visible card renderer.
+      const currentMap = feedEntryMapRef.current;
+      if (currentMap) {
+        const nextMap = {
+          ...currentMap,
+          boundaries: [...currentMap.boundaries],
+          byTopicId: new Map(currentMap.byTopicId),
+        };
+        nextMap.byTopicId.set(topicId, currentBoundary);
+        feedEntryMapRef.current = nextMap;
+        setFeedEntryMap(nextMap);
       }
     });
   }, [getSponsorCampaignResult, userId]);
@@ -770,7 +792,13 @@ export function TopicFeedCore({
     const requestedUserId = userId;
     const requestVersion = ++sponsorRequestVersion.current;
     try {
-      const result = await getSponsorCampaignResult(sponsorTopic);
+      let result = await getSponsorCampaignResult(sponsorTopic);
+      if (result.retryable) {
+        // A token refresh/network race must not silently consume the sponsor
+        // slot. Re-attempt once while the loading card remains active.
+        await new Promise((resolve) => window.setTimeout(resolve, 400));
+        result = await getSponsorCampaignResult(sponsorTopic);
+      }
       if (
         sponsorRequestVersion.current !== requestVersion ||
         sponsorSessionUserId.current !== requestedUserId
