@@ -4963,7 +4963,7 @@ CREATE TABLE public.sponsor_campaigns (
   target_category_slugs text[] NOT NULL DEFAULT ARRAY[]::text[],
   target_topic_ids text[] NOT NULL DEFAULT ARRAY[]::text[],
   placement_weight integer NOT NULL DEFAULT 1 CHECK (placement_weight BETWEEN 1 AND 1000),
-  frequency_cap_per_user_24h integer NOT NULL DEFAULT 1 CHECK (frequency_cap_per_user_24h BETWEEN 1 AND 5),
+  frequency_cap_per_user_24h integer NOT NULL DEFAULT 1 CHECK (frequency_cap_per_user_24h BETWEEN 1 AND 25),
   frequency_cap_per_user_total integer NOT NULL DEFAULT 3 CHECK (frequency_cap_per_user_total BETWEEN 1 AND 50),
   daily_impression_cap bigint CHECK (daily_impression_cap IS NULL OR daily_impression_cap BETWEEN 1 AND 1000000000),
   total_impression_cap bigint CHECK (total_impression_cap IS NULL OR total_impression_cap BETWEEN 1 AND 100000000000),
@@ -5058,7 +5058,7 @@ BEGIN
      OR p_target_category_slugs IS NULL OR cardinality(p_target_category_slugs) > 100
      OR p_target_topic_ids IS NULL OR cardinality(p_target_topic_ids) > 500
      OR p_placement_weight NOT BETWEEN 1 AND 1000
-     OR p_frequency_cap_per_user_24h NOT BETWEEN 1 AND 5
+     OR p_frequency_cap_per_user_24h NOT BETWEEN 1 AND 25
      OR p_frequency_cap_per_user_total NOT BETWEEN 1 AND 50
      OR (p_daily_impression_cap IS NOT NULL AND p_daily_impression_cap NOT BETWEEN 1 AND 1000000000)
      OR (p_total_impression_cap IS NOT NULL AND p_total_impression_cap NOT BETWEEN 1 AND 100000000000) THEN
@@ -5614,7 +5614,7 @@ BEGIN
      OR p_target_category_slugs IS NULL OR cardinality(p_target_category_slugs) > 100
      OR p_target_topic_ids IS NULL OR cardinality(p_target_topic_ids) > 500
      OR p_placement_weight NOT BETWEEN 1 AND 1000
-     OR p_frequency_cap_per_user_24h NOT BETWEEN 1 AND 5
+     OR p_frequency_cap_per_user_24h NOT BETWEEN 1 AND 25
      OR p_frequency_cap_per_user_total NOT BETWEEN 1 AND 50
      OR (p_daily_impression_cap IS NOT NULL AND p_daily_impression_cap NOT BETWEEN 1 AND 1000000000)
      OR (p_total_impression_cap IS NOT NULL AND p_total_impression_cap NOT BETWEEN 1 AND 100000000000) THEN
@@ -5686,7 +5686,7 @@ BEGIN
      OR p_target_category_slugs IS NULL OR cardinality(p_target_category_slugs) > 100
      OR p_target_topic_ids IS NULL OR cardinality(p_target_topic_ids) > 500
      OR p_placement_weight NOT BETWEEN 1 AND 1000
-     OR p_frequency_cap_per_user_24h NOT BETWEEN 1 AND 5
+     OR p_frequency_cap_per_user_24h NOT BETWEEN 1 AND 25
      OR p_frequency_cap_per_user_total NOT BETWEEN 1 AND 50
      OR (p_daily_impression_cap IS NOT NULL AND p_daily_impression_cap NOT BETWEEN 1 AND 1000000000)
      OR (p_total_impression_cap IS NOT NULL AND p_total_impression_cap NOT BETWEEN 1 AND 100000000000) THEN
