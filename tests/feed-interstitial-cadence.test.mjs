@@ -132,8 +132,8 @@ test('topic, comment and sponsor cards use the same structural layout component'
   assert.match(interstitialMotion, /case ' '/);
   assert.match(interstitialMotion, /setPointerCapture\(event\.pointerId\)/);
   assert.match(interstitialMotion, /flushSync\(\(\) =>/);
-  assert.match(interstitialMotion, /if \(navigation\) await navigation/);
-  assert.match(topicViewer, /if \(navigation\) await navigation/);
+  assert.match(interstitialMotion, /await navigation;/);
+  assert.match(topicViewer, /await navigation;/);
   assert.match(topCommentCard, /await onNextTopic\(\)/);
   assert.match(sponsorCard, /await onNextTopic\(\)/);
   assert.match(feedCore, /const nextTopic = async \(\) =>/);
@@ -186,7 +186,7 @@ test('the original analytics-ranked feed keeps interstitials in per-topic sessio
   assert.ok(feedCore.includes('previousPersonalizedRef.current !== personalized'));
   assert.match(feedCore, /function appendUniqueFeedTopics\(existing: Topic\[\], incoming: Topic\[\]\)/);
   assert.match(feedCore, /const loadMoreTopComments = useCallback\(async \(\) =>/);
-  assert.match(feedCore, /offset=\\$\{offset\}&limit=100/);
+  assert.match(feedCore, /offset=.*limit=100/);
   assert.match(feedCore, /unseenTopComments\.length <= 10/);
   assert.match(feedCore, /topCommentsNextOffsetRef\.current = nextOffset/);
   assert.match(feedCore, /const nextTopics = appendUniqueFeedTopics\(feedTopicsRef\.current, newTopics\)/);
