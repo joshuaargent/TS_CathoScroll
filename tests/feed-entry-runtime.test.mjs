@@ -16,7 +16,7 @@ const registryJs = compile(registrySource).replace(
 );
 const registryUrl = `data:text/javascript;base64,${Buffer.from(registryJs).toString('base64')}`;
 const { getFeedEntryKey, getAdjacentFeedEntry, reconcileFeedEntryCursor } = await import(cursorUrl);
-const { registerFeedEntry, renderRegisteredFeedEntry, invokeRegisteredFeedEntryAction } = await import(registryUrl);
+const { registerFeedEntry, renderRegisteredFeedEntry, invokeRegisteredFeedEntryAction, invokeRegisteredFeedEntryLifecycle } = await import(registryUrl);
 
 const topic = (id) => ({ type: 'topic', topicId: id, topic: { id } });
 const comments = (id) => ({ type: 'top-comments', topicId: id, comments: [] });
@@ -60,10 +60,19 @@ test('renderer and action registry dispatches an unregistered-in-core poll type'
     render: (entry) => `render:${entry.topicId}`,
     onNext: (entry) => { calls.push(`next:${entry.topicId}`); },
     onPrevious: (entry) => { calls.push(`previous:${entry.topicId}`); },
+    onEnter: (entry, direction, entries) => { calls.push(`enter:${direction}:${entry.topicId}:${entries.length}`); },
+    onExit: (entry, direction) => { calls.push(`exit:${direction}:${entry.topicId}`); },
   });
   const entry = { type: 'poll', topicId: '42', pollId: 'poll-42' };
   assert.equal(renderRegisteredFeedEntry(entry, [pollRegistration], {}), 'render:42');
   await invokeRegisteredFeedEntryAction(entry, 'next', [pollRegistration], {});
   await invokeRegisteredFeedEntryAction(entry, 'previous', [pollRegistration], {});
-  assert.deepEqual(calls, ['next:42', 'previous:42']);
+  await invokeRegisteredFeedEntryLifecycle(entry, 'enter', 'next', [entry], [pollRegistration], {});
+  await invokeRegisteredFeedEntryLifecycle(entry, 'exit', 'previous', [entry], [pollRegistration], {});
+  assert.deepEqual(calls, [
+    'next:42',
+    'previous:42',
+    'enter:next:42:1',
+    'exit:previous:42',
+  ]);
 });
