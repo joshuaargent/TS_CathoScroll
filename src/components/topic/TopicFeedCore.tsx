@@ -697,145 +697,6 @@ export function TopicFeedCore({
     setTopicIndex((prev) => (prev + 1) % feedTopics.length);
   };
 
-  const nextTopic = async () => {
-    if (sponsorLoadingRef.current) {
-      handleSponsorNext();
-      return;
-    }
-    if (isTopCommentCardActive()) {
-      await handleTopCommentNext();
-      return;
-    }
-    if (isSponsorCardActive()) {
-      handleSponsorNext();
-      return;
-    }
-
-    const currentTopic = feedTopics[topicIndex];
-    if (!currentTopic) {
-      advanceToNextTopic();
-      return;
-    }
-
-    const boundary = feedEntryMapRef.current?.byTopicId.get(currentTopic.id);
-    if (!boundary) {
-      advanceToNextTopic();
-      return;
-    }
-
-    const boundaryAlreadyProcessed = processedTopicBoundariesByTopicId.current.has(currentTopic.id);
-    if (!boundaryAlreadyProcessed) {
-      processedTopicBoundariesByTopicId.current.add(currentTopic.id);
-      setTopicsSinceTopCommentCard(boundary.commentCadenceAfter);
-      setTopicsSinceSponsorCard(boundary.sponsorCadenceAfter);
-    }
-
-    const entries = flattenFeedEntryMap(feedEntryMapRef.current ?? {
-      boundaries: [],
-      byTopicId: new Map(),
-      commentCadence: 0,
-      sponsorCadence: 0,
-      reservedCommentIds: new Set(),
-    });
-    const currentKey = activeFeedEntryKeyRef.current ?? getFeedEntryKey({
-      type: 'topic',
-      topicId: currentTopic.id,
-      topic: currentTopic,
-    });
-    const adjacent = getAdjacentFeedEntry(entries, currentKey, 'next');
-
-    if (!adjacent || adjacent.entry.type === 'topic') {
-      advanceToNextTopic();
-      return;
-    }
-
-    const nextEntry = adjacent.entry;
-    if (nextEntry.type === 'top-comments') {
-      const commentGroup = nextEntry.comments;
-      for (const comment of commentGroup) {
-        seenTopCommentIds.current.add(comment.comment_id);
-      }
-      topCommentCardsByTopicId.current.set(currentTopic.id, commentGroup);
-      topCommentIndexByTopicId.current.set(currentTopic.id, 0);
-      pendingSponsorAfterComment.current = boundary.entries.some((entry) => entry.type === 'sponsor');
-      activateInterstitialTopic(currentTopic.id);
-      topCommentIsPreviousEntry.current = false;
-      sponsorPreviousIsComment.current = false;
-      activateTopCommentEntry(currentTopic.id);
-      return;
-    }
-
-    if (nextEntry.type === 'sponsor') {
-      activateInterstitialTopic(currentTopic.id);
-      sponsorPreviousIsComment.current = false;
-      sponsorIsPreviousEntry.current = false;
-
-      if (nextEntry.status === 'ready' && nextEntry.campaigns.length > 0 && nextEntry.sessionId) {
-        activateSponsorEntry(currentTopic.id);
-        return;
-      }
-
-      if (nextEntry.status === 'pending') {
-        activateSponsorEntry(currentTopic.id);
-        sponsorRequestPreviousCadence.current = topicsSinceSponsorCard;
-        sponsorLoadingRef.current = true;
-        setSponsorLoading(true);
-        const requestedUserId = userId;
-        const requestVersion = ++sponsorRequestVersion.current;
-        try {
-          const result = await getSponsorCampaignResult(currentTopic);
-          if (
-            sponsorRequestVersion.current !== requestVersion ||
-            sponsorSessionUserId.current !== requestedUserId
-          ) return;
-
-          if (result.campaigns.length > 0 && result.sessionId) {
-            nextEntry.campaigns = result.campaigns;
-            nextEntry.sessionId = result.sessionId;
-            nextEntry.status = 'ready';
-            sponsorPreviousIsComment.current = false;
-            flushSync(() => {
-              sponsorCardsByTopicId.current.set(currentTopic.id, {
-                campaigns: result.campaigns,
-                sessionId: result.sessionId,
-              });
-              setSponsorLoading(false);
-            });
-            return;
-          }
-
-          if (!result.retryable) {
-            nextEntry.status = 'empty';
-            boundary.entries = boundary.entries.filter((entry) => entry.type !== 'sponsor');
-          } else {
-            processedTopicBoundariesByTopicId.current.delete(currentTopic.id);
-          }
-          flushSync(() => {
-            setSponsorLoading(false);
-            activateInterstitialTopic(null);
-            setActiveFeedEntryKey(null);
-            advanceToNextTopic();
-          });
-        } finally {
-          if (sponsorRequestVersion.current === requestVersion) {
-            sponsorLoadingRef.current = false;
-            setSponsorLoading(false);
-          }
-        }
-        return;
-      }
-    }
-
-    const genericEntry: FeedEntryLike = nextEntry;
-    if (genericEntry.type !== 'topic' && genericEntry.type !== 'top-comments' && genericEntry.type !== 'sponsor') {
-      activateInterstitialTopic(genericEntry.topicId);
-      setActiveFeedEntryKey(getFeedEntryKey(genericEntry));
-      return;
-    }
-
-    advanceToNextTopic();
-  };
-
   const markTopCommentViewed = useCallback(
     (commentId: number) => {
       if (seenTopCommentUserId.current !== userId) {
@@ -850,6 +711,170 @@ export function TopicFeedCore({
     },
     [userId]
   );
+
+  const activateFeedEntry = async (
+    entry: FeedEntry,
+    direction: 'next' | 'previous',
+    entries: readonly FeedEntry[]
+  ) => {
+    const entryKey = getFeedEntryKey(entry);
+    setActiveFeedEntryKey(entryKey);
+
+    if (entry.type === 'topic') {
+      activateInterstitialTopic(null);
+      const index = feedTopics.findIndex((topic) => topic.id === entry.topicId);
+      if (index >= 0) setTopicIndex(index);
+      return;
+    }
+
+    activateInterstitialTopic(entry.topicId);
+
+    if (entry.type === 'top-comments') {
+      for (const comment of entry.comments) {
+        seenTopCommentIds.current.add(comment.comment_id);
+      }
+      topCommentCardsByTopicId.current.set(entry.topicId, entry.comments);
+      if (!topCommentIndexByTopicId.current.has(entry.topicId)) {
+        topCommentIndexByTopicId.current.set(entry.topicId, 0);
+      }
+      return;
+    }
+
+    if (entry.type === 'sponsor') {
+      if (entry.status === 'ready' && entry.campaigns.length > 0 && entry.sessionId) return;
+      if (entry.status === 'empty') {
+        const boundary = feedEntryMapRef.current?.byTopicId.get(entry.topicId);
+        if (boundary) {
+          boundary.entries = boundary.entries.filter((candidate) => candidate.type !== 'sponsor');
+        }
+      } else if (entry.status === 'pending') {
+        const sponsorTopic = feedTopics.find((topic) => topic.id === entry.topicId);
+        if (!sponsorTopic) return;
+
+        sponsorLoadingRef.current = true;
+        setSponsorLoading(true);
+        const requestedUserId = userId;
+        const requestVersion = ++sponsorRequestVersion.current;
+        try {
+          const result = await getSponsorCampaignResult(sponsorTopic);
+          if (
+            sponsorRequestVersion.current !== requestVersion ||
+            sponsorSessionUserId.current !== requestedUserId
+          ) return;
+
+          if (result.campaigns.length > 0 && result.sessionId) {
+            entry.campaigns = result.campaigns;
+            entry.sessionId = result.sessionId;
+            entry.status = 'ready';
+            sponsorCardsByTopicId.current.set(entry.topicId, {
+              campaigns: result.campaigns,
+              sessionId: result.sessionId,
+            });
+            sponsorResultsByTopicId.current.set(entry.topicId, result);
+            sponsorDueByTopicId.current.delete(entry.topicId);
+            setSponsorLoading(false);
+            return;
+          }
+
+          if (!result.retryable) {
+            entry.status = 'empty';
+            const boundary = feedEntryMapRef.current?.byTopicId.get(entry.topicId);
+            if (boundary) {
+              boundary.entries = boundary.entries.filter((candidate) => candidate.type !== 'sponsor');
+            }
+          }
+
+          const adjacent = getAdjacentFeedEntry(entries, entryKey, direction);
+          if (adjacent) {
+            await activateFeedEntry(adjacent.entry, direction, entries);
+          } else if (direction === 'next') {
+            setActiveFeedEntryKey(null);
+            advanceToNextTopic();
+          } else {
+            setActiveFeedEntryKey(null);
+            const previousIndex = Math.max(0, feedTopics.findIndex((topic) => topic.id === entry.topicId) - 1);
+            setTopicIndex(previousIndex);
+            activateInterstitialTopic(null);
+          }
+        } finally {
+          if (sponsorRequestVersion.current === requestVersion) {
+            sponsorLoadingRef.current = false;
+            setSponsorLoading(false);
+          }
+        }
+      }
+      return;
+    }
+
+    // Future registered card types need only a placement rule and renderer.
+    // Their own component owns any additional card-specific interaction state.
+    void direction;
+    void entries;
+  };
+
+  const navigateFeedEntry = async (direction: 'next' | 'previous') => {
+    const entries = feedEntryMapRef.current
+      ? flattenFeedEntryMap(feedEntryMapRef.current)
+      : [];
+    const currentTopic = feedTopics[topicIndex];
+    const currentKey = activeFeedEntryKeyRef.current ?? (
+      currentTopic
+        ? getFeedEntryKey({ type: 'topic', topicId: currentTopic.id, topic: currentTopic })
+        : ''
+    );
+    if (!currentKey) return;
+
+    const currentEntry = entries.find((entry) => getFeedEntryKey(entry) === currentKey);
+    if (direction === 'next' && currentEntry?.type === 'topic' && currentTopic) {
+      const boundary = feedEntryMapRef.current?.byTopicId.get(currentTopic.id);
+      if (boundary && !processedTopicBoundariesByTopicId.current.has(currentTopic.id)) {
+        processedTopicBoundariesByTopicId.current.add(currentTopic.id);
+        topicsSinceTopCommentCardRef.current = boundary.commentCadenceAfter;
+        topicsSinceSponsorCardRef.current = boundary.sponsorCadenceAfter;
+      }
+    }
+
+    if (currentEntry?.type === 'sponsor' && sponsorLoadingRef.current) {
+      sponsorRequestVersion.current += 1;
+      sponsorLoadingRef.current = false;
+      setSponsorLoading(false);
+    }
+
+    const adjacent = getAdjacentFeedEntry(entries, currentKey, direction);
+    if (!adjacent) {
+      if (direction === 'next') {
+        advanceToNextTopic();
+      } else if (feedTopics.length > 0) {
+        const lastIndex = feedTopics.length - 1;
+        const lastTopic = feedTopics[lastIndex];
+        if (lastTopic) setActiveFeedEntryKey(getFeedEntryKey({
+          type: 'topic',
+          topicId: lastTopic.id,
+          topic: lastTopic,
+        }));
+        activateInterstitialTopic(null);
+        setTopicIndex(lastIndex);
+      }
+      return;
+    }
+
+    if (adjacent.entry.type === 'topic') {
+      if (direction === 'next') {
+        advanceToNextTopic();
+      } else {
+        setActiveFeedEntryKey(getFeedEntryKey(adjacent.entry));
+        activateInterstitialTopic(null);
+        const index = feedTopics.findIndex((topic) => topic.id === adjacent.entry.topicId);
+        if (index >= 0) setTopicIndex(index);
+      }
+      return;
+    }
+
+    await activateFeedEntry(adjacent.entry, direction, entries);
+  };
+
+  const nextTopic = () => navigateFeedEntry('next');
+  const previousTopic = () => navigateFeedEntry('previous');
 
   const openTopComment = (comment: TopFeedComment) => {
     onOpenComment(comment);
