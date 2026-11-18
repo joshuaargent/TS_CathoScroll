@@ -18,7 +18,8 @@ import { SponsorFeedCard } from './SponsorFeedCard';
 import { SponsorLoadingCard } from './SponsorLoadingCard';
 import { createFeedRefreshCoordinator } from '@/lib/feed-refresh-coordinator';
 import { siteConfig } from '@/lib/constants';
-import { buildFeedEntryMap, type FeedEntryMap } from '@/lib/feed-entry-map';
+import { buildFeedEntryMap, flattenFeedEntryMap, type FeedEntryMap } from '@/lib/feed-entry-map';
+import { getAdjacentFeedEntry, getFeedEntryKey } from '@/lib/feed-entry-cursor';
 
 import type { TopicPageCursor } from '@/lib/content';
 import type { RecommendationCursor } from '@/lib/recommendations';
@@ -801,41 +802,90 @@ export function TopicFeedCore({
       topCommentIndexByTopicId.current.clear();
     }
 
-    const previousIndex = (topicIndex - 1 + feedTopics.length) % feedTopics.length;
-    const previousTopicId = feedTopics[previousIndex]?.id;
-    const previousSponsorCard = previousTopicId
-      ? sponsorCardsByTopicId.current.get(previousTopicId)
-      : undefined;
-    const previousCard = previousTopicId
-      ? topCommentCardsByTopicId.current.get(previousTopicId)
-      : undefined;
+    const currentTopic = feedTopics[topicIndex];
+    const entries = feedEntryMapRef.current
+      ? flattenFeedEntryMap(feedEntryMapRef.current)
+      : [];
+    const currentKey = currentTopic
+      ? getFeedEntryKey({ type: 'topic', topicId: currentTopic.id, topic: currentTopic })
+      : '';
+    const previous = currentKey
+      ? getAdjacentFeedEntry(entries, currentKey, 'previous')
+      : null;
 
-    if (previousSponsorCard?.campaigns.length) {
-      activateInterstitialTopic(previousTopicId ?? null);
-      sponsorPreviousIsComment.current = Boolean(previousCard?.length);
+    if (previous?.entry.type === 'sponsor') {
+      const entry = previous.entry;
+      activateInterstitialTopic(entry.topicId);
+      sponsorPreviousIsComment.current = false;
       sponsorIsPreviousEntry.current = true;
-      topCommentIsPreviousEntry.current = Boolean(previousCard?.length);
-      pendingSponsorAfterComment.current = Boolean(previousCard?.length);
-      if (previousCard?.length) {
-        setTopCommentCardComments(previousCard);
+      const commentEntry = feedEntryMapRef.current?.byTopicId.get(entry.topicId)
+        ?.entries.find((item) => item.type === 'top-comments');
+      topCommentIsPreviousEntry.current = Boolean(commentEntry);
+      pendingSponsorAfterComment.current = Boolean(commentEntry);
+      if (commentEntry?.type === 'top-comments') {
+        setTopCommentCardComments(commentEntry.comments);
       }
-      setSponsorCampaigns(previousSponsorCard.campaigns);
-      setActiveSponsorSessionId(previousSponsorCard.sessionId);
-      setShowTopCommentCard(false);
-      setShowSponsorCard(true);
-      return;
+
+      if (entry.status === 'ready' && entry.campaigns.length > 0 && entry.sessionId) {
+        setSponsorCampaigns(entry.campaigns);
+        setActiveSponsorSessionId(entry.sessionId);
+        setShowTopCommentCard(false);
+        setShowSponsorCard(true);
+        return;
+      }
+
+      if (entry.status === 'pending') {
+        sponsorRequestPreviousCadence.current = topicsSinceSponsorCard;
+        sponsorLoadingRef.current = true;
+        setSponsorLoading(true);
+        const requestedUserId = userId;
+        const requestVersion = ++sponsorRequestVersion.current;
+        void getSponsorCampaignResult(feedTopics.find((topic) => topic.id === entry.topicId) ?? currentTopic)
+          .then((result) => {
+            if (
+              sponsorRequestVersion.current !== requestVersion ||
+              sponsorSessionUserId.current !== requestedUserId
+            ) return;
+            if (result.campaigns.length > 0 && result.sessionId) {
+              entry.campaigns = result.campaigns;
+              entry.sessionId = result.sessionId;
+              entry.status = 'ready';
+              sponsorCardsByTopicId.current.set(entry.topicId, {
+                campaigns: result.campaigns,
+                sessionId: result.sessionId,
+              });
+              setSponsorCampaigns(result.campaigns);
+              setActiveSponsorSessionId(result.sessionId);
+              setShowSponsorCard(true);
+            } else {
+              setShowSponsorCard(false);
+              setTopicIndex((index) => Math.max(0, index - 1));
+              activateInterstitialTopic(null);
+            }
+          })
+          .finally(() => {
+            if (sponsorRequestVersion.current === requestVersion) {
+              sponsorLoadingRef.current = false;
+              setSponsorLoading(false);
+            }
+          });
+        return;
+      }
     }
 
-    if (previousCard?.length) {
-      activateInterstitialTopic(previousTopicId ?? null);
+    if (previous?.entry.type === 'top-comments') {
+      const previousCard = previous.entry.comments;
+      activateInterstitialTopic(previous.entry.topicId);
       sponsorPreviousIsComment.current = false;
-      // We are traversing backward from the following topic. Leaving this
-      // comment card backward must therefore move to the previous topic;
-      // leaving it forward must return to the following topic.
       topCommentIsPreviousEntry.current = true;
       sponsorIsPreviousEntry.current = false;
-      pendingSponsorAfterComment.current = sponsorDueByTopicId.current.has(previousTopicId ?? '');
+      const boundary = feedEntryMapRef.current?.byTopicId.get(previous.entry.topicId);
+      pendingSponsorAfterComment.current = Boolean(
+        boundary?.entries.some((entry) => entry.type === 'sponsor')
+      );
+      topCommentCardsByTopicId.current.set(previous.entry.topicId, previousCard);
       setTopCommentCardComments(previousCard);
+      setShowSponsorCard(false);
       setShowTopCommentCard(true);
       return;
     }
@@ -843,7 +893,11 @@ export function TopicFeedCore({
     topCommentIsPreviousEntry.current = false;
     sponsorIsPreviousEntry.current = false;
     sponsorPreviousIsComment.current = false;
-    setTopicIndex(previousIndex);
+    const previousTopicId = previous?.entry.topicId;
+    const previousIndex = previousTopicId
+      ? feedTopics.findIndex((topic) => topic.id === previousTopicId)
+      : (topicIndex - 1 + feedTopics.length) % feedTopics.length;
+    setTopicIndex(previousIndex >= 0 ? previousIndex : 0);
   };
 
   const currentTopCommentIds = new Set(topComments.map((comment) => comment.comment_id));
