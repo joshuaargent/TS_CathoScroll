@@ -120,6 +120,7 @@ export function TopicFeedCore({
   const sponsorLoadingRef = useRef(false);
   const sponsorRequestVersion = useRef(0);
   const sponsorDueByTopicId = useRef(new Set<string>());
+  const sponsorDirectionByTopicId = useRef(new Map<string, FeedEntryDirection>());
   const [activeTopCommentIndex, setActiveTopCommentIndex] = useState(0);
   const [feedProgress, setFeedProgress] = useState({ current: 0, total: 5 });
   const updateFeedProgress = useCallback((current: number, total: number) => {
@@ -172,6 +173,7 @@ export function TopicFeedCore({
     sponsorResultsByTopicId.current.clear();
     sponsorRequestsByTopicId.current.clear();
     sponsorDueByTopicId.current.clear();
+    sponsorDirectionByTopicId.current.clear();
     sponsorRequestVersion.current += 1;
     sponsorLoadingRef.current = false;
     setActiveFeedEntryKey(null);
@@ -788,6 +790,8 @@ export function TopicFeedCore({
     }
 
     sponsorLoadingRef.current = true;
+    sponsorDirectionByTopicId.current.set(entry.topicId, direction);
+    entry.status = 'pending';
     setSponsorLoading(true);
     const requestedUserId = userId;
     const requestVersion = ++sponsorRequestVersion.current;
@@ -818,13 +822,18 @@ export function TopicFeedCore({
         return;
       }
 
-      if (!result.retryable) {
-        entry.status = 'empty';
-        sponsorDueByTopicId.current.delete(entry.topicId);
-        const boundary = feedEntryMapRef.current?.byTopicId.get(entry.topicId);
-        if (boundary) {
-          boundary.entries = boundary.entries.filter((candidate) => candidate.type !== 'sponsor');
-        }
+      if (result.retryable) {
+        // Keep the placement in the feed and expose an explicit retry action.
+        // Only a confirmed empty eligibility result is allowed to remove it.
+        entry.status = 'error';
+        return;
+      }
+
+      entry.status = 'empty';
+      sponsorDueByTopicId.current.delete(entry.topicId);
+      const boundary = feedEntryMapRef.current?.byTopicId.get(entry.topicId);
+      if (boundary) {
+        boundary.entries = boundary.entries.filter((candidate) => candidate.type !== 'sponsor');
       }
       await skipEntry();
     } finally {
@@ -954,6 +963,11 @@ export function TopicFeedCore({
     cacheCommentGroup: (topicId, comments) => topCommentCardsByTopicId.current.set(topicId, comments),
     getTopCommentIndex: (topicId) => topCommentIndexByTopicId.current.get(topicId) ?? 0,
     loadSponsorEntry,
+    retrySponsorEntry: (entry) => {
+      const direction = sponsorDirectionByTopicId.current.get(entry.topicId) ?? 'next';
+      const entries = feedEntryMapRef.current ? flattenFeedEntryMap(feedEntryMapRef.current) : [];
+      void loadSponsorEntry(entry, direction, entries);
+    },
     cancelSponsorRequest,
   };
   // The registry stores deferred event callbacks; captured refs are read only when those callbacks run.
