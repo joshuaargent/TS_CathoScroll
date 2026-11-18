@@ -722,7 +722,10 @@ export function TopicFeedCore({
         } else {
           setActiveFeedEntryKey(null);
           const anchorIndex = feedTopics.findIndex((topic) => topic.id === entry.topicId);
-          setTopicIndex(Math.max(0, anchorIndex - 1));
+          const previousIndex = anchorIndex >= 0
+            ? (anchorIndex - 1 + feedTopics.length) % feedTopics.length
+            : Math.max(0, feedTopics.length - 1);
+          setTopicIndex(previousIndex);
           activateInterstitialTopic(null);
         }
       };
