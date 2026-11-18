@@ -15,7 +15,7 @@ The engine owns the common scheduling behaviour: it preserves topic order, advan
 
 ## Current registered card rules
 
-`src/lib/feed-entry-map.ts` adapts the existing Top Comments and sponsor inventory to the generic engine.
+`src/lib/feed-card-placement-registry.ts` registers the current Top Comments and sponsor placement rules; `src/lib/feed-entry-map.ts` passes those rules to the generic engine and flattens the result for navigation.
 
 - Top Comments: every five topic advances, priority 100.
 - Sponsor: every ten topic advances, priority 200.
