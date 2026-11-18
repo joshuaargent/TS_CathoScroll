@@ -24,6 +24,7 @@ import {
 import { createFeedCardRegistry } from './feed-card-registry';
 import { FeedProgress } from './FeedProgress';
 import { FeedRenderer } from './FeedRenderer';
+import { TopicCard } from './TopicCard';
 import type { FeedCardRendererContext } from './feed-card-registry.types';
 import { getAdjacentFeedEntry, getFeedEntryKey, reconcileFeedEntryCursor } from '@/lib/feed-entry-cursor';
 
@@ -935,18 +936,17 @@ export function TopicFeedCore({
   const currentTopicKey = feedTopics[topicIndex]
     ? `topic:${feedTopics[topicIndex].id}`
     : '';
-  const nextFeedEntry = currentTopicKey
-    ? getAdjacentFeedEntry(flattenedEntries, currentTopicKey, 'next')?.entry ?? null
+  const currentEntryKey = activeMappedEntry
+    ? getFeedEntryKey(activeMappedEntry)
+    : currentTopicKey;
+  const nextFeedEntry = currentEntryKey
+    ? getAdjacentFeedEntry(flattenedEntries, currentEntryKey, 'next')?.entry ?? null
     : null;
-  const previousFeedEntry = currentTopicKey
-    ? getAdjacentFeedEntry(flattenedEntries, currentTopicKey, 'previous')?.entry ?? null
+  const previousFeedEntry = currentEntryKey
+    ? getAdjacentFeedEntry(flattenedEntries, currentEntryKey, 'previous')?.entry ?? null
     : null;
-  // A topic preview is wrong when the next/previous feed entry is an
-  // interstitial. Explicit null suppresses the topic-only fallback preview.
-  const nextEntryPreview = nextFeedEntry && nextFeedEntry.type !== 'topic' ? null : undefined;
-  const previousEntryPreview = previousFeedEntry && previousFeedEntry.type !== 'topic' ? null : undefined;
 
-  feedCardRendererContext = {
+  const baseFeedCardContext: FeedCardRendererContext = {
     userId,
     sponsorApiBaseUrl: effectiveSponsorApiBaseUrl,
     getSponsorAccessToken,
@@ -972,12 +972,46 @@ export function TopicFeedCore({
     },
     cancelSponsorRequest,
   };
+
+  const renderFeedEntryPreview = (entry: FeedEntry | null): ReactNode | undefined => {
+    if (!entry) return undefined;
+    if (entry.type === 'topic') {
+      const topic = feedTopics.find((item) => item.id === entry.topicId);
+      return topic
+        ? <TopicCard type="question" title="Question" content={topic.question} />
+        : undefined;
+    }
+
+    const previewContext: FeedCardRendererContext = {
+      ...baseFeedCardContext,
+      previewMode: true,
+      activeTopCommentIndex: entry.type === 'top-comments'
+        ? topCommentIndexByTopicId.current.get(entry.topicId) ?? 0
+        : 0,
+      nextEntryPreview: undefined,
+      previousEntryPreview: undefined,
+    };
+    const previewRegistry = createFeedCardRegistry(previewContext);
+    return renderRegisteredFeedEntry(entry, previewRegistry, previewContext);
+  };
+
+  const nextEntryPreview = renderFeedEntryPreview(nextFeedEntry);
+  const previousEntryPreview = renderFeedEntryPreview(previousFeedEntry);
+  feedCardRendererContext = {
+    ...baseFeedCardContext,
+    previewMode: false,
+    nextEntryPreview,
+    previousEntryPreview,
+  };
+
   // The registry stores deferred event callbacks; captured refs are read only when those callbacks run.
   // eslint-disable-next-line react-hooks/refs
   feedCardRenderers = createFeedCardRegistry(feedCardRendererContext);
   // Renderer actions are deferred to user interaction and do not read captured refs during render.
   // eslint-disable-next-line react-hooks/refs
-  const renderedFeedCard = activeFeedCardEntry ? renderRegisteredFeedEntry(activeFeedCardEntry, feedCardRenderers, feedCardRendererContext!) : null;
+  const renderedFeedCard = activeFeedCardEntry
+    ? renderRegisteredFeedEntry(activeFeedCardEntry, feedCardRenderers, feedCardRendererContext)
+    : null;
 
   // ----------------------------------
   // Loading
