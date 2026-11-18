@@ -154,7 +154,8 @@ test('topic, comment and sponsor cards use the same shared base card', () => {
   assert.match(cardRegistry, /onEnter: \(entry/);
   assert.match(cardRegistry, /for \(const comment of entry\.comments\)/);
   assert.match(cardRegistry, /cacheCommentGroup\(entry\.topicId, entry\.comments\)/);
-  assert.match(cardRegistry, /onEnter: async \(entry/);
+  assert.match(cardRegistry, /onEnter: \(entry/);
+  assert.match(cardRegistry, /void cardContext\.loadSponsorEntry\(entry, direction, entries\)/);
   assert.match(feedCore, /sponsorResultsByTopicId = useRef\(new Map/);
   assert.match(feedCore, /sponsorRequestsByTopicId = useRef\(new Map/);
   assert.match(cardRegistry, /userId=\{context\.userId\}/);
