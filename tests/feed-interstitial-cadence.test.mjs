@@ -146,7 +146,7 @@ test('topic, comment and sponsor cards use the same structural layout component'
   assert.match(feedCore, /const firstSponsor = planned\.boundaries/);
   assert.match(feedCore, /prefetchMappedSponsor\(firstSponsor\.topicId\)/);
   assert.match(feedCore, /const nextSponsorBoundary = boundaries/);
-  assert.match(feedCore, /const commentGroup = commentEntry\.comments/);
+  assert.match(feedCore, /const commentGroup = nextEntry\.comments/);
   assert.match(feedCore, /for \(const comment of commentGroup\)/);
   assert.match(feedCore, /topCommentCardsByTopicId\.current\.set\(currentTopic\.id, commentGroup\)/);
   assert.match(feedCore, /sponsorResultsByTopicId = useRef\(new Map/);
@@ -155,7 +155,8 @@ test('topic, comment and sponsor cards use the same structural layout component'
   assert.match(sponsorLoadingCard, /role="status" aria-live="polite" aria-busy="true"/);
   assert.match(sponsorLoadingCard, /<FeedInterstitialMotion/);
   assert.match(feedCore, /window\.setTimeout\(\(\) => controller\.abort\(\), 8000\)/);
-  assert.match(feedCore, /onPreviousTopic=\{\(\) => \{[\s\S]*?sponsorPreviousIsComment\.current/);
+  assert.match(feedCore, /const handleSponsorPrevious = \(\) =>/);
+  assert.match(feedCore, /sponsorPreviousIsComment\.current/);
   assert.doesNotMatch(sponsorLoadingCard, /cardClassName/);
 });
 
