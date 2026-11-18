@@ -46,7 +46,7 @@ test('feed gracefully omits missing comment and sponsor inventory without blank 
   assert.match(feedCore, /setShowTopCommentCard\(true\)/);
   assert.match(feedCore, /result\.campaigns\.length > 0/);
   assert.match(feedCore, /commentEntry && commentEntry\.type === 'top-comments'/);
-  assert.match(feedCore, /availableComments\.length > 0/);
+  assert.match(feedCore, /comments: unseenComments/);
   assert.match(sponsorCard, /Sponsored/);
   assert.match(sponsorCard, /target="_blank"/);
   assert.match(sponsorManager, /No sponsors recorded/);
