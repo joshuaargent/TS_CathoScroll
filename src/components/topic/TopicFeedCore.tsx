@@ -157,6 +157,12 @@ export function TopicFeedCore({
     if (sponsorSessionUserId.current === userId) return;
     sponsorSessionUserId.current = userId;
     sponsorPreviousIsComment.current = false;
+    seenTopCommentUserId.current = userId;
+    topCommentCadenceUserId.current = userId;
+    seenTopCommentIds.current.clear();
+    topCommentCardsByTopicId.current.clear();
+    topCommentIndexByTopicId.current.clear();
+    processedTopicBoundariesByTopicId.current.clear();
     activeInterstitialTopicIdRef.current = null;
     setActiveSponsorSessionId(null);
     sponsorCardsByTopicId.current.clear();
