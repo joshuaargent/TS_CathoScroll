@@ -158,7 +158,9 @@ test('topic, comment and sponsor cards use the same structural layout component'
   assert.match(feedCore, /sponsorResultsByTopicId = useRef\(new Map/);
   assert.match(feedCore, /sponsorRequestsByTopicId = useRef\(new Map/);
   assert.match(cardRegistry, /userId=\{context\.userId\}/);
-  assert.match(sponsorLoadingCard, /role="status" aria-live="polite" aria-busy="true"/);
+  assert.match(sponsorLoadingCard, /role="status" aria-live="polite" aria-busy=\{!error\}/);
+  assert.match(sponsorLoadingCard, /onClick=\{onRetry\}/);
+  assert.match(sponsorLoadingCard, /Sponsored content is temporarily unavailable/);
   assert.match(sponsorLoadingCard, /<FeedInterstitialMotion/);
   assert.match(feedCore, /window\.setTimeout\(\(\) => controller\.abort\(\), 8000\)/);
   assert.match(feedCore, /const navigateFeedEntry = async/);
