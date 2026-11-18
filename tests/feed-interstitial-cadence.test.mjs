@@ -111,7 +111,7 @@ test('topic, comment and sponsor cards use the same shared base card', () => {
   assert.doesNotMatch(topCommentCard, /<FeedProgress current=/);
   assert.doesNotMatch(sponsorCard, /<FeedProgress current=/);
   assert.doesNotMatch(sponsorLoadingCard, /<FeedProgress current=/);
-  assert.ok(topicCard.includes("className={type === 'question' ? 'bg-accent-light/5' : 'bg-transparent'}"));
+  assert.ok(topicCard.includes("className={type === 'question' ? 'bg-accent-light/5' : undefined}"));
   assert.ok(topCommentCard.includes('className="bg-accent-light/5"'));
   assert.match(topCommentCard, /<Heart/);
   assert.match(topCommentCard, /<MessageCircle/);
