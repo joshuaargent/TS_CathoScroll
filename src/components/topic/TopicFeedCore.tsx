@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState, type ComponentType } from 'react';
+import { useCallback, useEffect, useRef, useState, type ComponentType, type ReactNode } from 'react';
 
 import { shuffle } from '@/lib/utils';
 import {
@@ -22,6 +22,7 @@ import {
   type FeedEntryLike,
 } from '@/lib/feed-entry-registry';
 import { createFeedCardRegistry } from './feed-card-registry';
+import { FeedProgress } from './FeedProgress';
 import type { FeedCardRendererContext } from './feed-card-registry.types';
 import { getAdjacentFeedEntry, getFeedEntryKey, reconcileFeedEntryCursor } from '@/lib/feed-entry-cursor';
 
@@ -53,6 +54,9 @@ type ViewerProps = {
   initialUserId: string | null;
   onNextTopic: () => void | Promise<void>;
   onPreviousTopic: () => void | Promise<void>;
+  onProgressChange: (current: number, total: number) => void;
+  nextEntryPreview?: ReactNode;
+  previousEntryPreview?: ReactNode;
 };
 type TopicFeedCoreProps = {
   topics: Topic[];
@@ -117,6 +121,7 @@ export function TopicFeedCore({
   const sponsorRequestVersion = useRef(0);
   const sponsorDueByTopicId = useRef(new Set<string>());
   const [activeTopCommentIndex, setActiveTopCommentIndex] = useState(0);
+  const [feedProgress, setFeedProgress] = useState({ current: 0, total: 5 });
   const activeInterstitialTopicIdRef = useRef<string | null>(null);
   const activateInterstitialTopic = (topicId: string | null) => {
     activeInterstitialTopicIdRef.current = topicId;
@@ -708,6 +713,14 @@ export function TopicFeedCore({
     }
 
     activateInterstitialTopic(entry.topicId);
+    if (entry.type === 'top-comments') {
+      setFeedProgress({
+        current: topCommentIndexByTopicId.current.get(entry.topicId) ?? 0,
+        total: entry.comments.length,
+      });
+    } else {
+      setFeedProgress({ current: 0, total: 1 });
+    }
     if (!feedCardRendererContext) return;
     await invokeRegisteredFeedEntryLifecycle(
       entry,
@@ -877,12 +890,26 @@ export function TopicFeedCore({
     activeMappedEntry && activeMappedEntry.type !== 'topic'
       ? activeMappedEntry
       : null;
+  const currentTopicKey = feedTopics[topicIndex]
+    ? `topic:${feedTopics[topicIndex].id}`
+    : '';
+  const nextFeedEntry = currentTopicKey
+    ? getAdjacentFeedEntry(flattenedEntries, currentTopicKey, 'next')?.entry ?? null
+    : null;
+  const previousFeedEntry = currentTopicKey
+    ? getAdjacentFeedEntry(flattenedEntries, currentTopicKey, 'previous')?.entry ?? null
+    : null;
+  // A topic preview is wrong when the next/previous feed entry is an
+  // interstitial. Explicit null suppresses the topic-only fallback preview.
+  const nextEntryPreview = nextFeedEntry && nextFeedEntry.type !== 'topic' ? null : undefined;
+  const previousEntryPreview = previousFeedEntry && previousFeedEntry.type !== 'topic' ? null : undefined;
 
   feedCardRendererContext = {
     userId,
     sponsorApiBaseUrl: effectiveSponsorApiBaseUrl,
     getSponsorAccessToken,
     activeTopCommentIndex,
+    onProgressChange: (current, total) => setFeedProgress({ current, total }),
     onTopCommentIndexChange: (topicId: string, index: number) => {
       setActiveTopCommentIndex(index);
       topCommentIndexByTopicId.current.set(topicId, index);
@@ -914,7 +941,7 @@ export function TopicFeedCore({
   }
 
   return (
-    <div className="h-full">
+    <div className="flex h-full flex-col">
       {(loadingMore || loadError) && (
         <div className="bg-bg-primary/90 absolute top-20 left-1/2 z-20 -translate-x-1/2 rounded-full px-4 py-2 text-sm shadow">
           {loadError ? (
@@ -926,15 +953,23 @@ export function TopicFeedCore({
           )}
         </div>
       )}
-      {renderedFeedCard ?? (
-        <Viewer
-          topics={feedTopics}
-          topicIndex={topicIndex}
-          initialUserId={userId}
-          onNextTopic={nextTopic}
-          onPreviousTopic={previousTopic}
-        />
-      )}
+      <div className="shrink-0 px-6 pt-4 pb-4">
+        <FeedProgress current={feedProgress.current} total={feedProgress.total} />
+      </div>
+      <div className="min-h-0 flex-1">
+        {renderedFeedCard ?? (
+          <Viewer
+            topics={feedTopics}
+            topicIndex={topicIndex}
+            initialUserId={userId}
+            onNextTopic={nextTopic}
+            onPreviousTopic={previousTopic}
+            onProgressChange={(current, total) => setFeedProgress({ current, total })}
+            nextEntryPreview={nextEntryPreview}
+            previousEntryPreview={previousEntryPreview}
+          />
+        )}
+      </div>
     </div>
   );
 }
