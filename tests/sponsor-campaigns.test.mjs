@@ -126,7 +126,12 @@ test('sponsored feed cards are disclosed and inserted separately from organic re
   assert.match(deliveryRoute, /data\.campaigns\.length > 1/);
 });
 
-test('campaign admin controls require bank reconciliation before approval', () => {
+test('campaign admin controls require bank reconciliation before approval and support the 25-impression test cap', () => {
+  assert.match(bootstrap, /frequency_cap_per_user_24h integer NOT NULL DEFAULT 1 CHECK \(frequency_cap_per_user_24h BETWEEN 1 AND 25\)/);
+  for (const name of ['public.admin_create_sponsor_campaign', 'public.sponsor_create_campaign', 'public.sponsor_update_campaign']) {
+    const body = functionBody(name, `ALTER FUNCTION ${name}`);
+    assert.match(body, /p_frequency_cap_per_user_24h NOT BETWEEN 1 AND 25/);
+  }
   assert.match(campaignManager, /Create campaign/);
   assert.match(campaignManager, /placementWeight/);
   assert.match(campaignManager, /frequencyCapPerUser24h/);
