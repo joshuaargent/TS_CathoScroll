@@ -51,14 +51,13 @@ test('missing inventory suppresses only its own card schedule', () => {
   assert.equal(sponsors.shouldInsertSponsorCard(9, true), true);
 });
 
-test('the tenth-topic collision queues both cards without advancing a topic between them', () => {
-  assert.match(feedCore, /const chooseSponsor = sponsorDue && !commentDue/);
-  assert.match(feedCore, /pendingSponsorAfterComment\.current = sponsorDue/);
-  assert.match(feedCore, /setTopicsSinceSponsorCard\(sponsorDue \? currentSponsorCadence : nextSponsorCadence\)/);
-  assert.match(feedCore, /if \(!shouldShowSponsorAfterComment\)/);
-  assert.match(feedCore, /pendingSponsorAfterComment\.current = false/);
-  assert.match(feedCore, /setShowSponsorCard\(true\)/);
-  assert.doesNotMatch(feedCore, /lastInterstitialType/);
+test('the tenth-topic collision is planned as comment then sponsor before navigation', () => {
+  assert.match(feedCore, /const sponsorEntry = boundary\\.entries\\.find\\(\\(entry\\) => entry\\.type === 'sponsor'\\)/);
+  assert.match(feedCore, /const commentEntry = boundary\\.entries\\.find\\(\\(entry\\) => entry\\.type === 'top-comments'\\)/);
+  assert.match(feedCore, /pendingSponsorAfterComment\\.current = Boolean\\(/);
+  assert.match(feedCore, /if \\(cachedSponsor\\?\\.campaigns\\.length\\)/);
+  assert.doesNotMatch(feedCore, /const chooseSponsor = sponsorDue && !commentDue/);
+  assert.doesNotMatch(feedCore, /const commentDue = shouldInsertTopCommentCard/);
 });
 
 test('sponsor fetches cannot race feed navigation or account changes', () => {
