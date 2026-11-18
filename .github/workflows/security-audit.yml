@@ -41,17 +41,17 @@ jobs:
       - name: Audit root production and development dependencies
         id: root-audit
         continue-on-error: true
-        run: npm audit --audit-level=moderate
+        run: node scripts/audit-dependencies.mjs
 
       - name: Audit Electron production and development dependencies
         id: electron-audit
         continue-on-error: true
-        run: npm --prefix electron audit --audit-level=moderate
+        run: node scripts/audit-dependencies.mjs --electron
 
       - name: Fail if either dependency tree has moderate-or-higher vulnerabilities
         if: steps.root-audit.outcome == 'failure' || steps.electron-audit.outcome == 'failure'
         run: |
-          echo "::error::Moderate, high or critical dependency vulnerabilities remain. Review both audit reports above."
+          echo "::error::Unapproved dependency vulnerabilities remain. Review both audit reports above."
           exit 1
 
   codeql:
