@@ -485,9 +485,13 @@ export function TopicFeedCore({
             }),
           }))
       : [];
+    const unseenComments = getUnseenTopFeedComments(topComments, seenTopCommentIds.current);
+    if (unseenComments.length <= 10 && topCommentsNextOffsetRef.current !== null) {
+      void loadMoreTopComments();
+    }
     const planned = buildFeedEntryMap({
       topics: feedTopics.slice(startIndex),
-      comments: getUnseenTopFeedComments(topComments, seenTopCommentIds.current),
+      comments: unseenComments,
       seenCommentIds: seenTopCommentIds.current,
       userId,
       commentCadence: topicsSinceTopCommentCardRef.current,
@@ -518,7 +522,7 @@ export function TopicFeedCore({
     if (firstPendingSponsor && firstPendingSponsor.type === 'sponsor') {
       prefetchMappedSponsor(firstPendingSponsor.topicId);
     }
-  }, [feedTopics, topComments, userId, getSponsorCampaignResult, prefetchMappedSponsor]);
+  }, [feedTopics, topComments, userId, getSponsorCampaignResult, prefetchMappedSponsor, loadMoreTopComments]);
 
   // ----------------------------------
   // Initial Feed
