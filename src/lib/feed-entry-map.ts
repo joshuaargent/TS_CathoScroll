@@ -15,7 +15,7 @@ export type FeedEntry =
   | {
       type: 'sponsor';
       topicId: string;
-      status: 'pending' | 'ready' | 'empty';
+      status: 'pending' | 'ready' | 'empty' | 'error';
       campaigns: SponsorFeedCampaign[];
       sessionId: string | null;
     };
