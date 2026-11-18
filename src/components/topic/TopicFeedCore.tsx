@@ -23,6 +23,7 @@ import {
 } from '@/lib/feed-entry-registry';
 import { createFeedCardRegistry } from './feed-card-registry';
 import { FeedProgress } from './FeedProgress';
+import { FeedRenderer } from './FeedRenderer';
 import type { FeedCardRendererContext } from './feed-card-registry.types';
 import { getAdjacentFeedEntry, getFeedEntryKey, reconcileFeedEntryCursor } from '@/lib/feed-entry-cursor';
 
@@ -986,7 +987,7 @@ export function TopicFeedCore({
   }
 
   return (
-    <div className="flex h-full flex-col">
+    <>
       {(loadingMore || loadError) && (
         <div className="bg-bg-primary/90 absolute top-20 left-1/2 z-20 -translate-x-1/2 rounded-full px-4 py-2 text-sm shadow">
           {loadError ? (
@@ -998,14 +999,10 @@ export function TopicFeedCore({
           )}
         </div>
       )}
-      <div className="shrink-0 px-6 pt-4">
-        <FeedProgress current={feedProgress.current} total={feedProgress.total} />
-      </div>
-      <div className="relative min-h-0 flex-1">
-        <div
-          className={activeFeedCardEntry ? 'invisible pointer-events-none absolute inset-0' : 'absolute inset-0'}
-          aria-hidden={Boolean(activeFeedCardEntry)}
-        >
+      <FeedRenderer
+        activeEntry={activeMappedEntry}
+        progress={<FeedProgress current={feedProgress.current} total={feedProgress.total} />}
+        topicViewer={
           <Viewer
             topics={feedTopics}
             topicIndex={topicIndex}
@@ -1017,13 +1014,9 @@ export function TopicFeedCore({
             nextEntryPreview={nextEntryPreview}
             previousEntryPreview={previousEntryPreview}
           />
-        </div>
-        {renderedFeedCard && (
-          <div className="absolute inset-0 z-10">
-            {renderedFeedCard}
-          </div>
-        )}
-      </div>
-    </div>
+        }
+        interstitialCard={renderedFeedCard}
+      />
+    </>
   );
 }
