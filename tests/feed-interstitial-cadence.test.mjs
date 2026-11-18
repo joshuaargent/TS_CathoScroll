@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import ts from 'typescript';
 
-const [commentSource, sponsorSource, feedCore, topicFeed, cardRegistry, placementRegistry, topicCard, topCommentCard, sponsorCard, topicViewer, interstitialMotion, topicCardLayout, sponsorLoadingCard, baseFeedCard, feedRenderer] = await Promise.all([
+const [commentSource, sponsorSource, feedCore, topicFeed, cardRegistry, placementRegistry, topicCard, topCommentCard, sponsorCard, topicViewer, interstitialMotion, sponsorLoadingCard, baseFeedCard, feedRenderer] = await Promise.all([
   readFile(new URL('../src/lib/feed-comments.ts', import.meta.url), 'utf8'),
   readFile(new URL('../src/lib/sponsor-campaigns.ts', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/TopicFeedCore.tsx', import.meta.url), 'utf8'),
@@ -15,7 +15,6 @@ const [commentSource, sponsorSource, feedCore, topicFeed, cardRegistry, placemen
   readFile(new URL('../src/components/topic/SponsorFeedCard.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/TopicSwipeViewer.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/FeedInterstitialMotion.tsx', import.meta.url), 'utf8'),
-  readFile(new URL('../src/components/topic/TopicCardLayout.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/SponsorLoadingCard.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/BaseFeedCard.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/FeedRenderer.tsx', import.meta.url), 'utf8'),
@@ -91,7 +90,7 @@ test('interstitial cards share the topic viewer swipe and animation model', () =
     assert.match(source, /<BaseFeedCard/);
   }
   assert.match(topicViewer, /const animationLockRef = useRef\(false\)/);
-  assert.match(topicViewer, /previousTopicIndexRef\.current === topicIndex/);
+  assert.match(topicViewer, /previousTopicIdRef\.current === currentTopicId/);
   assert.match(topicViewer, /if \(active\) onProgressChange\(slideIndex, slides\.length\)/);
   assert.match(topicViewer, /duration: 0\.2/);
 });
