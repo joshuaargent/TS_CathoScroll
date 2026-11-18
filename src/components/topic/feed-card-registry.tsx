@@ -60,8 +60,8 @@ export function createFeedCardRegistry(
           onPreviousTopic={() => invokeRegisteredFeedEntryAction(entry, 'previous', registrations, context)}
         />
       ),
-      onNext: context.onNext,
-      onPrevious: context.onPrevious,
+      onNext: context.navigateNext,
+      onPrevious: context.navigatePrevious,
       onEnter: async (entry, direction, entries, cardContext) => {
         cardContext.activateInterstitialTopic(entry.topicId);
         if (entry.status === 'pending') {
