@@ -1,6 +1,7 @@
 import type { Topic } from '@/types';
 import type { TopFeedComment } from '@/lib/feed-comments';
 import type { SponsorFeedCampaign } from '@/lib/sponsor-campaigns';
+import { buildOrderedFeedSequence, type FeedCardRule } from './feed-entry-system';
 
 export type FeedEntry =
   | { type: 'topic'; topicId: string; topic: Topic }
@@ -13,9 +14,13 @@ export type FeedEntry =
       sessionId: string | null;
     };
 
+export type FeedCardEntry = Exclude<FeedEntry, { type: 'topic' }>;
+
 export type FeedBoundary = {
   topicId: string;
   entries: FeedEntry[];
+  cadenceAfter: Readonly<Record<string, number>>;
+  /** Compatibility fields for existing feed diagnostics and UI state. */
   commentCadenceAfter: number;
   sponsorCadenceAfter: number;
 };
@@ -44,12 +49,21 @@ export type BuildFeedEntryMapOptions = {
   >;
 };
 
+const COMMENT_RULE_ID = 'top-comments';
+const SPONSOR_RULE_ID = 'sponsor';
+
+export const DEFAULT_FEED_CARD_RULES = {
+  topComments: { id: COMMENT_RULE_ID, priority: 100 },
+  sponsor: { id: SPONSOR_RULE_ID, priority: 200 },
+} as const;
+
 /**
  * Builds the ordered feed sequence from the original analytics-ranked topic
- * list. Interstitial decisions are made here, never in swipe handlers.
+ * list. Card-specific placement rules are registered independently; the
+ * shared sequence engine owns cadence advancement and deterministic order.
  *
- * A topic boundary owns its following comment/sponsor entries. If both
- * intervals land on the same boundary, comments are ordered before sponsors.
+ * Lower rule priorities appear first. Thus Top Comments precede sponsors
+ * when both rules are due at the same topic boundary.
  */
 export function buildFeedEntryMap({
   topics,
@@ -63,71 +77,71 @@ export function buildFeedEntryMap({
   commentGroupSize = 5,
   sponsorResults = new Map(),
 }: BuildFeedEntryMapOptions): FeedEntryMap {
-  if (!Number.isSafeInteger(commentInterval) || commentInterval < 1) {
-    throw new RangeError('commentInterval must be a positive integer');
-  }
-  if (!Number.isSafeInteger(sponsorInterval) || sponsorInterval < 1) {
-    throw new RangeError('sponsorInterval must be a positive integer');
-  }
   if (!Number.isSafeInteger(commentGroupSize) || commentGroupSize < 1) {
     throw new RangeError('commentGroupSize must be a positive integer');
   }
 
   const reservedCommentIds = new Set(seenCommentIds);
   const availableComments = comments.filter((comment) => !reservedCommentIds.has(comment.comment_id));
-  const boundaries: FeedBoundary[] = [];
-  const byTopicId = new Map<string, FeedBoundary>();
-  let nextCommentCadence = commentCadence;
-  let nextSponsorCadence = sponsorCadence;
 
-  for (const topic of topics) {
-    const entries: FeedEntry[] = [{ type: 'topic', topicId: topic.id, topic }];
-    nextCommentCadence = (nextCommentCadence + 1) % commentInterval;
-    nextSponsorCadence = (nextSponsorCadence + 1) % sponsorInterval;
-
-    const commentDue = nextCommentCadence === 0 && availableComments.length > 0;
-    const sponsorDue = nextSponsorCadence === 0 && Boolean(userId);
-
-    if (commentDue) {
-      const group = availableComments.splice(0, commentGroupSize);
-      for (const comment of group) reservedCommentIds.add(comment.comment_id);
-      if (group.length > 0) {
-        entries.push({ type: 'top-comments', topicId: topic.id, comments: group });
-        nextCommentCadence = 0;
-      }
-    }
-
-    if (sponsorDue) {
-      const result = sponsorResults.get(topic.id);
-      // A confirmed empty result consumes the cadence but never creates an
-      // empty card slot in the actual feed sequence.
-      if (!result || (result.campaigns.length > 0 && result.sessionId)) {
-        entries.push({
+  const cardRules: FeedCardRule<Topic, FeedCardEntry>[] = [
+    {
+      id: DEFAULT_FEED_CARD_RULES.topComments.id,
+      interval: commentInterval,
+      priority: DEFAULT_FEED_CARD_RULES.topComments.priority,
+      createEntry: (topic) => {
+        if (availableComments.length === 0) return null;
+        const group = availableComments.splice(0, commentGroupSize);
+        for (const comment of group) reservedCommentIds.add(comment.comment_id);
+        return group.length > 0
+          ? { type: 'top-comments', topicId: topic.id, comments: group }
+          : null;
+      },
+    },
+    {
+      id: DEFAULT_FEED_CARD_RULES.sponsor.id,
+      interval: sponsorInterval,
+      priority: DEFAULT_FEED_CARD_RULES.sponsor.priority,
+      createEntry: (topic) => {
+        if (!userId) return null;
+        const result = sponsorResults.get(topic.id);
+        // A confirmed empty result consumes this rule's cadence but creates
+        // no phantom slot. Pending inventory remains a real planned entry.
+        if (result && (result.campaigns.length === 0 || !result.sessionId)) return null;
+        return {
           type: 'sponsor',
           topicId: topic.id,
           status: result ? 'ready' : 'pending',
           campaigns: result?.campaigns ?? [],
           sessionId: result?.sessionId ?? null,
-        });
-      }
-      nextSponsorCadence = 0;
-    }
+        };
+      },
+    },
+  ];
 
-    const boundary = {
-      topicId: topic.id,
-      entries,
-      commentCadenceAfter: nextCommentCadence,
-      sponsorCadenceAfter: nextSponsorCadence,
-    };
-    boundaries.push(boundary);
-    byTopicId.set(topic.id, boundary);
-  }
+  const sequence = buildOrderedFeedSequence<Topic, FeedCardEntry>({
+    topics,
+    cardRules,
+    initialCadence: {
+      [COMMENT_RULE_ID]: commentCadence,
+      [SPONSOR_RULE_ID]: sponsorCadence,
+    },
+  });
+
+  const boundaries: FeedBoundary[] = sequence.boundaries.map((boundary) => ({
+    ...boundary,
+    entries: boundary.entries as FeedEntry[],
+    cadenceAfter: boundary.cadenceAfter,
+    commentCadenceAfter: boundary.cadenceAfter[COMMENT_RULE_ID] ?? 0,
+    sponsorCadenceAfter: boundary.cadenceAfter[SPONSOR_RULE_ID] ?? 0,
+  }));
+  const byTopicId = new Map(boundaries.map((boundary) => [boundary.topicId, boundary] as const));
 
   return {
     boundaries,
     byTopicId,
-    commentCadence: nextCommentCadence,
-    sponsorCadence: nextSponsorCadence,
+    commentCadence: sequence.cadence[COMMENT_RULE_ID] ?? 0,
+    sponsorCadence: sequence.cadence[SPONSOR_RULE_ID] ?? 0,
     reservedCommentIds,
   };
 }
