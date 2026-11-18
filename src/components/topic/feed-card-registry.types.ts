@@ -1,5 +1,5 @@
 import type { TopFeedComment } from '@/lib/feed-comments';
-import type { FeedEntry } from '@/lib/feed-entry-map';
+import type { FeedEntry, FeedEntryLike, FeedEntryDirection } from '@/lib/feed-entry-map';
 
 export type FeedCardRendererContext = {
   userId: string | null;
@@ -11,8 +11,17 @@ export type FeedCardRendererContext = {
   onOpenComment: (comment: TopFeedComment) => void;
   onNext: (entry: FeedEntry) => void | Promise<void>;
   onPrevious: (entry: FeedEntry) => void | Promise<void>;
+  activateInterstitialTopic: (topicId: string | null) => void;
+  markCommentSeen: (commentId: number) => void;
+  cacheCommentGroup: (topicId: string, comments: TopFeedComment[]) => void;
+  getTopCommentIndex: (topicId: string) => number;
+  loadSponsorEntry: (
+    entry: Extract<FeedEntry, { type: 'sponsor' }>,
+    direction: FeedEntryDirection,
+    entries: readonly FeedEntryLike[]
+  ) => Promise<void>;
+  cancelSponsorRequest: (
+    entry: Extract<FeedEntry, { type: 'sponsor' }>,
+    direction: FeedEntryDirection
+  ) => void;
 };
-
-export type FeedCardRegistryFactory = (
-  context: FeedCardRendererContext
-) => import('@/lib/feed-entry-registry').FeedEntryRegistration<FeedCardRendererContext>[];
