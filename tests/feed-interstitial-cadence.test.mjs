@@ -3,12 +3,13 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import ts from 'typescript';
 
-const [commentSource, sponsorSource, feedCore, topicFeed, cardRegistry, topicCard, topCommentCard, sponsorCard, topicViewer, interstitialMotion, topicCardLayout, sponsorLoadingCard] = await Promise.all([
+const [commentSource, sponsorSource, feedCore, topicFeed, cardRegistry, placementRegistry, topicCard, topCommentCard, sponsorCard, topicViewer, interstitialMotion, topicCardLayout, sponsorLoadingCard] = await Promise.all([
   readFile(new URL('../src/lib/feed-comments.ts', import.meta.url), 'utf8'),
   readFile(new URL('../src/lib/sponsor-campaigns.ts', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/TopicFeedCore.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/TopicFeed.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/feed-card-registry.tsx', import.meta.url), 'utf8'),
+  readFile(new URL('../src/lib/feed-card-placement-registry.ts', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/TopicCard.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/TopCommentFeedCard.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/SponsorFeedCard.tsx', import.meta.url), 'utf8'),
@@ -53,23 +54,23 @@ test('missing inventory suppresses only its own card schedule', () => {
 });
 
 test('the tenth-topic collision is planned as comment then sponsor before navigation', () => {
-  assert.match(feedCore, /const sponsorEntry = boundary\.entries\.find\(\(entry\) => entry\.type === 'sponsor'\)/);
-  assert.match(feedCore, /const commentEntry = boundary\.entries\.find\(\(entry\) => entry\.type === 'top-comments'\)/);
-  assert.match(feedCore, /pendingSponsorAfterComment\.current = Boolean\(/);
-  assert.match(feedCore, /if \(cachedSponsor\?\.campaigns\.length\)/);
+  assert.match(placementRegistry, /id: DEFAULT_FEED_CARD_RULES\.topComments\.id/);
+  assert.match(placementRegistry, /id: DEFAULT_FEED_CARD_RULES\.sponsor\.id/);
+  assert.match(placementRegistry, /priority: DEFAULT_FEED_CARD_RULES\.topComments\.priority/);
+  assert.match(placementRegistry, /priority: DEFAULT_FEED_CARD_RULES\.sponsor\.priority/);
+  assert.match(cardRegistry, /registerFeedEntry<Extract<FeedEntry, \{ type: 'top-comments' \}>/);
+  assert.match(cardRegistry, /registerFeedEntry<Extract<FeedEntry, \{ type: 'sponsor' \}>/);
   assert.doesNotMatch(feedCore, /const chooseSponsor = sponsorDue && !commentDue/);
   assert.doesNotMatch(feedCore, /const commentDue = shouldInsertTopCommentCard/);
 });
 
 test('sponsor fetches cannot race feed navigation or account changes', () => {
   assert.match(feedCore, /sponsorRequestVersion/);
-  assert.match(feedCore, /sponsorRequestPreviousCadence/);
   assert.match(feedCore, /sponsorRequestVersion\.current !== requestVersion/);
+  assert.match(feedCore, /const cancelSponsorRequest = \(\) =>/);
   assert.match(feedCore, /sponsorRequestVersion\.current \+= 1/);
-  assert.match(feedCore, /if \(sponsorLoadingRef\.current\) \{[\s\S]*?sponsorRequestVersion\.current \+= 1/);
-  const previousTopic = feedCore.slice(feedCore.indexOf('const previousTopic ='));
-  assert.match(previousTopic, /pendingSponsorAfterComment\.current = false/);
-  assert.match(feedCore, /sponsorPreviousIsComment/);
+  assert.match(cardRegistry, /onExit: \(entry, direction, cardContext\)/);
+  assert.match(feedCore, /invokeRegisteredFeedEntryLifecycle/);
 });
 
 
@@ -209,7 +210,7 @@ test('transient sponsor request failures remain retryable and cannot overwrite a
   assert.match(feedCore, /retryable: true/);
   assert.match(feedCore, /sponsorSessionUserId\.current === requestedUserId && !result\.retryable/);
   assert.match(feedCore, /sponsorRequestsByTopicId\.current\.get\(topic\.id\) === request/);
-  assert.match(feedCore, /if \(!result\.retryable\) \{[\s\S]*?sponsorDueByTopicId\.current\.delete\(currentTopic\.id\)/);
+  assert.match(feedCore, /if \(!result\.retryable\) \{[\s\S]*?sponsorDueByTopicId\.current\.delete\(entry\.topicId\)/);
 });
 
 
