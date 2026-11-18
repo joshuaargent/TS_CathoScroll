@@ -24,6 +24,12 @@ test('card renderer registrations own the component selection and receive shared
   assert.match(registry, /entry\.status === 'pending'/);
 });
 
+test('one active entry key replaces separate comment and sponsor visibility state', () => {
+  assert.match(core, /const \[activeFeedEntryKey, setActiveFeedEntryKeyState\]/);
+  assert.doesNotMatch(core, /showTopCommentCard|showSponsorCard|setShowTopCommentCard|setShowSponsorCard/);
+  assert.match(core, /getFeedEntryKey\(entry\) === activeFeedEntryKey/);
+});
+
 test('ordered cursor traversal is shared by feed navigation', () => {
   assert.match(core, /flattenFeedEntryMap\(feedEntryMapRef\.current\)/);
   assert.match(core, /getAdjacentFeedEntry\(entries, currentKey, 'previous'\)/);
