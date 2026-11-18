@@ -139,6 +139,16 @@ Category analytics aggregate topic-level metrics and show topic leaders, topic d
 
 Sponsor analytics are separate and show eligible opportunities, viewable impressions, unique reach where measurable, clicks, click-through rate, frequency, and campaign trends. Sponsor dashboards expose only aggregate metrics for their own sponsor and never user identities or raw events.
 
+## Future topic-card artwork
+
+Public-domain painting backgrounds are a good visual direction, but should be a separate design change after feed navigation is stable.
+
+- Curate at least three verified works per category; treat SDCason as a discovery source, not blanket proof of each image's rights. Record the original work, source URL, rights evidence and any required attribution in an asset manifest.
+- Download and optimize approved assets into the project rather than hotlinking them at runtime. Generate responsive WebP/AVIF sizes and lazy-load artwork outside the active card.
+- Assign artwork deterministically from the topic ID and category (for example, a stable hash modulo the curated category set). Do not reshuffle on component render, card revisit or feed pagination.
+- Use a theme-aware contrast scrim and test text/buttons in both modes. The artwork belongs only behind the topic-card content surface; keep the progress-bar surround and shared interstitial geometry unchanged.
+- Keep comment and sponsor cards on the same shared layout without forcing topic artwork onto them. They should remain visually related but retain their own content treatment.
+
 ## Unified feed manual acceptance matrix
 
 Run these checks against a preview with test comments and at least two eligible sponsor campaigns. Use a fresh account/session for the first pass, then repeat after navigating away and back.
