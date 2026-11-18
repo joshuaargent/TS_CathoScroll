@@ -168,24 +168,23 @@ export function TopicFeedCore({
           : '/api/content/sponsored-campaigns';
         const controller = new AbortController();
         const timeoutId = window.setTimeout(() => controller.abort(), 8000);
-        let response: Response;
         try {
-          response = await fetch(campaignsEndpoint, {
+          const response = await fetch(campaignsEndpoint, {
             method: 'POST',
             credentials: 'same-origin',
             headers,
             signal: controller.signal,
             body: JSON.stringify({
-            sessionId,
-            categorySlug: topic.categorySlug ?? null,
-            topicId: topic.id,
+              sessionId,
+              categorySlug: topic.categorySlug ?? null,
+              topicId: topic.id,
             }),
           });
+          if (!response.ok) return { campaigns: [], sessionId: null };
+          return { campaigns: parseSponsorFeedCampaigns(await response.json()), sessionId };
         } finally {
           window.clearTimeout(timeoutId);
         }
-        if (!response.ok) return { campaigns: [], sessionId: null };
-        return { campaigns: parseSponsorFeedCampaigns(await response.json()), sessionId };
       } catch {
         return { campaigns: [], sessionId: null };
       }
@@ -197,13 +196,20 @@ export function TopicFeedCore({
     let cancelled = false;
     const refresh = createFeedRefreshCoordinator(async () => {
       try {
-        const response = await fetch(topCommentsEndpoint ?? '/api/content/top-comments', {
-          cache: 'default',
-          credentials: topCommentsEndpoint ? 'omit' : 'same-origin',
-        });
-        if (!response.ok) return false;
-
-        const payload: unknown = await response.json();
+        const controller = new AbortController();
+        const timeoutId = window.setTimeout(() => controller.abort(), 8000);
+        let payload: unknown;
+        try {
+          const response = await fetch(topCommentsEndpoint ?? '/api/content/top-comments', {
+            cache: 'default',
+            credentials: topCommentsEndpoint ? 'omit' : 'same-origin',
+            signal: controller.signal,
+          });
+          if (!response.ok) return false;
+          payload = await response.json();
+        } finally {
+          window.clearTimeout(timeoutId);
+        }
         if (!cancelled) {
           const comments = parseTopFeedComments(payload);
           const nextOffset =
@@ -319,13 +325,20 @@ export function TopicFeedCore({
     try {
       const endpoint = topCommentsEndpoint ?? '/api/content/top-comments';
       const separator = endpoint.includes('?') ? '&' : '?';
-      const response = await fetch(`${endpoint}${separator}offset=${offset}&limit=100`, {
-        cache: 'default',
-        credentials: topCommentsEndpoint ? 'omit' : 'same-origin',
-      });
-      if (!response.ok) return;
-
-      const payload: unknown = await response.json();
+      const controller = new AbortController();
+      const timeoutId = window.setTimeout(() => controller.abort(), 8000);
+      let payload: unknown;
+      try {
+        const response = await fetch(`${endpoint}${separator}offset=${offset}&limit=100`, {
+          cache: 'default',
+          credentials: topCommentsEndpoint ? 'omit' : 'same-origin',
+          signal: controller.signal,
+        });
+        if (!response.ok) return;
+        payload = await response.json();
+      } finally {
+        window.clearTimeout(timeoutId);
+      }
       const comments = parseTopFeedComments(payload);
       const nextOffset =
         typeof payload === 'object' && payload !== null && 'next_offset' in payload &&
