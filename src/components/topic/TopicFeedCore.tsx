@@ -171,6 +171,8 @@ export function TopicFeedCore({
     setSponsorLoading(false);
     setTopicsSinceSponsorCard(0);
     setTopicsSinceTopCommentCard(0);
+    topicsSinceSponsorCardRef.current = 0;
+    topicsSinceTopCommentCardRef.current = 0;
   }, [userId]);
 
   const loadSponsorCampaigns = useCallback(
@@ -623,8 +625,9 @@ export function TopicFeedCore({
     if (commentEntry && commentEntry.type === 'top-comments') {
       const commentGroup = commentEntry.comments;
       for (const comment of commentGroup) {
-        topCommentCardsByTopicId.current.set(currentTopic.id, commentGroup);
+        seenTopCommentIds.current.add(comment.comment_id);
       }
+      topCommentCardsByTopicId.current.set(currentTopic.id, commentGroup);
       topCommentIndexByTopicId.current.set(currentTopic.id, 0);
       setTopCommentCardComments(commentGroup);
       pendingSponsorAfterComment.current = Boolean(
