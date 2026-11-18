@@ -421,7 +421,6 @@ export function TopicFeedCore({
 
     generationRef.current += 1;
     loadingRef.current = false;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setFeedTopics(shuffled);
     feedTopicsRef.current = shuffled;
     setTopicIndex(personalized ? 0 : Math.floor(shuffled.length / 2));
