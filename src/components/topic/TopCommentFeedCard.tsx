@@ -156,16 +156,16 @@ export function TopCommentFeedCard({
   const activeCommentId = comment?.comment_id;
 
   useLayoutEffect(() => {
-    onProgressChange(safeIndex, comments.length);
-  }, [comments.length, onProgressChange, safeIndex]);
+    if (active && !previewMode) onProgressChange(safeIndex, comments.length);
+  }, [active, comments.length, onProgressChange, previewMode, safeIndex]);
 
   useEffect(() => {
     if (active) navigationStarted.current = false;
   }, [active, comments]);
 
   useEffect(() => {
-    if (activeCommentId !== undefined) onCommentViewed(activeCommentId);
-  }, [activeCommentId, onCommentViewed]);
+    if (active && !previewMode && activeCommentId !== undefined) onCommentViewed(activeCommentId);
+  }, [active, activeCommentId, onCommentViewed, previewMode]);
 
   if (!comment) return null;
 
