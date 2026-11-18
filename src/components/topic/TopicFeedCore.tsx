@@ -462,11 +462,28 @@ export function TopicFeedCore({
       ? activeIndex + 1
       : Math.max(0, currentIndex);
     const previousMap = feedEntryMapRef.current;
+    const commentsById = new Map(
+      topComments.map((comment) => [comment.comment_id, comment] as const)
+    );
     const prefix = previousMap
-      ? previousMap.boundaries.filter((boundary) => {
-          const index = feedTopics.findIndex((topic) => topic.id === boundary.topicId);
-          return index >= 0 && index < startIndex;
-        })
+      ? previousMap.boundaries
+          .filter((boundary) => {
+            const index = feedTopics.findIndex((topic) => topic.id === boundary.topicId);
+            return index >= 0 && index < startIndex;
+          })
+          .map((boundary) => ({
+            ...boundary,
+            entries: boundary.entries.flatMap((entry) => {
+              if (entry.type !== 'top-comments') return [entry];
+              const currentComments = entry.comments.flatMap((comment) => {
+                const currentComment = commentsById.get(comment.comment_id);
+                return currentComment ? [currentComment] : [];
+              });
+              return currentComments.length > 0
+                ? [{ ...entry, comments: currentComments }]
+                : [];
+            }),
+          }))
       : [];
     const planned = buildFeedEntryMap({
       topics: feedTopics.slice(startIndex),
