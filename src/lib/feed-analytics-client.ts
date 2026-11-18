@@ -27,6 +27,7 @@ type QueuedFeedAnalyticsEvent = {
 };
 
 const batchLimit = 50;
+const queueLimit = 200;
 const storagePrefix = 'cathoscroll.feed-analytics.v1.';
 const sessionId = createUuid();
 const flushingUsers = new Set<string>();
@@ -127,7 +128,10 @@ export function recordFeedAnalyticsEvent(
     metadata,
   };
 
-  const queue = readQueue(userId);
+  // Keep offline storage bounded. Preserve the oldest unacknowledged events;
+  // new low-priority telemetry is dropped while the queue is full.
+  const queue = readQueue(userId).slice(0, queueLimit);
+  if (queue.length >= queueLimit) return;
   queue.push(event);
   writeQueue(userId, queue);
 
