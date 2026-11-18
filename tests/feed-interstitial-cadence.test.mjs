@@ -185,6 +185,10 @@ test('the original analytics-ranked feed keeps interstitials in per-topic sessio
   assert.match(feedCore, /sponsorDueByTopicId\.current\.has\(currentTopic\.id\)/);
   assert.match(feedCore, /sponsorDueByTopicId\.current\.delete\(currentTopic\.id\)/);
   assert.match(feedCore, /Re-entering a topic replays the exact interstitials already assigned to/);
+  assert.match(feedCore, /processedTopicBoundariesByTopicId = useRef\(new Set<string>\(\)\)/);
+  assert.match(feedCore, /processedTopicBoundariesByTopicId\.current\.has\(currentTopic\.id\)/);
+  assert.match(feedCore, /processedTopicBoundariesByTopicId\.current\.add\(currentTopic\.id\)/);
+  assert.match(feedCore, /processedTopicBoundariesByTopicId\.current\.clear\(\)/);
   assert.ok(feedCore.includes('if (preservePositionOnUpdate && feedInitializedRef.current)'));
   assert.match(topicFeed, /preservePositionOnUpdate/);
   assert.ok(feedCore.includes('previousPersonalizedRef.current !== personalized'));
