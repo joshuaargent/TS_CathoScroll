@@ -142,7 +142,7 @@ test('topic, comment and sponsor cards use the same structural layout component'
   assert.match(feedCore, /const nextTopic = \(\) => navigateFeedEntry\('next'\)/);
   assert.match(feedCore, /activeFeedEntryKey/);
   assert.match(cardRegistry, /<SponsorLoadingCard/);
-  assert.match(cardRegistry, /onPreviousTopic=\{\(\) => context\.onPrevious\(entry\)\}/);
+  assert.match(cardRegistry, /invokeRegisteredFeedEntryAction\(entry, 'previous', registrations, context\)/);
   assert.match(feedCore, /const firstSponsor = planned\.boundaries/);
   assert.match(feedCore, /prefetchMappedSponsor\(firstSponsor\.topicId\)/);
   assert.match(feedCore, /const nextSponsorBoundary = boundaries/);
