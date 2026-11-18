@@ -3,12 +3,13 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 const root = new URL('../src/components/topic/', import.meta.url);
-const [progress, topic, comments, sponsor, sponsorLoading, layout, compatibility] = await Promise.all([
+const [progress, topic, comments, sponsor, sponsorLoading, topicCard, layout, compatibility] = await Promise.all([
   readFile(new URL('FeedProgress.tsx', root), 'utf8'),
   readFile(new URL('TopicSwipeViewer.tsx', root), 'utf8'),
   readFile(new URL('TopCommentFeedCard.tsx', root), 'utf8'),
   readFile(new URL('SponsorFeedCard.tsx', root), 'utf8'),
   readFile(new URL('SponsorLoadingCard.tsx', root), 'utf8'),
+  readFile(new URL('TopicCard.tsx', root), 'utf8'),
   readFile(new URL('TopicCardLayout.tsx', root), 'utf8'),
   readFile(new URL('TopicProgress.tsx', root), 'utf8'),
 ]);
@@ -28,4 +29,9 @@ test('every feed card type uses the original shared topic progress implementatio
 
 test('shared card layout preserves the original topic card vertical padding', () => {
   assert.match(layout, /px-6 pt-6 pb-6 md:px-8 md:pt-8 md:pb-8/);
+});
+
+test('shared layout does not add a background to original topic cards', () => {
+  assert.match(topicCard, /className="bg-transparent"/);
+  assert.match(topicCard, /cardClassName=\{type === 'question' \? 'bg-accent-light\/5' : undefined\}/);
 });
