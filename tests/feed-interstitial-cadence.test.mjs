@@ -138,7 +138,12 @@ test('topic, comment and sponsor cards use the same structural layout component'
   assert.match(sponsorCard, /await onNextTopic\(\)/);
   assert.match(feedCore, /const nextTopic = async \(\) =>/);
   assert.match(feedCore, /sponsorLoading \? \(/);
-  assert.match(feedCore, /<SponsorLoadingCard \/>/);
+  assert.match(feedCore, /<SponsorLoadingCard[\\s\\S]*?onPreviousTopic=/);
+  assert.match(feedCore, /if \(sponsorDue\) void getSponsorCampaignResult\(currentTopic\)/);
+  assert.match(feedCore, /for \(const comment of unseenTopComments\)/);
+  assert.match(feedCore, /sponsorResultsByTopicId = useRef\(new Map/);
+  assert.match(feedCore, /sponsorRequestsByTopicId = useRef\(new Map/);
+  assert.match(feedCore, /userId=\{userId\}/);
   assert.match(sponsorLoadingCard, /role="status" aria-live="polite" aria-busy="true"/);
   assert.match(sponsorLoadingCard, /<FeedInterstitialMotion/);
   assert.match(feedCore, /window\.setTimeout\(\(\) => controller\.abort\(\), 8000\)/);
