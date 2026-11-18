@@ -219,7 +219,7 @@ test('topics, comments and sponsors occupy one exclusive feed-card slot', () => 
   assert.doesNotMatch(feedCore, /renderedFeedCard \?\? \(/);
 });
 
-test('topic previews are derived from adjacent feed entries without delayed mount flashes', () => {
+test('all card types preview their actual adjacent mapped feed entry without preview side effects', () => {
   assert.doesNotMatch(topicViewer, /showEntryPreviews|setShowEntryPreviews/);
   assert.match(topicViewer, /previousEntryPreview !== null/);
   assert.match(topicViewer, /nextEntryPreview !== null/);
