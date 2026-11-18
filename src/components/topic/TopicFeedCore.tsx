@@ -427,6 +427,7 @@ export function TopicFeedCore({
     // Never strand the user on an interstitial at the end of a page while the
     // next topic page is still loading.
     if (topicIndex >= feedTopics.length - 1 && nextCursor) {
+      pendingAdvanceAfterPageRef.current = true;
       void loadMoreTopics();
       return;
     }
