@@ -5,7 +5,7 @@ DROP FUNCTION IF EXISTS public.admin_create_sponsor(uuid, text, text, text, text
 
 CREATE OR REPLACE FUNCTION public.get_weighted_sponsor_campaigns(
   p_user_id uuid, p_session_id uuid, p_category_slug text DEFAULT NULL,
-  p_topic_id text DEFAULT NULL, p_limit integer DEFAULT 5
+  p_topic_id text DEFAULT NULL, p_limit integer DEFAULT 1
 )
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
 AS $function$
