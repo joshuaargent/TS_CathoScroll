@@ -21,6 +21,8 @@ export function createFeedCardRegistry(
         <TopCommentFeedCard
           key={`${context.userId ?? 'anonymous'}:${entry.topicId}`}
           userId={context.userId}
+          previewMode={context.previewMode}
+          active={!context.previewMode}
           comments={entry.comments}
           initialActiveIndex={context.activeTopCommentIndex}
           onActiveIndexChange={(index) => context.onTopCommentIndexChange(entry.topicId, index)}
@@ -29,6 +31,8 @@ export function createFeedCardRegistry(
           onNextTopic={() => invokeRegisteredFeedEntryAction(entry, 'next', registrations, context)}
           onPreviousTopic={() => invokeRegisteredFeedEntryAction(entry, 'previous', registrations, context)}
           onOpenComment={context.onOpenComment}
+          nextEntryPreview={context.nextEntryPreview}
+          previousEntryPreview={context.previousEntryPreview}
         />
       ),
       onNext: context.navigateNext,
@@ -52,11 +56,16 @@ export function createFeedCardRegistry(
           onPreviousTopic={() => invokeRegisteredFeedEntryAction(entry, 'previous', registrations, context)}
           error={entry.status === 'error'}
           onRetry={() => context.retrySponsorEntry(entry)}
+          previewMode={context.previewMode}
+          active={!context.previewMode}
+          nextEntryPreview={context.nextEntryPreview}
+          previousEntryPreview={context.previousEntryPreview}
         />
       ) : (
         <SponsorFeedCard
           key={`sponsor:${entry.topicId}:${entry.sessionId ?? 'pending'}`}
           campaigns={entry.campaigns}
+          previewMode={context.previewMode}
           sessionId={entry.sessionId ?? ''}
           userId={context.userId ?? ''}
           sponsorApiBaseUrl={context.sponsorApiBaseUrl}
