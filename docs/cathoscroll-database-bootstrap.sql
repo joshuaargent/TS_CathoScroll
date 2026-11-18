@@ -5271,7 +5271,6 @@ REVOKE ALL ON FUNCTION public.get_weighted_sponsor_campaigns(uuid, uuid, text, t
   FROM PUBLIC, anon, authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.get_weighted_sponsor_campaigns(uuid, uuid, text, text, integer) TO service_role;
 
--- Remove the unused sponsor logo field after every database function has stopped referencing it.
 
 CREATE OR REPLACE FUNCTION public.record_sponsor_campaign_event(
   p_user_id uuid, p_campaign_id uuid, p_event_id uuid, p_session_id uuid, p_event_type text
