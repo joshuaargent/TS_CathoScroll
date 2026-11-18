@@ -150,7 +150,7 @@ test('topic, comment and sponsor cards use the same structural layout component'
   assert.match(sponsorLoadingCard, /<FeedInterstitialMotion/);
   assert.match(feedCore, /window\.setTimeout\(\(\) => controller\.abort\(\), 8000\)/);
   assert.match(feedCore, /onPreviousTopic=\{\(\) => \{[\s\S]*?sponsorPreviousIsComment\.current/);
-  assert.match(sponsorLoadingCard, /cardClassName="bg-accent-light\/5"/);
+  assert.doesNotMatch(sponsorLoadingCard, /cardClassName/);
 });
 
 
