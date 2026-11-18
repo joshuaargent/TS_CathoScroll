@@ -16,6 +16,8 @@ export type FeedEntry =
 export type FeedBoundary = {
   topicId: string;
   entries: FeedEntry[];
+  commentCadenceAfter: number;
+  sponsorCadenceAfter: number;
 };
 
 export type FeedEntryMap = {
@@ -107,7 +109,12 @@ export function buildFeedEntryMap({
       nextSponsorCadence = 0;
     }
 
-    const boundary = { topicId: topic.id, entries };
+    const boundary = {
+      topicId: topic.id,
+      entries,
+      commentCadenceAfter: nextCommentCadence,
+      sponsorCadenceAfter: nextSponsorCadence,
+    };
     boundaries.push(boundary);
     byTopicId.set(topic.id, boundary);
   }
