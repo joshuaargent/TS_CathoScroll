@@ -516,11 +516,11 @@ export function TopicFeedCore({
 
     // Resolve only the next sponsor slot. Fetching every future campaign
     // would consume per-user delivery caps for cards the user may never reach.
-    const firstPendingSponsor = planned.boundaries
+    const firstSponsor = planned.boundaries
       .flatMap((boundary) => boundary.entries)
-      .find((entry) => entry.type === 'sponsor' && entry.status === 'pending');
-    if (firstPendingSponsor && firstPendingSponsor.type === 'sponsor') {
-      prefetchMappedSponsor(firstPendingSponsor.topicId);
+      .find((entry) => entry.type === 'sponsor');
+    if (firstSponsor && firstSponsor.type === 'sponsor' && firstSponsor.status === 'pending') {
+      prefetchMappedSponsor(firstSponsor.topicId);
     }
   }, [feedTopics, topComments, userId, getSponsorCampaignResult, prefetchMappedSponsor, loadMoreTopComments]);
 
@@ -626,12 +626,13 @@ export function TopicFeedCore({
     const currentTopicId = feedTopics[topicIndex]?.id;
     const boundaries = feedEntryMapRef.current?.boundaries ?? [];
     const currentBoundaryIndex = boundaries.findIndex((boundary) => boundary.topicId === currentTopicId);
-    const nextPendingSponsor = boundaries
+    const nextSponsorBoundary = boundaries
       .slice(Math.max(0, currentBoundaryIndex + 1))
-      .find((boundary) => boundary.entries.some(
-        (entry) => entry.type === 'sponsor' && entry.status === 'pending'
-      ));
-    if (nextPendingSponsor) prefetchMappedSponsor(nextPendingSponsor.topicId);
+      .find((boundary) => boundary.entries.some((entry) => entry.type === 'sponsor'));
+    const nextSponsorEntry = nextSponsorBoundary?.entries.find((entry) => entry.type === 'sponsor');
+    if (nextSponsorBoundary && nextSponsorEntry?.type === 'sponsor' && nextSponsorEntry.status === 'pending') {
+      prefetchMappedSponsor(nextSponsorBoundary.topicId);
+    }
     if (topicIndex >= feedTopics.length - 3 && nextCursor) {
       void loadMoreTopics();
     }
