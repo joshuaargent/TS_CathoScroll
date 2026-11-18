@@ -72,6 +72,8 @@ export function createFeedCardRegistry(
           getAccessToken={context.getSponsorAccessToken ?? (async () => null)}
           onNextTopic={() => invokeRegisteredFeedEntryAction(entry, 'next', registrations, context)}
           onPreviousTopic={() => invokeRegisteredFeedEntryAction(entry, 'previous', registrations, context)}
+          nextEntryPreview={context.nextEntryPreview}
+          previousEntryPreview={context.previousEntryPreview}
         />
       ),
       onNext: context.navigateNext,
