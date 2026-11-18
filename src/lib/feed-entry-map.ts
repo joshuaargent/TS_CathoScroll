@@ -1,7 +1,13 @@
 import type { Topic } from '@/types';
 import type { TopFeedComment } from '@/lib/feed-comments';
 import type { SponsorFeedCampaign } from '@/lib/sponsor-campaigns';
-import { buildOrderedFeedSequence, type FeedCardRule } from './feed-entry-system';
+import { buildOrderedFeedSequence } from './feed-entry-system';
+import {
+  createFeedCardPlacementRules,
+  COMMENT_RULE_ID,
+  SPONSOR_RULE_ID,
+} from './feed-card-placement-registry';
+export { DEFAULT_FEED_CARD_RULES } from './feed-card-placement-registry';
 
 export type FeedEntry =
   | { type: 'topic'; topicId: string; topic: Topic }
@@ -49,14 +55,6 @@ export type BuildFeedEntryMapOptions = {
   >;
 };
 
-const COMMENT_RULE_ID = 'top-comments';
-const SPONSOR_RULE_ID = 'sponsor';
-
-export const DEFAULT_FEED_CARD_RULES = {
-  topComments: { id: COMMENT_RULE_ID, priority: 100 },
-  sponsor: { id: SPONSOR_RULE_ID, priority: 200 },
-} as const;
-
 /**
  * Builds the ordered feed sequence from the original analytics-ranked topic
  * list. Card-specific placement rules are registered independently; the
@@ -82,42 +80,15 @@ export function buildFeedEntryMap({
   }
 
   const reservedCommentIds = new Set(seenCommentIds);
-  const availableComments = comments.filter((comment) => !reservedCommentIds.has(comment.comment_id));
-
-  const cardRules: FeedCardRule<Topic, FeedCardEntry>[] = [
-    {
-      id: DEFAULT_FEED_CARD_RULES.topComments.id,
-      interval: commentInterval,
-      priority: DEFAULT_FEED_CARD_RULES.topComments.priority,
-      createEntry: (topic) => {
-        if (availableComments.length === 0) return null;
-        const group = availableComments.splice(0, commentGroupSize);
-        for (const comment of group) reservedCommentIds.add(comment.comment_id);
-        return group.length > 0
-          ? { type: 'top-comments', topicId: topic.id, comments: group }
-          : null;
-      },
-    },
-    {
-      id: DEFAULT_FEED_CARD_RULES.sponsor.id,
-      interval: sponsorInterval,
-      priority: DEFAULT_FEED_CARD_RULES.sponsor.priority,
-      createEntry: (topic) => {
-        if (!userId) return null;
-        const result = sponsorResults.get(topic.id);
-        // A confirmed empty result consumes this rule's cadence but creates
-        // no phantom slot. Pending inventory remains a real planned entry.
-        if (result && (result.campaigns.length === 0 || !result.sessionId)) return null;
-        return {
-          type: 'sponsor',
-          topicId: topic.id,
-          status: result ? 'ready' : 'pending',
-          campaigns: result?.campaigns ?? [],
-          sessionId: result?.sessionId ?? null,
-        };
-      },
-    },
-  ];
+  const cardRules = createFeedCardPlacementRules({
+    comments,
+    reservedCommentIds,
+    userId,
+    commentInterval,
+    sponsorInterval,
+    commentGroupSize,
+    sponsorResults,
+  });
 
   const sequence = buildOrderedFeedSequence<Topic, FeedCardEntry>({
     topics,
