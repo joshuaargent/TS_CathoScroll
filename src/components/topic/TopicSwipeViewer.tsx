@@ -1,7 +1,7 @@
 'use client';
 
 import { animate, motion, useMotionValue } from 'framer-motion';
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { flushSync } from 'react-dom';
 import { Heart } from 'lucide-react';
 import type { Topic } from '@/types';
@@ -14,7 +14,6 @@ import {
   recordFeedTopicVisit,
 } from '@/lib/feed-analytics-client';
 import { TopicCard } from './TopicCard';
-import { FeedProgress } from './FeedProgress';
 
 interface TopicSwipeViewerProps {
   topics: Topic[];
@@ -44,6 +43,7 @@ interface TopicSwipeViewerProps {
   onPreviousTopic?: () => void | Promise<void>;
   nextEntryPreview?: ReactNode;
   previousEntryPreview?: ReactNode;
+  onProgressChange: (current: number, total: number) => void;
 }
 
 export function TopicSwipeViewer({
@@ -69,6 +69,7 @@ export function TopicSwipeViewer({
   onPreviousTopic,
   nextEntryPreview,
   previousEntryPreview,
+  onProgressChange,
 }: TopicSwipeViewerProps) {
   const [slideIndex, setSlideIndex] = useState(0);
   const [axis, setAxis] = useState<'x' | 'y' | null>(null);
@@ -89,6 +90,10 @@ export function TopicSwipeViewer({
   const nextTopic = topics[(topicIndex + 1) % topics.length];
   const slides = useMemo(() => getTopicSlides(currentTopic), [currentTopic]);
   const currentSlide = slides[slideIndex];
+
+  useLayoutEffect(() => {
+    onProgressChange(slideIndex, slides.length);
+  }, [onProgressChange, slideIndex, slides.length]);
   const previousSlide = slideIndex > 0 ? slides[slideIndex - 1] : null;
   const nextSlide = slideIndex < slides.length - 1 ? slides[slideIndex + 1] : null;
   const interactionVisible = !isAnimating;
@@ -556,10 +561,6 @@ export function TopicSwipeViewer({
           {actionError && <p>{actionError}</p>}
         </div>
       )}
-      <div className="px-6 pt-4 pb-4">
-        <FeedProgress current={slideIndex} total={slides.length} />
-      </div>
-
       <div ref={containerRef} className="relative flex-1 overflow-hidden pt-1">
         <motion.div
           style={{
@@ -577,11 +578,11 @@ export function TopicSwipeViewer({
         >
           {/* TOP */}
 
-          {showEntryPreviews ? (
+          {showEntryPreviews && previousEntryPreview !== null ? (
             <div className="pointer-events-none absolute inset-x-0 top-[-100%] h-full opacity-90">
-              {previousEntryPreview ?? (
+              {previousEntryPreview === undefined ? (
                 <TopicCard type="question" title="Question" content={previousTopic.question} />
-              )}
+              ) : previousEntryPreview}
             </div>
           ) : null}
 
@@ -658,11 +659,11 @@ export function TopicSwipeViewer({
 
           {/* BOTTOM */}
 
-          {showEntryPreviews ? (
+          {showEntryPreviews && nextEntryPreview !== null ? (
             <div className="pointer-events-none absolute inset-x-0 top-[100%] h-full opacity-90">
-              {nextEntryPreview ?? (
+              {nextEntryPreview === undefined ? (
                 <TopicCard type="question" title="Question" content={nextTopic.question} />
-              )}
+              ) : nextEntryPreview}
             </div>
           ) : null}
         </motion.div>
