@@ -520,14 +520,15 @@ export function TopicFeedCore({
           if (sponsorRequestVersion.current !== requestVersion ||
               sponsorSessionUserId.current !== requestedUserId) return;
           sponsorDueByTopicId.current.delete(currentTopic.id);
-          if (result.campaigns.length > 0 && result.sessionId) {
+          const sessionId = result.sessionId;
+          if (result.campaigns.length > 0 && sessionId) {
             sponsorPreviousIsComment.current = false;
             flushSync(() => {
               setSponsorCampaigns(result.campaigns);
-              setActiveSponsorSessionId(result.sessionId);
+              setActiveSponsorSessionId(sessionId);
               sponsorCardsByTopicId.current.set(currentTopic.id, {
                 campaigns: result.campaigns,
-                sessionId: result.sessionId,
+                sessionId,
               });
               setShowSponsorCard(true);
               setSponsorLoading(false);
@@ -619,15 +620,16 @@ export function TopicFeedCore({
         const result = await getSponsorCampaignResult(currentTopic);
         if (sponsorRequestVersion.current !== requestVersion ||
             sponsorSessionUserId.current !== requestedUserId) return;
-        if (result.campaigns.length > 0 && result.sessionId) {
+        const sessionId = result.sessionId;
+        if (result.campaigns.length > 0 && sessionId) {
           sponsorPreviousIsComment.current = false;
           sponsorDueByTopicId.current.delete(currentTopic.id);
           flushSync(() => {
             setSponsorCampaigns(result.campaigns);
-            setActiveSponsorSessionId(result.sessionId);
+            setActiveSponsorSessionId(sessionId);
             sponsorCardsByTopicId.current.set(currentTopic.id, {
               campaigns: result.campaigns,
-              sessionId: result.sessionId,
+              sessionId,
             });
             setShowTopCommentCard(false);
             setShowSponsorCard(true);
