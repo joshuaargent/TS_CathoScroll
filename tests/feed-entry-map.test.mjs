@@ -3,10 +3,17 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import ts from 'typescript';
 
-const source = await readFile(new URL('../src/lib/feed-entry-map.ts', import.meta.url), 'utf8');
-const compiled = ts.transpileModule(source, {
+const [source, systemSource] = await Promise.all([
+  readFile(new URL('../src/lib/feed-entry-map.ts', import.meta.url), 'utf8'),
+  readFile(new URL('../src/lib/feed-entry-system.ts', import.meta.url), 'utf8'),
+]);
+const compilerOptions = {
   compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
-}).outputText;
+};
+const compiledSystem = ts.transpileModule(systemSource, compilerOptions).outputText;
+const systemUrl = `data:text/javascript;base64,${Buffer.from(compiledSystem).toString('base64')}`;
+const compiled = ts.transpileModule(source, compilerOptions).outputText
+  .replace("from './feed-entry-system'", `from '${systemUrl}'`);
 const { buildFeedEntryMap, flattenFeedEntryMap } = await import(
   `data:text/javascript;base64,${Buffer.from(compiled).toString('base64')}`
 );
