@@ -194,6 +194,7 @@ test('the original analytics-ranked feed keeps interstitials in per-topic sessio
   assert.match(feedCore, /sponsorIsPreviousEntry\.current = true/);
   assert.match(feedCore, /activeInterstitialTopicId = useRef<string \| null>\(null\)/);
   assert.match(feedCore, /feedTopics\.find\(\(topic\) => topic\.id === interstitialTopicId\)/);
+  assert.match(feedCore, /const advanceToNextTopic = \(\) => \{[\\s\\S]*?activeInterstitialTopicId\.current = null/);
   assert.match(feedCore, /topCommentIsPreviousEntry\.current = true/);
   assert.match(feedCore, /if \(!wasPreviousEntry\) advanceToNextTopic\(\)/);
   assert.match(feedCore, /if \(wasPreviousEntry\) \{/);
