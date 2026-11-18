@@ -98,6 +98,12 @@ function runAudit(cwd, label) {
     return false;
   }
 
+  if (result.status !== 0 && result.status !== 1) {
+    console.error(`[${label}] npm audit exited unexpectedly with status ${result.status}.`);
+    if (result.stderr) console.error(result.stderr);
+    return false;
+  }
+
   const classification = classifyAuditReport(report);
   const total = report.metadata?.vulnerabilities?.total ?? 0;
 
