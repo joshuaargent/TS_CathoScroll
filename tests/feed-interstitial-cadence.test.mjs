@@ -54,7 +54,7 @@ test('the tenth-topic collision queues both cards without advancing a topic betw
   assert.match(feedCore, /const chooseSponsor = sponsorDue && !commentDue/);
   assert.match(feedCore, /pendingSponsorAfterComment\.current = sponsorDue/);
   assert.match(feedCore, /setTopicsSinceSponsorCard\(sponsorDue \? currentSponsorCadence : nextSponsorCadence\)/);
-  assert.match(feedCore, /if \(!pendingSponsorAfterComment\.current\)/);
+  assert.match(feedCore, /if \(!shouldShowSponsorAfterComment\)/);
   assert.match(feedCore, /pendingSponsorAfterComment\.current = false/);
   assert.match(feedCore, /setShowSponsorCard\(true\)/);
   assert.doesNotMatch(feedCore, /lastInterstitialType/);
@@ -154,8 +154,10 @@ test('the original analytics-ranked feed keeps interstitials in per-topic sessio
   assert.match(feedCore, /sponsorCardsByTopicId\.current\.set\(currentTopic\.id/);
   assert.match(feedCore, /sponsorCardsByTopicId\.current\.get\(previousTopicId\)/);
   assert.match(feedCore, /topCommentCardsByTopicId\.current\.get\(previousTopicId\)/);
-  assert.match(feedCore, /TOP_COMMENT_CADENCE/);
-  assert.match(feedCore, /SPONSOR_CARD_CADENCE/);
+  assert.match(feedCore, /getNextTopCommentCadence/);
+  assert.match(feedCore, /shouldInsertTopCommentCard/);
+  assert.match(feedCore, /getNextSponsorCadence/);
+  assert.match(feedCore, /shouldInsertSponsorCard/);
   assert.match(feedCore, /pendingSponsorAfterComment\.current = sponsorDue/);
   assert.match(feedCore, /sponsorRequestVersion\.current !== requestVersion/);
   assert.doesNotMatch(feedCore, /buildFeedQueue|feedQueueWindow|renderFeedQueueEntry/);
