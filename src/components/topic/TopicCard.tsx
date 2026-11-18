@@ -61,7 +61,7 @@ export function TopicCard({
 
   return (
     <BaseFeedCard
-      className={type === 'question' ? 'bg-accent-light/5' : 'bg-transparent'}
+      className={type === 'question' ? 'bg-accent-light/5' : undefined}
       title={<span className="text-text-muted text-xs tracking-wider uppercase">{title}</span>}
       actions={
         <>
