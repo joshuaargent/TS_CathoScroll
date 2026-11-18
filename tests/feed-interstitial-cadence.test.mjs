@@ -167,11 +167,13 @@ test('the original analytics-ranked topic feed is retained and interstitials are
   assert.match(feedCore, /feedEntryMapRef = useRef/);
   assert.match(feedCore, /buildFeedEntryMap\(/);
   assert.match(feedCore, /const boundary = feedEntryMapRef\.current\?\.byTopicId\.get\(currentTopic\.id\)/);
-  assert.match(feedCore, /const commentEntry = boundary\.entries\.find/);
-  assert.match(feedCore, /const sponsorEntry = boundary\.entries\.find/);
+  assert.match(feedCore, /const adjacent = getAdjacentFeedEntry\(entries, currentKey, 'next'\)/);
+  assert.match(feedCore, /const nextEntry = adjacent\.entry/);
+  assert.match(feedCore, /nextEntry\.type === 'top-comments'/);
+  assert.match(feedCore, /nextEntry\.type === 'sponsor'/);
   assert.match(feedCore, /commentCadenceAfter/);
   assert.match(feedCore, /sponsorCadenceAfter/);
-  assert.match(feedCore, /boundaryAlreadyProcessed && !commentEntry && !sponsorEntry/);
+  assert.match(feedCore, /processedTopicBoundariesByTopicId\.current\.has\(currentTopic\.id\)/);
   assert.match(feedCore, /currentBoundary.entries = currentBoundary.entries.filter/);
   assert.match(feedCore, /const commentsById = new Map/);
   assert.match(feedCore, /getSponsorCampaignResult\(topic\)/);
