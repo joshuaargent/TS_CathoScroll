@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import ts from 'typescript';
 
-const [commentSource, sponsorSource, feedCore, topicFeed, cardRegistry, placementRegistry, topicCard, topCommentCard, sponsorCard, topicViewer, interstitialMotion, topicCardLayout, sponsorLoadingCard] = await Promise.all([
+const [commentSource, sponsorSource, feedCore, topicFeed, cardRegistry, placementRegistry, topicCard, topCommentCard, sponsorCard, topicViewer, interstitialMotion, topicCardLayout, sponsorLoadingCard, baseFeedCard, feedRenderer] = await Promise.all([
   readFile(new URL('../src/lib/feed-comments.ts', import.meta.url), 'utf8'),
   readFile(new URL('../src/lib/sponsor-campaigns.ts', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/TopicFeedCore.tsx', import.meta.url), 'utf8'),
@@ -17,6 +17,8 @@ const [commentSource, sponsorSource, feedCore, topicFeed, cardRegistry, placemen
   readFile(new URL('../src/components/topic/FeedInterstitialMotion.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/TopicCardLayout.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/SponsorLoadingCard.tsx', import.meta.url), 'utf8'),
+  readFile(new URL('../src/components/topic/BaseFeedCard.tsx', import.meta.url), 'utf8'),
+  readFile(new URL('../src/components/topic/FeedRenderer.tsx', import.meta.url), 'utf8'),
 ]);
 
 async function importTypeScript(source) {
@@ -86,7 +88,7 @@ test('interstitial cards share the topic viewer swipe and animation model', () =
     assert.match(source, /<FeedInterstitialMotion/);
     assert.match(source, /onNextTopic=\{navigateNextTopic\}/);
     assert.match(source, /onPreviousTopic=\{navigatePreviousTopic\}/);
-    assert.match(source, /<TopicCardLayout/);
+    assert.match(source, /<BaseFeedCard/);
   }
   assert.match(topicViewer, /const animationLockRef = useRef\(false\)/);
   assert.match(topicViewer, /duration: 0\.2/);
@@ -95,21 +97,21 @@ test('topic, comment and sponsor cards use the same structural layout component'
   for (const source of [topicCard, topCommentCard, sponsorCard]) {
     assert.match(source, /<TopicCardLayout/);
   }
-  assert.match(topicCardLayout, /bg-bg-primary flex h-full w-full flex-col/);
-  assert.match(topicCardLayout, /shrink-0 px-6 pt-4 pb-4/);
-  assert.match(topicCardLayout, /flex min-h-0 flex-1 flex-col px-6 pt-6 pb-6 md:px-8 md:pt-8 md:pb-8/);
-  assert.match(topicCardLayout, /cardClassName/);
-  assert.ok(topicCardLayout.indexOf('{progress &&') < topicCardLayout.indexOf("className={cn('flex min-h-0 flex-1 flex-col px-6 pt-6 pb-6 md:px-8 md:pt-8 md:pb-8', cardClassName)}"));
-  assert.match(topicCardLayout, /flex min-h-0 flex-1 items-center justify-center/);
-  assert.match(topicCardLayout, /mx-auto w-full text-center/);
-  assert.match(topicCardLayout, /flex items-center justify-between gap-3/);
-  assert.match(topicCardLayout, /progress &&/);
+  assert.match(baseFeedCard, /bg-bg-primary flex h-full w-full flex-col/);
+  assert.match(baseFeedCard, /px-6 pt-6 pb-6 md:px-8 md:pt-8 md:pb-8/);
+  assert.match(baseFeedCard, /flex min-h-0 flex-1 flex-col px-6 pt-6 pb-6 md:px-8 md:pt-8 md:pb-8/);
+  assert.match(baseFeedCard, /cardClassName/);
+  assert.ok(baseFeedCard.indexOf('{progress &&') < baseFeedCard.indexOf("className={cn('flex min-h-0 flex-1 flex-col px-6 pt-6 pb-6 md:px-8 md:pt-8 md:pb-8', cardClassName)}"));
+  assert.match(baseFeedCard, /flex flex-1 items-center justify-center/);
+  assert.match(baseFeedCard, /mx-auto text-center/);
+  assert.match(baseFeedCard, /flex items-center justify-between/);
+  assert.match(baseFeedCard, /progress &&/);
   assert.match(topCommentCard, /onProgressChange\(safeIndex, comments\.length\)/);
   assert.doesNotMatch(topCommentCard, /<FeedProgress current=/);
   assert.doesNotMatch(sponsorCard, /<FeedProgress current=/);
   assert.doesNotMatch(sponsorLoadingCard, /<FeedProgress current=/);
-  assert.ok(topicCard.includes("cardClassName={type === 'question' ? 'bg-accent-light/5' : undefined}"));
-  assert.ok(topCommentCard.includes('cardClassName="bg-accent-light/5"'));
+  assert.ok(topicCard.includes("className={type === 'question' ? 'bg-accent-light/5' : 'bg-transparent'}"));
+  assert.ok(topCommentCard.includes('className="bg-accent-light/5"'));
   assert.match(topCommentCard, /<Heart/);
   assert.match(topCommentCard, /<MessageCircle/);
   assert.match(topCommentCard, /<DoorOpen/);
@@ -205,10 +207,10 @@ test('the original analytics-ranked topic feed is retained and interstitials are
 });
 
 test('topic viewer stays mounted beneath interstitial cards and is inactive while covered', () => {
-  assert.match(feedCore, /className="relative min-h-0 flex-1"/);
-  assert.match(feedCore, /invisible pointer-events-none absolute inset-0/);
+  assert.match(feedRenderer, /className="relative min-h-0 flex-1"/);
+  assert.match(feedRenderer, /invisible pointer-events-none absolute inset-0/);
   assert.match(feedCore, /active=\{!activeFeedCardEntry\}/);
-  assert.match(feedCore, /renderedFeedCard && \([\s\S]*?className="absolute inset-0 z-10"/);
+  assert.match(feedRenderer, /showingInterstitial && interstitialCard && \([\s\S]*?className="absolute inset-0 z-10"/);
   assert.doesNotMatch(feedCore, /renderedFeedCard \?\? \(/);
 });
 
