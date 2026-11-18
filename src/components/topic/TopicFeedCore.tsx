@@ -138,10 +138,10 @@ export function TopicFeedCore({
   };
   const [activeFeedEntryKey, setActiveFeedEntryKeyState] = useState<string | null>(null);
   const activeFeedEntryKeyRef = useRef<string | null>(null);
-  const setActiveFeedEntryKey = (key: string | null) => {
+  const setActiveFeedEntryKey = useCallback((key: string | null) => {
     activeFeedEntryKeyRef.current = key;
     setActiveFeedEntryKeyState(key);
-  };
+  }, []);
   const isTopCommentCardActive = () => activeFeedEntryKeyRef.current?.startsWith('top-comments:') ?? false;
   const isSponsorCardActive = () => activeFeedEntryKeyRef.current?.startsWith('sponsor:') ?? false;
   const activateTopCommentEntry = (topicId = activeInterstitialTopicIdRef.current) => {
@@ -535,10 +535,21 @@ export function TopicFeedCore({
     }
   }, [feedTopics, topComments, userId, getSponsorCampaignResult, prefetchMappedSponsor, loadMoreTopComments]);
 
-  // Keep the active entry cursor stable when inventory is refreshed or a
-  // page is appended. If a card disappears, return to its original topic anchor.
+  // Keep a cursor for every active feed entry, including ordinary topics.
   useEffect(() => {
-    if (!activeFeedEntryKey || !activeInterstitialTopicIdRef.current) return;
+    if (activeFeedEntryKey?.startsWith('top-comments:') || activeFeedEntryKey?.startsWith('sponsor:')) return;
+    const currentTopic = feedTopics[topicIndex];
+    const nextKey = currentTopic ? `topic:${currentTopic.id}` : null;
+    if (nextKey !== activeFeedEntryKey) setActiveFeedEntryKey(nextKey);
+  }, [activeFeedEntryKey, feedTopics, topicIndex, setActiveFeedEntryKey]);
+
+  // If a card disappears during inventory refresh, fall back to its topic anchor.
+  useEffect(() => {
+    if (
+      !activeFeedEntryKey ||
+      (!activeFeedEntryKey.startsWith('top-comments:') && !activeFeedEntryKey.startsWith('sponsor:')) ||
+      !activeInterstitialTopicIdRef.current
+    ) return;
     const entries = feedEntryMapRef.current
       ? flattenFeedEntryMap(feedEntryMapRef.current)
       : [];
@@ -548,13 +559,15 @@ export function TopicFeedCore({
       activeInterstitialTopicIdRef.current
     );
     if (cursor?.key === activeFeedEntryKey) return;
-    setActiveFeedEntryKey(null);
+    activeFeedEntryKeyRef.current = null;
+    setActiveFeedEntryKeyState(null);
     if (cursor?.key.startsWith('topic:')) {
       const topicId = cursor.key.slice('topic:'.length);
       const index = feedTopics.findIndex((topic) => topic.id === topicId);
       if (index >= 0) setTopicIndex(index);
     }
-    activateInterstitialTopic(null);
+    activeInterstitialTopicIdRef.current = null;
+    setActiveTopCommentIndex(0);
   }, [activeFeedEntryKey, feedTopics, topComments, userId]);
 
   // ----------------------------------
