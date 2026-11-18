@@ -997,8 +997,22 @@ export function TopicFeedCore({
 
   const nextEntryPreview = renderFeedEntryPreview(nextFeedEntry);
   const previousEntryPreview = renderFeedEntryPreview(previousFeedEntry);
+  const topicCard = (
+    <Viewer
+      topics={feedTopics}
+      topicIndex={topicIndex}
+      initialUserId={userId}
+      active={!activeFeedCardEntry}
+      onNextTopic={nextTopic}
+      onPreviousTopic={previousTopic}
+      onProgressChange={updateFeedProgress}
+      nextEntryPreview={nextEntryPreview}
+      previousEntryPreview={previousEntryPreview}
+    />
+  );
   feedCardRendererContext = {
     ...baseFeedCardContext,
+    topicCard,
     previewMode: false,
     nextEntryPreview,
     previousEntryPreview,
@@ -1007,11 +1021,11 @@ export function TopicFeedCore({
   // The registry stores deferred event callbacks; captured refs are read only when those callbacks run.
   // eslint-disable-next-line react-hooks/refs
   feedCardRenderers = createFeedCardRegistry(feedCardRendererContext);
-  // Renderer actions are deferred to user interaction and do not read captured refs during render.
+  // Resolve every active entry—including topics—through the same registry.
   // eslint-disable-next-line react-hooks/refs
-  const renderedFeedCard = activeFeedCardEntry
-    ? renderRegisteredFeedEntry(activeFeedCardEntry, feedCardRenderers, feedCardRendererContext)
-    : null;
+  const renderedActiveEntry = activeMappedEntry
+    ? renderRegisteredFeedEntry(activeMappedEntry, feedCardRenderers, feedCardRendererContext)
+    : topicCard;
 
   // ----------------------------------
   // Loading
@@ -1035,22 +1049,8 @@ export function TopicFeedCore({
         </div>
       )}
       <FeedRenderer
-        activeEntry={activeMappedEntry}
         progress={<FeedProgress current={feedProgress.current} total={feedProgress.total} />}
-        topicCard={
-          <Viewer
-            topics={feedTopics}
-            topicIndex={topicIndex}
-            initialUserId={userId}
-            active={!activeFeedCardEntry}
-            onNextTopic={nextTopic}
-            onPreviousTopic={previousTopic}
-            onProgressChange={updateFeedProgress}
-            nextEntryPreview={nextEntryPreview}
-            previousEntryPreview={previousEntryPreview}
-          />
-        }
-        interstitialCard={renderedFeedCard}
+        entryCard={renderedActiveEntry}
       />
     </>
   );
