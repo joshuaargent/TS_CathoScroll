@@ -93,7 +93,6 @@ export function TopicFeedCore({
   const topCommentsRef = useRef<TopFeedComment[]>([]);
   const topCommentsNextOffsetRef = useRef<number | null>(null);
   const topCommentsLoadingRef = useRef(false);
-  const [topCommentCardComments, setTopCommentCardComments] = useState<TopFeedComment[]>([]);
   const seenTopCommentIds = useRef(new Set<number>());
   const seenTopCommentUserId = useRef(userId);
   const topCommentCadenceUserId = useRef(userId);
@@ -103,14 +102,12 @@ export function TopicFeedCore({
   const feedEntryMapRef = useRef<FeedEntryMap | null>(null);
   const [topicsSinceTopCommentCard, setTopicsSinceTopCommentCard] = useState(0);
   const topicsSinceTopCommentCardRef = useRef(0);
-  const [sponsorCampaigns, setSponsorCampaigns] = useState<SponsorFeedCampaign[]>([]);
-  const [sponsorLoading, setSponsorLoading] = useState(false);
+  const [, setSponsorLoading] = useState(false);
   const [topicsSinceSponsorCard, setTopicsSinceSponsorCard] = useState(0);
   const topicsSinceSponsorCardRef = useRef(0);
   const sponsorCardsByTopicId = useRef(new Map<string, { campaigns: SponsorFeedCampaign[]; sessionId: string }>());
   const sponsorResultsByTopicId = useRef(new Map<string, { campaigns: SponsorFeedCampaign[]; sessionId: string | null }>());
   const sponsorRequestsByTopicId = useRef(new Map<string, Promise<{ campaigns: SponsorFeedCampaign[]; sessionId: string | null; retryable?: boolean }>>());
-  const [activeSponsorSessionId, setActiveSponsorSessionId] = useState<string | null>(null);
 
   useEffect(() => {
     topicsSinceTopCommentCardRef.current = topicsSinceTopCommentCard;
@@ -177,7 +174,6 @@ export function TopicFeedCore({
     processedTopicBoundariesByTopicId.current.clear();
     feedEntryMapRef.current = null;
     activeInterstitialTopicIdRef.current = null;
-    setActiveSponsorSessionId(null);
     sponsorCardsByTopicId.current.clear();
     sponsorResultsByTopicId.current.clear();
     sponsorRequestsByTopicId.current.clear();
@@ -185,9 +181,7 @@ export function TopicFeedCore({
     sponsorRequestVersion.current += 1;
     sponsorLoadingRef.current = false;
     pendingSponsorAfterComment.current = false;
-    setSponsorCampaigns([]);
     setActiveFeedEntryKey(null);
-    setTopCommentCardComments([]);
     setActiveTopCommentIndex(0);
     setSponsorLoading(false);
     setTopicsSinceSponsorCard(0);
@@ -286,7 +280,6 @@ export function TopicFeedCore({
             });
 
           setTopComments(mergedComments);
-          setTopCommentCardComments((current) => reconcileComments(current));
 
           for (const [topicId, cardComments] of topCommentCardsByTopicId.current) {
             const remainingComments = reconcileComments(cardComments);
@@ -303,7 +296,6 @@ export function TopicFeedCore({
             topCommentsNextOffsetRef.current = null;
             setTopComments([]);
             setActiveFeedEntryKey(null);
-            setTopCommentCardComments([]);
             topCommentCardsByTopicId.current.clear();
             topCommentIndexByTopicId.current.clear();
           }
@@ -765,7 +757,6 @@ export function TopicFeedCore({
       }
       topCommentCardsByTopicId.current.set(currentTopic.id, commentGroup);
       topCommentIndexByTopicId.current.set(currentTopic.id, 0);
-      setTopCommentCardComments(commentGroup);
       pendingSponsorAfterComment.current = boundary.entries.some((entry) => entry.type === 'sponsor');
       activateInterstitialTopic(currentTopic.id);
       topCommentIsPreviousEntry.current = false;
@@ -780,8 +771,6 @@ export function TopicFeedCore({
       sponsorIsPreviousEntry.current = false;
 
       if (nextEntry.status === 'ready' && nextEntry.campaigns.length > 0 && nextEntry.sessionId) {
-        setSponsorCampaigns(nextEntry.campaigns);
-        setActiveSponsorSessionId(nextEntry.sessionId);
         activateSponsorEntry(currentTopic.id);
         return;
       }
@@ -806,8 +795,6 @@ export function TopicFeedCore({
             nextEntry.status = 'ready';
             sponsorPreviousIsComment.current = false;
             flushSync(() => {
-              setSponsorCampaigns(result.campaigns);
-              setActiveSponsorSessionId(result.sessionId);
               sponsorCardsByTopicId.current.set(currentTopic.id, {
                 campaigns: result.campaigns,
                 sessionId: result.sessionId,
@@ -945,8 +932,6 @@ export function TopicFeedCore({
       }
       sponsorPreviousIsComment.current = true;
       sponsorIsPreviousEntry.current = commentWasPreviousEntry;
-      setSponsorCampaigns(cachedSponsor.campaigns);
-      setActiveSponsorSessionId(cachedSponsor.sessionId);
       setActiveFeedEntryKey(null);
       activateSponsorEntry();
       return;
@@ -984,8 +969,6 @@ export function TopicFeedCore({
         sponsorResultsByTopicId.current.set(currentTopic.id, result);
         sponsorDueByTopicId.current.delete(currentTopic.id);
         flushSync(() => {
-          setSponsorCampaigns(result.campaigns);
-          setActiveSponsorSessionId(result.sessionId);
           setActiveFeedEntryKey(null);
           activateSponsorEntry();
           setSponsorLoading(false);
@@ -1101,12 +1084,9 @@ export function TopicFeedCore({
       topCommentIsPreviousEntry.current = Boolean(commentEntry);
       pendingSponsorAfterComment.current = Boolean(commentEntry);
       if (commentEntry?.type === 'top-comments') {
-        setTopCommentCardComments(commentEntry.comments);
       }
 
       if (entry.status === 'ready' && entry.campaigns.length > 0 && entry.sessionId) {
-        setSponsorCampaigns(entry.campaigns);
-        setActiveSponsorSessionId(entry.sessionId);
         setActiveFeedEntryKey(null);
         activateSponsorEntry();
         return;
@@ -1134,14 +1114,11 @@ export function TopicFeedCore({
                 campaigns: result.campaigns,
                 sessionId: result.sessionId,
               });
-              setSponsorCampaigns(result.campaigns);
-              setActiveSponsorSessionId(result.sessionId);
               activateSponsorEntry();
             } else if (commentEntry?.type === 'top-comments') {
               setSponsorLoading(false);
               setActiveFeedEntryKey(null);
-              setTopCommentCardComments(commentEntry.comments);
-              activateTopCommentEntry();
+                  activateTopCommentEntry();
             } else {
               setActiveFeedEntryKey(null);
               const anchorIndex = feedTopics.findIndex((topic) => topic.id === entry.topicId);
@@ -1170,7 +1147,6 @@ export function TopicFeedCore({
         boundary?.entries.some((entry) => entry.type === 'sponsor')
       );
       topCommentCardsByTopicId.current.set(previous.entry.topicId, previousCard);
-      setTopCommentCardComments(previousCard);
       activateTopCommentEntry();
       return;
     }
@@ -1197,10 +1173,6 @@ export function TopicFeedCore({
     setTopicIndex(previousIndex >= 0 ? previousIndex : 0);
   };
 
-  const currentTopCommentIds = new Set(topComments.map((comment) => comment.comment_id));
-  const activeTopCommentCardComments = topCommentCardComments.filter((comment) =>
-    currentTopCommentIds.has(comment.comment_id)
-  );
 
   const flattenedEntries = feedEntryMapRef.current
     ? flattenFeedEntryMap(feedEntryMapRef.current)
