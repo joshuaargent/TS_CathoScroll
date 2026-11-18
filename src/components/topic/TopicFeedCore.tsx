@@ -121,12 +121,10 @@ export function TopicFeedCore({
   const sponsorPreviousIsComment = useRef(false);
   const topCommentIsPreviousEntry = useRef(false);
   const sponsorIsPreviousEntry = useRef(false);
-  const [activeInterstitialTopicId, setActiveInterstitialTopicId] = useState<string | null>(null);
   const [activeTopCommentIndex, setActiveTopCommentIndex] = useState(0);
   const activeInterstitialTopicIdRef = useRef<string | null>(null);
   const activateInterstitialTopic = (topicId: string | null) => {
     activeInterstitialTopicIdRef.current = topicId;
-    setActiveInterstitialTopicId(topicId);
     setActiveTopCommentIndex(
       topicId ? topCommentIndexByTopicId.current.get(topicId) ?? 0 : 0
     );
@@ -150,7 +148,8 @@ export function TopicFeedCore({
     if (sponsorSessionUserId.current === userId) return;
     sponsorSessionUserId.current = userId;
     sponsorPreviousIsComment.current = false;
-    activateInterstitialTopic(null);
+    activeInterstitialTopicIdRef.current = null;
+    setActiveTopCommentIndex(0);
     setActiveSponsorSessionId(null);
     sponsorCardsByTopicId.current.clear();
     sponsorResultsByTopicId.current.clear();
