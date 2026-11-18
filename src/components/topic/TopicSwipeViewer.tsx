@@ -7,7 +7,12 @@ import { Heart } from 'lucide-react';
 import type { Topic } from '@/types';
 import type { TopicActivity } from '@/lib/topic-activity';
 import { getTopicSlides } from '@/lib/topicSlides';
-import { installFeedAnalyticsListeners, recordFeedAnalyticsEvent } from '@/lib/feed-analytics-client';
+import {
+  installFeedAnalyticsListeners,
+  recordFeedAnalyticsEvent,
+  recordFeedTopicCompletion,
+  recordFeedTopicVisit,
+} from '@/lib/feed-analytics-client';
 import { TopicCard } from './TopicCard';
 import { TopicProgress } from './TopicProgress';
 
@@ -89,8 +94,6 @@ export function TopicSwipeViewer({
   const topicActiveSinceRef = useRef<number | null>(null);
   const topicActiveDurationRef = useRef(0);
   const topicViewableRef = useRef(false);
-  const viewedTopicsRef = useRef(new Set<string>());
-  const completedTopicsRef = useRef(new Set<string>());
 
   useEffect(() => {
     if (!userId || !active) return;
@@ -103,13 +106,7 @@ export function TopicSwipeViewer({
   useEffect(() => {
     if (!userId || !active) return;
 
-    const viewKey = userId + ':' + currentTopicId;
-    const wasViewed = viewedTopicsRef.current.has(viewKey);
-    viewedTopicsRef.current.add(viewKey);
-    recordFeedAnalyticsEvent(userId, 'impression', currentTopicId, { source: 'feed' });
-    if (wasViewed) {
-      recordFeedAnalyticsEvent(userId, 'return_visit', currentTopicId, { source: 'feed' });
-    }
+    recordFeedTopicVisit(userId, currentTopicId);
 
     topicActiveDurationRef.current = 0;
     topicViewableRef.current = false;
@@ -212,13 +209,8 @@ export function TopicSwipeViewer({
       depth: slideIndex,
     });
 
-    const completionKey = userId + ':' + currentTopicId;
-    if (slideIndex === slides.length - 1 && !completedTopicsRef.current.has(completionKey)) {
-      completedTopicsRef.current.add(completionKey);
-      recordFeedAnalyticsEvent(userId, 'completion', currentTopicId, {
-        slide_index: slideIndex,
-        completion_percent: 100,
-      });
+    if (slideIndex === slides.length - 1) {
+      recordFeedTopicCompletion(userId, currentTopicId);
     }
   }, [currentTopicId, userId, slideIndex, slides.length]);
 
