@@ -45,7 +45,7 @@ export function classifyAuditReport(report) {
 
       if (!advisoryId || !allowedAdvisoryIds.has(advisoryId)) {
         errors.push(
-          `Unapproved advisory for ${packageName}: ${item.title ?? item.url ?? 'unknown advisory'}.`
+          `Unapproved advisory for ${packageName}: ${advisoryId ?? item.title ?? item.url ?? 'unknown advisory'}.`
         );
         continue;
       }
