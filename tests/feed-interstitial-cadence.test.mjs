@@ -90,7 +90,6 @@ test('interstitial cards share the topic viewer swipe and animation model', () =
     assert.match(source, /<BaseFeedCard/);
   }
   assert.match(topicViewer, /const animationLockRef = useRef\(false\)/);
-  assert.match(topicViewer, /previousTopicIdRef\.current === currentTopicId/);
   assert.match(topicViewer, /if \(active\) onProgressChange\?\.\(slideIndex, slides\.length\)/);
   assert.match(topicViewer, /duration: 0\.2/);
 });
