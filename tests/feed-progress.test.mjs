@@ -24,7 +24,7 @@ test('every feed card type uses the original shared topic progress implementatio
   assert.match(feedCore, /import \{ FeedProgress \} from '\.\/FeedProgress'/);
   assert.match(feedCore, /<FeedProgress current=\{feedProgress\.current\} total=\{feedProgress\.total\} \/>/);
   assert.match(renderer, /className="shrink-0 px-6 pt-4"/);
-  assert.match(topic, /if \(active\) onProgressChange\(slideIndex, slides\.length\)/);
+  assert.match(topic, /if \(active\) onProgressChange\?\.\(slideIndex, slides\.length\)/);
   assert.match(comments, /onProgressChange\(safeIndex, comments\.length\)/);
   for (const source of [topic, comments, sponsor, sponsorLoading]) {
     assert.doesNotMatch(source, /<FeedProgress current=/);
