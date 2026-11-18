@@ -6,6 +6,7 @@ import { flushSync } from 'react-dom';
 import { shuffle } from '@/lib/utils';
 import {
   getNextTopCommentCadence,
+  getTopCommentGroup,
   getUnseenTopFeedComments,
   parseTopFeedComments,
   shouldInsertTopCommentCard,
@@ -688,14 +689,15 @@ export function TopicFeedCore({
       if (currentTopic) {
         sponsorPreviousIsComment.current = false;
         topCommentIsPreviousEntry.current = false;
-        // Reserve the complete group as soon as it is assigned. Unviewed
-        // comments remain part of this card when revisiting and cannot leak
-        // into a later group for another topic.
-        for (const comment of unseenTopComments) {
+        const commentGroup = getTopCommentGroup(unseenTopComments);
+        // Reserve only this five-comment group. Remaining unseen comments stay
+        // eligible for later topic boundaries, while this exact group replays
+        // unchanged when the user navigates backward and forward.
+        for (const comment of commentGroup) {
           seenTopCommentIds.current.add(comment.comment_id);
         }
-        setTopCommentCardComments(unseenTopComments);
-        topCommentCardsByTopicId.current.set(currentTopic.id, unseenTopComments);
+        setTopCommentCardComments(commentGroup);
+        topCommentCardsByTopicId.current.set(currentTopic.id, commentGroup);
         topCommentIndexByTopicId.current.set(currentTopic.id, 0);
         activateInterstitialTopic(currentTopic.id);
         setShowSponsorCard(false);
