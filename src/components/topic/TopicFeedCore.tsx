@@ -888,6 +888,7 @@ export function TopicFeedCore({
     sponsorIsPreviousEntry.current = false;
     setActiveFeedEntryKey(null);
     if (previousWasComment) {
+      pendingSponsorAfterComment.current = true;
       activateTopCommentEntry();
       return;
     }
