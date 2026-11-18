@@ -92,7 +92,7 @@ export function TopicSwipeViewer({
 
   useLayoutEffect(() => {
     if (active) onProgressChange(slideIndex, slides.length);
-  }, [active, onProgressChange, slideIndex, slides.length]);
+  }, [active, currentTopicId, onProgressChange, slideIndex, slides.length]);
 
   // Interstitial navigation can select a different topic without going
   // through the topic swipe animation. Reset the hidden viewer before it is
