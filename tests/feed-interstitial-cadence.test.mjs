@@ -91,7 +91,7 @@ test('interstitial cards share the topic viewer swipe and animation model', () =
   }
   assert.match(topicViewer, /const animationLockRef = useRef\(false\)/);
   assert.match(topicViewer, /previousTopicIdRef\.current === currentTopicId/);
-  assert.match(topicViewer, /if \(active\) onProgressChange\(slideIndex, slides\.length\)/);
+  assert.match(topicViewer, /if \(active\) onProgressChange\?\.\(slideIndex, slides\.length\)/);
   assert.match(topicViewer, /duration: 0\.2/);
 });
 test('topic, comment and sponsor cards use the same shared base card', () => {
