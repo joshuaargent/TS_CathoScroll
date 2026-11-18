@@ -10,15 +10,16 @@ const [core, registry, cursor, placementRegistry, entryMap] = await Promise.all(
   readFile(new URL('../src/lib/feed-entry-map.ts', import.meta.url), 'utf8'),
 ]);
 
-test('feed core delegates card rendering to the registry instead of importing card components', () => {
+test('feed core delegates every feed entry type to the registry instead of branching by card', () => {
   assert.match(core, /createFeedCardRegistry\(feedCardRendererContext\)/);
-  assert.match(core, /renderRegisteredFeedEntry\(activeFeedCardEntry, feedCardRenderers, feedCardRendererContext!\)/);
+  assert.match(core, /renderRegisteredFeedEntry\(activeMappedEntry, feedCardRenderers, feedCardRendererContext\)/);
   assert.doesNotMatch(core, /from ['"]\.\/TopCommentFeedCard['"]/);
   assert.doesNotMatch(core, /from ['"]\.\/SponsorFeedCard['"]/);
   assert.doesNotMatch(core, /from ['"]\.\/SponsorLoadingCard['"]/);
 });
 
 test('card renderer registrations own the component selection and receive shared navigation actions', () => {
+  assert.match(registry, /registerFeedEntry<Extract<FeedEntry, \{ type: 'topic' \}>/);
   assert.match(registry, /registerFeedEntry<Extract<FeedEntry, \{ type: 'top-comments' \}>/);
   assert.match(registry, /registerFeedEntry<Extract<FeedEntry, \{ type: 'sponsor' \}>/);
   assert.match(registry, /onNext: context\.navigateNext/);
