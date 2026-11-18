@@ -53,6 +53,7 @@ type ViewerProps = {
   topics: Topic[];
   topicIndex: number;
   initialUserId: string | null;
+  active?: boolean;
   onNextTopic: () => void | Promise<void>;
   onPreviousTopic: () => void | Promise<void>;
   onProgressChange: (current: number, total: number) => void;
