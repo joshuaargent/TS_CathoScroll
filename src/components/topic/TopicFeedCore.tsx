@@ -16,7 +16,7 @@ import {
 import { createFeedRefreshCoordinator } from '@/lib/feed-refresh-coordinator';
 import { siteConfig } from '@/lib/constants';
 import { buildFeedEntryMap, flattenFeedEntryMap, type FeedEntry, type FeedEntryMap } from '@/lib/feed-entry-map';
-import { renderRegisteredFeedEntry } from '@/lib/feed-entry-registry';
+import { renderRegisteredFeedEntry, type FeedEntryLike } from '@/lib/feed-entry-registry';
 import { createFeedCardRegistry } from './feed-card-registry';
 import { getAdjacentFeedEntry, getFeedEntryKey, reconcileFeedEntryCursor } from '@/lib/feed-entry-cursor';
 
@@ -831,6 +831,13 @@ export function TopicFeedCore({
       }
     }
 
+    const genericEntry: FeedEntryLike = nextEntry;
+    if (genericEntry.type !== 'topic' && genericEntry.type !== 'top-comments' && genericEntry.type !== 'sponsor') {
+      activateInterstitialTopic(genericEntry.topicId);
+      setActiveFeedEntryKey(getFeedEntryKey(genericEntry));
+      return;
+    }
+
     advanceToNextTopic();
   };
 
@@ -1116,8 +1123,13 @@ export function TopicFeedCore({
       );
       topCommentCardsByTopicId.current.set(previous.entry.topicId, previousCard);
       setTopCommentCardComments(previousCard);
-      setActiveFeedEntryKey(null);
       activateTopCommentEntry();
+      return;
+    }
+
+    if (previous && previous.entry.type !== 'topic') {
+      activateInterstitialTopic(previous.entry.topicId);
+      setActiveFeedEntryKey(getFeedEntryKey(previous.entry));
       return;
     }
 
@@ -1142,20 +1154,9 @@ export function TopicFeedCore({
   const activeMappedEntry = activeFeedEntryKey
     ? flattenedEntries.find((entry) => getFeedEntryKey(entry) === activeFeedEntryKey)
     : null;
-  const activeFeedCardEntry: FeedEntry | null = activeMappedEntry?.type === 'top-comments'
-    ? {
-        ...activeMappedEntry,
-        comments: activeTopCommentCardComments.length > 0
-          ? activeTopCommentCardComments
-          : activeMappedEntry.comments,
-      }
-    : activeMappedEntry?.type === 'sponsor'
-      ? {
-          ...activeMappedEntry,
-          status: sponsorLoading ? 'pending' : sponsorCampaigns.length > 0 ? 'ready' : activeMappedEntry.status,
-          campaigns: sponsorCampaigns.length > 0 ? sponsorCampaigns : activeMappedEntry.campaigns,
-          sessionId: activeSponsorSessionId ?? activeMappedEntry.sessionId,
-        }
+  const activeFeedCardEntry: FeedEntry | null =
+    activeMappedEntry && activeMappedEntry.type !== 'topic'
+      ? activeMappedEntry
       : null;
 
   const feedCardRendererContext = {
