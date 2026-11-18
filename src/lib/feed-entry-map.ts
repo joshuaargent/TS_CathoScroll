@@ -99,13 +99,17 @@ export function buildFeedEntryMap({
 
     if (sponsorDue) {
       const result = sponsorResults.get(topic.id);
-      entries.push({
-        type: 'sponsor',
-        topicId: topic.id,
-        status: result ? (result.campaigns.length > 0 && result.sessionId ? 'ready' : 'empty') : 'pending',
-        campaigns: result?.campaigns ?? [],
-        sessionId: result?.sessionId ?? null,
-      });
+      // A confirmed empty result consumes the cadence but never creates an
+      // empty card slot in the actual feed sequence.
+      if (!result || (result.campaigns.length > 0 && result.sessionId)) {
+        entries.push({
+          type: 'sponsor',
+          topicId: topic.id,
+          status: result ? 'ready' : 'pending',
+          campaigns: result?.campaigns ?? [],
+          sessionId: result?.sessionId ?? null,
+        });
+      }
       nextSponsorCadence = 0;
     }
 
