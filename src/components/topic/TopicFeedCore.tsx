@@ -30,6 +30,16 @@ import { Topic } from '@/types';
 type FeedCursor = TopicPageCursor | RecommendationCursor;
 type FeedPage = { topics: Topic[]; nextCursor: FeedCursor | null };
 
+function appendUniqueFeedTopics(existing: Topic[], incoming: Topic[]): Topic[] {
+  const knownIds = new Set(existing.map((topic) => topic.id));
+  const additions = incoming.filter((topic) => {
+    if (knownIds.has(topic.id)) return false;
+    knownIds.add(topic.id);
+    return true;
+  });
+  return additions.length > 0 ? [...existing, ...additions] : existing;
+}
+
 function createSponsorSessionId(): string | null {
   return typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
     ? crypto.randomUUID()
@@ -109,6 +119,7 @@ export function TopicFeedCore({
   const [loadingMore, setLoadingMore] = useState(false);
   const [loadError, setLoadError] = useState('');
   const loadingRef = useRef(false);
+  const pendingAdvanceAfterPageRef = useRef(false);
   const generationRef = useRef(0);
   const currentTopicId = useRef<string | null>(null);
 
@@ -244,15 +255,7 @@ export function TopicFeedCore({
     if (preservePositionOnUpdate && feedInitializedRef.current) {
       // Native catalogue/background updates must not replace the active
       // session snapshot or discard pages already visited. Append only new IDs.
-      const knownIds = new Set(feedTopicsRef.current.map((topic) => topic.id));
-      const nextFeedTopics = [
-        ...feedTopicsRef.current,
-        ...shuffled.filter((topic) => {
-          if (knownIds.has(topic.id)) return false;
-          knownIds.add(topic.id);
-          return true;
-        }),
-      ];
+      const nextFeedTopics = appendUniqueFeedTopics(feedTopicsRef.current, shuffled);
       const preservedIndex = nextFeedTopics.findIndex(
         (topic) => topic.id === currentTopicId.current
       );
@@ -302,12 +305,26 @@ export function TopicFeedCore({
     try {
       const result = await loadPage(nextCursor);
       if (generation !== generationRef.current) return;
-      const newTopics = result.topics;
-      setFeedTopics((previous) => [
-        ...previous,
-        ...(personalized ? newTopics : shuffle(newTopics)),
-      ]);
+      const newTopics = personalized ? result.topics : shuffle(result.topics);
+      const previousLength = feedTopicsRef.current.length;
+      const nextTopics = appendUniqueFeedTopics(feedTopicsRef.current, newTopics);
+      feedTopicsRef.current = nextTopics;
+      setFeedTopics(nextTopics);
       setNextCursor(result.nextCursor);
+
+      // If the user reached the final loaded topic while pagination was in
+      // flight, continue onto the first newly appended topic exactly once.
+      // A reverse gesture clears this intent before the request completes.
+      if (pendingAdvanceAfterPageRef.current) {
+        pendingAdvanceAfterPageRef.current = false;
+        if (nextTopics.length > previousLength) {
+          setTopicIndex(previousLength);
+        } else if (!result.nextCursor) {
+          setTopicIndex(0);
+        } else {
+          setLoadError('No new topics were returned. Retry loading the feed.');
+        }
+      }
     } catch (error) {
       if (generation !== generationRef.current) return;
       console.error('Unable to load the next topic feed page:', error);
@@ -331,9 +348,12 @@ export function TopicFeedCore({
     }
 
     if (topicIndex >= feedTopics.length - 1 && nextCursor) {
+      pendingAdvanceAfterPageRef.current = true;
+      void loadMoreTopics();
       return;
     }
 
+    pendingAdvanceAfterPageRef.current = false;
     setTopicIndex((prev) => (prev + 1) % feedTopics.length);
   };
 
@@ -539,6 +559,7 @@ export function TopicFeedCore({
   };
 
   const previousTopic = () => {
+    pendingAdvanceAfterPageRef.current = false;
     if (sponsorLoadingRef.current) {
       sponsorRequestVersion.current += 1;
       sponsorLoadingRef.current = false;
