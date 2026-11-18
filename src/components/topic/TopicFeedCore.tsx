@@ -118,6 +118,8 @@ export function TopicFeedCore({
   const pendingSponsorAfterComment = useRef(false);
   const sponsorDueByTopicId = useRef(new Set<string>());
   const sponsorPreviousIsComment = useRef(false);
+  const topCommentIsPreviousEntry = useRef(false);
+  const sponsorIsPreviousEntry = useRef(false);
 
   const [topicIndex, setTopicIndex] = useState(personalized ? 0 : Math.floor(topics.length / 2));
   const [nextCursor, setNextCursor] = useState(initialCursor);
@@ -493,6 +495,7 @@ export function TopicFeedCore({
       const cachedComments = topCommentCardsByTopicId.current.get(currentTopic.id);
       const cachedSponsor = sponsorCardsByTopicId.current.get(currentTopic.id);
       if (cachedComments?.length) {
+        topCommentIsPreviousEntry.current = false;
         setTopCommentCardComments(cachedComments);
         pendingSponsorAfterComment.current = Boolean(cachedSponsor?.campaigns.length) ||
           sponsorDueByTopicId.current.has(currentTopic.id);
@@ -502,6 +505,7 @@ export function TopicFeedCore({
       }
       if (cachedSponsor?.campaigns.length) {
         sponsorPreviousIsComment.current = false;
+        sponsorIsPreviousEntry.current = false;
         setSponsorCampaigns(cachedSponsor.campaigns);
         setActiveSponsorSessionId(cachedSponsor.sessionId);
         setShowTopCommentCard(false);
@@ -600,6 +604,7 @@ export function TopicFeedCore({
     const chooseSponsor = sponsorDue && !commentDue;
 
     if (chooseSponsor) {
+      sponsorIsPreviousEntry.current = false;
       if (currentTopic) sponsorDueByTopicId.current.add(currentTopic.id);
       setTopicsSinceTopCommentCard(nextCommentCadence);
       sponsorRequestPreviousCadence.current = topicsSinceSponsorCard;
@@ -661,6 +666,7 @@ export function TopicFeedCore({
         sponsorDueByTopicId.current.add(currentTopic.id);
       }
       if (currentTopic) {
+        topCommentIsPreviousEntry.current = false;
         // Reserve the complete group as soon as it is assigned. Unviewed
         // comments remain part of this card when revisiting and cannot leak
         // into a later group for another topic.
@@ -720,10 +726,15 @@ export function TopicFeedCore({
     const previousSponsorCard = previousTopicId
       ? sponsorCardsByTopicId.current.get(previousTopicId)
       : undefined;
+    const previousCard = previousTopicId
+      ? topCommentCardsByTopicId.current.get(previousTopicId)
+      : undefined;
+
     if (previousSponsorCard?.campaigns.length) {
-      sponsorPreviousIsComment.current = Boolean(
-        topCommentCardsByTopicId.current.get(previousTopicId ?? '')?.length
-      );
+      sponsorPreviousIsComment.current = Boolean(previousCard?.length);
+      sponsorIsPreviousEntry.current = true;
+      topCommentIsPreviousEntry.current = Boolean(previousCard?.length);
+      pendingSponsorAfterComment.current = Boolean(previousCard?.length);
       setSponsorCampaigns(previousSponsorCard.campaigns);
       setActiveSponsorSessionId(previousSponsorCard.sessionId);
       setShowTopCommentCard(false);
@@ -731,17 +742,21 @@ export function TopicFeedCore({
       return;
     }
 
-    const previousCard = previousTopicId
-      ? topCommentCardsByTopicId.current.get(previousTopicId)
-      : undefined;
-
     if (previousCard?.length) {
+      // We are traversing backward from the following topic. Leaving this
+      // comment card backward must therefore move to the previous topic;
+      // leaving it forward must return to the following topic.
+      topCommentIsPreviousEntry.current = true;
+      sponsorIsPreviousEntry.current = false;
       pendingSponsorAfterComment.current = sponsorDueByTopicId.current.has(previousTopicId ?? '');
       setTopCommentCardComments(previousCard);
       setShowTopCommentCard(true);
       return;
     }
 
+    topCommentIsPreviousEntry.current = false;
+    sponsorIsPreviousEntry.current = false;
+    sponsorPreviousIsComment.current = false;
     setTopicIndex(previousIndex);
   };
 
@@ -781,8 +796,11 @@ export function TopicFeedCore({
             if (currentTopic) sponsorDueByTopicId.current.delete(currentTopic.id);
             pendingSponsorAfterComment.current = false;
             sponsorPreviousIsComment.current = false;
+            const wasPreviousEntry = sponsorIsPreviousEntry.current;
+            sponsorIsPreviousEntry.current = false;
+            topCommentIsPreviousEntry.current = false;
             setShowTopCommentCard(false);
-            advanceToNextTopic();
+            if (!wasPreviousEntry) advanceToNextTopic();
           }}
           onPreviousTopic={() => {
             sponsorRequestVersion.current += 1;
@@ -803,7 +821,11 @@ export function TopicFeedCore({
           getAccessToken={getSponsorAccessToken ?? (async () => null)}
           onNextTopic={() => {
             setShowSponsorCard(false);
-            advanceToNextTopic();
+            const wasPreviousEntry = sponsorIsPreviousEntry.current;
+            sponsorIsPreviousEntry.current = false;
+            sponsorPreviousIsComment.current = false;
+            topCommentIsPreviousEntry.current = false;
+            if (!wasPreviousEntry) advanceToNextTopic();
           }}
           onPreviousTopic={() => {
             setShowSponsorCard(false);
@@ -821,6 +843,7 @@ export function TopicFeedCore({
           onCommentViewed={markTopCommentViewed}
           onNextTopic={async () => {
             if (sponsorLoadingRef.current) return;
+            const commentWasPreviousEntry = topCommentIsPreviousEntry.current;
             const currentTopic = feedTopics[topicIndex];
             const cachedSponsor = currentTopic
               ? sponsorCardsByTopicId.current.get(currentTopic.id)
@@ -830,6 +853,7 @@ export function TopicFeedCore({
 
             if (cachedSponsor?.campaigns.length) {
               sponsorPreviousIsComment.current = true;
+              sponsorIsPreviousEntry.current = commentWasPreviousEntry;
               setSponsorCampaigns(cachedSponsor.campaigns);
               setActiveSponsorSessionId(cachedSponsor.sessionId);
               setShowTopCommentCard(false);
@@ -839,18 +863,21 @@ export function TopicFeedCore({
 
             if (!shouldShowSponsorAfterComment) {
               setShowTopCommentCard(false);
-              advanceToNextTopic();
+              topCommentIsPreviousEntry.current = false;
+              if (!commentWasPreviousEntry) advanceToNextTopic();
               return;
             }
 
             if (!currentTopic) {
               setShowTopCommentCard(false);
               setTopicsSinceSponsorCard(0);
-              advanceToNextTopic();
+              topCommentIsPreviousEntry.current = false;
+              if (!commentWasPreviousEntry) advanceToNextTopic();
               return;
             }
 
             sponsorPreviousIsComment.current = true;
+            sponsorIsPreviousEntry.current = commentWasPreviousEntry;
             const preparedSponsor = sponsorResultsByTopicId.current.get(currentTopic.id);
             sponsorLoadingRef.current = true;
             if (!preparedSponsor) setSponsorLoading(true);
@@ -884,7 +911,8 @@ export function TopicFeedCore({
               flushSync(() => {
                 setShowTopCommentCard(false);
                 setSponsorLoading(false);
-                advanceToNextTopic();
+                topCommentIsPreviousEntry.current = false;
+                if (!commentWasPreviousEntry) advanceToNextTopic();
               });
             } finally {
               if (sponsorRequestVersion.current === requestVersion) {
@@ -901,9 +929,15 @@ export function TopicFeedCore({
               setTopicsSinceSponsorCard(sponsorRequestPreviousCadence.current);
             }
             pendingSponsorAfterComment.current = false;
-            // The comment card follows the current topic; reverse navigation
-            // restores that exact topic without decrementing the topic index.
+            const wasPreviousEntry = topCommentIsPreviousEntry.current;
+            topCommentIsPreviousEntry.current = false;
+            sponsorIsPreviousEntry.current = false;
+            // When the comment was reached by swiping backward from a later
+            // topic, leaving it backward must continue to the earlier topic.
             setShowTopCommentCard(false);
+            if (wasPreviousEntry) {
+              setTopicIndex((previous) => (previous - 1 + feedTopics.length) % feedTopics.length);
+            }
           }}
           onOpenComment={openTopComment}
         />
