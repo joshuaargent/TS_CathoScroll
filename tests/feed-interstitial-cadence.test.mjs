@@ -217,3 +217,10 @@ test('the original analytics-ranked feed keeps interstitials in per-topic sessio
   assert.match(feedCore, /if \(wasPreviousEntry\) \{/);
   assert.match(feedCore, /if \(nextTopics\.length > previousLength\) \{[\s\S]*?setTopicIndex\(previousLength\)/);
 });
+
+
+test('topic navigation freezes index-derived adjacent previews until the card resets', () => {
+  assert.match(topicViewer, /setShowEntryPreviews\(false\)/);
+  assert.match(topicViewer, /y\.jump\(0\);\s*setShowEntryPreviews\(true\)/);
+  assert.equal((topicViewer.match(/showEntryPreviews \? \(/g) ?? []).length, 2);
+});
