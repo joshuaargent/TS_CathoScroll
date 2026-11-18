@@ -49,7 +49,12 @@ test('generic card rules preserve topic order and insert cards by cadence and pr
   assert.deepEqual(
     sequence.boundaries.find((boundary) => boundary.topicId === '10').entries
       .map((entry) => entry.type),
-    ['topic', 'poll', 'top-comments', 'sponsor'],
+    ['topic', 'top-comments', 'sponsor'],
+  );
+  assert.deepEqual(
+    sequence.boundaries.find((boundary) => boundary.topicId === '9').entries
+      .map((entry) => entry.type),
+    ['topic', 'poll'],
   );
   assert.deepEqual(
     sequence.boundaries.filter((boundary) => boundary.entries.some((entry) => entry.type === 'poll'))
