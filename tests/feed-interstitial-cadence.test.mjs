@@ -91,10 +91,12 @@ test('interstitial cards share the topic viewer swipe and animation model', () =
     assert.match(source, /<BaseFeedCard/);
   }
   assert.match(topicViewer, /const animationLockRef = useRef\(false\)/);
+  assert.match(topicViewer, /previousTopicIndexRef\.current === topicIndex/);
+  assert.match(topicViewer, /if \(active\) onProgressChange\(slideIndex, slides\.length\)/);
   assert.match(topicViewer, /duration: 0\.2/);
 });
 test('topic, comment and sponsor cards use the same shared base card', () => {
-  for (const source of [topicCard, topCommentCard, sponsorCard]) {
+  for (const source of [topicCard, topCommentCard, sponsorCard, sponsorLoadingCard]) {
     assert.match(source, /<BaseFeedCard/);
   }
   assert.match(baseFeedCard, /bg-bg-primary flex h-full w-full flex-col/);
@@ -209,6 +211,9 @@ test('the original analytics-ranked topic feed is retained and interstitials are
 test('topic viewer stays mounted beneath interstitial cards and is inactive while covered', () => {
   assert.match(feedRenderer, /className="relative min-h-0 flex-1"/);
   assert.match(feedRenderer, /invisible pointer-events-none absolute inset-0/);
+  assert.match(feedRenderer, /activeEntry: FeedEntry \| null/);
+  assert.match(feedCore, /<FeedRenderer/);
+  assert.match(feedCore, /activeEntry=\{activeMappedEntry\}/);
   assert.match(feedCore, /active=\{!activeFeedCardEntry\}/);
   assert.match(feedRenderer, /showingInterstitial && interstitialCard && \([\s\S]*?className="absolute inset-0 z-10"/);
   assert.doesNotMatch(feedCore, /renderedFeedCard \?\? \(/);
