@@ -121,3 +121,21 @@ export function buildFeedEntryMap({
 export function flattenFeedEntryMap(map: FeedEntryMap): FeedEntry[] {
   return map.boundaries.flatMap((boundary) => boundary.entries);
 }
+
+/**
+ * Comment groups already assigned to the preserved feed prefix remain
+ * reserved even if the user has not opened those cards yet.
+ */
+export function collectReservedCommentIds(
+  boundaries: readonly FeedBoundary[],
+  seenCommentIds: ReadonlySet<number>
+): Set<number> {
+  const reserved = new Set(seenCommentIds);
+  for (const boundary of boundaries) {
+    for (const entry of boundary.entries) {
+      if (entry.type !== 'top-comments') continue;
+      for (const comment of entry.comments) reserved.add(comment.comment_id);
+    }
+  }
+  return reserved;
+}
