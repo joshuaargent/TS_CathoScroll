@@ -170,11 +170,14 @@ export function recordFeedAnalyticsEvent(
     metadata,
   };
 
-  // Keep offline storage bounded. Preserve the oldest unacknowledged events;
-  // new low-priority telemetry is dropped while the queue is full.
-  const queue = readQueue(userId).slice(0, queueLimit);
-  if (queue.length >= queueLimit) return;
+  // Keep offline storage bounded while continuing to capture recent activity.
+  // If the queue fills, discard the oldest events rather than silently
+  // stopping all new telemetry for the rest of a long offline session.
+  const queue = readQueue(userId);
   queue.push(event);
+  if (queue.length > queueLimit) {
+    queue.splice(0, queue.length - queueLimit);
+  }
   writeQueue(userId, queue);
 
   if (navigator.onLine) void flushFeedAnalytics(userId);
