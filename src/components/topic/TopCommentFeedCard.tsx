@@ -150,7 +150,7 @@ export function TopCommentFeedCard({
   const [activeIndex, setActiveIndex] = useState(initialActiveIndex);
   const navigationStarted = useRef(false);
 
-  const safeIndex = Math.min(activeIndex, Math.max(0, comments.length - 1));
+  const safeIndex = Math.min(Math.max(0, activeIndex), Math.max(0, comments.length - 1));
   const comment = comments[safeIndex];
   const activeCommentId = comment?.comment_id;
 
