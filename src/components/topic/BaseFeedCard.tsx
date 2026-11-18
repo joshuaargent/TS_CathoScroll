@@ -12,6 +12,8 @@ interface BaseFeedCardProps {
   cardClassName?: string;
   link?: ReactNode;
   footer?: ReactNode;
+  /** Legacy adapter support; the feed renderer owns progress in new cards. */
+  progress?: ReactNode;
   className?: string;
 }
 
@@ -31,10 +33,12 @@ export function BaseFeedCard({
   cardClassName,
   link,
   footer,
+  progress,
   className,
 }: BaseFeedCardProps) {
   return (
     <div className={cn('flex h-full w-full flex-col px-6 py-6 md:px-8 md:py-8', className, cardClassName)}>
+      {progress && <div className="shrink-0 pb-4">{progress}</div>}
       <div className="flex items-center justify-between">
         {header ?? (
           <>
