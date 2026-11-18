@@ -22,7 +22,8 @@ test('card renderer registrations own the component selection and receive shared
   assert.match(registry, /registerFeedEntry<Extract<FeedEntry, \{ type: 'top-comments' \}>/);
   assert.match(registry, /registerFeedEntry<Extract<FeedEntry, \{ type: 'sponsor' \}>/);
   assert.match(registry, /onNext: context\.onNext/);
-  assert.match(registry, /onPrevious: context\.onPrevious/);
+  assert.match(registry, /onPrevious: context\.navigatePrevious/);
+  assert.match(registry, /invokeRegisteredFeedEntryAction/);
   assert.match(registry, /entry\.status === 'pending'/);
 });
 
