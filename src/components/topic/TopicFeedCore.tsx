@@ -712,13 +712,31 @@ export function TopicFeedCore({
     }
 
     if (entry.type === 'sponsor') {
+      const skipEntry = async () => {
+        const adjacent = getAdjacentFeedEntry(entries, entryKey, direction);
+        if (adjacent) {
+          await activateFeedEntry(adjacent.entry, direction, entries);
+        } else if (direction === 'next') {
+          setActiveFeedEntryKey(null);
+          advanceToNextTopic();
+        } else {
+          setActiveFeedEntryKey(null);
+          const anchorIndex = feedTopics.findIndex((topic) => topic.id === entry.topicId);
+          setTopicIndex(Math.max(0, anchorIndex - 1));
+          activateInterstitialTopic(null);
+        }
+      };
+
       if (entry.status === 'ready' && entry.campaigns.length > 0 && entry.sessionId) return;
       if (entry.status === 'empty') {
         const boundary = feedEntryMapRef.current?.byTopicId.get(entry.topicId);
         if (boundary) {
           boundary.entries = boundary.entries.filter((candidate) => candidate.type !== 'sponsor');
         }
-      } else if (entry.status === 'pending') {
+        await skipEntry();
+        return;
+      }
+      if (entry.status === 'pending') {
         const sponsorTopic = feedTopics.find((topic) => topic.id === entry.topicId);
         if (!sponsorTopic) return;
 
@@ -755,18 +773,7 @@ export function TopicFeedCore({
             }
           }
 
-          const adjacent = getAdjacentFeedEntry(entries, entryKey, direction);
-          if (adjacent) {
-            await activateFeedEntry(adjacent.entry, direction, entries);
-          } else if (direction === 'next') {
-            setActiveFeedEntryKey(null);
-            advanceToNextTopic();
-          } else {
-            setActiveFeedEntryKey(null);
-            const previousIndex = Math.max(0, feedTopics.findIndex((topic) => topic.id === entry.topicId) - 1);
-            setTopicIndex(previousIndex);
-            activateInterstitialTopic(null);
-          }
+          await skipEntry();
         } finally {
           if (sponsorRequestVersion.current === requestVersion) {
             sponsorLoadingRef.current = false;
@@ -779,8 +786,6 @@ export function TopicFeedCore({
 
     // Future registered card types need only a placement rule and renderer.
     // Their own component owns any additional card-specific interaction state.
-    void direction;
-    void entries;
   };
 
   const navigateFeedEntry = async (direction: 'next' | 'previous') => {
