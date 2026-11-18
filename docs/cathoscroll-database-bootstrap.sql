@@ -5216,10 +5216,10 @@ BEGIN
       ), 0) < campaign.daily_impression_cap)
       AND (campaign.total_impression_cap IS NULL OR campaign.served_count < campaign.total_impression_cap)
       AND coalesce(frequency.served_count, 0) < campaign.frequency_cap_per_user_total
-      AND (SELECT pg_catalog.count(*) FROM catho_private.sponsor_campaign_events AS recent_served
-        WHERE recent_served.user_id = p_user_id AND recent_served.campaign_id = campaign.id
-          AND recent_served.event_type = 'served'
-          AND recent_served.received_at >= pg_catalog.statement_timestamp() - interval '24 hours')
+      AND (SELECT pg_catalog.count(*) FROM catho_private.sponsor_campaign_events AS recent_viewable
+        WHERE recent_viewable.user_id = p_user_id AND recent_viewable.campaign_id = campaign.id
+          AND recent_viewable.event_type = 'viewable_impression'
+          AND recent_viewable.received_at >= pg_catalog.statement_timestamp() - interval '24 hours')
         < campaign.frequency_cap_per_user_24h
       AND NOT (campaign.id = ANY(v_campaign_ids))
     ORDER BY
