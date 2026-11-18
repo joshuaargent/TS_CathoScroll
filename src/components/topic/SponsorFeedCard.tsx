@@ -64,13 +64,13 @@ export function SponsorFeedCard({
   const [activeIndex, setActiveIndex] = useState(0);
   const navigationStarted = useRef(false);
   const cardRef = useRef<HTMLElement>(null);
-  const viewablePlacementKey = campaignId
-    ? getSponsorPlacementKey(userId, sessionId, campaignId)
-    : null;
 
   const safeIndex = Math.min(activeIndex, Math.max(0, campaigns.length - 1));
   const campaign = campaigns[safeIndex];
   const campaignId = campaign?.campaign_id;
+  const viewablePlacementKey = campaignId
+    ? getSponsorPlacementKey(userId, sessionId, campaignId)
+    : null;
 
   useEffect(() => {
     if (!previewMode) navigationStarted.current = false;
