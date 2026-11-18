@@ -415,9 +415,14 @@ export function TopicFeedCore({
     if (!entry || entry.type !== 'sponsor' || entry.status !== 'pending') return;
     const topic = feedTopicsRef.current.find((item) => item.id === topicId);
     if (!topic) return;
+    const requestedUserId = userId;
 
     void getSponsorCampaignResult(topic).then((result) => {
-      if (result.retryable) return;
+      if (
+        result.retryable ||
+        userId !== requestedUserId ||
+        sponsorSessionUserId.current !== requestedUserId
+      ) return;
       const currentBoundary = feedEntryMapRef.current?.byTopicId.get(topicId);
       if (!currentBoundary) return;
       const currentSponsor = currentBoundary.entries.find((item) => item.type === 'sponsor');
@@ -430,7 +435,7 @@ export function TopicFeedCore({
         currentBoundary.entries = currentBoundary.entries.filter((item) => item.type !== 'sponsor');
       }
     });
-  }, [getSponsorCampaignResult]);
+  }, [getSponsorCampaignResult, userId]);
 
   // Build the ordered topic/comment/sponsor map ahead of navigation. The
   // original analytics-ranked topic array remains the source of truth; each
