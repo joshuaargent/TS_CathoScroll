@@ -3,17 +3,22 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import ts from 'typescript';
 
-const [source, systemSource] = await Promise.all([
+const [source, systemSource, placementRegistrySource] = await Promise.all([
   readFile(new URL('../src/lib/feed-entry-map.ts', import.meta.url), 'utf8'),
   readFile(new URL('../src/lib/feed-entry-system.ts', import.meta.url), 'utf8'),
+  readFile(new URL('../src/lib/feed-card-placement-registry.ts', import.meta.url), 'utf8'),
 ]);
 const compilerOptions = {
   compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
 };
 const compiledSystem = ts.transpileModule(systemSource, compilerOptions).outputText;
 const systemUrl = `data:text/javascript;base64,${Buffer.from(compiledSystem).toString('base64')}`;
+const compiledPlacementRegistry = ts.transpileModule(placementRegistrySource, compilerOptions).outputText
+  .replaceAll("from './feed-entry-system'", `from '${systemUrl}'`);
+const placementRegistryUrl = `data:text/javascript;base64,${Buffer.from(compiledPlacementRegistry).toString('base64')}`;
 const compiled = ts.transpileModule(source, compilerOptions).outputText
-  .replace("from './feed-entry-system'", `from '${systemUrl}'`);
+  .replaceAll("from './feed-entry-system'", `from '${systemUrl}'`)
+  .replaceAll("from './feed-card-placement-registry'", `from '${placementRegistryUrl}'`);
 const { buildFeedEntryMap, flattenFeedEntryMap } = await import(
   `data:text/javascript;base64,${Buffer.from(compiled).toString('base64')}`
 );
