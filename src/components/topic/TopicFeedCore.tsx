@@ -499,7 +499,7 @@ export function TopicFeedCore({
       sponsorResults: sponsorResultsByTopicId.current,
     });
     const boundaries = [...prefix, ...planned.boundaries];
-    const byTopicId = new Map(boundaries.map((boundary) => [boundary.topicId, boundary]));
+    const byTopicId = new Map(boundaries.map((boundary) => [boundary.topicId, boundary] as const));
     feedEntryMapRef.current = {
       ...planned,
       boundaries,
