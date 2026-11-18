@@ -13,6 +13,8 @@ export type FeedEntryRegistration<TContext = unknown> = {
   render: (entry: FeedEntryLike, context: TContext) => ReactNode;
   onNext: (entry: FeedEntryLike, context: TContext) => void | Promise<void>;
   onPrevious: (entry: FeedEntryLike, context: TContext) => void | Promise<void>;
+  onEnter?: (entry: FeedEntryLike, direction: FeedEntryDirection, entries: readonly FeedEntryLike[], context: TContext) => void | Promise<void>;
+  onExit?: (entry: FeedEntryLike, direction: FeedEntryDirection, context: TContext) => void | Promise<void>;
 };
 
 export function registerFeedEntry<TEntry extends FeedEntryLike, TContext = unknown>(
@@ -21,6 +23,8 @@ export function registerFeedEntry<TEntry extends FeedEntryLike, TContext = unkno
     render: (entry: TEntry, context: TContext) => ReactNode;
     onNext: (entry: TEntry, context: TContext) => void | Promise<void>;
     onPrevious: (entry: TEntry, context: TContext) => void | Promise<void>;
+    onEnter?: (entry: TEntry, direction: FeedEntryDirection, entries: readonly FeedEntryLike[], context: TContext) => void | Promise<void>;
+    onExit?: (entry: TEntry, direction: FeedEntryDirection, context: TContext) => void | Promise<void>;
   }
 ): FeedEntryRegistration<TContext> {
   const matches = (entry: FeedEntryLike): entry is TEntry => entry.type === type;
@@ -30,6 +34,12 @@ export function registerFeedEntry<TEntry extends FeedEntryLike, TContext = unkno
     render: (entry, context) => matches(entry) ? definition.render(entry, context) : null,
     onNext: (entry, context) => matches(entry) ? definition.onNext(entry, context) : undefined,
     onPrevious: (entry, context) => matches(entry) ? definition.onPrevious(entry, context) : undefined,
+    onEnter: (entry, direction, entries, context) => matches(entry)
+      ? definition.onEnter?.(entry, direction, entries, context)
+      : undefined,
+    onExit: (entry, direction, context) => matches(entry)
+      ? definition.onExit?.(entry, direction, context)
+      : undefined,
   };
 }
 
@@ -59,4 +69,19 @@ export function invokeRegisteredFeedEntryAction<TContext>(
   return direction === 'next'
     ? registration.onNext(entry, context)
     : registration.onPrevious(entry, context);
+}
+
+export function invokeRegisteredFeedEntryLifecycle<TContext>(
+  entry: FeedEntryLike,
+  phase: 'enter' | 'exit',
+  direction: FeedEntryDirection,
+  entries: readonly FeedEntryLike[],
+  registrations: readonly FeedEntryRegistration<TContext>[],
+  context: TContext
+): void | Promise<void> {
+  const registration = findFeedEntryRegistration(entry, registrations);
+  if (!registration) return;
+  return phase === 'enter'
+    ? registration.onEnter?.(entry, direction, entries, context)
+    : registration.onExit?.(entry, direction, context);
 }
