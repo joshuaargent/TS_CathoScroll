@@ -1354,8 +1354,9 @@ function App() {
       if (!catalogue) throw new Error('The offline catalogue is not ready.');
       if ('categories' in cursor) {
         // Recommendation cursors are server-owned. If the connection drops or
-        // the RPC fails, replace the feed with a fresh local catalogue page;
-        // never append page one to the existing personalized feed.
+        // the RPC fails, switch subsequent pagination to the local catalogue.
+        // TopicFeedCore preserves the current session history and anchor while
+        // appending only unseen IDs from this catalogue page.
         try {
           if (!navigator.onLine) throw new Error('The device is offline.');
           const { data, error } = await createClient().rpc('get_my_recommendation_page', {
