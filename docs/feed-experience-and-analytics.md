@@ -153,7 +153,7 @@ Public-domain painting backgrounds are a good visual direction, but should be a 
 
 Run these checks against a preview with test comments and at least two eligible sponsor campaigns. Use a fresh account/session for the first pass, then repeat after navigating away and back.
 
-1. **Cadence and ordering:** after five topic advances, Top Comments appears once. At the shared tenth-topic boundary, the order is topic → Top Comments → Sponsored → next topic. No topic is duplicated to make room for either interstitial.
+1. **Cadence, group size and ordering:** after five topic advances, Top Comments appears once and contains no more than five comments. With seven eligible unseen comments, the first group reserves five and leaves the remaining two eligible for a later group. At the shared tenth-topic boundary, the order is topic → Top Comments → Sponsored → next topic. No topic is duplicated to make room for either interstitial.
 2. **Forward/reverse traversal:** verify topic A → comment group A → sponsor A → topic B, then reverse topic B → sponsor A → comment group A → topic A. Repeat several times without refreshing.
 3. **Comment position:** move to the second or later comment in a group, leave the group, then revisit it in both directions. The same group and active comment position must return.
 4. **Sponsor identity:** revisiting a sponsor placement must reuse the same campaign and placement/session ID. It must not select a new campaign or increment served count again.
