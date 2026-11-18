@@ -78,15 +78,53 @@ test('reconnect retries once when it overlaps a failed in-flight refresh', async
   coordinator.dispose();
 });
 
-test('Top Comments inventory is frozen after its first successful load', () => {
+test('Top Comments inventory refreshes safely without replacing unrelated cached groups', () => {
   assert.ok(feed.includes("import { createFeedRefreshCoordinator } from '@/lib/feed-refresh-coordinator'"));
-  assert.ok(feed.includes('let inventoryInitialized = false;'));
-  assert.ok(feed.includes('if (inventoryInitialized) return true;'));
-  assert.ok(feed.includes('if (!inventoryInitialized) void refresh.reconnect()'));
-  assert.ok(feed.includes('if (!inventoryInitialized && document.visibilityState === \'visible\')'));
-  assert.ok(feed.includes('inventoryInitialized = true;'));
-  assert.ok(feed.includes('setTopComments(comments);'));
+  assert.ok(feed.includes('const refreshWhenVisible = () =>'));
+  assert.ok(feed.includes('const refreshWhenOnline = () => void refresh.reconnect()'));
   assert.ok(feed.includes('void refresh.request()'));
+  assert.ok(feed.includes('const commentsById = new Map('));
+  assert.ok(feed.includes('const reconcileComments = (items: TopFeedComment[])'));
+  assert.ok(feed.includes('topCommentCardsByTopicId.current.set(topicId, remainingComments)'));
+  assert.ok(feed.includes('topCommentCardsByTopicId.current.delete(topicId)'));
+  assert.ok(feed.includes('if (comments.length === 0)'));
+});
+
+test('feed analytics local queue is bounded to 200 events per account', () => {
+  const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
+  const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+  const values = new Map();
+  Object.defineProperty(globalThis, 'window', {
+    configurable: true,
+    value: {
+      localStorage: {
+        getItem: (key) => values.get(key) ?? null,
+        setItem: (key, value) => values.set(key, value),
+        removeItem: (key) => values.delete(key),
+      },
+    },
+  });
+  Object.defineProperty(globalThis, 'navigator', {
+    configurable: true,
+    value: { onLine: false },
+  });
+
+  try {
+    const userId = 'bounded-feed-analytics-test';
+    for (let index = 0; index < 250; index += 1) {
+      analyticsModule.recordFeedAnalyticsEvent(userId, 'impression', 'topic-' + index);
+    }
+    const queued = JSON.parse(values.get('cathoscroll.feed-analytics.v1.' + userId));
+    assert.equal(queued.length, 200);
+    assert.equal(new Set(queued.map((event) => event.event_id)).size, 200);
+    assert.equal(queued[0].entity_id, 'topic-0');
+    assert.equal(queued.at(-1).entity_id, 'topic-199');
+  } finally {
+    if (originalWindow) Object.defineProperty(globalThis, 'window', originalWindow);
+    else delete globalThis.window;
+    if (originalNavigator) Object.defineProperty(globalThis, 'navigator', originalNavigator);
+    else delete globalThis.navigator;
+  }
 });
 
 test('final native reading-time events retain the authenticated transport through unmount cleanup', async () => {
