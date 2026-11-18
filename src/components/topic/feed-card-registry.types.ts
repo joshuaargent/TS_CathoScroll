@@ -7,6 +7,7 @@ export type FeedCardRendererContext = {
   sponsorApiBaseUrl?: string;
   getSponsorAccessToken?: () => Promise<string | null>;
   activeTopCommentIndex: number;
+  onProgressChange: (current: number, total: number) => void;
   onTopCommentIndexChange: (topicId: string, index: number) => void;
   onCommentViewed: (commentId: number) => void;
   onOpenComment: (comment: TopFeedComment) => void;
