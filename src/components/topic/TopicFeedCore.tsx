@@ -1167,9 +1167,15 @@ export function TopicFeedCore({
       return;
     }
 
-    if (previous && previous.entry.type !== 'topic') {
-      activateInterstitialTopic(previous.entry.topicId);
-      setActiveFeedEntryKey(getFeedEntryKey(previous.entry));
+    const genericPreviousEntry: FeedEntryLike | null = previous ? previous.entry : null;
+    if (
+      genericPreviousEntry &&
+      genericPreviousEntry.type !== 'topic' &&
+      genericPreviousEntry.type !== 'top-comments' &&
+      genericPreviousEntry.type !== 'sponsor'
+    ) {
+      activateInterstitialTopic(genericPreviousEntry.topicId);
+      setActiveFeedEntryKey(getFeedEntryKey(genericPreviousEntry));
       return;
     }
 
