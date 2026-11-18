@@ -928,6 +928,13 @@ export function TopicFeedCore({
     pendingSponsorAfterComment.current = false;
 
     if (cachedSponsor?.campaigns.length) {
+      const mappedSponsor = feedEntryMapRef.current?.byTopicId.get(currentTopic.id)
+        ?.entries.find((entry) => entry.type === 'sponsor');
+      if (mappedSponsor?.type === 'sponsor') {
+        mappedSponsor.campaigns = cachedSponsor.campaigns;
+        mappedSponsor.sessionId = cachedSponsor.sessionId;
+        mappedSponsor.status = 'ready';
+      }
       sponsorPreviousIsComment.current = true;
       sponsorIsPreviousEntry.current = commentWasPreviousEntry;
       setSponsorCampaigns(cachedSponsor.campaigns);
@@ -958,6 +965,13 @@ export function TopicFeedCore({
       if (sponsorRequestVersion.current !== requestVersion || sponsorSessionUserId.current !== requestedUserId) return;
       setTopicsSinceSponsorCard(0);
       if (result.campaigns.length > 0 && result.sessionId) {
+        const mappedSponsor = feedEntryMapRef.current?.byTopicId.get(currentTopic.id)
+          ?.entries.find((entry) => entry.type === 'sponsor');
+        if (mappedSponsor?.type === 'sponsor') {
+          mappedSponsor.campaigns = result.campaigns;
+          mappedSponsor.sessionId = result.sessionId;
+          mappedSponsor.status = 'ready';
+        }
         sponsorCardsByTopicId.current.set(currentTopic.id, { campaigns: result.campaigns, sessionId: result.sessionId });
         sponsorResultsByTopicId.current.set(currentTopic.id, result);
         sponsorDueByTopicId.current.delete(currentTopic.id);
@@ -1009,6 +1023,32 @@ export function TopicFeedCore({
   };
 
   const previousTopic = () => {
+    const activeKey = activeFeedEntryKeyRef.current;
+    if (
+      activeKey &&
+      !activeKey.startsWith('topic:') &&
+      !isSponsorCardActive() &&
+      !isTopCommentCardActive() &&
+      !sponsorLoadingRef.current
+    ) {
+      const entries = feedEntryMapRef.current
+        ? flattenFeedEntryMap(feedEntryMapRef.current)
+        : [];
+      const previousEntry = getAdjacentFeedEntry(entries, activeKey, 'previous');
+      if (previousEntry) {
+        if (previousEntry.entry.type === 'topic') {
+          setActiveFeedEntryKey(getFeedEntryKey(previousEntry.entry));
+          activateInterstitialTopic(null);
+          const previousIndex = feedTopics.findIndex((topic) => topic.id === previousEntry.entry.topicId);
+          if (previousIndex >= 0) setTopicIndex(previousIndex);
+        } else {
+          setActiveFeedEntryKey(getFeedEntryKey(previousEntry.entry));
+          activateInterstitialTopic(previousEntry.entry.topicId);
+        }
+        return;
+      }
+    }
+
     if (isSponsorCardActive() || sponsorLoadingRef.current) {
       handleSponsorPrevious();
       return;
