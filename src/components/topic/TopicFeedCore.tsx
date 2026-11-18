@@ -9,22 +9,15 @@ import {
   parseTopFeedComments,
   type TopFeedComment,
 } from '@/lib/feed-comments';
-import { TopCommentFeedCard } from './TopCommentFeedCard';
 import {
   parseSponsorFeedCampaigns,
   type SponsorFeedCampaign,
 } from '@/lib/sponsor-campaigns';
-import { SponsorFeedCard } from './SponsorFeedCard';
-import { SponsorLoadingCard } from './SponsorLoadingCard';
 import { createFeedRefreshCoordinator } from '@/lib/feed-refresh-coordinator';
 import { siteConfig } from '@/lib/constants';
 import { buildFeedEntryMap, flattenFeedEntryMap, type FeedEntry, type FeedEntryMap } from '@/lib/feed-entry-map';
-import {
-  invokeRegisteredFeedEntryAction,
-  registerFeedEntry,
-  renderRegisteredFeedEntry,
-  type FeedEntryRegistration,
-} from '@/lib/feed-entry-registry';
+import { renderRegisteredFeedEntry } from '@/lib/feed-entry-registry';
+import { createFeedCardRegistry } from './feed-card-registry';
 import { getAdjacentFeedEntry, getFeedEntryKey } from '@/lib/feed-entry-cursor';
 
 import type { TopicPageCursor } from '@/lib/content';
@@ -1089,53 +1082,23 @@ export function TopicFeedCore({
         : null
     : null;
 
-  type FeedRendererContext = Record<string, never>;
-  let feedCardRenderers: FeedEntryRegistration<FeedRendererContext>[] = [];
-  feedCardRenderers = [
-    registerFeedEntry<Extract<FeedEntry, { type: 'top-comments' }>, FeedRendererContext>('top-comments', {
-      render: (entry) => (
-        <TopCommentFeedCard
-          key={userId ?? 'anonymous'}
-          userId={userId}
-          comments={entry.comments}
-          initialActiveIndex={activeTopCommentIndex}
-          onActiveIndexChange={(index) => {
-            setActiveTopCommentIndex(index);
-            topCommentIndexByTopicId.current.set(entry.topicId, index);
-          }}
-          onCommentViewed={markTopCommentViewed}
-          onNextTopic={() => invokeRegisteredFeedEntryAction(entry, 'next', feedCardRenderers, {})}
-          onPreviousTopic={() => invokeRegisteredFeedEntryAction(entry, 'previous', feedCardRenderers, {})}
-          onOpenComment={openTopComment}
-        />
-      ),
-      onNext: () => nextTopic(),
-      onPrevious: () => previousTopic(),
-    }),
-    registerFeedEntry<Extract<FeedEntry, { type: 'sponsor' }>, FeedRendererContext>('sponsor', {
-      render: (entry) => entry.status === 'pending' ? (
-        <SponsorLoadingCard
-          onNextTopic={() => invokeRegisteredFeedEntryAction(entry, 'next', feedCardRenderers, {})}
-          onPreviousTopic={() => invokeRegisteredFeedEntryAction(entry, 'previous', feedCardRenderers, {})}
-        />
-      ) : (
-        <SponsorFeedCard
-          campaigns={entry.campaigns}
-          sessionId={entry.sessionId ?? ''}
-          userId={userId ?? ''}
-          sponsorApiBaseUrl={effectiveSponsorApiBaseUrl}
-          getAccessToken={getSponsorAccessToken ?? (async () => null)}
-          onNextTopic={() => invokeRegisteredFeedEntryAction(entry, 'next', feedCardRenderers, {})}
-          onPreviousTopic={() => invokeRegisteredFeedEntryAction(entry, 'previous', feedCardRenderers, {})}
-        />
-      ),
-      onNext: () => nextTopic(),
-      onPrevious: () => previousTopic(),
-    }),
-  ];
-
+  const feedCardRendererContext = {
+    userId,
+    sponsorApiBaseUrl: effectiveSponsorApiBaseUrl,
+    getSponsorAccessToken,
+    activeTopCommentIndex,
+    onTopCommentIndexChange: (topicId: string, index: number) => {
+      setActiveTopCommentIndex(index);
+      topCommentIndexByTopicId.current.set(topicId, index);
+    },
+    onCommentViewed: markTopCommentViewed,
+    onOpenComment: openTopComment,
+    onNext: () => nextTopic(),
+    onPrevious: () => previousTopic(),
+  };
+  const feedCardRenderers = createFeedCardRegistry(feedCardRendererContext);
   const renderedFeedCard = activeFeedCardEntry
-    ? renderRegisteredFeedEntry(activeFeedCardEntry, feedCardRenderers, {})
+    ? renderRegisteredFeedEntry(activeFeedCardEntry, feedCardRenderers, feedCardRendererContext)
     : null;
 
   // ----------------------------------
