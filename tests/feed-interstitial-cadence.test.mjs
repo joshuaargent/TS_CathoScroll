@@ -191,5 +191,10 @@ test('the original analytics-ranked feed keeps interstitials in per-topic sessio
   assert.match(feedCore, /topCommentsNextOffsetRef\.current = nextOffset/);
   assert.match(feedCore, /const nextTopics = appendUniqueFeedTopics\(feedTopicsRef\.current, newTopics\)/);
   assert.match(feedCore, /pendingAdvanceAfterPageRef\.current = true/);
+  assert.match(feedCore, /sponsorIsPreviousEntry\.current = true/);
+  assert.match(feedCore, /topCommentIsPreviousEntry\.current = true/);
+  assert.match(feedCore, /if \(!wasPreviousEntry\) advanceToNextTopic\(\)/);
+  assert.match(feedCore, /else if \(wasPreviousEntry\) \{[\\s\\S]*?setTopicIndex/);
+  assert.match(feedCore, /if \(wasPreviousEntry\) \{[\\s\\S]*?setTopicIndex/);
   assert.match(feedCore, /if \(nextTopics\.length > previousLength\) \{[\s\S]*?setTopicIndex\(previousLength\)/);
 });
