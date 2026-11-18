@@ -33,6 +33,9 @@ test('one active entry key replaces separate comment and sponsor visibility stat
 test('ordered cursor traversal is shared by feed navigation', () => {
   assert.match(core, /flattenFeedEntryMap\(feedEntryMapRef\.current\)/);
   assert.match(core, /getAdjacentFeedEntry\(entries, currentKey, 'previous'\)/);
+  assert.match(core, /getAdjacentFeedEntry\(entries, currentKey, 'next'\)/);
+  assert.match(core, /const genericEntry: FeedEntryLike = nextEntry/);
+  assert.match(core, /previousEntry = getAdjacentFeedEntry\(entries, activeKey, 'previous'\)/);
   assert.match(cursor, /export function getAdjacentFeedEntry/);
   assert.match(cursor, /export function reconcileFeedEntryCursor/);
 });
