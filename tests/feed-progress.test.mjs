@@ -18,6 +18,7 @@ test('every feed card type uses the original shared topic progress implementatio
   assert.match(progress, /bg-border h-1 w-full overflow-hidden rounded-full/);
   assert.match(progress, /bg-accent h-full transition-all duration-300/);
   assert.match(progress, /const percentage = \(\(safeCurrent \+ 1\) \/ safeTotal\) \* 100/);
+  assert.match(topic, /className="px-6 pt-4 pb-4"/);
 
   for (const source of [topic, comments, sponsor, sponsorLoading]) {
     assert.match(source, /import \{ FeedProgress \} from '\.\/FeedProgress'/);
