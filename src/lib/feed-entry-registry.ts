@@ -1,32 +1,29 @@
 import type { ReactNode } from 'react';
 
-import type { FeedEntry } from './feed-entry-map';
+export type FeedEntryLike = {
+  type: string;
+  topicId: string;
+};
 
 export type FeedEntryDirection = 'next' | 'previous';
 
-export type FeedEntryRegistrationContext = {
-  navigate: (direction: FeedEntryDirection) => void | Promise<void>;
+export type FeedEntryRegistration<TContext = unknown> = {
+  type: string;
+  matches: (entry: FeedEntryLike) => boolean;
+  render: (entry: FeedEntryLike, context: TContext) => ReactNode;
+  onNext: (entry: FeedEntryLike, context: TContext) => void | Promise<void>;
+  onPrevious: (entry: FeedEntryLike, context: TContext) => void | Promise<void>;
 };
 
-export type FeedEntryRegistration<TContext = FeedEntryRegistrationContext> = {
-  type: FeedEntry['type'];
-  matches: (entry: FeedEntry) => boolean;
-  render: (entry: FeedEntry, context: TContext) => ReactNode;
-  onNext: (entry: FeedEntry, context: TContext) => void | Promise<void>;
-  onPrevious: (entry: FeedEntry, context: TContext) => void | Promise<void>;
-};
-
-type FeedEntryOfType<TType extends FeedEntry['type']> = Extract<FeedEntry, { type: TType }>;
-
-export function registerFeedEntry<TType extends FeedEntry['type'], TContext = FeedEntryRegistrationContext>(
-  type: TType,
+export function registerFeedEntry<TEntry extends FeedEntryLike, TContext = unknown>(
+  type: TEntry['type'],
   definition: {
-    render: (entry: FeedEntryOfType<TType>, context: TContext) => ReactNode;
-    onNext: (entry: FeedEntryOfType<TType>, context: TContext) => void | Promise<void>;
-    onPrevious: (entry: FeedEntryOfType<TType>, context: TContext) => void | Promise<void>;
+    render: (entry: TEntry, context: TContext) => ReactNode;
+    onNext: (entry: TEntry, context: TContext) => void | Promise<void>;
+    onPrevious: (entry: TEntry, context: TContext) => void | Promise<void>;
   }
 ): FeedEntryRegistration<TContext> {
-  const matches = (entry: FeedEntry): entry is FeedEntryOfType<TType> => entry.type === type;
+  const matches = (entry: FeedEntryLike): entry is TEntry => entry.type === type;
   return {
     type,
     matches,
@@ -37,14 +34,14 @@ export function registerFeedEntry<TType extends FeedEntry['type'], TContext = Fe
 }
 
 export function findFeedEntryRegistration<TContext>(
-  entry: FeedEntry,
+  entry: FeedEntryLike,
   registrations: readonly FeedEntryRegistration<TContext>[]
 ): FeedEntryRegistration<TContext> | null {
   return registrations.find((registration) => registration.matches(entry)) ?? null;
 }
 
 export function renderRegisteredFeedEntry<TContext>(
-  entry: FeedEntry,
+  entry: FeedEntryLike,
   registrations: readonly FeedEntryRegistration<TContext>[],
   context: TContext
 ): ReactNode {
@@ -52,7 +49,7 @@ export function renderRegisteredFeedEntry<TContext>(
 }
 
 export function invokeRegisteredFeedEntryAction<TContext>(
-  entry: FeedEntry,
+  entry: FeedEntryLike,
   direction: FeedEntryDirection,
   registrations: readonly FeedEntryRegistration<TContext>[],
   context: TContext
