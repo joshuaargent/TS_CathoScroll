@@ -142,8 +142,8 @@ export function TopicFeedCore({
     activeFeedEntryKeyRef.current = key;
     setActiveFeedEntryKeyState(key);
   };
-  const isTopCommentCardActive = activeFeedEntryKey?.startsWith('top-comments:') ?? false;
-  const isSponsorCardActive = activeFeedEntryKey?.startsWith('sponsor:') ?? false;
+  const isTopCommentCardActive = () => activeFeedEntryKeyRef.current?.startsWith('top-comments:') ?? false;
+  const isSponsorCardActive = () => activeFeedEntryKeyRef.current?.startsWith('sponsor:') ?? false;
   const activateTopCommentEntry = (topicId = activeInterstitialTopicIdRef.current) => {
     if (topicId) setActiveFeedEntryKey(`top-comments:${topicId}`);
   };
@@ -186,7 +186,6 @@ export function TopicFeedCore({
     sponsorLoadingRef.current = false;
     pendingSponsorAfterComment.current = false;
     setSponsorCampaigns([]);
-    setActiveFeedEntryKey(null);
     setActiveFeedEntryKey(null);
     setTopCommentCardComments([]);
     setActiveTopCommentIndex(0);
@@ -665,11 +664,11 @@ export function TopicFeedCore({
 
   const nextTopic = async () => {
     if (sponsorLoadingRef.current) return;
-    if (isTopCommentCardActive) {
+    if (isTopCommentCardActive()) {
       await handleTopCommentNext();
       return;
     }
-    if (isSponsorCardActive) {
+    if (isSponsorCardActive()) {
       handleSponsorNext();
       return;
     }
@@ -732,6 +731,8 @@ export function TopicFeedCore({
 
       if (sponsorEntry.status === 'pending') {
         activateInterstitialTopic(currentTopic.id);
+        activateSponsorEntry(currentTopic.id);
+        activateSponsorEntry(entry.topicId);
         sponsorRequestPreviousCadence.current = topicsSinceSponsorCard;
         sponsorLoadingRef.current = true;
         setSponsorLoading(true);
@@ -891,6 +892,7 @@ export function TopicFeedCore({
     sponsorPreviousIsComment.current = true;
     sponsorIsPreviousEntry.current = commentWasPreviousEntry;
     const preparedSponsor = sponsorResultsByTopicId.current.get(currentTopic.id);
+    activateSponsorEntry(currentTopic.id);
     sponsorLoadingRef.current = true;
     if (!preparedSponsor) setSponsorLoading(true);
     sponsorRequestPreviousCadence.current = topicsSinceSponsorCard;
@@ -952,11 +954,11 @@ export function TopicFeedCore({
   };
 
   const previousTopic = () => {
-    if (isSponsorCardActive || sponsorLoadingRef.current) {
+    if (isSponsorCardActive() || sponsorLoadingRef.current) {
       handleSponsorPrevious();
       return;
     }
-    if (isTopCommentCardActive) {
+    if (isTopCommentCardActive()) {
       handleTopCommentPrevious();
       return;
     }
