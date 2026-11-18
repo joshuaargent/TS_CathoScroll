@@ -33,7 +33,8 @@ test('every feed card type uses the original shared topic progress implementatio
 
 test('shared progress is owned by the feed shell and is not remounted with individual cards', () => {
   assert.match(feedCore, /setFeedProgress\(\{ current, total \}\)/);
-  assert.match(feedCore, /onProgressChange=\{\(current, total\) => setFeedProgress\(\{ current, total \}\)\}/);
+  assert.match(feedCore, /const updateFeedProgress = useCallback/);
+  assert.match(feedCore, /onProgressChange=\{updateFeedProgress\}/);
   assert.match(feedCore, /setFeedProgress\(\{ current: 0, total: 1 \}\)/);
 });
 
