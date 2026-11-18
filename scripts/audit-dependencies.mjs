@@ -14,10 +14,10 @@ export function classifyAuditReport(report) {
   const errors = [];
 
   function inspectPackage(packageName, ancestry = new Set()) {
-    if (ancestry.has(packageName)) {
-      errors.push(`Circular advisory dependency chain at ${packageName}.`);
-      return;
-    }
+    // npm audit can report cyclic dependency paths in Electron's builder
+    // graph. A back-edge is not itself a new advisory; inspect the other
+    // branches and require at least one approved terminal advisory below.
+    if (ancestry.has(packageName)) return;
 
     const vulnerability = vulnerabilities[packageName];
     if (!vulnerability || !Array.isArray(vulnerability.via) || vulnerability.via.length === 0) {
@@ -56,6 +56,10 @@ export function classifyAuditReport(report) {
 
   for (const packageName of Object.keys(vulnerabilities)) {
     inspectPackage(packageName);
+  }
+
+  if (Object.keys(vulnerabilities).length > 0 && advisoryIds.size === 0 && errors.length === 0) {
+    errors.push('No approved advisory was found for the reported vulnerabilities.');
   }
 
   return {
