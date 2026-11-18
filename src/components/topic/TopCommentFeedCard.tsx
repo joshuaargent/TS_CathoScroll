@@ -9,7 +9,7 @@ import { createClient } from '@/lib/supabase/client';
 import type { TopFeedComment } from '@/lib/feed-comments';
 import { cn } from '@/lib/utils';
 import { FeedInterstitialMotion } from './FeedInterstitialMotion';
-import { TopicCardLayout } from './TopicCardLayout';
+import { BaseFeedCard } from './BaseFeedCard';
 
 interface TopCommentFeedCardProps {
   comments: TopFeedComment[];
@@ -215,13 +215,12 @@ export function TopCommentFeedCard({
       nextPreview={nextEntryPreview}
       previousPreview={previousEntryPreview}
     >
-      <TopicCardLayout
-        cardClassName="bg-accent-light/5"
+      <BaseFeedCard
+        className="bg-accent-light/5"
         contentWidthClassName="max-w-3xl"
-        header={
+        title={<span className="text-text-muted text-xs tracking-wider uppercase">Top Comments</span>}
+        actions={
           <>
-            <span className="text-text-muted text-xs tracking-wider uppercase">Top Comments</span>
-            <div className="flex items-center gap-2">
               <CommentLikeControl
                 key={comment.comment_id}
                 comment={comment}
@@ -250,7 +249,7 @@ export function TopCommentFeedCard({
               >
                 <DoorOpen className="h-5 w-5" />
               </button>
-            </div>
+
           </>
         }
       >
@@ -286,7 +285,7 @@ export function TopCommentFeedCard({
             )}
           </div>
         </article>
-      </TopicCardLayout>
+      </BaseFeedCard>
     </FeedInterstitialMotion>
   );
 }
