@@ -121,14 +121,16 @@ test('topic visits and completions remain deduplicated across viewer unmounts', 
     analytics.recordFeedTopicVisit('session-account', 'topic-revisited');
     now += 101;
     analytics.recordFeedTopicVisit('session-account', 'topic-revisited');
-    analytics.recordFeedTopicCompletion('session-account', 'topic-completed');
-    analytics.recordFeedTopicCompletion('session-account', 'topic-completed');
+    analytics.recordFeedTopicCompletion('session-account', 'topic-completed', 4);
+    analytics.recordFeedTopicCompletion('session-account', 'topic-completed', 4);
 
     const events = JSON.parse(storage.get('cathoscroll.feed-analytics.v1.session-account'));
     assert.deepEqual(
       events.map((event) => event.event_type),
       ['impression', 'impression', 'return_visit', 'completion']
     );
+    assert.equal(events.at(-1).metadata.slide_index, 4);
+    assert.equal(events.at(-1).metadata.completion_percent, 100);
   } finally {
     Date.now = originalNow;
   }
