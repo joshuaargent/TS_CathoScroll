@@ -1394,7 +1394,7 @@ function App() {
       }
       return catalogue.topics({ cursor });
     },
-    [catalogue, feedPersonalized]
+    [catalogue]
   );
 
   return (
