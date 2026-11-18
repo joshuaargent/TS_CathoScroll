@@ -122,6 +122,9 @@ export function TopicFeedCore({
   const sponsorDueByTopicId = useRef(new Set<string>());
   const [activeTopCommentIndex, setActiveTopCommentIndex] = useState(0);
   const [feedProgress, setFeedProgress] = useState({ current: 0, total: 5 });
+  const updateFeedProgress = useCallback((current: number, total: number) => {
+    setFeedProgress({ current, total });
+  }, []);
   const activeInterstitialTopicIdRef = useRef<string | null>(null);
   const activateInterstitialTopic = (topicId: string | null) => {
     activeInterstitialTopicIdRef.current = topicId;
@@ -909,7 +912,7 @@ export function TopicFeedCore({
     sponsorApiBaseUrl: effectiveSponsorApiBaseUrl,
     getSponsorAccessToken,
     activeTopCommentIndex,
-    onProgressChange: (current, total) => setFeedProgress({ current, total }),
+    onProgressChange: updateFeedProgress,
     onTopCommentIndexChange: (topicId: string, index: number) => {
       setActiveTopCommentIndex(index);
       topCommentIndexByTopicId.current.set(topicId, index);
@@ -964,7 +967,7 @@ export function TopicFeedCore({
             initialUserId={userId}
             onNextTopic={nextTopic}
             onPreviousTopic={previousTopic}
-            onProgressChange={(current, total) => setFeedProgress({ current, total })}
+            onProgressChange={updateFeedProgress}
             nextEntryPreview={nextEntryPreview}
             previousEntryPreview={previousEntryPreview}
           />
