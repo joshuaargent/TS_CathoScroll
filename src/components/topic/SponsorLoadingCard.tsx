@@ -1,5 +1,6 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import { FeedInterstitialMotion } from './FeedInterstitialMotion';
 import { BaseFeedCard } from './BaseFeedCard';
 
@@ -8,6 +9,10 @@ interface SponsorLoadingCardProps {
   onPreviousTopic: () => void | Promise<void>;
   error?: boolean;
   onRetry?: () => void;
+  previewMode?: boolean;
+  active?: boolean;
+  nextEntryPreview?: ReactNode;
+  previousEntryPreview?: ReactNode;
 }
 
 export function SponsorLoadingCard({
@@ -15,10 +20,17 @@ export function SponsorLoadingCard({
   onPreviousTopic,
   error = false,
   onRetry,
+  previewMode = false,
+  active = true,
+  nextEntryPreview,
+  previousEntryPreview,
 }: SponsorLoadingCardProps) {
   return (
     <FeedInterstitialMotion
       ariaLabel="Sponsored content loading"
+      active={active && !previewMode}
+      nextPreview={nextEntryPreview}
+      previousPreview={previousEntryPreview}
       onSwipeLeft={() => undefined}
       onSwipeRight={() => undefined}
       onNextTopic={onNextTopic}
