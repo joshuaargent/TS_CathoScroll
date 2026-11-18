@@ -698,7 +698,10 @@ export function TopicFeedCore({
   };
 
   const nextTopic = async () => {
-    if (sponsorLoadingRef.current) return;
+    if (sponsorLoadingRef.current) {
+      handleSponsorNext();
+      return;
+    }
     if (isTopCommentCardActive()) {
       await handleTopCommentNext();
       return;
@@ -1026,10 +1029,10 @@ export function TopicFeedCore({
     if (previous?.entry.type === 'sponsor') {
       const entry = previous.entry;
       activateInterstitialTopic(entry.topicId);
-      sponsorPreviousIsComment.current = false;
       sponsorIsPreviousEntry.current = true;
       const commentEntry = feedEntryMapRef.current?.byTopicId.get(entry.topicId)
         ?.entries.find((item) => item.type === 'top-comments');
+      sponsorPreviousIsComment.current = Boolean(commentEntry);
       topCommentIsPreviousEntry.current = Boolean(commentEntry);
       pendingSponsorAfterComment.current = Boolean(commentEntry);
       if (commentEntry?.type === 'top-comments') {
