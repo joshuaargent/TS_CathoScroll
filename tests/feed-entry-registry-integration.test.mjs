@@ -24,6 +24,12 @@ test('card renderer registrations own the component selection and receive shared
   assert.match(registry, /entry\.status === 'pending'/);
 });
 
+test('feed navigation no longer has separate comment and sponsor traversal handlers', () => {
+  assert.match(core, /const navigateFeedEntry = async/);
+  assert.doesNotMatch(core, /handleSponsorNext|handleSponsorPrevious|handleTopCommentNext|handleTopCommentPrevious/);
+  assert.doesNotMatch(core, /topCommentIsPreviousEntry|sponsorIsPreviousEntry|sponsorPreviousIsComment|pendingSponsorAfterComment/);
+});
+
 test('one active entry key replaces separate comment and sponsor visibility state', () => {
   assert.match(core, /const \[activeFeedEntryKey, setActiveFeedEntryKeyState\]/);
   assert.doesNotMatch(core, /showTopCommentCard|showSponsorCard|setShowTopCommentCard|setShowSponsorCard/);
