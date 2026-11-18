@@ -706,9 +706,10 @@ export function TopicFeedCore({
         seenTopCommentIds.current.add(comment.comment_id);
       }
       topCommentCardsByTopicId.current.set(entry.topicId, entry.comments);
-      if (!topCommentIndexByTopicId.current.has(entry.topicId)) {
-        topCommentIndexByTopicId.current.set(entry.topicId, 0);
-      }
+      const savedIndex = topCommentIndexByTopicId.current.get(entry.topicId) ?? 0;
+      const safeIndex = Math.min(savedIndex, Math.max(0, entry.comments.length - 1));
+      topCommentIndexByTopicId.current.set(entry.topicId, safeIndex);
+      setActiveTopCommentIndex(safeIndex);
       return;
     }
 
@@ -742,7 +743,10 @@ export function TopicFeedCore({
       }
       if (entry.status === 'pending') {
         const sponsorTopic = feedTopics.find((topic) => topic.id === entry.topicId);
-        if (!sponsorTopic) return;
+        if (!sponsorTopic) {
+          await skipEntry();
+          return;
+        }
 
         sponsorLoadingRef.current = true;
         setSponsorLoading(true);
