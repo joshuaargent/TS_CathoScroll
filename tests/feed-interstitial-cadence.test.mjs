@@ -204,6 +204,14 @@ test('the original analytics-ranked topic feed is retained and interstitials are
   assert.match(feedCore, /sponsorRequestVersion\.current !== requestVersion/);
 });
 
+test('topic viewer stays mounted beneath interstitial cards and is inactive while covered', () => {
+  assert.match(feedCore, /className="relative min-h-0 flex-1"/);
+  assert.match(feedCore, /invisible pointer-events-none absolute inset-0/);
+  assert.match(feedCore, /active=\{!activeFeedCardEntry\}/);
+  assert.match(feedCore, /renderedFeedCard && \([\s\S]*?className="absolute inset-0 z-10"/);
+  assert.doesNotMatch(feedCore, /renderedFeedCard \?\? \(/);
+});
+
 test('topic previews are derived from adjacent feed entries without delayed mount flashes', () => {
   assert.doesNotMatch(topicViewer, /showEntryPreviews|setShowEntryPreviews/);
   assert.match(topicViewer, /previousEntryPreview !== null/);
