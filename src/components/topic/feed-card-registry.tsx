@@ -83,10 +83,11 @@ export function createFeedCardRegistry(
       ),
       onNext: context.navigateNext,
       onPrevious: context.navigatePrevious,
-      onEnter: async (entry, direction, entries, cardContext) => {
+      onEnter: (entry, direction, entries, cardContext) => {
         cardContext.activateInterstitialTopic(entry.topicId);
         if (entry.status === 'pending' || entry.status === 'error') {
-          await cardContext.loadSponsorEntry(entry, direction, entries);
+          // Keep the loading card navigable while the campaign request runs.
+          void cardContext.loadSponsorEntry(entry, direction, entries);
         }
       },
       onExit: (entry, direction, cardContext) => {
