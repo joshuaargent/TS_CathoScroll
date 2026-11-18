@@ -704,7 +704,12 @@ export function TopicFeedCore({
             return;
           }
 
-          if (!result.retryable) sponsorEntry.status = 'empty';
+          if (!result.retryable) {
+            sponsorEntry.status = 'empty';
+            boundary.entries = boundary.entries.filter((entry) => entry.type !== 'sponsor');
+          } else {
+            processedTopicBoundariesByTopicId.current.delete(currentTopic.id);
+          }
           flushSync(() => {
             setSponsorLoading(false);
             advanceToNextTopic();
@@ -835,7 +840,13 @@ export function TopicFeedCore({
             sponsorLoadingRef.current = false;
             setSponsorLoading(false);
             const interstitialTopicId = activeInterstitialTopicIdRef.current;
-            if (interstitialTopicId) sponsorDueByTopicId.current.delete(interstitialTopicId);
+            if (interstitialTopicId) {
+              sponsorDueByTopicId.current.delete(interstitialTopicId);
+              const boundary = feedEntryMapRef.current?.byTopicId.get(interstitialTopicId);
+              if (boundary) {
+                boundary.entries = boundary.entries.filter((entry) => entry.type !== 'sponsor');
+              }
+            }
             pendingSponsorAfterComment.current = false;
             sponsorPreviousIsComment.current = false;
             const wasPreviousEntry = sponsorIsPreviousEntry.current;
@@ -857,6 +868,10 @@ export function TopicFeedCore({
             if (previousWasComment) {
               setShowTopCommentCard(true);
             } else {
+              const interstitialTopicId = activeInterstitialTopicIdRef.current;
+              if (interstitialTopicId) {
+                processedTopicBoundariesByTopicId.current.delete(interstitialTopicId);
+              }
               activateInterstitialTopic(null);
               if (wasPreviousEntry) {
                 setTopicIndex((previous) => (previous - 1 + feedTopics.length) % feedTopics.length);
@@ -979,7 +994,13 @@ export function TopicFeedCore({
                 return;
               }
 
-              if (!result.retryable) sponsorDueByTopicId.current.delete(currentTopic.id);
+              if (!result.retryable) {
+                sponsorDueByTopicId.current.delete(currentTopic.id);
+                const boundary = feedEntryMapRef.current?.byTopicId.get(currentTopic.id);
+                if (boundary) {
+                  boundary.entries = boundary.entries.filter((entry) => entry.type !== 'sponsor');
+                }
+              }
               flushSync(() => {
                 setShowTopCommentCard(false);
                 setSponsorLoading(false);
