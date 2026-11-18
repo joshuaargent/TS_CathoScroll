@@ -7,7 +7,7 @@ import type { SponsorFeedCampaign } from '@/lib/sponsor-campaigns';
 import { recordSponsorCampaignEvent } from '@/lib/sponsor-analytics-client';
 import { FeedInterstitialMotion } from './FeedInterstitialMotion';
 import { TopicCardLayout } from './TopicCardLayout';
-import { TopicProgress } from './TopicProgress';
+import { FeedProgress } from './FeedProgress';
 
 interface SponsorFeedCardProps {
   campaigns: SponsorFeedCampaign[];
@@ -217,7 +217,7 @@ export function SponsorFeedCard({
       previousPreview={previousEntryPreview}
     >
       <TopicCardLayout
-        progress={<TopicProgress current={safeIndex} total={campaigns.length} />}
+        progress={<FeedProgress current={safeIndex} total={campaigns.length} />}
         header={
           <>
             <div className="min-w-0">
