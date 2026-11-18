@@ -530,6 +530,7 @@ export function TopicFeedCore({
         return;
       }
 
+      sponsorPreviousIsComment.current = false;
       const preparedSponsor = sponsorResultsByTopicId.current.get(currentTopic.id);
       sponsorLoadingRef.current = true;
       if (!preparedSponsor) setSponsorLoading(true);
@@ -698,6 +699,7 @@ export function TopicFeedCore({
             const currentTopic = feedTopics[topicIndex];
             if (currentTopic) sponsorDueByTopicId.current.delete(currentTopic.id);
             pendingSponsorAfterComment.current = false;
+            sponsorPreviousIsComment.current = false;
             setShowTopCommentCard(false);
             advanceToNextTopic();
           }}
@@ -706,10 +708,9 @@ export function TopicFeedCore({
             sponsorLoadingRef.current = false;
             setSponsorLoading(false);
             setTopicsSinceSponsorCard(sponsorRequestPreviousCadence.current);
-            if (sponsorPreviousIsComment.current) {
-              sponsorPreviousIsComment.current = false;
-              setShowTopCommentCard(true);
-            }
+            const previousWasComment = sponsorPreviousIsComment.current;
+            sponsorPreviousIsComment.current = false;
+            if (previousWasComment) setShowTopCommentCard(true);
           }}
         />
       ) : showSponsorCard && sponsorCampaigns.length > 0 ? (
