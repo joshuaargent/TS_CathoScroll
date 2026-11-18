@@ -43,6 +43,8 @@ const transports = new Map<string, FeedAnalyticsTransport>();
 const visitedTopicsByUser = new Map<string, Set<string>>();
 const completedTopicsByUser = new Map<string, Set<string>>();
 const maxTrackedTopicsPerUser = 5000;
+const recentTopicVisitAt = new Map<string, number>();
+const duplicateVisitWindowMs = 100;
 
 function rememberTopic(
   collection: Map<string, Set<string>>,
@@ -65,6 +67,18 @@ function rememberTopic(
 
 export function recordFeedTopicVisit(userId: string | null, topicId: string): void {
   if (!userId || !topicId) return;
+  const now = Date.now();
+  const visitKey = userId + '\\u0000' + topicId;
+  const lastVisitAt = recentTopicVisitAt.get(visitKey);
+  if (lastVisitAt !== undefined && now >= lastVisitAt && now - lastVisitAt < duplicateVisitWindowMs) {
+    return;
+  }
+  recentTopicVisitAt.delete(visitKey);
+  recentTopicVisitAt.set(visitKey, now);
+  if (recentTopicVisitAt.size > maxTrackedTopicsPerUser * 10) {
+    const oldestKey = recentTopicVisitAt.keys().next().value;
+    if (oldestKey !== undefined) recentTopicVisitAt.delete(oldestKey);
+  }
   const isReturnVisit = !rememberTopic(visitedTopicsByUser, userId, topicId);
   recordFeedAnalyticsEvent(userId, 'impression', topicId, { source: 'feed' });
   if (isReturnVisit) {
