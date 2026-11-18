@@ -565,7 +565,7 @@ export function TopicSwipeViewer({
           {/* TOP */}
 
           {previousEntryPreview !== null ? (
-            <div className="pointer-events-none absolute inset-x-0 top-[-100%] h-full opacity-90">
+            <div className="pointer-events-none absolute inset-x-0 top-[-100%] h-full opacity-90" aria-hidden="true" inert>
               {previousEntryPreview === undefined ? (
                 <TopicCard type="question" title="Question" content={previousTopic.question} />
               ) : previousEntryPreview}
@@ -646,7 +646,7 @@ export function TopicSwipeViewer({
           {/* BOTTOM */}
 
           {nextEntryPreview !== null ? (
-            <div className="pointer-events-none absolute inset-x-0 top-[100%] h-full opacity-90">
+            <div className="pointer-events-none absolute inset-x-0 top-[100%] h-full opacity-90" aria-hidden="true" inert>
               {nextEntryPreview === undefined ? (
                 <TopicCard type="question" title="Question" content={nextTopic.question} />
               ) : nextEntryPreview}
