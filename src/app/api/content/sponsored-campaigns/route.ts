@@ -56,7 +56,7 @@ function isCampaign(value: unknown): value is Record<string, unknown> {
 
 export function OPTIONS(request: Request) {
   const headers = nativeApiCorsHeaders(request);
-  if (!headers.has('Access-Control-Allow-Origin') && !headers.has('Vary')) {
+  if (!headers.has('Access-Control-Allow-Origin')) {
     return new NextResponse(null, { status: 403 });
   }
   headers.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
