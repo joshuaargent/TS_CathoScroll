@@ -100,31 +100,17 @@ export function TopicFeedCore({
   const topCommentIndexByTopicId = useRef(new Map<string, number>());
   const processedTopicBoundariesByTopicId = useRef(new Set<string>());
   const feedEntryMapRef = useRef<FeedEntryMap | null>(null);
-  const [topicsSinceTopCommentCard, setTopicsSinceTopCommentCard] = useState(0);
   const topicsSinceTopCommentCardRef = useRef(0);
   const [, setSponsorLoading] = useState(false);
-  const [topicsSinceSponsorCard, setTopicsSinceSponsorCard] = useState(0);
   const topicsSinceSponsorCardRef = useRef(0);
   const sponsorCardsByTopicId = useRef(new Map<string, { campaigns: SponsorFeedCampaign[]; sessionId: string }>());
   const sponsorResultsByTopicId = useRef(new Map<string, { campaigns: SponsorFeedCampaign[]; sessionId: string | null }>());
   const sponsorRequestsByTopicId = useRef(new Map<string, Promise<{ campaigns: SponsorFeedCampaign[]; sessionId: string | null; retryable?: boolean }>>());
 
-  useEffect(() => {
-    topicsSinceTopCommentCardRef.current = topicsSinceTopCommentCard;
-  }, [topicsSinceTopCommentCard]);
-
-  useEffect(() => {
-    topicsSinceSponsorCardRef.current = topicsSinceSponsorCard;
-  }, [topicsSinceSponsorCard]);
   const sponsorSessionUserId = useRef(userId);
   const sponsorLoadingRef = useRef(false);
   const sponsorRequestVersion = useRef(0);
-  const sponsorRequestPreviousCadence = useRef(0);
-  const pendingSponsorAfterComment = useRef(false);
   const sponsorDueByTopicId = useRef(new Set<string>());
-  const sponsorPreviousIsComment = useRef(false);
-  const topCommentIsPreviousEntry = useRef(false);
-  const sponsorIsPreviousEntry = useRef(false);
   const [activeTopCommentIndex, setActiveTopCommentIndex] = useState(0);
   const activeInterstitialTopicIdRef = useRef<string | null>(null);
   const activateInterstitialTopic = (topicId: string | null) => {
@@ -139,14 +125,6 @@ export function TopicFeedCore({
     activeFeedEntryKeyRef.current = key;
     setActiveFeedEntryKeyState(key);
   }, []);
-  const isTopCommentCardActive = () => activeFeedEntryKeyRef.current?.startsWith('top-comments:') ?? false;
-  const isSponsorCardActive = () => activeFeedEntryKeyRef.current?.startsWith('sponsor:') ?? false;
-  const activateTopCommentEntry = (topicId = activeInterstitialTopicIdRef.current) => {
-    if (topicId) setActiveFeedEntryKey(`top-comments:${topicId}`);
-  };
-  const activateSponsorEntry = (topicId = activeInterstitialTopicIdRef.current) => {
-    if (topicId) setActiveFeedEntryKey(`sponsor:${topicId}`);
-  };
 
   const [topicIndex, setTopicIndex] = useState(personalized ? 0 : Math.floor(topics.length / 2));
   const [nextCursor, setNextCursor] = useState(initialCursor);
@@ -165,7 +143,6 @@ export function TopicFeedCore({
   useEffect(() => {
     if (sponsorSessionUserId.current === userId) return;
     sponsorSessionUserId.current = userId;
-    sponsorPreviousIsComment.current = false;
     seenTopCommentUserId.current = userId;
     topCommentCadenceUserId.current = userId;
     seenTopCommentIds.current.clear();
@@ -180,12 +157,9 @@ export function TopicFeedCore({
     sponsorDueByTopicId.current.clear();
     sponsorRequestVersion.current += 1;
     sponsorLoadingRef.current = false;
-    pendingSponsorAfterComment.current = false;
     setActiveFeedEntryKey(null);
     setActiveTopCommentIndex(0);
     setSponsorLoading(false);
-    setTopicsSinceSponsorCard(0);
-    setTopicsSinceTopCommentCard(0);
     topicsSinceSponsorCardRef.current = 0;
     topicsSinceTopCommentCardRef.current = 0;
   }, [userId]);
@@ -691,9 +665,6 @@ export function TopicFeedCore({
 
     pendingAdvanceAfterPageRef.current = false;
     activateInterstitialTopic(null);
-    topCommentIsPreviousEntry.current = false;
-    sponsorIsPreviousEntry.current = false;
-    sponsorPreviousIsComment.current = false;
     setTopicIndex((prev) => (prev + 1) % feedTopics.length);
   };
 
