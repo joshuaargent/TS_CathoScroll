@@ -639,16 +639,23 @@ export function TopicFeedCore({
     }
 
     const boundary = feedEntryMapRef.current?.byTopicId.get(currentTopic.id);
-    if (!boundary || processedTopicBoundariesByTopicId.current.has(currentTopic.id)) {
+    if (!boundary) {
       advanceToNextTopic();
       return;
     }
 
     const commentEntry = boundary.entries.find((entry) => entry.type === 'top-comments');
     const sponsorEntry = boundary.entries.find((entry) => entry.type === 'sponsor');
-    processedTopicBoundariesByTopicId.current.add(currentTopic.id);
-    setTopicsSinceTopCommentCard(boundary.commentCadenceAfter);
-    setTopicsSinceSponsorCard(boundary.sponsorCadenceAfter);
+    const boundaryAlreadyProcessed = processedTopicBoundariesByTopicId.current.has(currentTopic.id);
+    if (boundaryAlreadyProcessed && !commentEntry && !sponsorEntry) {
+      advanceToNextTopic();
+      return;
+    }
+    if (!boundaryAlreadyProcessed) {
+      processedTopicBoundariesByTopicId.current.add(currentTopic.id);
+      setTopicsSinceTopCommentCard(boundary.commentCadenceAfter);
+      setTopicsSinceSponsorCard(boundary.sponsorCadenceAfter);
+    }
 
     if (commentEntry && commentEntry.type === 'top-comments') {
       const commentGroup = commentEntry.comments;
