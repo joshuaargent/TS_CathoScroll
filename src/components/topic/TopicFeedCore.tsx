@@ -503,7 +503,7 @@ export function TopicFeedCore({
 
   // Keep a cursor for every active feed entry, including ordinary topics.
   useEffect(() => {
-    if (activeFeedEntryKey?.startsWith('top-comments:') || activeFeedEntryKey?.startsWith('sponsor:')) return;
+    if (activeFeedEntryKey && !activeFeedEntryKey.startsWith('topic:')) return;
     const currentTopic = feedTopics[topicIndex];
     const nextKey = currentTopic ? `topic:${currentTopic.id}` : null;
     if (nextKey !== activeFeedEntryKey) {
@@ -516,7 +516,7 @@ export function TopicFeedCore({
   useEffect(() => {
     if (
       !activeFeedEntryKey ||
-      (!activeFeedEntryKey.startsWith('top-comments:') && !activeFeedEntryKey.startsWith('sponsor:')) ||
+      activeFeedEntryKey.startsWith('topic:') ||
       !activeInterstitialTopicIdRef.current
     ) return;
     const entries = feedEntryMapRef.current
