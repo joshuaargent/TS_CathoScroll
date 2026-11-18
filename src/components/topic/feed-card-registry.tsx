@@ -45,11 +45,13 @@ export function createFeedCardRegistry(
       },
     }),
     registerFeedEntry<Extract<FeedEntry, { type: 'sponsor' }>, FeedCardRendererContext>('sponsor', {
-      render: (entry) => entry.status === 'pending' ? (
+      render: (entry) => entry.status === 'pending' || entry.status === 'error' ? (
         <SponsorLoadingCard
           key={`sponsor-loading:${entry.topicId}`}
           onNextTopic={() => invokeRegisteredFeedEntryAction(entry, 'next', registrations, context)}
           onPreviousTopic={() => invokeRegisteredFeedEntryAction(entry, 'previous', registrations, context)}
+          error={entry.status === 'error'}
+          onRetry={() => context.retrySponsorEntry(entry)}
         />
       ) : (
         <SponsorFeedCard
@@ -67,7 +69,7 @@ export function createFeedCardRegistry(
       onPrevious: context.navigatePrevious,
       onEnter: async (entry, direction, entries, cardContext) => {
         cardContext.activateInterstitialTopic(entry.topicId);
-        if (entry.status === 'pending') {
+        if (entry.status === 'pending' || entry.status === 'error') {
           await cardContext.loadSponsorEntry(entry, direction, entries);
         }
       },
