@@ -68,7 +68,7 @@ function rememberTopic(
 export function recordFeedTopicVisit(userId: string | null, topicId: string): void {
   if (!userId || !topicId) return;
   const now = Date.now();
-  const visitKey = userId + '\\u0000' + topicId;
+  const visitKey = userId + '\u0000' + topicId;
   const lastVisitAt = recentTopicVisitAt.get(visitKey);
   if (lastVisitAt !== undefined && now >= lastVisitAt && now - lastVisitAt < duplicateVisitWindowMs) {
     return;
