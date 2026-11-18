@@ -26,6 +26,14 @@ test('card renderer registrations own the component selection and receive shared
   assert.match(registry, /entry\.status === 'pending'/);
 });
 
+test('card enter and exit lifecycles are registered beside their renderers', () => {
+  assert.match(registry, /onEnter: \(entry/);
+  assert.match(registry, /onExit: \(entry/);
+  assert.match(core, /invokeRegisteredFeedEntryLifecycle/);
+  assert.doesNotMatch(core, /if \(entry\.type === 'top-comments'\)/);
+  assert.doesNotMatch(core, /if \(entry\.type === 'sponsor'\)/);
+});
+
 test('feed navigation no longer has separate comment and sponsor traversal handlers', () => {
   assert.match(core, /const navigateFeedEntry = async/);
   assert.doesNotMatch(core, /handleSponsorNext|handleSponsorPrevious|handleTopCommentNext|handleTopCommentPrevious/);
