@@ -12,17 +12,14 @@ interface BaseFeedCardProps {
   cardClassName?: string;
   link?: ReactNode;
   footer?: ReactNode;
-  progress?: ReactNode;
   className?: string;
 }
 
 /**
- * Shared feed-card shell.
- *
- * Its geometry intentionally matches the original TopicCard: the header is
- * the first row, followed by a vertically and horizontally centred content
- * region. Keep these spacing classes stable; topic swipe previews render this
- * component several times around the active card.
+ * Shared feed-card structure, matching the original TopicCard geometry:
+ * one padded full-height column, a top header row, and a centred content row.
+ * Topic-specific typography and actions remain owned by TopicCard; other
+ * entry types supply their own title, actions, content and optional link.
  */
 export function BaseFeedCard({
   title,
@@ -34,22 +31,18 @@ export function BaseFeedCard({
   cardClassName,
   link,
   footer,
-  progress,
   className,
 }: BaseFeedCardProps) {
   return (
-    <div className={cn('bg-bg-primary flex h-full w-full flex-col', className)}>
-      {progress && <div className="shrink-0 px-6 pt-4 pb-4">{progress}</div>}
-
-      <div className={cn('flex min-h-0 flex-1 flex-col px-6 pt-6 pb-6 md:px-8 md:pt-8 md:pb-8', cardClassName)}>
-      <header className="flex items-center justify-between">
+    <div className={cn('flex h-full w-full flex-col px-6 py-6 md:px-8 md:py-8', className, cardClassName)}>
+      <div className="flex items-center justify-between">
         {header ?? (
           <>
-            <div className="min-w-0">{title}</div>
-            {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
+            {title}
+            {actions && <div className="flex items-center gap-2">{actions}</div>}
           </>
         )}
-      </header>
+      </div>
 
       <div className="flex flex-1 items-center justify-center">
         <div className={cn('mx-auto text-center', contentWidthClassName, contentClassName)}>
@@ -59,7 +52,6 @@ export function BaseFeedCard({
       </div>
 
       {footer && <footer className="shrink-0">{footer}</footer>}
-      </div>
     </div>
   );
 }
