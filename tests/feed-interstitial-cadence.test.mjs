@@ -167,10 +167,11 @@ test('the original analytics-ranked feed keeps interstitials in per-topic sessio
   assert.match(feedCore, /sponsorCardsByTopicId\.current\.set\(currentTopic\.id/);
   assert.match(feedCore, /sponsorCardsByTopicId\.current\.get\(previousTopicId\)/);
   assert.match(feedCore, /topCommentCardsByTopicId\.current\.get\(previousTopicId\)/);
-  assert.match(feedCore, /getNextTopCommentCadence/);
-  assert.match(feedCore, /shouldInsertTopCommentCard/);
-  assert.match(feedCore, /getNextSponsorCadence/);
-  assert.match(feedCore, /shouldInsertSponsorCard/);
+  assert.match(feedCore, /buildFeedEntryMap/);
+  assert.match(feedCore, /feedEntryMapRef = useRef/);
+  assert.match(feedCore, /boundary\\.commentCadenceAfter/);
+  assert.match(feedCore, /boundary\\.sponsorCadenceAfter/);
+  assert.match(feedCore, /const boundary = feedEntryMapRef\\.current\\?\\.byTopicId\\.get\\(currentTopic\\.id\\)/);
   assert.match(feedCore, /pendingSponsorAfterComment\.current = sponsorDue/);
   assert.match(feedCore, /sponsorRequestVersion\.current !== requestVersion/);
   assert.doesNotMatch(feedCore, /buildFeedQueue|feedQueueWindow|renderFeedQueueEntry/);
