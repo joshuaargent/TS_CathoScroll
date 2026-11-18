@@ -142,8 +142,9 @@ test('topic, comment and sponsor cards use the same structural layout component'
   assert.match(feedCore, /sponsorLoading \? \(/);
   assert.match(feedCore, /<SponsorLoadingCard/);
   assert.match(feedCore, /onPreviousTopic=\{\(\) => \{/);
-  assert.match(feedCore, /const firstPendingSponsor = planned\.boundaries/);
-  assert.match(feedCore, /prefetchMappedSponsor\(firstPendingSponsor\.topicId\)/);
+  assert.match(feedCore, /const firstSponsor = planned\.boundaries/);
+  assert.match(feedCore, /prefetchMappedSponsor\(firstSponsor\.topicId\)/);
+  assert.match(feedCore, /const nextSponsorBoundary = boundaries/);
   assert.match(feedCore, /const commentGroup = commentEntry\.comments/);
   assert.match(feedCore, /for \(const comment of commentGroup\)/);
   assert.match(feedCore, /topCommentCardsByTopicId\.current\.set\(currentTopic\.id, commentGroup\)/);
