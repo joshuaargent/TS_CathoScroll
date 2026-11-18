@@ -19,6 +19,7 @@ const [progress, topic, comments, sponsor, sponsorLoading, topicCard, compatibil
 test('every feed card type uses the original shared topic progress implementation', () => {
   assert.match(progress, /bg-border h-1 w-full overflow-hidden rounded-full/);
   assert.match(progress, /bg-accent h-full transition-all duration-300/);
+  assert.match(progress, /shrink-0 pb-4/);
   assert.match(progress, /const percentage = \(\(safeCurrent \+ 1\) \/ safeTotal\) \* 100/);
   assert.match(feedCore, /import \{ FeedProgress \} from '\.\/FeedProgress'/);
   assert.match(feedCore, /<FeedProgress current=\{feedProgress\.current\} total=\{feedProgress\.total\} \/>/);
