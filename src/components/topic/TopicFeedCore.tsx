@@ -401,7 +401,7 @@ export function TopicFeedCore({
     }
   }, [topCommentsEndpoint]);
 
-  const prefetchMappedSponsor = (topicId: string) => {
+  const prefetchMappedSponsor = useCallback((topicId: string) => {
     const boundary = feedEntryMapRef.current?.byTopicId.get(topicId);
     const entry = boundary?.entries.find((item) => item.type === 'sponsor');
     if (!entry || entry.type !== 'sponsor' || entry.status !== 'pending') return;
@@ -417,7 +417,7 @@ export function TopicFeedCore({
       currentSponsor.sessionId = result.sessionId;
       currentSponsor.status = result.campaigns.length > 0 && result.sessionId ? 'ready' : 'empty';
     });
-  };
+  }, [getSponsorCampaignResult]);
 
   // Build the ordered topic/comment/sponsor map ahead of navigation. The
   // original analytics-ranked topic array remains the source of truth; each
@@ -471,7 +471,7 @@ export function TopicFeedCore({
     if (firstPendingSponsor && firstPendingSponsor.type === 'sponsor') {
       prefetchMappedSponsor(firstPendingSponsor.topicId);
     }
-  }, [feedTopics, topComments, userId, getSponsorCampaignResult]);
+  }, [feedTopics, topComments, userId, getSponsorCampaignResult, prefetchMappedSponsor]);
 
   // ----------------------------------
   // Initial Feed
