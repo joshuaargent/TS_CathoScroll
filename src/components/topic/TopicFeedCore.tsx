@@ -94,7 +94,6 @@ export function TopicFeedCore({
   const topCommentsNextOffsetRef = useRef<number | null>(null);
   const topCommentsLoadingRef = useRef(false);
   const [topCommentCardComments, setTopCommentCardComments] = useState<TopFeedComment[]>([]);
-  const [showTopCommentCard, setShowTopCommentCard] = useState(false);
   const seenTopCommentIds = useRef(new Set<number>());
   const seenTopCommentUserId = useRef(userId);
   const topCommentCadenceUserId = useRef(userId);
@@ -105,7 +104,6 @@ export function TopicFeedCore({
   const [topicsSinceTopCommentCard, setTopicsSinceTopCommentCard] = useState(0);
   const topicsSinceTopCommentCardRef = useRef(0);
   const [sponsorCampaigns, setSponsorCampaigns] = useState<SponsorFeedCampaign[]>([]);
-  const [showSponsorCard, setShowSponsorCard] = useState(false);
   const [sponsorLoading, setSponsorLoading] = useState(false);
   const [topicsSinceSponsorCard, setTopicsSinceSponsorCard] = useState(0);
   const topicsSinceSponsorCardRef = useRef(0);
@@ -137,6 +135,20 @@ export function TopicFeedCore({
     setActiveTopCommentIndex(
       topicId ? topCommentIndexByTopicId.current.get(topicId) ?? 0 : 0
     );
+  };
+  const [activeFeedEntryKey, setActiveFeedEntryKeyState] = useState<string | null>(null);
+  const activeFeedEntryKeyRef = useRef<string | null>(null);
+  const setActiveFeedEntryKey = (key: string | null) => {
+    activeFeedEntryKeyRef.current = key;
+    setActiveFeedEntryKeyState(key);
+  };
+  const isTopCommentCardActive = activeFeedEntryKey?.startsWith('top-comments:') ?? false;
+  const isSponsorCardActive = activeFeedEntryKey?.startsWith('sponsor:') ?? false;
+  const activateTopCommentEntry = (topicId = activeInterstitialTopicIdRef.current) => {
+    if (topicId) setActiveFeedEntryKey(`top-comments:${topicId}`);
+  };
+  const activateSponsorEntry = (topicId = activeInterstitialTopicIdRef.current) => {
+    if (topicId) setActiveFeedEntryKey(`sponsor:${topicId}`);
   };
 
   const [topicIndex, setTopicIndex] = useState(personalized ? 0 : Math.floor(topics.length / 2));
@@ -174,8 +186,8 @@ export function TopicFeedCore({
     sponsorLoadingRef.current = false;
     pendingSponsorAfterComment.current = false;
     setSponsorCampaigns([]);
-    setShowSponsorCard(false);
-    setShowTopCommentCard(false);
+    setActiveFeedEntryKey(null);
+    setActiveFeedEntryKey(null);
     setTopCommentCardComments([]);
     setActiveTopCommentIndex(0);
     setSponsorLoading(false);
@@ -291,7 +303,7 @@ export function TopicFeedCore({
             topCommentsRef.current = [];
             topCommentsNextOffsetRef.current = null;
             setTopComments([]);
-            setShowTopCommentCard(false);
+            setActiveFeedEntryKey(null);
             setTopCommentCardComments([]);
             topCommentCardsByTopicId.current.clear();
             topCommentIndexByTopicId.current.clear();
@@ -653,11 +665,11 @@ export function TopicFeedCore({
 
   const nextTopic = async () => {
     if (sponsorLoadingRef.current) return;
-    if (showTopCommentCard) {
+    if (isTopCommentCardActive) {
       await handleTopCommentNext();
       return;
     }
-    if (showSponsorCard) {
+    if (isSponsorCardActive) {
       handleSponsorNext();
       return;
     }
@@ -701,8 +713,8 @@ export function TopicFeedCore({
       activateInterstitialTopic(currentTopic.id);
       topCommentIsPreviousEntry.current = false;
       sponsorPreviousIsComment.current = false;
-      setShowSponsorCard(false);
-      setShowTopCommentCard(true);
+      setActiveFeedEntryKey(null);
+      activateTopCommentEntry();
       return;
     }
 
@@ -713,8 +725,8 @@ export function TopicFeedCore({
         sponsorIsPreviousEntry.current = false;
         setSponsorCampaigns(sponsorEntry.campaigns);
         setActiveSponsorSessionId(sponsorEntry.sessionId);
-        setShowTopCommentCard(false);
-        setShowSponsorCard(true);
+        setActiveFeedEntryKey(null);
+        activateSponsorEntry();
         return;
       }
 
@@ -746,7 +758,7 @@ export function TopicFeedCore({
                 sessionId: readySessionId,
               });
               setSponsorLoading(false);
-              setShowSponsorCard(true);
+              activateSponsorEntry();
             });
             return;
           }
@@ -810,11 +822,11 @@ export function TopicFeedCore({
       sponsorIsPreviousEntry.current = false;
       topCommentIsPreviousEntry.current = false;
       activateInterstitialTopic(null);
-      setShowTopCommentCard(false);
+      setActiveFeedEntryKey(null);
       if (!wasPreviousEntry) advanceToNextTopic();
       return;
     }
-    setShowSponsorCard(false);
+    setActiveFeedEntryKey(null);
     const wasPreviousEntry = sponsorIsPreviousEntry.current;
     sponsorIsPreviousEntry.current = false;
     sponsorPreviousIsComment.current = false;
@@ -835,9 +847,9 @@ export function TopicFeedCore({
     const wasPreviousEntry = sponsorIsPreviousEntry.current;
     sponsorPreviousIsComment.current = false;
     sponsorIsPreviousEntry.current = false;
-    setShowSponsorCard(false);
+    setActiveFeedEntryKey(null);
     if (previousWasComment) {
-      setShowTopCommentCard(true);
+      activateTopCommentEntry();
       return;
     }
     const topicId = activeInterstitialTopicIdRef.current;
@@ -864,12 +876,12 @@ export function TopicFeedCore({
       sponsorIsPreviousEntry.current = commentWasPreviousEntry;
       setSponsorCampaigns(cachedSponsor.campaigns);
       setActiveSponsorSessionId(cachedSponsor.sessionId);
-      setShowTopCommentCard(false);
-      setShowSponsorCard(true);
+      setActiveFeedEntryKey(null);
+      activateSponsorEntry();
       return;
     }
     if (!shouldShowSponsor || !currentTopic) {
-      setShowTopCommentCard(false);
+      setActiveFeedEntryKey(null);
       topCommentIsPreviousEntry.current = false;
       activateInterstitialTopic(null);
       if (!commentWasPreviousEntry) advanceToNextTopic();
@@ -895,8 +907,8 @@ export function TopicFeedCore({
         flushSync(() => {
           setSponsorCampaigns(result.campaigns);
           setActiveSponsorSessionId(result.sessionId);
-          setShowTopCommentCard(false);
-          setShowSponsorCard(true);
+          setActiveFeedEntryKey(null);
+          activateSponsorEntry();
           setSponsorLoading(false);
         });
         return;
@@ -907,7 +919,7 @@ export function TopicFeedCore({
         if (boundary) boundary.entries = boundary.entries.filter((entry) => entry.type !== 'sponsor');
       }
       flushSync(() => {
-        setShowTopCommentCard(false);
+        setActiveFeedEntryKey(null);
         setSponsorLoading(false);
         topCommentIsPreviousEntry.current = false;
         activateInterstitialTopic(null);
@@ -932,7 +944,7 @@ export function TopicFeedCore({
     const wasPreviousEntry = topCommentIsPreviousEntry.current;
     topCommentIsPreviousEntry.current = false;
     sponsorIsPreviousEntry.current = false;
-    setShowTopCommentCard(false);
+    setActiveFeedEntryKey(null);
     activateInterstitialTopic(null);
     if (wasPreviousEntry) {
       setTopicIndex((previous) => (previous - 1 + feedTopics.length) % feedTopics.length);
@@ -940,11 +952,11 @@ export function TopicFeedCore({
   };
 
   const previousTopic = () => {
-    if (showSponsorCard || sponsorLoadingRef.current) {
+    if (isSponsorCardActive || sponsorLoadingRef.current) {
       handleSponsorPrevious();
       return;
     }
-    if (showTopCommentCard) {
+    if (isTopCommentCardActive) {
       handleTopCommentPrevious();
       return;
     }
@@ -990,8 +1002,8 @@ export function TopicFeedCore({
       if (entry.status === 'ready' && entry.campaigns.length > 0 && entry.sessionId) {
         setSponsorCampaigns(entry.campaigns);
         setActiveSponsorSessionId(entry.sessionId);
-        setShowTopCommentCard(false);
-        setShowSponsorCard(true);
+        setActiveFeedEntryKey(null);
+        activateSponsorEntry();
         return;
       }
 
@@ -1019,14 +1031,14 @@ export function TopicFeedCore({
               });
               setSponsorCampaigns(result.campaigns);
               setActiveSponsorSessionId(result.sessionId);
-              setShowSponsorCard(true);
+              activateSponsorEntry();
             } else if (commentEntry?.type === 'top-comments') {
               setSponsorLoading(false);
-              setShowSponsorCard(false);
+              setActiveFeedEntryKey(null);
               setTopCommentCardComments(commentEntry.comments);
-              setShowTopCommentCard(true);
+              activateTopCommentEntry();
             } else {
-              setShowSponsorCard(false);
+              setActiveFeedEntryKey(null);
               const anchorIndex = feedTopics.findIndex((topic) => topic.id === entry.topicId);
               setTopicIndex(anchorIndex >= 0 ? anchorIndex : Math.max(0, topicIndex - 1));
               activateInterstitialTopic(null);
@@ -1054,8 +1066,8 @@ export function TopicFeedCore({
       );
       topCommentCardsByTopicId.current.set(previous.entry.topicId, previousCard);
       setTopCommentCardComments(previousCard);
-      setShowSponsorCard(false);
-      setShowTopCommentCard(true);
+      setActiveFeedEntryKey(null);
+      activateTopCommentEntry();
       return;
     }
 
@@ -1075,19 +1087,27 @@ export function TopicFeedCore({
   );
 
   const activeInterstitialTopicId = activeInterstitialTopicIdRef.current;
-  const activeFeedCardEntry: FeedEntry | null = activeInterstitialTopicId
-    ? showTopCommentCard && activeTopCommentCardComments.length > 0
-      ? { type: 'top-comments', topicId: activeInterstitialTopicId, comments: activeTopCommentCardComments }
-      : (showSponsorCard || sponsorLoading)
-        ? {
-            type: 'sponsor',
-            topicId: activeInterstitialTopicId,
-            status: sponsorLoading ? 'pending' : 'ready',
-            campaigns: sponsorCampaigns,
-            sessionId: activeSponsorSessionId,
-          }
-        : null
+  const flattenedEntries = feedEntryMapRef.current
+    ? flattenFeedEntryMap(feedEntryMapRef.current)
+    : [];
+  const activeMappedEntry = activeFeedEntryKey
+    ? flattenedEntries.find((entry) => getFeedEntryKey(entry) === activeFeedEntryKey)
     : null;
+  const activeFeedCardEntry: FeedEntry | null = activeMappedEntry?.type === 'top-comments'
+    ? {
+        ...activeMappedEntry,
+        comments: activeTopCommentCardComments.length > 0
+          ? activeTopCommentCardComments
+          : activeMappedEntry.comments,
+      }
+    : activeMappedEntry?.type === 'sponsor'
+      ? {
+          ...activeMappedEntry,
+          status: sponsorLoading ? 'pending' : sponsorCampaigns.length > 0 ? 'ready' : activeMappedEntry.status,
+          campaigns: sponsorCampaigns.length > 0 ? sponsorCampaigns : activeMappedEntry.campaigns,
+          sessionId: activeSponsorSessionId ?? activeMappedEntry.sessionId,
+        }
+      : null;
 
   const feedCardRendererContext = {
     userId,
