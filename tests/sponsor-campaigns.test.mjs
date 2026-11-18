@@ -84,11 +84,13 @@ test('sponsor event recording requires a served and viewable placement', () => {
 
 test('sponsored feed cards are disclosed and inserted separately from organic recommendations', () => {
   assert.match(campaignLib, /SPONSOR_CARD_CADENCE = 10/);
-  assert.match(feedCore, /shouldInsertSponsorCard/);
-  assert.match(feedCore, /const chooseSponsor = sponsorDue && !commentDue/);
+  assert.match(feedCore, /buildFeedEntryMap/);
+  assert.match(feedCore, /const sponsorEntry = boundary\.entries\.find/);
+  assert.match(feedCore, /prefetchMappedSponsor/);
   assert.match(feedCore, /pendingSponsorAfterComment/);
   assert.doesNotMatch(feedCore, /lastInterstitialType/);
-  assert.match(feedCore, /setTopicsSinceSponsorCard\(sponsorDue \? currentSponsorCadence : nextSponsorCadence\)/);
+  assert.match(feedCore, /const nextSponsorBoundary = boundaries/);
+  assert.match(feedCore, /sponsorCadenceAfter/);
   assert.match(feedCore, /SponsorFeedCard/);
   assert.match(sponsorCard, /Sponsored/);
   assert.match(sponsorCard, /viewable_impression/);
