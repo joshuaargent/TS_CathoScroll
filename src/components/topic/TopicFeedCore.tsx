@@ -1002,16 +1002,12 @@ export function TopicFeedCore({
       previousEntryPreview: undefined,
     };
     // The registry stores deferred callbacks; refs are read only when users interact with the preview's active counterpart.
-    // eslint-disable-next-line react-hooks/refs
-    const previewRegistry = createFeedCardRegistry(previewContext);
-    // eslint-disable-next-line react-hooks/refs
-    return renderRegisteredFeedEntry(entry, previewRegistry, previewContext);
+    const previewRegistry = createFeedCardRegistry(previewContext); // eslint-disable-line react-hooks/refs
+    return renderRegisteredFeedEntry(entry, previewRegistry, previewContext); // eslint-disable-line react-hooks/refs
   };
 
-  // eslint-disable-next-line react-hooks/refs
-  const nextEntryPreview = renderFeedEntryPreview(nextFeedEntry);
-  // eslint-disable-next-line react-hooks/refs
-  const previousEntryPreview = renderFeedEntryPreview(previousFeedEntry);
+  const nextEntryPreview = renderFeedEntryPreview(nextFeedEntry); // eslint-disable-line react-hooks/refs
+  const previousEntryPreview = renderFeedEntryPreview(previousFeedEntry); // eslint-disable-line react-hooks/refs
   const topicCard = (
     <Viewer
       topics={feedTopics}
@@ -1033,8 +1029,7 @@ export function TopicFeedCore({
     previousEntryPreview,
   };
   // The registry stores deferred callbacks; refs are read only when users interact with the rendered card.
-  // eslint-disable-next-line react-hooks/refs
-  const feedCardRenderers = createFeedCardRegistry(feedCardRendererContext);
+  const feedCardRenderers = createFeedCardRegistry(feedCardRendererContext); // eslint-disable-line react-hooks/refs
   useLayoutEffect(() => {
     feedCardRendererContextRef.current = feedCardRendererContext;
     feedCardRenderersRef.current = feedCardRenderers;
@@ -1042,8 +1037,7 @@ export function TopicFeedCore({
 
   // Resolve every active entry—including topics—through the same registry.
   const renderedActiveEntry = activeMappedEntry
-    // eslint-disable-next-line react-hooks/refs
-    ? renderRegisteredFeedEntry(activeMappedEntry, feedCardRenderers, feedCardRendererContext)
+    ? renderRegisteredFeedEntry(activeMappedEntry, feedCardRenderers, feedCardRendererContext) // eslint-disable-line react-hooks/refs
     : topicCard;
 
   // ----------------------------------
