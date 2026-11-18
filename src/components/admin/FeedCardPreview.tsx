@@ -83,6 +83,7 @@ export function FeedCardPreview({ userId }: { userId: string }) {
             onPreviousTopic={noop}
             onOpenComment={noop}
             onCommentViewed={noop}
+            onProgressChange={noop}
           />
         ) : (
           <SponsorFeedCard
