@@ -401,6 +401,24 @@ export function TopicFeedCore({
     }
   }, [topCommentsEndpoint]);
 
+  const prefetchMappedSponsor = (topicId: string) => {
+    const boundary = feedEntryMapRef.current?.byTopicId.get(topicId);
+    const entry = boundary?.entries.find((item) => item.type === 'sponsor');
+    if (!entry || entry.type !== 'sponsor' || entry.status !== 'pending') return;
+    const topic = feedTopicsRef.current.find((item) => item.id === topicId);
+    if (!topic) return;
+
+    void getSponsorCampaignResult(topic).then((result) => {
+      if (result.retryable) return;
+      const currentBoundary = feedEntryMapRef.current?.byTopicId.get(topicId);
+      const currentSponsor = currentBoundary?.entries.find((item) => item.type === 'sponsor');
+      if (!currentSponsor || currentSponsor.type !== 'sponsor') return;
+      currentSponsor.campaigns = result.campaigns;
+      currentSponsor.sessionId = result.sessionId;
+      currentSponsor.status = result.campaigns.length > 0 && result.sessionId ? 'ready' : 'empty';
+    });
+  };
+
   // Build the ordered topic/comment/sponsor map ahead of navigation. The
   // original analytics-ranked topic array remains the source of truth; each
   // topic boundary owns its interstitial entries in this single map.
@@ -445,25 +463,13 @@ export function TopicFeedCore({
       byTopicId,
     };
 
-    // Resolve sponsor slots while the user is reading earlier topics. The
-    // swipe path only consumes the already-assigned slot; it does not decide
-    // whether a sponsor is due or start normal campaign discovery.
-    for (const boundary of planned.boundaries) {
-      const sponsorEntry = boundary.entries.find((entry) => entry.type === 'sponsor');
-      if (!sponsorEntry || sponsorEntry.type !== 'sponsor' || sponsorEntry.status !== 'pending') {
-        continue;
-      }
-      const topic = feedTopics.find((item) => item.id === boundary.topicId);
-      if (!topic) continue;
-      void getSponsorCampaignResult(topic).then((result) => {
-        if (result.retryable) return;
-        const currentBoundary = feedEntryMapRef.current?.byTopicId.get(boundary.topicId);
-        const currentSponsor = currentBoundary?.entries.find((entry) => entry.type === 'sponsor');
-        if (!currentSponsor || currentSponsor.type !== 'sponsor') return;
-        currentSponsor.campaigns = result.campaigns;
-        currentSponsor.sessionId = result.sessionId;
-        currentSponsor.status = result.campaigns.length > 0 && result.sessionId ? 'ready' : 'empty';
-      });
+    // Resolve only the next sponsor slot. Fetching every future campaign
+    // would consume per-user delivery caps for cards the user may never reach.
+    const firstPendingSponsor = planned.boundaries
+      .flatMap((boundary) => boundary.entries)
+      .find((entry) => entry.type === 'sponsor' && entry.status === 'pending');
+    if (firstPendingSponsor && firstPendingSponsor.type === 'sponsor') {
+      prefetchMappedSponsor(firstPendingSponsor.topicId);
     }
   }, [feedTopics, topComments, userId, getSponsorCampaignResult]);
 
@@ -566,6 +572,15 @@ export function TopicFeedCore({
 
   // Modulo arithmetic wraps the finite catalogue into a circular feed.
   const advanceToNextTopic = () => {
+    const currentTopicId = feedTopics[topicIndex]?.id;
+    const boundaries = feedEntryMapRef.current?.boundaries ?? [];
+    const currentBoundaryIndex = boundaries.findIndex((boundary) => boundary.topicId === currentTopicId);
+    const nextPendingSponsor = boundaries
+      .slice(Math.max(0, currentBoundaryIndex + 1))
+      .find((boundary) => boundary.entries.some(
+        (entry) => entry.type === 'sponsor' && entry.status === 'pending'
+      ));
+    if (nextPendingSponsor) prefetchMappedSponsor(nextPendingSponsor.topicId);
     if (topicIndex >= feedTopics.length - 3 && nextCursor) {
       void loadMoreTopics();
     }
