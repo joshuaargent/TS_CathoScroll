@@ -30,7 +30,8 @@ export function TopicCardLayout({
 }: TopicCardLayoutProps) {
   return (
     <BaseFeedCard
-      title={header}
+      title={null}
+      header={header}
       progress={progress}
       footer={footer}
       className={className}
