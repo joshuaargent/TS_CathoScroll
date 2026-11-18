@@ -491,7 +491,7 @@ export function TopicFeedCore({
     }
 
     pendingAdvanceAfterPageRef.current = false;
-    activeInterstitialTopicIdRef.current = null;
+    activateInterstitialTopic(null);
     topCommentIsPreviousEntry.current = false;
     sponsorIsPreviousEntry.current = false;
     sponsorPreviousIsComment.current = false;
@@ -521,7 +521,7 @@ export function TopicFeedCore({
         return;
       }
       if (cachedSponsor?.campaigns.length) {
-        activeInterstitialTopicIdRef.current = currentTopic.id;
+        activateInterstitialTopic(currentTopic.id);
         sponsorPreviousIsComment.current = false;
         sponsorIsPreviousEntry.current = false;
         setSponsorCampaigns(cachedSponsor.campaigns);
@@ -531,7 +531,7 @@ export function TopicFeedCore({
         return;
       }
       if (sponsorDueByTopicId.current.has(currentTopic.id)) {
-        activeInterstitialTopicIdRef.current = currentTopic.id;
+        activateInterstitialTopic(currentTopic.id);
         sponsorRequestPreviousCadence.current = topicsSinceSponsorCard;
         setTopicsSinceSponsorCard(0);
         sponsorLoadingRef.current = true;
@@ -687,7 +687,6 @@ export function TopicFeedCore({
         sponsorDueByTopicId.current.add(currentTopic.id);
       }
       if (currentTopic) {
-        activeInterstitialTopicIdRef.current = currentTopic.id;
         sponsorPreviousIsComment.current = false;
         topCommentIsPreviousEntry.current = false;
         // Reserve the complete group as soon as it is assigned. Unviewed
@@ -699,6 +698,7 @@ export function TopicFeedCore({
         setTopCommentCardComments(unseenTopComments);
         topCommentCardsByTopicId.current.set(currentTopic.id, unseenTopComments);
         topCommentIndexByTopicId.current.set(currentTopic.id, 0);
+        activateInterstitialTopic(currentTopic.id);
         setShowSponsorCard(false);
         setShowTopCommentCard(true);
 
@@ -773,7 +773,7 @@ export function TopicFeedCore({
     }
 
     if (previousCard?.length) {
-      activeInterstitialTopicIdRef.current = previousTopicId ?? null;
+      activateInterstitialTopic(previousTopicId ?? null);
       sponsorPreviousIsComment.current = false;
       // We are traversing backward from the following topic. Leaving this
       // comment card backward must therefore move to the previous topic;
@@ -831,7 +831,7 @@ export function TopicFeedCore({
             const wasPreviousEntry = sponsorIsPreviousEntry.current;
             sponsorIsPreviousEntry.current = false;
             topCommentIsPreviousEntry.current = false;
-            activeInterstitialTopicIdRef.current = null;
+            activateInterstitialTopic(null);
             setShowTopCommentCard(false);
             if (!wasPreviousEntry) advanceToNextTopic();
           }}
@@ -847,7 +847,7 @@ export function TopicFeedCore({
             if (previousWasComment) {
               setShowTopCommentCard(true);
             } else {
-              activeInterstitialTopicIdRef.current = null;
+              activateInterstitialTopic(null);
               if (wasPreviousEntry) {
                 setTopicIndex((previous) => (previous - 1 + feedTopics.length) % feedTopics.length);
               }
@@ -867,7 +867,7 @@ export function TopicFeedCore({
             sponsorIsPreviousEntry.current = false;
             sponsorPreviousIsComment.current = false;
             topCommentIsPreviousEntry.current = false;
-            activeInterstitialTopicIdRef.current = null;
+            activateInterstitialTopic(null);
             if (!wasPreviousEntry) advanceToNextTopic();
           }}
           onPreviousTopic={() => {
@@ -879,7 +879,7 @@ export function TopicFeedCore({
             if (previousWasComment) {
               setShowTopCommentCard(true);
             } else {
-              activeInterstitialTopicIdRef.current = null;
+              activateInterstitialTopic(null);
               if (wasPreviousEntry) {
                 setTopicIndex((previous) => (previous - 1 + feedTopics.length) % feedTopics.length);
               }
@@ -924,7 +924,7 @@ export function TopicFeedCore({
             if (!shouldShowSponsorAfterComment) {
               setShowTopCommentCard(false);
               topCommentIsPreviousEntry.current = false;
-              activeInterstitialTopicIdRef.current = null;
+              activateInterstitialTopic(null);
               if (!commentWasPreviousEntry) advanceToNextTopic();
               return;
             }
@@ -933,7 +933,7 @@ export function TopicFeedCore({
               setShowTopCommentCard(false);
               setTopicsSinceSponsorCard(0);
               topCommentIsPreviousEntry.current = false;
-              activeInterstitialTopicIdRef.current = null;
+              activateInterstitialTopic(null);
               if (!commentWasPreviousEntry) advanceToNextTopic();
               return;
             }
@@ -974,7 +974,7 @@ export function TopicFeedCore({
                 setShowTopCommentCard(false);
                 setSponsorLoading(false);
                 topCommentIsPreviousEntry.current = false;
-                activeInterstitialTopicIdRef.current = null;
+                activateInterstitialTopic(null);
                 if (!commentWasPreviousEntry) advanceToNextTopic();
               });
             } finally {
@@ -998,7 +998,7 @@ export function TopicFeedCore({
             // When the comment was reached by swiping backward from a later
             // topic, leaving it backward must continue to the earlier topic.
             setShowTopCommentCard(false);
-            activeInterstitialTopicIdRef.current = null;
+            activateInterstitialTopic(null);
             if (wasPreviousEntry) {
               setTopicIndex((previous) => (previous - 1 + feedTopics.length) % feedTopics.length);
             }
