@@ -164,7 +164,8 @@ export function TopCommentFeedCard({
       Math.max(0, comments.length - 1)
     );
     setActiveIndex(nextIndex);
-  }, [comments.length, initialActiveIndex]);
+    if (nextIndex !== initialActiveIndex) onActiveIndexChange?.(nextIndex);
+  }, [comments.length, initialActiveIndex, onActiveIndexChange]);
 
   useEffect(() => {
     if (activeCommentId !== undefined) onCommentViewed(activeCommentId);
