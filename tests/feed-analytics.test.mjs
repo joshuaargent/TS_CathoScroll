@@ -43,7 +43,7 @@ test('queues events separately for each signed-in account', () => {
   assert.equal('user_id' in accountA[0], false);
 });
 
-test('bounds the offline analytics queue while preserving the oldest unacknowledged events', () => {
+test('bounds the offline analytics queue while retaining the most recent events', () => {
   for (let index = 0; index < 225; index += 1) {
     analytics.recordFeedAnalyticsEvent('bounded-account', 'swipe_depth', 'topic-one', {
       depth: index % 20,
@@ -53,8 +53,8 @@ test('bounds the offline analytics queue while preserving the oldest unacknowled
 
   const queue = JSON.parse(storage.get('cathoscroll.feed-analytics.v1.bounded-account'));
   assert.equal(queue.length, 200);
-  assert.equal(queue[0].metadata.depth, 0);
-  assert.equal(queue.at(-1).metadata.depth, 19);
+  assert.equal(queue[0].metadata.depth, 5);
+  assert.equal(queue.at(-1).metadata.depth, 4);
 });
 
 test('flushes a bounded batch and removes only acknowledged event IDs', async () => {
@@ -113,14 +113,23 @@ test('uses the authenticated remote API transport for native applications', asyn
 });
 
 test('topic visits and completions remain deduplicated across viewer unmounts', () => {
-  analytics.recordFeedTopicVisit('session-account', 'topic-revisited');
-  analytics.recordFeedTopicVisit('session-account', 'topic-revisited');
-  analytics.recordFeedTopicCompletion('session-account', 'topic-completed');
-  analytics.recordFeedTopicCompletion('session-account', 'topic-completed');
+  const originalNow = Date.now;
+  let now = 1000;
+  Date.now = () => now;
 
-  const events = JSON.parse(storage.get('cathoscroll.feed-analytics.v1.session-account'));
-  assert.deepEqual(
-    events.map((event) => event.event_type),
-    ['impression', 'impression', 'return_visit', 'completion']
-  );
+  try {
+    analytics.recordFeedTopicVisit('session-account', 'topic-revisited');
+    now += 101;
+    analytics.recordFeedTopicVisit('session-account', 'topic-revisited');
+    analytics.recordFeedTopicCompletion('session-account', 'topic-completed');
+    analytics.recordFeedTopicCompletion('session-account', 'topic-completed');
+
+    const events = JSON.parse(storage.get('cathoscroll.feed-analytics.v1.session-account'));
+    assert.deepEqual(
+      events.map((event) => event.event_type),
+      ['impression', 'impression', 'return_visit', 'completion']
+    );
+  } finally {
+    Date.now = originalNow;
+  }
 });
