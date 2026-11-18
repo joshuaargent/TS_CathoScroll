@@ -11,6 +11,7 @@ interface BaseFeedCardProps {
   cardClassName?: string;
   link?: ReactNode;
   footer?: ReactNode;
+  progress?: ReactNode;
   className?: string;
 }
 
@@ -31,10 +32,14 @@ export function BaseFeedCard({
   cardClassName,
   link,
   footer,
+  progress,
   className,
 }: BaseFeedCardProps) {
   return (
-    <div className={cn('flex h-full w-full flex-col px-6 py-6 md:px-8 md:py-8', cardClassName, className)}>
+    <div className={cn('bg-bg-primary flex h-full w-full flex-col', className)}>
+      {progress && <div className="shrink-0 px-6 pt-4 pb-4">{progress}</div>}
+
+      <div className={cn('flex min-h-0 flex-1 flex-col px-6 pt-6 pb-6 md:px-8 md:pt-8 md:pb-8', cardClassName)}>
       <header className="flex items-center justify-between">
         <div className="min-w-0">{title}</div>
         {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
@@ -48,6 +53,7 @@ export function BaseFeedCard({
       </div>
 
       {footer && <footer className="shrink-0">{footer}</footer>}
+      </div>
     </div>
   );
 }
