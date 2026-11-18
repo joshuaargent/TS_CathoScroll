@@ -1,4 +1,5 @@
 export const TOP_COMMENT_CADENCE = 5;
+export const TOP_COMMENT_GROUP_SIZE = 5;
 
 export interface TopFeedComment {
   comment_id: number;
@@ -92,6 +93,10 @@ export function toPublicTopFeedComment(comment: TopFeedComment): TopFeedComment 
     like_count: comment.like_count,
     reply_count: comment.reply_count,
   };
+}
+
+export function getTopCommentGroup(comments: TopFeedComment[]): TopFeedComment[] {
+  return comments.slice(0, TOP_COMMENT_GROUP_SIZE);
 }
 
 export function getUnseenTopFeedComments(
