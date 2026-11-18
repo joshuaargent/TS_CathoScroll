@@ -24,6 +24,7 @@ export function createFeedCardRegistry(
           comments={entry.comments}
           initialActiveIndex={context.activeTopCommentIndex}
           onActiveIndexChange={(index) => context.onTopCommentIndexChange(entry.topicId, index)}
+          onProgressChange={context.onProgressChange}
           onCommentViewed={context.onCommentViewed}
           onNextTopic={() => invokeRegisteredFeedEntryAction(entry, 'next', registrations, context)}
           onPreviousTopic={() => invokeRegisteredFeedEntryAction(entry, 'previous', registrations, context)}
