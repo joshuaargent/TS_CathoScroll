@@ -205,7 +205,7 @@ test('transient sponsor request failures remain retryable and cannot overwrite a
   assert.match(feedCore, /retryable: true/);
   assert.match(feedCore, /sponsorSessionUserId\.current === requestedUserId && !result\.retryable/);
   assert.match(feedCore, /sponsorRequestsByTopicId\.current\.get\(topic\.id\) === request/);
-  assert.match(feedCore, /if \(!result\.retryable\) sponsorDueByTopicId\.current\.delete\(currentTopic\.id\)/);
+  assert.match(feedCore, /if \(!result\.retryable\) \{[\s\S]*?sponsorDueByTopicId\.current\.delete\(currentTopic\.id\)/);
 });
 
 
