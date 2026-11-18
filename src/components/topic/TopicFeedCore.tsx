@@ -5,18 +5,13 @@ import { flushSync } from 'react-dom';
 
 import { shuffle } from '@/lib/utils';
 import {
-  getNextTopCommentCadence,
-  getTopCommentGroup,
   getUnseenTopFeedComments,
   parseTopFeedComments,
-  shouldInsertTopCommentCard,
   type TopFeedComment,
 } from '@/lib/feed-comments';
 import { TopCommentFeedCard } from './TopCommentFeedCard';
 import {
-  getNextSponsorCadence,
   parseSponsorFeedCampaigns,
-  shouldInsertSponsorCard,
   type SponsorFeedCampaign,
 } from '@/lib/sponsor-campaigns';
 import { SponsorFeedCard } from './SponsorFeedCard';
@@ -108,14 +103,24 @@ export function TopicFeedCore({
   const processedTopicBoundariesByTopicId = useRef(new Set<string>());
   const feedEntryMapRef = useRef<FeedEntryMap | null>(null);
   const [topicsSinceTopCommentCard, setTopicsSinceTopCommentCard] = useState(0);
+  const topicsSinceTopCommentCardRef = useRef(0);
   const [sponsorCampaigns, setSponsorCampaigns] = useState<SponsorFeedCampaign[]>([]);
   const [showSponsorCard, setShowSponsorCard] = useState(false);
   const [sponsorLoading, setSponsorLoading] = useState(false);
   const [topicsSinceSponsorCard, setTopicsSinceSponsorCard] = useState(0);
+  const topicsSinceSponsorCardRef = useRef(0);
   const sponsorCardsByTopicId = useRef(new Map<string, { campaigns: SponsorFeedCampaign[]; sessionId: string }>());
   const sponsorResultsByTopicId = useRef(new Map<string, { campaigns: SponsorFeedCampaign[]; sessionId: string | null }>());
   const sponsorRequestsByTopicId = useRef(new Map<string, Promise<{ campaigns: SponsorFeedCampaign[]; sessionId: string | null; retryable?: boolean }>>());
   const [activeSponsorSessionId, setActiveSponsorSessionId] = useState<string | null>(null);
+
+  useEffect(() => {
+    topicsSinceTopCommentCardRef.current = topicsSinceTopCommentCard;
+  }, [topicsSinceTopCommentCard]);
+
+  useEffect(() => {
+    topicsSinceSponsorCardRef.current = topicsSinceSponsorCard;
+  }, [topicsSinceSponsorCard]);
   const sponsorSessionUserId = useRef(userId);
   const sponsorLoadingRef = useRef(false);
   const sponsorRequestVersion = useRef(0);
@@ -409,7 +414,7 @@ export function TopicFeedCore({
     const currentId = currentTopicId.current;
     const currentIndex = currentId
       ? feedTopics.findIndex((topic) => topic.id === currentId)
-      : Math.max(0, topicIndex);
+      : 0;
     const activeIndex = activeTopicId
       ? feedTopics.findIndex((topic) => topic.id === activeTopicId)
       : -1;
@@ -428,8 +433,8 @@ export function TopicFeedCore({
       comments: getUnseenTopFeedComments(topComments, seenTopCommentIds.current),
       seenCommentIds: seenTopCommentIds.current,
       userId,
-      commentCadence: topicsSinceTopCommentCard,
-      sponsorCadence: topicsSinceSponsorCard,
+      commentCadence: topicsSinceTopCommentCardRef.current,
+      sponsorCadence: topicsSinceSponsorCardRef.current,
       sponsorResults: sponsorResultsByTopicId.current,
     });
     const boundaries = [...prefix, ...planned.boundaries];
