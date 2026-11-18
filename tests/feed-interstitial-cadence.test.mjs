@@ -210,7 +210,6 @@ test('topics, comments and sponsors occupy one exclusive feed-card slot', () => 
   assert.match(feedRenderer, /\{entryCard\}/);
   assert.doesNotMatch(feedRenderer, /absolute inset-0 z-10|invisible pointer-events-none|topicViewer|activeEntry/);
   assert.match(feedRenderer, /No card is mounted underneath another card/);
-  assert.match(feedRenderer, /activeEntry: FeedEntry \| null/);
   assert.match(feedCore, /<FeedRenderer/);
   assert.match(feedCore, /const topicCard = \(/);
   assert.match(feedCore, /const renderedActiveEntry = activeMappedEntry/);
@@ -225,8 +224,16 @@ test('all card types preview their actual adjacent mapped feed entry without pre
   assert.match(topicViewer, /previousEntryPreview !== null/);
   assert.match(topicViewer, /nextEntryPreview !== null/);
   assert.match(topicViewer, /nextEntryPreview === undefined/);
-  assert.match(feedCore, /const nextEntryPreview = nextFeedEntry && nextFeedEntry\.type !== 'topic' \? null : undefined/);
-  assert.match(feedCore, /const previousEntryPreview = previousFeedEntry && previousFeedEntry\.type !== 'topic' \? null : undefined/);
+  assert.match(feedCore, /const currentEntryKey = activeMappedEntry/);
+  assert.match(feedCore, /const renderFeedEntryPreview = \(entry: FeedEntry \| null\)/);
+  assert.match(feedCore, /const nextEntryPreview = renderFeedEntryPreview\(nextFeedEntry\)/);
+  assert.match(feedCore, /const previousEntryPreview = renderFeedEntryPreview\(previousFeedEntry\)/);
+  assert.match(feedCore, /previewMode: true/);
+  assert.match(cardRegistry, /previewMode=\{context\.previewMode\}/);
+  assert.match(cardRegistry, /nextEntryPreview=\{context\.nextEntryPreview\}/);
+  assert.match(cardRegistry, /previousEntryPreview=\{context\.previousEntryPreview\}/);
+  assert.match(topCommentCard, /if \(active && !previewMode\) onCommentViewed/);
+  assert.match(topCommentCard, /if \(active && !previewMode\) onProgressChange/);
 });
 
 
