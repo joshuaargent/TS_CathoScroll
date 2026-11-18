@@ -43,9 +43,10 @@ test('sponsor users can submit campaigns and view only their own aggregate finan
 });
 
 test('feed gracefully omits missing comment and sponsor inventory without blank interstitials', () => {
-  assert.match(feedCore, /activateTopCommentEntry\(\)/);
+  assert.match(feedCore, /if \(entry\.type === 'top-comments'\)/);
+  assert.match(feedCore, /topCommentCardsByTopicId\.current\.set\(entry\.topicId, entry\.comments\)/);
   assert.match(feedCore, /result\.campaigns\.length > 0/);
-  assert.match(feedCore, /commentEntry && commentEntry\.type === 'top-comments'/);
+  assert.match(feedCore, /const skipEntry = async/);
   assert.match(feedCore, /comments: unseenComments/);
   assert.match(sponsorCard, /Sponsored/);
   assert.match(sponsorCard, /target="_blank"/);
