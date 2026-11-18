@@ -31,7 +31,7 @@ export function TopicCardLayout({
         </div>
       )}
 
-      <div className={cn('flex min-h-0 flex-1 flex-col px-6 pb-6 md:px-8 md:pb-8', cardClassName)}>
+      <div className={cn('flex min-h-0 flex-1 flex-col px-6 pt-6 pb-6 md:px-8 md:pt-8 md:pb-8', cardClassName)}>
         <header className="flex items-center justify-between gap-3">
           {header}
         </header>
