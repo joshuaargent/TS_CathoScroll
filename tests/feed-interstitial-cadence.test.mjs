@@ -233,8 +233,8 @@ test('all card types preview their actual adjacent mapped feed entry without pre
   assert.match(cardRegistry, /previewMode=\{context\.previewMode\}/);
   assert.match(cardRegistry, /nextEntryPreview=\{context\.nextEntryPreview\}/);
   assert.match(cardRegistry, /previousEntryPreview=\{context\.previousEntryPreview\}/);
-  assert.match(topCommentCard, /if \(active && !previewMode\) onCommentViewed/);
-  assert.match(topCommentCard, /if \(active && !previewMode\) onProgressChange/);
+  assert.match(topCommentCard, /if \(active && !previewMode && activeCommentId !== undefined\) onCommentViewed\(activeCommentId\)/);
+  assert.match(topCommentCard, /if \(active && !previewMode\) onProgressChange\(safeIndex, comments\.length\)/);
 });
 
 
