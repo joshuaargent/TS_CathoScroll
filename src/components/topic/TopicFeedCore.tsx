@@ -149,7 +149,6 @@ export function TopicFeedCore({
     sponsorSessionUserId.current = userId;
     sponsorPreviousIsComment.current = false;
     activeInterstitialTopicIdRef.current = null;
-    setActiveTopCommentIndex(0);
     setActiveSponsorSessionId(null);
     sponsorCardsByTopicId.current.clear();
     sponsorResultsByTopicId.current.clear();
