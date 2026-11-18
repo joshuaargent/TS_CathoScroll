@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 
-import { cn } from '@/lib/utils';
+import { BaseFeedCard } from './BaseFeedCard';
 
 interface TopicCardLayoutProps {
   header: ReactNode;
@@ -13,6 +13,11 @@ interface TopicCardLayoutProps {
   contentWidthClassName?: string;
 }
 
+/**
+ * Compatibility adapter for existing interstitial renderers.
+ * All feed cards now share BaseFeedCard; new card implementations should use
+ * its structured title/actions API directly.
+ */
 export function TopicCardLayout({
   header,
   children,
@@ -24,26 +29,16 @@ export function TopicCardLayout({
   contentWidthClassName = 'max-w-3xl',
 }: TopicCardLayoutProps) {
   return (
-    <div className={cn('bg-bg-primary flex h-full w-full flex-col', className)}>
-      {progress && (
-        <div className="shrink-0 px-6 pt-4 pb-4">
-          {progress}
-        </div>
-      )}
-
-      <div className={cn('flex min-h-0 flex-1 flex-col px-6 pt-6 pb-6 md:px-8 md:pt-8 md:pb-8', cardClassName)}>
-        <header className="flex items-center justify-between gap-3">
-          {header}
-        </header>
-
-        <div className="flex min-h-0 flex-1 items-center justify-center">
-          <div className={cn('mx-auto w-full text-center', contentWidthClassName, contentClassName)}>
-            {children}
-          </div>
-        </div>
-
-        {footer && <footer className="shrink-0">{footer}</footer>}
-      </div>
-    </div>
+    <BaseFeedCard
+      title={header}
+      progress={progress}
+      footer={footer}
+      className={className}
+      cardClassName={cardClassName}
+      contentClassName={contentClassName}
+      contentWidthClassName={contentWidthClassName}
+    >
+      {children}
+    </BaseFeedCard>
   );
 }
