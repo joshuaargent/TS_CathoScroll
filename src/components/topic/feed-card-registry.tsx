@@ -30,6 +30,16 @@ export function createFeedCardRegistry(
       ),
       onNext: context.onNext,
       onPrevious: context.onPrevious,
+      onEnter: (entry, _direction, _entries, cardContext) => {
+        cardContext.activateInterstitialTopic(entry.topicId);
+        for (const comment of entry.comments) cardContext.markCommentSeen(comment.comment_id);
+        cardContext.cacheCommentGroup(entry.topicId, entry.comments);
+        const safeIndex = Math.min(
+          cardContext.getTopCommentIndex(entry.topicId),
+          Math.max(0, entry.comments.length - 1)
+        );
+        cardContext.onTopCommentIndexChange(entry.topicId, safeIndex);
+      },
     }),
     registerFeedEntry<Extract<FeedEntry, { type: 'sponsor' }>, FeedCardRendererContext>('sponsor', {
       render: (entry) => entry.status === 'pending' ? (
@@ -50,6 +60,15 @@ export function createFeedCardRegistry(
       ),
       onNext: context.onNext,
       onPrevious: context.onPrevious,
+      onEnter: async (entry, direction, entries, cardContext) => {
+        cardContext.activateInterstitialTopic(entry.topicId);
+        if (entry.status === 'pending') {
+          await cardContext.loadSponsorEntry(entry, direction, entries);
+        }
+      },
+      onExit: (entry, direction, cardContext) => {
+        cardContext.cancelSponsorRequest(entry, direction);
+      },
     }),
   ];
 }
