@@ -2,10 +2,12 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-const [core, registry, cursor] = await Promise.all([
+const [core, registry, cursor, placementRegistry, entryMap] = await Promise.all([
   readFile(new URL('../src/components/topic/TopicFeedCore.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/feed-card-registry.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/lib/feed-entry-cursor.ts', import.meta.url), 'utf8'),
+  readFile(new URL('../src/lib/feed-card-placement-registry.ts', import.meta.url), 'utf8'),
+  readFile(new URL('../src/lib/feed-entry-map.ts', import.meta.url), 'utf8'),
 ]);
 
 test('feed core delegates card rendering to the registry instead of importing card components', () => {
@@ -28,6 +30,14 @@ test('feed navigation no longer has separate comment and sponsor traversal handl
   assert.match(core, /const navigateFeedEntry = async/);
   assert.doesNotMatch(core, /handleSponsorNext|handleSponsorPrevious|handleTopCommentNext|handleTopCommentPrevious/);
   assert.doesNotMatch(core, /topCommentIsPreviousEntry|sponsorIsPreviousEntry|sponsorPreviousIsComment|pendingSponsorAfterComment/);
+});
+
+test('placement rules are registered separately from the generic sequence builder', () => {
+  assert.match(entryMap, /createFeedCardPlacementRules\(/);
+  assert.match(placementRegistry, /export function createFeedCardPlacementRules/);
+  assert.match(placementRegistry, /DEFAULT_FEED_CARD_RULES/);
+  assert.match(placementRegistry, /createEntry: \(topic\) =>/);
+  assert.match(entryMap, /buildOrderedFeedSequence<Topic, FeedCardEntry>/);
 });
 
 test('one active entry key replaces separate comment and sponsor visibility state', () => {
