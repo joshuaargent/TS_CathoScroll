@@ -147,10 +147,10 @@ test('topic, comment and sponsor cards use the same structural layout component'
   assert.match(feedCore, /prefetchMappedSponsor\(firstSponsor\.topicId\)/);
   assert.match(feedCore, /const nextSponsorBoundary = boundaries/);
   assert.match(feedCore, /const activateFeedEntry = async/);
-  assert.match(feedCore, /if \(entry\.type === 'top-comments'\)/);
-  assert.match(feedCore, /for \(const comment of entry\.comments\)/);
-  assert.match(feedCore, /topCommentCardsByTopicId\.current\.set\(entry\.topicId, entry\.comments\)/);
-  assert.match(feedCore, /if \(entry\.type === 'sponsor'\)/);
+  assert.match(cardRegistry, /onEnter: \(entry/);
+  assert.match(cardRegistry, /for \(const comment of entry\.comments\)/);
+  assert.match(cardRegistry, /cacheCommentGroup\(entry\.topicId, entry\.comments\)/);
+  assert.match(cardRegistry, /onEnter: async \(entry/);
   assert.match(feedCore, /sponsorResultsByTopicId = useRef\(new Map/);
   assert.match(feedCore, /sponsorRequestsByTopicId = useRef\(new Map/);
   assert.match(cardRegistry, /userId=\{context\.userId\}/);
