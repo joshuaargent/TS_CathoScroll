@@ -86,9 +86,14 @@ export function recordFeedTopicVisit(userId: string | null, topicId: string): vo
   }
 }
 
-export function recordFeedTopicCompletion(userId: string | null, topicId: string): void {
+export function recordFeedTopicCompletion(
+  userId: string | null,
+  topicId: string,
+  slideIndex?: number
+): void {
   if (!userId || !topicId || !rememberTopic(completedTopicsByUser, userId, topicId)) return;
   recordFeedAnalyticsEvent(userId, 'completion', topicId, {
+    ...(slideIndex !== undefined ? { slide_index: slideIndex } : {}),
     completion_percent: 100,
   });
 }
