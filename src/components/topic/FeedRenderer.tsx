@@ -5,24 +5,28 @@ import type { FeedEntry } from '@/lib/feed-entry-map';
 interface FeedRendererProps {
   activeEntry: FeedEntry | null;
   progress: ReactNode;
-  topicViewer: ReactNode;
+  topicCard: ReactNode;
   interstitialCard: ReactNode;
 }
 
 /**
- * The single viewport renderer for the ordered feed-entry stream.
+ * Renders exactly one entry from the ordered feed map at a time.
  *
- * The original topic viewer deliberately remains mounted beneath interstitial
- * entries. This preserves its swipe animation state and prevents a topic
- * remount/flash when navigating into or out of comments and sponsor cards.
+ * Topics, top-comment cards and sponsor cards are peers in the same sequence.
+ * No card is mounted underneath another card and no entry is presented as an
+ * overlay. Each card owns its own interaction/gesture lifecycle; the feed
+ * cursor decides which entry occupies this slot next.
+ *
+ * The progress track is shared by the feed and remains outside the replaceable
+ * card slot so it does not unmount during entry navigation.
  */
 export function FeedRenderer({
   activeEntry,
   progress,
-  topicViewer,
+  topicCard,
   interstitialCard,
 }: FeedRendererProps) {
-  const showingInterstitial = Boolean(activeEntry && activeEntry.type !== 'topic');
+  const isTopic = !activeEntry || activeEntry.type === 'topic';
 
   return (
     <div className="flex h-full flex-col">
@@ -30,19 +34,7 @@ export function FeedRenderer({
         {progress}
       </div>
       <div className="relative min-h-0 flex-1">
-        <div
-          className={showingInterstitial
-            ? 'invisible pointer-events-none absolute inset-0'
-            : 'absolute inset-0'}
-          aria-hidden={showingInterstitial}
-        >
-          {topicViewer}
-        </div>
-        {showingInterstitial && interstitialCard && (
-          <div className="absolute inset-0 z-10">
-            {interstitialCard}
-          </div>
-        )}
+        {isTopic ? topicCard : interstitialCard}
       </div>
     </div>
   );
