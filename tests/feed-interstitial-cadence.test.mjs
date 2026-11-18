@@ -232,3 +232,12 @@ test('transient sponsor request failures remain retryable and cannot overwrite a
   assert.match(feedCore, /sponsorRequestsByTopicId\.current\.get\(topic\.id\) === request/);
   assert.match(feedCore, /if \(!result\.retryable\) sponsorDueByTopicId\.current\.delete\(currentTopic\.id\)/);
 });
+
+
+test('sponsor viewability attribution survives card unmounts and remounts', () => {
+  assert.match(sponsorCard, /const viewableSponsorPlacements = new Set<string>\(\)/);
+  assert.match(sponsorCard, /getSponsorPlacementKey\(userId, sessionId, campaignId\)/);
+  assert.match(sponsorCard, /viewableSponsorPlacements\.has\(viewablePlacementKey\)/);
+  assert.match(sponsorCard, /rememberViewableSponsorPlacement\(viewablePlacementKey\)/);
+  assert.match(sponsorCard, /viewableSponsorPlacements\.size > 5000/);
+});
