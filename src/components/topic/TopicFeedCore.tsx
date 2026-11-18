@@ -14,7 +14,7 @@ import {
 } from '@/lib/sponsor-campaigns';
 import { createFeedRefreshCoordinator } from '@/lib/feed-refresh-coordinator';
 import { siteConfig } from '@/lib/constants';
-import { buildFeedEntryMap, flattenFeedEntryMap, type FeedEntry, type FeedEntryMap } from '@/lib/feed-entry-map';
+import { buildFeedEntryMap, collectReservedCommentIds, flattenFeedEntryMap, type FeedEntry, type FeedEntryMap } from '@/lib/feed-entry-map';
 import {
   invokeRegisteredFeedEntryLifecycle,
   renderRegisteredFeedEntry,
@@ -729,7 +729,7 @@ export function TopicFeedCore({
     const skipEntry = async () => {
       const adjacent = getAdjacentFeedEntry(entries, entryKey, direction);
       if (adjacent) {
-        await activateFeedEntry(adjacent.entry, direction, entries as readonly FeedEntry[]);
+        await activateFeedEntry(adjacent.entry as FeedEntry, direction, entries as readonly FeedEntry[]);
       } else if (direction === 'next') {
         setActiveFeedEntryKey(null);
         advanceToNextTopic();
@@ -804,7 +804,7 @@ export function TopicFeedCore({
     const currentTopic = feedTopics[topicIndex];
     const currentKey = activeFeedEntryKeyRef.current ?? (
       currentTopic
-        ? getFeedEntryKey({ type: 'topic', topicId: currentTopic.id, topic: currentTopic })
+        ? getFeedEntryKey({ type: 'topic', topicId: currentTopic.id })
         : ''
     );
     if (!currentKey) return;
@@ -840,7 +840,6 @@ export function TopicFeedCore({
         if (lastTopic) setActiveFeedEntryKey(getFeedEntryKey({
           type: 'topic',
           topicId: lastTopic.id,
-          topic: lastTopic,
         }));
         activateInterstitialTopic(null);
         setTopicIndex(lastIndex);
