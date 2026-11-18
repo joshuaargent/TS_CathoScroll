@@ -23,6 +23,7 @@ import { SponsorFeedCard } from './SponsorFeedCard';
 import { SponsorLoadingCard } from './SponsorLoadingCard';
 import { createFeedRefreshCoordinator } from '@/lib/feed-refresh-coordinator';
 import { siteConfig } from '@/lib/constants';
+import { buildFeedEntryMap, type FeedEntryMap } from '@/lib/feed-entry-map';
 
 import type { TopicPageCursor } from '@/lib/content';
 import type { RecommendationCursor } from '@/lib/recommendations';
@@ -105,6 +106,7 @@ export function TopicFeedCore({
   const topCommentCardsByTopicId = useRef(new Map<string, TopFeedComment[]>());
   const topCommentIndexByTopicId = useRef(new Map<string, number>());
   const processedTopicBoundariesByTopicId = useRef(new Set<string>());
+  const feedEntryMapRef = useRef<FeedEntryMap | null>(null);
   const [topicsSinceTopCommentCard, setTopicsSinceTopCommentCard] = useState(0);
   const [sponsorCampaigns, setSponsorCampaigns] = useState<SponsorFeedCampaign[]>([]);
   const [showSponsorCard, setShowSponsorCard] = useState(false);
@@ -394,6 +396,72 @@ export function TopicFeedCore({
     }
   }, [topCommentsEndpoint]);
 
+  // Build the ordered topic/comment/sponsor map ahead of navigation. The
+  // original analytics-ranked topic array remains the source of truth; each
+  // topic boundary owns its interstitial entries in this single map.
+  useEffect(() => {
+    if (feedTopics.length === 0) {
+      feedEntryMapRef.current = null;
+      return;
+    }
+
+    const activeTopicId = activeInterstitialTopicIdRef.current;
+    const currentId = currentTopicId.current;
+    const currentIndex = currentId
+      ? feedTopics.findIndex((topic) => topic.id === currentId)
+      : Math.max(0, topicIndex);
+    const activeIndex = activeTopicId
+      ? feedTopics.findIndex((topic) => topic.id === activeTopicId)
+      : -1;
+    const startIndex = activeIndex >= 0
+      ? activeIndex + 1
+      : Math.max(0, currentIndex);
+    const previousMap = feedEntryMapRef.current;
+    const prefix = previousMap
+      ? previousMap.boundaries.filter((boundary) => {
+          const index = feedTopics.findIndex((topic) => topic.id === boundary.topicId);
+          return index >= 0 && index < startIndex;
+        })
+      : [];
+    const planned = buildFeedEntryMap({
+      topics: feedTopics.slice(startIndex),
+      comments: getUnseenTopFeedComments(topComments, seenTopCommentIds.current),
+      seenCommentIds: seenTopCommentIds.current,
+      userId,
+      commentCadence: topicsSinceTopCommentCard,
+      sponsorCadence: topicsSinceSponsorCard,
+      sponsorResults: sponsorResultsByTopicId.current,
+    });
+    const boundaries = [...prefix, ...planned.boundaries];
+    const byTopicId = new Map(boundaries.map((boundary) => [boundary.topicId, boundary]));
+    feedEntryMapRef.current = {
+      ...planned,
+      boundaries,
+      byTopicId,
+    };
+
+    // Resolve sponsor slots while the user is reading earlier topics. The
+    // swipe path only consumes the already-assigned slot; it does not decide
+    // whether a sponsor is due or start normal campaign discovery.
+    for (const boundary of planned.boundaries) {
+      const sponsorEntry = boundary.entries.find((entry) => entry.type === 'sponsor');
+      if (!sponsorEntry || sponsorEntry.type !== 'sponsor' || sponsorEntry.status !== 'pending') {
+        continue;
+      }
+      const topic = feedTopics.find((item) => item.id === boundary.topicId);
+      if (!topic) continue;
+      void getSponsorCampaignResult(topic).then((result) => {
+        if (result.retryable) return;
+        const currentBoundary = feedEntryMapRef.current?.byTopicId.get(boundary.topicId);
+        const currentSponsor = currentBoundary?.entries.find((entry) => entry.type === 'sponsor');
+        if (!currentSponsor || currentSponsor.type !== 'sponsor') return;
+        currentSponsor.campaigns = result.campaigns;
+        currentSponsor.sessionId = result.sessionId;
+        currentSponsor.status = result.campaigns.length > 0 && result.sessionId ? 'ready' : 'empty';
+      });
+    }
+  }, [feedTopics, topComments, userId, getSponsorCampaignResult]);
+
   // ----------------------------------
   // Initial Feed
   // ----------------------------------
@@ -512,69 +580,93 @@ export function TopicFeedCore({
   };
 
   const nextTopic = async () => {
-    // Ignore repeated gestures while the due sponsor inventory request is in flight.
     if (sponsorLoadingRef.current) return;
 
-    // Re-entering a topic replays the exact interstitials already assigned to
-    // it. This keeps the user's feed mapping stable across reverse/forward
-    // navigation and across loops through the loaded recommendation sequence.
     const currentTopic = feedTopics[topicIndex];
-    if (currentTopic) {
-      const cachedComments = topCommentCardsByTopicId.current.get(currentTopic.id);
-      const cachedSponsor = sponsorCardsByTopicId.current.get(currentTopic.id);
-      if (cachedComments?.length) {
-        activateInterstitialTopic(currentTopic.id);
-        sponsorPreviousIsComment.current = false;
-        topCommentIsPreviousEntry.current = false;
-        setTopCommentCardComments(cachedComments);
-        pendingSponsorAfterComment.current = Boolean(cachedSponsor?.campaigns.length) ||
-          sponsorDueByTopicId.current.has(currentTopic.id);
-        setShowSponsorCard(false);
-        setShowTopCommentCard(true);
-        return;
+    if (!currentTopic) {
+      advanceToNextTopic();
+      return;
+    }
+
+    const boundary = feedEntryMapRef.current?.byTopicId.get(currentTopic.id);
+    if (!boundary || processedTopicBoundariesByTopicId.current.has(currentTopic.id)) {
+      advanceToNextTopic();
+      return;
+    }
+
+    const commentEntry = boundary.entries.find((entry) => entry.type === 'top-comments');
+    const sponsorEntry = boundary.entries.find((entry) => entry.type === 'sponsor');
+    processedTopicBoundariesByTopicId.current.add(currentTopic.id);
+    setTopicsSinceTopCommentCard(boundary.commentCadenceAfter);
+    setTopicsSinceSponsorCard(boundary.sponsorCadenceAfter);
+
+    if (commentEntry && commentEntry.type === 'top-comments') {
+      const commentGroup = commentEntry.comments;
+      for (const comment of commentGroup) {
+        topCommentCardsByTopicId.current.set(currentTopic.id, commentGroup);
       }
-      if (cachedSponsor?.campaigns.length) {
+      topCommentIndexByTopicId.current.set(currentTopic.id, 0);
+      setTopCommentCardComments(commentGroup);
+      pendingSponsorAfterComment.current = Boolean(
+        sponsorEntry && sponsorEntry.type === 'sponsor' && sponsorEntry.status !== 'empty'
+      );
+      activateInterstitialTopic(currentTopic.id);
+      topCommentIsPreviousEntry.current = false;
+      sponsorPreviousIsComment.current = false;
+      setShowSponsorCard(false);
+      setShowTopCommentCard(true);
+      return;
+    }
+
+    if (sponsorEntry && sponsorEntry.type === 'sponsor') {
+      if (sponsorEntry.status === 'ready' && sponsorEntry.campaigns.length > 0 && sponsorEntry.sessionId) {
         activateInterstitialTopic(currentTopic.id);
         sponsorPreviousIsComment.current = false;
         sponsorIsPreviousEntry.current = false;
-        setSponsorCampaigns(cachedSponsor.campaigns);
-        setActiveSponsorSessionId(cachedSponsor.sessionId);
+        setSponsorCampaigns(sponsorEntry.campaigns);
+        setActiveSponsorSessionId(sponsorEntry.sessionId);
         setShowTopCommentCard(false);
         setShowSponsorCard(true);
         return;
       }
-      if (sponsorDueByTopicId.current.has(currentTopic.id)) {
+
+      if (sponsorEntry.status === 'pending') {
         activateInterstitialTopic(currentTopic.id);
         sponsorRequestPreviousCadence.current = topicsSinceSponsorCard;
-        setTopicsSinceSponsorCard(0);
         sponsorLoadingRef.current = true;
         setSponsorLoading(true);
         const requestedUserId = userId;
         const requestVersion = ++sponsorRequestVersion.current;
         try {
           const result = await getSponsorCampaignResult(currentTopic);
-          if (sponsorRequestVersion.current !== requestVersion ||
-              sponsorSessionUserId.current !== requestedUserId) return;
-          if (!result.retryable) sponsorDueByTopicId.current.delete(currentTopic.id);
-          const sessionId = result.sessionId;
-          if (result.campaigns.length > 0 && sessionId) {
+          if (
+            sponsorRequestVersion.current !== requestVersion ||
+            sponsorSessionUserId.current !== requestedUserId
+          ) return;
+
+          if (result.campaigns.length > 0 && result.sessionId) {
+            sponsorEntry.campaigns = result.campaigns;
+            sponsorEntry.sessionId = result.sessionId;
+            sponsorEntry.status = 'ready';
             sponsorPreviousIsComment.current = false;
             flushSync(() => {
               setSponsorCampaigns(result.campaigns);
-              setActiveSponsorSessionId(sessionId);
+              setActiveSponsorSessionId(result.sessionId);
               sponsorCardsByTopicId.current.set(currentTopic.id, {
                 campaigns: result.campaigns,
-                sessionId,
+                sessionId: result.sessionId,
               });
+              setSponsorLoading(false);
               setShowSponsorCard(true);
-              setSponsorLoading(false);
             });
-          } else {
-            flushSync(() => {
-              setSponsorLoading(false);
-              advanceToNextTopic();
-            });
+            return;
           }
+
+          if (!result.retryable) sponsorEntry.status = 'empty';
+          flushSync(() => {
+            setSponsorLoading(false);
+            advanceToNextTopic();
+          });
         } finally {
           if (sponsorRequestVersion.current === requestVersion) {
             sponsorLoadingRef.current = false;
@@ -585,159 +677,6 @@ export function TopicFeedCore({
       }
     }
 
-    // Never strand the user on an interstitial at the end of a page while the
-    // next topic page is still loading.
-    if (topicIndex >= feedTopics.length - 1 && nextCursor) {
-      pendingAdvanceAfterPageRef.current = true;
-      void loadMoreTopics();
-      return;
-    }
-
-    let currentCommentCadence = topicsSinceTopCommentCard;
-    let currentSponsorCadence = topicsSinceSponsorCard;
-
-    if (seenTopCommentUserId.current !== userId) {
-      seenTopCommentUserId.current = userId;
-      seenTopCommentIds.current.clear();
-      topCommentCardsByTopicId.current.clear();
-      topCommentIndexByTopicId.current.clear();
-      processedTopicBoundariesByTopicId.current.clear();
-      sponsorDueByTopicId.current.clear();
-      currentCommentCadence = 0;
-    }
-
-    if (topCommentCadenceUserId.current !== userId) {
-      topCommentCadenceUserId.current = userId;
-      currentCommentCadence = 0;
-    }
-
-    if (sponsorSessionUserId.current !== userId) {
-      sponsorSessionUserId.current = userId;
-      setActiveSponsorSessionId(null);
-      sponsorCardsByTopicId.current.clear();
-      sponsorDueByTopicId.current.clear();
-      currentSponsorCadence = 0;
-    }
-
-    // A topic boundary is evaluated once per feed session. Replaying a topic
-    // with no interstitial must not consume the cadence at the new frontier
-    // and unexpectedly insert a card into the user's already-seen sequence.
-    if (currentTopic && processedTopicBoundariesByTopicId.current.has(currentTopic.id)) {
-      advanceToNextTopic();
-      return;
-    }
-
-    const unseenTopComments = getUnseenTopFeedComments(
-      topComments,
-      seenTopCommentIds.current
-    );
-    if (unseenTopComments.length <= 10 && topCommentsNextOffsetRef.current !== null) {
-      void loadMoreTopComments();
-    }
-    const commentDue = shouldInsertTopCommentCard(
-      currentCommentCadence,
-      unseenTopComments.length > 0
-    );
-    const sponsorDue = shouldInsertSponsorCard(currentSponsorCadence, Boolean(userId));
-    const nextCommentCadence = getNextTopCommentCadence(currentCommentCadence);
-    const nextSponsorCadence = getNextSponsorCadence(currentSponsorCadence);
-    // Keep the two cadences independent. If both are due, show the comment
-    // first and then the sponsor placement at the same topic boundary.
-    const chooseSponsor = sponsorDue && !commentDue;
-
-    if (chooseSponsor) {
-      activateInterstitialTopic(currentTopic?.id ?? null);
-      sponsorIsPreviousEntry.current = false;
-      if (currentTopic) {
-        processedTopicBoundariesByTopicId.current.add(currentTopic.id);
-        sponsorDueByTopicId.current.add(currentTopic.id);
-      }
-      setTopicsSinceTopCommentCard(nextCommentCadence);
-      sponsorRequestPreviousCadence.current = topicsSinceSponsorCard;
-      setTopicsSinceSponsorCard(0);
-
-      if (!currentTopic) {
-        advanceToNextTopic();
-        return;
-      }
-
-      sponsorPreviousIsComment.current = false;
-      const preparedSponsor = sponsorResultsByTopicId.current.get(currentTopic.id);
-      sponsorLoadingRef.current = true;
-      if (!preparedSponsor) setSponsorLoading(true);
-      const requestedUserId = userId;
-      const requestVersion = ++sponsorRequestVersion.current;
-      try {
-        const result = await getSponsorCampaignResult(currentTopic);
-        if (sponsorRequestVersion.current !== requestVersion ||
-            sponsorSessionUserId.current !== requestedUserId) return;
-        const sessionId = result.sessionId;
-        if (result.campaigns.length > 0 && sessionId) {
-          sponsorPreviousIsComment.current = false;
-          sponsorDueByTopicId.current.delete(currentTopic.id);
-          flushSync(() => {
-            setSponsorCampaigns(result.campaigns);
-            setActiveSponsorSessionId(sessionId);
-            sponsorCardsByTopicId.current.set(currentTopic.id, {
-              campaigns: result.campaigns,
-              sessionId,
-            });
-            setShowTopCommentCard(false);
-            setShowSponsorCard(true);
-            setSponsorLoading(false);
-          });
-          return;
-        }
-
-        if (!result.retryable) sponsorDueByTopicId.current.delete(currentTopic.id);
-        flushSync(() => {
-          setSponsorLoading(false);
-          advanceToNextTopic();
-        });
-      } finally {
-        if (sponsorRequestVersion.current === requestVersion) {
-          sponsorLoadingRef.current = false;
-          setSponsorLoading(false);
-        }
-      }
-      return;
-    }
-
-    setTopicsSinceSponsorCard(sponsorDue ? currentSponsorCadence : nextSponsorCadence);
-
-    if (commentDue) {
-      pendingSponsorAfterComment.current = sponsorDue;
-      setTopicsSinceTopCommentCard(0);
-      if (currentTopic) {
-        processedTopicBoundariesByTopicId.current.add(currentTopic.id);
-        if (sponsorDue) sponsorDueByTopicId.current.add(currentTopic.id);
-      }
-      if (currentTopic) {
-        sponsorPreviousIsComment.current = false;
-        topCommentIsPreviousEntry.current = false;
-        const commentGroup = getTopCommentGroup(unseenTopComments);
-        // Reserve only this five-comment group. Remaining unseen comments stay
-        // eligible for later topic boundaries, while this exact group replays
-        // unchanged when the user navigates backward and forward.
-        for (const comment of commentGroup) {
-          seenTopCommentIds.current.add(comment.comment_id);
-        }
-        setTopCommentCardComments(commentGroup);
-        topCommentCardsByTopicId.current.set(currentTopic.id, commentGroup);
-        topCommentIndexByTopicId.current.set(currentTopic.id, 0);
-        activateInterstitialTopic(currentTopic.id);
-        setShowSponsorCard(false);
-        setShowTopCommentCard(true);
-
-        // Prefetch the sponsor at the same topic boundary while the comment
-        // card is being read. The following card can then appear immediately.
-        if (sponsorDue) void getSponsorCampaignResult(currentTopic);
-        return;
-      }
-    }
-
-    if (currentTopic) processedTopicBoundariesByTopicId.current.add(currentTopic.id);
-    setTopicsSinceTopCommentCard(nextCommentCadence);
     advanceToNextTopic();
   };
 
