@@ -75,6 +75,10 @@ test('sponsor event recording requires a served and viewable placement', () => {
   assert.match(eventRoute, /if \(!headers\.has\('Access-Control-Allow-Origin'\)\)/);
   assert.doesNotMatch(deliveryRoute, /&& !headers\.has\('Vary'\)/);
   assert.doesNotMatch(eventRoute, /&& !headers\.has\('Vary'\)/);
+  assert.match(deliveryRoute, /if \(!headers\.has\('Access-Control-Allow-Origin'\)\)/);
+  assert.match(eventRoute, /if \(!headers\.has\('Access-Control-Allow-Origin'\)\)/);
+  assert.doesNotMatch(deliveryRoute, /&& !headers\.has\('Vary'\)/);
+  assert.doesNotMatch(eventRoute, /&& !headers\.has\('Vary'\)/);
   assert.match(eventRoute, /checkApiRateLimit/);
 });
 
