@@ -43,7 +43,7 @@ test('sponsor users can submit campaigns and view only their own aggregate finan
 });
 
 test('feed gracefully omits missing comment and sponsor inventory without blank interstitials', () => {
-  assert.match(feedCore, /setShowTopCommentCard\(true\)/);
+  assert.match(feedCore, /activateTopCommentEntry\(\)/);
   assert.match(feedCore, /result\.campaigns\.length > 0/);
   assert.match(feedCore, /commentEntry && commentEntry\.type === 'top-comments'/);
   assert.match(feedCore, /comments: unseenComments/);
