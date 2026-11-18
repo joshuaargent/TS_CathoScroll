@@ -68,6 +68,49 @@ test('README documents bounded behavioural signals used by recommendation rankin
   assert.ok(readme.includes('Sponsor served events are recorded by the delivery API'));
 });
 
+test('sponsor analytics keeps offline event storage bounded without evicting pending reports', () => {
+  const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
+  const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+  const values = new Map();
+
+  Object.defineProperty(globalThis, 'window', {
+    configurable: true,
+    value: {
+      localStorage: {
+        getItem: (key) => values.get(key) ?? null,
+        setItem: (key, value) => values.set(key, value),
+        removeItem: (key) => values.delete(key),
+      },
+    },
+  });
+  Object.defineProperty(globalThis, 'navigator', {
+    configurable: true,
+    value: { onLine: false },
+  });
+
+  try {
+    const userId = 'bounded-sponsor-queue-test';
+    for (let index = 0; index < 1005; index += 1) {
+      sponsorClient.recordSponsorCampaignEvent(userId, {
+        campaignId: 'campaign-' + index,
+        eventId: 'event-' + index,
+        sessionId: 'placement-' + index,
+        eventType: 'viewable_impression',
+      }, async () => null);
+    }
+
+    const queue = JSON.parse(values.get('cathoscroll.sponsor-events.v1.' + userId));
+    assert.equal(queue.length, 1000);
+    assert.equal(queue[0].eventId, 'event-0');
+    assert.equal(queue.at(-1).eventId, 'event-999');
+  } finally {
+    if (originalWindow) Object.defineProperty(globalThis, 'window', originalWindow);
+    else delete globalThis.window;
+    if (originalNavigator) Object.defineProperty(globalThis, 'navigator', originalNavigator);
+    else delete globalThis.navigator;
+  }
+});
+
 test('sponsor events survive a failed send and are retried with the same IDs after restart', async () => {
   const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
   const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
