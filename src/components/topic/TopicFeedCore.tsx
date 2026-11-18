@@ -926,7 +926,7 @@ export function TopicFeedCore({
 
   const flattenedEntries = feedEntryMap ? flattenFeedEntryMap(feedEntryMap) : [];
   const activeMappedEntry = activeFeedEntryKey
-    ? flattenedEntries.find((entry) => getFeedEntryKey(entry) === activeFeedEntryKey)
+    ? flattenedEntries.find((entry) => getFeedEntryKey(entry) === activeFeedEntryKey) ?? null
     : null;
   const activeFeedCardEntry: FeedEntry | null =
     activeMappedEntry && activeMappedEntry.type !== 'topic'
