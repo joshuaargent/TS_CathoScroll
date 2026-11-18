@@ -90,7 +90,7 @@ test('Top Comments inventory refreshes safely without replacing unrelated cached
   assert.ok(feed.includes('if (comments.length === 0)'));
 });
 
-test('feed analytics local queue is bounded to 200 events per account', () => {
+test('feed analytics local queue is bounded to the most recent 200 events per account', () => {
   const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
   const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
   const values = new Map();
@@ -117,8 +117,8 @@ test('feed analytics local queue is bounded to 200 events per account', () => {
     const queued = JSON.parse(values.get('cathoscroll.feed-analytics.v1.' + userId));
     assert.equal(queued.length, 200);
     assert.equal(new Set(queued.map((event) => event.event_id)).size, 200);
-    assert.equal(queued[0].entity_id, 'topic-0');
-    assert.equal(queued.at(-1).entity_id, 'topic-199');
+    assert.equal(queued[0].entity_id, 'topic-50');
+    assert.equal(queued.at(-1).entity_id, 'topic-249');
   } finally {
     if (originalWindow) Object.defineProperty(globalThis, 'window', originalWindow);
     else delete globalThis.window;
