@@ -81,7 +81,6 @@ export function TopicSwipeViewer({
   const lastTapRef = useRef(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const [isAnimating, setIsAnimating] = useState(false);
-  const [showEntryPreviews, setShowEntryPreviews] = useState(false);
   const animationLockRef = useRef(false);
   const [showHeart, setShowHeart] = useState(false);
   const currentTopic = topics[topicIndex];
@@ -100,15 +99,6 @@ export function TopicSwipeViewer({
   const topicActiveSinceRef = useRef<number | null>(null);
   const topicActiveDurationRef = useRef(0);
   const topicViewableRef = useRef(false);
-
-  useEffect(() => {
-    // TopicSwipeViewer is remounted when a comment or sponsor interstitial
-    // yields back to the topic feed. Keep adjacent topic previews hidden for
-    // that first committed frame so the next-after-destination card cannot
-    // flash while the interstitial transition is being replaced.
-    const frame = window.requestAnimationFrame(() => setShowEntryPreviews(true));
-    return () => window.cancelAnimationFrame(frame);
-  }, []);
 
   useEffect(() => {
     if (!userId || !active) return;
@@ -322,10 +312,6 @@ export function TopicSwipeViewer({
 
       let navigation: void | Promise<void> = undefined;
       flushSync(() => {
-        // Freeze adjacent previews before the active topic index changes. The
-        // preview is derived from the new index, so rendering it while this
-        // card is still translated can flash the topic after the destination.
-        setShowEntryPreviews(false);
         setSlideIndex(0);
         navigation = direction === 'next' ? onNextTopic?.() : onPreviousTopic?.();
       });
@@ -335,7 +321,6 @@ export function TopicSwipeViewer({
       console.error('Unable to navigate topic feed:', error);
     } finally {
       y.jump(0);
-      setShowEntryPreviews(true);
       animationLockRef.current = false;
       setIsAnimating(false);
     }
@@ -578,7 +563,7 @@ export function TopicSwipeViewer({
         >
           {/* TOP */}
 
-          {showEntryPreviews && previousEntryPreview !== null ? (
+          {previousEntryPreview !== null ? (
             <div className="pointer-events-none absolute inset-x-0 top-[-100%] h-full opacity-90">
               {previousEntryPreview === undefined ? (
                 <TopicCard type="question" title="Question" content={previousTopic.question} />
@@ -659,7 +644,7 @@ export function TopicSwipeViewer({
 
           {/* BOTTOM */}
 
-          {showEntryPreviews && nextEntryPreview !== null ? (
+          {nextEntryPreview !== null ? (
             <div className="pointer-events-none absolute inset-x-0 top-[100%] h-full opacity-90">
               {nextEntryPreview === undefined ? (
                 <TopicCard type="question" title="Question" content={nextTopic.question} />
