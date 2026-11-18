@@ -6,7 +6,7 @@ import { DoorOpen, Share2 } from 'lucide-react';
 import type { SponsorFeedCampaign } from '@/lib/sponsor-campaigns';
 import { recordSponsorCampaignEvent } from '@/lib/sponsor-analytics-client';
 import { FeedInterstitialMotion } from './FeedInterstitialMotion';
-import { TopicCardLayout } from './TopicCardLayout';
+import { BaseFeedCard } from './BaseFeedCard';
 
 interface SponsorFeedCardProps {
   campaigns: SponsorFeedCampaign[];
@@ -215,50 +215,36 @@ export function SponsorFeedCard({
       nextPreview={nextEntryPreview}
       previousPreview={previousEntryPreview}
     >
-      <TopicCardLayout
-        header={
+      <BaseFeedCard
+        title={
+          <div className="min-w-0">
+            <p className="text-text-muted truncate text-sm font-medium">{campaign.sponsor_name}</p>
+            <p className="text-text-muted text-xs tracking-wider uppercase">{campaign.disclosure || 'Sponsored'}</p>
+          </div>
+        }
+        actions={
           <>
-            <div className="min-w-0">
-              <p className="text-text-muted truncate text-sm font-medium">
-                {campaign.sponsor_name}
-              </p>
-              <p className="text-text-muted text-xs tracking-wider uppercase">
-                {campaign.disclosure || 'Sponsored'}
-              </p>
-            </div>
-            <div className="flex shrink-0 items-center gap-1">
-              <button
-                type="button"
-                onPointerDown={(event) => event.stopPropagation()}
-                onTouchStart={(event) => event.stopPropagation()}
-                onClick={() => void shareCampaign()}
-                disabled={previewMode}
-                aria-label={`Share ${campaign.sponsor_name}`}
-                title="Share sponsor"
-                className="text-text-muted hover:bg-bg-secondary hover:text-text-primary flex h-11 w-11 items-center justify-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <Share2 className="h-5 w-5" />
-              </button>
-              <a
-                href={campaign.destination_url}
-                target="_blank"
-                rel="noopener noreferrer sponsored"
-                onPointerDown={(event) => event.stopPropagation()}
-                onTouchStart={(event) => event.stopPropagation()}
-                onClick={(event) => {
-                  if (previewMode) {
-                    event.preventDefault();
-                    return;
-                  }
-                  recordCampaignClick();
-                }}
-                aria-label={`Visit ${campaign.sponsor_name} website`}
-                title={campaign.cta_label || 'Visit website'}
-                className="text-text-muted hover:bg-bg-secondary hover:text-text-primary flex h-11 w-11 items-center justify-center rounded-full transition-colors"
-              >
-                <DoorOpen className="h-5 w-5" />
-              </a>
-            </div>
+            <button
+              type="button"
+              onPointerDown={(event) => event.stopPropagation()}
+              onTouchStart={(event) => event.stopPropagation()}
+              onClick={() => void shareCampaign()}
+              disabled={previewMode}
+              aria-label={`Share ${campaign.sponsor_name}`}
+              title="Share sponsor"
+              className="text-text-muted hover:bg-bg-secondary hover:text-text-primary flex h-11 w-11 items-center justify-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+            ><Share2 className="h-5 w-5" /></button>
+            <a
+              href={campaign.destination_url}
+              target="_blank"
+              rel="noopener noreferrer sponsored"
+              onPointerDown={(event) => event.stopPropagation()}
+              onTouchStart={(event) => event.stopPropagation()}
+              onClick={(event) => { if (previewMode) { event.preventDefault(); return; } recordCampaignClick(); }}
+              aria-label={`Visit ${campaign.sponsor_name} website`}
+              title={campaign.cta_label || 'Visit website'}
+              className="text-text-muted hover:bg-bg-secondary hover:text-text-primary flex h-11 w-11 items-center justify-center rounded-full transition-colors"
+            ><DoorOpen className="h-5 w-5" /></a>
           </>
         }
       >
@@ -298,7 +284,7 @@ export function SponsorFeedCard({
             </a>
           </div>
         </article>
-      </TopicCardLayout>
+      </BaseFeedCard>
     </FeedInterstitialMotion>
   );
 }
