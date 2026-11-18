@@ -202,10 +202,10 @@ test('the original analytics-ranked topic feed is retained and interstitials are
   assert.match(feedCore, /sponsorRequestVersion\.current !== requestVersion/);
 });
 
-test('topic navigation freezes index-derived adjacent previews until the card resets', () => {
-  assert.match(topicViewer, /setShowEntryPreviews\(false\)/);
-  assert.match(topicViewer, /y\.jump\(0\);\s*setShowEntryPreviews\(true\)/);
-  assert.equal((topicViewer.match(/showEntryPreviews && (?:previous|next)EntryPreview !== null \?/g) ?? []).length, 2);
+test('topic previews are derived from adjacent feed entries without delayed mount flashes', () => {
+  assert.doesNotMatch(topicViewer, /showEntryPreviews|setShowEntryPreviews/);
+  assert.match(topicViewer, /previousEntryPreview !== null/);
+  assert.match(topicViewer, /nextEntryPreview !== null/);
   assert.match(topicViewer, /nextEntryPreview === undefined/);
   assert.match(feedCore, /const nextEntryPreview = nextFeedEntry && nextFeedEntry\.type !== 'topic' \? null : undefined/);
   assert.match(feedCore, /const previousEntryPreview = previousFeedEntry && previousFeedEntry\.type !== 'topic' \? null : undefined/);
