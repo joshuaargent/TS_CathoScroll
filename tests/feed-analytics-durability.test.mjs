@@ -29,7 +29,9 @@ const [analytics, sponsor, sponsorAnalytics, topicFeed, readme, sponsorClient, s
 ]);
 
 test('feed analytics retains queued events until server acknowledgement and drains on startup', () => {
-  assert.ok(!analytics.includes('queueLimit'));
+  assert.ok(analytics.includes('const queueLimit = 200;'));
+  assert.ok(analytics.includes('if (queue.length >= queueLimit) return;'));
+  assert.ok(analytics.includes('Preserve the oldest unacknowledged events'));
   assert.ok(analytics.includes('flush();'));
   assert.ok(analytics.includes("window.addEventListener('online', flush)"));
   assert.ok(analytics.includes('if (!response.ok) break'));
