@@ -118,3 +118,18 @@ test('inserts a comment card after five topic advances only when inventory exist
   assert.equal(feedComments.getNextTopCommentCadence(4), 0);
   assert.equal(feedComments.getNextTopCommentCadence(-1), 0);
 });
+
+test('each inserted Top Comments card reserves only five comments and leaves the rest eligible', () => {
+  const comments = Array.from({ length: 7 }, (_, index) =>
+    validComment({ comment_id: index + 1 })
+  );
+  const firstGroup = feedComments.getTopCommentGroup(comments);
+  const remaining = comments.filter((comment) =>
+    !firstGroup.some((selected) => selected.comment_id === comment.comment_id)
+  );
+  const secondGroup = feedComments.getTopCommentGroup(remaining);
+
+  assert.equal(firstGroup.length, 5);
+  assert.deepEqual(firstGroup.map((comment) => comment.comment_id), [1, 2, 3, 4, 5]);
+  assert.deepEqual(secondGroup.map((comment) => comment.comment_id), [6, 7]);
+});
