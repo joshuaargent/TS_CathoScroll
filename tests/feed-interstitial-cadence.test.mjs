@@ -104,7 +104,10 @@ test('topic, comment and sponsor cards use the same structural layout component'
   assert.match(topicCardLayout, /mx-auto w-full text-center/);
   assert.match(topicCardLayout, /flex items-center justify-between gap-3/);
   assert.match(topicCardLayout, /progress &&/);
-  assert.match(topCommentCard, /<FeedProgress current=\{safeIndex\} total=\{comments\.length\} \/>/);
+  assert.match(topCommentCard, /onProgressChange\(safeIndex, comments\.length\)/);
+  assert.doesNotMatch(topCommentCard, /<FeedProgress current=/);
+  assert.doesNotMatch(sponsorCard, /<FeedProgress current=/);
+  assert.doesNotMatch(sponsorLoadingCard, /<FeedProgress current=/);
   assert.ok(topicCard.includes("cardClassName={type === 'question' ? 'bg-accent-light/5' : undefined}"));
   assert.ok(topCommentCard.includes('cardClassName="bg-accent-light/5"'));
   assert.match(topCommentCard, /<Heart/);
@@ -202,7 +205,10 @@ test('the original analytics-ranked topic feed is retained and interstitials are
 test('topic navigation freezes index-derived adjacent previews until the card resets', () => {
   assert.match(topicViewer, /setShowEntryPreviews\(false\)/);
   assert.match(topicViewer, /y\.jump\(0\);\s*setShowEntryPreviews\(true\)/);
-  assert.equal((topicViewer.match(/showEntryPreviews \? \(/g) ?? []).length, 2);
+  assert.equal((topicViewer.match(/showEntryPreviews && (?:previous|next)EntryPreview !== null \?/g) ?? []).length, 2);
+  assert.match(topicViewer, /nextEntryPreview === undefined/);
+  assert.match(feedCore, /const nextEntryPreview = nextFeedEntry && nextFeedEntry\.type !== 'topic' \? null : undefined/);
+  assert.match(feedCore, /const previousEntryPreview = previousFeedEntry && previousFeedEntry\.type !== 'topic' \? null : undefined/);
 });
 
 
