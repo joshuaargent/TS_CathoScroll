@@ -1,5 +1,5 @@
 import type { Topic } from '@/types';
-import { buildOrderedFeedSequence, type FeedCardRule } from './feed-entry-system';
+import type { FeedCardRule } from './feed-entry-system';
 import type { BuildFeedEntryMapOptions, FeedCardEntry } from './feed-entry-map';
 
 export const COMMENT_RULE_ID = 'top-comments';
