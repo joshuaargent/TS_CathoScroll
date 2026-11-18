@@ -121,7 +121,16 @@ export function TopicFeedCore({
   const sponsorPreviousIsComment = useRef(false);
   const topCommentIsPreviousEntry = useRef(false);
   const sponsorIsPreviousEntry = useRef(false);
-  const activeInterstitialTopicId = useRef<string | null>(null);
+  const [activeInterstitialTopicId, setActiveInterstitialTopicId] = useState<string | null>(null);
+  const [activeTopCommentIndex, setActiveTopCommentIndex] = useState(0);
+  const activeInterstitialTopicIdRef = useRef<string | null>(null);
+  const activateInterstitialTopic = (topicId: string | null) => {
+    activeInterstitialTopicIdRef.current = topicId;
+    setActiveInterstitialTopicId(topicId);
+    setActiveTopCommentIndex(
+      topicId ? topCommentIndexByTopicId.current.get(topicId) ?? 0 : 0
+    );
+  };
 
   const [topicIndex, setTopicIndex] = useState(personalized ? 0 : Math.floor(topics.length / 2));
   const [nextCursor, setNextCursor] = useState(initialCursor);
@@ -141,7 +150,7 @@ export function TopicFeedCore({
     if (sponsorSessionUserId.current === userId) return;
     sponsorSessionUserId.current = userId;
     sponsorPreviousIsComment.current = false;
-    activeInterstitialTopicId.current = null;
+    activateInterstitialTopic(null);
     setActiveSponsorSessionId(null);
     sponsorCardsByTopicId.current.clear();
     sponsorResultsByTopicId.current.clear();
@@ -391,8 +400,7 @@ export function TopicFeedCore({
         (topic) => topic.id === currentTopicId.current
       );
 
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setFeedTopics(nextFeedTopics);
+        setFeedTopics(nextFeedTopics);
       feedTopicsRef.current = nextFeedTopics;
       if (preservedIndex >= 0) {
         setTopicIndex(preservedIndex);
@@ -485,7 +493,7 @@ export function TopicFeedCore({
     }
 
     pendingAdvanceAfterPageRef.current = false;
-    activeInterstitialTopicId.current = null;
+    activeInterstitialTopicIdRef.current = null;
     topCommentIsPreviousEntry.current = false;
     sponsorIsPreviousEntry.current = false;
     sponsorPreviousIsComment.current = false;
@@ -504,7 +512,7 @@ export function TopicFeedCore({
       const cachedComments = topCommentCardsByTopicId.current.get(currentTopic.id);
       const cachedSponsor = sponsorCardsByTopicId.current.get(currentTopic.id);
       if (cachedComments?.length) {
-        activeInterstitialTopicId.current = currentTopic.id;
+        activateInterstitialTopic(currentTopic.id);
         sponsorPreviousIsComment.current = false;
         topCommentIsPreviousEntry.current = false;
         setTopCommentCardComments(cachedComments);
@@ -515,7 +523,7 @@ export function TopicFeedCore({
         return;
       }
       if (cachedSponsor?.campaigns.length) {
-        activeInterstitialTopicId.current = currentTopic.id;
+        activeInterstitialTopicIdRef.current = currentTopic.id;
         sponsorPreviousIsComment.current = false;
         sponsorIsPreviousEntry.current = false;
         setSponsorCampaigns(cachedSponsor.campaigns);
@@ -525,7 +533,7 @@ export function TopicFeedCore({
         return;
       }
       if (sponsorDueByTopicId.current.has(currentTopic.id)) {
-        activeInterstitialTopicId.current = currentTopic.id;
+        activeInterstitialTopicIdRef.current = currentTopic.id;
         sponsorRequestPreviousCadence.current = topicsSinceSponsorCard;
         setTopicsSinceSponsorCard(0);
         sponsorLoadingRef.current = true;
@@ -618,7 +626,7 @@ export function TopicFeedCore({
     const chooseSponsor = sponsorDue && !commentDue;
 
     if (chooseSponsor) {
-      activeInterstitialTopicId.current = currentTopic?.id ?? null;
+      activateInterstitialTopic(currentTopic?.id ?? null);
       sponsorIsPreviousEntry.current = false;
       if (currentTopic) sponsorDueByTopicId.current.add(currentTopic.id);
       setTopicsSinceTopCommentCard(nextCommentCadence);
@@ -681,7 +689,7 @@ export function TopicFeedCore({
         sponsorDueByTopicId.current.add(currentTopic.id);
       }
       if (currentTopic) {
-        activeInterstitialTopicId.current = currentTopic.id;
+        activeInterstitialTopicIdRef.current = currentTopic.id;
         sponsorPreviousIsComment.current = false;
         topCommentIsPreviousEntry.current = false;
         // Reserve the complete group as soon as it is assigned. Unviewed
@@ -751,7 +759,7 @@ export function TopicFeedCore({
       : undefined;
 
     if (previousSponsorCard?.campaigns.length) {
-      activeInterstitialTopicId.current = previousTopicId ?? null;
+      activateInterstitialTopic(previousTopicId ?? null);
       sponsorPreviousIsComment.current = Boolean(previousCard?.length);
       sponsorIsPreviousEntry.current = true;
       topCommentIsPreviousEntry.current = Boolean(previousCard?.length);
@@ -767,7 +775,7 @@ export function TopicFeedCore({
     }
 
     if (previousCard?.length) {
-      activeInterstitialTopicId.current = previousTopicId ?? null;
+      activeInterstitialTopicIdRef.current = previousTopicId ?? null;
       sponsorPreviousIsComment.current = false;
       // We are traversing backward from the following topic. Leaving this
       // comment card backward must therefore move to the previous topic;
@@ -818,14 +826,14 @@ export function TopicFeedCore({
             sponsorRequestVersion.current += 1;
             sponsorLoadingRef.current = false;
             setSponsorLoading(false);
-            const interstitialTopicId = activeInterstitialTopicId.current;
+            const interstitialTopicId = activeInterstitialTopicIdRef.current;
             if (interstitialTopicId) sponsorDueByTopicId.current.delete(interstitialTopicId);
             pendingSponsorAfterComment.current = false;
             sponsorPreviousIsComment.current = false;
             const wasPreviousEntry = sponsorIsPreviousEntry.current;
             sponsorIsPreviousEntry.current = false;
             topCommentIsPreviousEntry.current = false;
-            activeInterstitialTopicId.current = null;
+            activeInterstitialTopicIdRef.current = null;
             setShowTopCommentCard(false);
             if (!wasPreviousEntry) advanceToNextTopic();
           }}
@@ -841,7 +849,7 @@ export function TopicFeedCore({
             if (previousWasComment) {
               setShowTopCommentCard(true);
             } else {
-              activeInterstitialTopicId.current = null;
+              activeInterstitialTopicIdRef.current = null;
               if (wasPreviousEntry) {
                 setTopicIndex((previous) => (previous - 1 + feedTopics.length) % feedTopics.length);
               }
@@ -861,7 +869,7 @@ export function TopicFeedCore({
             sponsorIsPreviousEntry.current = false;
             sponsorPreviousIsComment.current = false;
             topCommentIsPreviousEntry.current = false;
-            activeInterstitialTopicId.current = null;
+            activeInterstitialTopicIdRef.current = null;
             if (!wasPreviousEntry) advanceToNextTopic();
           }}
           onPreviousTopic={() => {
@@ -873,7 +881,7 @@ export function TopicFeedCore({
             if (previousWasComment) {
               setShowTopCommentCard(true);
             } else {
-              activeInterstitialTopicId.current = null;
+              activeInterstitialTopicIdRef.current = null;
               if (wasPreviousEntry) {
                 setTopicIndex((previous) => (previous - 1 + feedTopics.length) % feedTopics.length);
               }
@@ -885,20 +893,17 @@ export function TopicFeedCore({
           key={userId ?? 'anonymous'}
           userId={userId}
           comments={activeTopCommentCardComments}
-          initialActiveIndex={
-            activeInterstitialTopicId.current
-              ? topCommentIndexByTopicId.current.get(activeInterstitialTopicId.current) ?? 0
-              : 0
-          }
+          initialActiveIndex={activeTopCommentIndex}
           onActiveIndexChange={(index) => {
-            const topicId = activeInterstitialTopicId.current;
+            setActiveTopCommentIndex(index);
+            const topicId = activeInterstitialTopicIdRef.current;
             if (topicId) topCommentIndexByTopicId.current.set(topicId, index);
           }}
           onCommentViewed={markTopCommentViewed}
           onNextTopic={async () => {
             if (sponsorLoadingRef.current) return;
             const commentWasPreviousEntry = topCommentIsPreviousEntry.current;
-            const interstitialTopicId = activeInterstitialTopicId.current;
+            const interstitialTopicId = activeInterstitialTopicIdRef.current;
             const currentTopic = interstitialTopicId
               ? feedTopics.find((topic) => topic.id === interstitialTopicId)
               : undefined;
@@ -921,7 +926,7 @@ export function TopicFeedCore({
             if (!shouldShowSponsorAfterComment) {
               setShowTopCommentCard(false);
               topCommentIsPreviousEntry.current = false;
-              activeInterstitialTopicId.current = null;
+              activeInterstitialTopicIdRef.current = null;
               if (!commentWasPreviousEntry) advanceToNextTopic();
               return;
             }
@@ -930,7 +935,7 @@ export function TopicFeedCore({
               setShowTopCommentCard(false);
               setTopicsSinceSponsorCard(0);
               topCommentIsPreviousEntry.current = false;
-              activeInterstitialTopicId.current = null;
+              activeInterstitialTopicIdRef.current = null;
               if (!commentWasPreviousEntry) advanceToNextTopic();
               return;
             }
@@ -971,7 +976,7 @@ export function TopicFeedCore({
                 setShowTopCommentCard(false);
                 setSponsorLoading(false);
                 topCommentIsPreviousEntry.current = false;
-                activeInterstitialTopicId.current = null;
+                activeInterstitialTopicIdRef.current = null;
                 if (!commentWasPreviousEntry) advanceToNextTopic();
               });
             } finally {
@@ -995,7 +1000,7 @@ export function TopicFeedCore({
             // When the comment was reached by swiping backward from a later
             // topic, leaving it backward must continue to the earlier topic.
             setShowTopCommentCard(false);
-            activeInterstitialTopicId.current = null;
+            activeInterstitialTopicIdRef.current = null;
             if (wasPreviousEntry) {
               setTopicIndex((previous) => (previous - 1 + feedTopics.length) % feedTopics.length);
             }
