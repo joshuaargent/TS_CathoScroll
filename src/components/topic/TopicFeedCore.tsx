@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState, type ComponentType, type ReactNode } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ComponentType, type ReactNode } from 'react';
 
 import { shuffle } from '@/lib/utils';
 import {
@@ -125,6 +125,7 @@ export function TopicFeedCore({
   const sponsorDueByTopicId = useRef(new Set<string>());
   const sponsorDirectionByTopicId = useRef(new Map<string, FeedEntryDirection>());
   const [activeTopCommentIndex, setActiveTopCommentIndex] = useState(0);
+  const [topCommentIndices, setTopCommentIndices] = useState<Record<string, number>>({});
   const [feedProgress, setFeedProgress] = useState({ current: 0, total: 5 });
   const updateFeedProgress = useCallback((current: number, total: number) => {
     setFeedProgress({ current, total });
@@ -133,13 +134,13 @@ export function TopicFeedCore({
   const activateInterstitialTopic = (topicId: string | null) => {
     activeInterstitialTopicIdRef.current = topicId;
     setActiveTopCommentIndex(
-      topicId ? topCommentIndexByTopicId.current.get(topicId) ?? 0 : 0
+      topicId ? topCommentIndices[topicId] ?? topCommentIndexByTopicId.current.get(topicId) ?? 0 : 0
     );
   };
   const [activeFeedEntryKey, setActiveFeedEntryKeyState] = useState<string | null>(null);
   const [feedEntryMap, setFeedEntryMap] = useState<FeedEntryMap | null>(null);
-  let feedCardRendererContext: FeedCardRendererContext | null = null;
-  let feedCardRenderers: ReturnType<typeof createFeedCardRegistry> = [];
+  const feedCardRendererContextRef = useRef<FeedCardRendererContext | null>(null);
+  const feedCardRenderersRef = useRef<ReturnType<typeof createFeedCardRegistry>>([]);
   const activeFeedEntryKeyRef = useRef<string | null>(null);
   const setActiveFeedEntryKey = useCallback((key: string | null) => {
     activeFeedEntryKeyRef.current = key;
@@ -168,6 +169,8 @@ export function TopicFeedCore({
     seenTopCommentIds.current.clear();
     topCommentCardsByTopicId.current.clear();
     topCommentIndexByTopicId.current.clear();
+    setTopCommentIndices({});
+    setActiveTopCommentIndex(0);
     processedTopicBoundariesByTopicId.current.clear();
     feedEntryMapRef.current = null;
     setFeedEntryMap(null);
@@ -303,6 +306,8 @@ export function TopicFeedCore({
             setActiveFeedEntryKey(null);
             topCommentCardsByTopicId.current.clear();
             topCommentIndexByTopicId.current.clear();
+            setTopCommentIndices({});
+            setActiveTopCommentIndex(0);
           }
         }
         return true;
@@ -720,6 +725,8 @@ export function TopicFeedCore({
         seenTopCommentIds.current.clear();
         topCommentCardsByTopicId.current.clear();
         topCommentIndexByTopicId.current.clear();
+        setTopCommentIndices({});
+        setActiveTopCommentIndex(0);
         processedTopicBoundariesByTopicId.current.clear();
         sponsorDueByTopicId.current.clear();
       }
@@ -751,14 +758,15 @@ export function TopicFeedCore({
     } else {
       setFeedProgress({ current: 0, total: 1 });
     }
-    if (!feedCardRendererContext) return;
+    const rendererContext = feedCardRendererContextRef.current;
+    if (!rendererContext) return;
     await invokeRegisteredFeedEntryLifecycle(
       entry,
       'enter',
       direction,
       entries,
-      feedCardRenderers,
-      feedCardRendererContext
+      feedCardRenderersRef.current,
+      rendererContext
     );
   };
 
@@ -875,14 +883,15 @@ export function TopicFeedCore({
       }
     }
 
-    if (currentEntry && currentEntry.type !== 'topic' && feedCardRendererContext) {
+    const rendererContext = feedCardRendererContextRef.current;
+    if (currentEntry && currentEntry.type !== 'topic' && rendererContext) {
       await invokeRegisteredFeedEntryLifecycle(
         currentEntry,
         'exit',
         direction,
         entries,
-        feedCardRenderers,
-        feedCardRendererContext
+        feedCardRenderersRef.current,
+        rendererContext
       );
     }
 
@@ -954,6 +963,7 @@ export function TopicFeedCore({
     onProgressChange: updateFeedProgress,
     onTopCommentIndexChange: (topicId: string, index: number) => {
       setActiveTopCommentIndex(index);
+      setTopCommentIndices((current) => ({ ...current, [topicId]: index }));
       topCommentIndexByTopicId.current.set(topicId, index);
     },
     onCommentViewed: markTopCommentViewed,
@@ -986,7 +996,7 @@ export function TopicFeedCore({
       ...baseFeedCardContext,
       previewMode: true,
       activeTopCommentIndex: entry.type === 'top-comments'
-        ? topCommentIndexByTopicId.current.get(entry.topicId) ?? 0
+        ? topCommentIndices[entry.topicId] ?? 0
         : 0,
       nextEntryPreview: undefined,
       previousEntryPreview: undefined,
@@ -1010,19 +1020,20 @@ export function TopicFeedCore({
       previousEntryPreview={previousEntryPreview}
     />
   );
-  feedCardRendererContext = {
+  const feedCardRendererContext: FeedCardRendererContext = {
     ...baseFeedCardContext,
     topicCard,
     previewMode: false,
     nextEntryPreview,
     previousEntryPreview,
   };
+  const feedCardRenderers = createFeedCardRegistry(feedCardRendererContext);
+  useLayoutEffect(() => {
+    feedCardRendererContextRef.current = feedCardRendererContext;
+    feedCardRenderersRef.current = feedCardRenderers;
+  }, [feedCardRendererContext, feedCardRenderers]);
 
-  // The registry stores deferred event callbacks; captured refs are read only when those callbacks run.
-  // eslint-disable-next-line react-hooks/refs
-  feedCardRenderers = createFeedCardRegistry(feedCardRendererContext);
   // Resolve every active entry—including topics—through the same registry.
-  // eslint-disable-next-line react-hooks/refs
   const renderedActiveEntry = activeMappedEntry
     ? renderRegisteredFeedEntry(activeMappedEntry, feedCardRenderers, feedCardRendererContext)
     : topicCard;
