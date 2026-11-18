@@ -824,7 +824,8 @@ export function TopicFeedCore({
   };
 
   const handleSponsorPrevious = () => {
-    if (sponsorLoadingRef.current) {
+    const wasLoading = sponsorLoadingRef.current;
+    if (wasLoading) {
       sponsorRequestVersion.current += 1;
       sponsorLoadingRef.current = false;
       setSponsorLoading(false);
@@ -840,7 +841,7 @@ export function TopicFeedCore({
       return;
     }
     const topicId = activeInterstitialTopicIdRef.current;
-    if (topicId && sponsorLoadingRef.current) {
+    if (topicId && wasLoading) {
       processedTopicBoundariesByTopicId.current.delete(topicId);
     }
     activateInterstitialTopic(null);
@@ -1019,9 +1020,15 @@ export function TopicFeedCore({
               setSponsorCampaigns(result.campaigns);
               setActiveSponsorSessionId(result.sessionId);
               setShowSponsorCard(true);
+            } else if (commentEntry?.type === 'top-comments') {
+              setSponsorLoading(false);
+              setShowSponsorCard(false);
+              setTopCommentCardComments(commentEntry.comments);
+              setShowTopCommentCard(true);
             } else {
               setShowSponsorCard(false);
-              setTopicIndex((index) => Math.max(0, index - 1));
+              const anchorIndex = feedTopics.findIndex((topic) => topic.id === entry.topicId);
+              setTopicIndex(anchorIndex >= 0 ? anchorIndex : Math.max(0, topicIndex - 1));
               activateInterstitialTopic(null);
             }
           })
