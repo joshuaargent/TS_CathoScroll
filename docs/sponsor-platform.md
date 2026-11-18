@@ -75,6 +75,10 @@ The sponsor portal can view its own invoice balances and recorded transactions. 
 
 The current workflow supports administrator-entered invoices, partial/full bank-transfer recording, duplicate transaction protection, outstanding balances and refunds. It does not yet import bank statement CSV files, automatically match bank transactions, generate/send tax-compliant PDF invoices, calculate VAT, or connect to a bank/payment API. Those require CathoScroll's legal issuer details, tax status and accounting requirements to be confirmed before implementation.
 
+## Sponsor card interactions
+
+The feed card exposes a Share action (Web Share API with clipboard fallback) and a Visit action that opens the campaign destination. It does not expose a Save/Bookmark action: the existing bookmark model is topic-specific, so sponsor campaigns must not be written into the topic bookmarks table. A saved-sponsor feature would require its own user-to-sponsor or user-to-campaign relation and corresponding privacy, removal and analytics behaviour.
+
 ## Reporting and privacy
 
 The sponsor portal reports campaign served counts, viewable impressions, clicks and click-through rate from aggregate daily metrics. Client-side viewable/click events are retained in an account-scoped offline queue capped at 1,000 pending events; acknowledged events are removed and retries reuse stable event IDs. It does not expose individual users, user IDs, session IDs, reading histories, raw event rows or comment data.
