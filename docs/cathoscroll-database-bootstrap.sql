@@ -5395,7 +5395,7 @@ BEGIN
     PERFORM cron.unschedule(existing_job.jobid);
   END LOOP;
   PERFORM cron.schedule('cathoscroll-prune-sponsor-campaign-events','*/15 * * * *',
-    'SELECT catho_private.prune_sponsor_campaign_events(clock_timestamp() - interval ''180 days'', 5000);');
+    'SELECT catho_private.prune_sponsor_campaign_events(statement_timestamp() - interval ''180 days'', 5000);');
 END;
 $sponsor_cron$;
 
