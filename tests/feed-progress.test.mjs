@@ -41,11 +41,11 @@ test('shared progress is owned by the feed shell and is not remounted with indiv
 });
 
 test('shared card layout preserves the original topic card and progress spacing', () => {
-  assert.match(baseCard, /px-6 pt-6 pb-6 md:px-8 md:pt-8 md:pb-8/);
+  assert.match(baseCard, /px-6 py-6 md:px-8 md:py-8/);
   assert.match(renderer, /shrink-0 px-6 pt-4/);
 });
 
 test('shared layout does not add a background to original topic cards', () => {
-  assert.match(topicCard, /className=\{type === 'question' \? 'bg-accent-light\/5' : 'bg-transparent'\}/);
-  assert.match(baseCard, /bg-bg-primary flex h-full w-full flex-col/);
+  assert.match(topicCard, /className=\{type === 'question' \? 'bg-accent-light\/5' : undefined\}/);
+  assert.match(baseCard, /flex h-full w-full flex-col px-6 py-6 md:px-8 md:py-8/);
 });
