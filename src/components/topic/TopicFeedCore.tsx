@@ -643,6 +643,8 @@ export function TopicFeedCore({
 
   // Modulo arithmetic wraps the finite catalogue into a circular feed.
   const advanceToNextTopic = () => {
+    setActiveFeedEntryKey(null);
+    activateInterstitialTopic(null);
     const currentTopicId = feedTopics[topicIndex]?.id;
     const boundaries = feedEntryMapRef.current?.boundaries ?? [];
     const currentBoundaryIndex = boundaries.findIndex((boundary) => boundary.topicId === currentTopicId);
@@ -664,7 +666,6 @@ export function TopicFeedCore({
     }
 
     pendingAdvanceAfterPageRef.current = false;
-    activateInterstitialTopic(null);
     setTopicIndex((prev) => (prev + 1) % feedTopics.length);
   };
 
