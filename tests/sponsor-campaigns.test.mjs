@@ -2,13 +2,14 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-const [bootstrap, feedCore, cardRegistry, placementRegistry, sponsorCard, campaignManager, deliveryRoute, eventRoute, campaignLib, campaignPage] = await Promise.all([
+const [bootstrap, feedCore, cardRegistry, placementRegistry, sponsorCard, campaignManager, campaignAdminRoute, deliveryRoute, eventRoute, campaignLib, campaignPage] = await Promise.all([
   readFile(new URL('../docs/cathoscroll-database-bootstrap.sql', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/TopicFeedCore.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/feed-card-registry.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/lib/feed-card-placement-registry.ts', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/SponsorFeedCard.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/admin/SponsorCampaignManager.tsx', import.meta.url), 'utf8'),
+  readFile(new URL('../src/app/api/admin/sponsor-campaigns/route.ts', import.meta.url), 'utf8'),
   readFile(new URL('../src/app/api/content/sponsored-campaigns/route.ts', import.meta.url), 'utf8'),
   readFile(new URL('../src/app/api/content/sponsor-campaign-events/route.ts', import.meta.url), 'utf8'),
   readFile(new URL('../src/lib/sponsor-campaigns.ts', import.meta.url), 'utf8'),
@@ -135,6 +136,8 @@ test('campaign admin controls require bank reconciliation before approval and su
   assert.match(campaignManager, /Create campaign/);
   assert.match(campaignManager, /placementWeight/);
   assert.match(campaignManager, /frequencyCapPerUser24h/);
+  assert.match(campaignManager, /name="frequencyCapPerUser24h" type="number" min="1" max="25"/);
+  assert.match(campaignAdminRoute, /positiveInteger\(body\.frequencyCapPerUser24h, 25\)/);
   assert.match(campaignManager, /Approve/);
   assert.match(campaignManager, /eligibleForApproval/);
   assert.match(campaignManager, /payment_status/);
