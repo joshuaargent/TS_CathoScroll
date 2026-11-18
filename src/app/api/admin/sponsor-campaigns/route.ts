@@ -130,7 +130,7 @@ export async function POST(request: Request) {
   const categories = stringArray(body.targetCategorySlugs, 100, 150);
   const topics = stringArray(body.targetTopicIds, 500, 150);
   const weight = positiveInteger(body.placementWeight, 1000);
-  const frequency24h = positiveInteger(body.frequencyCapPerUser24h, 5);
+  const frequency24h = positiveInteger(body.frequencyCapPerUser24h, 25);
   const frequencyTotal = positiveInteger(body.frequencyCapPerUserTotal, 50);
   const dailyCap = positiveInteger(body.dailyImpressionCap, 1000000000);
   const totalCap = positiveInteger(body.totalImpressionCap, 100000000000);
