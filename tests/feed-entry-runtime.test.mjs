@@ -54,14 +54,14 @@ test('removed card inventory falls back to its original topic anchor', () => {
   });
 });
 
-test('renderer and action registry dispatches a new card type without feed branches', async () => {
+test('renderer and action registry dispatches an unregistered-in-core poll type', async () => {
   const calls = [];
-  const pollRegistration = registerFeedEntry('top-comments', {
+  const pollRegistration = registerFeedEntry('poll', {
     render: (entry) => `render:${entry.topicId}`,
     onNext: (entry) => { calls.push(`next:${entry.topicId}`); },
     onPrevious: (entry) => { calls.push(`previous:${entry.topicId}`); },
   });
-  const entry = comments('42');
+  const entry = { type: 'poll', topicId: '42', pollId: 'poll-42' };
   assert.equal(renderRegisteredFeedEntry(entry, [pollRegistration], {}), 'render:42');
   await invokeRegisteredFeedEntryAction(entry, 'next', [pollRegistration], {});
   await invokeRegisteredFeedEntryAction(entry, 'previous', [pollRegistration], {});
