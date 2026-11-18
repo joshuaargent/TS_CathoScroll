@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import { TopicFeed } from '@/components/topic/TopicFeed';
 import { getPublishedTopicPage } from '@/lib/content';
 import { siteConfig } from '@/lib/constants';
@@ -63,8 +64,42 @@ async function HomeFeed() {
   );
 }
 
-export default async function HomePage() {
-  // The home feed intentionally has no loading fallback. Keep the initial
-  // experience still while the feed and session are resolved.
-  return HomeFeed();
+function HomeFeedLoading() {
+  return (
+    <div
+      className="h-[calc(100vh-4rem)] overflow-hidden"
+      role="status"
+      aria-busy="true"
+      aria-label="Loading your feed"
+    >
+      <div className="bg-bg-primary flex h-full w-full flex-col">
+        <div className="shrink-0 px-6 pt-6 md:px-8 md:pt-8">
+          <div className="bg-border h-1 w-full overflow-hidden rounded-full" />
+        </div>
+        <div className="flex min-h-0 flex-1 flex-col px-6 pb-6 md:px-8 md:pb-8">
+          <header className="flex items-center justify-between gap-3">
+            <span className="text-text-muted text-xs tracking-wider uppercase">
+              Your feed
+            </span>
+          </header>
+          <div className="flex min-h-0 flex-1 items-center justify-center">
+            <div className="mx-auto w-full max-w-3xl animate-pulse space-y-5">
+              <div className="bg-bg-secondary mx-auto h-4 w-32 rounded" />
+              <div className="bg-bg-secondary mx-auto h-12 w-4/5 rounded md:h-16" />
+              <div className="bg-bg-secondary mx-auto h-12 w-3/5 rounded md:h-16" />
+            </div>
+          </div>
+        </div>
+      </div>
+      <span className="sr-only">Loading your feed…</span>
+    </div>
+  );
+}
+
+export default function HomePage() {
+  return (
+    <Suspense fallback={<HomeFeedLoading />}>
+      <HomeFeed />
+    </Suspense>
+  );
 }
