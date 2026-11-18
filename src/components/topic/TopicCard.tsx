@@ -1,7 +1,7 @@
 import { Bookmark, Heart, MessageCircle, Share2 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
-import { TopicCardLayout } from './TopicCardLayout';
+import { BaseFeedCard } from './BaseFeedCard';
 
 interface TopicCardProps {
   type: 'question' | 'answer' | 'explanation' | 'catechism' | 'scripture';
@@ -60,75 +60,72 @@ export function TopicCard({
   })();
 
   return (
-    <TopicCardLayout
-      className="bg-transparent"
-      cardClassName={type === 'question' ? 'bg-accent-light/5' : undefined}
-      contentWidthClassName={type === 'question' ? 'max-w-2xl' : 'max-w-3xl'}
-      header={
+    <BaseFeedCard
+      className={type === 'question' ? 'bg-accent-light/5' : undefined}
+      title={<span className="text-text-muted text-xs tracking-wider uppercase">{title}</span>}
+      actions={
         <>
-          <span className="text-text-muted text-xs tracking-wider uppercase">{title}</span>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onPointerDown={(e) => e.stopPropagation()}
-              onTouchStart={(e) => e.stopPropagation()}
-              onClick={onLike}
-              disabled={interactionsDisabled}
-              aria-label={isLiked ? 'Unlike topic' : 'Like topic'}
-              aria-pressed={isLiked}
-              className={cn(
-                'flex h-11 items-center gap-2 rounded-full px-4 transition-colors disabled:cursor-not-allowed disabled:opacity-50',
-                isLiked
-                  ? 'bg-accent-light text-accent'
-                  : 'text-text-muted hover:bg-bg-secondary hover:text-text-primary'
-              )}
-            >
-              <Heart className={cn('h-5 w-5', isLiked && 'fill-current')} />
-              <span className="text-xs font-medium">{likes ?? '–'}</span>
-            </button>
+          <button
+            type="button"
+            onPointerDown={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
+            onClick={onLike}
+            disabled={interactionsDisabled}
+            aria-label={isLiked ? 'Unlike topic' : 'Like topic'}
+            aria-pressed={isLiked}
+            className={cn(
+              'flex h-11 items-center gap-2 rounded-full px-4 transition-colors disabled:cursor-not-allowed disabled:opacity-50',
+              isLiked
+                ? 'bg-accent-light text-accent'
+                : 'text-text-muted hover:bg-bg-secondary hover:text-text-primary'
+            )}
+          >
+            <Heart className={cn('h-5 w-5', isLiked && 'fill-current')} />
+            <span className="text-xs font-medium">{likes ?? '–'}</span>
+          </button>
 
-            <button
-              type="button"
-              onPointerDown={(e) => e.stopPropagation()}
-              onTouchStart={(e) => e.stopPropagation()}
-              onClick={onComments}
-              className="text-text-muted hover:bg-bg-secondary hover:text-text-primary flex h-11 items-center gap-2 rounded-full px-4 transition-colors"
-            >
-              <MessageCircle className="h-5 w-5" />
-              <span className="text-xs font-medium">{comments ?? '–'}</span>
-            </button>
+          <button
+            type="button"
+            onPointerDown={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
+            onClick={onComments}
+            className="text-text-muted hover:bg-bg-secondary hover:text-text-primary flex h-11 items-center gap-2 rounded-full px-4 transition-colors"
+          >
+            <MessageCircle className="h-5 w-5" />
+            <span className="text-xs font-medium">{comments ?? '–'}</span>
+          </button>
 
-            <button
-              type="button"
-              onPointerDown={(e) => e.stopPropagation()}
-              onTouchStart={(e) => e.stopPropagation()}
-              onClick={onBookmark}
-              disabled={interactionsDisabled}
-              aria-label={isBookmarked ? 'Remove bookmark' : 'Bookmark topic'}
-              aria-pressed={isBookmarked}
-              className={cn(
-                'flex h-11 w-11 items-center justify-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-50',
-                isBookmarked
-                  ? 'bg-accent-light text-accent'
-                  : 'text-text-muted hover:bg-bg-secondary hover:text-text-primary'
-              )}
-            >
-              <Bookmark className={cn('h-5 w-5', isBookmarked && 'fill-current')} />
-            </button>
+          <button
+            type="button"
+            onPointerDown={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
+            onClick={onBookmark}
+            disabled={interactionsDisabled}
+            aria-label={isBookmarked ? 'Remove bookmark' : 'Bookmark topic'}
+            aria-pressed={isBookmarked}
+            className={cn(
+              'flex h-11 w-11 items-center justify-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-50',
+              isBookmarked
+                ? 'bg-accent-light text-accent'
+                : 'text-text-muted hover:bg-bg-secondary hover:text-text-primary'
+            )}
+          >
+            <Bookmark className={cn('h-5 w-5', isBookmarked && 'fill-current')} />
+          </button>
 
-            <button
-              type="button"
-              onPointerDown={(e) => e.stopPropagation()}
-              onTouchStart={(e) => e.stopPropagation()}
-              onClick={onShare}
-              aria-label="Share topic"
-              className="text-text-muted hover:bg-bg-secondary hover:text-text-primary flex h-11 w-11 items-center justify-center rounded-full transition-colors"
-            >
-              <Share2 className="h-5 w-5" />
-            </button>
-          </div>
+          <button
+            type="button"
+            onPointerDown={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
+            onClick={onShare}
+            aria-label="Share topic"
+            className="text-text-muted hover:bg-bg-secondary hover:text-text-primary flex h-11 w-11 items-center justify-center rounded-full transition-colors"
+          >
+            <Share2 className="h-5 w-5" />
+          </button>
         </>
       }
+      contentWidthClassName={type === 'question' ? 'max-w-2xl' : 'max-w-3xl'}
     >
       <div className={cn('text-text-primary leading-tight', contentClasses)}>{content}</div>
       {reference && (
@@ -138,6 +135,6 @@ export function TopicCard({
           </span>
         </div>
       )}
-    </TopicCardLayout>
+    </BaseFeedCard>
   );
 }
