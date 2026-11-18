@@ -419,11 +419,16 @@ export function TopicFeedCore({
     void getSponsorCampaignResult(topic).then((result) => {
       if (result.retryable) return;
       const currentBoundary = feedEntryMapRef.current?.byTopicId.get(topicId);
-      const currentSponsor = currentBoundary?.entries.find((item) => item.type === 'sponsor');
+      if (!currentBoundary) return;
+      const currentSponsor = currentBoundary.entries.find((item) => item.type === 'sponsor');
       if (!currentSponsor || currentSponsor.type !== 'sponsor') return;
-      currentSponsor.campaigns = result.campaigns;
-      currentSponsor.sessionId = result.sessionId;
-      currentSponsor.status = result.campaigns.length > 0 && result.sessionId ? 'ready' : 'empty';
+      if (result.campaigns.length > 0 && result.sessionId) {
+        currentSponsor.campaigns = result.campaigns;
+        currentSponsor.sessionId = result.sessionId;
+        currentSponsor.status = 'ready';
+      } else {
+        currentBoundary.entries = currentBoundary.entries.filter((item) => item.type !== 'sponsor');
+      }
     });
   }, [getSponsorCampaignResult]);
 
