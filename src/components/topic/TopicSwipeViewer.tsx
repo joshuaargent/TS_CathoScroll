@@ -216,7 +216,7 @@ export function TopicSwipeViewer({
     });
 
     if (slideIndex === slides.length - 1) {
-      recordFeedTopicCompletion(userId, currentTopicId);
+      recordFeedTopicCompletion(userId, currentTopicId, slideIndex);
     }
   }, [currentTopicId, userId, slideIndex, slides.length]);
 
