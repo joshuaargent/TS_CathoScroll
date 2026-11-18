@@ -209,12 +209,14 @@ test('the original analytics-ranked topic feed is retained and interstitials are
 
 test('topic viewer stays mounted beneath interstitial cards and is inactive while covered', () => {
   assert.match(feedRenderer, /className="relative min-h-0 flex-1"/);
-  assert.match(feedRenderer, /invisible pointer-events-none absolute inset-0/);
+  assert.match(feedRenderer, /isTopic \? topicCard : interstitialCard/);
+  assert.doesNotMatch(feedRenderer, /absolute inset-0 z-10|invisible pointer-events-none/);
   assert.match(feedRenderer, /activeEntry: FeedEntry \| null/);
   assert.match(feedCore, /<FeedRenderer/);
+  assert.match(feedCore, /topicCard=\{/);
   assert.match(feedCore, /activeEntry=\{activeMappedEntry\}/);
   assert.match(feedCore, /active=\{!activeFeedCardEntry\}/);
-  assert.match(feedRenderer, /showingInterstitial && interstitialCard && \([\s\S]*?className="absolute inset-0 z-10"/);
+  assert.match(feedRenderer, /isTopic \? topicCard : interstitialCard/);
   assert.doesNotMatch(feedCore, /renderedFeedCard \?\? \(/);
 });
 
