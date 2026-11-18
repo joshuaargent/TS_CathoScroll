@@ -808,8 +808,14 @@ export function TopicFeedCore({
             setSponsorLoading(false);
             setTopicsSinceSponsorCard(sponsorRequestPreviousCadence.current);
             const previousWasComment = sponsorPreviousIsComment.current;
+            const wasPreviousEntry = sponsorIsPreviousEntry.current;
             sponsorPreviousIsComment.current = false;
-            if (previousWasComment) setShowTopCommentCard(true);
+            sponsorIsPreviousEntry.current = false;
+            if (previousWasComment) {
+              setShowTopCommentCard(true);
+            } else if (wasPreviousEntry) {
+              setTopicIndex((previous) => (previous - 1 + feedTopics.length) % feedTopics.length);
+            }
           }}
         />
       ) : showSponsorCard && sponsorCampaigns.length > 0 ? (
@@ -829,9 +835,14 @@ export function TopicFeedCore({
           }}
           onPreviousTopic={() => {
             setShowSponsorCard(false);
-            if (sponsorPreviousIsComment.current) {
-              sponsorPreviousIsComment.current = false;
+            const previousWasComment = sponsorPreviousIsComment.current;
+            const wasPreviousEntry = sponsorIsPreviousEntry.current;
+            sponsorPreviousIsComment.current = false;
+            sponsorIsPreviousEntry.current = false;
+            if (previousWasComment) {
               setShowTopCommentCard(true);
+            } else if (wasPreviousEntry) {
+              setTopicIndex((previous) => (previous - 1 + feedTopics.length) % feedTopics.length);
             }
           }}
         />
