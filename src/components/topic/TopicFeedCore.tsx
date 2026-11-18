@@ -581,6 +581,7 @@ export function TopicFeedCore({
       seenTopCommentUserId.current = userId;
       seenTopCommentIds.current.clear();
       topCommentCardsByTopicId.current.clear();
+      topCommentIndexByTopicId.current.clear();
       sponsorDueByTopicId.current.clear();
       currentCommentCadence = 0;
     }
