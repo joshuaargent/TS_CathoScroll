@@ -14,7 +14,7 @@ import {
   recordFeedTopicVisit,
 } from '@/lib/feed-analytics-client';
 import { TopicCard } from './TopicCard';
-import { TopicProgress } from './TopicProgress';
+import { FeedProgress } from './FeedProgress';
 
 interface TopicSwipeViewerProps {
   topics: Topic[];
@@ -557,7 +557,7 @@ export function TopicSwipeViewer({
         </div>
       )}
       <div className="px-6 pt-6">
-        <TopicProgress current={slideIndex} total={slides.length} />
+        <FeedProgress current={slideIndex} total={slides.length} />
       </div>
 
       <div ref={containerRef} className="relative flex-1 overflow-hidden pt-1">
