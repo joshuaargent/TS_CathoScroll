@@ -498,6 +498,7 @@ export function TopicFeedCore({
       const cachedSponsor = sponsorCardsByTopicId.current.get(currentTopic.id);
       if (cachedComments?.length) {
         activeInterstitialTopicId.current = currentTopic.id;
+        sponsorPreviousIsComment.current = false;
         topCommentIsPreviousEntry.current = false;
         setTopCommentCardComments(cachedComments);
         pendingSponsorAfterComment.current = Boolean(cachedSponsor?.campaigns.length) ||
@@ -673,6 +674,7 @@ export function TopicFeedCore({
       }
       if (currentTopic) {
         activeInterstitialTopicId.current = currentTopic.id;
+        sponsorPreviousIsComment.current = false;
         topCommentIsPreviousEntry.current = false;
         // Reserve the complete group as soon as it is assigned. Unviewed
         // comments remain part of this card when revisiting and cannot leak
@@ -752,6 +754,7 @@ export function TopicFeedCore({
 
     if (previousCard?.length) {
       activeInterstitialTopicId.current = previousTopicId ?? null;
+      sponsorPreviousIsComment.current = false;
       // We are traversing backward from the following topic. Leaving this
       // comment card backward must therefore move to the previous topic;
       // leaving it forward must return to the following topic.
