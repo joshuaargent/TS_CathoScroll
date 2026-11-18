@@ -2,11 +2,12 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-const [sponsorManager, campaignManager, sponsorPortal, feedCore, sponsorCard] = await Promise.all([
+const [sponsorManager, campaignManager, sponsorPortal, feedCore, cardRegistry, sponsorCard] = await Promise.all([
   readFile(new URL('../src/components/admin/SponsorManager.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/admin/SponsorCampaignManager.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/sponsor/SponsorPortal.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/TopicFeedCore.tsx', import.meta.url), 'utf8'),
+  readFile(new URL('../src/components/topic/feed-card-registry.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/SponsorFeedCard.tsx', import.meta.url), 'utf8'),
 ]);
 
@@ -43,8 +44,8 @@ test('sponsor users can submit campaigns and view only their own aggregate finan
 });
 
 test('feed gracefully omits missing comment and sponsor inventory without blank interstitials', () => {
-  assert.match(feedCore, /if \(entry\.type === 'top-comments'\)/);
-  assert.match(feedCore, /topCommentCardsByTopicId\.current\.set\(entry\.topicId, entry\.comments\)/);
+  assert.match(cardRegistry, /registerFeedEntry<Extract<FeedEntry, \{ type: 'top-comments' \}>/);
+  assert.match(cardRegistry, /cacheCommentGroup\(entry\.topicId, entry\.comments\)/);
   assert.match(feedCore, /result\.campaigns\.length > 0/);
   assert.match(feedCore, /const skipEntry = async/);
   assert.match(feedCore, /comments: unseenComments/);
