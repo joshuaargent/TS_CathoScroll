@@ -5216,6 +5216,7 @@ BEGIN
       ), 0) < campaign.daily_impression_cap)
       AND (campaign.total_impression_cap IS NULL OR campaign.served_count < campaign.total_impression_cap)
       AND coalesce(frequency.served_count, 0) < campaign.frequency_cap_per_user_total
+      -- Prefetching a campaign is not a user impression; only viewable cards consume the 24-hour cap.
       AND (SELECT pg_catalog.count(*) FROM catho_private.sponsor_campaign_events AS recent_viewable
         WHERE recent_viewable.user_id = p_user_id AND recent_viewable.campaign_id = campaign.id
           AND recent_viewable.event_type = 'viewable_impression'
