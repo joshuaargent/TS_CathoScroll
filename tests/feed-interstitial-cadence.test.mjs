@@ -194,15 +194,15 @@ test('the original analytics-ranked feed keeps interstitials in per-topic sessio
   assert.match(feedCore, /const nextTopics = appendUniqueFeedTopics\(feedTopicsRef\.current, newTopics\)/);
   assert.match(feedCore, /pendingAdvanceAfterPageRef\.current = true/);
   assert.match(feedCore, /sponsorIsPreviousEntry\.current = true/);
-  assert.match(feedCore, /activeInterstitialTopicIdRef = useRef<string \\| null>\\(null\\)/);
+  assert.match(feedCore, /activeInterstitialTopicIdRef = useRef<string \| null>\(null\)/);
   assert.match(feedCore, /feedTopics\.find\(\(topic\) => topic\.id === interstitialTopicId\)/);
   assert.match(feedCore, /const advanceToNextTopic/);
   assert.match(feedCore, /activeInterstitialTopicId/);
   assert.match(feedCore, /setTopCommentCardComments\(previousCard\)/);
   assert.match(feedCore, /const activateInterstitialTopic/);
   assert.match(feedCore, /topCommentIndexByTopicId\\.current\\.get\\(topicId\\)/);
-  assert.match(feedCore, /initialActiveIndex=\\{activeTopCommentIndex\\}/);
-  assert.match(feedCore, /onActiveIndexChange=\{\(index\) =>/);
+  assert.match(feedCore, /topCommentIndexByTopicId\.current\.get\(topicId\)/);
+  assert.match(feedCore, /initialActiveIndex=\{activeTopCommentIndex\}/);
   assert.match(topCommentCard, /initialActiveIndex\?: number/);
   assert.match(topCommentCard, /onActiveIndexChange\?\.\(nextIndex\)/);
   assert.match(feedCore, /topCommentIsPreviousEntry\.current = true/);
