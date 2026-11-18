@@ -94,17 +94,6 @@ export function TopicSwipeViewer({
     if (active) onProgressChange?.(slideIndex, slides.length);
   }, [active, currentTopicId, onProgressChange, slideIndex, slides.length]);
 
-  // Interstitial navigation can select a different topic without going
-  // through the topic swipe animation. Reset the hidden viewer before it is
-  // revealed so it never returns on a stale slide or translated motion value.
-  const previousTopicIdRef = useRef(currentTopicId);
-  useLayoutEffect(() => {
-    if (previousTopicIdRef.current === currentTopicId) return;
-    previousTopicIdRef.current = currentTopicId;
-    setSlideIndex(0);
-    x.jump(0);
-    y.jump(0);
-  }, [currentTopicId, x, y]);
   const previousSlide = slideIndex > 0 ? slides[slideIndex - 1] : null;
   const nextSlide = slideIndex < slides.length - 1 ? slides[slideIndex + 1] : null;
   const interactionVisible = !isAnimating;
