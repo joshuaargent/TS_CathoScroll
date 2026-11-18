@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { DoorOpen, Heart, MessageCircle } from 'lucide-react';
 
@@ -10,7 +10,6 @@ import type { TopFeedComment } from '@/lib/feed-comments';
 import { cn } from '@/lib/utils';
 import { FeedInterstitialMotion } from './FeedInterstitialMotion';
 import { TopicCardLayout } from './TopicCardLayout';
-import { FeedProgress } from './FeedProgress';
 
 interface TopCommentFeedCardProps {
   comments: TopFeedComment[];
@@ -23,6 +22,7 @@ interface TopCommentFeedCardProps {
   onCommentViewed: (commentId: number) => void;
   initialActiveIndex?: number;
   onActiveIndexChange?: (index: number) => void;
+  onProgressChange: (current: number, total: number) => void;
   nextEntryPreview?: ReactNode;
   previousEntryPreview?: ReactNode;
 }
@@ -144,6 +144,7 @@ export function TopCommentFeedCard({
   onCommentViewed,
   initialActiveIndex = 0,
   onActiveIndexChange,
+  onProgressChange,
   nextEntryPreview,
   previousEntryPreview,
 }: TopCommentFeedCardProps) {
@@ -153,6 +154,10 @@ export function TopCommentFeedCard({
   const safeIndex = Math.min(Math.max(0, activeIndex), Math.max(0, comments.length - 1));
   const comment = comments[safeIndex];
   const activeCommentId = comment?.comment_id;
+
+  useLayoutEffect(() => {
+    onProgressChange(safeIndex, comments.length);
+  }, [comments.length, onProgressChange, safeIndex]);
 
   useEffect(() => {
     if (active) navigationStarted.current = false;
@@ -213,7 +218,6 @@ export function TopCommentFeedCard({
       <TopicCardLayout
         cardClassName="bg-accent-light/5"
         contentWidthClassName="max-w-3xl"
-        progress={<FeedProgress current={safeIndex} total={comments.length} />}
         header={
           <>
             <span className="text-text-muted text-xs tracking-wider uppercase">Top Comments</span>
