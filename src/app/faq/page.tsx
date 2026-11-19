@@ -46,7 +46,7 @@ export default function FAQPage() {
 
           <p className="text-text-secondary leading-relaxed">
             No. CathoScroll's learning and community features are free to individual users.
-            We do not sell premium memberships, paid learning content, or user subscriptions.
+            We do not sell paid memberships, paid learning content, or user subscriptions.
             The only paid commercial offering is sponsorship purchased by businesses and
             organisations. Sponsored placements are clearly labelled.
           </p>
