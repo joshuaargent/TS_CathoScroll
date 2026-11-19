@@ -1,113 +1,114 @@
 # CathoScroll analytics data protection impact assessment
 
 **Assessment date:** 19 November 2026  
-**Status:** Provisional internal DPIA; not a legal opinion or a declaration of regulatory compliance.  
+**Status:** Provisional internal assessment; not a legal opinion or a declaration of regulatory compliance.  
 **Owner/controller:** CathoScroll's operator.  
-**Review trigger:** Before enabling new topic-level signed-out analytics, before changing analytics purposes or vendors, and at least annually while the processing continues.
+**Review trigger:** Material changes to analytics purposes, data fields, vendors or retention, and at least annually.
 
 ## 1. Processing under review
 
-This assessment covers:
+This assessment covers first-party, account-linked topic-feed and Top Comments analytics for signed-in users; Vercel Web Analytics site-level measurement, including signed-out visitors; Vercel Speed Insights performance measurement; and recommendation personalisation as a separate purpose controlled by the account personalisation setting.
 
-1. First-party, account-linked topic-feed and Top Comments exposure analytics for signed-in users.
-2. Vercel Web Analytics site-level measurement, including signed-out visitors.
-3. Vercel Speed Insights, which is disabled pending a separate data-field and transfer review.
-4. The proposed collection of first-party topic-level analytics from signed-out visitors. This proposal is **not approved** by this assessment.
+The current product behaviour is intentionally retained. Detailed first-party content analytics are collected for authenticated users; signed-out visitors are not added to that account-linked event pipeline. The existing personalisation checkbox controls whether activity is used to build and apply an individual recommendation-interest profile. It is not blanket consent for every analytics purpose.
 
-Recommendation personalisation is a separate purpose and processing activity. The signup personalisation checkbox does not authorise operational analytics, and declining personalisation does not withdraw or grant consent for analytics.
+## 2. Purposes and necessity
 
-## 2. Purpose and necessity
+First-party feed and comment analytics help measure whether content and community cards are being seen and used, identify product issues, understand engagement and improve the service. The existing analytics dashboard reports overall, category, topic, comment and sponsor performance. The recommendation system separately uses eligible account activity only where personalisation is enabled.
 
-The purposes are to measure service usage, understand whether feed and community-card features work, diagnose reliability and performance, protect the service, and make product improvements. Analytics is not used to target sponsors with individual reading histories.
+Vercel Web Analytics provides broader site traffic reporting, including signed-out visits. Vercel Speed Insights measures real-world performance and Core Web Vitals. Neither provider stream is merged into CathoScroll's account-linked topic-event tables.
 
-Aggregate site-level traffic measurement is sufficient for general visitor counts and broad usage trends. It does not justify collecting a visitor's topic-by-topic reading history. Detailed topic-level event collection should be limited to the minimum needed for a documented purpose and only where both the Article 6 and, if special-category data is processed, Article 9 conditions are satisfied.
+## 3. Data flows and categories
 
-## 3. Data flows and data categories
+### 3.1 Signed-in first-party feed analytics
 
-### 3.1 First-party signed-in feed analytics
+The topic feed records impressions, viewable impressions, active duration, skips, slide depth, completions and return visits. The Top Comments feed records card impressions, viewability, active duration, skips, meaningful-view completions and discussion opens.
 
-The current implementation records topic impressions, viewability, active duration, skips, slide depth, completions and return visits. The raw event stream includes the account user ID, topic ID, event ID, session ID, event type, limited event metadata and server receipt time. Raw events and the user/day viewer bridge are retained for up to 180 days. Daily rollups contain no user or session identifiers.
+Raw events are associated with the authenticated account and include the topic or comment identifier, event/session identifiers, event type, limited event metadata and server receipt time. The private database stores raw event streams and a private daily viewer bridge for up to 180 days. Daily rollups contain aggregate counts without account or session identifiers and are retained longer. Sponsor reporting remains a separate pipeline; sponsors do not receive raw user-level topic or comment activity.
 
-These records are pseudonymous at most while identifiers are retained; they are not anonymous. Topic-level activity on a Catholic learning service may reveal or support inferences about religious or philosophical beliefs. The data must therefore be treated as potentially special-category data until a documented assessment demonstrates otherwise.
+These records are account-linked personal data, not anonymous data. Topic activity on a Catholic learning service may reveal or permit inferences about religious or philosophical beliefs. Treat the information as potentially special-category data and restrict access accordingly.
 
-### 3.2 Vercel Web Analytics
+### 3.2 Signed-out visitors
 
-Vercel's published privacy documentation states that Web Analytics does not use third-party cookies, uses a hash derived from the incoming request to identify a short-lived visitor session, and discards that hash after 24 hours. Vercel states that the hash is not permanently stored and that its analytics data is used for aggregated statistics. Its documented data points may include timestamps, URLs, referrers, filtered query parameters, approximate geolocation, device type, and browser/OS information.
+The first-party topic and comment analytics clients require a signed-in user ID, and both ingestion endpoints independently authenticate the request. Signed-out visitors therefore do not create first-party account-linked topic or comment event records. No first-party persistent visitor ID or signed-out topic history is introduced by this assessment.
 
-CathoScroll now applies a `beforeSend` hook that normalises every page-view URL to the site's root and removes query strings and fragments. Consequently, topic paths and query values are not intentionally sent as page URLs. This does not control all request metadata processed by Vercel or other infrastructure, and the provider's own documentation, DPA, subprocessor list, retention, and transfer arrangements still require review.
+Signed-out visits can still contribute to Vercel Web Analytics and Speed Insights. These provider tools are separate from the account-linked first-party event pipeline.
 
-Vercel Web Analytics is provider-level site reporting. It is not CathoScroll's first-party topic-event stream and is not currently integrated into the Admin Analytics topic/event tables.
+### 3.3 Vercel Web Analytics
 
-### 3.3 Signed-out first-party analytics proposal
+Vercel states that Web Analytics does not use third-party cookies and uses a hash derived from the incoming request for short-lived visitor measurement, discarding that hash after 24 hours. Its documented data points may include timestamps, URLs, referrers, filtered query parameters, approximate geolocation, device type and browser/OS information.
 
-No first-party signed-out topic-level event stream is enabled. The client and ingestion endpoint require an authenticated account. Do not add a persistent visitor ID, browser fingerprint, localStorage analytics queue, topic/category/comment/sponsor identifier, full URL, referrer, or per-visitor history for signed-out visitors under this assessment.
+CathoScroll's `beforeSend` hook preserves ordinary page-level reporting but replaces topic, category and search identifiers with generic route labels, and removes query strings and fragments. The site's `strict-origin` Referrer-Policy limits browser-supplied referrer information to the referring origin. This reduces disclosure of sensitive content paths but does not remove all request metadata processed by Vercel or the hosting infrastructure.
 
-A future content-blind aggregate counter could record only coarse event totals by day (for example, generic feed opens and generic feed advances), without topic/category identifiers, session IDs, event-level rows, or unique-visitor counts. However, even generic use of a Catholic learning service may carry contextual sensitivity. Such a change is not approved until the remaining legal-basis, PECR, infrastructure logging, and DPIA actions below are completed.
+### 3.4 Vercel Speed Insights
 
-## 4. UK GDPR Article 6 and Article 9 assessment
+Speed Insights is enabled to measure Core Web Vitals and page performance. Vercel describes its data points as anonymous and says the product does not collect information designed to identify a visitor or reconstruct a browsing session. Its published fields include route and URL, network speed, browser, device type, operating system, country, web-vital values and element attribution.
 
-A lawful basis under Article 6 must be documented for each purpose. Legitimate interests may be considered for proportionate, content-blind service measurement, subject to a written legitimate interests assessment, necessity, balancing, user expectations, and effective objection controls. It must not be assumed to apply automatically.
+CathoScroll applies a `beforeSend` hook to remove query strings and fragments and replace topic, category and search identifiers with generic route labels before transmission. This is a performance measurement stream, not an account-linked reading-history system. Provider documentation and the current implementation should be rechecked when the SDK is upgraded.
 
-Where topic-level reading activity reveals or permits inferences about religious or philosophical beliefs, an Article 9 condition is also required. The personalisation consent is purpose-limited and cannot be reused as operational analytics consent. A possible route for optional topic-level analytics is separate, explicit, specific, informed, freely given consent under Article 9(2)(a), together with an Article 6 basis. Other Article 9 conditions should not be asserted without specialist advice and evidence that their requirements are met.
+## 4. UK GDPR Article 6 and Article 9
 
-**Unresolved production control:** the current first-party signed-in feed analytics pipeline is account-linked and contains topic IDs. The code and existing privacy notice do not by themselves establish an Article 9 condition. Before treating this stream as approved, the controller must document the Article 6 basis and Article 9 condition. If explicit consent is selected, implement a separate analytics consent, default off, with a withdrawal route and deletion/suppression rules; do not reuse the recommendation checkbox. Until that is completed, this DPIA does not certify the existing topic-level stream as lawful.
+A lawful basis under Article 6 must be documented for each purpose. Legitimate interests may be considered for proportionate service measurement and product improvement, but should be supported by a written assessment of purpose, necessity, user expectations, impact and safeguards. Contract may apply to processing objectively necessary to provide a feature requested by a user. The correct basis must be selected and recorded by the controller rather than assumed in this technical assessment.
+
+Where account-linked topic activity reveals or permits inferences about religious or philosophical beliefs, an Article 9 condition is also required. The personalisation checkbox is purpose-specific: it records explicit consent to use reading activity and selected interests to personalise recommendations. It should not be presented as blanket consent for unrelated operational analytics.
+
+The controller should obtain UK data-protection advice on whether the operational topic/comment analytics constitute special-category processing in the particular context, and identify the Article 9 condition that genuinely fits the operational purpose. Explicit consent under Article 9(2)(a) is one possible route, but would need to be specific, informed, freely given, clearly affirmed and withdrawable. Other Article 9 conditions should only be relied on where their statutory requirements are actually met. This assessment does not invent or certify an Article 9 condition.
+
+This review is an outstanding governance action; it does not change the current product behaviour or mean that the recommendation personalisation setting has been repurposed as analytics consent.
 
 ## 5. PECR and device storage/access
 
-The Vercel Web Analytics integration is documented by Vercel as not using third-party cookies. CathoScroll's URL-redaction hook does not create browser storage. The proposed signed-out first-party aggregate design must not use localStorage, IndexedDB, cookies, device fingerprinting, or other terminal-equipment storage/access for analytics without first assessing and obtaining any consent required by PECR. Essential authentication and preference storage remains a separate purpose and must not be repurposed as an analytics identifier.
+The Vercel Web Analytics integration is documented by Vercel as not using third-party cookies. The URL-redaction hooks do not themselves create browser storage. First-party topic/comment queues are account-scoped and used for authenticated analytics delivery. The controller should verify the deployed SDK behaviour and assess any device-storage/access requirements under PECR, including whether any analytics-related local storage is strictly necessary or requires consent. Essential authentication and preference storage must not be repurposed as an analytics identifier.
 
-The controller must verify the exact deployed Vercel script/version and any other third-party scripts against current PECR guidance. A provider's description of a product as privacy-friendly or cookieless is not, on its own, a legal exemption.
+## 6. Safeguards and proportionality
 
-## 6. Necessity, proportionality and safeguards
-
-- Keep recommendation personalisation separate from operational analytics in code, UI, consent records, database permissions, and documentation.
-- Do not send topic IDs, category IDs, comment IDs, sponsor IDs, full URLs, query strings, referrers, or reading histories to Vercel Web Analytics.
-- Normalise Vercel page-view URLs to the site root before transmission. Verify this in a deployed network capture after release.
-- Keep Vercel Speed Insights disabled until its data fields, route handling, retention, processor terms, and transfer position have been reviewed.
-- Keep first-party raw analytics in the private database schema, with no direct client table grants, validated RPC ingestion, strict rate limits, bounded payloads, deduplication, and bounded retention.
-- While content-level collection is paused, clear any queued, unsent topic/comment event batches from browser localStorage so a later deployment cannot upload stale activity unexpectedly.
-- Keep individual analytics unavailable to sponsors and out of sponsor targeting.
-- Do not publish small-cell analytics that could single out an individual or reveal sensitive interests. Any future aggregate report should apply minimum cohort thresholds and suppress low-count rows.
-- Do not create a signed-out unique-visitor metric unless a separate privacy assessment establishes a proportionate and lawful identifier strategy.
-- Verify server, CDN, WAF, function, and provider logs. Minimise URL, IP, referrer and user-agent logging where configurable, and document unavoidable security logging separately from analytics.
+- Keep first-party topic and comment ingestion authenticated; reject signed-out requests at the server as well as the client.
+- Keep raw analytics tables, viewer bridges and ingestion RPCs private, with administrator-only aggregate reporting and no sponsor access to raw user-level events.
+- Retain raw feed and comment analytics for no longer than the current 180-day period, and keep long-term reporting in account-free daily aggregates.
+- Keep recommendation personalisation separate from operational analytics in purpose, user-facing wording and account controls.
+- Do not use reading activity or inferred religious interests for individual sponsor targeting.
+- Remove query strings and fragments from Vercel Web Analytics and Speed Insights events; replace topic, category and search identifiers with generic route labels.
+- Keep the strict-origin referrer policy to avoid transmitting full referring-page paths.
+- Verify deployed network requests and SDK behaviour after changes or upgrades.
+- Review Vercel's DPA, subprocessors, retention, international transfer safeguards and relevant project settings.
+- Review hosting, CDN, WAF and function logs, including IP, URL, referrer and user-agent retention; minimise what is configurable and document security logging separately.
+- Apply minimum cohort thresholds and suppression where aggregate reports could single out a person, especially for small topics or narrow time windows.
+- Keep sponsor campaign analytics separate and do not expose account-level topic/comment histories to sponsors.
 
 ## 7. Risk assessment
 
-| Risk | Initial severity | Mitigation | Residual risk |
-|---|---|---|---|
-| Topic-level activity reveals religious/philosophical beliefs | High | Separate Article 9 assessment; separate explicit analytics consent if required; private storage; 180-day raw retention; no sponsor access | Medium until lawful basis and consent controls are documented |
-| Signed-out visitors are profiled through persistent IDs | High | No first-party signed-out event stream, no persistent visitor ID, no browser analytics queue | Low for CathoScroll's own feed-event store; provider request processing remains |
-| Sensitive topic paths leak to analytics provider | High | Vercel `beforeSend` rewrites every page URL to root and strips query/hash; no custom topic events | Medium until deployed network capture verifies it and referrer handling is confirmed |
-| Small aggregate counts expose an individual | Medium | No per-visitor records; future aggregate reports require minimum cohort thresholds and suppression | Low to medium depending on report dimensions |
-| Analytics consent is confused with personalisation consent | High | Separate purposes and separate UI/records; current notice states the distinction | Medium until account-level analytics consent is implemented or another Article 9 condition is evidenced |
-| Third-party transfer, retention or subprocessor exposure | Medium | Review Vercel DPA, subprocessors, transfer mechanism, settings and retention | Medium pending documentary review |
-| Security logs retain IP or sensitive URL data | Medium | Review and minimise Vercel/CDN/WAF/function logs; fixed analytics URL; access controls and retention | Medium pending provider configuration evidence |
+| Risk | Mitigation | Residual position |
+|---|---|---|
+| Account-linked topic activity reveals religious/philosophical interests | Restricted private storage, authentication, bounded retention, separate personalisation controls, Article 9 review | Requires controller's documented Article 9 decision |
+| Signed-out visitors are incorrectly added to account-linked topic analytics | Client requires user ID; ingestion endpoints independently require authentication | Low for first-party topic/comment event tables |
+| Sensitive paths or search terms reach analytics providers | Route-label replacement, query/hash removal and strict-origin referrer policy | Reduced; verify deployed requests and infrastructure logs |
+| Small aggregate counts expose an individual | Account-free rollups, cohort thresholds and suppression | Depends on report dimensions and traffic volume |
+| Personalisation consent is confused with operational analytics | Distinct purposes and accurate policy wording | Low if notices and implementation remain aligned |
+| Provider transfers or infrastructure logs expose excess metadata | DPA/subprocessor review, transfer safeguards, log minimisation | Requires provider and configuration review |
 
-## 8. Data subject rights and retention
+## 8. Rights, retention and transparency
 
-The controller must provide a clear route to exercise access, erasure, objection, and withdrawal rights where applicable. Account-linked raw analytics and viewer-bridge records are retained for up to 180 days under the current design; daily aggregate totals are retained longer. The controller must document whether daily topic totals can still identify a person in low-volume cases and apply suppression or deletion where necessary. Vercel's 24-hour visitor-hash statement is the provider's published position and must be rechecked against the current contract and configuration.
+The privacy notice explains the types of first-party events collected, the account link, signed-out exclusion, provider-level site/performance measurement, and the separation from recommendation personalisation. Raw first-party feed/comment events and the viewer bridge are retained for up to 180 days; aggregate daily totals are retained longer where they no longer identify individuals. The controller should continue to assess whether low-volume aggregate rows could identify a person and apply suppression or deletion where needed.
 
-## 9. DPIA conclusion and deployment decision
+Users can exercise applicable access, rectification, erasure, restriction and objection rights. Where personalisation is based on consent, users can withdraw it through Account settings; that withdrawal stops profile-based recommendation weighting and removes the derived personalisation profile. It does not automatically erase operational analytics records that have a separately documented purpose and lawful basis.
 
-**Signed-out first-party topic-level analytics: not approved.** The current product already has signed-out site-level measurement through Vercel Web Analytics. CathoScroll has therefore not added a second, visitor-level topic-tracking system. The Vercel page URL is now normalised to the site root to reduce the risk of topic-specific path disclosure. Speed Insights is disabled pending its separate review.
+## 9. Conclusion and remaining actions
 
-**Signed-in first-party topic- and comment-level analytics: paused by default and not certified by this assessment.** Both viewers are gated by `NEXT_PUBLIC_ACCOUNT_LINKED_FEED_ANALYTICS=true`, and both ingestion routes independently fail closed unless `ACCOUNT_LINKED_FEED_ANALYTICS_ENABLED=true`. Both must remain unset until the controller documents the Article 6 basis and applicable Article 9 condition, and implements any required separate explicit consent, withdrawal, and deletion controls. The recommendation personalisation checkbox is not that condition.
+The implementation retains detailed first-party topic and comment analytics for signed-in users and excludes signed-out visitors from those account-linked event tables. Vercel Web Analytics and Speed Insights remain available for site-level and performance measurement, with route/query minimisation intended to avoid exposing sensitive content identifiers.
 
-The residual risk cannot be marked fully accepted until the controller completes the actions below. If the controller cannot identify an applicable Article 9 condition, the account-linked topic-level stream must remain paused or be redesigned.
+The principal remaining legal task is to document the Article 6 basis and, where topic activity is special-category data, the applicable Article 9 condition for operational analytics. The controller should also complete the provider/transfer and infrastructure-log reviews described above. This is a proportionate ongoing compliance review, not a claim that all analytics are anonymous or that CathoScroll has been certified as legally compliant.
 
-## 10. Scope limitation: sponsor campaign analytics
+## 10. Sponsor analytics
 
-Sponsor campaign delivery, viewability and click analytics are implemented as a separate pipeline. They are not the same as topic/comment feed telemetry, and this assessment does not certify their lawful basis, retention, or possible linkage to sensitive reading context. Review that pipeline separately, including whether campaign IDs or placement context can reveal special-category interests and whether any user-level frequency data is retained. Sponsors must not receive individual reading histories or use them for sensitive-interest targeting.
+Sponsor campaign delivery, viewability, click analytics and frequency controls are a separate pipeline. This assessment does not certify their lawful basis or retention. Continue to prevent sponsors from accessing raw user-level events or using individual religious/topic interests for targeting. Review campaign placement and frequency data separately to ensure it is not combined with sensitive reading histories.
 
-## 11. Required controller actions before declaring the analytics processing approved
+## 11. Controller action list
 
-1. Complete and sign a purpose-specific legitimate interests assessment for any processing relying on Article 6(1)(f), or document the selected Article 6 basis.
-2. Obtain specialist UK data-protection advice on whether the existing topic-level feed and comment-card telemetry processes special-category data and identify the applicable Article 9 condition.
-3. If relying on explicit consent, implement a separate, optional, default-off analytics consent for signed-in users and signed-out visitors; keep it distinct from personalisation; record version/time/purpose; provide withdrawal; and define the effect on existing raw data.
-4. Review Vercel's DPA, subprocessor list, international transfer mechanism, data retention, project settings, and any available regional controls.
-5. Inspect deployed network requests to confirm URL redaction, no custom content identifiers, and no unexpected third-party analytics scripts. Confirm how referrer information is handled.
-6. Review and configure Vercel/CDN/WAF/hosting/function logs, including IP address, user-agent, referrer and URL retention. Record what cannot be disabled and why it is necessary for security.
-7. Define minimum cohort thresholds and suppression rules before exposing any topic-level aggregate report.
-8. Review the assessment after material product/vendor changes and at least annually.
+1. Record an Article 6 basis for each analytics purpose and complete a legitimate-interests assessment where Article 6(1)(f) is selected.
+2. Obtain specialist advice on whether operational topic/comment analytics process special-category data and record the applicable Article 9 condition where required.
+3. Review Vercel's DPA, subprocessors, transfer safeguards, retention and project settings.
+4. Verify deployed Web Analytics and Speed Insights network events, route redaction and SDK versions.
+5. Review CDN, WAF, hosting and function logs, including IP, URL, referrer and user-agent retention.
+6. Confirm aggregate dashboard suppression for low-volume data and keep sponsor access aggregate-only.
+7. Revisit this assessment after material changes and at least annually.
 
-**Approval record:** Not yet approved. The controller must record the reviewer, date, selected lawful bases, Article 9 condition (if applicable), vendor/transfer checks, and residual-risk acceptance before marking this DPIA complete.
+**Approval record:** This is a provisional internal assessment. The controller should record the reviewer, date, selected lawful bases, Article 9 condition where applicable, provider/transfer checks and any accepted residual risks before treating the review as complete.
