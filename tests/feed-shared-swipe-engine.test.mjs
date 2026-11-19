@@ -31,17 +31,18 @@ test('topic cards and feed interstitials share the original topic swipe gesture 
   assert.doesNotMatch(interstitial, /const handlePointerUp =/);
 });
 
-test('interstitials retain the same five-position preview stack as topic cards', () => {
-  assert.match(topicViewer, /left-\[-100%\]/);
-  assert.match(topicViewer, /left-\[100%\]/);
-  assert.match(topicViewer, /top-\[-100%\]/);
-  assert.match(topicViewer, /top-\[100%\]/);
-  assert.match(interstitial, /left-\[-100%\]/);
-  assert.match(interstitial, /left-\[100%\]/);
-  assert.match(interstitial, /top-\[-100%\]/);
-  assert.match(interstitial, /top-\[100%\]/);
-  assert.match(comments, /previousHorizontalPreview=\{renderCommentPreview/);
-  assert.match(comments, /nextHorizontalPreview=\{renderCommentPreview/);
-  assert.match(sponsor, /previousHorizontalPreview=\{renderCampaignPreview/);
-  assert.match(sponsor, /nextHorizontalPreview=\{renderCampaignPreview/);
+test('topics, comments and sponsors render through one shared five-position viewport', () => {
+  for (const position of [/left-\\[-100%\\]/, /left-\\[100%\\]/, /top-\\[-100%\\]/, /top-\\[100%\\]/]) {
+    assert.match(sharedViewport, position);
+  }
+  assert.match(topicViewer, /topPreview=/);
+  assert.match(topicViewer, /leftPreview=/);
+  assert.match(topicViewer, /rightPreview=/);
+  assert.match(topicViewer, /bottomPreview=/);
+  assert.match(interstitial, /leftPreview=\\{previousHorizontalPreview\\}/);
+  assert.match(interstitial, /rightPreview=\\{nextHorizontalPreview\\}/);
+  assert.match(comments, /previousHorizontalPreview=\\{renderCommentPreview/);
+  assert.match(comments, /nextHorizontalPreview=\\{renderCommentPreview/);
+  assert.match(sponsor, /previousHorizontalPreview=\\{renderCampaignPreview/);
+  assert.match(sponsor, /nextHorizontalPreview=\\{renderCampaignPreview/);
 });
