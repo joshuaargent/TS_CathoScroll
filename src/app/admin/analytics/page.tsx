@@ -98,7 +98,7 @@ export default async function AdminAnalyticsPage({ searchParams }: Props) {
       (data as { topics: Record<string, unknown>[] }).topics,
       anonymous.topics as unknown as Record<string, unknown>[],
       'id'
-    ).slice(0, 20),
+    ),
     sponsors: mergeEntities(
       (data as { sponsors: Record<string, unknown>[] }).sponsors,
       anonymous.sponsors as unknown as Record<string, unknown>[],
@@ -108,7 +108,7 @@ export default async function AdminAnalyticsPage({ searchParams }: Props) {
       (data as { comments: Record<string, unknown>[] }).comments.map((item) => ({ ...item, id: String(item.id) })),
       anonymous.comments as unknown as Record<string, unknown>[],
       'id'
-    ).slice(0, 20).map((item) => ({ ...item, id: Number(item.id) })),
+    ).map((item) => ({ ...item, id: Number(item.id) })),
   };
   const mergedSeries = (seriesData as Record<string, unknown>[]).map((day) => {
     const match = anonymous.series.find((row) => row.event_date === day.event_date);
