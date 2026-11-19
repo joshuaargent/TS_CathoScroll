@@ -25,11 +25,6 @@ export function OPTIONS(request: Request) {
 }
 
 export async function POST(request: Request) {
-  // Fail closed until a distinct analytics lawful-basis/Article 9 decision is approved.
-  if (process.env.ACCOUNT_LINKED_FEED_ANALYTICS_ENABLED !== 'true') {
-    return respond(request, { error: 'Feed analytics are temporarily disabled.' }, 410);
-  }
-
   if (!isSameOriginOrNativeRequest(request)) {
     return respond(request, { error: 'Forbidden' }, 403);
   }
