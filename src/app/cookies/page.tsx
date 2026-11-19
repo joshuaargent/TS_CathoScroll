@@ -89,6 +89,7 @@ export default function CookiesPage() {
             CathoScroll's own feed analytics tables. Vercel Speed Insights is disabled while its separate data
             processing is assessed.
           </p>
+        </section>
 
         <section>
           <h2 className="mb-4 text-3xl font-bold">Personalisation</h2>
