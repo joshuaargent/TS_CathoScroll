@@ -120,10 +120,13 @@ test('signup collects separate, unchecked explicit consent on web and native', (
 test('all recommendation history signals are opt-in and withdrawal neutralises active cursors', () => {
   const body = functionBody('public.get_my_recommendation_page');
   assert.match(body, /SELECT coalesce\(enabled,false\) INTO personalization_enabled/);
-  assert.match(body, /WHERE personalization_enabled/);
+  assert.match(body, /IF personalization_enabled THEN/);
+  assert.match(body, /WITH signals AS/);
+  assert.match(body, /ELSE[\s\S]*?SELECT coalesce/);
   assert.match(body, /include_completed := NOT personalization_enabled/);
+  assert.match(body, /'includeCompleted', include_completed/);
   assert.match(body, /IF NOT personalization_enabled THEN/);
-  assert.match(body, /jsonb_build_object\('weight',1\)/);
+  assert.match(body, /'weight', 1/);
   assert.match(body, /include_completed := true/);
   assert.match(documentation, /All account-history recommendation weighting is consent-gated/);
 });
