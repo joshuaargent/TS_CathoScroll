@@ -232,11 +232,19 @@ export default function PrivacyPage() {
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            These operational analytics are separate from optional personalisation. They are not
+            These operational analytics are separate from optional personalisation and are not
             used to build your recommendation profile or change your personal feed unless you
-            separately opt in to personalisation. Raw event records and the user/day viewer bridge
-            are retained for up to 180 days; non-identifying daily totals are retained longer.
-            CathoScroll currently uses Vercel Analytics for site analytics and performance insights.
+            separately opt in to personalisation. For signed-in activity, event records and the
+            user/day viewer bridge can be linked to your account and the topic or card involved;
+            they are not anonymous while those identifiers are retained. Raw event records and the
+            viewer bridge are retained for up to 180 days, while daily totals without user or
+            session identifiers are retained longer. CathoScroll does not provide these individual
+            event records to sponsors or use them for sponsor targeting. Because the platform
+            covers religious subjects, topic-level activity may reveal sensitive interests even
+            when it is used only for service measurement. We are assessing the applicable UK GDPR
+            Article 9 position for this operational analytics stream separately from personalisation
+            consent. The personalisation checkbox is not consent for operational analytics.
+            CathoScroll also uses Vercel Analytics for site analytics and performance insights.
           </p>
         </section>
 
