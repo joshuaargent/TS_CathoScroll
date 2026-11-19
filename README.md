@@ -756,3 +756,12 @@ Built by [Joshua Argent](https://joshuaargent.vercel.app)
 CathoScroll • Learn Catholic teaching one swipe at a time
 
 </div>
+
+
+### Anonymous feed analytics and sponsor delivery (in progress)
+
+The current branch adds a separate signed-out ingestion path at `/api/analytics/anonymous-events`. Topic and Top Comments exposure events are aggregated by UTC day and entity, without an account ID or persistent visitor ID. Event IDs are retained only in a short-lived deduplication ledger (seven days); no anonymous unique-person metric is inferred. Anonymous events are separate from authenticated event tables and must remain separately labelled in reporting.
+
+Signed-out sponsor selection and event recording use dedicated database functions and tables. A random session token exists only in the active page runtime; the database stores its SHA-256 hash for frequency control, not the raw token. Anonymous sponsor event/session-frequency rows are pruned after 48 hours. Campaign eligibility retains approval, sponsor/payment status, dates, targeting and campaign caps. Sponsor analytics remain aggregate-only.
+
+**Reporting limitation:** anonymous aggregates have not yet been wired into every analytics overview and entity drill-down. Until that is completed, dashboard figures are not a combined view of signed-in and signed-out activity. Do not present signed-in unique viewers plus anonymous sessions as a deduplicated unique-person total. The fresh-project bootstrap must also include the new anonymous tables, functions and retention job before this database change is considered fully documented for disaster recovery.
