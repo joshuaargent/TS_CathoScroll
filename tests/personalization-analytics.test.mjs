@@ -57,6 +57,19 @@ test('admin deep dive returns aggregate reports and correctly censors immature c
   assert.match(documentation, /do not return user IDs, session IDs/);
 });
 
+
+test('admin deep-dive analytics is service-role only', () => {
+  assert.match(bootstrap, /REVOKE ALL ON FUNCTION public\\.get_admin_analytics_deep_dive\\(uuid,timestamptz,timestamptz\\) FROM PUBLIC,anon,authenticated/);
+  assert.match(bootstrap, /GRANT EXECUTE ON FUNCTION public\\.get_admin_analytics_deep_dive\\(uuid,timestamptz,timestamptz\\) TO service_role/);
+});
+
+test('explicit category interests are bounded and validated', () => {
+  const body = functionBody('public.set_my_personalization_interests');
+  assert.match(body, /cardinality\\(p_category_slugs\\)>20/);
+  assert.match(body, /Enable personalisation before saving interests/);
+  assert.match(body, /is_published=true/);
+});
+
 test('personalisation settings disclose the profile purpose and sponsor isolation', () => {
   assert.match(settings, /not used for sponsor targeting/);
   assert.match(settings, /Turn off and delete profile/);
