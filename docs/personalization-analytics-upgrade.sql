@@ -75,8 +75,8 @@ BEGIN
     WHERE event_type='impression' AND metadata->>'source'='feed'
       AND received_at>=p_from AND received_at<p_to
   ),
-  feed_sessions AS (
-    SELECT DISTINCT user_id,session_id FROM feed_impressions
+  feed_topics AS (
+    SELECT DISTINCT user_id,session_id,entity_id FROM feed_impressions
   ),
   session_events AS (
     SELECT e.user_id,e.session_id,
@@ -88,20 +88,20 @@ BEGIN
       coalesce(sum(least(coalesce((e.metadata->>'duration_ms')::integer,0),60000))
         FILTER(WHERE e.event_type='active_duration'),0) AS active_ms
     FROM catho_private.feed_analytics_events e
-    JOIN feed_sessions s ON s.user_id=e.user_id AND s.session_id=e.session_id
+    JOIN feed_topics t ON t.user_id=e.user_id AND t.session_id=e.session_id AND t.entity_id=e.entity_id
     WHERE e.received_at>=p_from AND e.received_at<p_to
     GROUP BY e.user_id,e.session_id
   ),
   funnel AS (
     SELECT (SELECT count(*) FROM feed_impressions) AS impressions,
       (SELECT count(DISTINCT (e.user_id,e.session_id)) FROM catho_private.feed_analytics_events e
-        JOIN feed_sessions s ON s.user_id=e.user_id AND s.session_id=e.session_id
+        JOIN feed_topics t ON t.user_id=e.user_id AND t.session_id=e.session_id AND t.entity_id=e.entity_id
         WHERE e.event_type='viewable_impression' AND e.received_at>=p_from AND e.received_at<p_to) AS viewable_sessions,
       (SELECT count(DISTINCT (e.user_id,e.session_id)) FROM catho_private.feed_analytics_events e
-        JOIN feed_sessions s ON s.user_id=e.user_id AND s.session_id=e.session_id
+        JOIN feed_topics t ON t.user_id=e.user_id AND t.session_id=e.session_id AND t.entity_id=e.entity_id
         WHERE e.event_type='completion' AND e.received_at>=p_from AND e.received_at<p_to) AS completed_sessions,
       (SELECT count(DISTINCT (e.user_id,e.session_id)) FROM catho_private.feed_analytics_events e
-        JOIN feed_sessions s ON s.user_id=e.user_id AND s.session_id=e.session_id
+        JOIN feed_topics t ON t.user_id=e.user_id AND t.session_id=e.session_id AND t.entity_id=e.entity_id
         WHERE e.event_type='skip' AND e.received_at>=p_from AND e.received_at<p_to) AS skipped_sessions
   ),
   session_summary AS (
