@@ -28,13 +28,13 @@ export default function CookiesPage() {
         </section>
 
         <section>
-          <h2 className="mb-4 text-3xl font-bold">How CathoScroll Uses Cookies</h2>
+          <h2 className="mb-4 text-3xl font-bold">How CathoScroll Uses Cookies and Similar Technologies</h2>
 
           <p className="text-text-secondary leading-relaxed">
-            CathoScroll uses cookies and similar technologies to provide core functionality,
-            maintain authentication sessions, improve security, remember essential preferences,
-            support offline functionality, and measure service performance. We do not use
-            advertising cookies to target users.
+            CathoScroll uses cookies and similar technologies for core functionality, authentication,
+            security, essential preferences, and offline support. We also use first-party site
+            analytics and server-side product analytics as described below; these are not used for
+            cross-site advertising or to target users with sponsored content.
           </p>
         </section>
 
