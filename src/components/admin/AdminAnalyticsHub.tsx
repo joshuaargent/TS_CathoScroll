@@ -112,8 +112,7 @@ export function AdminAnalyticsHub({ overview, period, section = 'overview', seri
   const comments = showAll ? overview.comments.slice(0, 5) : overview.comments;
 
   return <main className="container py-12">
-    <div className="mt-6"><p className="text-accent text-sm font-semibold tracking-wider uppercase">Administration · Insights</p>
-      <h1 className="mt-2 text-4xl font-extrabold md:text-5xl">Analytics</h1>
+    <div className="mt-6"><h1 className="mt-2 text-4xl font-extrabold md:text-5xl">Analytics</h1>
       <p className="text-text-secondary mt-4 max-w-3xl">A unified view of learning activity, community engagement and sponsored delivery. Select any area to explore its performance in detail.</p>
     </div>
     <div className="mt-8"><AdminNavigation /></div>
