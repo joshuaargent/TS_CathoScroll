@@ -523,7 +523,7 @@ export async function getPublicGeneralTopicPage(
     throw new Error('The public feed service returned an invalid page.');
   }
   const rows = data.topics as Array<{
-    id: string; slug: string; category: string; question: string; answer: string;
+    id: string; slug: string; category: string; categorySlug: string; question: string; answer: string;
     explanation: string; catechism?: { paragraphs?: string[]; text?: string };
     scripture?: { reference?: string; text?: string };
   }>;
@@ -531,7 +531,7 @@ export async function getPublicGeneralTopicPage(
     id: row.id,
     slug: row.slug,
     category: row.category,
-    categorySlug: '',
+    categorySlug: row.categorySlug,
     question: row.question,
     answer: row.answer,
     explanation: row.explanation,
