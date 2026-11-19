@@ -167,7 +167,7 @@ export default function PrivacyPage() {
             <li>Contract: to create and operate your account and provide features you request.</li>
             <li>Legitimate interests: to secure, maintain, troubleshoot, moderate, and improve the service, prevent abuse, and measure aggregate service performance, where those interests are not overridden by your rights.</li>
             <li>Legal obligation: to keep or disclose information where applicable law requires it.</li>
-            <li>Consent: for optional personalisation. Because this processing may reveal religious or philosophical beliefs, we rely on your explicit consent for the relevant special-category processing as well as consent under the general UK GDPR lawful-basis framework.</li>
+            <li>Consent: for optional personalisation. Because this processing may reveal religious or philosophical beliefs, we rely on your explicit consent under Article 6(1)(a) UK GDPR and the Article 9(2)(a) exception for the relevant special-category processing.</li>
           </ul>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
@@ -272,11 +272,11 @@ export default function PrivacyPage() {
           <h2 className="mb-4 text-3xl font-bold">Data Retention</h2>
 
           <p className="text-text-secondary leading-relaxed">
-            We retain information only for as long as reasonably necessary for the purpose for which it was collected, subject to legal, security, moderation, and accounting requirements. Raw feed and community-card analytics events are retained for up to 180 days. Daily aggregates are retained longer in a form that does not contain user or session identifiers.
+            We retain information only for as long as reasonably necessary for the purpose for which it was collected, subject to legal, security, moderation, and accounting requirements. Raw feed and community-card analytics events, together with the user/day viewer bridge used for unique-viewer reporting, are retained for up to 180 days. Daily totals that do not contain user or session identifiers are retained longer.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            While personalisation is enabled, behavioural topic-interest scores use a rolling evidence window of up to 90 days. Explicit category choices remain stored while consent remains enabled. When you withdraw consent, the derived profile and explicit category choices are deleted. The separate operational analytics event records are not deleted by withdrawing personalisation consent and remain subject to their own retention period.
+            While personalisation is enabled, behavioural topic-interest scores use a rolling evidence window of up to 90 days. Explicit account interactions such as likes, bookmarks, progress and comment engagement use a maximum 180-day evidence window. Explicit category choices remain stored while consent remains enabled. When you withdraw consent, the derived profile and explicit category choices are deleted. The separate operational analytics event records are not deleted by withdrawing personalisation consent and remain subject to their own retention period.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
