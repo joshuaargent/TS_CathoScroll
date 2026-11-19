@@ -15,6 +15,11 @@ import {
 import { TopicCard } from './TopicCard';
 import { FeedSwipeViewport } from './FeedSwipeViewport';
 
+// Account-linked topic telemetry is paused until a separate Article 9 basis/consent
+// decision is documented. Do not enable with recommendation personalisation consent.
+const ACCOUNT_LINKED_FEED_ANALYTICS_ENABLED =
+  process.env.NEXT_PUBLIC_ACCOUNT_LINKED_FEED_ANALYTICS === 'true';
+
 function getActiveElapsed(startedAt: number | null) {
   return startedAt === null ? 0 : Math.max(0, performance.now() - startedAt);
 }
@@ -99,7 +104,7 @@ export function TopicSwipeViewer({
   const topicViewableRef = useRef(false);
 
   useEffect(() => {
-    if (!userId || !active) return;
+    if (!ACCOUNT_LINKED_FEED_ANALYTICS_ENABLED || !userId || !active) return;
     return installFeedAnalyticsListeners(userId, {
       endpoint: analyticsEndpoint,
       getAccessToken: getAnalyticsAccessToken,
@@ -206,7 +211,7 @@ export function TopicSwipeViewer({
   }, [currentTopicId, userId, active]);
 
   useEffect(() => {
-    if (!userId || slideIndex <= 0) return;
+    if (!ACCOUNT_LINKED_FEED_ANALYTICS_ENABLED || !userId || slideIndex <= 0) return;
     recordFeedAnalyticsEvent(userId, 'swipe_depth', currentTopicId, {
       slide_index: slideIndex,
       depth: slideIndex,
@@ -243,7 +248,7 @@ export function TopicSwipeViewer({
   };
 
   const moveTopic = (direction: 'next' | 'previous') => {
-    if (direction === 'next' && userId) {
+    if (ACCOUNT_LINKED_FEED_ANALYTICS_ENABLED && direction === 'next' && userId) {
       const activeElapsed = getActiveElapsed(topicActiveSinceRef.current);
       if (topicActiveDurationRef.current + activeElapsed < 2000) {
         recordFeedAnalyticsEvent(userId, 'skip', currentTopicId, {
