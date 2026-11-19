@@ -29,7 +29,7 @@ export function AnalyticsDeepDivePanel({ data }: { data: AnalyticsDeepDiveData }
     <div>
       <p className="text-accent text-xs font-semibold uppercase tracking-wider">Behaviour and discovery</p>
       <h2 className="mt-1 text-2xl font-bold">Feed quality and retention</h2>
-      <p className="text-text-secondary mt-1 text-sm">Aggregated signed-in topic-feed behaviour. These reports do not expose individual user activity.</p>
+      <p className="text-text-secondary mt-1 text-sm">Aggregated signed-in topic-feed behaviour. These reports do not expose individual user activity. Signed-out topic/comment events are shown as aggregate counts elsewhere in this dashboard; no anonymous session or unique-person metric is calculated.</p>
     </div>
     <Card padding="lg">
       <div className="flex items-center gap-2"><Activity className="text-accent h-5 w-5" /><h3 className="text-lg font-bold">Reading funnel</h3></div>
