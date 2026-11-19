@@ -15,7 +15,7 @@ Sponsor delivery signals are never added to organic topic recommendation weights
 
 ## Personalisation privacy model
 
-Personalisation is **off by default**. The account owner must explicitly enable it from Account → Personalisation. The consent record is versioned and belongs to the authenticated account. The browser cannot read or write the private profile tables directly.
+Personalisation is **off by default**. The account owner must explicitly opt in using the separate signup checkbox or Account → Personalisation. The consent record is versioned and belongs to the authenticated account. Signup consent is captured by an `auth.users` insert trigger from the one-time signup metadata value; subsequent user-metadata edits do not re-enable it. The browser cannot read or write the private profile tables directly.
 
 When enabled, the private topic-interest profile is recomputed from bounded, decaying evidence:
 
@@ -34,13 +34,13 @@ When enabled, the private topic-interest profile is recomputed from bounded, dec
 
 The model uses only activity recorded after consent was granted, with a maximum 90-day behavioural evidence window and 180-day explicit-interaction window. Profile refreshes are cached for five minutes to keep repeated feed openings from re-aggregating the same history. It maintains separate short-term (14-day half-life) and long-term (90-day half-life) scores. Per-topic scores and evidence are capped, and profile rows are removed once their evidence ages out of the scoring windows. A category preference is calculated from the topic profile, then combined with user-selected category interests. Explicit category interests are stored separately and receive a stronger category signal.
 
-The recommendation service still preserves its existing category-weighted scheduling, category-diversity rule, pagination cursor and topic-only content ordering. Behavioural profile signals are read only when consent is enabled. Existing direct learning actions continue to work as explicit product interactions even when the optional inferred profile is disabled.
+The recommendation service preserves its existing category-weighted scheduling, category-diversity rule, pagination cursor and topic-only content ordering. **All account-history recommendation weighting is consent-gated**, including progress/completions, bookmarks, topic likes, comments, feed telemetry, derived topic scores and explicit category interests. Without consent, category weights are neutral and completed-topic suppression is disabled. If consent is withdrawn during an active feed cursor, the RPC immediately normalises its category weights and stops excluding completed topics; it does not wait for a new session.
 
-Turning personalisation off immediately deletes the derived topic-interest profile and selected category-interest rows, records withdrawal, and stops behavioural profile weighting. Historical operational analytics events are not deleted by this action; they remain in the separate analytics pipeline under its existing 180-day raw-event retention policy. They are no longer used for personalisation while consent is disabled.
+Turning personalisation off immediately deletes the derived topic-interest profile and selected category-interest rows, records withdrawal, and stops all account-history recommendation weighting. Historical operational analytics events are not deleted by this action; they remain in the separate analytics pipeline under its existing 180-day raw-event retention policy. They are no longer used for personalisation while consent is disabled.
 
 The profile is private: it is not exposed through public profiles and is not used for sponsor targeting. No raw profile or user-level event data is returned to the administrator dashboard.
 
-**Important:** Catholic reading and engagement can reveal religious beliefs, which may be special-category personal data under UK GDPR. The explicit opt-in is a technical safeguard, not a substitute for a complete privacy notice, retention explanation, lawful-basis assessment, data-subject process or legal review. Obtain appropriate privacy/legal review before enabling this feature for production users.
+**Important:** Catholic reading and engagement can reveal religious beliefs, which may be special-category personal data under UK GDPR. The explicit opt-in is a technical safeguard, not a substitute for a complete privacy notice, retention explanation, lawful-basis assessment, DPIA screening, data-subject process or legal review. The remaining legal readiness items are tracked in [Privacy and legal implementation notes](privacy-and-legal-implementation.md).
 
 ## Database objects
 
