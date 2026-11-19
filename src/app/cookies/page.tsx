@@ -73,8 +73,10 @@ export default function CookiesPage() {
 
           <p className="text-text-secondary mt-4 leading-relaxed">
             CathoScroll rewrites every Vercel Web Analytics page URL to the site root and removes
-            query strings and fragments before sending the event. This prevents topic-specific
-            paths and query values from being included in the page URL. Vercel's processing of
+            query strings and fragments before sending the event. The site also applies a
+            strict-origin referrer policy, so only the referring site's origin is exposed by the
+            browser. This prevents topic-specific paths and query values from being included in
+            page URLs or referrer paths. Vercel's processing of
             request-derived information remains subject to its own privacy documentation and our
             processor and international-transfer review.
           </p>
