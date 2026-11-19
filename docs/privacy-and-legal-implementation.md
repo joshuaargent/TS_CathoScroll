@@ -114,3 +114,10 @@ When personalisation, analytics, sponsorship, or data providers change:
 ## Legal review boundary
 
 The policy text is an engineering draft based on the current implementation and published product decisions. It should be reviewed by a UK data-protection solicitor or qualified privacy professional before being treated as a final legal assessment. The presence of an opt-in checkbox does not, by itself, prove that all UK GDPR, Data Protection Act 2018, PECR, children's privacy, or international-transfer obligations have been satisfied.
+
+
+## Separate operational-analytics legal assessment
+
+The optional personalisation consent does **not** cover operational product analytics. Feed, comment-card, and sponsor analytics currently retain authenticated user identifiers and topic/card event details for up to 180 days, alongside a user/day viewer bridge. Those records support admin reporting, content-performance analysis, session measurement, reliability work, and sponsor frequency controls; they are not inputs to recommendation weighting unless the separate personalisation consent is enabled.
+
+Because the service covers Catholic and religious topics, account-linked topic activity could potentially reveal religious or philosophical interests even when the product uses it only for aggregate reporting. The Article 6 legitimate-interest assessment for operational analytics must therefore be reviewed separately from the personalisation consent. Before broad production rollout, a UK privacy professional must decide and document whether the operational event stream is special-category data in context and, if so, identify a valid Article 9 condition. If explicit consent is required, add a separate optional analytics consent or redesign the pipeline to aggregate/anonymise before retaining user-linked event detail. Do not reuse the personalisation checkbox as a blanket analytics consent.
