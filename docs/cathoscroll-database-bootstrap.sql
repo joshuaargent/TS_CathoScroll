@@ -7067,29 +7067,6 @@ $function$;
 -- Exact ACLs for the added overloads.
 
 
--- RLS DDL guard and scheduled retention jobs, restored outside function bodies.
-CREATE EVENT TRIGGER ensure_rls ON ddl_command_end EXECUTE FUNCTION public.rls_auto_enable();
-
--- Scheduled retention jobs
-DO $cron_restore$
-DECLARE existing_job record;
-BEGIN
-  FOR existing_job IN SELECT jobid FROM cron.job WHERE jobname = 'cathoscroll-prune-activity' LOOP
-    PERFORM cron.unschedule(existing_job.jobid);
-  END LOOP;
-  PERFORM cron.schedule('cathoscroll-prune-activity', '*/5 * * * *', 'SELECT catho_private.prune_due_activity();');
-  FOR existing_job IN SELECT jobid FROM cron.job WHERE jobname = 'cathoscroll-prune-catalogue' LOOP
-    PERFORM cron.unschedule(existing_job.jobid);
-  END LOOP;
-  PERFORM cron.schedule('cathoscroll-prune-catalogue', '2,17,32,47 * * * *', 'SELECT public.offline_catalogue_prune_old(clock_timestamp() - interval ''31 days'', 1000);');
-  FOR existing_job IN SELECT jobid FROM cron.job WHERE jobname = 'cathoscroll-prune-feed-analytics' LOOP
-    PERFORM cron.unschedule(existing_job.jobid);
-  END LOOP;
-  PERFORM cron.schedule('cathoscroll-prune-feed-analytics', '*/15 * * * *',
-    'SELECT catho_private.prune_feed_analytics_events(statement_timestamp() - interval ''180 days'', 5000);');
-END;
-$cron_restore$;
-
 -- Exact function privileges from the live production catalog (owner privileges are implicit).
 REVOKE ALL ON FUNCTION catho_private.activity_changed() FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION catho_private.audit_moderation_change() FROM PUBLIC, anon, authenticated, service_role;
