@@ -86,6 +86,8 @@ The current policy wording identifies:
 - Article 6(1)(a) UK GDPR consent for optional personalisation; and
 - Article 9(2)(a) explicit consent for any personalisation processing that reveals special-category religious or philosophical belief data.
 
+The signup and account statements expressly identify topic-reading activity and selected interests, explain that these may reveal religious or philosophical beliefs, and state the personalisation purpose. The checkbox is separate from acceptance of the Terms and is unticked by default. The user can withdraw from Account settings. This follows the ICO's guidance that special-category processing needs both an Article 6 lawful basis and an Article 9 condition, and that explicit consent should be specific, affirmative, clear, identify the nature of the sensitive data, separate, and withdrawable: [ICO — Special category data](https://ico.org.uk/for-organisations/uk-gdpr-guidance-and-resources/lawful-basis/a-guide-to-lawful-basis/special-category-data/) and [ICO — Explicit consent](https://ico.org.uk/for-organisations/uk-gdpr-guidance-and-resources/lawful-basis/special-category-data/what-are-the-conditions-for-processing/).
+
 The consent request is separate, optional, affirmative, specific, and withdrawable. The account controls provide withdrawal without requiring a support request.
 
 **Outstanding before broad production rollout:**
