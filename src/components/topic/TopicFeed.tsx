@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import type { TopFeedComment } from '@/lib/feed-comments';
-import type { TopicPageCursor } from '@/lib/content';
+import type { GeneralFeedCursor } from '@/lib/content';
 import type { RecommendationCursor } from '@/lib/recommendations';
 import type { Topic } from '@/types';
 import { TopicFeedCore } from './TopicFeedCore';
@@ -15,7 +15,7 @@ type TopicFeedProps = { topics: Topic[]; userId: string | null } & (
   | { nextCursor: RecommendationCursor | null; personalized: true }
 );
 
-export function TopicFeed({ topics, nextCursor, personalized = false, userId }: TopicFeedProps) {
+export function TopicFeed({ topics, nextCursor, personalized = false, generalRanked = false, userId }: TopicFeedProps) {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
   const [activeUserId, setActiveUserId] = useState(userId);
@@ -39,7 +39,7 @@ export function TopicFeed({ topics, nextCursor, personalized = false, userId }: 
   );
 
   const loadPage = useCallback(
-    async (cursor: TopicPageCursor | RecommendationCursor) => {
+    async (cursor: GeneralFeedCursor | RecommendationCursor) => {
       let response: Response;
       if (personalized && 'categories' in cursor) {
         response = await fetch('/api/content/recommendations', {
@@ -59,7 +59,7 @@ export function TopicFeed({ topics, nextCursor, personalized = false, userId }: 
       }
       const result = (await response.json()) as {
         topics?: Topic[];
-        nextCursor?: TopicPageCursor | RecommendationCursor | null;
+        nextCursor?: GeneralFeedCursor | RecommendationCursor | null;
         error?: string;
       };
       if (!response.ok) throw new Error(result.error ?? 'Unable to load more topics.');
