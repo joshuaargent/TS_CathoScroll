@@ -88,9 +88,9 @@ function DailyOverviewChart({ series }: { series: AnalyticsDay[] }) {
   return <Card padding="lg" className="mt-6">
     <div><h2 className="text-xl font-bold">Daily feed activity</h2><p className="text-text-muted mt-1 text-sm">Separate daily trends for learning topics, paid sponsor delivery and Top Comments.</p></div>
     <div className="mt-5 flex flex-wrap gap-4 text-xs">
-      <span className="text-text-secondary inline-flex items-center gap-2"><span className="bg-accent h-2.5 w-2.5 rounded-full" /> Topic impressions</span>
-      <span className="text-text-secondary inline-flex items-center gap-2"><span className="bg-emerald-600 h-2.5 w-2.5 rounded-full" /> Sponsor deliveries</span>
-      <span className="text-text-secondary inline-flex items-center gap-2"><span className="bg-sky-600 h-2.5 w-2.5 rounded-full" /> Comment-card impressions</span>
+      <span className="text-text-secondary inline-flex items-center gap-2"><span className="bg-accent h-2.5 w-2.5 rounded-full" /> Signed-in topic impressions</span>
+      <span className="text-text-secondary inline-flex items-center gap-2"><span className="bg-emerald-600 h-2.5 w-2.5 rounded-full" /> Signed-in sponsor deliveries</span>
+      <span className="text-text-secondary inline-flex items-center gap-2"><span className="bg-sky-600 h-2.5 w-2.5 rounded-full" /> Signed-in comment-card impressions</span>
       <span className="text-text-secondary inline-flex items-center gap-2"><span className="border-accent h-2.5 w-2.5 rounded-full border" /> Anonymous topics</span>
       <span className="text-text-secondary inline-flex items-center gap-2"><span className="border-emerald-600 h-2.5 w-2.5 rounded-full border" /> Anonymous sponsors</span>
       <span className="text-text-secondary inline-flex items-center gap-2"><span className="border-sky-600 h-2.5 w-2.5 rounded-full border" /> Anonymous comments</span>
@@ -178,10 +178,10 @@ export function AdminAnalyticsHub({ overview, period, section = 'overview', seri
     </section>
 
     <section className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-      <Metric label="Topic viewability" value={t.topic_impressions ? ((t.topic_viewable_impressions / t.topic_impressions) * 100).toFixed(1) + '%' : '—'} detail="Viewable topic impressions ÷ impressions" icon={Activity} />
-      <Metric label="Topic completion rate" value={t.topic_impressions ? ((t.topic_completions / t.topic_impressions) * 100).toFixed(1) + '%' : '—'} detail="Recorded completions ÷ impressions" icon={BookOpen} />
-      <Metric label="Sponsor click-through" value={t.sponsor_served ? ((t.sponsor_clicks / t.sponsor_served) * 100).toFixed(2) + '%' : '—'} detail="Clicks ÷ served placements" icon={Megaphone} />
-      <Metric label="Comment-card viewability" value={t.comment_card_impressions ? ((t.comment_card_viewable_impressions / t.comment_card_impressions) * 100).toFixed(1) + '%' : '—'} detail="Viewable comment-card impressions ÷ impressions" icon={MessageCircle} />
+      <Metric label="Topic viewability" value={t.topic_impressions + t.anonymous_topic_impressions ? (((t.topic_viewable_impressions + t.anonymous_topic_viewable_impressions) / (t.topic_impressions + t.anonymous_topic_impressions)) * 100).toFixed(1) + '%' : '—'} detail="Signed-in and anonymous viewable impressions ÷ impressions" icon={Activity} />
+      <Metric label="Topic completion rate" value={t.topic_impressions + t.anonymous_topic_impressions ? (((t.topic_completions + t.anonymous_topic_completions) / (t.topic_impressions + t.anonymous_topic_impressions)) * 100).toFixed(1) + '%' : '—'} detail="Signed-in and anonymous completions ÷ impressions" icon={BookOpen} />
+      <Metric label="Sponsor click-through" value={t.sponsor_viewable_impressions + t.anonymous_sponsor_viewable_impressions ? (((t.sponsor_clicks + t.anonymous_sponsor_clicks) / (t.sponsor_viewable_impressions + t.anonymous_sponsor_viewable_impressions)) * 100).toFixed(2) + '%' : '—'} detail="Combined clicks ÷ combined viewable impressions" icon={Megaphone} />
+      <Metric label="Comment-card viewability" value={t.comment_card_impressions + t.anonymous_comment_card_impressions ? (((t.comment_card_viewable_impressions + t.anonymous_comment_card_viewable_impressions) / (t.comment_card_impressions + t.anonymous_comment_card_impressions)) * 100).toFixed(1) + '%' : '—'} detail="Signed-in and anonymous viewable impressions ÷ impressions" icon={MessageCircle} />
     </section>
     <DailyOverviewChart series={series} />
     <AnalyticsDeepDivePanel data={deepDive} />
@@ -199,10 +199,10 @@ export function AdminAnalyticsHub({ overview, period, section = 'overview', seri
     </section>
 
     <section className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-      <Metric label="Topic skip rate" value={t.topic_impressions ? ((t.topic_skips / t.topic_impressions) * 100).toFixed(1) + '%' : '—'} detail="Recorded skips ÷ topic impressions" icon={Activity} />
-      <Metric label="Sponsor viewability" value={t.sponsor_served ? ((t.sponsor_viewable_impressions / t.sponsor_served) * 100).toFixed(1) + '%' : '—'} detail="Viewable sponsor impressions ÷ served placements" icon={Megaphone} />
-      <Metric label="Comment active time" value={t.comment_card_viewable_impressions ? duration(t.comment_card_active_duration_ms / t.comment_card_viewable_impressions) : '—'} detail="Average active time per viewable comment card" icon={MessageCircle} />
-      <Metric label="Discussion open rate" value={t.comment_card_impressions ? ((t.comment_card_opens / t.comment_card_impressions) * 100).toFixed(1) + '%' : '—'} detail="Feed discussion opens ÷ comment-card impressions" icon={Heart} />
+      <Metric label="Topic skip rate" value={t.topic_impressions + t.anonymous_topic_impressions ? (((t.topic_skips + t.anonymous_topic_skips) / (t.topic_impressions + t.anonymous_topic_impressions)) * 100).toFixed(1) + '%' : '—'} detail="Signed-in and anonymous skips ÷ topic impressions" icon={Activity} />
+      <Metric label="Sponsor viewability" value={t.sponsor_served + t.anonymous_sponsor_served ? (((t.sponsor_viewable_impressions + t.anonymous_sponsor_viewable_impressions) / (t.sponsor_served + t.anonymous_sponsor_served)) * 100).toFixed(1) + '%' : '—'} detail="Signed-in and anonymous viewable impressions ÷ served placements" icon={Megaphone} />
+      <Metric label="Comment active time" value={t.comment_card_viewable_impressions + t.anonymous_comment_card_viewable_impressions ? duration((t.comment_card_active_duration_ms + t.anonymous_comment_card_active_duration_ms) / (t.comment_card_viewable_impressions + t.anonymous_comment_card_viewable_impressions)) : '—'} detail="Average active time per signed-in or anonymous viewable card" icon={MessageCircle} />
+      <Metric label="Discussion open rate" value={t.comment_card_impressions + t.anonymous_comment_card_impressions ? (((t.comment_card_opens + t.anonymous_comment_card_opens) / (t.comment_card_impressions + t.anonymous_comment_card_impressions)) * 100).toFixed(1) + '%' : '—'} detail="Signed-in and anonymous opens ÷ comment-card impressions" icon={Heart} />
     </section>
 
 
@@ -212,7 +212,7 @@ export function AdminAnalyticsHub({ overview, period, section = 'overview', seri
         {categories.length === 0 && <p className="text-text-muted text-sm">No categories available.</p>}
       </SectionCard>}
       {(section === 'overview' || section === 'topics') && <SectionCard title="Topics" description="Inspect individual learning content and reading behaviour." count={number(t.topic_count)} href={sectionHref('topics')} icon={BookOpen}>
-        {topics.map((item) => <EntityLink key={item.id} href={`/topic/${encodeURIComponent(item.slug)}/analytics?period=${period}`} title={item.question} detail={item.category_slug} metric={number(item.impressions) + ' impressions'} />)}
+        {topics.map((item) => <EntityLink key={item.id} href={`/topic/${encodeURIComponent(item.slug)}/analytics?period=${period}`} title={item.question} detail={item.category_slug} metric={number(item.impressions) + ' signed-in · ' + number(item.anonymous_impressions ?? 0) + ' anonymous'} />)}
         {topics.length === 0 && <p className="text-text-muted text-sm">No topics available.</p>}
       </SectionCard>}
       {(section === 'overview' || section === 'sponsors') && <SectionCard title="Sponsors" description="Track paid delivery, viewability and campaign clicks." count={number(t.sponsor_count)} href={sectionHref('sponsors')} icon={Megaphone}>
