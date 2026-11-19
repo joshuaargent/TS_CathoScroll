@@ -40,7 +40,12 @@ test('feed analytics retains queued events until server acknowledgement and drai
   assert.ok(analytics.includes('latestQueue.filter((event) => !acceptedIds.has(event.event_id))'));
 });
 
-test('feed analytics retention cron uses the same statement timestamp as its retention validator', () => {\n  assert.match(bootstrap, /prune_feed_analytics_events\\(statement_timestamp\\(\\) - interval ''180 days'', 5000\\)/);\n  assert.doesNotMatch(bootstrap, /prune_feed_analytics_events\\(clock_timestamp\\(/);\n});\n\ntest('sponsor analytics queue survives restarts and flushes even when no sponsor card is visible', () => {
+test('feed analytics retention cron uses the same statement timestamp as its retention validator', () => {
+  assert.match(bootstrap, /prune_feed_analytics_events\(statement_timestamp\(\) - interval ''180 days'', 5000\)/);
+  assert.doesNotMatch(bootstrap, /prune_feed_analytics_events\(clock_timestamp\(/);
+});
+
+test('sponsor analytics queue survives restarts and flushes even when no sponsor card is visible', () => {
   assert.ok(sponsorAnalytics.includes('cathoscroll.sponsor-events.v1.'));
   assert.ok(sponsorAnalytics.includes('latest.filter((queued) => queued.eventId !== eventId)'));
   assert.ok(sponsorAnalytics.includes("window.addEventListener('online', flush)"));
