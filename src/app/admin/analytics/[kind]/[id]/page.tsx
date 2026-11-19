@@ -18,6 +18,43 @@ function Metric({ label, value, detail }: { label: string; value: string; detail
 }
 const fmt = (value: unknown) => new Intl.NumberFormat('en-GB').format(typeof value === 'number' && Number.isFinite(value) ? value : 0);
 
+
+function TrendChart({ kind, series }: { kind: 'sponsors' | 'comments'; series: Record<string, unknown>[] }) {
+  const width = 720;
+  const height = 250;
+  const padding = { left: 44, right: 20, top: 18, bottom: 40 };
+  const chartWidth = width - padding.left - padding.right;
+  const chartHeight = height - padding.top - padding.bottom;
+  const lines = kind === 'sponsors'
+    ? [
+        { key: 'served', label: 'Served', color: 'stroke-accent', dot: 'bg-accent' },
+        { key: 'viewable_impressions', label: 'Viewable', color: 'stroke-emerald-600 dark:stroke-emerald-400', dot: 'bg-emerald-600 dark:bg-emerald-400' },
+        { key: 'clicks', label: 'Clicks', color: 'stroke-sky-600 dark:stroke-sky-400', dot: 'bg-sky-600 dark:bg-sky-400' },
+      ]
+    : [
+        { key: 'impressions', label: 'Card impressions', color: 'stroke-accent', dot: 'bg-accent' },
+        { key: 'viewable_impressions', label: 'Viewable impressions', color: 'stroke-emerald-600 dark:stroke-emerald-400', dot: 'bg-emerald-600 dark:bg-emerald-400' },
+      ];
+  const values = series.flatMap((row) => lines.map((line) => Number(row[line.key] ?? 0)));
+  const max = Math.max(1, ...values);
+  const points = (key: string) => series.map((row, index) => {
+    const x = padding.left + (series.length <= 1 ? chartWidth / 2 : index / (series.length - 1) * chartWidth);
+    const y = padding.top + chartHeight - Number(row[key] ?? 0) / max * chartHeight;
+    return x.toFixed(1) + ',' + y.toFixed(1);
+  }).join(' ');
+  return <Card padding="lg" className="mt-8">
+    <h2 className="text-xl font-bold">Daily performance</h2>
+    <p className="text-text-muted mt-1 text-sm">Daily activity across the selected reporting window.</p>
+    <div className="mt-5 flex flex-wrap gap-4 text-xs">{lines.map((line) => <span key={line.key} className="text-text-secondary inline-flex items-center gap-2"><span className={'h-2.5 w-2.5 rounded-full ' + line.dot} />{line.label}</span>)}</div>
+    {series.length ? <svg viewBox={'0 0 ' + width + ' ' + height} className="mt-3 h-auto w-full" role="img" aria-label="Daily analytics trend">
+      {[0,0.5,1].map((fraction) => <g key={fraction}><line x1={padding.left} y1={padding.top+chartHeight*(1-fraction)} x2={width-padding.right} y2={padding.top+chartHeight*(1-fraction)} className="stroke-border" strokeDasharray="4 5" /><text x={padding.left-9} y={padding.top+chartHeight*(1-fraction)+4} textAnchor="end" className="fill-text-muted" fontSize="11">{fmt(Math.round(max*fraction))}</text></g>)}
+      {lines.map((line) => <polyline key={line.key} points={points(line.key)} fill="none" className={line.color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />)}
+      <text x={padding.left} y={height-8} className="fill-text-muted" fontSize="11">{String(series[0].event_date ?? '')}</text>
+      <text x={width-padding.right} y={height-8} textAnchor="end" className="fill-text-muted" fontSize="11">{String(series[series.length-1].event_date ?? '')}</text>
+    </svg> : <p className="text-text-muted mt-6 text-sm">No daily activity has been recorded in this period yet.</p>}
+  </Card>;
+}
+
 export default async function AdminAnalyticsEntityPage({ params, searchParams }: Props) {
   const { kind, id } = await params;
   const query = (await searchParams) ?? {};
@@ -91,6 +128,7 @@ export default async function AdminAnalyticsEntityPage({ params, searchParams }:
         <Metric label="Likes / replies" value={fmt(totals.likes) + ' / ' + fmt(totals.replies)} detail="Existing community interaction records, shown separately" />
       </>}
     </div>
+    <TrendChart kind={kind} series={series} />
     {kind === 'sponsors' && <Card padding="lg" className="mt-8"><h2 className="text-xl font-bold">Campaigns</h2><p className="text-text-muted mt-1 text-sm">Campaigns belonging to this sponsor.</p><div className="mt-4 divide-border divide-y">{campaigns.map((campaign) => <div key={campaign.id} className="flex flex-wrap items-center justify-between gap-3 py-3"><span className="text-text-primary text-sm font-semibold">{campaign.name}</span><Badge variant="outline">{campaign.status}</Badge></div>)}</div>{campaigns.length === 0 && <p className="text-text-muted mt-4 text-sm">No campaigns are associated with this sponsor.</p>}</Card>}
     <Card padding="lg" className="mt-8"><h2 className="text-xl font-bold">Daily activity</h2>
       <p className="text-text-muted mt-1 text-sm">Daily aggregate rows for the selected reporting period.</p>
