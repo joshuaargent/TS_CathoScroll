@@ -326,9 +326,9 @@ export default function PrivacyPage() {
             <li>Correct inaccurate information.</li>
             <li>Request deletion or restriction of personal information.</li>
             <li>Object to certain processing activities.</li>
-            <li>Request a copy of certain information held about you.</li>
+            <li>Request a copy of certain information held about you, including data portability where applicable.</li>
             <li>Withdraw consent at any time where processing is based on consent.</li>
-            <li>Complain to the UK Information Commissioner's Office (ICO), or your local supervisory authority.</li>
+            <li>Complain to the <Link href="https://ico.org.uk/make-a-complaint/" className="text-accent underline">UK Information Commissioner's Office (ICO)</Link>, or your local supervisory authority.</li>
           </ul>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
