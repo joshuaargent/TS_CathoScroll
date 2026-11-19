@@ -2,16 +2,27 @@
 
 import { Analytics, type BeforeSendEvent } from '@vercel/analytics/react';
 
-// Vercel Web Analytics remains enabled for aggregate site-level measurement,
-// but content-specific paths and query strings must never leave the application.
-// Collapse every page view to the site root so topic slugs cannot become a
-// third-party browsing history.
-function redactAnalyticsEvent(event: BeforeSendEvent): BeforeSendEvent {
-  const url = new URL(event.url);
-  url.pathname = '/';
+function sanitisePageUrl(rawUrl: string): string {
+  const url = new URL(rawUrl);
+  const path = url.pathname;
+  const sensitiveContentRoutes = [
+    /^\/(?:topic|topics)\/[^/]+(?:\/.*)?$/i,
+    /^\/categories\/[^/]+(?:\/.*)?$/i,
+    /^\/search(?:\/.*)?$/i,
+  ];
+
+  if (sensitiveContentRoutes.some((pattern) => pattern.test(path))) {
+    const match = path.match(/^\/(topic|topics|categories|search)/i);
+    url.pathname = match ? `/${match[1].toLowerCase()}/[content]` : '/content';
+  }
+
   url.search = '';
   url.hash = '';
-  return { ...event, url: url.toString() };
+  return url.toString();
+}
+
+function redactAnalyticsEvent(event: BeforeSendEvent): BeforeSendEvent {
+  return { ...event, url: sanitisePageUrl(event.url) };
 }
 
 export function PrivacySafeAnalytics() {
