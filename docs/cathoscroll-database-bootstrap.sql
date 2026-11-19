@@ -7710,7 +7710,7 @@ BEGIN
   IF p_enabled THEN
     INSERT INTO catho_private.user_personalization_consents
       (user_id,enabled,consent_version,granted_at,withdrawn_at,updated_at)
-    VALUES (v_user_id,true,'2026-11-19-v2',v_now,NULL,v_now)
+    VALUES (v_user_id,true,'2026-11-19-v3',v_now,NULL,v_now)
     ON CONFLICT(user_id) DO UPDATE SET
       enabled=true,consent_version=EXCLUDED.consent_version,
       granted_at=CASE WHEN catho_private.user_personalization_consents.enabled
@@ -7781,3 +7781,28 @@ REVOKE ALL ON FUNCTION catho_private.get_user_feed_preference_signals(uuid) FROM
 GRANT EXECUTE ON FUNCTION catho_private.get_user_feed_preference_signals(uuid) TO authenticated;
 REVOKE ALL ON FUNCTION public.get_admin_analytics_deep_dive(uuid,timestamptz,timestamptz) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.get_admin_analytics_deep_dive(uuid,timestamptz,timestamptz) TO service_role;
+
+
+-- Record the optional, explicit personalisation choice made on the shared web/native signup form.
+CREATE OR REPLACE FUNCTION catho_private.capture_signup_personalization_consent()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO ''
+AS $function$
+BEGIN
+  IF NEW.raw_user_meta_data ->> 'personalization_consent' = 'true' THEN
+    INSERT INTO catho_private.user_personalization_consents
+      (user_id,enabled,consent_version,granted_at,withdrawn_at,updated_at)
+    VALUES
+      (NEW.id,true,'2026-11-19-v3',statement_timestamp(),NULL,statement_timestamp())
+    ON CONFLICT(user_id) DO NOTHING;
+  END IF;
+  RETURN NEW;
+END;
+$function$;
+REVOKE ALL ON FUNCTION catho_private.capture_signup_personalization_consent() FROM PUBLIC,anon,authenticated,service_role;
+DROP TRIGGER IF EXISTS cathoscroll_capture_signup_personalization_consent ON auth.users;
+CREATE TRIGGER cathoscroll_capture_signup_personalization_consent
+AFTER INSERT ON auth.users
+FOR EACH ROW EXECUTE FUNCTION catho_private.capture_signup_personalization_consent();
