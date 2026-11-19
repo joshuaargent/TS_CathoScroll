@@ -15,7 +15,7 @@
 --     the same PostgreSQL major version as the source project.
 --   * pg_cron and permission to create the ensure_rls event trigger are required.
 --
--- Production inventory (2026-11-19): 47 tables, 105 unique functions,
+-- Production inventory (2026-11-19): 52 tables, 110 unique functions,
 -- 34 application/Auth triggers, 32 policies, 88 explicit indexes,
 -- 15 categories and 86 topics. Constraint-backed indexes are additional.
 --
@@ -7521,3 +7521,382 @@ $function$
 
 REVOKE ALL ON FUNCTION public.get_public_general_topic_page(jsonb,integer) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.get_public_general_topic_page(jsonb,integer) TO anon,authenticated;
+
+ 
+-- ANONYMOUS ANALYTICS ROLLOUT
+-- Signed-out topic/comment analytics are stored only as daily entity aggregates.
+-- Sponsor frequency uses a short-lived SHA-256 session hash; raw session event
+-- records are pruned after 48 hours.
+CREATE TABLE catho_private.anonymous_feed_analytics_daily (
+  event_date date NOT NULL,
+  entity_type text NOT NULL CHECK (entity_type IN ('topic','comment')),
+  entity_id text NOT NULL,
+  impressions bigint NOT NULL DEFAULT 0,
+  viewable_impressions bigint NOT NULL DEFAULT 0,
+  active_duration_ms bigint NOT NULL DEFAULT 0,
+  skips bigint NOT NULL DEFAULT 0,
+  completions bigint NOT NULL DEFAULT 0,
+  opens bigint NOT NULL DEFAULT 0,
+  refreshed_at timestamptz NOT NULL DEFAULT statement_timestamp(),
+  PRIMARY KEY(event_date,entity_type,entity_id)
+);
+CREATE TABLE catho_private.anonymous_feed_event_receipts (
+  event_id uuid PRIMARY KEY,
+  received_at timestamptz NOT NULL DEFAULT statement_timestamp()
+);
+CREATE INDEX anonymous_feed_event_receipts_received_at_idx
+  ON catho_private.anonymous_feed_event_receipts(received_at);
+CREATE TABLE catho_private.anonymous_sponsor_session_frequency (
+  campaign_id uuid NOT NULL REFERENCES public.sponsor_campaigns(id) ON DELETE CASCADE,
+  session_hash text NOT NULL CHECK (session_hash ~ '^[0-9a-f]{64}$'),
+  served_count integer NOT NULL DEFAULT 0 CHECK (served_count>=0),
+  last_served_at timestamptz NOT NULL,
+  PRIMARY KEY(campaign_id,session_hash)
+);
+CREATE TABLE catho_private.anonymous_sponsor_events (
+  campaign_id uuid NOT NULL REFERENCES public.sponsor_campaigns(id) ON DELETE CASCADE,
+  event_id uuid NOT NULL,
+  session_hash text NOT NULL CHECK (session_hash ~ '^[0-9a-f]{64}$'),
+  event_type text NOT NULL CHECK (event_type IN ('served','viewable_impression','click')),
+  received_at timestamptz NOT NULL DEFAULT statement_timestamp(),
+  PRIMARY KEY(campaign_id,event_id)
+);
+CREATE INDEX anonymous_sponsor_events_recent_idx
+  ON catho_private.anonymous_sponsor_events(campaign_id,event_type,received_at);
+CREATE TABLE catho_private.anonymous_sponsor_campaign_daily (
+  event_date date NOT NULL,
+  campaign_id uuid NOT NULL REFERENCES public.sponsor_campaigns(id) ON DELETE CASCADE,
+  served_count bigint NOT NULL DEFAULT 0,
+  viewable_impressions bigint NOT NULL DEFAULT 0,
+  clicks bigint NOT NULL DEFAULT 0,
+  PRIMARY KEY(event_date,campaign_id)
+);
+ALTER TABLE catho_private.anonymous_feed_analytics_daily ENABLE ROW LEVEL SECURITY;
+ALTER TABLE catho_private.anonymous_feed_event_receipts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE catho_private.anonymous_sponsor_session_frequency ENABLE ROW LEVEL SECURITY;
+ALTER TABLE catho_private.anonymous_sponsor_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE catho_private.anonymous_sponsor_campaign_daily ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE catho_private.anonymous_feed_analytics_daily,
+  catho_private.anonymous_feed_event_receipts,
+  catho_private.anonymous_sponsor_session_frequency,
+  catho_private.anonymous_sponsor_events,
+  catho_private.anonymous_sponsor_campaign_daily FROM PUBLIC,anon,authenticated;
+GRANT ALL ON TABLE catho_private.anonymous_feed_analytics_daily,
+  catho_private.anonymous_feed_event_receipts,
+  catho_private.anonymous_sponsor_session_frequency,
+  catho_private.anonymous_sponsor_events,
+  catho_private.anonymous_sponsor_campaign_daily TO service_role;
+
+CREATE OR REPLACE FUNCTION public.get_admin_anonymous_analytics(p_actor_user_id uuid, p_from timestamp with time zone, p_to timestamp with time zone, p_entity_type text DEFAULT 'all'::text, p_entity_id text DEFAULT NULL::text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+  v_topic_ids text[] := ARRAY[]::text[];
+  v_campaign_ids uuid[] := ARRAY[]::uuid[];
+  v_comment_ids text[] := ARRAY[]::text[];
+  v_result jsonb;
+BEGIN
+  IF p_actor_user_id IS NULL OR NOT EXISTS (
+    SELECT 1 FROM public.admin_users a WHERE a.user_id=p_actor_user_id
+  ) THEN
+    RAISE EXCEPTION 'administrator access required' USING ERRCODE='42501';
+  END IF;
+  IF p_from IS NULL OR p_to IS NULL OR p_to<=p_from OR p_to-p_from>interval '180 days'
+    OR p_to>statement_timestamp()+interval '1 day'
+    OR p_entity_type NOT IN ('all','topic','category','comment','sponsor')
+    OR (p_entity_type<>'all' AND (p_entity_id IS NULL OR length(p_entity_id) NOT BETWEEN 1 AND 160)) THEN
+    RAISE EXCEPTION 'invalid anonymous analytics range or filter' USING ERRCODE='22023';
+  END IF;
+
+  IF p_entity_type='topic' THEN
+    SELECT coalesce(array_agg(t.id),ARRAY[]::text[]) INTO v_topic_ids
+    FROM public.topics t WHERE t.slug=p_entity_id;
+    IF cardinality(v_topic_ids)=0 THEN RAISE EXCEPTION 'analytics topic not found' USING ERRCODE='P0002'; END IF;
+  ELSIF p_entity_type='category' THEN
+    IF NOT EXISTS(SELECT 1 FROM public.categories c WHERE c.slug=p_entity_id) THEN
+      RAISE EXCEPTION 'analytics category not found' USING ERRCODE='P0002';
+    END IF;
+    SELECT coalesce(array_agg(t.id),ARRAY[]::text[]) INTO v_topic_ids
+    FROM public.topics t WHERE t.category_slug=p_entity_id;
+  ELSIF p_entity_type='comment' THEN
+    IF p_entity_id !~ '^[0-9]{1,18}$' THEN RAISE EXCEPTION 'invalid comment analytics ID' USING ERRCODE='22023'; END IF;
+    IF NOT EXISTS(SELECT 1 FROM public.comments c WHERE c.id=p_entity_id::bigint AND c.parent_id IS NULL AND c.is_deleted=false) THEN
+      RAISE EXCEPTION 'analytics comment not found' USING ERRCODE='P0002';
+    END IF;
+    v_comment_ids:=ARRAY[p_entity_id];
+  ELSIF p_entity_type='sponsor' THEN
+    IF p_entity_id !~* '^[0-9a-f-]{36}$' OR NOT EXISTS(SELECT 1 FROM public.sponsors s WHERE s.id=p_entity_id::uuid) THEN
+      RAISE EXCEPTION 'analytics sponsor not found' USING ERRCODE='P0002';
+    END IF;
+    SELECT coalesce(array_agg(c.id),ARRAY[]::uuid[]) INTO v_campaign_ids
+    FROM public.sponsor_campaigns c WHERE c.sponsor_id=p_entity_id::uuid;
+  ELSE
+    SELECT coalesce(array_agg(t.id),ARRAY[]::text[]) INTO v_topic_ids FROM public.topics t;
+    SELECT coalesce(array_agg(c.id),ARRAY[]::uuid[]) INTO v_campaign_ids FROM public.sponsor_campaigns c;
+    SELECT coalesce(array_agg(c.id::text),ARRAY[]::text[]) INTO v_comment_ids
+    FROM public.comments c WHERE c.parent_id IS NULL AND c.is_deleted=false;
+  END IF;
+
+  WITH days AS (
+    SELECT d::date event_date
+    FROM generate_series(p_from::date,p_to::date,interval '1 day') d
+  ), topic_daily AS (
+    SELECT d.event_date,sum(d.impressions) impressions,sum(d.viewable_impressions) viewable_impressions,
+      sum(d.active_duration_ms) active_duration_ms,sum(d.skips) skips,sum(d.completions) completions
+    FROM catho_private.anonymous_feed_analytics_daily d
+    WHERE d.entity_type='topic' AND d.entity_id=ANY(v_topic_ids)
+      AND d.event_date>=p_from::date AND d.event_date<=p_to::date
+    GROUP BY d.event_date
+  ), comment_daily AS (
+    SELECT d.event_date,sum(d.impressions) impressions,sum(d.viewable_impressions) viewable_impressions,
+      sum(d.active_duration_ms) active_duration_ms,sum(d.skips) skips,sum(d.completions) completions,sum(d.opens) opens
+    FROM catho_private.anonymous_feed_analytics_daily d
+    WHERE d.entity_type='comment' AND d.entity_id=ANY(v_comment_ids)
+      AND d.event_date>=p_from::date AND d.event_date<=p_to::date
+    GROUP BY d.event_date
+  ), sponsor_daily AS (
+    SELECT d.event_date,sum(d.served_count) served,sum(d.viewable_impressions) viewable_impressions,sum(d.clicks) clicks
+    FROM catho_private.anonymous_sponsor_campaign_daily d
+    WHERE d.campaign_id=ANY(v_campaign_ids) AND d.event_date>=p_from::date AND d.event_date<=p_to::date
+    GROUP BY d.event_date
+  ), topic_entities AS (
+    SELECT t.id,t.slug,t.question,t.category_slug,
+      coalesce(sum(d.impressions),0) impressions,coalesce(sum(d.viewable_impressions),0) viewable_impressions,
+      coalesce(sum(d.active_duration_ms),0) active_duration_ms
+    FROM public.topics t LEFT JOIN catho_private.anonymous_feed_analytics_daily d
+      ON d.entity_type='topic' AND d.entity_id=t.id AND d.event_date>=p_from::date AND d.event_date<=p_to::date
+    WHERE t.id=ANY(v_topic_ids) GROUP BY t.id,t.slug,t.question,t.category_slug
+  ), category_entities AS (
+    SELECT c.slug,c.name,count(t.id) topic_count,coalesce(sum(d.impressions),0) impressions,
+      coalesce(sum(d.viewable_impressions),0) viewable_impressions
+    FROM public.categories c LEFT JOIN public.topics t ON t.category_slug=c.slug
+    LEFT JOIN catho_private.anonymous_feed_analytics_daily d ON d.entity_type='topic' AND d.entity_id=t.id
+      AND d.event_date>=p_from::date AND d.event_date<=p_to::date
+    WHERE p_entity_type='all' OR (p_entity_type='category' AND c.slug=p_entity_id)
+    GROUP BY c.slug,c.name
+  ), sponsor_entities AS (
+    SELECT s.id,s.sponsor_name,coalesce(sum(d.served_count),0) served,
+      coalesce(sum(d.viewable_impressions),0) viewable_impressions,coalesce(sum(d.clicks),0) clicks
+    FROM public.sponsors s LEFT JOIN public.sponsor_campaigns c ON c.sponsor_id=s.id
+    LEFT JOIN catho_private.anonymous_sponsor_campaign_daily d ON d.campaign_id=c.id
+      AND d.event_date>=p_from::date AND d.event_date<=p_to::date
+    WHERE p_entity_type='all' OR (p_entity_type='sponsor' AND s.id=p_entity_id::uuid)
+    GROUP BY s.id,s.sponsor_name
+  ), comment_entities AS (
+    SELECT c.id::text id,coalesce(sum(d.impressions),0) impressions,
+      coalesce(sum(d.viewable_impressions),0) viewable_impressions,
+      coalesce(sum(d.active_duration_ms),0) active_duration_ms,
+      coalesce(sum(d.skips),0) skips,coalesce(sum(d.completions),0) completions,
+      coalesce(sum(d.opens),0) opens
+    FROM public.comments c LEFT JOIN catho_private.anonymous_feed_analytics_daily d
+      ON d.entity_type='comment' AND d.entity_id=c.id::text
+      AND d.event_date>=p_from::date AND d.event_date<=p_to::date
+    WHERE c.parent_id IS NULL AND c.is_deleted=false AND c.id::text=ANY(v_comment_ids)
+    GROUP BY c.id
+  ), totals AS (
+    SELECT
+      coalesce((SELECT sum(impressions) FROM topic_daily),0) topic_impressions,
+      coalesce((SELECT sum(viewable_impressions) FROM topic_daily),0) topic_viewable_impressions,
+      coalesce((SELECT sum(active_duration_ms) FROM topic_daily),0) topic_active_duration_ms,
+      coalesce((SELECT sum(skips) FROM topic_daily),0) topic_skips,
+      coalesce((SELECT sum(completions) FROM topic_daily),0) topic_completions,
+      coalesce((SELECT sum(impressions) FROM comment_daily),0) comment_card_impressions,
+      coalesce((SELECT sum(viewable_impressions) FROM comment_daily),0) comment_card_viewable_impressions,
+      coalesce((SELECT sum(active_duration_ms) FROM comment_daily),0) comment_card_active_duration_ms,
+      coalesce((SELECT sum(skips) FROM comment_daily),0) comment_card_skips,
+      coalesce((SELECT sum(completions) FROM comment_daily),0) comment_card_completions,
+      coalesce((SELECT sum(opens) FROM comment_daily),0) comment_card_opens,
+      coalesce((SELECT sum(served) FROM sponsor_daily),0) sponsor_served,
+      coalesce((SELECT sum(viewable_impressions) FROM sponsor_daily),0) sponsor_viewable_impressions,
+      coalesce((SELECT sum(clicks) FROM sponsor_daily),0) sponsor_clicks
+  )
+  SELECT jsonb_build_object(
+    'totals',(SELECT to_jsonb(totals) FROM totals),
+    'series',(SELECT coalesce(jsonb_agg(jsonb_build_object(
+      'event_date',days.event_date,
+      'topic_impressions',coalesce(topic_daily.impressions,0),
+      'topic_viewable_impressions',coalesce(topic_daily.viewable_impressions,0),
+      'comment_impressions',coalesce(comment_daily.impressions,0),
+      'comment_viewable_impressions',coalesce(comment_daily.viewable_impressions,0),
+      'sponsor_served',coalesce(sponsor_daily.served,0),
+      'sponsor_viewable_impressions',coalesce(sponsor_daily.viewable_impressions,0),
+      'sponsor_clicks',coalesce(sponsor_daily.clicks,0)
+    ) ORDER BY days.event_date),'[]'::jsonb)
+      FROM days LEFT JOIN topic_daily USING(event_date) LEFT JOIN comment_daily USING(event_date) LEFT JOIN sponsor_daily USING(event_date)),
+    'topics',(SELECT coalesce(jsonb_agg(to_jsonb(topic_entities) ORDER BY impressions DESC),'[]'::jsonb) FROM topic_entities),
+    'categories',(SELECT coalesce(jsonb_agg(to_jsonb(category_entities) ORDER BY impressions DESC),'[]'::jsonb) FROM category_entities),
+    'sponsors',(SELECT coalesce(jsonb_agg(to_jsonb(sponsor_entities) ORDER BY served DESC),'[]'::jsonb) FROM sponsor_entities),
+    'comments',(SELECT coalesce(jsonb_agg(to_jsonb(comment_entities) ORDER BY impressions DESC),'[]'::jsonb) FROM comment_entities)
+  ) INTO v_result;
+  RETURN v_result;
+END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.get_anonymous_sponsor_campaigns(p_session_token text, p_category_slug text DEFAULT NULL::text, p_topic_id text DEFAULT NULL::text, p_limit integer DEFAULT 1)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE v_campaign record; v_campaign_ids uuid[]:=ARRAY[]::uuid[]; v_campaigns jsonb:='[]'::jsonb;
+ v_slot integer; v_today date:=(pg_catalog.timezone('UTC',statement_timestamp()))::date;
+ v_hash text;
+BEGIN
+ IF p_session_token IS NULL OR length(p_session_token)>100 OR p_session_token !~* '^[0-9a-f-]{36}$'
+   OR p_limit IS NULL OR p_limit<1 OR p_limit>1
+   OR (p_category_slug IS NOT NULL AND p_category_slug !~ '^[a-z0-9]+(-[a-z0-9]+)*$')
+   OR (p_topic_id IS NOT NULL AND p_topic_id !~ '^[a-z0-9]+(-[a-z0-9]+)*$') THEN
+   RAISE EXCEPTION 'Invalid anonymous sponsor request' USING ERRCODE='22023';
+ END IF;
+ v_hash:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p_session_token,'UTF8')),'hex');
+ PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(v_hash,9173));
+ FOR v_slot IN 1..p_limit LOOP
+  SELECT campaign.id,sponsor.sponsor_name,campaign.headline,campaign.body,campaign.image_url,campaign.destination_url,campaign.cta_label,campaign.campaign_name
+  INTO v_campaign
+  FROM public.sponsor_campaigns campaign JOIN public.sponsors sponsor ON sponsor.id=campaign.sponsor_id
+  LEFT JOIN catho_private.anonymous_sponsor_session_frequency frequency ON frequency.campaign_id=campaign.id AND frequency.session_hash=v_hash
+  WHERE campaign.status='approved' AND sponsor.status IN ('active','scheduled')
+    AND (sponsor.starts_on IS NULL OR sponsor.starts_on<=v_today) AND (sponsor.ends_on IS NULL OR sponsor.ends_on>=v_today)
+    AND sponsor.payment_status IN ('received','not_required')
+    AND campaign.starts_on<=v_today AND campaign.ends_on>=v_today
+    AND (cardinality(campaign.target_category_slugs)=0 OR (p_category_slug IS NOT NULL AND p_category_slug=ANY(campaign.target_category_slugs)))
+    AND (cardinality(campaign.target_topic_ids)=0 OR (p_topic_id IS NOT NULL AND p_topic_id=ANY(campaign.target_topic_ids)))
+    AND (campaign.daily_impression_cap IS NULL OR coalesce((SELECT d.served_count FROM catho_private.sponsor_campaign_daily d WHERE d.campaign_id=campaign.id AND d.event_date=v_today),0)
+      + coalesce((SELECT d.served_count FROM catho_private.anonymous_sponsor_campaign_daily d WHERE d.campaign_id=campaign.id AND d.event_date=v_today),0) < campaign.daily_impression_cap)
+    AND (campaign.total_impression_cap IS NULL OR campaign.served_count + coalesce((SELECT sum(d.served_count) FROM catho_private.anonymous_sponsor_campaign_daily d WHERE d.campaign_id=campaign.id),0) < campaign.total_impression_cap)
+    AND coalesce(frequency.served_count,0)<least(campaign.frequency_cap_per_user_total,5)
+    AND (SELECT count(*) FROM catho_private.anonymous_sponsor_events e WHERE e.campaign_id=campaign.id AND e.session_hash=v_hash AND e.event_type='viewable_impression' AND e.received_at>=statement_timestamp()-interval '24 hours') < least(campaign.frequency_cap_per_user_24h,2)
+    AND NOT campaign.id=ANY(v_campaign_ids)
+  ORDER BY (coalesce((SELECT sum(d.viewable_impressions) FROM catho_private.sponsor_campaign_daily d WHERE d.campaign_id=campaign.id AND d.event_date>=v_today-29),0)
+      + coalesce((SELECT sum(d.viewable_impressions) FROM catho_private.anonymous_sponsor_campaign_daily d WHERE d.campaign_id=campaign.id AND d.event_date>=v_today-29),0))::numeric/campaign.placement_weight ASC,
+      pg_catalog.random(),campaign.id
+  LIMIT 1 FOR UPDATE OF campaign SKIP LOCKED;
+  IF NOT FOUND THEN EXIT; END IF;
+  INSERT INTO catho_private.anonymous_sponsor_events(campaign_id,event_id,session_hash,event_type) VALUES(v_campaign.id,gen_random_uuid(),v_hash,'served');
+  INSERT INTO catho_private.anonymous_sponsor_session_frequency(campaign_id,session_hash,served_count,last_served_at)
+  VALUES(v_campaign.id,v_hash,1,statement_timestamp())
+  ON CONFLICT(campaign_id,session_hash) DO UPDATE SET served_count=catho_private.anonymous_sponsor_session_frequency.served_count+1,last_served_at=EXCLUDED.last_served_at;
+  INSERT INTO catho_private.anonymous_sponsor_campaign_daily(event_date,campaign_id,served_count) VALUES(v_today,v_campaign.id,1)
+  ON CONFLICT(event_date,campaign_id) DO UPDATE SET served_count=catho_private.anonymous_sponsor_campaign_daily.served_count+1;
+  INSERT INTO catho_private.sponsor_campaign_daily(event_date,campaign_id,served_count) VALUES(v_today,v_campaign.id,0)
+  ON CONFLICT(event_date,campaign_id) DO NOTHING;
+  v_campaign_ids:=pg_catalog.array_append(v_campaign_ids,v_campaign.id);
+  v_campaigns:=v_campaigns||pg_catalog.jsonb_build_array(pg_catalog.jsonb_build_object(
+   'campaign_id',v_campaign.id,'sponsor_name',v_campaign.sponsor_name,'campaign_name',v_campaign.campaign_name,
+   'headline',v_campaign.headline,'body',v_campaign.body,'image_url',v_campaign.image_url,
+   'destination_url',v_campaign.destination_url,'cta_label',v_campaign.cta_label,'disclosure','Sponsored'));
+ END LOOP;
+ RETURN pg_catalog.jsonb_build_object('campaigns',v_campaigns,'generated_at',statement_timestamp());
+END; $function$
+;
+
+CREATE OR REPLACE FUNCTION catho_private.prune_anonymous_analytics()
+ RETURNS integer
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$ DECLARE v_deleted integer:=0; BEGIN DELETE FROM catho_private.anonymous_sponsor_events WHERE received_at < statement_timestamp()-interval '48 hours'; GET DIAGNOSTICS v_deleted = ROW_COUNT; DELETE FROM catho_private.anonymous_sponsor_session_frequency WHERE last_served_at < statement_timestamp()-interval '48 hours'; DELETE FROM catho_private.anonymous_feed_event_receipts WHERE received_at < statement_timestamp()-interval '7 days'; RETURN v_deleted; END; $function$
+;
+
+CREATE OR REPLACE FUNCTION public.record_anonymous_feed_analytics(p_events jsonb)
+ RETURNS integer
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE v_event jsonb; v_count integer := 0; v_date date := (pg_catalog.timezone('UTC',statement_timestamp()))::date;
+ v_type text; v_id text; v_kind text; v_duration integer; v_event_id uuid;
+BEGIN
+ IF jsonb_typeof(p_events) <> 'array' OR jsonb_array_length(p_events) < 1 OR jsonb_array_length(p_events) > 40 THEN
+   RAISE EXCEPTION 'Invalid anonymous analytics batch' USING ERRCODE='22023';
+ END IF;
+ FOR v_event IN SELECT value FROM jsonb_array_elements(p_events) LOOP
+   IF jsonb_typeof(v_event) <> 'object'
+      OR (v_event->>'eventId') IS NULL OR (v_event->>'eventId') !~* '^[0-9a-f-]{36}$'
+      OR v_event->>'entityType' NOT IN ('topic','comment')
+      OR length(coalesce(v_event->>'entityId','')) NOT BETWEEN 1 AND 160
+      OR v_event->>'eventType' NOT IN ('impression','viewable_impression','active_duration','skip','completion','open') THEN
+     RAISE EXCEPTION 'Invalid anonymous analytics event' USING ERRCODE='22023';
+   END IF;
+   v_event_id := (v_event->>'eventId')::uuid;
+   v_type := v_event->>'entityType'; v_id := v_event->>'entityId'; v_kind := v_event->>'eventType';
+   v_duration := CASE WHEN v_kind='active_duration' THEN least(greatest(coalesce((v_event->>'durationMs')::integer,0),0),60000) ELSE 0 END;
+   INSERT INTO catho_private.anonymous_feed_event_receipts(event_id) VALUES(v_event_id) ON CONFLICT DO NOTHING;
+   IF NOT FOUND THEN CONTINUE; END IF;
+   INSERT INTO catho_private.anonymous_feed_analytics_daily(event_date,entity_type,entity_id,impressions,viewable_impressions,active_duration_ms,skips,completions,opens)
+   VALUES(v_date,v_type,v_id,
+     CASE WHEN v_kind='impression' THEN 1 ELSE 0 END,
+     CASE WHEN v_kind='viewable_impression' THEN 1 ELSE 0 END,
+     v_duration,
+     CASE WHEN v_kind='skip' THEN 1 ELSE 0 END,
+     CASE WHEN v_kind='completion' THEN 1 ELSE 0 END,
+     CASE WHEN v_kind='open' THEN 1 ELSE 0 END)
+   ON CONFLICT(event_date,entity_type,entity_id) DO UPDATE SET
+     impressions=catho_private.anonymous_feed_analytics_daily.impressions+EXCLUDED.impressions,
+     viewable_impressions=catho_private.anonymous_feed_analytics_daily.viewable_impressions+EXCLUDED.viewable_impressions,
+     active_duration_ms=catho_private.anonymous_feed_analytics_daily.active_duration_ms+EXCLUDED.active_duration_ms,
+     skips=catho_private.anonymous_feed_analytics_daily.skips+EXCLUDED.skips,
+     completions=catho_private.anonymous_feed_analytics_daily.completions+EXCLUDED.completions,
+     opens=catho_private.anonymous_feed_analytics_daily.opens+EXCLUDED.opens,
+     refreshed_at=statement_timestamp();
+   v_count := v_count+1;
+ END LOOP;
+ RETURN v_count;
+END; $function$
+;
+
+CREATE OR REPLACE FUNCTION public.record_anonymous_sponsor_campaign_event(p_session_token text, p_campaign_id uuid, p_event_id uuid, p_event_type text)
+ RETURNS boolean
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE v_hash text; v_served timestamptz; v_today date:=(pg_catalog.timezone('UTC',statement_timestamp()))::date;
+BEGIN
+ IF p_session_token IS NULL OR p_session_token !~* '^[0-9a-f-]{36}$' OR p_campaign_id IS NULL OR p_event_id IS NULL
+  OR p_event_type NOT IN ('viewable_impression','click') THEN RAISE EXCEPTION 'Invalid anonymous sponsor event' USING ERRCODE='22023'; END IF;
+ v_hash:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p_session_token,'UTF8')),'hex');
+ SELECT received_at INTO v_served FROM catho_private.anonymous_sponsor_events
+ WHERE campaign_id=p_campaign_id AND session_hash=v_hash AND event_type='served'
+ AND received_at>=statement_timestamp()-interval '24 hours' ORDER BY received_at DESC LIMIT 1;
+ IF v_served IS NULL THEN RAISE EXCEPTION 'Sponsor placement not eligible' USING ERRCODE='42501'; END IF;
+ IF p_event_type='click' AND NOT EXISTS(SELECT 1 FROM catho_private.anonymous_sponsor_events WHERE campaign_id=p_campaign_id AND session_hash=v_hash AND event_type='viewable_impression' AND received_at>=v_served) THEN
+  RAISE EXCEPTION 'Click requires viewable impression' USING ERRCODE='42501'; END IF;
+ INSERT INTO catho_private.anonymous_sponsor_events(campaign_id,event_id,session_hash,event_type)
+ VALUES(p_campaign_id,p_event_id,v_hash,p_event_type) ON CONFLICT DO NOTHING;
+ IF NOT FOUND THEN RETURN false; END IF;
+ IF p_event_type='viewable_impression' THEN
+  INSERT INTO catho_private.anonymous_sponsor_campaign_daily(event_date,campaign_id,viewable_impressions) VALUES(v_today,p_campaign_id,1)
+  ON CONFLICT(event_date,campaign_id) DO UPDATE SET viewable_impressions=catho_private.anonymous_sponsor_campaign_daily.viewable_impressions+1;
+ ELSE
+  INSERT INTO catho_private.anonymous_sponsor_campaign_daily(event_date,campaign_id,clicks) VALUES(v_today,p_campaign_id,1)
+  ON CONFLICT(event_date,campaign_id) DO UPDATE SET clicks=catho_private.anonymous_sponsor_campaign_daily.clicks+1;
+ END IF;
+ RETURN true;
+END; $function$
+;
+
+REVOKE ALL ON FUNCTION public.record_anonymous_feed_analytics(jsonb) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.record_anonymous_feed_analytics(jsonb) TO service_role;
+REVOKE ALL ON FUNCTION public.get_anonymous_sponsor_campaigns(text,text,text,integer) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.get_anonymous_sponsor_campaigns(text,text,text,integer) TO service_role;
+REVOKE ALL ON FUNCTION public.record_anonymous_sponsor_campaign_event(text,uuid,uuid,text) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.record_anonymous_sponsor_campaign_event(text,uuid,uuid,text) TO service_role;
+REVOKE ALL ON FUNCTION public.get_admin_anonymous_analytics(uuid,timestamptz,timestamptz,text,text) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.get_admin_anonymous_analytics(uuid,timestamptz,timestamptz,text,text) TO authenticated,service_role;
+REVOKE ALL ON FUNCTION catho_private.prune_anonymous_analytics() FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION catho_private.prune_anonymous_analytics() TO service_role;
+
+DO $anonymous_analytics_cron$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM cron.job WHERE jobname='cathoscroll-anonymous-analytics-prune') THEN
+    PERFORM cron.schedule('cathoscroll-anonymous-analytics-prune','17 3 * * *',
+      'SELECT catho_private.prune_anonymous_analytics();');
+  END IF;
+END;
+$anonymous_analytics_cron$;
+-- END ANONYMOUS ANALYTICS ROLLOUT
