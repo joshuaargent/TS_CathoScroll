@@ -14,6 +14,11 @@ interface ContentAnalyticsDashboardProps {
   backLabel: string;
   analyticsHref: string;
   period: AnalyticsPeriod;
+  anonymousAnalytics: {
+    totals: { topic_impressions: number; topic_viewable_impressions: number; topic_active_duration_ms: number; topic_skips: number; topic_completions: number };
+    series: { event_date: string; topic_impressions: number; topic_viewable_impressions: number }[];
+    topics: { slug: string; impressions: number; viewable_impressions: number }[];
+  };
 }
 
 const periods: { value: AnalyticsPeriod; label: string }[] = [
@@ -73,7 +78,7 @@ function MetricCard({
   );
 }
 
-function LineChart({ series }: { series: DailyContentAnalytics[] }) {
+function LineChart({ series, anonymousSeries }: { series: DailyContentAnalytics[]; anonymousSeries: { date: string; impressions: number; viewable_impressions: number }[] }) {
   const width = 720;
   const height = 250;
   const padding = { top: 18, right: 20, bottom: 42, left: 42 };
@@ -81,7 +86,8 @@ function LineChart({ series }: { series: DailyContentAnalytics[] }) {
   const chartHeight = height - padding.top - padding.bottom;
   const maxValue = Math.max(
     1,
-    ...series.flatMap((item) => [item.impressions, item.viewable_impressions])
+    ...series.flatMap((item) => [item.impressions, item.viewable_impressions]),
+    ...anonymousSeries.flatMap((item) => [item.impressions, item.viewable_impressions])
   );
   const pointFor = (value: number, index: number) => {
     const x =
@@ -94,6 +100,8 @@ function LineChart({ series }: { series: DailyContentAnalytics[] }) {
   const viewable = series
     .map((item, index) => pointFor(item.viewable_impressions, index))
     .join(' ');
+  const anonymousImpressions = anonymousSeries.map((item,index) => pointFor(item.impressions,index)).join(' ');
+  const anonymousViewable = anonymousSeries.map((item,index) => pointFor(item.viewable_impressions,index)).join(' ');
   const gridValues = [0, 0.5, 1].map((fraction) => ({
     fraction,
     y: padding.top + chartHeight - fraction * chartHeight,
@@ -107,8 +115,10 @@ function LineChart({ series }: { series: DailyContentAnalytics[] }) {
           <span className="bg-accent h-2.5 w-2.5 rounded-full" /> Impressions
         </span>
         <span className="text-text-secondary inline-flex items-center gap-2">
-          <span className="bg-emerald-600 dark:bg-emerald-400 h-2.5 w-2.5 rounded-full" /> Viewable impressions
+          <span className="bg-emerald-600 dark:bg-emerald-400 h-2.5 w-2.5 rounded-full" /> Signed-in viewable impressions
         </span>
+        <span className="text-text-secondary inline-flex items-center gap-2"><span className="border-accent h-2.5 w-2.5 rounded-full border" /> Anonymous impressions</span>
+        <span className="text-text-secondary inline-flex items-center gap-2"><span className="border-emerald-600 h-2.5 w-2.5 rounded-full border" /> Anonymous viewable</span>
       </div>
       <svg
         viewBox={`0 0 ${width} ${height}`}
@@ -177,6 +187,8 @@ function LineChart({ series }: { series: DailyContentAnalytics[] }) {
           strokeLinecap="round"
           strokeLinejoin="round"
         />
+        <polyline points={anonymousImpressions} fill="none" className="stroke-accent" strokeWidth="2" strokeDasharray="5 5" />
+        <polyline points={anonymousViewable} fill="none" className="stroke-emerald-600" strokeWidth="2" strokeDasharray="5 5" />
         {series.length > 0 && (
           <>
             <text
@@ -237,9 +249,13 @@ export function ContentAnalyticsDashboard({
   backLabel,
   analyticsHref,
   period,
+  anonymousAnalytics,
 }: ContentAnalyticsDashboardProps) {
   const hasTelemetry = analytics.last_event_at !== null;
   const events = analytics.events;
+  const anonymous = anonymousAnalytics.totals;
+  const anonymousSeries = anonymousAnalytics.series.map((day) => ({ date: day.event_date, impressions: day.topic_impressions, viewable_impressions: day.topic_viewable_impressions }));
+  const hasAnyTelemetry = hasTelemetry || anonymous.topic_impressions > 0;
   const skipRate =
     events.impressions > 0 ? (events.skips / events.impressions) * 100 : null;
   const completionRate =
@@ -403,6 +419,12 @@ export function ContentAnalyticsDashboard({
             <MetricCard key={metric.label} {...metric} />
           ))}
         </div>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <MetricCard label="Anonymous impressions" value={formatNumber(anonymous.topic_impressions)} detail="Signed-out topic feed impressions" icon={BarChart3} />
+          <MetricCard label="Anonymous viewable" value={formatNumber(anonymous.topic_viewable_impressions)} detail="At least 50% visible for one second" icon={Users} />
+          <MetricCard label="Anonymous active time" value={formatDuration(anonymous.topic_active_duration_ms / 1000)} detail="Time while signed-out content was visible" icon={BarChart3} />
+          <MetricCard label="Anonymous skips / completions" value={formatNumber(anonymous.topic_skips) + ' / ' + formatNumber(anonymous.topic_completions)} detail="Aggregate events; no anonymous unique-user count" icon={CheckCircle2} />
+        </div>
       </section>
 
       <section className="mt-10">
@@ -414,15 +436,14 @@ export function ContentAnalyticsDashboard({
             </CardDescription>
           </CardHeader>
           <CardContent className="pt-6">
-            {hasTelemetry && analytics.series.length > 0 ? (
-              <LineChart series={analytics.series} />
+            {hasAnyTelemetry && (analytics.series.length > 0 || anonymousSeries.length > 0) ? (
+              <LineChart series={analytics.series} anonymousSeries={anonymousSeries} />
             ) : (
               <div className="border-border bg-bg-primary rounded-2xl border px-5 py-12 text-center">
                 <BarChart3 className="text-text-muted mx-auto h-8 w-8" aria-hidden="true" />
                 <p className="text-text-primary mt-3 font-semibold">No feed activity to chart yet</p>
                 <p className="text-text-secondary mx-auto mt-1 max-w-xl text-sm">
-                  This chart will populate when signed-in users view this content after analytics
-                  tracking is deployed.
+                  This chart includes separately measured signed-in and anonymous aggregate activity.
                 </p>
               </div>
             )}
@@ -506,7 +527,7 @@ export function ContentAnalyticsDashboard({
                       </div>
                       <div className="text-text-muted mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs">
                         <span>
-                          {hasTelemetry ? formatNumber(topic.impressions) : '—'} impressions
+                          {hasTelemetry ? formatNumber(topic.impressions) : '—'} signed-in · {formatNumber(anonymousAnalytics.topics.find((item) => item.slug === topic.slug)?.impressions ?? 0)} anonymous impressions
                         </span>
                         <span>{formatNumber(topic.likes)} likes</span>
                         <span>{formatNumber(topic.bookmarks)} bookmarks</span>
