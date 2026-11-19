@@ -14,6 +14,7 @@ test('account-linked topic and comment telemetry fail closed pending legal appro
 
   for (const source of [topicViewer, commentViewer]) {
     assert.ok(source.includes("process.env.NEXT_PUBLIC_ACCOUNT_LINKED_FEED_ANALYTICS === 'true'"));
+    assert.ok(!source.includes('if (!userId || !active) return;'));
   }
   for (const source of [topicRoute, commentRoute]) {
     assert.ok(source.includes("process.env.ACCOUNT_LINKED_FEED_ANALYTICS_ENABLED !== 'true'"));
