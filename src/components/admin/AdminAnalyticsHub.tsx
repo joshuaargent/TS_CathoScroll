@@ -3,6 +3,7 @@ import { Activity, ArrowUpRight, BarChart3, BookOpen, CheckCircle2, Heart, Messa
 import type { ReactNode } from 'react';
 
 import { AdminNavigation } from '@/components/admin/AdminNavigation';
+import { AnalyticsDeepDivePanel, type AnalyticsDeepDiveData } from '@/components/admin/AnalyticsDeepDivePanel';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardDescription, CardTitle } from '@/components/ui/Card';
@@ -98,7 +99,7 @@ function DailyOverviewChart({ series }: { series: AnalyticsDay[] }) {
   </Card>;
 }
 
-export function AdminAnalyticsHub({ overview, period, section = 'overview', series }: { overview: Overview; period: AnalyticsPeriod; section?: string; series: AnalyticsDay[] }) {
+export function AdminAnalyticsHub({ overview, period, section = 'overview', series, deepDive }: { overview: Overview; period: AnalyticsPeriod; section?: string; series: AnalyticsDay[]; deepDive: AnalyticsDeepDiveData }) {
   const t = overview.totals;
   const totalExposures = t.topic_impressions + t.sponsor_served + t.comment_card_impressions;
   const sectionHref = (value: string) => `/admin/analytics?period=${period}&section=${value}`;
@@ -162,6 +163,7 @@ export function AdminAnalyticsHub({ overview, period, section = 'overview', seri
       <Metric label="Comment-card viewability" value={t.comment_card_impressions ? ((t.comment_card_viewable_impressions / t.comment_card_impressions) * 100).toFixed(1) + '%' : '—'} detail="Viewable comment-card impressions ÷ impressions" icon={MessageCircle} />
     </section>
     <DailyOverviewChart series={series} />
+    <AnalyticsDeepDivePanel data={deepDive} />
     <section className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       <Metric label="Unique signed-in viewers" value={number(t.unique_feed_viewers)} detail={'Distinct signed-in accounts · ' + number(t.unique_topic_viewers) + ' topic · ' + number(t.unique_sponsor_viewers) + ' sponsor · ' + number(t.unique_comment_viewers) + ' comment viewers'} icon={Users} />
       <Metric label="Topic likes" value={number(t.topic_likes)} detail="Topic likes created in this period" icon={Heart} />
