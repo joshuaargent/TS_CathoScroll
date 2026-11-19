@@ -240,10 +240,13 @@ export default function PrivacyPage() {
           <p className="text-text-secondary mt-4 leading-relaxed">
             Topic-level reading activity on a Catholic learning platform can reveal or allow
             inferences about religious or philosophical beliefs. It therefore requires a separate
-            UK GDPR Article 6 and Article 9 assessment; the personalisation checkbox is not consent
-            for this operational analytics. CathoScroll does not currently record first-party
-            topic-level feed events from signed-out visitors. It does not attach signed-out feed
-            activity to an account or create a persistent visitor profile for that purpose.
+            UK GDPR Article 6 basis and Article 9 condition; the personalisation checkbox is not
+            consent for this operational analytics. Our provisional analytics impact assessment
+            records the lawful-basis review for this account-linked stream as outstanding; the
+            assessment does not certify the current topic-level processing as legally approved.
+            CathoScroll does not currently record first-party topic-level feed events from signed-out
+            visitors. It does not attach signed-out feed activity to an account or create a
+            persistent visitor profile for that purpose.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
