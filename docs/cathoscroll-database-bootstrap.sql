@@ -5391,9 +5391,7 @@ ALTER FUNCTION public.get_sponsor_campaign_analytics(uuid, uuid, date, date) OWN
 -- Applied migration: harden_sponsor_membership_rpc_null_validation
 
 
-ALTER FUNCTION public.admin_add_sponsor_member(uuid, uuid, uuid, text) OWNER TO postgres;
 
-ALTER FUNCTION public.admin_set_sponsor_member_status(uuid, uuid, text) OWNER TO postgres;
 -- Applied migration: sponsor_invoice_and_payment_reconciliation_ledger
 
 CREATE TABLE catho_private.sponsor_invoices (
@@ -5875,11 +5873,8 @@ ALTER FUNCTION public.get_sponsor_financials(uuid, uuid) OWNER TO postgres;
 
 ALTER FUNCTION public.admin_create_sponsor(uuid, text, text, text, text, date, date, text, bigint, text, text, text, text) OWNER TO postgres;
 
-ALTER FUNCTION public.admin_create_sponsor_invoice(uuid, uuid, text, bigint, text, date, date, boolean) OWNER TO postgres;
 
-ALTER FUNCTION public.admin_record_sponsor_payment(uuid, uuid, uuid, bigint, text, text, date, text) OWNER TO postgres;
 
-ALTER FUNCTION public.admin_record_sponsor_refund(uuid, uuid, bigint, text, date, text) OWNER TO postgres;
 -- Applied migration: add_admin_sponsor_account_lookup
 
 CREATE OR REPLACE FUNCTION public.admin_find_sponsor_user_by_email(
@@ -5907,11 +5902,9 @@ ALTER FUNCTION public.admin_find_sponsor_user_by_email(uuid, text) OWNER TO post
 -- Applied migration: enforce_sponsor_invoice_agreement_currency
 
 
-ALTER FUNCTION public.admin_create_sponsor_invoice(uuid, uuid, text, bigint, text, date, date, boolean) OWNER TO postgres;
 -- Applied migration: scope_sponsor_refunds_and_prevent_owner_lockout
 
 
-ALTER FUNCTION public.admin_set_sponsor_member_status(uuid, uuid, text) OWNER TO postgres;
 CREATE OR REPLACE FUNCTION public.admin_record_sponsor_refund(
   p_actor_user_id uuid, p_sponsor_id uuid, p_payment_id uuid, p_amount_minor bigint,
   p_bank_reference text DEFAULT NULL, p_bank_transaction_date date DEFAULT NULL,
@@ -5938,7 +5931,6 @@ ALTER FUNCTION public.admin_record_sponsor_refund(uuid, uuid, uuid, bigint, text
 -- Applied migration: prevent_unpaid_sponsor_from_bypassing_invoice_reconciliation
 
 
-ALTER FUNCTION public.admin_create_sponsor(uuid, text, text, text, text, date, date, text, bigint, text, text, text, text) OWNER TO postgres;
 -- Applied migration: index_sponsor_platform_foreign_keys
 
 CREATE INDEX sponsor_invoices_created_by_idx
