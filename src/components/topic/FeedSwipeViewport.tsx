@@ -2,11 +2,12 @@
 
 import { animate, motion, useMotionValue } from 'framer-motion';
 import { flushSync } from 'react-dom';
-import { useCallback, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { useTopicSwipeGesture, type TopicSwipeDirection } from './useTopicSwipeGesture';
 
 interface FeedSwipeViewportProps {
   children: ReactNode;
+  containerRef?: RefObject<HTMLDivElement | null>;
   topPreview?: ReactNode;
   bottomPreview?: ReactNode;
   leftPreview?: ReactNode;
@@ -35,6 +36,7 @@ interface FeedSwipeViewportProps {
  */
 export function FeedSwipeViewport({
   children,
+  containerRef: externalContainerRef,
   topPreview,
   bottomPreview,
   leftPreview,
@@ -52,7 +54,8 @@ export function FeedSwipeViewport({
   onTransitionStart,
   onTransitionEnd,
 }: FeedSwipeViewportProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
+  const internalContainerRef = useRef<HTMLDivElement>(null);
+  const containerRef = externalContainerRef ?? internalContainerRef;
   const animationLockRef = useRef(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const x = useMotionValue(0);
