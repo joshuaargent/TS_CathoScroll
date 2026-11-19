@@ -6,6 +6,7 @@ import { Heart } from 'lucide-react';
 import type { Topic } from '@/types';
 import type { TopicActivity } from '@/lib/topic-activity';
 import { getTopicSlides } from '@/lib/topicSlides';
+import { clearPendingContentAnalyticsQueues } from '@/lib/feed-analytics-privacy';
 import {
   installFeedAnalyticsListeners,
   recordFeedAnalyticsEvent,
@@ -91,6 +92,10 @@ export function TopicSwipeViewer({
   const nextTopic = topics[(topicIndex + 1) % topics.length];
   const slides = useMemo(() => getTopicSlides(currentTopic), [currentTopic]);
   const currentSlide = slides[slideIndex];
+
+  useEffect(() => {
+    if (!ACCOUNT_LINKED_FEED_ANALYTICS_ENABLED) clearPendingContentAnalyticsQueues();
+  }, []);
 
   useLayoutEffect(() => {
     if (active) onProgressChange?.(slideIndex, slides.length);
