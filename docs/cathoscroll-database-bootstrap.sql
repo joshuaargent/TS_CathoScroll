@@ -7531,8 +7531,7 @@ BEGIN
       ELSE NULL END
   );
 END;
-$function$
-;
+$function$;
 REVOKE ALL ON FUNCTION public.get_public_general_topic_page(jsonb,integer) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.get_public_general_topic_page(jsonb,integer) TO anon,authenticated;
  
@@ -7569,32 +7568,7 @@ CREATE TABLE catho_private.anonymous_sponsor_session_frequency (
 CREATE TABLE catho_private.anonymous_sponsor_events (
   campaign_id uuid NOT NULL REFERENCES public.sponsor_campaigns(id) ON DELETE CASCADE,
   event_id uuid NOT NULL,
-  session_hash text NOT NULL CHECK (session_hash ~ '^[0-9a-f]{64}
-  received_at timestamptz NOT NULL DEFAULT statement_timestamp(),
-  PRIMARY KEY(campaign_id,event_id)
-);
-CREATE INDEX anonymous_sponsor_events_recent_idx
-  ON catho_private.anonymous_sponsor_events(campaign_id,event_type,received_at);
-CREATE INDEX anonymous_sponsor_events_placement_idx
-  ON catho_private.anonymous_sponsor_events(campaign_id,session_hash,placement_id,event_type,received_at);
-CREATE TABLE catho_private.anonymous_sponsor_campaign_daily (
-  event_date date NOT NULL,
-  campaign_id uuid NOT NULL REFERENCES public.sponsor_campaigns(id) ON DELETE CASCADE,
-  served_count bigint NOT NULL DEFAULT 0,
-  viewable_impressions bigint NOT NULL DEFAULT 0,
-  clicks bigint NOT NULL DEFAULT 0,
-  PRIMARY KEY(event_date,campaign_id)
-);
-ALTER TABLE catho_private.anonymous_feed_analytics_daily ENABLE ROW LEVEL SECURITY;
-ALTER TABLE catho_private.anonymous_feed_event_receipts ENABLE ROW LEVEL SECURITY;
-ALTER TABLE catho_private.anonymous_sponsor_session_frequency ENABLE ROW LEVEL SECURITY;
-ALTER TABLE catho_private.anonymous_sponsor_events ENABLE ROW LEVEL SECURITY;
-ALTER TABLE catho_private.anonymous_sponsor_campaign_daily ENABLE ROW LEVEL SECURITY;
-REVOKE ALL PRIVILEGES ON TABLE catho_private.anonymous_feed_analytics_daily,
-  catho_private.anonymous_feed_event_receipts,
-  catho_private.anonymous_sponsor_session_frequency,
-  catho_private.anonymous_sponsor_events,
-  catho_private.anonymous_sponsor_campaign_daily FROM PUBLIC,anon,authenticated,service_role;
+  session_hash text NOT NULL CHECK (session_hash ~ '^[0-9a-f]{64}$'
 
 CREATE OR REPLACE FUNCTION public.get_admin_anonymous_analytics(p_actor_user_id uuid, p_from timestamp with time zone, p_to timestamp with time zone, p_entity_type text DEFAULT 'all'::text, p_entity_id text DEFAULT NULL::text)
  RETURNS jsonb
@@ -7742,8 +7716,7 @@ BEGIN
   ) INTO v_result;
   RETURN v_result;
 END;
-$function$
-;
+$function$;
 REVOKE ALL ON FUNCTION public.get_admin_anonymous_analytics(uuid,timestamptz,timestamptz,text,text) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.get_admin_anonymous_analytics(uuid,timestamptz,timestamptz,text,text) TO service_role;
 REVOKE ALL ON FUNCTION catho_private.prune_anonymous_analytics() FROM PUBLIC,anon,authenticated;
@@ -7794,8 +7767,7 @@ BEGIN
    THEN round((m.clicks+m.anonymous_clicks)::numeric*100/(m.viewable_impressions+m.anonymous_viewable_impressions),2) ELSE 0 END
  ) ORDER BY m.served+m.anonymous_served DESC,m.campaign_id),'[]'::jsonb)) INTO v_result FROM metrics m;
  RETURN v_result;
-END; $function$
-;
+END; $function$;
 
 CREATE OR REPLACE FUNCTION public.get_sponsor_campaign_analytics(p_actor_user_id uuid, p_sponsor_id uuid, p_from date DEFAULT ((timezone('UTC'::text, statement_timestamp()))::date - 29), p_to date DEFAULT (timezone('UTC'::text, statement_timestamp()))::date)
  RETURNS jsonb
@@ -7837,8 +7809,7 @@ BEGIN
    THEN round((m.clicks+m.anonymous_clicks)::numeric*100/(m.viewable_impressions+m.anonymous_viewable_impressions),2) ELSE 0 END
  ) ORDER BY m.served+m.anonymous_served DESC,m.campaign_name),'[]'::jsonb)) INTO v_result FROM metrics m;
  RETURN v_result;
-END; $function$
-;
+END; $function$;
 ),
   placement_id text NOT NULL CHECK (length(placement_id) BETWEEN 1 AND 160),
   event_type text NOT NULL CHECK (event_type IN ('served','viewable_impression','click')),
@@ -8017,8 +7988,7 @@ BEGIN
   ) INTO v_result;
   RETURN v_result;
 END;
-$function$
-;
+$function$;
 REVOKE ALL ON FUNCTION public.get_admin_anonymous_analytics(uuid,timestamptz,timestamptz,text,text) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.get_admin_anonymous_analytics(uuid,timestamptz,timestamptz,text,text) TO authenticated,service_role;
 REVOKE ALL ON FUNCTION catho_private.prune_anonymous_analytics() FROM PUBLIC,anon,authenticated;
@@ -8069,8 +8039,7 @@ BEGIN
    THEN round((m.clicks+m.anonymous_clicks)::numeric*100/(m.viewable_impressions+m.anonymous_viewable_impressions),2) ELSE 0 END
  ) ORDER BY m.served+m.anonymous_served DESC,m.campaign_id),'[]'::jsonb)) INTO v_result FROM metrics m;
  RETURN v_result;
-END; $function$
-;
+END; $function$;
 
 CREATE OR REPLACE FUNCTION public.get_sponsor_campaign_analytics(p_actor_user_id uuid, p_sponsor_id uuid, p_from date DEFAULT ((timezone('UTC'::text, statement_timestamp()))::date - 29), p_to date DEFAULT (timezone('UTC'::text, statement_timestamp()))::date)
  RETURNS jsonb
@@ -8112,8 +8081,7 @@ BEGIN
    THEN round((m.clicks+m.anonymous_clicks)::numeric*100/(m.viewable_impressions+m.anonymous_viewable_impressions),2) ELSE 0 END
  ) ORDER BY m.served+m.anonymous_served DESC,m.campaign_name),'[]'::jsonb)) INTO v_result FROM metrics m;
  RETURN v_result;
-END; $function$
-;
+END; $function$;
 
 
 -- ANONYMOUS PIPELINE FUNCTION DEFINITIONS (exact live definitions)
@@ -8175,16 +8143,14 @@ BEGIN
    'destination_url',v_campaign.destination_url,'cta_label',v_campaign.cta_label,'disclosure','Sponsored'));
  END LOOP;
  RETURN pg_catalog.jsonb_build_object('campaigns',v_campaigns,'generated_at',statement_timestamp());
-END; $function$
-;
+END; $function$;
 
 CREATE OR REPLACE FUNCTION catho_private.prune_anonymous_analytics()
  RETURNS integer
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO ''
-AS $function$ DECLARE v_deleted integer:=0; BEGIN DELETE FROM catho_private.anonymous_sponsor_events WHERE received_at < statement_timestamp()-interval '48 hours'; GET DIAGNOSTICS v_deleted = ROW_COUNT; DELETE FROM catho_private.anonymous_sponsor_session_frequency WHERE last_served_at < statement_timestamp()-interval '48 hours'; DELETE FROM catho_private.anonymous_feed_event_receipts WHERE received_at < statement_timestamp()-interval '7 days'; RETURN v_deleted; END; $function$
-;
+AS $function$ DECLARE v_deleted integer:=0; BEGIN DELETE FROM catho_private.anonymous_sponsor_events WHERE received_at < statement_timestamp()-interval '48 hours'; GET DIAGNOSTICS v_deleted = ROW_COUNT; DELETE FROM catho_private.anonymous_sponsor_session_frequency WHERE last_served_at < statement_timestamp()-interval '48 hours'; DELETE FROM catho_private.anonymous_feed_event_receipts WHERE received_at < statement_timestamp()-interval '7 days'; RETURN v_deleted; END; $function$;
 
 CREATE OR REPLACE FUNCTION public.record_anonymous_feed_analytics(p_events jsonb)
  RETURNS integer
@@ -8244,8 +8210,7 @@ BEGIN
    v_count := v_count+1;
  END LOOP;
  RETURN v_count;
-END; $function$
-;
+END; $function$;
 REVOKE ALL ON FUNCTION public.record_anonymous_feed_analytics(jsonb) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.record_anonymous_feed_analytics(jsonb) TO service_role;
 REVOKE ALL ON FUNCTION public.get_anonymous_sponsor_campaigns(text,text,text,integer) FROM PUBLIC,anon,authenticated;
