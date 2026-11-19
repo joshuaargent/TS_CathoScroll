@@ -7469,6 +7469,48 @@ DECLARE
   v_categories integer := 0;
   v_selected jsonb := '[]'::jsonb;
   v_options jsonb := '[]'::jsonb;
+  v_top_topics jsonb := '[]'::jsonb;
+BEGIN
+  IF v_user_id IS NULL THEN RAISE EXCEPTION 'Authentication required' USING ERRCODE='42501'; END IF;
+  SELECT enabled,updated_at INTO v_enabled,v_updated_at
+  FROM catho_private.user_personalization_consents WHERE user_id=v_user_id;
+  IF coalesce(v_enabled,false) THEN
+    SELECT count(*),count(DISTINCT category_slug) INTO v_topics,v_categories
+    FROM catho_private.user_topic_interest_scores WHERE user_id=v_user_id;
+    SELECT coalesce(jsonb_agg(category_slug ORDER BY category_slug),'[]'::jsonb)
+      INTO v_selected FROM catho_private.user_explicit_category_interests WHERE user_id=v_user_id;
+    SELECT coalesce(jsonb_agg(jsonb_build_object(
+      'topic_id',t.id,'slug',t.slug,'question',t.question,'category_slug',t.category_slug,
+      'score',s.score,'short_term_score',s.short_term_score,'long_term_score',s.long_term_score,
+      'explicit_score',s.explicit_score,'inferred_score',s.inferred_score
+    ) ORDER BY s.score DESC,t.question),'[]'::jsonb)
+      INTO v_top_topics
+    FROM (
+      SELECT * FROM catho_private.user_topic_interest_scores
+      WHERE user_id=v_user_id AND score>0
+      ORDER BY score DESC,topic_id
+      LIMIT 10
+    ) s
+    JOIN public.topics t ON t.id=s.topic_id AND t.is_published=true;
+  END IF;
+  SELECT coalesce(jsonb_agg(jsonb_build_object('slug',slug,'name',name) ORDER BY order_index,name),'[]'::jsonb)
+    INTO v_options FROM public.categories WHERE is_published=true;
+  RETURN jsonb_build_object(
+    'enabled',coalesce(v_enabled,false),'updated_at',v_updated_at,
+    'topic_interests',v_topics,'category_interests',v_categories,
+    'selected_categories',v_selected,'category_options',v_options,
+    'top_topic_interests',v_top_topics,'model_version','2026-11-19-v2'
+  );
+END;
+$function$;
+DECLARE
+  v_user_id uuid := auth.uid();
+  v_enabled boolean := false;
+  v_updated_at timestamptz;
+  v_topics integer := 0;
+  v_categories integer := 0;
+  v_selected jsonb := '[]'::jsonb;
+  v_options jsonb := '[]'::jsonb;
 BEGIN
   IF v_user_id IS NULL THEN RAISE EXCEPTION 'Authentication required' USING ERRCODE='42501'; END IF;
   SELECT enabled,updated_at INTO v_enabled,v_updated_at
