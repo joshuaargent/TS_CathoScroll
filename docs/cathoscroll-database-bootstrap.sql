@@ -15,8 +15,9 @@
 --     the same PostgreSQL major version as the source project.
 --   * pg_cron and permission to create the ensure_rls event trigger are required.
 --
--- Object counts at export: 40 tables, 89 functions, 33 triggers, 32 policies,
--- 15 categories and 86 topics.
+-- Production inventory (2026-11-19): 47 tables, 105 unique functions,
+-- 34 application/Auth triggers, 32 policies, 88 explicit indexes,
+-- 15 categories and 86 topics. Constraint-backed indexes are additional.
 --
 DO $bootstrap_guard$
 BEGIN
