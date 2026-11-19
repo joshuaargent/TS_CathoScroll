@@ -45,6 +45,7 @@ test('signed-out topic and Top Comments cards emit aggregate events', () => {
   assert.match(client, /recentEventKeys/);
   assert.match(client, /pendingEvents/);
   assert.match(client, /addEventListener\('online'/);
+  assert.doesNotMatch(client, /localStorage|sessionStorage|indexedDB/);
 });
 
 test('native anonymous analytics uses the configured server origin and trusted CORS path', () => {
@@ -75,6 +76,8 @@ test('anonymous sponsor selection and event recording are separate from account-
   assert.match(eventRoute, /isSameOriginOrNativeRequest\(request, true\)/);
   assert.match(card, /userId: string \| null/);
   assert.match(sql, /CREATE TABLE catho_private\.anonymous_sponsor_session_frequency/);
+  assert.match(sql, /REVOKE ALL PRIVILEGES ON TABLE catho_private\.anonymous_feed_analytics_daily,[\s\S]*FROM PUBLIC,anon,authenticated,service_role/);
+  assert.doesNotMatch(sql, /GRANT ALL ON TABLE catho_private\.anonymous_feed_analytics_daily/);
   assert.match(sql, /CREATE TABLE catho_private\.anonymous_sponsor_campaign_daily/);
   assert.match(sql, /least\(campaign\.frequency_cap_per_user_total,5\)/);
   assert.match(sql, /cathoscroll-anonymous-analytics-prune/);
