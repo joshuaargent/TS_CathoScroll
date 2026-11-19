@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import ts from 'typescript';
 
-const [commentSource, sponsorSource, feedCore, topicFeed, cardRegistry, placementRegistry, topicCard, topCommentCard, sponsorCard, topicViewer, interstitialMotion, sponsorLoadingCard, baseFeedCard, feedRenderer] = await Promise.all([
+const [commentSource, sponsorSource, feedCore, topicFeed, cardRegistry, placementRegistry, topicCard, topCommentCard, sponsorCard, topicViewer, interstitialMotion, sponsorLoadingCard, baseFeedCard, feedRenderer, sharedSwipeGesture] = await Promise.all([
   readFile(new URL('../src/lib/feed-comments.ts', import.meta.url), 'utf8'),
   readFile(new URL('../src/lib/sponsor-campaigns.ts', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/TopicFeedCore.tsx', import.meta.url), 'utf8'),
@@ -18,6 +18,7 @@ const [commentSource, sponsorSource, feedCore, topicFeed, cardRegistry, placemen
   readFile(new URL('../src/components/topic/SponsorLoadingCard.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/BaseFeedCard.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/FeedRenderer.tsx', import.meta.url), 'utf8'),
+  readFile(new URL('../src/components/topic/useTopicSwipeGesture.ts', import.meta.url), 'utf8'),
 ]);
 
 async function importTypeScript(source) {
@@ -77,9 +78,11 @@ test('sponsor fetches cannot race feed navigation or account changes', () => {
 
 test('interstitial cards share the topic viewer swipe and animation model', () => {
   assert.match(interstitialMotion, /duration: 0\.2,[\s\S]*ease: 'easeOut'/);
-  assert.match(interstitialMotion, /stiffness: 1800, damping: 120/);
-  assert.match(interstitialMotion, /width \* 0\.07/);
-  assert.match(interstitialMotion, /height \* 0\.07/);
+  assert.match(sharedSwipeGesture, /stiffness: 1800, damping: 120/);
+  assert.match(sharedSwipeGesture, /window\.innerWidth \* 0\.07/);
+  assert.match(sharedSwipeGesture, /window\.innerHeight \* 0\.07/);
+  assert.match(sharedSwipeGesture, /velocityX > 25/);
+  assert.match(sharedSwipeGesture, /velocityY > 25/);
   assert.match(interstitialMotion, /canSwipeLeft/);
   assert.match(interstitialMotion, /canSwipeRight/);
   assert.match(interstitialMotion, /window.addEventListener\('keydown', handleKeyDown\)/);
@@ -92,6 +95,7 @@ test('interstitial cards share the topic viewer swipe and animation model', () =
   assert.match(topicViewer, /const animationLockRef = useRef\(false\)/);
   assert.match(topicViewer, /if \(active\) onProgressChange\?\.\(slideIndex, slides\.length\)/);
   assert.match(topicViewer, /duration: 0\.2/);
+  assert.match(topicViewer, /useTopicSwipeGesture/);
 });
 test('topic, comment and sponsor cards use the same shared base card', () => {
   for (const source of [topicCard, topCommentCard, sponsorCard, sponsorLoadingCard]) {
