@@ -43,7 +43,8 @@ export default async function AdminAnalyticsPage({ searchParams }: Props) {
   const mergeEntities = (
     signedIn: Record<string, unknown>[],
     anonymousRows: Record<string, unknown>[],
-    key: 'id' | 'slug'
+    key: 'id' | 'slug',
+    includeZeroAnonymousOnly = false
   ) => {
     const signedKeys = new Set(signedIn.map((item) => String(item[key])));
     const attachAnonymous = (item: Record<string, unknown>) => ({
@@ -60,7 +61,7 @@ export default async function AdminAnalyticsPage({ searchParams }: Props) {
         const match = anonymousRows.find((row) => String(row[key]) === String(item[key]));
         return { ...item, ...attachAnonymous(match ?? {}) };
       }),
-      ...anonymousRows.filter((item) => !signedKeys.has(String(item[key]))).map((item) => ({
+      ...anonymousRows.filter((item) => !signedKeys.has(String(item[key])) && (includeZeroAnonymousOnly || Number(item.impressions ?? 0) + Number(item.served ?? 0) + Number(item.opens ?? 0) + Number(item.clicks ?? 0) > 0)).map((item) => ({
         ...item,
         impressions: 0,
         viewable_impressions: 0,
@@ -90,7 +91,8 @@ export default async function AdminAnalyticsPage({ searchParams }: Props) {
     categories: mergeEntities(
       (data as { categories: Record<string, unknown>[] }).categories,
       anonymous.categories as unknown as Record<string, unknown>[],
-      'slug'
+      'slug',
+      true
     ),
     topics: mergeEntities(
       (data as { topics: Record<string, unknown>[] }).topics,
