@@ -163,7 +163,7 @@ export function AdminAnalyticsHub({ overview, period, section = 'overview', seri
     </section>
     <DailyOverviewChart series={series} />
     <section className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-      <Metric label="Unique feed viewers" value={number(t.unique_feed_viewers)} detail={number(t.unique_topic_viewers) + ' topic · ' + number(t.unique_sponsor_viewers) + ' sponsor · ' + number(t.unique_comment_viewers) + ' comment viewers'} icon={Users} />
+      <Metric label="Unique signed-in viewers" value={number(t.unique_feed_viewers)} detail={'Distinct signed-in accounts · ' + number(t.unique_topic_viewers) + ' topic · ' + number(t.unique_sponsor_viewers) + ' sponsor · ' + number(t.unique_comment_viewers) + ' comment viewers'} icon={Users} />
       <Metric label="Topic likes" value={number(t.topic_likes)} detail="Topic likes created in this period" icon={Heart} />
       <Metric label="Bookmarks" value={number(t.bookmarks)} detail="Topic bookmarks created in this period" icon={BookOpen} />
       <Metric label="Completed topics" value={number(t.completed_topics)} detail="Topic completions recorded in this period" icon={CheckCircle2} />

@@ -88,10 +88,11 @@ test('Top Comments viewability requires half visibility for one continuous secon
   assert.ok(detail.includes('TrendChart'));
   assert.ok(detail.includes('/^\\d{1,18}$/'));
   assert.ok(detail.includes('Daily performance'));
+  assert.ok(detail.includes(".gte('created_at', from.toISOString())"));
   assert.ok(hub.includes('Discussion open rate'));
   assert.ok(hub.includes('Comment active time'));
   assert.ok(hub.includes('Sponsor click-through'));
-  assert.ok(hub.includes('Unique feed viewers'));
+  assert.ok(hub.includes('Unique signed-in viewers'));
   assert.ok(hub.includes('Topic likes'));
   assert.ok(hub.includes('Completed topics'));
   const bootstrap = await readFile(new URL('../docs/cathoscroll-database-bootstrap.sql', import.meta.url), 'utf8');
