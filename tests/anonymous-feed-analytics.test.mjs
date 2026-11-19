@@ -23,7 +23,9 @@ test('anonymous analytics stores daily entity aggregates without visitor identif
   assert.match(sql, /entity_type text NOT NULL CHECK \(entity_type IN \('topic','comment'\)\)/);
   assert.match(sql, /anonymous_feed_event_receipts_received_at_idx/);
   assert.match(sql, /INTERVAL '7 days'/i);
-  assert.doesNotMatch(sql.slice(sql.lastIndexOf('CREATE TABLE catho_private.anonymous_feed_analytics_daily'), sql.indexOf('-- END ANONYMOUS ANALYTICS ROLLOUT')), /user_id|session_id|visitor_id/i);
+  const tableStart = sql.lastIndexOf('CREATE TABLE catho_private.anonymous_feed_analytics_daily');
+  const tableEnd = sql.indexOf('CREATE TABLE catho_private.anonymous_feed_event_receipts', tableStart);
+  assert.doesNotMatch(sql.slice(tableStart, tableEnd), /user_id|session_id|visitor_id/i);
 });
 
 test('signed-out topic and Top Comments cards emit aggregate events', () => {
@@ -64,6 +66,8 @@ test('anonymous sponsor selection and event recording are separate from account-
   assert.match(selectRoute, /get_anonymous_sponsor_campaigns/);
   assert.match(selectRoute, /isSameOriginOrNativeRequest\(request, true\)/);
   assert.match(eventRoute, /record_anonymous_sponsor_campaign_event/);
+  assert.match(eventRoute, /p_placement_id: parsed\.value\.placementKey/);
+  assert.match(eventRoute, /placementKey/);
   assert.match(eventRoute, /isSameOriginOrNativeRequest\(request, true\)/);
   assert.match(card, /userId: string \| null/);
   assert.match(sql, /CREATE TABLE catho_private\.anonymous_sponsor_session_frequency/);
