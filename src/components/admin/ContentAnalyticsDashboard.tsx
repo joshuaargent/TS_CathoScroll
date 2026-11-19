@@ -343,10 +343,7 @@ export function ContentAnalyticsDashboard({
           Back to {backLabel}
         </Link>
         <div className="mt-8">
-          <p className="text-accent text-sm font-semibold tracking-wider uppercase">
-            Administration · Analytics
-          </p>
-          <h1 className="mt-2 text-4xl font-extrabold md:text-5xl">{title}</h1>
+          <h1 className="text-4xl font-extrabold md:text-5xl">{title}</h1>
           <p className="text-text-secondary mt-4 max-w-3xl">{description}</p>
         </div>
       </div>
