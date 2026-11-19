@@ -918,6 +918,7 @@ function App() {
           setFirstPage(page);
           setFeedLoadError('');
           setFeedPersonalized(false);
+          setFeedGeneralRanked(false);
           clearNativeStatusNotice('feed-online');
           return;
         }
@@ -962,6 +963,7 @@ function App() {
           setFirstPage(page);
           setFeedLoadError('');
           setFeedPersonalized(false);
+          setFeedGeneralRanked(false);
           notifyNativeStatus('The live feed is unavailable. Showing saved topics instead.', {
             id: 'feed-online',
             action: { label: 'Retry', onClick: () => setFeedAttempt((value) => value + 1) },
@@ -1403,6 +1405,7 @@ function App() {
           const page = await catalogue.topics();
           setFirstPage(page);
           setFeedPersonalized(false);
+          setFeedGeneralRanked(false);
           notifyNativeStatus('Personalized recommendations are unavailable. Showing saved topics instead.', {
             id: 'feed-pagination',
             action: { label: 'Retry', onClick: () => setFeedAttempt((value) => value + 1) },
