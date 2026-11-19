@@ -23,9 +23,9 @@ const [
 function functionBody(name) {
   const start = bootstrap.lastIndexOf(`CREATE OR REPLACE FUNCTION ${name}`);
   assert.notEqual(start, -1, `Missing function ${name}`);
-  const end = bootstrap.indexOf('ALTER FUNCTION ', start);
-  assert.notEqual(end, -1, `Missing ALTER FUNCTION after ${name}`);
-  return bootstrap.slice(start, end);
+  const end = bootstrap.indexOf('$function$;', start);
+  assert.notEqual(end, -1, `Missing function terminator after ${name}`);
+  return bootstrap.slice(start, end + '$function$;'.length);
 }
 
 test('invoice and payment ledger tables are private and append-only from clients', () => {
