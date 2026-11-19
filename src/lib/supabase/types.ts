@@ -8,8 +8,6 @@ export interface Profile {
   bio: string | null;
 
   created_at: string;
-
-  subscription_tier: 'free' | 'premium';
 }
 
 export interface Comment {
