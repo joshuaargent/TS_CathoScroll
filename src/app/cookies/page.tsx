@@ -81,11 +81,16 @@ export default function CookiesPage() {
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            First-party topic-level feed and Top Comments exposure analytics remain enabled
-            for authenticated users and are linked to their accounts. The ingestion endpoints
-            require authentication, so signed-out visitors do not generate account-linked topic or
-            comment records. Vercel Web Analytics and Speed Insights provide separate site-traffic
-            and technical-performance reporting for signed-in and signed-out visitors.
+            First-party topic and Top Comments analytics are collected through separate
+            authenticated and signed-out pipelines. Signed-in events are linked to the account.
+            Signed-out events are sent directly to the service and stored only as daily aggregate
+            counts; no persistent anonymous visitor identifier or analytics cookie is created.
+            A short-lived random token is held in memory while a signed-out session is active for
+            sponsor frequency controls; only its hash is stored, and raw sponsor session/event
+            records are deleted after 48 hours. The token is not written to cookies or local
+            storage. Event deduplication receipts are deleted after seven days. Vercel Web
+            Analytics and Speed Insights provide separate site-traffic and technical-performance
+            measurement for signed-in and signed-out visitors.
           </p>
         </section>
 
