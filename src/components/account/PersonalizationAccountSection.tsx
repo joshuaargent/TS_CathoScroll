@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ShieldCheck, Sparkles } from 'lucide-react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -70,15 +70,19 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
   const [savingInterests, setSavingInterests] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const requestVersion = useRef(0);
 
   const load = useCallback(async () => {
+    const request = ++requestVersion.current;
     try {
       const { data: authData, error: authError } = await client.auth.getUser();
+      if (request !== requestVersion.current) return false;
       if (authError) throw authError;
       if (!authData.user) throw new Error('Authentication required.');
       setError('');
 
       const { data, error: rpcError } = await client.rpc('get_my_personalization_status');
+      if (request !== requestVersion.current) return false;
       if (rpcError) throw rpcError;
       if (!isRecord(data) || typeof data.enabled !== 'boolean') {
         throw new Error('Invalid personalisation settings response.');
@@ -97,21 +101,25 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
       setSelectedCategories(nextStatus.selected_categories);
       return true;
     } catch (cause) {
+      if (request !== requestVersion.current) return false;
       console.error('Unable to load personalisation settings:', cause);
       setError('Unable to load these settings. Check your connection and retry.');
       return false;
     } finally {
-      // Always release the initial loading state, including the first mount request.
-      setLoading(false);
+      // Only the newest request may release the loading state.
+      if (request === requestVersion.current) setLoading(false);
     }
   }, [client]);
 
   useEffect(() => {
     void load();
+    return () => {
+      requestVersion.current += 1;
+    };
   }, [load]);
 
   async function updateConsent(enabled: boolean) {
-    if (saving || loading || enabled === status.enabled) return;
+    if (saving || savingInterests || loading || enabled === status.enabled) return;
     setSaving(true);
     setError('');
     setMessage('');
@@ -148,7 +156,7 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
   }
 
   async function saveInterests() {
-    if (savingInterests || loading || !status.enabled || selectedCategories.length > 20) return;
+    if (saving || savingInterests || loading || !status.enabled || selectedCategories.length > 20) return;
     setSavingInterests(true);
     setError('');
     setMessage('');
@@ -214,7 +222,7 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
             <Button
               type="button"
               size="sm"
-              disabled={loading || saving || status.enabled || Boolean(error)}
+              disabled={loading || saving || savingInterests || status.enabled || Boolean(error)}
               onClick={() => void updateConsent(true)}
             >
               {saving && !status.enabled ? 'Saving…' : 'I explicitly consent — enable personalisation'}
@@ -223,7 +231,7 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
               type="button"
               size="sm"
               variant="secondary"
-              disabled={loading || saving || !status.enabled}
+              disabled={loading || saving || savingInterests || !status.enabled}
               onClick={() => void updateConsent(false)}
             >
               {saving && status.enabled ? 'Saving…' : 'Turn off and delete profile'}
@@ -245,7 +253,7 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
                 <input
                   type="checkbox"
                   checked={selectedCategories.includes(category.slug)}
-                  disabled={!status.enabled || loading || savingInterests}
+                  disabled={!status.enabled || loading || saving || savingInterests}
                   onChange={(event) => setSelectedCategories((current) => event.target.checked
                     ? [...current, category.slug]
                     : current.filter((slug) => slug !== category.slug))}
@@ -261,7 +269,7 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
               type="button"
               size="sm"
               variant="secondary"
-              disabled={!status.enabled || loading || savingInterests || selectedCategories.length > 20}
+              disabled={!status.enabled || loading || saving || savingInterests || selectedCategories.length > 20}
               onClick={() => void saveInterests()}
             >
               {savingInterests ? 'Saving interests…' : 'Save category interests'}
