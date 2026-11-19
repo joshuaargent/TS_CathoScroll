@@ -1,7 +1,7 @@
 'use client';
 
 import { animate, motion, useMotionValue } from 'framer-motion';
-import { useCallback, useEffect, useRef, type ReactNode } from 'react';
+import { useCallback, useRef, type ReactNode } from 'react';
 import { flushSync } from 'react-dom';
 import { useTopicSwipeGesture } from './useTopicSwipeGesture';
 
