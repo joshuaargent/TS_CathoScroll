@@ -115,6 +115,24 @@ export function SignupFormView({
               </button>
             </div>
 
+            <div className="border-border bg-bg-secondary/40 rounded-xl border p-4">
+              <label htmlFor="signup-personalization-consent" className="flex cursor-pointer items-start gap-3">
+                <input
+                  id="signup-personalization-consent"
+                  name="personalizationConsent"
+                  type="checkbox"
+                  value="true"
+                  disabled={loading || !online}
+                  className="accent-accent mt-1 h-4 w-4 shrink-0"
+                />
+                <span className="text-text-secondary text-sm leading-relaxed">
+                  <span className="text-text-primary font-semibold">Optional: I explicitly consent to personalised recommendations.</span>{' '}
+                  I agree that CathoScroll may use my topic-reading activity and the interests I choose to build a private profile and personalise the topics recommended to me. Because CathoScroll covers Catholic and religious subjects, these interests may reveal information about religious or philosophical beliefs. This is not required to use CathoScroll, is not used for sponsor targeting, and can be withdrawn at any time in Account settings. Read the{' '}
+                  <Link href="/privacy" className="text-accent font-medium underline">Privacy Policy</Link>.
+                </span>
+              </label>
+            </div>
+
             {error && (
               <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-600">
                 {error}
