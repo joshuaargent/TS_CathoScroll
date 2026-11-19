@@ -114,12 +114,12 @@ BEGIN
     FROM session_events
   ),
   first_seen AS (
-    SELECT user_id,min(received_at) AS first_seen_at
+    SELECT DISTINCT ON (user_id) user_id,received_at AS first_seen_at,session_id AS first_session_id
     FROM catho_private.feed_analytics_events
     WHERE event_type='impression' AND metadata->>'source'='feed'
       AND received_at>=greatest(p_from-interval '180 days',statement_timestamp()-interval '180 days')
       AND received_at<p_to
-    GROUP BY user_id
+    ORDER BY user_id,received_at
   ),
   cohorts AS (
     SELECT first_seen_at::date AS cohort_date,count(*) AS users,
@@ -127,14 +127,14 @@ BEGIN
         count(*) FILTER(WHERE EXISTS (
           SELECT 1 FROM catho_private.feed_analytics_events e
           WHERE e.user_id=f.user_id AND e.event_type='impression' AND e.metadata->>'source'='feed'
-            AND e.received_at>f.first_seen_at AND e.received_at<=f.first_seen_at+interval '7 days'
+            AND e.session_id IS DISTINCT FROM f.first_session_id AND e.received_at>f.first_seen_at AND e.received_at<=f.first_seen_at+interval '7 days'
             AND e.received_at<p_to
         )) ELSE NULL END AS returned_7d,
       CASE WHEN max(first_seen_at)+interval '30 days'<=p_to THEN
         count(*) FILTER(WHERE EXISTS (
           SELECT 1 FROM catho_private.feed_analytics_events e
           WHERE e.user_id=f.user_id AND e.event_type='impression' AND e.metadata->>'source'='feed'
-            AND e.received_at>f.first_seen_at AND e.received_at<=f.first_seen_at+interval '30 days'
+            AND e.session_id IS DISTINCT FROM f.first_session_id AND e.received_at>f.first_seen_at AND e.received_at<=f.first_seen_at+interval '30 days'
             AND e.received_at<p_to
         )) ELSE NULL END AS returned_30d
     FROM first_seen f
