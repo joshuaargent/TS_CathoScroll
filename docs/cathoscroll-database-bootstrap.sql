@@ -6906,5 +6906,313 @@ REVOKE ALL ON FUNCTION public.admin_set_sponsor_status(uuid, uuid, text)
   FROM PUBLIC, anon, authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.admin_set_sponsor_status(uuid, uuid, text) TO service_role;
 
+
+-- Applied migration: add_feed_card_analytics
+
+CREATE TABLE IF NOT EXISTS catho_private.feed_card_analytics_events (
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  event_id uuid NOT NULL,
+  event_type text NOT NULL CHECK (event_type IN ('impression','viewable_impression','active_duration','skip','completion','open')),
+  card_type text NOT NULL CHECK (card_type IN ('top-comment')),
+  card_id text NOT NULL CHECK (length(card_id) BETWEEN 1 AND 64),
+  session_id uuid NOT NULL,
+  duration_ms integer NOT NULL DEFAULT 0 CHECK (duration_ms BETWEEN 0 AND 300000),
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb CHECK (jsonb_typeof(metadata)='object' AND octet_length(metadata::text)<=512),
+  received_at timestamptz NOT NULL DEFAULT statement_timestamp(),
+  PRIMARY KEY(user_id,event_id)
+);
+CREATE INDEX IF NOT EXISTS feed_card_analytics_events_received_idx ON catho_private.feed_card_analytics_events(received_at);
+CREATE INDEX IF NOT EXISTS feed_card_analytics_events_card_received_idx ON catho_private.feed_card_analytics_events(card_type,card_id,received_at DESC);
+CREATE TABLE IF NOT EXISTS catho_private.feed_card_analytics_event_limits (
+  user_id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  window_started_at timestamptz NOT NULL,
+  event_count integer NOT NULL CHECK (event_count BETWEEN 0 AND 120)
+);
+CREATE TABLE IF NOT EXISTS catho_private.feed_card_analytics_daily (
+  event_date date NOT NULL, card_type text NOT NULL, card_id text NOT NULL,
+  impressions bigint NOT NULL DEFAULT 0, viewable_impressions bigint NOT NULL DEFAULT 0,
+  active_duration_ms bigint NOT NULL DEFAULT 0, skips bigint NOT NULL DEFAULT 0,
+  completions bigint NOT NULL DEFAULT 0, opens bigint NOT NULL DEFAULT 0,
+  unique_viewers bigint NOT NULL DEFAULT 0, refreshed_at timestamptz NOT NULL DEFAULT statement_timestamp(),
+  PRIMARY KEY(event_date,card_type,card_id)
+);
+CREATE TABLE IF NOT EXISTS catho_private.feed_card_analytics_daily_viewers (
+  event_date date NOT NULL, card_type text NOT NULL, card_id text NOT NULL,
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  PRIMARY KEY(event_date,card_type,card_id,user_id)
+);
+CREATE INDEX IF NOT EXISTS feed_card_analytics_daily_card_date_idx ON catho_private.feed_card_analytics_daily(card_type,event_date DESC);
+CREATE INDEX IF NOT EXISTS feed_card_analytics_daily_viewers_user_idx ON catho_private.feed_card_analytics_daily_viewers(user_id);
+ALTER TABLE catho_private.feed_card_analytics_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE catho_private.feed_card_analytics_event_limits ENABLE ROW LEVEL SECURITY;
+ALTER TABLE catho_private.feed_card_analytics_daily ENABLE ROW LEVEL SECURITY;
+ALTER TABLE catho_private.feed_card_analytics_daily_viewers ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON catho_private.feed_card_analytics_events,catho_private.feed_card_analytics_event_limits,
+  catho_private.feed_card_analytics_daily,catho_private.feed_card_analytics_daily_viewers
+  FROM PUBLIC,anon,authenticated,service_role;
+
+CREATE OR REPLACE FUNCTION public.record_feed_card_analytics_events(p_events jsonb)
+RETURNS integer LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
+AS $function$
+DECLARE
+  v_user_id uuid := auth.uid(); v_event jsonb; v_count integer := 0;
+  v_event_id uuid; v_event_type text; v_card_type text; v_card_id text;
+  v_session_id uuid; v_duration integer; v_window timestamptz; v_used integer;
+  v_event_id_text text; v_session_id_text text; v_duration_text text;
+BEGIN
+  IF v_user_id IS NULL THEN RAISE EXCEPTION 'authentication required' USING ERRCODE='42501'; END IF;
+  IF jsonb_typeof(p_events)<>'array' OR jsonb_array_length(p_events)<1 OR jsonb_array_length(p_events)>50 THEN
+    RAISE EXCEPTION 'invalid event batch' USING ERRCODE='22023';
+  END IF;
+  INSERT INTO catho_private.feed_card_analytics_event_limits(user_id,window_started_at,event_count)
+    VALUES(v_user_id,statement_timestamp(),0) ON CONFLICT(user_id) DO NOTHING;
+  SELECT window_started_at,event_count INTO v_window,v_used
+    FROM catho_private.feed_card_analytics_event_limits WHERE user_id=v_user_id FOR UPDATE;
+  IF v_window<=statement_timestamp()-interval '1 minute' THEN v_window:=statement_timestamp(); v_used:=0; END IF;
+  IF v_used+jsonb_array_length(p_events)>120 THEN RETURN -1; END IF;
+  UPDATE catho_private.feed_card_analytics_event_limits SET window_started_at=v_window,
+    event_count=v_used+jsonb_array_length(p_events) WHERE user_id=v_user_id;
+  FOR v_event IN SELECT value FROM jsonb_array_elements(p_events) LOOP
+    IF jsonb_typeof(v_event)<>'object' OR (SELECT count(*) FROM jsonb_object_keys(v_event))>7 THEN
+      RAISE EXCEPTION 'invalid event' USING ERRCODE='22023';
+    END IF;
+    v_event_id_text:=v_event->>'event_id'; v_session_id_text:=v_event->>'session_id';
+    v_duration_text:=coalesce(v_event->>'duration_ms','0');
+    IF v_event_id_text IS NULL OR v_event_id_text !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}
+
+      OR v_session_id_text IS NULL OR v_session_id_text !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}
+
+      OR v_duration_text !~ '^[0-9]{1,6}
+ THEN RAISE EXCEPTION 'invalid event identifiers or duration' USING ERRCODE='22023'; END IF;
+    v_event_id:=v_event_id_text::uuid; v_session_id:=v_session_id_text::uuid; v_duration:=v_duration_text::integer;
+    v_event_type:=v_event->>'event_type'; v_card_type:=v_event->>'card_type'; v_card_id:=v_event->>'card_id';
+    IF v_event_type IS NULL OR v_event_type NOT IN ('impression','viewable_impression','active_duration','skip','completion','open')
+      OR v_card_type IS NULL OR v_card_type<>'top-comment' OR v_card_id IS NULL
+      OR length(v_card_id) NOT BETWEEN 1 AND 64 OR v_duration NOT BETWEEN 0 AND 300000
+      OR (v_event ? 'metadata' AND jsonb_typeof(v_event->'metadata')<>'object')
+      OR octet_length(coalesce(v_event->'metadata','{}'::jsonb)::text)>512 THEN
+      RAISE EXCEPTION 'invalid event fields' USING ERRCODE='22023';
+    END IF;
+    INSERT INTO catho_private.feed_card_analytics_events(user_id,event_id,event_type,card_type,card_id,session_id,duration_ms,metadata)
+      VALUES(v_user_id,v_event_id,v_event_type,v_card_type,v_card_id,v_session_id,v_duration,coalesce(v_event->'metadata','{}'::jsonb))
+      ON CONFLICT(user_id,event_id) DO NOTHING;
+    IF FOUND THEN v_count:=v_count+1; END IF;
+  END LOOP;
+  RETURN v_count;
+END;
+$function$;
+ALTER FUNCTION public.record_feed_card_analytics_events(jsonb) OWNER TO postgres;
+REVOKE ALL ON FUNCTION public.record_feed_card_analytics_events(jsonb) FROM PUBLIC,anon;
+GRANT EXECUTE ON FUNCTION public.record_feed_card_analytics_events(jsonb) TO authenticated;
+
+CREATE OR REPLACE FUNCTION catho_private.refresh_feed_card_analytics_daily()
+RETURNS integer LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
+AS $function$
+DECLARE v_rows integer;
+BEGIN
+  INSERT INTO catho_private.feed_card_analytics_daily_viewers(event_date,card_type,card_id,user_id)
+    SELECT DISTINCT (received_at AT TIME ZONE 'UTC')::date,card_type,card_id,user_id
+    FROM catho_private.feed_card_analytics_events
+    WHERE received_at>=statement_timestamp()-interval '2 days' AND event_type IN ('impression','viewable_impression')
+    ON CONFLICT DO NOTHING;
+  WITH event_totals AS (
+    SELECT (received_at AT TIME ZONE 'UTC')::date event_date,card_type,card_id,
+      count(*) FILTER(WHERE event_type='impression') impressions,
+      count(*) FILTER(WHERE event_type='viewable_impression') viewable_impressions,
+      coalesce(sum(duration_ms) FILTER(WHERE event_type='active_duration'),0) active_duration_ms,
+      count(*) FILTER(WHERE event_type='skip') skips,
+      count(*) FILTER(WHERE event_type='completion') completions,
+      count(*) FILTER(WHERE event_type='open') opens
+    FROM catho_private.feed_card_analytics_events
+    WHERE received_at>=statement_timestamp()-interval '2 days' GROUP BY 1,2,3
+  ), viewer_totals AS (
+    SELECT event_date,card_type,card_id,count(*) unique_viewers
+    FROM catho_private.feed_card_analytics_daily_viewers
+    WHERE event_date>=(statement_timestamp()-interval '2 days')::date GROUP BY 1,2,3
+  )
+  INSERT INTO catho_private.feed_card_analytics_daily(event_date,card_type,card_id,impressions,viewable_impressions,
+    active_duration_ms,skips,completions,opens,unique_viewers,refreshed_at)
+  SELECT e.event_date,e.card_type,e.card_id,e.impressions,e.viewable_impressions,e.active_duration_ms,
+    e.skips,e.completions,e.opens,coalesce(v.unique_viewers,0),statement_timestamp()
+  FROM event_totals e LEFT JOIN viewer_totals v USING(event_date,card_type,card_id)
+  ON CONFLICT(event_date,card_type,card_id) DO UPDATE SET impressions=excluded.impressions,
+    viewable_impressions=excluded.viewable_impressions,active_duration_ms=excluded.active_duration_ms,
+    skips=excluded.skips,completions=excluded.completions,opens=excluded.opens,
+    unique_viewers=excluded.unique_viewers,refreshed_at=excluded.refreshed_at;
+  GET DIAGNOSTICS v_rows=ROW_COUNT; RETURN v_rows;
+END;
+$function$;
+ALTER FUNCTION catho_private.refresh_feed_card_analytics_daily() OWNER TO postgres;
+REVOKE ALL ON FUNCTION catho_private.refresh_feed_card_analytics_daily() FROM PUBLIC,anon,authenticated;
+
+CREATE OR REPLACE FUNCTION catho_private.prune_feed_card_analytics_events(p_before timestamptz,p_batch_size integer DEFAULT 5000)
+RETURNS integer LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
+AS $function$
+DECLARE v_deleted integer;
+BEGIN
+  IF p_before>statement_timestamp()-interval '180 days' OR p_batch_size NOT BETWEEN 1 AND 5000 THEN
+    RAISE EXCEPTION 'invalid retention boundary or batch size' USING ERRCODE='22023';
+  END IF;
+  WITH doomed AS (SELECT ctid FROM catho_private.feed_card_analytics_events
+    WHERE received_at<p_before ORDER BY received_at LIMIT p_batch_size)
+  DELETE FROM catho_private.feed_card_analytics_events e USING doomed d WHERE e.ctid=d.ctid;
+  GET DIAGNOSTICS v_deleted=ROW_COUNT; RETURN v_deleted;
+END;
+$function$;
+ALTER FUNCTION catho_private.prune_feed_card_analytics_events(timestamptz,integer) OWNER TO postgres;
+REVOKE ALL ON FUNCTION catho_private.prune_feed_card_analytics_events(timestamptz,integer) FROM PUBLIC,anon,authenticated;
+
+CREATE OR REPLACE FUNCTION public.get_admin_analytics_overview(p_actor_user_id uuid,p_from timestamptz,p_to timestamptz)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
+AS $function$
+DECLARE v_result jsonb;
+BEGIN
+  IF p_actor_user_id IS NULL OR NOT EXISTS(SELECT 1 FROM public.admin_users WHERE user_id=p_actor_user_id) THEN
+    RAISE EXCEPTION 'administrator access required' USING ERRCODE='42501';
+  END IF;
+  IF p_from IS NULL OR p_to IS NULL OR p_to<=p_from OR p_to-p_from>interval '180 days'
+    OR p_to>statement_timestamp()+interval '1 day' THEN RAISE EXCEPTION 'invalid analytics range' USING ERRCODE='22023'; END IF;
+  WITH topic_daily AS (
+    SELECT entity_id,event_date,impressions,viewable_impressions,active_duration_ms,skips,completions,return_visits
+    FROM catho_private.feed_analytics_daily WHERE event_date>=p_from::date AND event_date<=p_to::date
+  ), sponsor_daily AS (
+    SELECT campaign_id,event_date,served_count,viewable_impressions,clicks
+    FROM catho_private.sponsor_campaign_daily WHERE event_date>=p_from::date AND event_date<=p_to::date
+  ), comment_daily AS (
+    SELECT card_id,event_date,impressions,viewable_impressions,active_duration_ms,skips,completions,opens,unique_viewers
+    FROM catho_private.feed_card_analytics_daily WHERE event_date>=p_from::date AND event_date<=p_to::date
+  ), totals AS (
+    SELECT coalesce((SELECT sum(impressions) FROM topic_daily),0) topic_impressions,
+      coalesce((SELECT sum(viewable_impressions) FROM topic_daily),0) topic_viewable_impressions,
+      coalesce((SELECT sum(active_duration_ms) FROM topic_daily),0) topic_active_duration_ms,
+      coalesce((SELECT sum(skips) FROM topic_daily),0) topic_skips,
+      coalesce((SELECT sum(completions) FROM topic_daily),0) topic_completions,
+      coalesce((SELECT sum(served_count) FROM sponsor_daily),0) sponsor_served,
+      coalesce((SELECT sum(viewable_impressions) FROM sponsor_daily),0) sponsor_viewable_impressions,
+      coalesce((SELECT sum(clicks) FROM sponsor_daily),0) sponsor_clicks,
+      coalesce((SELECT sum(impressions) FROM comment_daily),0) comment_card_impressions,
+      coalesce((SELECT sum(viewable_impressions) FROM comment_daily),0) comment_card_viewable_impressions,
+      coalesce((SELECT sum(active_duration_ms) FROM comment_daily),0) comment_card_active_duration_ms,
+      coalesce((SELECT sum(skips) FROM comment_daily),0) comment_card_skips,
+      coalesce((SELECT sum(opens) FROM comment_daily),0) comment_card_opens,
+      (SELECT count(*) FROM public.categories) category_count,(SELECT count(*) FROM public.topics) topic_count,
+      (SELECT count(*) FROM public.sponsors) sponsor_count,
+      (SELECT count(*) FROM public.comments WHERE is_deleted=false AND parent_id IS NULL) comment_count
+  ), categories AS (
+    SELECT c.slug,c.name,count(t.id) topic_count,coalesce(sum(td.impressions),0) impressions,
+      coalesce(sum(td.viewable_impressions),0) viewable_impressions
+    FROM public.categories c LEFT JOIN public.topics t ON t.category_slug=c.slug
+    LEFT JOIN topic_daily td ON td.entity_id=t.id GROUP BY c.slug,c.name ORDER BY impressions DESC,c.name
+  ), topics AS (
+    SELECT t.id,t.slug,t.question,t.category_slug,coalesce(sum(td.impressions),0) impressions,
+      coalesce(sum(td.viewable_impressions),0) viewable_impressions,coalesce(sum(td.active_duration_ms),0) active_duration_ms
+    FROM public.topics t LEFT JOIN topic_daily td ON td.entity_id=t.id
+    GROUP BY t.id,t.slug,t.question,t.category_slug ORDER BY impressions DESC,t.question LIMIT 100
+  ), sponsors AS (
+    SELECT s.id,s.sponsor_name,s.status,count(DISTINCT sc.id) campaign_count,
+      coalesce(sum(sd.served_count),0) served,coalesce(sum(sd.viewable_impressions),0) viewable_impressions,
+      coalesce(sum(sd.clicks),0) clicks
+    FROM public.sponsors s LEFT JOIN public.sponsor_campaigns sc ON sc.sponsor_id=s.id
+    LEFT JOIN sponsor_daily sd ON sd.campaign_id=sc.id GROUP BY s.id,s.sponsor_name,s.status ORDER BY served DESC,s.sponsor_name
+  ), comments AS (
+    SELECT c.id,c.topic_id,t.question topic_question,c.created_at,coalesce(cd.impressions,0) impressions,
+      coalesce(cd.viewable_impressions,0) viewable_impressions,coalesce(cd.active_duration_ms,0) active_duration_ms,
+      coalesce(cd.skips,0) skips,coalesce(cd.opens,0) opens,
+      (SELECT count(*) FROM public.comment_likes cl WHERE cl.comment_id=c.id) likes,
+      (SELECT count(*) FROM public.comments r WHERE r.parent_id=c.id AND r.is_deleted=false) replies
+    FROM public.comments c LEFT JOIN public.topics t ON t.id=c.topic_id
+    LEFT JOIN (SELECT card_id,sum(impressions) impressions,sum(viewable_impressions) viewable_impressions,
+      sum(active_duration_ms) active_duration_ms,sum(skips) skips,sum(opens) opens FROM comment_daily GROUP BY card_id) cd
+      ON cd.card_id=c.id::text
+    WHERE c.parent_id IS NULL AND c.is_deleted=false ORDER BY impressions DESC,c.created_at DESC LIMIT 100
+  )
+  SELECT jsonb_build_object('totals',(SELECT to_jsonb(totals) FROM totals),
+    'categories',(SELECT coalesce(jsonb_agg(to_jsonb(categories)),'[]'::jsonb) FROM categories),
+    'topics',(SELECT coalesce(jsonb_agg(to_jsonb(topics)),'[]'::jsonb) FROM topics),
+    'sponsors',(SELECT coalesce(jsonb_agg(to_jsonb(sponsors)),'[]'::jsonb) FROM sponsors),
+    'comments',(SELECT coalesce(jsonb_agg(to_jsonb(comments)),'[]'::jsonb) FROM comments)) INTO v_result;
+  RETURN v_result;
+END;
+$function$;
+ALTER FUNCTION public.get_admin_analytics_overview(uuid,timestamptz,timestamptz) OWNER TO postgres;
+REVOKE ALL ON FUNCTION public.get_admin_analytics_overview(uuid,timestamptz,timestamptz) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.get_admin_analytics_overview(uuid,timestamptz,timestamptz) TO service_role;
+
+CREATE OR REPLACE FUNCTION public.get_admin_sponsor_analytics(p_actor_user_id uuid,p_sponsor_id uuid,p_from timestamptz,p_to timestamptz)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
+AS $function$
+DECLARE v_result jsonb;
+BEGIN
+  IF p_actor_user_id IS NULL OR NOT EXISTS(SELECT 1 FROM public.admin_users WHERE user_id=p_actor_user_id) THEN
+    RAISE EXCEPTION 'administrator access required' USING ERRCODE='42501';
+  END IF;
+  IF p_sponsor_id IS NULL OR p_from IS NULL OR p_to IS NULL OR p_to<=p_from OR p_to-p_from>interval '180 days' THEN
+    RAISE EXCEPTION 'invalid sponsor analytics range' USING ERRCODE='22023';
+  END IF;
+  IF NOT EXISTS(SELECT 1 FROM public.sponsors WHERE id=p_sponsor_id) THEN RAISE EXCEPTION 'sponsor not found' USING ERRCODE='P0002'; END IF;
+  WITH campaigns AS (SELECT id,campaign_name,status FROM public.sponsor_campaigns WHERE sponsor_id=p_sponsor_id),
+  metrics AS (
+    SELECT coalesce(sum(d.served_count),0) served,coalesce(sum(d.viewable_impressions),0) viewable_impressions,
+      coalesce(sum(d.clicks),0) clicks,count(DISTINCT d.campaign_id) FILTER(WHERE d.served_count>0) active_campaigns
+    FROM catho_private.sponsor_campaign_daily d JOIN campaigns c ON c.id=d.campaign_id
+    WHERE d.event_date>=p_from::date AND d.event_date<=p_to::date
+  ), series AS (
+    SELECT d.event_date,coalesce(sum(d.served_count),0) served,coalesce(sum(d.viewable_impressions),0) viewable_impressions,
+      coalesce(sum(d.clicks),0) clicks FROM catho_private.sponsor_campaign_daily d JOIN campaigns c ON c.id=d.campaign_id
+    WHERE d.event_date>=p_from::date AND d.event_date<=p_to::date GROUP BY d.event_date ORDER BY d.event_date
+  )
+  SELECT jsonb_build_object('sponsor_id',p_sponsor_id,'totals',(SELECT to_jsonb(metrics) FROM metrics),
+    'campaigns',(SELECT coalesce(jsonb_agg(jsonb_build_object('id',c.id,'name',c.campaign_name,'status',c.status)),'[]'::jsonb) FROM campaigns c),
+    'series',(SELECT coalesce(jsonb_agg(to_jsonb(series)),'[]'::jsonb) FROM series)) INTO v_result;
+  RETURN v_result;
+END;
+$function$;
+ALTER FUNCTION public.get_admin_sponsor_analytics(uuid,uuid,timestamptz,timestamptz) OWNER TO postgres;
+REVOKE ALL ON FUNCTION public.get_admin_sponsor_analytics(uuid,uuid,timestamptz,timestamptz) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.get_admin_sponsor_analytics(uuid,uuid,timestamptz,timestamptz) TO service_role;
+
+CREATE OR REPLACE FUNCTION public.get_admin_feed_card_analytics(p_actor_user_id uuid,p_from timestamptz,p_to timestamptz,p_card_type text,p_card_id text)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
+AS $function$
+DECLARE v_result jsonb;
+BEGIN
+  IF p_actor_user_id IS NULL OR NOT EXISTS(SELECT 1 FROM public.admin_users WHERE user_id=p_actor_user_id) THEN
+    RAISE EXCEPTION 'administrator access required' USING ERRCODE='42501';
+  END IF;
+  IF p_from IS NULL OR p_to IS NULL OR p_to<=p_from OR p_to-p_from>interval '180 days'
+    OR p_card_type<>'top-comment' OR p_card_id IS NULL OR length(p_card_id) NOT BETWEEN 1 AND 64 THEN
+    RAISE EXCEPTION 'invalid comment analytics range or filter' USING ERRCODE='22023';
+  END IF;
+  WITH daily AS (
+    SELECT * FROM catho_private.feed_card_analytics_daily WHERE card_type=p_card_type AND card_id=p_card_id
+      AND event_date>=p_from::date AND event_date<=p_to::date
+  ), totals AS (
+    SELECT coalesce(sum(impressions),0) impressions,coalesce(sum(viewable_impressions),0) viewable_impressions,
+      coalesce(sum(active_duration_ms),0) active_duration_ms,coalesce(sum(skips),0) skips,
+      coalesce(sum(completions),0) completions,coalesce(sum(opens),0) opens,coalesce(sum(unique_viewers),0) unique_viewers
+    FROM daily
+  ), series AS (SELECT event_date,impressions,viewable_impressions,active_duration_ms,skips,opens FROM daily ORDER BY event_date)
+  SELECT jsonb_build_object('totals',(SELECT to_jsonb(totals) FROM totals),
+    'series',(SELECT coalesce(jsonb_agg(to_jsonb(series)),'[]'::jsonb) FROM series)) INTO v_result;
+  RETURN v_result;
+END;
+$function$;
+ALTER FUNCTION public.get_admin_feed_card_analytics(uuid,timestamptz,timestamptz,text,text) OWNER TO postgres;
+REVOKE ALL ON FUNCTION public.get_admin_feed_card_analytics(uuid,timestamptz,timestamptz,text,text) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.get_admin_feed_card_analytics(uuid,timestamptz,timestamptz,text,text) TO service_role;
+
+DO $function$
+BEGIN
+  IF NOT EXISTS(SELECT 1 FROM cron.job WHERE jobname='cathoscroll-rollup-feed-card-analytics') THEN
+    PERFORM cron.schedule('cathoscroll-rollup-feed-card-analytics','*/5 * * * *','SELECT catho_private.refresh_feed_card_analytics_daily();');
+  END IF;
+  IF NOT EXISTS(SELECT 1 FROM cron.job WHERE jobname='cathoscroll-prune-feed-card-analytics') THEN
+    PERFORM cron.schedule('cathoscroll-prune-feed-card-analytics','*/15 * * * *',
+      'SELECT catho_private.prune_feed_card_analytics_events(statement_timestamp() - interval ''180 days'', 5000);');
+  END IF;
+END;
+$function$;
+
 NOTIFY pgrst, 'reload schema';
+
 -- End of CathoScroll application-schema and catalogue bootstrap.

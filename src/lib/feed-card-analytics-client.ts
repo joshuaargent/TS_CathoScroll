@@ -13,8 +13,10 @@ type QueuedEvent = {
 
 const queuePrefix = 'cathoscroll:feed-card-analytics:v1:';
 const queueLimit = 200;
+type FeedCardAnalyticsTransport = { endpoint?: string; getAccessToken?: () => Promise<string | null>; retired?: boolean };
+const transports = new Map<string, FeedCardAnalyticsTransport>();
+const flushingUsers = new Set<string>();
 let sessionId: string | null = null;
-let flushing = false;
 
 function uuid(): string | null {
   try {
@@ -77,20 +79,28 @@ export function recordFeedCardAnalyticsEvent(
 }
 
 export async function flushFeedCardAnalytics(userId: string, keepalive = false) {
-  if (typeof window === 'undefined' || !navigator.onLine || flushing) return;
-  flushing = true;
+  if (typeof window === 'undefined' || !navigator.onLine || flushingUsers.has(userId)) return;
+  flushingUsers.add(userId);
   try {
-    while (true) {
+    for (;;) {
       const batch = readQueue(userId).slice(0, 50);
       if (!batch.length) break;
+      const transport = transports.get(userId);
+      const headers = new Headers({ 'Content-Type': 'application/json' });
+      if (transport?.getAccessToken) {
+        let accessToken: string | null;
+        try { accessToken = await transport.getAccessToken(); } catch { break; }
+        if (!accessToken) break;
+        headers.set('Authorization', 'Bearer ' + accessToken);
+      }
       let response: Response;
       try {
-        response = await fetch('/api/analytics/feed-card-events', {
+        response = await fetch(transport?.endpoint ?? '/api/analytics/feed-card-events', {
           method: 'POST',
-          credentials: 'same-origin',
+          credentials: transport?.endpoint ? 'omit' : 'same-origin',
           cache: 'no-store',
           keepalive,
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body: JSON.stringify({ events: batch }),
         });
       } catch { break; }
@@ -100,6 +110,34 @@ export async function flushFeedCardAnalytics(userId: string, keepalive = false) 
       if (keepalive) break;
     }
   } finally {
-    flushing = false;
+    flushingUsers.delete(userId);
+    const transport = transports.get(userId);
+    if (transport?.retired && readQueue(userId).length === 0) transports.delete(userId);
   }
+}
+
+export function installFeedCardAnalyticsListeners(
+  userId: string,
+  transport: FeedCardAnalyticsTransport = {}
+): () => void {
+  if (typeof window === 'undefined') return () => undefined;
+  const installed: FeedCardAnalyticsTransport = { ...transport };
+  transports.set(userId, installed);
+  const flush = () => void flushFeedCardAnalytics(userId);
+  const flushOnHide = () => {
+    if (document.visibilityState === 'hidden') void flushFeedCardAnalytics(userId, true);
+  };
+  flush();
+  window.addEventListener('online', flush);
+  window.addEventListener('pagehide', flushOnHide);
+  document.addEventListener('visibilitychange', flushOnHide);
+  return () => {
+    window.removeEventListener('online', flush);
+    window.removeEventListener('pagehide', flushOnHide);
+    document.removeEventListener('visibilitychange', flushOnHide);
+    if (transports.get(userId) === installed) {
+      installed.retired = true;
+      void flushFeedCardAnalytics(userId, true);
+    }
+  };
 }

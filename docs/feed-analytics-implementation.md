@@ -132,3 +132,28 @@ Weighted delivery is handled by `public.get_weighted_sponsor_campaigns`, which i
 `catho_private.sponsor_campaign_daily` stores user-free per-campaign/day served, viewable and click counts. The administrator campaign page reads 30-day metrics through `public.get_admin_sponsor_campaign_analytics`, an admin-verified, aggregate-only RPC. `catho_private.sponsor_campaign_user_frequency` stores the minimum per-user/campaign counters required to enforce frequency limits. Raw events are pruned in bounded batches after 180 days; frequency rows are removed in bounded batches after a campaign has ended for 180 days. The retention job also marks expired approved/paused campaigns completed, including campaigns whose sponsor has ended. Daily campaign totals contain no user IDs and remain available for historical reporting.
 
 The feed inserts Top Comments every five topic advances and sponsor placements every ten topic advances, on independent schedules. If both are due at the tenth-topic boundary, Top Comments appears first and the sponsored card follows before the next topic. A missing inventory item suppresses only that card. A sponsor card can show up to five campaign positions. Campaign delivery is only requested for authenticated users in this release. Anonymous visitor frequency caps, bank statement imports, automatic matching and invoice PDF/email delivery remain out of scope.
+
+
+## Unified Admin Analytics hub and Top Comments exposure
+
+The central administrator analytics page is `/admin/analytics`, linked from the shared Admin navigation. It provides an overall view and date-window navigation across categories, topics, sponsors and comments. Category and topic drill-downs reuse the existing `/categories/[category]/analytics` and `/topic/[slug]/analytics` pages; sponsor and comment drill-downs live under `/admin/analytics/sponsors/[id]` and `/admin/analytics/comments/[id]`. All routes independently require the existing administrator/MFA gate, apply the shared analytics read rate limit and are marked noindex.
+
+The overview keeps the three measurement streams distinct:
+- Topic feed: existing topic impressions, viewable impressions, active reading time, skips and completions from `feed_analytics_daily`.
+- Sponsor delivery: served, viewable and click totals from the existing sponsor campaign delivery aggregates. These are not duplicated into organic feed analytics.
+- Top Comments: card impressions, viewable impressions, active duration, early skips, meaningful-view completions and discussion opens from the separate feed-card analytics aggregates.
+
+The overall exposure total is a simple sum of topic impressions, sponsor served deliveries and Top Comments card impressions. It is explicitly not a unique-user count because the three event streams have different measurement semantics. Community likes and replies remain separate interaction counts and are never counted as feed exposure. Top Comments does not emit save, share or like events into this exposure pipeline.
+
+### Top Comments event collection
+
+- `catho_private.feed_card_analytics_events`: private, idempotent raw events keyed by account and event UUID.
+- `catho_private.feed_card_analytics_event_limits`: database-enforced per-account event counter.
+- `catho_private.feed_card_analytics_daily`: account-free daily card aggregates.
+- `catho_private.feed_card_analytics_daily_viewers`: private per-day distinct-viewer bridge.
+
+The authenticated `POST /api/analytics/feed-card-events` endpoint validates same-origin/native requests, requires a signed-in account, accepts at most 50 events and 16 KiB per request, applies the shared per-user rate limit, and calls `public.record_feed_card_analytics_events(jsonb)`. The database RPC independently validates event IDs, session IDs, event types, card type, card ID, duration and metadata size, applies a 120-event/minute per-account limit, and deduplicates retries by (user,event_id). Raw event rows are private and are not readable by app roles.
+
+For the current Top Comments renderer, a card impression is recorded when a signed-in user enters that comment card. A viewable impression requires at least 50% of the comment content to remain visible for one continuous second. Active duration is emitted in bounded five-second increments only while the document is visible and the content is viewable; a final partial interval is recorded when the card leaves. Leaving before three seconds of active viewing is classified as an early skip; three seconds or more is a meaningful-view completion. Opening the discussion is recorded separately. The offline queue is account-scoped, capped at 200 events, and drains in bounded batches. Analytics are best-effort and do not block feed navigation.
+
+The rollup job runs every five minutes. Raw events are pruned in bounded batches every fifteen minutes after 180 days; daily aggregates remain available. The sponsor stream remains the source of truth for sponsor delivery and click analytics. No comment text, author identifiers, profile details or raw user/session identifiers are included in the dashboard payload.

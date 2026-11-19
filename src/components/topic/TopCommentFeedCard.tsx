@@ -10,7 +10,7 @@ import type { TopFeedComment } from '@/lib/feed-comments';
 import { cn } from '@/lib/utils';
 import { FeedInterstitialMotion } from './FeedInterstitialMotion';
 import { BaseFeedCard } from './BaseFeedCard';
-import { flushFeedCardAnalytics, recordFeedCardAnalyticsEvent } from '@/lib/feed-card-analytics-client';
+import { flushFeedCardAnalytics, installFeedCardAnalyticsListeners, recordFeedCardAnalyticsEvent } from '@/lib/feed-card-analytics-client';
 
 interface TopCommentFeedCardProps {
   comments: TopFeedComment[];
@@ -26,6 +26,8 @@ interface TopCommentFeedCardProps {
   onProgressChange: (current: number, total: number) => void;
   nextEntryPreview?: ReactNode;
   previousEntryPreview?: ReactNode;
+  analyticsEndpoint?: string;
+  getAnalyticsAccessToken?: () => Promise<string | null>;
 }
 
 function CommentLikeControl({
@@ -148,6 +150,8 @@ export function TopCommentFeedCard({
   onProgressChange,
   nextEntryPreview,
   previousEntryPreview,
+  analyticsEndpoint,
+  getAnalyticsAccessToken,
 }: TopCommentFeedCardProps) {
   const [activeIndex, setActiveIndex] = useState(initialActiveIndex);
   const navigationStarted = useRef(false);
@@ -164,6 +168,14 @@ export function TopCommentFeedCard({
   useEffect(() => {
     if (active) navigationStarted.current = false;
   }, [active, comments]);
+
+  useEffect(() => {
+    if (!active || !userId || previewMode) return;
+    return installFeedCardAnalyticsListeners(userId, {
+      endpoint: analyticsEndpoint,
+      getAccessToken: getAnalyticsAccessToken,
+    });
+  }, [active, analyticsEndpoint, getAnalyticsAccessToken, previewMode, userId]);
 
   useEffect(() => {
     if (active && !previewMode && activeCommentId !== undefined) onCommentViewed(activeCommentId);

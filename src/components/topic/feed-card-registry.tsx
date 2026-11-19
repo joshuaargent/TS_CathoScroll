@@ -26,6 +26,8 @@ export function createFeedCardRegistry(
         <TopCommentFeedCard
           key={`${context.userId ?? 'anonymous'}:${entry.topicId}`}
           userId={context.userId}
+          analyticsEndpoint={context.sponsorApiBaseUrl ? new URL('/api/analytics/feed-card-events', context.sponsorApiBaseUrl).toString() : undefined}
+          getAnalyticsAccessToken={context.getSponsorAccessToken}
           previewMode={context.previewMode}
           active={!context.previewMode}
           comments={entry.comments}

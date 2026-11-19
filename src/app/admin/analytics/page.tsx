@@ -22,5 +22,5 @@ export default async function AdminAnalyticsPage({ searchParams }: Props) {
     throw new Error('Unable to load analytics.');
   }
   return <AdminAnalyticsHub overview={data as Parameters<typeof AdminAnalyticsHub>[0]['overview']} period={period}
-    section={['overview','categories','topics','sponsors','comments'].includes(query.section ?? '') ? query.section : 'overview'} />;
+    section={query.section && ['overview','categories','topics','sponsors','comments'].includes(query.section) ? query.section : 'overview'} />;
 }
