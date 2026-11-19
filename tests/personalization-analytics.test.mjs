@@ -19,6 +19,7 @@ test('personalisation consent is opt-in and versioned', () => {
   assert.match(bootstrap, /user_personalization_consents[\s\S]*enabled boolean NOT NULL DEFAULT false/);
   assert.match(bootstrap, /consent_version/);
   assert.match(settings, /This is optional and off until you enable it/);
+  assert.match(settings, /activity recorded after you opt in/);
 });
 
 test('withdrawal deletes both inferred and explicitly selected interests', () => {
@@ -43,6 +44,8 @@ test('profile scoring separates short and long horizons and suppresses one-sessi
   assert.match(body, /coalesce\(ss\.skip_sessions,0\)>=2/);
   assert.match(body, /explicit_score/);
   assert.match(body, /inferred_score/);
+  assert.match(body, /v_consent_at/);
+  assert.match(body, /greatest\\(v_now-interval '90 days',v_consent_at\\)/);
 });
 
 test('admin deep dive returns aggregate reports and correctly censors immature cohorts', () => {
