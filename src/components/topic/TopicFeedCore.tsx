@@ -45,10 +45,13 @@ function appendUniqueFeedTopics(existing: Topic[], incoming: Topic[]): Topic[] {
   return additions.length > 0 ? [...existing, ...additions] : existing;
 }
 
+let ephemeralSponsorSessionId: string | null = null;
 function createSponsorSessionId(): string | null {
-  return typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+  if (ephemeralSponsorSessionId) return ephemeralSponsorSessionId;
+  ephemeralSponsorSessionId = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
     ? crypto.randomUUID()
     : null;
+  return ephemeralSponsorSessionId;
 }
 type ViewerProps = {
   topics: Topic[];
@@ -193,25 +196,25 @@ export function TopicFeedCore({
 
   const loadSponsorCampaigns = useCallback(
     async (topic: Topic): Promise<{ campaigns: SponsorFeedCampaign[]; sessionId: string | null; retryable?: boolean }> => {
-      if (!userId || !getSponsorAccessToken) return { campaigns: [], sessionId: null, retryable: true };
+
       // Give each sponsor-card placement its own ID for reliable event attribution.
       const sessionId = createSponsorSessionId();
       if (!sessionId) return { campaigns: [], sessionId: null, retryable: true };
 
       try {
-        let accessToken = await getSponsorAccessToken();
-        if (!accessToken) {
+        let accessToken = userId && getSponsorAccessToken ? await getSponsorAccessToken() : null;
+        if (userId && !accessToken) {
           // Auth state can briefly lag the feed's signed-in state during
           // session hydration. Retry once before treating the request as transient.
           await new Promise((resolve) => window.setTimeout(resolve, 250));
           accessToken = await getSponsorAccessToken();
         }
         const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-        if (!accessToken) {
+        if (userId && !accessToken) {
           console.warn('Sponsor campaign request deferred because no access token is available yet.');
           return { campaigns: [], sessionId: null, retryable: true };
         }
-        headers.Authorization = `Bearer ${accessToken}`;
+        if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
         const campaignsEndpoint = effectiveSponsorApiBaseUrl
           ? new URL('/api/content/sponsored-campaigns', effectiveSponsorApiBaseUrl).toString()
           : '/api/content/sponsored-campaigns';
