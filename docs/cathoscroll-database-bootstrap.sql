@@ -1438,173 +1438,31 @@ END;
 $function$;
 
 CREATE OR REPLACE FUNCTION catho_private.get_user_feed_preference_signals(p_user_id uuid)
-RETURNS TABLE(category_slug text, weight numeric)
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = ''
+ RETURNS TABLE(category_slug text, weight numeric)
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
 AS $function$
-DECLARE
-  v_current_user_id uuid := auth.uid();
+DECLARE v_current_user_id uuid := auth.uid();
 BEGIN
   IF v_current_user_id IS NULL OR v_current_user_id IS DISTINCT FROM p_user_id THEN
-    RAISE EXCEPTION 'Cannot read another account recommendation signals'
-      USING ERRCODE = '42501';
+    RAISE EXCEPTION 'Cannot read another account recommendation signals' USING ERRCODE='42501';
   END IF;
-
+  IF NOT EXISTS (SELECT 1 FROM catho_private.user_personalization_consents c
+    WHERE c.user_id=p_user_id AND c.enabled=true) THEN RETURN; END IF;
+  PERFORM catho_private.refresh_user_interest_profile(p_user_id);
   RETURN QUERY
-  WITH topic_scores AS (
-    SELECT
-      e.entity_id,
-      least(
-        1.20::numeric,
-        coalesce(sum(
-          0.40::numeric
-          * pg_catalog.power(
-              0.5::numeric,
-              greatest(
-                0::numeric,
-                extract(epoch FROM (pg_catalog.statement_timestamp() - e.received_at))::numeric
-                  / 2592000
-              )
-            )
-        ) FILTER (WHERE e.event_type = 'viewable_impression'), 0)
-      ) AS viewable_score,
-      least(
-        1.50::numeric,
-        coalesce(sum(
-          least(coalesce((e.metadata ->> 'duration_ms')::numeric, 0), 60000)
-            / 60000 * 0.25
-          * pg_catalog.power(
-              0.5::numeric,
-              greatest(
-                0::numeric,
-                extract(epoch FROM (pg_catalog.statement_timestamp() - e.received_at))::numeric
-                  / 2592000
-              )
-            )
-        ) FILTER (WHERE e.event_type = 'active_duration'), 0)
-      ) AS duration_score,
-      least(
-        1.50::numeric,
-        coalesce(sum(
-          least(greatest(coalesce((e.metadata ->> 'depth')::numeric, 0), 0), 4)
-            / 4 * 0.50
-          * pg_catalog.power(
-              0.5::numeric,
-              greatest(
-                0::numeric,
-                extract(epoch FROM (pg_catalog.statement_timestamp() - e.received_at))::numeric
-                  / 2592000
-              )
-            )
-        ) FILTER (WHERE e.event_type = 'swipe_depth'), 0)
-      ) AS depth_score,
-      least(
-        3.00::numeric,
-        coalesce(sum(
-          2.50::numeric
-          * pg_catalog.power(
-              0.5::numeric,
-              greatest(
-                0::numeric,
-                extract(epoch FROM (pg_catalog.statement_timestamp() - e.received_at))::numeric
-                  / 2592000
-              )
-            )
-        ) FILTER (WHERE e.event_type = 'completion'), 0)
-      ) AS completion_score,
-      least(
-        1.50::numeric,
-        coalesce(sum(
-          0.75::numeric
-          * pg_catalog.power(
-              0.5::numeric,
-              greatest(
-                0::numeric,
-                extract(epoch FROM (pg_catalog.statement_timestamp() - e.received_at))::numeric
-                  / 2592000
-              )
-            )
-        ) FILTER (WHERE e.event_type = 'return_visit'), 0)
-      ) AS return_score
-    FROM catho_private.feed_analytics_events AS e
-    WHERE e.user_id = p_user_id
-      AND e.received_at >= pg_catalog.statement_timestamp() - interval '90 days'
-      AND e.received_at < pg_catalog.statement_timestamp()
-      AND e.event_type IN (
-        'viewable_impression',
-        'active_duration',
-        'swipe_depth',
-        'completion',
-        'return_visit'
-      )
-    GROUP BY e.entity_id
-  ),
-  skip_by_session AS (
-    SELECT
-      e.entity_id,
-      e.session_id,
-      max(
-        1.50::numeric
-        * pg_catalog.power(
-            0.5::numeric,
-            greatest(
-              0::numeric,
-              extract(epoch FROM (pg_catalog.statement_timestamp() - e.received_at))::numeric
-                / 2592000
-            )
-          )
-      ) AS session_skip_score
-    FROM catho_private.feed_analytics_events AS e
-    WHERE e.user_id = p_user_id
-      AND e.event_type = 'skip'
-      AND e.received_at >= pg_catalog.statement_timestamp() - interval '90 days'
-      AND e.received_at < pg_catalog.statement_timestamp()
-    GROUP BY e.entity_id, e.session_id
-  ),
-  skip_scores AS (
-    SELECT
-      skip_by_session.entity_id,
-      count(*) AS skip_session_count,
-      least(3.00::numeric, sum(skip_by_session.session_skip_score)) AS negative_score
-    FROM skip_by_session
-    GROUP BY skip_by_session.entity_id
-  ),
-  combined_topic_scores AS (
-    SELECT
-      coalesce(topic_scores.entity_id, skip_scores.entity_id) AS entity_id,
-      coalesce(topic_scores.viewable_score, 0)
-        + coalesce(topic_scores.duration_score, 0)
-        + coalesce(topic_scores.depth_score, 0)
-        + coalesce(topic_scores.completion_score, 0)
-        + coalesce(topic_scores.return_score, 0)
-        + CASE
-            WHEN coalesce(skip_scores.skip_session_count, 0) >= 2
-              THEN -coalesce(skip_scores.negative_score, 0)
-            ELSE 0::numeric
-          END AS raw_topic_weight
-    FROM topic_scores
-    FULL OUTER JOIN skip_scores
-      ON skip_scores.entity_id = topic_scores.entity_id
-  ),
-  bounded_topic_scores AS (
-    SELECT
-      combined_topic_scores.entity_id,
-      greatest(-4::numeric, least(6::numeric, combined_topic_scores.raw_topic_weight)) AS topic_weight
-    FROM combined_topic_scores
-  )
-  SELECT
-    t.category_slug,
-    sum(bounded_topic_scores.topic_weight)::numeric
-  FROM bounded_topic_scores
-  JOIN public.topics AS t
-    ON t.id = bounded_topic_scores.entity_id
-   AND t.is_published = true
-  JOIN public.categories AS c
-    ON c.slug = t.category_slug
-   AND c.is_published = true
-  WHERE bounded_topic_scores.topic_weight <> 0
-  GROUP BY t.category_slug;
+  SELECT combined.category_slug,sum(combined.weight)::numeric
+  FROM (
+    SELECT s.category_slug,s.score AS weight
+    FROM catho_private.user_topic_interest_scores s
+    WHERE s.user_id=p_user_id AND s.score<>0
+    UNION ALL
+    SELECT e.category_slug,8::numeric AS weight
+    FROM catho_private.user_explicit_category_interests e
+    WHERE e.user_id=p_user_id
+  ) combined
+  GROUP BY combined.category_slug;
 END;
 $function$;
 
@@ -4643,73 +4501,42 @@ REVOKE ALL ON TABLE public.sponsors FROM PUBLIC, anon, authenticated, service_ro
 GRANT ALL ON TABLE public.sponsors TO service_role;
 
 CREATE OR REPLACE FUNCTION public.admin_create_sponsor(
-  p_actor_user_id uuid,
-  p_sponsor_name text,
-  p_contact_email text,
-  p_website_url text,
-  p_description text,
-  p_starts_on date,
-  p_ends_on date,
-  p_status text,
-  p_agreed_amount_minor bigint,
-  p_currency text,
-  p_payment_status text,
-  p_payment_reference text,
-  p_admin_notes text
+  p_actor_user_id uuid, p_sponsor_name text, p_contact_email text, p_website_url text,
+  p_description text, p_starts_on date, p_ends_on date, p_status text,
+  p_agreed_amount_minor bigint, p_currency text, p_payment_status text,
+  p_payment_reference text, p_admin_notes text
 )
-RETURNS jsonb
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = ''
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
 AS $function$
-DECLARE
-  v_sponsor public.sponsors%ROWTYPE;
+DECLARE v_sponsor public.sponsors%ROWTYPE;
 BEGIN
   IF p_actor_user_id IS NULL OR NOT EXISTS (
     SELECT 1 FROM public.admin_users AS admins WHERE admins.user_id = p_actor_user_id
-  ) THEN
-    RAISE EXCEPTION 'Administrator access required' USING ERRCODE = '42501';
+  ) THEN RAISE EXCEPTION 'Administrator access required' USING ERRCODE = '42501'; END IF;
+  IF p_payment_status IS NULL OR p_payment_status NOT IN ('pending', 'not_required')
+     OR (p_payment_status = 'not_required' AND coalesce(p_agreed_amount_minor, 0) > 0)
+     OR (p_agreed_amount_minor IS NOT NULL AND p_agreed_amount_minor < 0)
+     OR p_currency IS NULL OR p_currency NOT IN ('GBP', 'EUR', 'USD') THEN
+    RAISE EXCEPTION 'A sponsor with an agreed fee must use pending payment and invoice reconciliation' USING ERRCODE = '22023';
   END IF;
-  IF p_payment_status NOT IN ('pending', 'received', 'not_required', 'refunded') THEN
-    RAISE EXCEPTION 'Invalid payment status' USING ERRCODE = '22023';
-  END IF;
-
   INSERT INTO public.sponsors (
-    sponsor_name, contact_email, website_url, description,
-    starts_on, ends_on, status, agreed_amount_minor, currency,
-    payment_status, payment_received_at, payment_reference, admin_notes, created_by
-  )
-  VALUES (
-    btrim(p_sponsor_name), nullif(btrim(p_contact_email), ''),
-    nullif(btrim(p_website_url), ''),
-    coalesce(p_description, ''), p_starts_on, p_ends_on, p_status,
-    p_agreed_amount_minor, p_currency, p_payment_status,
-    CASE WHEN p_payment_status = 'received' THEN pg_catalog.statement_timestamp() ELSE NULL END,
-    nullif(btrim(p_payment_reference), ''), coalesce(p_admin_notes, ''), p_actor_user_id
-  )
-  RETURNING * INTO v_sponsor;
-
-  INSERT INTO catho_private.admin_action_audit (
-    actor_user_id, action, target_type, target_id, details
-  )
-  VALUES (
-    p_actor_user_id, 'sponsor.created', 'sponsor', v_sponsor.id::text,
-    pg_catalog.jsonb_build_object(
-      'sponsor_name', v_sponsor.sponsor_name,
-      'status', v_sponsor.status,
-      'payment_status', v_sponsor.payment_status,
-      'currency', v_sponsor.currency,
-      'agreed_amount_minor', v_sponsor.agreed_amount_minor
-    )
-  );
-
-  RETURN pg_catalog.jsonb_build_object(
-    'id', v_sponsor.id,
-    'sponsor_name', v_sponsor.sponsor_name,
-    'status', v_sponsor.status,
-    'payment_status', v_sponsor.payment_status,
-    'created_at', v_sponsor.created_at
-  );
+    sponsor_name, contact_email, website_url, description, starts_on, ends_on,
+    status, agreed_amount_minor, currency, payment_status, payment_received_at,
+    payment_reference, admin_notes, created_by
+  ) VALUES (
+    btrim(p_sponsor_name), nullif(btrim(p_contact_email), ''), nullif(btrim(p_website_url), ''),
+    coalesce(p_description, ''), p_starts_on, p_ends_on,
+    p_status, p_agreed_amount_minor, p_currency, p_payment_status, NULL,
+    NULL, coalesce(p_admin_notes, ''), p_actor_user_id
+  ) RETURNING * INTO v_sponsor;
+  INSERT INTO catho_private.admin_action_audit (actor_user_id, action, target_type, target_id, details)
+  VALUES (p_actor_user_id, 'sponsor.created', 'sponsor', v_sponsor.id::text,
+    jsonb_build_object('sponsor_name', v_sponsor.sponsor_name, 'status', v_sponsor.status,
+      'payment_status', v_sponsor.payment_status, 'currency', v_sponsor.currency,
+      'agreed_amount_minor', v_sponsor.agreed_amount_minor));
+  RETURN jsonb_build_object('id', v_sponsor.id, 'sponsor_name', v_sponsor.sponsor_name,
+    'status', v_sponsor.status, 'payment_status', v_sponsor.payment_status,
+    'created_at', v_sponsor.created_at);
 END;
 $function$;
 
@@ -5328,29 +5155,22 @@ BEGIN
   IF p_actor_user_id IS NULL OR NOT EXISTS (
     SELECT 1 FROM public.admin_users AS admins WHERE admins.user_id = p_actor_user_id
   ) THEN RAISE EXCEPTION 'Administrator access required' USING ERRCODE = '42501'; END IF;
-  IF p_role NOT IN ('owner', 'manager', 'analyst')
-     OR NOT EXISTS (SELECT 1 FROM public.sponsors WHERE id = p_sponsor_id)
-     OR NOT EXISTS (SELECT 1 FROM auth.users WHERE id = p_user_id) THEN
+  IF p_role IS NULL OR p_role NOT IN ('owner', 'manager', 'analyst')
+     OR p_sponsor_id IS NULL OR NOT EXISTS (SELECT 1 FROM public.sponsors WHERE id = p_sponsor_id)
+     OR p_user_id IS NULL OR NOT EXISTS (SELECT 1 FROM auth.users WHERE id = p_user_id) THEN
     RAISE EXCEPTION 'Invalid sponsor membership details' USING ERRCODE = '22023';
   END IF;
-
   INSERT INTO public.sponsor_memberships (sponsor_id, user_id, role, status, added_by)
   VALUES (p_sponsor_id, p_user_id, p_role, 'active', p_actor_user_id)
   ON CONFLICT (sponsor_id, user_id) DO UPDATE
     SET role = EXCLUDED.role, status = 'active', added_by = EXCLUDED.added_by,
         updated_at = statement_timestamp()
   RETURNING * INTO v_membership;
-
-  INSERT INTO catho_private.admin_action_audit
-    (actor_user_id, action, target_type, target_id, details)
-  VALUES (
-    p_actor_user_id, 'sponsor.member_added', 'sponsor_membership', v_membership.id::text,
-    jsonb_build_object('sponsor_id', p_sponsor_id, 'user_id', p_user_id, 'role', p_role)
-  );
-  RETURN jsonb_build_object(
-    'id', v_membership.id, 'sponsor_id', v_membership.sponsor_id,
-    'user_id', v_membership.user_id, 'role', v_membership.role, 'status', v_membership.status
-  );
+  INSERT INTO catho_private.admin_action_audit (actor_user_id, action, target_type, target_id, details)
+  VALUES (p_actor_user_id, 'sponsor.member_added', 'sponsor_membership', v_membership.id::text,
+    jsonb_build_object('sponsor_id', p_sponsor_id, 'user_id', p_user_id, 'role', p_role));
+  RETURN jsonb_build_object('id', v_membership.id, 'sponsor_id', v_membership.sponsor_id,
+    'user_id', v_membership.user_id, 'role', v_membership.role, 'status', v_membership.status);
 END;
 $function$;
 ALTER FUNCTION public.admin_add_sponsor_member(uuid, uuid, uuid, text) OWNER TO postgres;
@@ -5364,29 +5184,32 @@ BEGIN
   IF p_actor_user_id IS NULL OR NOT EXISTS (
     SELECT 1 FROM public.admin_users AS admins WHERE admins.user_id = p_actor_user_id
   ) THEN RAISE EXCEPTION 'Administrator access required' USING ERRCODE = '42501'; END IF;
-  IF p_action NOT IN ('suspend', 'reactivate', 'revoke') THEN
+  IF p_membership_id IS NULL OR p_action IS NULL
+     OR p_action NOT IN ('suspend', 'reactivate', 'revoke') THEN
     RAISE EXCEPTION 'Invalid membership action' USING ERRCODE = '22023';
   END IF;
   SELECT * INTO v_membership FROM public.sponsor_memberships
   WHERE id = p_membership_id FOR UPDATE;
   IF NOT FOUND THEN RAISE EXCEPTION 'Sponsor membership not found' USING ERRCODE = 'P0002'; END IF;
+  IF v_membership.role = 'owner' AND p_action IN ('suspend', 'revoke')
+     AND NOT EXISTS (
+       SELECT 1 FROM public.sponsor_memberships AS other
+       WHERE other.sponsor_id = v_membership.sponsor_id
+         AND other.id <> v_membership.id AND other.role = 'owner' AND other.status = 'active'
+     ) THEN
+    RAISE EXCEPTION 'The last active sponsor owner cannot be suspended or revoked' USING ERRCODE = '23514';
+  END IF;
   v_status := CASE p_action WHEN 'suspend' THEN 'suspended'
     WHEN 'reactivate' THEN 'active' ELSE 'revoked' END;
-  UPDATE public.sponsor_memberships
-  SET status = v_status, updated_at = statement_timestamp()
+  UPDATE public.sponsor_memberships SET status = v_status, updated_at = statement_timestamp()
   WHERE id = p_membership_id RETURNING * INTO v_membership;
-
   INSERT INTO catho_private.admin_action_audit
     (actor_user_id, action, target_type, target_id, details)
-  VALUES (
-    p_actor_user_id, 'sponsor.member_' || p_action, 'sponsor_membership', v_membership.id::text,
+  VALUES (p_actor_user_id, 'sponsor.member_' || p_action, 'sponsor_membership', v_membership.id::text,
     jsonb_build_object('sponsor_id', v_membership.sponsor_id,
-      'user_id', v_membership.user_id, 'role', v_membership.role)
-  );
-  RETURN jsonb_build_object(
-    'id', v_membership.id, 'sponsor_id', v_membership.sponsor_id,
-    'user_id', v_membership.user_id, 'role', v_membership.role, 'status', v_membership.status
-  );
+      'user_id', v_membership.user_id, 'role', v_membership.role));
+  RETURN jsonb_build_object('id', v_membership.id, 'sponsor_id', v_membership.sponsor_id,
+    'user_id', v_membership.user_id, 'role', v_membership.role, 'status', v_membership.status);
 END;
 $function$;
 ALTER FUNCTION public.admin_set_sponsor_member_status(uuid, uuid, text) OWNER TO postgres;
@@ -5567,64 +5390,9 @@ $function$;
 ALTER FUNCTION public.get_sponsor_campaign_analytics(uuid, uuid, date, date) OWNER TO postgres;
 -- Applied migration: harden_sponsor_membership_rpc_null_validation
 
-CREATE OR REPLACE FUNCTION public.admin_add_sponsor_member(
-  p_actor_user_id uuid, p_sponsor_id uuid, p_user_id uuid, p_role text DEFAULT 'owner'
-)
-RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
-AS $function$
-DECLARE v_membership public.sponsor_memberships%ROWTYPE;
-BEGIN
-  IF p_actor_user_id IS NULL OR NOT EXISTS (
-    SELECT 1 FROM public.admin_users AS admins WHERE admins.user_id = p_actor_user_id
-  ) THEN RAISE EXCEPTION 'Administrator access required' USING ERRCODE = '42501'; END IF;
-  IF p_role IS NULL OR p_role NOT IN ('owner', 'manager', 'analyst')
-     OR p_sponsor_id IS NULL OR NOT EXISTS (SELECT 1 FROM public.sponsors WHERE id = p_sponsor_id)
-     OR p_user_id IS NULL OR NOT EXISTS (SELECT 1 FROM auth.users WHERE id = p_user_id) THEN
-    RAISE EXCEPTION 'Invalid sponsor membership details' USING ERRCODE = '22023';
-  END IF;
-  INSERT INTO public.sponsor_memberships (sponsor_id, user_id, role, status, added_by)
-  VALUES (p_sponsor_id, p_user_id, p_role, 'active', p_actor_user_id)
-  ON CONFLICT (sponsor_id, user_id) DO UPDATE
-    SET role = EXCLUDED.role, status = 'active', added_by = EXCLUDED.added_by,
-        updated_at = statement_timestamp()
-  RETURNING * INTO v_membership;
-  INSERT INTO catho_private.admin_action_audit (actor_user_id, action, target_type, target_id, details)
-  VALUES (p_actor_user_id, 'sponsor.member_added', 'sponsor_membership', v_membership.id::text,
-    jsonb_build_object('sponsor_id', p_sponsor_id, 'user_id', p_user_id, 'role', p_role));
-  RETURN jsonb_build_object('id', v_membership.id, 'sponsor_id', v_membership.sponsor_id,
-    'user_id', v_membership.user_id, 'role', v_membership.role, 'status', v_membership.status);
-END;
-$function$;
+
 ALTER FUNCTION public.admin_add_sponsor_member(uuid, uuid, uuid, text) OWNER TO postgres;
-CREATE OR REPLACE FUNCTION public.admin_set_sponsor_member_status(
-  p_actor_user_id uuid, p_membership_id uuid, p_action text
-)
-RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
-AS $function$
-DECLARE v_membership public.sponsor_memberships%ROWTYPE; v_status text;
-BEGIN
-  IF p_actor_user_id IS NULL OR NOT EXISTS (
-    SELECT 1 FROM public.admin_users AS admins WHERE admins.user_id = p_actor_user_id
-  ) THEN RAISE EXCEPTION 'Administrator access required' USING ERRCODE = '42501'; END IF;
-  IF p_membership_id IS NULL OR p_action IS NULL
-     OR p_action NOT IN ('suspend', 'reactivate', 'revoke') THEN
-    RAISE EXCEPTION 'Invalid membership action' USING ERRCODE = '22023';
-  END IF;
-  SELECT * INTO v_membership FROM public.sponsor_memberships
-  WHERE id = p_membership_id FOR UPDATE;
-  IF NOT FOUND THEN RAISE EXCEPTION 'Sponsor membership not found' USING ERRCODE = 'P0002'; END IF;
-  v_status := CASE p_action WHEN 'suspend' THEN 'suspended'
-    WHEN 'reactivate' THEN 'active' ELSE 'revoked' END;
-  UPDATE public.sponsor_memberships
-  SET status = v_status, updated_at = statement_timestamp()
-  WHERE id = p_membership_id RETURNING * INTO v_membership;
-  INSERT INTO catho_private.admin_action_audit (actor_user_id, action, target_type, target_id, details)
-  VALUES (p_actor_user_id, 'sponsor.member_' || p_action, 'sponsor_membership', v_membership.id::text,
-    jsonb_build_object('sponsor_id', v_membership.sponsor_id, 'user_id', v_membership.user_id, 'role', v_membership.role));
-  RETURN jsonb_build_object('id', v_membership.id, 'sponsor_id', v_membership.sponsor_id,
-    'user_id', v_membership.user_id, 'role', v_membership.role, 'status', v_membership.status);
-END;
-$function$;
+
 ALTER FUNCTION public.admin_set_sponsor_member_status(uuid, uuid, text) OWNER TO postgres;
 -- Applied migration: sponsor_invoice_and_payment_reconciliation_ledger
 
@@ -5689,25 +5457,32 @@ CREATE OR REPLACE FUNCTION public.admin_create_sponsor_invoice(
 )
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
 AS $function$
-DECLARE v_invoice catho_private.sponsor_invoices%ROWTYPE;
+DECLARE
+  v_invoice catho_private.sponsor_invoices%ROWTYPE;
+  v_sponsor public.sponsors%ROWTYPE;
 BEGIN
   IF p_actor_user_id IS NULL OR NOT EXISTS (
     SELECT 1 FROM public.admin_users AS admins WHERE admins.user_id = p_actor_user_id
   ) THEN RAISE EXCEPTION 'Administrator access required' USING ERRCODE = '42501'; END IF;
-  IF p_sponsor_id IS NULL OR NOT EXISTS (SELECT 1 FROM public.sponsors WHERE id = p_sponsor_id)
-     OR char_length(btrim(coalesce(p_description, ''))) NOT BETWEEN 2 AND 500
+  SELECT * INTO v_sponsor FROM public.sponsors WHERE id = p_sponsor_id;
+  IF NOT FOUND OR char_length(btrim(coalesce(p_description, ''))) NOT BETWEEN 2 AND 500
      OR p_amount_minor IS NULL OR p_amount_minor NOT BETWEEN 1 AND 100000000000
-     OR p_currency NOT IN ('GBP', 'EUR', 'USD')
+     OR p_currency IS NULL OR p_currency NOT IN ('GBP', 'EUR', 'USD')
+     OR p_currency <> v_sponsor.currency
      OR p_issued_on IS NULL OR p_due_on IS NULL OR p_due_on < p_issued_on
      OR p_issue_now IS NULL THEN
-    RAISE EXCEPTION 'Invalid sponsor invoice details' USING ERRCODE = '22023';
+    RAISE EXCEPTION 'Invoice details must match the sponsor agreement and use valid dates and amounts' USING ERRCODE = '22023';
   END IF;
   INSERT INTO catho_private.sponsor_invoices
     (sponsor_id, description, amount_minor, currency, issued_on, due_on, status, created_by)
-  VALUES
-    (p_sponsor_id, btrim(p_description), p_amount_minor, p_currency, p_issued_on, p_due_on,
-     CASE WHEN p_issue_now THEN 'issued' ELSE 'draft' END, p_actor_user_id)
+  VALUES (p_sponsor_id, btrim(p_description), p_amount_minor, p_currency, p_issued_on, p_due_on,
+    CASE WHEN p_issue_now THEN 'issued' ELSE 'draft' END, p_actor_user_id)
   RETURNING * INTO v_invoice;
+  IF p_issue_now THEN
+    UPDATE public.sponsors
+    SET payment_status = 'pending', payment_received_at = NULL, updated_at = statement_timestamp()
+    WHERE id = p_sponsor_id;
+  END IF;
   INSERT INTO catho_private.admin_action_audit
     (actor_user_id, action, target_type, target_id, details)
   VALUES (p_actor_user_id, 'sponsor.invoice_created', 'sponsor_invoice', v_invoice.id::text,
@@ -5763,401 +5538,6 @@ BEGIN
 END;
 $function$;
 ALTER FUNCTION public.admin_set_sponsor_invoice_status(uuid, uuid, text) OWNER TO postgres;
-CREATE OR REPLACE FUNCTION public.admin_record_sponsor_payment(
-  p_actor_user_id uuid, p_sponsor_id uuid, p_invoice_id uuid, p_amount_minor bigint,
-  p_currency text, p_bank_reference text DEFAULT NULL, p_bank_transaction_date date DEFAULT NULL,
-  p_bank_transaction_key text DEFAULT NULL
-)
-RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
-AS $function$
-DECLARE
-  v_invoice catho_private.sponsor_invoices%ROWTYPE;
-  v_payment catho_private.sponsor_payment_transactions%ROWTYPE;
-  v_inserted integer := 0;
-  v_paid_minor bigint := 0;
-  v_balance_minor bigint := 0;
-  v_net_sponsor_paid bigint := 0;
-  v_refund_total bigint := 0;
-  v_sponsor public.sponsors%ROWTYPE;
-BEGIN
-  IF p_actor_user_id IS NULL OR NOT EXISTS (
-    SELECT 1 FROM public.admin_users AS admins WHERE admins.user_id = p_actor_user_id
-  ) THEN RAISE EXCEPTION 'Administrator access required' USING ERRCODE = '42501'; END IF;
-  IF p_sponsor_id IS NULL OR p_invoice_id IS NULL OR p_amount_minor IS NULL
-     OR p_amount_minor NOT BETWEEN 1 AND 100000000000 OR p_currency NOT IN ('GBP', 'EUR', 'USD')
-     OR (p_bank_reference IS NOT NULL AND char_length(p_bank_reference) > 120)
-     OR (p_bank_transaction_key IS NOT NULL AND char_length(p_bank_transaction_key) NOT BETWEEN 1 AND 160) THEN
-    RAISE EXCEPTION 'Invalid bank payment details' USING ERRCODE = '22023';
-  END IF;
-  SELECT * INTO v_invoice FROM catho_private.sponsor_invoices
-  WHERE id = p_invoice_id AND sponsor_id = p_sponsor_id FOR UPDATE;
-  IF NOT FOUND THEN RAISE EXCEPTION 'Invoice not found for this sponsor' USING ERRCODE = 'P0002'; END IF;
-  IF v_invoice.status NOT IN ('issued', 'paid') OR v_invoice.currency <> p_currency THEN
-    RAISE EXCEPTION 'Payment must match an issued invoice and its currency' USING ERRCODE = '23514';
-  END IF;
-
-  IF p_bank_transaction_key IS NOT NULL THEN
-    SELECT * INTO v_payment FROM catho_private.sponsor_payment_transactions
-    WHERE bank_transaction_key = p_bank_transaction_key;
-    IF FOUND THEN
-      IF v_payment.sponsor_id = p_sponsor_id AND v_payment.invoice_id = p_invoice_id
-         AND v_payment.transaction_type = 'payment' AND v_payment.amount_minor = p_amount_minor
-         AND v_payment.currency = p_currency THEN
-        RETURN jsonb_build_object('id', v_payment.id, 'duplicate', true,
-          'invoice_id', v_payment.invoice_id, 'amount_minor', v_payment.amount_minor);
-      END IF;
-      RAISE EXCEPTION 'Bank transaction reference has already been used' USING ERRCODE = '23505';
-    END IF;
-  END IF;
-
-  SELECT coalesce(sum(CASE WHEN transaction.transaction_type = 'payment'
-    THEN transaction.amount_minor ELSE -transaction.amount_minor END), 0)
-  INTO v_paid_minor
-  FROM catho_private.sponsor_payment_transactions AS transaction
-  WHERE transaction.invoice_id = p_invoice_id;
-  v_balance_minor := v_invoice.amount_minor - v_paid_minor;
-  IF v_balance_minor <= 0 OR p_amount_minor > v_balance_minor THEN
-    RAISE EXCEPTION 'Payment exceeds the outstanding invoice balance' USING ERRCODE = '23514';
-  END IF;
-
-  INSERT INTO catho_private.sponsor_payment_transactions
-    (sponsor_id, invoice_id, transaction_type, amount_minor, currency, bank_reference,
-     bank_transaction_date, bank_transaction_key, recorded_by)
-  VALUES
-    (p_sponsor_id, p_invoice_id, 'payment', p_amount_minor, p_currency,
-     nullif(btrim(p_bank_reference), ''), p_bank_transaction_date,
-     nullif(btrim(p_bank_transaction_key), ''), p_actor_user_id)
-  ON CONFLICT DO NOTHING RETURNING * INTO v_payment;
-  GET DIAGNOSTICS v_inserted = ROW_COUNT;
-  IF v_inserted = 0 THEN
-    IF p_bank_transaction_key IS NOT NULL THEN
-      SELECT * INTO v_payment FROM catho_private.sponsor_payment_transactions
-      WHERE bank_transaction_key = p_bank_transaction_key;
-      IF FOUND AND v_payment.sponsor_id = p_sponsor_id AND v_payment.invoice_id = p_invoice_id
-         AND v_payment.transaction_type = 'payment' AND v_payment.amount_minor = p_amount_minor
-         AND v_payment.currency = p_currency THEN
-        RETURN jsonb_build_object('id', v_payment.id, 'duplicate', true,
-          'invoice_id', v_payment.invoice_id, 'amount_minor', v_payment.amount_minor);
-      END IF;
-    END IF;
-    RAISE EXCEPTION 'Unable to record duplicate bank transaction' USING ERRCODE = '23505';
-  END IF;
-
-  SELECT coalesce(sum(CASE WHEN transaction.transaction_type = 'payment'
-    THEN transaction.amount_minor ELSE -transaction.amount_minor END), 0)
-  INTO v_paid_minor
-  FROM catho_private.sponsor_payment_transactions AS transaction
-  WHERE transaction.invoice_id = p_invoice_id;
-  IF v_paid_minor >= v_invoice.amount_minor THEN
-    UPDATE catho_private.sponsor_invoices SET status = 'paid', updated_at = statement_timestamp()
-    WHERE id = p_invoice_id;
-  END IF;
-
-  SELECT * INTO v_sponsor FROM public.sponsors WHERE id = p_sponsor_id FOR UPDATE;
-  SELECT
-    coalesce(sum(CASE WHEN transaction.transaction_type = 'payment'
-      THEN transaction.amount_minor ELSE -transaction.amount_minor END), 0),
-    coalesce(sum(transaction.amount_minor) FILTER (WHERE transaction.transaction_type = 'refund'), 0)
-  INTO v_net_sponsor_paid, v_refund_total
-  FROM catho_private.sponsor_payment_transactions AS transaction
-  WHERE transaction.sponsor_id = p_sponsor_id;
-
-  IF v_sponsor.agreed_amount_minor IS NOT NULL THEN
-    UPDATE public.sponsors SET
-      payment_status = CASE
-        WHEN v_net_sponsor_paid >= v_sponsor.agreed_amount_minor THEN 'received'
-        WHEN v_net_sponsor_paid = 0 AND v_refund_total > 0 THEN 'refunded'
-        ELSE 'pending'
-      END,
-      payment_received_at = CASE
-        WHEN v_net_sponsor_paid >= v_sponsor.agreed_amount_minor
-          THEN coalesce(payment_received_at, statement_timestamp())
-        ELSE NULL
-      END,
-      payment_reference = coalesce(nullif(btrim(p_bank_reference), ''), payment_reference),
-      updated_at = statement_timestamp()
-    WHERE id = p_sponsor_id;
-  END IF;
-
-  INSERT INTO catho_private.admin_action_audit
-    (actor_user_id, action, target_type, target_id, details)
-  VALUES (p_actor_user_id, 'sponsor.payment_recorded', 'sponsor_payment', v_payment.id::text,
-    jsonb_build_object('sponsor_id', p_sponsor_id, 'invoice_id', p_invoice_id,
-      'amount_minor', p_amount_minor, 'currency', p_currency, 'bank_reference', p_bank_reference));
-  RETURN jsonb_build_object('id', v_payment.id, 'duplicate', false,
-    'invoice_id', p_invoice_id, 'amount_minor', p_amount_minor,
-    'invoice_paid_minor', v_paid_minor, 'invoice_balance_minor', greatest(v_invoice.amount_minor - v_paid_minor, 0));
-END;
-$function$;
-ALTER FUNCTION public.admin_record_sponsor_payment(uuid, uuid, uuid, bigint, text, text, date, text) OWNER TO postgres;
-CREATE OR REPLACE FUNCTION public.admin_record_sponsor_refund(
-  p_actor_user_id uuid, p_payment_id uuid, p_amount_minor bigint,
-  p_bank_reference text DEFAULT NULL, p_bank_transaction_date date DEFAULT NULL,
-  p_bank_transaction_key text DEFAULT NULL
-)
-RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
-AS $function$
-DECLARE
-  v_payment catho_private.sponsor_payment_transactions%ROWTYPE;
-  v_refund catho_private.sponsor_payment_transactions%ROWTYPE;
-  v_refunded_minor bigint := 0;
-  v_net_sponsor_paid bigint := 0;
-  v_refund_total bigint := 0;
-  v_sponsor public.sponsors%ROWTYPE;
-  v_invoice catho_private.sponsor_invoices%ROWTYPE;
-  v_invoice_paid bigint := 0;
-BEGIN
-  IF p_actor_user_id IS NULL OR NOT EXISTS (
-    SELECT 1 FROM public.admin_users AS admins WHERE admins.user_id = p_actor_user_id
-  ) THEN RAISE EXCEPTION 'Administrator access required' USING ERRCODE = '42501'; END IF;
-  IF p_payment_id IS NULL OR p_amount_minor IS NULL OR p_amount_minor NOT BETWEEN 1 AND 100000000000
-     OR (p_bank_reference IS NOT NULL AND char_length(p_bank_reference) > 120)
-     OR (p_bank_transaction_key IS NOT NULL AND char_length(p_bank_transaction_key) NOT BETWEEN 1 AND 160) THEN
-    RAISE EXCEPTION 'Invalid refund details' USING ERRCODE = '22023';
-  END IF;
-  SELECT * INTO v_payment FROM catho_private.sponsor_payment_transactions
-  WHERE id = p_payment_id AND transaction_type = 'payment' FOR UPDATE;
-  IF NOT FOUND THEN RAISE EXCEPTION 'Original payment not found' USING ERRCODE = 'P0002'; END IF;
-  IF p_bank_transaction_key IS NOT NULL AND EXISTS (
-    SELECT 1 FROM catho_private.sponsor_payment_transactions
-    WHERE bank_transaction_key = p_bank_transaction_key
-  ) THEN RAISE EXCEPTION 'Bank transaction reference has already been used' USING ERRCODE = '23505'; END IF;
-
-  SELECT coalesce(sum(refund.amount_minor), 0) INTO v_refunded_minor
-  FROM catho_private.sponsor_payment_transactions AS refund
-  WHERE refund.refund_of_payment_id = p_payment_id;
-  IF p_amount_minor > v_payment.amount_minor - v_refunded_minor THEN
-    RAISE EXCEPTION 'Refund exceeds the unrefunded payment amount' USING ERRCODE = '23514';
-  END IF;
-
-  INSERT INTO catho_private.sponsor_payment_transactions
-    (sponsor_id, invoice_id, transaction_type, amount_minor, currency, bank_reference,
-     bank_transaction_date, bank_transaction_key, refund_of_payment_id, recorded_by)
-  VALUES
-    (v_payment.sponsor_id, v_payment.invoice_id, 'refund', p_amount_minor, v_payment.currency,
-     nullif(btrim(p_bank_reference), ''), p_bank_transaction_date,
-     nullif(btrim(p_bank_transaction_key), ''), p_payment_id, p_actor_user_id)
-  RETURNING * INTO v_refund;
-
-  SELECT * INTO v_invoice FROM catho_private.sponsor_invoices
-  WHERE id = v_payment.invoice_id FOR UPDATE;
-  SELECT coalesce(sum(CASE WHEN transaction.transaction_type = 'payment'
-    THEN transaction.amount_minor ELSE -transaction.amount_minor END), 0)
-  INTO v_invoice_paid FROM catho_private.sponsor_payment_transactions AS transaction
-  WHERE transaction.invoice_id = v_payment.invoice_id;
-  IF v_invoice_paid < v_invoice.amount_minor AND v_invoice.status = 'paid' THEN
-    UPDATE catho_private.sponsor_invoices SET status = 'issued', updated_at = statement_timestamp()
-    WHERE id = v_invoice.id;
-  END IF;
-
-  SELECT * INTO v_sponsor FROM public.sponsors WHERE id = v_payment.sponsor_id FOR UPDATE;
-  SELECT
-    coalesce(sum(CASE WHEN transaction.transaction_type = 'payment'
-      THEN transaction.amount_minor ELSE -transaction.amount_minor END), 0),
-    coalesce(sum(transaction.amount_minor) FILTER (WHERE transaction.transaction_type = 'refund'), 0)
-  INTO v_net_sponsor_paid, v_refund_total
-  FROM catho_private.sponsor_payment_transactions AS transaction
-  WHERE transaction.sponsor_id = v_payment.sponsor_id;
-  IF v_sponsor.agreed_amount_minor IS NOT NULL THEN
-    UPDATE public.sponsors SET
-      payment_status = CASE
-        WHEN v_net_sponsor_paid >= v_sponsor.agreed_amount_minor THEN 'received'
-        WHEN v_net_sponsor_paid = 0 AND v_refund_total > 0 THEN 'refunded'
-        ELSE 'pending'
-      END,
-      payment_received_at = CASE
-        WHEN v_net_sponsor_paid >= v_sponsor.agreed_amount_minor
-          THEN coalesce(payment_received_at, statement_timestamp())
-        ELSE NULL
-      END,
-      updated_at = statement_timestamp()
-    WHERE id = v_payment.sponsor_id;
-  END IF;
-
-  INSERT INTO catho_private.admin_action_audit
-    (actor_user_id, action, target_type, target_id, details)
-  VALUES (p_actor_user_id, 'sponsor.payment_refunded', 'sponsor_payment', v_refund.id::text,
-    jsonb_build_object('sponsor_id', v_payment.sponsor_id, 'invoice_id', v_payment.invoice_id,
-      'original_payment_id', p_payment_id, 'amount_minor', p_amount_minor, 'currency', v_payment.currency));
-  RETURN jsonb_build_object('id', v_refund.id, 'original_payment_id', p_payment_id,
-    'amount_minor', p_amount_minor, 'invoice_paid_minor', v_invoice_paid);
-END;
-$function$;
-ALTER FUNCTION public.admin_record_sponsor_refund(uuid, uuid, bigint, text, date, text) OWNER TO postgres;
-CREATE OR REPLACE FUNCTION public.get_admin_sponsor_financials(
-  p_actor_user_id uuid, p_sponsor_id uuid
-)
-RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
-AS $function$
-DECLARE v_result jsonb;
-BEGIN
-  IF p_actor_user_id IS NULL OR NOT EXISTS (
-    SELECT 1 FROM public.admin_users AS admins WHERE admins.user_id = p_actor_user_id
-  ) THEN RAISE EXCEPTION 'Administrator access required' USING ERRCODE = '42501'; END IF;
-  IF p_sponsor_id IS NULL OR NOT EXISTS (SELECT 1 FROM public.sponsors WHERE id = p_sponsor_id) THEN
-    RAISE EXCEPTION 'Sponsor not found' USING ERRCODE = 'P0002';
-  END IF;
-  SELECT jsonb_build_object(
-    'invoices', coalesce((
-      SELECT jsonb_agg(jsonb_build_object(
-        'id', invoice.id, 'invoice_number', invoice.invoice_number, 'description', invoice.description,
-        'amount_minor', invoice.amount_minor, 'currency', invoice.currency,
-        'issued_on', invoice.issued_on, 'due_on', invoice.due_on, 'status', invoice.status,
-        'paid_minor', invoice.paid_minor, 'balance_minor', greatest(invoice.amount_minor - invoice.paid_minor, 0)
-      ) ORDER BY invoice.created_at DESC)
-      FROM (
-        SELECT inv.*, coalesce(sum(CASE WHEN transaction.transaction_type = 'payment'
-          THEN transaction.amount_minor ELSE -transaction.amount_minor END), 0) AS paid_minor
-        FROM catho_private.sponsor_invoices AS inv
-        LEFT JOIN catho_private.sponsor_payment_transactions AS transaction ON transaction.invoice_id = inv.id
-        WHERE inv.sponsor_id = p_sponsor_id
-        GROUP BY inv.id ORDER BY inv.created_at DESC LIMIT 100
-      ) AS invoice
-    ), '[]'::jsonb),
-    'transactions', coalesce((
-      SELECT jsonb_agg(jsonb_build_object(
-        'id', transaction.id, 'invoice_id', transaction.invoice_id,
-        'transaction_type', transaction.transaction_type, 'amount_minor', transaction.amount_minor,
-        'currency', transaction.currency, 'bank_reference', transaction.bank_reference,
-        'bank_transaction_date', transaction.bank_transaction_date,
-        'received_at', transaction.received_at, 'refund_of_payment_id', transaction.refund_of_payment_id
-      ) ORDER BY transaction.received_at DESC)
-      FROM (
-        SELECT * FROM catho_private.sponsor_payment_transactions
-        WHERE sponsor_id = p_sponsor_id ORDER BY received_at DESC LIMIT 200
-      ) AS transaction
-    ), '[]'::jsonb)
-  ) INTO v_result;
-  RETURN v_result;
-END;
-$function$;
-ALTER FUNCTION public.get_admin_sponsor_financials(uuid, uuid) OWNER TO postgres;
-CREATE OR REPLACE FUNCTION public.get_sponsor_financials(
-  p_actor_user_id uuid, p_sponsor_id uuid
-)
-RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
-AS $function$
-DECLARE v_result jsonb;
-BEGIN
-  IF p_actor_user_id IS NULL OR NOT EXISTS (
-    SELECT 1 FROM public.sponsor_memberships AS membership
-    WHERE membership.sponsor_id = p_sponsor_id AND membership.user_id = p_actor_user_id
-      AND membership.status = 'active'
-  ) THEN RAISE EXCEPTION 'Sponsor dashboard access required' USING ERRCODE = '42501'; END IF;
-  SELECT jsonb_build_object(
-    'invoices', coalesce((
-      SELECT jsonb_agg(jsonb_build_object(
-        'id', invoice.id, 'invoice_number', invoice.invoice_number, 'description', invoice.description,
-        'amount_minor', invoice.amount_minor, 'currency', invoice.currency,
-        'issued_on', invoice.issued_on, 'due_on', invoice.due_on, 'status', invoice.status,
-        'paid_minor', invoice.paid_minor, 'balance_minor', greatest(invoice.amount_minor - invoice.paid_minor, 0)
-      ) ORDER BY invoice.created_at DESC)
-      FROM (
-        SELECT inv.*, coalesce(sum(CASE WHEN transaction.transaction_type = 'payment'
-          THEN transaction.amount_minor ELSE -transaction.amount_minor END), 0) AS paid_minor
-        FROM catho_private.sponsor_invoices AS inv
-        LEFT JOIN catho_private.sponsor_payment_transactions AS transaction ON transaction.invoice_id = inv.id
-        WHERE inv.sponsor_id = p_sponsor_id
-        GROUP BY inv.id ORDER BY inv.created_at DESC LIMIT 100
-      ) AS invoice
-    ), '[]'::jsonb),
-    'transactions', coalesce((
-      SELECT jsonb_agg(jsonb_build_object(
-        'id', transaction.id, 'invoice_id', transaction.invoice_id,
-        'transaction_type', transaction.transaction_type, 'amount_minor', transaction.amount_minor,
-        'currency', transaction.currency, 'bank_reference', transaction.bank_reference,
-        'bank_transaction_date', transaction.bank_transaction_date,
-        'received_at', transaction.received_at
-      ) ORDER BY transaction.received_at DESC)
-      FROM (
-        SELECT * FROM catho_private.sponsor_payment_transactions
-        WHERE sponsor_id = p_sponsor_id ORDER BY received_at DESC LIMIT 200
-      ) AS transaction
-    ), '[]'::jsonb)
-  ) INTO v_result;
-  RETURN v_result;
-END;
-$function$;
-ALTER FUNCTION public.get_sponsor_financials(uuid, uuid) OWNER TO postgres;
--- Applied migration: enforce_invoice_based_sponsor_reconciliation
-
-CREATE OR REPLACE FUNCTION public.admin_create_sponsor(
-  p_actor_user_id uuid, p_sponsor_name text, p_contact_email text, p_website_url text,
-  p_description text, p_starts_on date, p_ends_on date, p_status text,
-  p_agreed_amount_minor bigint, p_currency text, p_payment_status text,
-  p_payment_reference text, p_admin_notes text
-)
-RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
-AS $function$
-DECLARE v_sponsor public.sponsors%ROWTYPE;
-BEGIN
-  IF p_actor_user_id IS NULL OR NOT EXISTS (
-    SELECT 1 FROM public.admin_users AS admins WHERE admins.user_id = p_actor_user_id
-  ) THEN RAISE EXCEPTION 'Administrator access required' USING ERRCODE = '42501'; END IF;
-  IF p_payment_status IS NULL OR p_payment_status NOT IN ('pending', 'not_required') THEN
-    RAISE EXCEPTION 'New sponsor payment status must be pending or not required; reconcile payments through an invoice' USING ERRCODE = '22023';
-  END IF;
-  INSERT INTO public.sponsors (
-    sponsor_name, contact_email, website_url, description, starts_on, ends_on,
-    status, agreed_amount_minor, currency, payment_status, payment_received_at,
-    payment_reference, admin_notes, created_by
-  ) VALUES (
-    btrim(p_sponsor_name), nullif(btrim(p_contact_email), ''), nullif(btrim(p_website_url), ''),
-    coalesce(p_description, ''), p_starts_on, p_ends_on,
-    p_status, p_agreed_amount_minor, p_currency, p_payment_status, NULL,
-    NULL, coalesce(p_admin_notes, ''), p_actor_user_id
-  ) RETURNING * INTO v_sponsor;
-  INSERT INTO catho_private.admin_action_audit (actor_user_id, action, target_type, target_id, details)
-  VALUES (p_actor_user_id, 'sponsor.created', 'sponsor', v_sponsor.id::text,
-    jsonb_build_object('sponsor_name', v_sponsor.sponsor_name, 'status', v_sponsor.status,
-      'payment_status', v_sponsor.payment_status, 'currency', v_sponsor.currency,
-      'agreed_amount_minor', v_sponsor.agreed_amount_minor));
-  RETURN jsonb_build_object('id', v_sponsor.id, 'sponsor_name', v_sponsor.sponsor_name,
-    'status', v_sponsor.status, 'payment_status', v_sponsor.payment_status,
-    'created_at', v_sponsor.created_at);
-END;
-$function$;
-ALTER FUNCTION public.admin_create_sponsor(uuid, text, text, text, text, date, date, text, bigint, text, text, text, text) OWNER TO postgres;
-CREATE OR REPLACE FUNCTION public.admin_create_sponsor_invoice(
-  p_actor_user_id uuid, p_sponsor_id uuid, p_description text, p_amount_minor bigint,
-  p_currency text, p_issued_on date, p_due_on date, p_issue_now boolean DEFAULT true
-)
-RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
-AS $function$
-DECLARE v_invoice catho_private.sponsor_invoices%ROWTYPE;
-BEGIN
-  IF p_actor_user_id IS NULL OR NOT EXISTS (
-    SELECT 1 FROM public.admin_users AS admins WHERE admins.user_id = p_actor_user_id
-  ) THEN RAISE EXCEPTION 'Administrator access required' USING ERRCODE = '42501'; END IF;
-  IF p_sponsor_id IS NULL OR NOT EXISTS (SELECT 1 FROM public.sponsors WHERE id = p_sponsor_id)
-     OR char_length(btrim(coalesce(p_description, ''))) NOT BETWEEN 2 AND 500
-     OR p_amount_minor IS NULL OR p_amount_minor NOT BETWEEN 1 AND 100000000000
-     OR p_currency IS NULL OR p_currency NOT IN ('GBP', 'EUR', 'USD')
-     OR p_issued_on IS NULL OR p_due_on IS NULL OR p_due_on < p_issued_on
-     OR p_issue_now IS NULL THEN
-    RAISE EXCEPTION 'Invalid sponsor invoice details' USING ERRCODE = '22023';
-  END IF;
-  INSERT INTO catho_private.sponsor_invoices
-    (sponsor_id, description, amount_minor, currency, issued_on, due_on, status, created_by)
-  VALUES (p_sponsor_id, btrim(p_description), p_amount_minor, p_currency, p_issued_on, p_due_on,
-    CASE WHEN p_issue_now THEN 'issued' ELSE 'draft' END, p_actor_user_id)
-  RETURNING * INTO v_invoice;
-  IF p_issue_now THEN
-    UPDATE public.sponsors
-    SET payment_status = 'pending', payment_received_at = NULL, updated_at = statement_timestamp()
-    WHERE id = p_sponsor_id;
-  END IF;
-  INSERT INTO catho_private.admin_action_audit
-    (actor_user_id, action, target_type, target_id, details)
-  VALUES (p_actor_user_id, 'sponsor.invoice_created', 'sponsor_invoice', v_invoice.id::text,
-    jsonb_build_object('sponsor_id', p_sponsor_id, 'invoice_number', v_invoice.invoice_number,
-      'amount_minor', p_amount_minor, 'currency', p_currency, 'status', v_invoice.status));
-  RETURN jsonb_build_object('id', v_invoice.id, 'invoice_number', v_invoice.invoice_number,
-    'sponsor_id', v_invoice.sponsor_id, 'amount_minor', v_invoice.amount_minor,
-    'currency', v_invoice.currency, 'status', v_invoice.status);
-END;
-$function$;
-ALTER FUNCTION public.admin_create_sponsor_invoice(uuid, uuid, text, bigint, text, date, date, boolean) OWNER TO postgres;
 CREATE OR REPLACE FUNCTION public.admin_record_sponsor_payment(
   p_actor_user_id uuid, p_sponsor_id uuid, p_invoice_id uuid, p_amount_minor bigint,
   p_currency text, p_bank_reference text DEFAULT NULL, p_bank_transaction_date date DEFAULT NULL,
@@ -6395,6 +5775,111 @@ BEGIN
 END;
 $function$;
 ALTER FUNCTION public.admin_record_sponsor_refund(uuid, uuid, bigint, text, date, text) OWNER TO postgres;
+CREATE OR REPLACE FUNCTION public.get_admin_sponsor_financials(
+  p_actor_user_id uuid, p_sponsor_id uuid
+)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
+AS $function$
+DECLARE v_result jsonb;
+BEGIN
+  IF p_actor_user_id IS NULL OR NOT EXISTS (
+    SELECT 1 FROM public.admin_users AS admins WHERE admins.user_id = p_actor_user_id
+  ) THEN RAISE EXCEPTION 'Administrator access required' USING ERRCODE = '42501'; END IF;
+  IF p_sponsor_id IS NULL OR NOT EXISTS (SELECT 1 FROM public.sponsors WHERE id = p_sponsor_id) THEN
+    RAISE EXCEPTION 'Sponsor not found' USING ERRCODE = 'P0002';
+  END IF;
+  SELECT jsonb_build_object(
+    'invoices', coalesce((
+      SELECT jsonb_agg(jsonb_build_object(
+        'id', invoice.id, 'invoice_number', invoice.invoice_number, 'description', invoice.description,
+        'amount_minor', invoice.amount_minor, 'currency', invoice.currency,
+        'issued_on', invoice.issued_on, 'due_on', invoice.due_on, 'status', invoice.status,
+        'paid_minor', invoice.paid_minor, 'balance_minor', greatest(invoice.amount_minor - invoice.paid_minor, 0)
+      ) ORDER BY invoice.created_at DESC)
+      FROM (
+        SELECT inv.*, coalesce(sum(CASE WHEN transaction.transaction_type = 'payment'
+          THEN transaction.amount_minor ELSE -transaction.amount_minor END), 0) AS paid_minor
+        FROM catho_private.sponsor_invoices AS inv
+        LEFT JOIN catho_private.sponsor_payment_transactions AS transaction ON transaction.invoice_id = inv.id
+        WHERE inv.sponsor_id = p_sponsor_id
+        GROUP BY inv.id ORDER BY inv.created_at DESC LIMIT 100
+      ) AS invoice
+    ), '[]'::jsonb),
+    'transactions', coalesce((
+      SELECT jsonb_agg(jsonb_build_object(
+        'id', transaction.id, 'invoice_id', transaction.invoice_id,
+        'transaction_type', transaction.transaction_type, 'amount_minor', transaction.amount_minor,
+        'currency', transaction.currency, 'bank_reference', transaction.bank_reference,
+        'bank_transaction_date', transaction.bank_transaction_date,
+        'received_at', transaction.received_at, 'refund_of_payment_id', transaction.refund_of_payment_id
+      ) ORDER BY transaction.received_at DESC)
+      FROM (
+        SELECT * FROM catho_private.sponsor_payment_transactions
+        WHERE sponsor_id = p_sponsor_id ORDER BY received_at DESC LIMIT 200
+      ) AS transaction
+    ), '[]'::jsonb)
+  ) INTO v_result;
+  RETURN v_result;
+END;
+$function$;
+ALTER FUNCTION public.get_admin_sponsor_financials(uuid, uuid) OWNER TO postgres;
+CREATE OR REPLACE FUNCTION public.get_sponsor_financials(
+  p_actor_user_id uuid, p_sponsor_id uuid
+)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
+AS $function$
+DECLARE v_result jsonb;
+BEGIN
+  IF p_actor_user_id IS NULL OR NOT EXISTS (
+    SELECT 1 FROM public.sponsor_memberships AS membership
+    WHERE membership.sponsor_id = p_sponsor_id AND membership.user_id = p_actor_user_id
+      AND membership.status = 'active'
+  ) THEN RAISE EXCEPTION 'Sponsor dashboard access required' USING ERRCODE = '42501'; END IF;
+  SELECT jsonb_build_object(
+    'invoices', coalesce((
+      SELECT jsonb_agg(jsonb_build_object(
+        'id', invoice.id, 'invoice_number', invoice.invoice_number, 'description', invoice.description,
+        'amount_minor', invoice.amount_minor, 'currency', invoice.currency,
+        'issued_on', invoice.issued_on, 'due_on', invoice.due_on, 'status', invoice.status,
+        'paid_minor', invoice.paid_minor, 'balance_minor', greatest(invoice.amount_minor - invoice.paid_minor, 0)
+      ) ORDER BY invoice.created_at DESC)
+      FROM (
+        SELECT inv.*, coalesce(sum(CASE WHEN transaction.transaction_type = 'payment'
+          THEN transaction.amount_minor ELSE -transaction.amount_minor END), 0) AS paid_minor
+        FROM catho_private.sponsor_invoices AS inv
+        LEFT JOIN catho_private.sponsor_payment_transactions AS transaction ON transaction.invoice_id = inv.id
+        WHERE inv.sponsor_id = p_sponsor_id
+        GROUP BY inv.id ORDER BY inv.created_at DESC LIMIT 100
+      ) AS invoice
+    ), '[]'::jsonb),
+    'transactions', coalesce((
+      SELECT jsonb_agg(jsonb_build_object(
+        'id', transaction.id, 'invoice_id', transaction.invoice_id,
+        'transaction_type', transaction.transaction_type, 'amount_minor', transaction.amount_minor,
+        'currency', transaction.currency, 'bank_reference', transaction.bank_reference,
+        'bank_transaction_date', transaction.bank_transaction_date,
+        'received_at', transaction.received_at
+      ) ORDER BY transaction.received_at DESC)
+      FROM (
+        SELECT * FROM catho_private.sponsor_payment_transactions
+        WHERE sponsor_id = p_sponsor_id ORDER BY received_at DESC LIMIT 200
+      ) AS transaction
+    ), '[]'::jsonb)
+  ) INTO v_result;
+  RETURN v_result;
+END;
+$function$;
+ALTER FUNCTION public.get_sponsor_financials(uuid, uuid) OWNER TO postgres;
+-- Applied migration: enforce_invoice_based_sponsor_reconciliation
+
+
+ALTER FUNCTION public.admin_create_sponsor(uuid, text, text, text, text, date, date, text, bigint, text, text, text, text) OWNER TO postgres;
+
+ALTER FUNCTION public.admin_create_sponsor_invoice(uuid, uuid, text, bigint, text, date, date, boolean) OWNER TO postgres;
+
+ALTER FUNCTION public.admin_record_sponsor_payment(uuid, uuid, uuid, bigint, text, text, date, text) OWNER TO postgres;
+
+ALTER FUNCTION public.admin_record_sponsor_refund(uuid, uuid, bigint, text, date, text) OWNER TO postgres;
 -- Applied migration: add_admin_sponsor_account_lookup
 
 CREATE OR REPLACE FUNCTION public.admin_find_sponsor_user_by_email(
@@ -6421,89 +5906,11 @@ $function$;
 ALTER FUNCTION public.admin_find_sponsor_user_by_email(uuid, text) OWNER TO postgres;
 -- Applied migration: enforce_sponsor_invoice_agreement_currency
 
-CREATE OR REPLACE FUNCTION public.admin_create_sponsor_invoice(
-  p_actor_user_id uuid, p_sponsor_id uuid, p_description text, p_amount_minor bigint,
-  p_currency text, p_issued_on date, p_due_on date, p_issue_now boolean DEFAULT true
-)
-RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
-AS $function$
-DECLARE
-  v_invoice catho_private.sponsor_invoices%ROWTYPE;
-  v_sponsor public.sponsors%ROWTYPE;
-BEGIN
-  IF p_actor_user_id IS NULL OR NOT EXISTS (
-    SELECT 1 FROM public.admin_users AS admins WHERE admins.user_id = p_actor_user_id
-  ) THEN RAISE EXCEPTION 'Administrator access required' USING ERRCODE = '42501'; END IF;
-  SELECT * INTO v_sponsor FROM public.sponsors WHERE id = p_sponsor_id;
-  IF NOT FOUND OR char_length(btrim(coalesce(p_description, ''))) NOT BETWEEN 2 AND 500
-     OR p_amount_minor IS NULL OR p_amount_minor NOT BETWEEN 1 AND 100000000000
-     OR p_currency IS NULL OR p_currency NOT IN ('GBP', 'EUR', 'USD')
-     OR p_currency <> v_sponsor.currency
-     OR p_issued_on IS NULL OR p_due_on IS NULL OR p_due_on < p_issued_on
-     OR p_issue_now IS NULL THEN
-    RAISE EXCEPTION 'Invoice details must match the sponsor agreement and use valid dates and amounts' USING ERRCODE = '22023';
-  END IF;
-  INSERT INTO catho_private.sponsor_invoices
-    (sponsor_id, description, amount_minor, currency, issued_on, due_on, status, created_by)
-  VALUES (p_sponsor_id, btrim(p_description), p_amount_minor, p_currency, p_issued_on, p_due_on,
-    CASE WHEN p_issue_now THEN 'issued' ELSE 'draft' END, p_actor_user_id)
-  RETURNING * INTO v_invoice;
-  IF p_issue_now THEN
-    UPDATE public.sponsors
-    SET payment_status = 'pending', payment_received_at = NULL, updated_at = statement_timestamp()
-    WHERE id = p_sponsor_id;
-  END IF;
-  INSERT INTO catho_private.admin_action_audit
-    (actor_user_id, action, target_type, target_id, details)
-  VALUES (p_actor_user_id, 'sponsor.invoice_created', 'sponsor_invoice', v_invoice.id::text,
-    jsonb_build_object('sponsor_id', p_sponsor_id, 'invoice_number', v_invoice.invoice_number,
-      'amount_minor', p_amount_minor, 'currency', p_currency, 'status', v_invoice.status));
-  RETURN jsonb_build_object('id', v_invoice.id, 'invoice_number', v_invoice.invoice_number,
-    'sponsor_id', v_invoice.sponsor_id, 'amount_minor', v_invoice.amount_minor,
-    'currency', v_invoice.currency, 'status', v_invoice.status);
-END;
-$function$;
+
 ALTER FUNCTION public.admin_create_sponsor_invoice(uuid, uuid, text, bigint, text, date, date, boolean) OWNER TO postgres;
 -- Applied migration: scope_sponsor_refunds_and_prevent_owner_lockout
 
-CREATE OR REPLACE FUNCTION public.admin_set_sponsor_member_status(
-  p_actor_user_id uuid, p_membership_id uuid, p_action text
-)
-RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
-AS $function$
-DECLARE v_membership public.sponsor_memberships%ROWTYPE; v_status text;
-BEGIN
-  IF p_actor_user_id IS NULL OR NOT EXISTS (
-    SELECT 1 FROM public.admin_users AS admins WHERE admins.user_id = p_actor_user_id
-  ) THEN RAISE EXCEPTION 'Administrator access required' USING ERRCODE = '42501'; END IF;
-  IF p_membership_id IS NULL OR p_action IS NULL
-     OR p_action NOT IN ('suspend', 'reactivate', 'revoke') THEN
-    RAISE EXCEPTION 'Invalid membership action' USING ERRCODE = '22023';
-  END IF;
-  SELECT * INTO v_membership FROM public.sponsor_memberships
-  WHERE id = p_membership_id FOR UPDATE;
-  IF NOT FOUND THEN RAISE EXCEPTION 'Sponsor membership not found' USING ERRCODE = 'P0002'; END IF;
-  IF v_membership.role = 'owner' AND p_action IN ('suspend', 'revoke')
-     AND NOT EXISTS (
-       SELECT 1 FROM public.sponsor_memberships AS other
-       WHERE other.sponsor_id = v_membership.sponsor_id
-         AND other.id <> v_membership.id AND other.role = 'owner' AND other.status = 'active'
-     ) THEN
-    RAISE EXCEPTION 'The last active sponsor owner cannot be suspended or revoked' USING ERRCODE = '23514';
-  END IF;
-  v_status := CASE p_action WHEN 'suspend' THEN 'suspended'
-    WHEN 'reactivate' THEN 'active' ELSE 'revoked' END;
-  UPDATE public.sponsor_memberships SET status = v_status, updated_at = statement_timestamp()
-  WHERE id = p_membership_id RETURNING * INTO v_membership;
-  INSERT INTO catho_private.admin_action_audit
-    (actor_user_id, action, target_type, target_id, details)
-  VALUES (p_actor_user_id, 'sponsor.member_' || p_action, 'sponsor_membership', v_membership.id::text,
-    jsonb_build_object('sponsor_id', v_membership.sponsor_id,
-      'user_id', v_membership.user_id, 'role', v_membership.role));
-  RETURN jsonb_build_object('id', v_membership.id, 'sponsor_id', v_membership.sponsor_id,
-    'user_id', v_membership.user_id, 'role', v_membership.role, 'status', v_membership.status);
-END;
-$function$;
+
 ALTER FUNCTION public.admin_set_sponsor_member_status(uuid, uuid, text) OWNER TO postgres;
 CREATE OR REPLACE FUNCTION public.admin_record_sponsor_refund(
   p_actor_user_id uuid, p_sponsor_id uuid, p_payment_id uuid, p_amount_minor bigint,
@@ -6530,45 +5937,7 @@ $function$;
 ALTER FUNCTION public.admin_record_sponsor_refund(uuid, uuid, uuid, bigint, text, date, text) OWNER TO postgres;
 -- Applied migration: prevent_unpaid_sponsor_from_bypassing_invoice_reconciliation
 
-CREATE OR REPLACE FUNCTION public.admin_create_sponsor(
-  p_actor_user_id uuid, p_sponsor_name text, p_contact_email text, p_website_url text,
-  p_description text, p_starts_on date, p_ends_on date, p_status text,
-  p_agreed_amount_minor bigint, p_currency text, p_payment_status text,
-  p_payment_reference text, p_admin_notes text
-)
-RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
-AS $function$
-DECLARE v_sponsor public.sponsors%ROWTYPE;
-BEGIN
-  IF p_actor_user_id IS NULL OR NOT EXISTS (
-    SELECT 1 FROM public.admin_users AS admins WHERE admins.user_id = p_actor_user_id
-  ) THEN RAISE EXCEPTION 'Administrator access required' USING ERRCODE = '42501'; END IF;
-  IF p_payment_status IS NULL OR p_payment_status NOT IN ('pending', 'not_required')
-     OR (p_payment_status = 'not_required' AND coalesce(p_agreed_amount_minor, 0) > 0)
-     OR (p_agreed_amount_minor IS NOT NULL AND p_agreed_amount_minor < 0)
-     OR p_currency IS NULL OR p_currency NOT IN ('GBP', 'EUR', 'USD') THEN
-    RAISE EXCEPTION 'A sponsor with an agreed fee must use pending payment and invoice reconciliation' USING ERRCODE = '22023';
-  END IF;
-  INSERT INTO public.sponsors (
-    sponsor_name, contact_email, website_url, description, starts_on, ends_on,
-    status, agreed_amount_minor, currency, payment_status, payment_received_at,
-    payment_reference, admin_notes, created_by
-  ) VALUES (
-    btrim(p_sponsor_name), nullif(btrim(p_contact_email), ''), nullif(btrim(p_website_url), ''),
-    coalesce(p_description, ''), p_starts_on, p_ends_on,
-    p_status, p_agreed_amount_minor, p_currency, p_payment_status, NULL,
-    NULL, coalesce(p_admin_notes, ''), p_actor_user_id
-  ) RETURNING * INTO v_sponsor;
-  INSERT INTO catho_private.admin_action_audit (actor_user_id, action, target_type, target_id, details)
-  VALUES (p_actor_user_id, 'sponsor.created', 'sponsor', v_sponsor.id::text,
-    jsonb_build_object('sponsor_name', v_sponsor.sponsor_name, 'status', v_sponsor.status,
-      'payment_status', v_sponsor.payment_status, 'currency', v_sponsor.currency,
-      'agreed_amount_minor', v_sponsor.agreed_amount_minor));
-  RETURN jsonb_build_object('id', v_sponsor.id, 'sponsor_name', v_sponsor.sponsor_name,
-    'status', v_sponsor.status, 'payment_status', v_sponsor.payment_status,
-    'created_at', v_sponsor.created_at);
-END;
-$function$;
+
 ALTER FUNCTION public.admin_create_sponsor(uuid, text, text, text, text, date, date, text, bigint, text, text, text, text) OWNER TO postgres;
 -- Applied migration: index_sponsor_platform_foreign_keys
 
@@ -7201,34 +6570,7 @@ BEGIN
 END;
 $function$;
 
-CREATE OR REPLACE FUNCTION catho_private.get_user_feed_preference_signals(p_user_id uuid)
- RETURNS TABLE(category_slug text, weight numeric)
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO ''
-AS $function$
-DECLARE v_current_user_id uuid := auth.uid();
-BEGIN
-  IF v_current_user_id IS NULL OR v_current_user_id IS DISTINCT FROM p_user_id THEN
-    RAISE EXCEPTION 'Cannot read another account recommendation signals' USING ERRCODE='42501';
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM catho_private.user_personalization_consents c
-    WHERE c.user_id=p_user_id AND c.enabled=true) THEN RETURN; END IF;
-  PERFORM catho_private.refresh_user_interest_profile(p_user_id);
-  RETURN QUERY
-  SELECT combined.category_slug,sum(combined.weight)::numeric
-  FROM (
-    SELECT s.category_slug,s.score AS weight
-    FROM catho_private.user_topic_interest_scores s
-    WHERE s.user_id=p_user_id AND s.score<>0
-    UNION ALL
-    SELECT e.category_slug,8::numeric AS weight
-    FROM catho_private.user_explicit_category_interests e
-    WHERE e.user_id=p_user_id
-  ) combined
-  GROUP BY combined.category_slug;
-END;
-$function$;
+
 
 
 CREATE OR REPLACE FUNCTION catho_private.refresh_user_interest_profile(p_user_id uuid)
@@ -7700,122 +7042,7 @@ begin
 end;
 $function$;
 
-CREATE OR REPLACE FUNCTION public.offline_apply_activity_v2(p_user uuid, p_operation uuid, p_device uuid, p_sequence text, p_acknowledged text, p_kind text, p_topic text, p_value boolean, p_completed_at timestamp with time zone DEFAULT NULL::timestamp with time zone)
- RETURNS jsonb
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO 'pg_catalog', 'public', 'auth', 'catho_private'
-AS $function$
-DECLARE
-  actor uuid := auth.uid();
-  seq bigint;
-  ack bigint;
-  state catho_private.activity_devices%rowtype;
-  mapped uuid;
-  result jsonb;
-  now_at timestamptz := clock_timestamp();
-  sync_count integer;
-BEGIN
-  IF actor IS NULL OR actor IS DISTINCT FROM p_user THEN
-    RAISE EXCEPTION 'Account does not match' USING ERRCODE = '42501';
-  END IF;
 
-  IF p_device IS NULL OR p_operation IS NULL
-    OR p_sequence IS NULL OR p_sequence !~ '^[1-9][0-9]{0,18}$'
-    OR p_acknowledged IS NULL OR p_acknowledged !~ '^(0|[1-9][0-9]{0,18})$'
-  THEN RAISE EXCEPTION 'Invalid activity device sequence'; END IF;
-
-  seq := p_sequence::bigint;
-  ack := p_acknowledged::bigint;
-  IF ack >= seq THEN RAISE EXCEPTION 'Invalid activity acknowledgement'; END IF;
-
-  INSERT INTO catho_private.activity_devices(user_id, device_id)
-  VALUES (actor, p_device) ON CONFLICT DO NOTHING;
-
-  SELECT * INTO state FROM catho_private.activity_devices
-  WHERE user_id = actor AND device_id = p_device FOR UPDATE;
-
-  IF seq <= state.acknowledged_sequence THEN
-    RAISE EXCEPTION 'Activity operation was already acknowledged';
-  END IF;
-  IF ack > state.last_sequence THEN RAISE EXCEPTION 'Unknown activity acknowledgement'; END IF;
-  IF ack > state.acknowledged_sequence AND NOT EXISTS (
-    SELECT 1 FROM catho_private.activity_receipt_sequences
-    WHERE user_id = actor AND device_id = p_device AND sequence = ack
-  ) THEN RAISE EXCEPTION 'Unknown activity acknowledgement'; END IF;
-
-  SELECT operation_id INTO mapped FROM catho_private.activity_receipt_sequences
-  WHERE user_id = actor AND device_id = p_device AND sequence = seq;
-
-  IF (FOUND AND mapped IS DISTINCT FROM p_operation)
-    OR (NOT FOUND AND seq <= state.last_sequence) THEN
-    RAISE EXCEPTION 'Activity device sequence was reused';
-  END IF;
-  IF mapped IS NULL AND ack < state.last_sequence AND seq <> state.last_sequence + 1 THEN
-    RAISE EXCEPTION 'Previous activity operation was not acknowledged';
-  END IF;
-  IF mapped IS NULL AND EXISTS (
-    SELECT 1 FROM catho_private.activity_receipt_sequences
-    WHERE user_id = actor AND operation_id = p_operation
-  ) THEN RAISE EXCEPTION 'Activity operation ID was reused'; END IF;
-
-  -- Count only new operations. Replaying a committed receipt after a lost
-  -- response must remain idempotent and must not consume the write allowance.
-  IF mapped IS NULL THEN
-    INSERT INTO catho_private.user_action_limits(user_id)
-    VALUES(actor) ON CONFLICT(user_id) DO NOTHING;
-
-    UPDATE catho_private.user_action_limits
-    SET
-      offline_sync_count = CASE
-        WHEN offline_sync_window_started_at IS NULL
-          OR offline_sync_window_started_at <= now_at - interval '1 minute' THEN 1
-        ELSE LEAST(offline_sync_count + 1, 301)
-      END,
-      offline_sync_window_started_at = CASE
-        WHEN offline_sync_window_started_at IS NULL
-          OR offline_sync_window_started_at <= now_at - interval '1 minute' THEN now_at
-        ELSE offline_sync_window_started_at
-      END
-    WHERE user_id = actor
-    RETURNING offline_sync_count INTO sync_count;
-
-    IF sync_count > 300 THEN
-      RAISE EXCEPTION 'Offline activity sync rate limit exceeded' USING ERRCODE = 'P0001';
-    END IF;
-  END IF;
-
-  IF ack > state.acknowledged_sequence THEN
-    DELETE FROM catho_private.activity_receipts r
-    USING catho_private.activity_receipt_sequences s
-    WHERE s.user_id = actor AND s.device_id = p_device AND s.sequence <= ack
-      AND r.user_id = s.user_id AND r.operation_id = s.operation_id;
-
-    UPDATE catho_private.activity_devices
-    SET acknowledged_sequence = ack
-    WHERE user_id = actor AND device_id = p_device;
-  END IF;
-
-  DELETE FROM catho_private.activity_receipt_sequences
-  WHERE user_id = actor AND device_id = p_device AND sequence <= ack;
-
-  result := public.offline_apply_activity(
-    p_user, p_operation, p_kind, p_topic, p_value, p_completed_at
-  );
-
-  IF mapped IS NULL THEN
-    INSERT INTO catho_private.activity_receipt_sequences(
-      user_id, device_id, sequence, operation_id
-    ) VALUES (actor, p_device, seq, p_operation);
-
-    UPDATE catho_private.activity_devices
-    SET last_sequence = seq
-    WHERE user_id = actor AND device_id = p_device;
-  END IF;
-
-  RETURN result;
-END;
-$function$;
 
 -- Exact ACLs for the added overloads.
 
