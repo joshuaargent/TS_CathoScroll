@@ -390,7 +390,7 @@ export function SponsorCampaignManager({
                       })()}
                     </td>
                     <td className="px-4 py-4 tabular-nums">
-                      {campaign.served_count.toLocaleString('en-GB')} served
+                      {campaign.served_count.toLocaleString('en-GB')} lifetime signed-in served
                     </td>
                     <td className="px-4 py-4">
                       <p className="font-semibold">{humanize(campaign.status)}</p>
