@@ -35,8 +35,10 @@ export default function PrivacyPage() {
           <h2 className="mb-4 text-3xl font-bold">Who We Are</h2>
 
           <p className="text-text-secondary leading-relaxed">
-            CathoScroll is operated by Joshua Argent and provides educational resources focused on
-            Catholic theology, Scripture, Church history, prayer, apologetics, and related subjects.
+            CathoScroll is operated by Joshua Argent, who is the data controller for the personal data
+            described in this policy. CathoScroll provides educational resources focused on Catholic
+            theology, Scripture, Church history, prayer, apologetics, and related subjects. You can
+            contact the controller using the details at the end of this policy.
           </p>
         </section>
 
@@ -174,6 +176,18 @@ export default function PrivacyPage() {
             You may withdraw personalisation consent at any time using the account
             controls described above. Withdrawal does not affect processing carried out
             before withdrawal.
+          </p>
+        </section>
+
+        <section>
+          <h2 className="mb-4 text-3xl font-bold">Automated Recommendations</h2>
+
+          <p className="text-text-secondary leading-relaxed">
+            If you opt in to personalisation, automated ranking uses your private content-interest
+            profile to order educational topics in your own feed. It does not determine access to
+            essential services, prices, employment, credit, insurance, or other decisions with
+            legal or similarly significant effects. You can turn off personalisation and delete
+            the derived profile through Account settings.
           </p>
         </section>
 
