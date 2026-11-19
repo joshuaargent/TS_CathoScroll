@@ -2275,7 +2275,7 @@ CREATE OR REPLACE FUNCTION public.notify_comment_appeal_reviewed()
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'pg_catalog', 'public'
-AS $function$;
+AS $function$
 begin
   if old.status = 'pending' and new.status <> 'pending' then
     if new.status = 'approved'
@@ -3829,7 +3829,7 @@ CREATE OR REPLACE FUNCTION public.get_admin_content_analytics(p_entity_type text
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO ''
-AS $function$;
+AS $function$
 DECLARE
   v_first_retained_event_at timestamptz;
   v_effective_from timestamptz;
@@ -4196,14 +4196,11 @@ COMMENT ON FUNCTION public.get_admin_content_analytics(text, text, timestamptz, 
   RETURN v_inserted;
 END;
 $function$;
-CREATE OR REPLACE FUNCTION catho_private.prune_feed_analytics_events(
-  p_before timestamptz DEFAULT statement_timestamp() - interval '180 days',
-  p_limit integer DEFAULT 5000
-)
-RETURNS integer
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = pg_catalog, catho_private
+CREATE OR REPLACE FUNCTION catho_private.prune_feed_analytics_events(p_before timestamp with time zone DEFAULT (statement_timestamp() - '180 days'::interval), p_limit integer DEFAULT 5000)
+ RETURNS integer
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'pg_catalog', 'catho_private'
 AS $function$
 DECLARE
   v_deleted integer := 0;
@@ -4213,6 +4210,7 @@ BEGIN
      OR p_limit IS NULL OR p_limit < 1 OR p_limit > 10000 THEN
     RAISE EXCEPTION 'Invalid feed analytics retention parameters' USING ERRCODE = '22023';
   END IF;
+
   WITH expired AS (
     SELECT event.ctid
     FROM catho_private.feed_analytics_events AS event
@@ -4240,10 +4238,10 @@ BEGIN
 END;
 $function$;
 CREATE OR REPLACE FUNCTION catho_private.refresh_feed_analytics_daily(p_days_back integer DEFAULT 2)
-RETURNS integer
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = pg_catalog, catho_private
+ RETURNS integer
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'pg_catalog', 'catho_private'
 AS $function$
 DECLARE
   v_from date;
@@ -4253,7 +4251,6 @@ BEGIN
   IF p_days_back IS NULL OR p_days_back < 0 OR p_days_back > 7 THEN
     RAISE EXCEPTION 'Invalid analytics rollup window' USING ERRCODE = '22023';
   END IF;
-
   v_through := (pg_catalog.timezone('UTC', statement_timestamp()))::date;
   v_from := v_through - p_days_back;
 
@@ -4348,12 +4345,11 @@ CREATE INDEX IF NOT EXISTS comments_visible_parent_created_idx
 
 DROP FUNCTION IF EXISTS public.get_top_feed_comments();
 DROP FUNCTION IF EXISTS public.get_top_feed_comments(integer, integer);
-CREATE FUNCTION public.get_top_feed_comments(p_offset integer DEFAULT 0, p_limit integer DEFAULT 100)
-RETURNS jsonb
-LANGUAGE plpgsql
-STABLE
-SECURITY DEFINER
-SET search_path = ''
+CREATE OR REPLACE FUNCTION public.get_top_feed_comments(p_offset integer DEFAULT 0, p_limit integer DEFAULT 100)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
 AS $function$
 BEGIN
   IF p_offset IS NULL OR p_offset < 0 OR p_offset > 5000 OR p_limit IS NULL OR p_limit < 1 OR p_limit > 100 THEN
@@ -4528,13 +4524,11 @@ ALTER TABLE public.sponsors ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON TABLE public.sponsors FROM PUBLIC, anon, authenticated, service_role;
 GRANT ALL ON TABLE public.sponsors TO service_role;
 
-CREATE OR REPLACE FUNCTION public.admin_create_sponsor(
-  p_actor_user_id uuid, p_sponsor_name text, p_contact_email text, p_website_url text,
-  p_description text, p_starts_on date, p_ends_on date, p_status text,
-  p_agreed_amount_minor bigint, p_currency text, p_payment_status text,
-  p_payment_reference text, p_admin_notes text
-)
-RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
+CREATE OR REPLACE FUNCTION public.admin_create_sponsor(p_actor_user_id uuid, p_sponsor_name text, p_contact_email text, p_website_url text, p_description text, p_starts_on date, p_ends_on date, p_status text, p_agreed_amount_minor bigint, p_currency text, p_payment_status text, p_payment_reference text, p_admin_notes text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
 AS $function$
 DECLARE v_sponsor public.sponsors%ROWTYPE;
 BEGIN
@@ -4571,15 +4565,11 @@ $function$;
 ALTER FUNCTION public.admin_create_sponsor(
   uuid, text, text, text, text, date, date, text, bigint, text, text, text, text
 ) OWNER TO postgres;
-CREATE OR REPLACE FUNCTION public.admin_mark_sponsor_payment_received(
-  p_actor_user_id uuid,
-  p_sponsor_id uuid,
-  p_payment_reference text DEFAULT NULL
-)
-RETURNS jsonb
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = ''
+CREATE OR REPLACE FUNCTION public.admin_mark_sponsor_payment_received(p_actor_user_id uuid, p_sponsor_id uuid, p_payment_reference text DEFAULT NULL::text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
 AS $function$
 DECLARE
   v_sponsor public.sponsors%ROWTYPE;
@@ -4732,20 +4722,20 @@ REVOKE ALL ON TABLE catho_private.sponsor_campaign_events FROM PUBLIC, anon, aut
 REVOKE ALL ON TABLE catho_private.sponsor_campaign_daily FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON TABLE catho_private.sponsor_campaign_user_frequency FROM PUBLIC, anon, authenticated, service_role;
 
-CREATE OR REPLACE FUNCTION public.admin_create_sponsor_campaign(
-  p_actor_user_id uuid, p_sponsor_id uuid, p_campaign_name text, p_headline text, p_body text,
-  p_image_url text, p_destination_url text, p_cta_label text, p_starts_on date, p_ends_on date,
-  p_target_category_slugs text[], p_target_topic_ids text[], p_placement_weight integer,
-  p_frequency_cap_per_user_24h integer, p_frequency_cap_per_user_total integer,
-  p_daily_impression_cap bigint, p_total_impression_cap bigint
-)
-RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
+CREATE OR REPLACE FUNCTION public.admin_create_sponsor_campaign(p_actor_user_id uuid, p_sponsor_id uuid, p_campaign_name text, p_headline text, p_body text, p_image_url text, p_destination_url text, p_cta_label text, p_starts_on date, p_ends_on date, p_target_category_slugs text[], p_target_topic_ids text[], p_placement_weight integer, p_frequency_cap_per_user_24h integer, p_frequency_cap_per_user_total integer, p_daily_impression_cap bigint, p_total_impression_cap bigint)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
 AS $function$
-DECLARE v_campaign public.sponsor_campaigns%ROWTYPE;
+DECLARE
+  v_campaign public.sponsor_campaigns%ROWTYPE;
 BEGIN
   IF p_actor_user_id IS NULL OR NOT EXISTS (
     SELECT 1 FROM public.admin_users AS admins WHERE admins.user_id = p_actor_user_id
-  ) THEN RAISE EXCEPTION 'Administrator access required' USING ERRCODE = '42501'; END IF;
+  ) THEN
+    RAISE EXCEPTION 'Administrator access required' USING ERRCODE = '42501';
+  END IF;
   IF NOT EXISTS (SELECT 1 FROM public.sponsors AS sponsor WHERE sponsor.id = p_sponsor_id) THEN
     RAISE EXCEPTION 'Sponsor not found' USING ERRCODE = 'P0002';
   END IF;
@@ -4767,38 +4757,55 @@ BEGIN
   ) OR EXISTS (
     SELECT 1 FROM pg_catalog.unnest(p_target_topic_ids) AS target(topic_id)
     WHERE NOT EXISTS (SELECT 1 FROM public.topics AS topic WHERE topic.id = target.topic_id)
-  ) THEN RAISE EXCEPTION 'Unknown campaign targeting value' USING ERRCODE = '22023'; END IF;
+  ) THEN
+    RAISE EXCEPTION 'Unknown campaign targeting value' USING ERRCODE = '22023';
+  END IF;
 
   INSERT INTO public.sponsor_campaigns (
     sponsor_id, campaign_name, headline, body, image_url, destination_url, cta_label,
     starts_on, ends_on, target_category_slugs, target_topic_ids, placement_weight,
     frequency_cap_per_user_24h, frequency_cap_per_user_total,
     daily_impression_cap, total_impression_cap, created_by
-  ) VALUES (
+  )
+  VALUES (
     p_sponsor_id, btrim(p_campaign_name), btrim(p_headline), btrim(p_body),
     nullif(btrim(p_image_url), ''), btrim(p_destination_url),
     coalesce(nullif(btrim(p_cta_label), ''), 'Learn more'),
     p_starts_on, p_ends_on, p_target_category_slugs, p_target_topic_ids,
     p_placement_weight, p_frequency_cap_per_user_24h, p_frequency_cap_per_user_total,
     p_daily_impression_cap, p_total_impression_cap, p_actor_user_id
-  ) RETURNING * INTO v_campaign;
+  )
+  RETURNING * INTO v_campaign;
 
-  INSERT INTO catho_private.admin_action_audit (actor_user_id, action, target_type, target_id, details)
+  INSERT INTO catho_private.admin_action_audit (
+    actor_user_id, action, target_type, target_id, details
+  )
   VALUES (
     p_actor_user_id, 'sponsor_campaign.created', 'sponsor_campaign', v_campaign.id::text,
-    pg_catalog.jsonb_build_object('sponsor_id', v_campaign.sponsor_id,
-      'campaign_name', v_campaign.campaign_name, 'placement_weight', v_campaign.placement_weight,
-      'status', v_campaign.status)
+    pg_catalog.jsonb_build_object(
+      'sponsor_id', v_campaign.sponsor_id,
+      'campaign_name', v_campaign.campaign_name,
+      'placement_weight', v_campaign.placement_weight,
+      'status', v_campaign.status
+    )
   );
-  RETURN pg_catalog.jsonb_build_object('id', v_campaign.id, 'campaign_name', v_campaign.campaign_name,
-    'status', v_campaign.status, 'created_at', v_campaign.created_at);
+
+  RETURN pg_catalog.jsonb_build_object(
+    'id', v_campaign.id,
+    'campaign_name', v_campaign.campaign_name,
+    'status', v_campaign.status,
+    'created_at', v_campaign.created_at
+  );
 END;
 $function$;
 ALTER FUNCTION public.admin_create_sponsor_campaign(
   uuid, uuid, text, text, text, text, text, text, date, date, text[], text[], integer, integer, integer, bigint, bigint
 ) OWNER TO postgres;
 CREATE OR REPLACE FUNCTION public.admin_set_sponsor_campaign_status(p_actor_user_id uuid, p_campaign_id uuid, p_action text)
-RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
 AS $function$
 DECLARE
   v_campaign public.sponsor_campaigns%ROWTYPE;
@@ -4807,9 +4814,18 @@ DECLARE
 BEGIN
   IF p_actor_user_id IS NULL OR NOT EXISTS (
     SELECT 1 FROM public.admin_users AS admins WHERE admins.user_id = p_actor_user_id
-  ) THEN RAISE EXCEPTION 'Administrator access required' USING ERRCODE = '42501'; END IF;
-  SELECT * INTO v_campaign FROM public.sponsor_campaigns AS campaign WHERE campaign.id = p_campaign_id FOR UPDATE;
-  IF NOT FOUND THEN RAISE EXCEPTION 'Campaign not found' USING ERRCODE = 'P0002'; END IF;
+  ) THEN
+    RAISE EXCEPTION 'Administrator access required' USING ERRCODE = '42501';
+  END IF;
+
+  SELECT * INTO v_campaign
+  FROM public.sponsor_campaigns AS campaign
+  WHERE campaign.id = p_campaign_id
+  FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Campaign not found' USING ERRCODE = 'P0002';
+  END IF;
+
   SELECT * INTO v_sponsor FROM public.sponsors AS sponsor WHERE sponsor.id = v_campaign.sponsor_id;
 
   CASE p_action
@@ -4820,49 +4836,80 @@ BEGIN
         RAISE EXCEPTION 'Campaign requires an active sponsor and reconciled payment before approval' USING ERRCODE = '23514';
       END IF;
       v_new_status := 'approved';
-      UPDATE public.sponsor_campaigns SET status=v_new_status, approved_by=p_actor_user_id,
-        approved_at=pg_catalog.statement_timestamp(), updated_at=pg_catalog.statement_timestamp()
-      WHERE id=p_campaign_id RETURNING * INTO v_campaign;
+      UPDATE public.sponsor_campaigns
+      SET status = v_new_status, approved_by = p_actor_user_id,
+          approved_at = pg_catalog.statement_timestamp(), updated_at = pg_catalog.statement_timestamp()
+      WHERE id = p_campaign_id
+      RETURNING * INTO v_campaign;
     WHEN 'pause' THEN
-      IF v_campaign.status <> 'approved' THEN RAISE EXCEPTION 'Only approved campaigns can be paused' USING ERRCODE = '23514'; END IF;
+      IF v_campaign.status <> 'approved' THEN
+        RAISE EXCEPTION 'Only approved campaigns can be paused' USING ERRCODE = '23514';
+      END IF;
       v_new_status := 'paused';
-      UPDATE public.sponsor_campaigns SET status=v_new_status, updated_at=pg_catalog.statement_timestamp()
-      WHERE id=p_campaign_id RETURNING * INTO v_campaign;
+      UPDATE public.sponsor_campaigns
+      SET status = v_new_status, updated_at = pg_catalog.statement_timestamp()
+      WHERE id = p_campaign_id
+      RETURNING * INTO v_campaign;
     WHEN 'resume' THEN
-      IF v_campaign.status <> 'paused' OR v_sponsor.status NOT IN ('active', 'scheduled')
+      IF v_campaign.status <> 'paused'
+         OR v_sponsor.status NOT IN ('active', 'scheduled')
          OR v_sponsor.payment_status NOT IN ('received', 'not_required') THEN
         RAISE EXCEPTION 'Campaign cannot be resumed until its sponsor and payment are eligible' USING ERRCODE = '23514';
       END IF;
       v_new_status := 'approved';
-      UPDATE public.sponsor_campaigns SET status=v_new_status, updated_at=pg_catalog.statement_timestamp()
-      WHERE id=p_campaign_id RETURNING * INTO v_campaign;
+      UPDATE public.sponsor_campaigns
+      SET status = v_new_status, updated_at = pg_catalog.statement_timestamp()
+      WHERE id = p_campaign_id
+      RETURNING * INTO v_campaign;
     WHEN 'complete' THEN
-      IF v_campaign.status NOT IN ('approved', 'paused') THEN RAISE EXCEPTION 'Only approved or paused campaigns can be completed' USING ERRCODE = '23514'; END IF;
+      IF v_campaign.status NOT IN ('approved', 'paused') THEN
+        RAISE EXCEPTION 'Only approved or paused campaigns can be completed' USING ERRCODE = '23514';
+      END IF;
       v_new_status := 'completed';
-      UPDATE public.sponsor_campaigns SET status=v_new_status, updated_at=pg_catalog.statement_timestamp()
-      WHERE id=p_campaign_id RETURNING * INTO v_campaign;
+      UPDATE public.sponsor_campaigns
+      SET status = v_new_status, updated_at = pg_catalog.statement_timestamp()
+      WHERE id = p_campaign_id
+      RETURNING * INTO v_campaign;
     WHEN 'reject' THEN
-      IF v_campaign.status NOT IN ('draft', 'pending_approval', 'approved', 'paused') THEN RAISE EXCEPTION 'Campaign cannot be rejected in its current state' USING ERRCODE = '23514'; END IF;
+      IF v_campaign.status NOT IN ('draft', 'pending_approval', 'approved', 'paused') THEN
+        RAISE EXCEPTION 'Campaign cannot be rejected in its current state' USING ERRCODE = '23514';
+      END IF;
       v_new_status := 'rejected';
-      UPDATE public.sponsor_campaigns SET status=v_new_status, updated_at=pg_catalog.statement_timestamp()
-      WHERE id=p_campaign_id RETURNING * INTO v_campaign;
-    ELSE RAISE EXCEPTION 'Invalid campaign action' USING ERRCODE = '22023';
+      UPDATE public.sponsor_campaigns
+      SET status = v_new_status, updated_at = pg_catalog.statement_timestamp()
+      WHERE id = p_campaign_id
+      RETURNING * INTO v_campaign;
+    ELSE
+      RAISE EXCEPTION 'Invalid campaign action' USING ERRCODE = '22023';
   END CASE;
 
-  INSERT INTO catho_private.admin_action_audit (actor_user_id, action, target_type, target_id, details)
-  VALUES (p_actor_user_id, 'sponsor_campaign.' || p_action, 'sponsor_campaign', v_campaign.id::text,
-    pg_catalog.jsonb_build_object('campaign_name', v_campaign.campaign_name,
-      'sponsor_id', v_campaign.sponsor_id, 'status', v_campaign.status));
-  RETURN pg_catalog.jsonb_build_object('id', v_campaign.id, 'campaign_name', v_campaign.campaign_name,
-    'status', v_campaign.status, 'approved_at', v_campaign.approved_at);
+  INSERT INTO catho_private.admin_action_audit (
+    actor_user_id, action, target_type, target_id, details
+  )
+  VALUES (
+    p_actor_user_id, 'sponsor_campaign.' || p_action, 'sponsor_campaign',
+    v_campaign.id::text,
+    pg_catalog.jsonb_build_object(
+      'campaign_name', v_campaign.campaign_name,
+      'sponsor_id', v_campaign.sponsor_id,
+      'status', v_campaign.status
+    )
+  );
+
+  RETURN pg_catalog.jsonb_build_object(
+    'id', v_campaign.id,
+    'campaign_name', v_campaign.campaign_name,
+    'status', v_campaign.status,
+    'approved_at', v_campaign.approved_at
+  );
 END;
 $function$;
 ALTER FUNCTION public.admin_set_sponsor_campaign_status(uuid, uuid, text) OWNER TO postgres;
-CREATE OR REPLACE FUNCTION public.get_weighted_sponsor_campaigns(
-  p_user_id uuid, p_session_id uuid, p_category_slug text DEFAULT NULL,
-  p_topic_id text DEFAULT NULL, p_limit integer DEFAULT 5
-)
-RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
+CREATE OR REPLACE FUNCTION public.get_weighted_sponsor_campaigns(p_user_id uuid, p_session_id uuid, p_category_slug text DEFAULT NULL::text, p_topic_id text DEFAULT NULL::text, p_limit integer DEFAULT 5)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
 AS $function$
 DECLARE
   v_campaign record;
@@ -4902,7 +4949,6 @@ BEGIN
       ), 0) < campaign.daily_impression_cap)
       AND (campaign.total_impression_cap IS NULL OR campaign.served_count < campaign.total_impression_cap)
       AND coalesce(frequency.served_count, 0) < campaign.frequency_cap_per_user_total
-      -- Prefetching a campaign is not a user impression; only viewable cards consume the 24-hour cap.
       AND (SELECT pg_catalog.count(*) FROM catho_private.sponsor_campaign_events AS recent_viewable
         WHERE recent_viewable.user_id = p_user_id AND recent_viewable.campaign_id = campaign.id
           AND recent_viewable.event_type = 'viewable_impression'
@@ -4943,7 +4989,8 @@ BEGIN
     v_campaign_ids := pg_catalog.array_append(v_campaign_ids,v_campaign.id);
     v_campaigns := v_campaigns || pg_catalog.jsonb_build_array(pg_catalog.jsonb_build_object(
       'campaign_id',v_campaign.id,'sponsor_name',v_campaign.sponsor_name,
-'campaign_name',v_campaign.campaign_name,
+      'sponsor_logo_url',NULL,
+      'campaign_name',v_campaign.campaign_name,
       'headline',v_campaign.headline,'body',v_campaign.body,'image_url',v_campaign.image_url,
       'destination_url',v_campaign.destination_url,'cta_label',v_campaign.cta_label,
       'disclosure','Sponsored'
@@ -4954,10 +5001,11 @@ BEGIN
 END;
 $function$;
 ALTER FUNCTION public.get_weighted_sponsor_campaigns(uuid, uuid, text, text, integer) OWNER TO postgres;
-CREATE OR REPLACE FUNCTION public.record_sponsor_campaign_event(
-  p_user_id uuid, p_campaign_id uuid, p_event_id uuid, p_session_id uuid, p_event_type text
-)
-RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
+CREATE OR REPLACE FUNCTION public.record_sponsor_campaign_event(p_user_id uuid, p_campaign_id uuid, p_event_id uuid, p_session_id uuid, p_event_type text)
+ RETURNS boolean
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
 AS $function$
 DECLARE
   v_today date := (pg_catalog.timezone('UTC', pg_catalog.statement_timestamp()))::date;
@@ -5011,10 +5059,11 @@ BEGIN
 END;
 $function$;
 ALTER FUNCTION public.record_sponsor_campaign_event(uuid, uuid, uuid, uuid, text) OWNER TO postgres;
-CREATE OR REPLACE FUNCTION catho_private.prune_sponsor_campaign_events(
-  p_before timestamptz DEFAULT statement_timestamp() - interval '180 days', p_limit integer DEFAULT 5000
-)
-RETURNS integer LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, catho_private
+CREATE OR REPLACE FUNCTION catho_private.prune_sponsor_campaign_events(p_before timestamp with time zone DEFAULT (statement_timestamp() - '180 days'::interval), p_limit integer DEFAULT 5000)
+ RETURNS integer
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'pg_catalog', 'catho_private'
 AS $function$
 DECLARE v_deleted integer := 0;
 BEGIN
@@ -5076,15 +5125,11 @@ $sponsor_cron$;
 
 
 
-CREATE OR REPLACE FUNCTION public.get_admin_sponsor_campaign_analytics(
-  p_actor_user_id uuid,
-  p_from date DEFAULT (timezone('UTC', statement_timestamp()))::date - 29,
-  p_to date DEFAULT (timezone('UTC', statement_timestamp()))::date
-)
-RETURNS jsonb
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = ''
+CREATE OR REPLACE FUNCTION public.get_admin_sponsor_campaign_analytics(p_actor_user_id uuid, p_from date DEFAULT ((timezone('UTC'::text, statement_timestamp()))::date - 29), p_to date DEFAULT (timezone('UTC'::text, statement_timestamp()))::date)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
 AS $function$
 DECLARE
   v_result jsonb;
@@ -5173,10 +5218,11 @@ CREATE INDEX sponsor_member_audit_sponsor_created_idx
 ALTER TABLE catho_private.sponsor_member_audit ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON TABLE catho_private.sponsor_member_audit FROM PUBLIC, anon, authenticated, service_role;
 
-CREATE OR REPLACE FUNCTION public.admin_add_sponsor_member(
-  p_actor_user_id uuid, p_sponsor_id uuid, p_user_id uuid, p_role text DEFAULT 'owner'
-)
-RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
+CREATE OR REPLACE FUNCTION public.admin_add_sponsor_member(p_actor_user_id uuid, p_sponsor_id uuid, p_user_id uuid, p_role text DEFAULT 'owner'::text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
 AS $function$
 DECLARE v_membership public.sponsor_memberships%ROWTYPE;
 BEGIN
@@ -5202,10 +5248,11 @@ BEGIN
 END;
 $function$;
 ALTER FUNCTION public.admin_add_sponsor_member(uuid, uuid, uuid, text) OWNER TO postgres;
-CREATE OR REPLACE FUNCTION public.admin_set_sponsor_member_status(
-  p_actor_user_id uuid, p_membership_id uuid, p_action text
-)
-RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
+CREATE OR REPLACE FUNCTION public.admin_set_sponsor_member_status(p_actor_user_id uuid, p_membership_id uuid, p_action text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
 AS $function$
 DECLARE v_membership public.sponsor_memberships%ROWTYPE; v_status text;
 BEGIN
@@ -5241,14 +5288,11 @@ BEGIN
 END;
 $function$;
 ALTER FUNCTION public.admin_set_sponsor_member_status(uuid, uuid, text) OWNER TO postgres;
-CREATE OR REPLACE FUNCTION public.sponsor_create_campaign(
-  p_actor_user_id uuid, p_sponsor_id uuid, p_campaign_name text, p_headline text, p_body text,
-  p_image_url text, p_destination_url text, p_cta_label text, p_starts_on date, p_ends_on date,
-  p_target_category_slugs text[], p_target_topic_ids text[], p_placement_weight integer,
-  p_frequency_cap_per_user_24h integer, p_frequency_cap_per_user_total integer,
-  p_daily_impression_cap bigint, p_total_impression_cap bigint
-)
-RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
+CREATE OR REPLACE FUNCTION public.sponsor_create_campaign(p_actor_user_id uuid, p_sponsor_id uuid, p_campaign_name text, p_headline text, p_body text, p_image_url text, p_destination_url text, p_cta_label text, p_starts_on date, p_ends_on date, p_target_category_slugs text[], p_target_topic_ids text[], p_placement_weight integer, p_frequency_cap_per_user_24h integer, p_frequency_cap_per_user_total integer, p_daily_impression_cap bigint, p_total_impression_cap bigint)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
 AS $function$
 DECLARE v_campaign public.sponsor_campaigns%ROWTYPE;
 BEGIN
@@ -5306,14 +5350,11 @@ BEGIN
 END;
 $function$;
 ALTER FUNCTION public.sponsor_create_campaign(uuid, uuid, text, text, text, text, text, text, date, date, text[], text[], integer, integer, integer, bigint, bigint) OWNER TO postgres;
-CREATE OR REPLACE FUNCTION public.sponsor_update_campaign(
-  p_actor_user_id uuid, p_campaign_id uuid, p_campaign_name text, p_headline text, p_body text,
-  p_image_url text, p_destination_url text, p_cta_label text, p_starts_on date, p_ends_on date,
-  p_target_category_slugs text[], p_target_topic_ids text[], p_placement_weight integer,
-  p_frequency_cap_per_user_24h integer, p_frequency_cap_per_user_total integer,
-  p_daily_impression_cap bigint, p_total_impression_cap bigint
-)
-RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
+CREATE OR REPLACE FUNCTION public.sponsor_update_campaign(p_actor_user_id uuid, p_campaign_id uuid, p_campaign_name text, p_headline text, p_body text, p_image_url text, p_destination_url text, p_cta_label text, p_starts_on date, p_ends_on date, p_target_category_slugs text[], p_target_topic_ids text[], p_placement_weight integer, p_frequency_cap_per_user_24h integer, p_frequency_cap_per_user_total integer, p_daily_impression_cap bigint, p_total_impression_cap bigint)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
 AS $function$
 DECLARE v_campaign public.sponsor_campaigns%ROWTYPE;
 BEGIN
@@ -5374,12 +5415,11 @@ BEGIN
 END;
 $function$;
 ALTER FUNCTION public.sponsor_update_campaign(uuid, uuid, text, text, text, text, text, text, date, date, text[], text[], integer, integer, integer, bigint, bigint) OWNER TO postgres;
-CREATE OR REPLACE FUNCTION public.get_sponsor_campaign_analytics(
-  p_actor_user_id uuid, p_sponsor_id uuid,
-  p_from date DEFAULT (timezone('UTC', statement_timestamp()))::date - 29,
-  p_to date DEFAULT (timezone('UTC', statement_timestamp()))::date
-)
-RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
+CREATE OR REPLACE FUNCTION public.get_sponsor_campaign_analytics(p_actor_user_id uuid, p_sponsor_id uuid, p_from date DEFAULT ((timezone('UTC'::text, statement_timestamp()))::date - 29), p_to date DEFAULT (timezone('UTC'::text, statement_timestamp()))::date)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
 AS $function$
 DECLARE v_result jsonb;
 BEGIN
@@ -5477,11 +5517,11 @@ ALTER TABLE catho_private.sponsor_payment_transactions ENABLE ROW LEVEL SECURITY
 REVOKE ALL ON TABLE catho_private.sponsor_invoices FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON TABLE catho_private.sponsor_payment_transactions FROM PUBLIC, anon, authenticated, service_role;
 
-CREATE OR REPLACE FUNCTION public.admin_create_sponsor_invoice(
-  p_actor_user_id uuid, p_sponsor_id uuid, p_description text, p_amount_minor bigint,
-  p_currency text, p_issued_on date, p_due_on date, p_issue_now boolean DEFAULT true
-)
-RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
+CREATE OR REPLACE FUNCTION public.admin_create_sponsor_invoice(p_actor_user_id uuid, p_sponsor_id uuid, p_description text, p_amount_minor bigint, p_currency text, p_issued_on date, p_due_on date, p_issue_now boolean DEFAULT true)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
 AS $function$
 DECLARE
   v_invoice catho_private.sponsor_invoices%ROWTYPE;
@@ -5520,10 +5560,11 @@ BEGIN
 END;
 $function$;
 ALTER FUNCTION public.admin_create_sponsor_invoice(uuid, uuid, text, bigint, text, date, date, boolean) OWNER TO postgres;
-CREATE OR REPLACE FUNCTION public.admin_set_sponsor_invoice_status(
-  p_actor_user_id uuid, p_invoice_id uuid, p_action text
-)
-RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
+CREATE OR REPLACE FUNCTION public.admin_set_sponsor_invoice_status(p_actor_user_id uuid, p_invoice_id uuid, p_action text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
 AS $function$
 DECLARE v_invoice catho_private.sponsor_invoices%ROWTYPE; v_status text;
 BEGIN
@@ -5564,12 +5605,11 @@ BEGIN
 END;
 $function$;
 ALTER FUNCTION public.admin_set_sponsor_invoice_status(uuid, uuid, text) OWNER TO postgres;
-CREATE OR REPLACE FUNCTION public.admin_record_sponsor_payment(
-  p_actor_user_id uuid, p_sponsor_id uuid, p_invoice_id uuid, p_amount_minor bigint,
-  p_currency text, p_bank_reference text DEFAULT NULL, p_bank_transaction_date date DEFAULT NULL,
-  p_bank_transaction_key text DEFAULT NULL
-)
-RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
+CREATE OR REPLACE FUNCTION public.admin_record_sponsor_payment(p_actor_user_id uuid, p_sponsor_id uuid, p_invoice_id uuid, p_amount_minor bigint, p_currency text, p_bank_reference text DEFAULT NULL::text, p_bank_transaction_date date DEFAULT NULL::date, p_bank_transaction_key text DEFAULT NULL::text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
 AS $function$
 DECLARE
   v_invoice catho_private.sponsor_invoices%ROWTYPE;
@@ -5698,12 +5738,11 @@ BEGIN
 END;
 $function$;
 ALTER FUNCTION public.admin_record_sponsor_payment(uuid, uuid, uuid, bigint, text, text, date, text) OWNER TO postgres;
-CREATE OR REPLACE FUNCTION public.admin_record_sponsor_refund(
-  p_actor_user_id uuid, p_payment_id uuid, p_amount_minor bigint,
-  p_bank_reference text DEFAULT NULL, p_bank_transaction_date date DEFAULT NULL,
-  p_bank_transaction_key text DEFAULT NULL
-)
-RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
+CREATE OR REPLACE FUNCTION public.admin_record_sponsor_refund(p_actor_user_id uuid, p_payment_id uuid, p_amount_minor bigint, p_bank_reference text DEFAULT NULL::text, p_bank_transaction_date date DEFAULT NULL::date, p_bank_transaction_key text DEFAULT NULL::text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
 AS $function$
 DECLARE
   v_payment catho_private.sponsor_payment_transactions%ROWTYPE;
@@ -5801,10 +5840,11 @@ BEGIN
 END;
 $function$;
 ALTER FUNCTION public.admin_record_sponsor_refund(uuid, uuid, bigint, text, date, text) OWNER TO postgres;
-CREATE OR REPLACE FUNCTION public.get_admin_sponsor_financials(
-  p_actor_user_id uuid, p_sponsor_id uuid
-)
-RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
+CREATE OR REPLACE FUNCTION public.get_admin_sponsor_financials(p_actor_user_id uuid, p_sponsor_id uuid)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
 AS $function$
 DECLARE v_result jsonb;
 BEGIN
@@ -5849,10 +5889,11 @@ BEGIN
 END;
 $function$;
 ALTER FUNCTION public.get_admin_sponsor_financials(uuid, uuid) OWNER TO postgres;
-CREATE OR REPLACE FUNCTION public.get_sponsor_financials(
-  p_actor_user_id uuid, p_sponsor_id uuid
-)
-RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
+CREATE OR REPLACE FUNCTION public.get_sponsor_financials(p_actor_user_id uuid, p_sponsor_id uuid)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
 AS $function$
 DECLARE v_result jsonb;
 BEGIN
@@ -5905,10 +5946,11 @@ ALTER FUNCTION public.admin_create_sponsor(uuid, text, text, text, text, date, d
 
 -- Applied migration: add_admin_sponsor_account_lookup
 
-CREATE OR REPLACE FUNCTION public.admin_find_sponsor_user_by_email(
-  p_actor_user_id uuid, p_email text
-)
-RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
+CREATE OR REPLACE FUNCTION public.admin_find_sponsor_user_by_email(p_actor_user_id uuid, p_email text)
+ RETURNS uuid
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
 AS $function$
 DECLARE v_user_id uuid;
 BEGIN
@@ -5933,12 +5975,11 @@ ALTER FUNCTION public.admin_find_sponsor_user_by_email(uuid, text) OWNER TO post
 -- Applied migration: scope_sponsor_refunds_and_prevent_owner_lockout
 
 
-CREATE OR REPLACE FUNCTION public.admin_record_sponsor_refund(
-  p_actor_user_id uuid, p_sponsor_id uuid, p_payment_id uuid, p_amount_minor bigint,
-  p_bank_reference text DEFAULT NULL, p_bank_transaction_date date DEFAULT NULL,
-  p_bank_transaction_key text DEFAULT NULL
-)
-RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
+CREATE OR REPLACE FUNCTION public.admin_record_sponsor_refund(p_actor_user_id uuid, p_sponsor_id uuid, p_payment_id uuid, p_amount_minor bigint, p_bank_reference text DEFAULT NULL::text, p_bank_transaction_date date DEFAULT NULL::date, p_bank_transaction_key text DEFAULT NULL::text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
 AS $function$
 BEGIN
   IF p_actor_user_id IS NULL OR NOT EXISTS (
@@ -5982,10 +6023,11 @@ CREATE INDEX sponsor_memberships_added_by_idx
 
 -- Applied migration: add_admin_sponsor_status_controls
 
-CREATE OR REPLACE FUNCTION public.admin_set_sponsor_status(
-  p_actor_user_id uuid, p_sponsor_id uuid, p_status text
-)
-RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
+CREATE OR REPLACE FUNCTION public.admin_set_sponsor_status(p_actor_user_id uuid, p_sponsor_id uuid, p_status text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
 AS $function$
 DECLARE v_sponsor public.sponsors%ROWTYPE;
 BEGIN
@@ -6053,288 +6095,333 @@ REVOKE ALL ON catho_private.feed_card_analytics_events,catho_private.feed_card_a
   FROM PUBLIC,anon,authenticated,service_role;
 
 CREATE OR REPLACE FUNCTION public.record_feed_card_analytics_events(p_events jsonb)
-RETURNS integer LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
+ RETURNS integer
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
 AS $function$
-DECLARE
-  v_user_id uuid := auth.uid(); v_event jsonb; v_count integer := 0;
-  v_event_id uuid; v_event_type text; v_card_type text; v_card_id text;
-  v_session_id uuid; v_duration integer; v_window timestamptz; v_used integer;
-  v_event_id_text text; v_session_id_text text; v_duration_text text;
-BEGIN
-  IF v_user_id IS NULL THEN RAISE EXCEPTION 'authentication required' USING ERRCODE='42501'; END IF;
-  IF jsonb_typeof(p_events)<>'array' OR jsonb_array_length(p_events)<1 OR jsonb_array_length(p_events)>50 THEN
-    RAISE EXCEPTION 'invalid event batch' USING ERRCODE='22023';
-  END IF;
-  INSERT INTO catho_private.feed_card_analytics_event_limits(user_id,window_started_at,event_count)
-    VALUES(v_user_id,statement_timestamp(),0) ON CONFLICT(user_id) DO NOTHING;
-  SELECT window_started_at,event_count INTO v_window,v_used
-    FROM catho_private.feed_card_analytics_event_limits WHERE user_id=v_user_id FOR UPDATE;
-  IF v_window<=statement_timestamp()-interval '1 minute' THEN v_window:=statement_timestamp(); v_used:=0; END IF;
-  IF v_used+jsonb_array_length(p_events)>120 THEN RETURN -1; END IF;
-  UPDATE catho_private.feed_card_analytics_event_limits SET window_started_at=v_window,
-    event_count=v_used+jsonb_array_length(p_events) WHERE user_id=v_user_id;
-  FOR v_event IN SELECT value FROM jsonb_array_elements(p_events) LOOP
-    IF jsonb_typeof(v_event)<>'object' OR (SELECT count(*) FROM jsonb_object_keys(v_event))>7 THEN
-      RAISE EXCEPTION 'invalid event' USING ERRCODE='22023';
-    END IF;
-    v_event_id_text:=v_event->>'event_id'; v_session_id_text:=v_event->>'session_id';
+declare
+  v_user_id uuid := auth.uid();
+  v_event jsonb;
+  v_count integer := 0;
+  v_event_id uuid;
+  v_event_type text;
+  v_card_type text;
+  v_card_id text;
+  v_session_id uuid;
+  v_duration integer;
+  v_window timestamptz;
+  v_used integer;
+  v_event_id_text text;
+  v_session_id_text text;
+  v_duration_text text;
+begin
+  if v_user_id is null then raise exception 'authentication required' using errcode='42501'; end if;
+  if jsonb_typeof(p_events) <> 'array' or jsonb_array_length(p_events) < 1 or jsonb_array_length(p_events) > 50 then
+    raise exception 'invalid event batch' using errcode='22023';
+  end if;
+  insert into catho_private.feed_card_analytics_event_limits(user_id,window_started_at,event_count)
+  values(v_user_id,statement_timestamp(),0) on conflict(user_id) do nothing;
+  select window_started_at,event_count into v_window,v_used
+  from catho_private.feed_card_analytics_event_limits where user_id=v_user_id for update;
+  if v_window <= statement_timestamp()-interval '1 minute' then v_window:=statement_timestamp(); v_used:=0; end if;
+  if v_used + jsonb_array_length(p_events) > 120 then return -1; end if;
+  update catho_private.feed_card_analytics_event_limits
+  set window_started_at=v_window,event_count=v_used+jsonb_array_length(p_events) where user_id=v_user_id;
+
+  for v_event in select value from jsonb_array_elements(p_events) loop
+    if jsonb_typeof(v_event)<>'object' or (select count(*) from jsonb_object_keys(v_event))>7 then
+      raise exception 'invalid event' using errcode='22023';
+    end if;
+    v_event_id_text:=v_event->>'event_id';
+    v_session_id_text:=v_event->>'session_id';
     v_duration_text:=coalesce(v_event->>'duration_ms','0');
-    IF v_event_id_text IS NULL OR v_event_id_text !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}
-
-      OR v_session_id_text IS NULL OR v_session_id_text !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}
-
-      OR v_duration_text !~ '^[0-9]{1,6}
- THEN RAISE EXCEPTION 'invalid event identifiers or duration' USING ERRCODE='22023'; END IF;
-    v_event_id:=v_event_id_text::uuid; v_session_id:=v_session_id_text::uuid; v_duration:=v_duration_text::integer;
-    v_event_type:=v_event->>'event_type'; v_card_type:=v_event->>'card_type'; v_card_id:=v_event->>'card_id';
-    IF v_event_type IS NULL OR v_event_type NOT IN ('impression','viewable_impression','active_duration','skip','completion','open')
-      OR v_card_type IS NULL OR v_card_type<>'top-comment' OR v_card_id IS NULL
-      OR length(v_card_id) NOT BETWEEN 1 AND 64 OR v_duration NOT BETWEEN 0 AND 300000
-      OR (v_event ? 'metadata' AND jsonb_typeof(v_event->'metadata')<>'object')
-      OR octet_length(coalesce(v_event->'metadata','{}'::jsonb)::text)>512 THEN
-      RAISE EXCEPTION 'invalid event fields' USING ERRCODE='22023';
-    END IF;
-    INSERT INTO catho_private.feed_card_analytics_events(user_id,event_id,event_type,card_type,card_id,session_id,duration_ms,metadata)
-      VALUES(v_user_id,v_event_id,v_event_type,v_card_type,v_card_id,v_session_id,v_duration,coalesce(v_event->'metadata','{}'::jsonb))
-      ON CONFLICT(user_id,event_id) DO NOTHING;
-    IF FOUND THEN v_count:=v_count+1; END IF;
-  END LOOP;
-  RETURN v_count;
-END;
+    if v_event_id_text is null or v_event_id_text !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+      or v_session_id_text is null or v_session_id_text !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+      or v_duration_text !~ '^[0-9]{1,6}$' then
+      raise exception 'invalid event identifiers or duration' using errcode='22023';
+    end if;
+    v_event_id:=v_event_id_text::uuid;
+    v_session_id:=v_session_id_text::uuid;
+    v_duration:=v_duration_text::integer;
+    v_event_type:=v_event->>'event_type';
+    v_card_type:=v_event->>'card_type';
+    v_card_id:=v_event->>'card_id';
+    if v_event_type is null or v_event_type not in ('impression','viewable_impression','active_duration','skip','completion','open')
+      or v_card_type is null or v_card_type<>'top-comment'
+      or v_card_id is null or length(v_card_id) not between 1 and 64
+      or v_duration not between 0 and 300000
+      or (v_event ? 'metadata' and jsonb_typeof(v_event->'metadata')<>'object')
+      or octet_length(coalesce(v_event->'metadata','{}'::jsonb)::text)>512 then
+      raise exception 'invalid event fields' using errcode='22023';
+    end if;
+    insert into catho_private.feed_card_analytics_events(user_id,event_id,event_type,card_type,card_id,session_id,duration_ms,metadata)
+    values(v_user_id,v_event_id,v_event_type,v_card_type,v_card_id,v_session_id,v_duration,coalesce(v_event->'metadata','{}'::jsonb))
+    on conflict(user_id,event_id) do nothing;
+    if found then v_count:=v_count+1; end if;
+  end loop;
+  return v_count;
+end;
 $function$;
 ALTER FUNCTION public.record_feed_card_analytics_events(jsonb) OWNER TO postgres;
 CREATE OR REPLACE FUNCTION catho_private.refresh_feed_card_analytics_daily()
-RETURNS integer LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
+ RETURNS integer
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
 AS $function$
-DECLARE v_rows integer;
-BEGIN
-  INSERT INTO catho_private.feed_card_analytics_daily_viewers(event_date,card_type,card_id,user_id)
-    SELECT DISTINCT (received_at AT TIME ZONE 'UTC')::date,card_type,card_id,user_id
-    FROM catho_private.feed_card_analytics_events
-    WHERE received_at>=statement_timestamp()-interval '2 days' AND event_type IN ('impression','viewable_impression')
-    ON CONFLICT DO NOTHING;
-  WITH event_totals AS (
-    SELECT (received_at AT TIME ZONE 'UTC')::date event_date,card_type,card_id,
-      count(*) FILTER(WHERE event_type='impression') impressions,
-      count(*) FILTER(WHERE event_type='viewable_impression') viewable_impressions,
-      coalesce(sum(duration_ms) FILTER(WHERE event_type='active_duration'),0) active_duration_ms,
-      count(*) FILTER(WHERE event_type='skip') skips,
-      count(*) FILTER(WHERE event_type='completion') completions,
-      count(*) FILTER(WHERE event_type='open') opens
-    FROM catho_private.feed_card_analytics_events
-    WHERE received_at>=statement_timestamp()-interval '2 days' GROUP BY 1,2,3
-  ), viewer_totals AS (
-    SELECT event_date,card_type,card_id,count(*) unique_viewers
-    FROM catho_private.feed_card_analytics_daily_viewers
-    WHERE event_date>=(statement_timestamp()-interval '2 days')::date GROUP BY 1,2,3
+declare v_rows integer;
+begin
+  insert into catho_private.feed_card_analytics_daily_viewers(event_date,card_type,card_id,user_id)
+  select distinct (received_at at time zone 'UTC')::date,card_type,card_id,user_id
+  from catho_private.feed_card_analytics_events
+  where received_at >= statement_timestamp()-interval '2 days'
+    and event_type in ('impression','viewable_impression')
+  on conflict do nothing;
+  with event_totals as (
+    select (received_at at time zone 'UTC')::date event_date,card_type,card_id,
+      count(*) filter(where event_type='impression') impressions,
+      count(*) filter(where event_type='viewable_impression') viewable_impressions,
+      coalesce(sum(duration_ms) filter(where event_type='active_duration'),0) active_duration_ms,
+      count(*) filter(where event_type='skip') skips,
+      count(*) filter(where event_type='completion') completions,
+      count(*) filter(where event_type='open') opens
+    from catho_private.feed_card_analytics_events
+    where received_at >= statement_timestamp()-interval '2 days'
+    group by 1,2,3
+  ), viewer_totals as (
+    select event_date,card_type,card_id,count(*) unique_viewers
+    from catho_private.feed_card_analytics_daily_viewers
+    where event_date >= (statement_timestamp()-interval '2 days')::date
+    group by 1,2,3
   )
-  INSERT INTO catho_private.feed_card_analytics_daily(event_date,card_type,card_id,impressions,viewable_impressions,
-    active_duration_ms,skips,completions,opens,unique_viewers,refreshed_at)
-  SELECT e.event_date,e.card_type,e.card_id,e.impressions,e.viewable_impressions,e.active_duration_ms,
-    e.skips,e.completions,e.opens,coalesce(v.unique_viewers,0),statement_timestamp()
-  FROM event_totals e LEFT JOIN viewer_totals v USING(event_date,card_type,card_id)
-  ON CONFLICT(event_date,card_type,card_id) DO UPDATE SET impressions=excluded.impressions,
-    viewable_impressions=excluded.viewable_impressions,active_duration_ms=excluded.active_duration_ms,
-    skips=excluded.skips,completions=excluded.completions,opens=excluded.opens,
-    unique_viewers=excluded.unique_viewers,refreshed_at=excluded.refreshed_at;
-  GET DIAGNOSTICS v_rows=ROW_COUNT; RETURN v_rows;
-END;
+  insert into catho_private.feed_card_analytics_daily(event_date,card_type,card_id,impressions,viewable_impressions,active_duration_ms,skips,completions,opens,unique_viewers,refreshed_at)
+  select e.event_date,e.card_type,e.card_id,e.impressions,e.viewable_impressions,e.active_duration_ms,e.skips,e.completions,e.opens,coalesce(v.unique_viewers,0),statement_timestamp()
+  from event_totals e left join viewer_totals v using(event_date,card_type,card_id)
+  on conflict(event_date,card_type,card_id) do update set
+    impressions=excluded.impressions,viewable_impressions=excluded.viewable_impressions,
+    active_duration_ms=excluded.active_duration_ms,skips=excluded.skips,
+    completions=excluded.completions,opens=excluded.opens,unique_viewers=excluded.unique_viewers,
+    refreshed_at=excluded.refreshed_at;
+  get diagnostics v_rows = row_count;
+  return v_rows;
+end;
 $function$;
 ALTER FUNCTION catho_private.refresh_feed_card_analytics_daily() OWNER TO postgres;
-CREATE OR REPLACE FUNCTION catho_private.prune_feed_card_analytics_events(p_before timestamptz,p_batch_size integer DEFAULT 5000)
-RETURNS integer LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
+CREATE OR REPLACE FUNCTION catho_private.prune_feed_card_analytics_events(p_before timestamp with time zone, p_batch_size integer DEFAULT 5000)
+ RETURNS integer
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
 AS $function$
-DECLARE v_deleted integer; v_viewers_deleted integer;
-BEGIN
-  IF p_before>statement_timestamp()-interval '180 days' OR p_batch_size NOT BETWEEN 1 AND 5000 THEN
-    RAISE EXCEPTION 'invalid retention boundary or batch size' USING ERRCODE='22023';
-  END IF;
-  WITH doomed AS (SELECT ctid FROM catho_private.feed_card_analytics_daily_viewers
-    WHERE event_date<p_before::date ORDER BY event_date LIMIT p_batch_size)
-  DELETE FROM catho_private.feed_card_analytics_daily_viewers v USING doomed d WHERE v.ctid=d.ctid;
-  GET DIAGNOSTICS v_viewers_deleted=ROW_COUNT;
-  WITH doomed AS (SELECT ctid FROM catho_private.feed_card_analytics_events
-    WHERE received_at<p_before ORDER BY received_at LIMIT p_batch_size)
-  DELETE FROM catho_private.feed_card_analytics_events e USING doomed d WHERE e.ctid=d.ctid;
-  GET DIAGNOSTICS v_deleted=ROW_COUNT;
-  RETURN v_deleted+v_viewers_deleted;
-END;
+declare v_deleted integer; v_viewers_deleted integer;
+begin
+  if p_before>statement_timestamp()-interval '180 days' or p_batch_size not between 1 and 5000 then
+    raise exception 'invalid retention boundary or batch size' using errcode='22023';
+  end if;
+  with doomed as (
+    select ctid from catho_private.feed_card_analytics_daily_viewers
+    where event_date<p_before::date order by event_date limit p_batch_size
+  )
+  delete from catho_private.feed_card_analytics_daily_viewers v using doomed d where v.ctid=d.ctid;
+  get diagnostics v_viewers_deleted=row_count;
+  with doomed as (
+    select ctid from catho_private.feed_card_analytics_events
+    where received_at<p_before order by received_at limit p_batch_size
+  )
+  delete from catho_private.feed_card_analytics_events e using doomed d where e.ctid=d.ctid;
+  get diagnostics v_deleted=row_count;
+  return v_deleted+v_viewers_deleted;
+end;
 $function$;
 ALTER FUNCTION catho_private.prune_feed_card_analytics_events(timestamptz,integer) OWNER TO postgres;
-CREATE OR REPLACE FUNCTION public.get_admin_analytics_overview(p_actor_user_id uuid,p_from timestamptz,p_to timestamptz)
-RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
+CREATE OR REPLACE FUNCTION public.get_admin_analytics_overview(p_actor_user_id uuid, p_from timestamp with time zone, p_to timestamp with time zone)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
 AS $function$
-DECLARE v_result jsonb;
-BEGIN
-  IF p_actor_user_id IS NULL OR NOT EXISTS(SELECT 1 FROM public.admin_users WHERE user_id=p_actor_user_id) THEN
-    RAISE EXCEPTION 'administrator access required' USING ERRCODE='42501';
-  END IF;
-  IF p_from IS NULL OR p_to IS NULL OR p_to<=p_from OR p_to-p_from>interval '180 days'
-    OR p_to>statement_timestamp()+interval '1 day' THEN RAISE EXCEPTION 'invalid analytics range' USING ERRCODE='22023'; END IF;
-  WITH topic_daily AS (
-    SELECT entity_id,event_date,impressions,viewable_impressions,active_duration_ms,skips,completions,return_visits
-    FROM catho_private.feed_analytics_daily WHERE event_date>=p_from::date AND event_date<=p_to::date
-  ), sponsor_daily AS (
-    SELECT campaign_id,event_date,served_count,viewable_impressions,clicks
-    FROM catho_private.sponsor_campaign_daily WHERE event_date>=p_from::date AND event_date<=p_to::date
-  ), comment_daily AS (
-    SELECT card_id,event_date,impressions,viewable_impressions,active_duration_ms,skips,completions,opens,unique_viewers
-    FROM catho_private.feed_card_analytics_daily WHERE event_date>=p_from::date AND event_date<=p_to::date
-  ), totals AS (
-    SELECT coalesce((SELECT sum(impressions) FROM topic_daily),0) topic_impressions,
-      coalesce((SELECT sum(viewable_impressions) FROM topic_daily),0) topic_viewable_impressions,
-      coalesce((SELECT sum(active_duration_ms) FROM topic_daily),0) topic_active_duration_ms,
-      coalesce((SELECT sum(skips) FROM topic_daily),0) topic_skips,
-      coalesce((SELECT sum(completions) FROM topic_daily),0) topic_completions,
-      coalesce((SELECT sum(served_count) FROM sponsor_daily),0) sponsor_served,
-      coalesce((SELECT sum(viewable_impressions) FROM sponsor_daily),0) sponsor_viewable_impressions,
-      coalesce((SELECT sum(clicks) FROM sponsor_daily),0) sponsor_clicks,
-      coalesce((SELECT sum(impressions) FROM comment_daily),0) comment_card_impressions,
-      coalesce((SELECT sum(viewable_impressions) FROM comment_daily),0) comment_card_viewable_impressions,
-      coalesce((SELECT sum(active_duration_ms) FROM comment_daily),0) comment_card_active_duration_ms,
-      coalesce((SELECT sum(skips) FROM comment_daily),0) comment_card_skips,
-      coalesce((SELECT sum(opens) FROM comment_daily),0) comment_card_opens,
-      (SELECT count(*) FROM public.categories) category_count,(SELECT count(*) FROM public.topics) topic_count,
-      (SELECT count(*) FROM public.sponsors) sponsor_count,
-      (SELECT count(*) FROM public.comments WHERE is_deleted=false AND parent_id IS NULL) comment_count,
-      (SELECT count(*) FROM public.topic_likes WHERE created_at>=p_from AND created_at<p_to) topic_likes,
-      (SELECT count(*) FROM public.bookmarks WHERE created_at>=p_from AND created_at<p_to) bookmarks,
-      (SELECT count(*) FROM public.progress WHERE completed_at>=p_from AND completed_at<p_to) completed_topics,
-      (SELECT count(*) FROM public.comments WHERE parent_id IS NULL AND is_deleted=false AND created_at>=p_from AND created_at<p_to) comments_created,
-      (SELECT count(*) FROM public.comments WHERE parent_id IS NOT NULL AND is_deleted=false AND created_at>=p_from AND created_at<p_to) replies,
-      (SELECT count(*) FROM public.comment_likes WHERE created_at>=p_from AND created_at<p_to) comment_likes,
-      (SELECT count(DISTINCT user_id) FROM catho_private.feed_analytics_events WHERE entity_type='topic' AND event_type IN ('impression','viewable_impression') AND received_at>=p_from AND received_at<p_to) unique_topic_viewers,
-      (SELECT count(DISTINCT user_id) FROM catho_private.sponsor_campaign_events WHERE event_type IN ('served','viewable_impression') AND received_at>=p_from AND received_at<p_to) unique_sponsor_viewers,
-      (SELECT count(DISTINCT user_id) FROM catho_private.feed_card_analytics_events WHERE event_type IN ('impression','viewable_impression') AND received_at>=p_from AND received_at<p_to) unique_comment_viewers,
-      (SELECT count(DISTINCT user_id) FROM (
-        SELECT user_id FROM catho_private.feed_analytics_events WHERE entity_type='topic' AND event_type IN ('impression','viewable_impression') AND received_at>=p_from AND received_at<p_to
-        UNION SELECT user_id FROM catho_private.sponsor_campaign_events WHERE event_type IN ('served','viewable_impression') AND received_at>=p_from AND received_at<p_to
-        UNION SELECT user_id FROM catho_private.feed_card_analytics_events WHERE event_type IN ('impression','viewable_impression') AND received_at>=p_from AND received_at<p_to
+declare v_result jsonb;
+begin
+  if p_actor_user_id is null or not exists(select 1 from public.admin_users where user_id=p_actor_user_id) then
+    raise exception 'administrator access required' using errcode='42501';
+  end if;
+  if p_from is null or p_to is null or p_to <= p_from or p_to-p_from > interval '180 days'
+    or p_to > statement_timestamp()+interval '1 day' then raise exception 'invalid analytics range' using errcode='22023'; end if;
+  with topic_daily as (
+    select entity_id,event_date,impressions,viewable_impressions,active_duration_ms,skips,completions,return_visits
+    from catho_private.feed_analytics_daily where event_date >= p_from::date and event_date <= p_to::date
+  ), sponsor_daily as (
+    select campaign_id,event_date,served_count,viewable_impressions,clicks
+    from catho_private.sponsor_campaign_daily where event_date >= p_from::date and event_date <= p_to::date
+  ), comment_daily as (
+    select card_id,event_date,impressions,viewable_impressions,active_duration_ms,skips,completions,opens,unique_viewers
+    from catho_private.feed_card_analytics_daily where event_date >= p_from::date and event_date <= p_to::date
+  ), totals as (
+    select coalesce((select sum(impressions) from topic_daily),0) topic_impressions,
+      coalesce((select sum(viewable_impressions) from topic_daily),0) topic_viewable_impressions,
+      coalesce((select sum(active_duration_ms) from topic_daily),0) topic_active_duration_ms,
+      coalesce((select sum(skips) from topic_daily),0) topic_skips,
+      coalesce((select sum(completions) from topic_daily),0) topic_completions,
+      coalesce((select sum(served_count) from sponsor_daily),0) sponsor_served,
+      coalesce((select sum(viewable_impressions) from sponsor_daily),0) sponsor_viewable_impressions,
+      coalesce((select sum(clicks) from sponsor_daily),0) sponsor_clicks,
+      coalesce((select sum(impressions) from comment_daily),0) comment_card_impressions,
+      coalesce((select sum(viewable_impressions) from comment_daily),0) comment_card_viewable_impressions,
+      coalesce((select sum(active_duration_ms) from comment_daily),0) comment_card_active_duration_ms,
+      coalesce((select sum(skips) from comment_daily),0) comment_card_skips,
+      coalesce((select sum(opens) from comment_daily),0) comment_card_opens,
+      (select count(*) from public.categories) category_count,
+      (select count(*) from public.topics) topic_count,
+      (select count(*) from public.sponsors) sponsor_count,
+      (select count(*) from public.comments where is_deleted=false and parent_id is null) comment_count,
+      (select count(*) from public.topic_likes where created_at>=p_from and created_at<p_to) topic_likes,
+      (select count(*) from public.bookmarks where created_at>=p_from and created_at<p_to) bookmarks,
+      (select count(*) from public.progress where completed_at>=p_from and completed_at<p_to) completed_topics,
+      (select count(*) from public.comments where parent_id is null and is_deleted=false and created_at>=p_from and created_at<p_to) comments_created,
+      (select count(*) from public.comments where parent_id is not null and is_deleted=false and created_at>=p_from and created_at<p_to) replies,
+      (select count(*) from public.comment_likes where created_at>=p_from and created_at<p_to) comment_likes,
+      (select count(distinct user_id) from catho_private.feed_analytics_events where entity_type='topic' and event_type in ('impression','viewable_impression') and received_at>=p_from and received_at<p_to) unique_topic_viewers,
+      (select count(distinct user_id) from catho_private.sponsor_campaign_events where event_type in ('served','viewable_impression') and received_at>=p_from and received_at<p_to) unique_sponsor_viewers,
+      (select count(distinct user_id) from catho_private.feed_card_analytics_events where event_type in ('impression','viewable_impression') and received_at>=p_from and received_at<p_to) unique_comment_viewers,
+      (select count(distinct user_id) from (
+        select user_id from catho_private.feed_analytics_events where entity_type='topic' and event_type in ('impression','viewable_impression') and received_at>=p_from and received_at<p_to
+        union select user_id from catho_private.sponsor_campaign_events where event_type in ('served','viewable_impression') and received_at>=p_from and received_at<p_to
+        union select user_id from catho_private.feed_card_analytics_events where event_type in ('impression','viewable_impression') and received_at>=p_from and received_at<p_to
       ) all_viewers) unique_feed_viewers
-  ), categories AS (
-    SELECT c.slug,c.name,count(t.id) topic_count,coalesce(sum(td.impressions),0) impressions,
-      coalesce(sum(td.viewable_impressions),0) viewable_impressions
-    FROM public.categories c LEFT JOIN public.topics t ON t.category_slug=c.slug
-    LEFT JOIN topic_daily td ON td.entity_id=t.id GROUP BY c.slug,c.name ORDER BY impressions DESC,c.name
-  ), topics AS (
-    SELECT t.id,t.slug,t.question,t.category_slug,coalesce(sum(td.impressions),0) impressions,
+  ), categories as (
+    select c.slug,c.name,count(t.id) topic_count,coalesce(sum(td.impressions),0) impressions,coalesce(sum(td.viewable_impressions),0) viewable_impressions
+    from public.categories c left join public.topics t on t.category_slug=c.slug
+    left join topic_daily td on td.entity_id=t.id group by c.slug,c.name order by impressions desc,c.name
+  ), topics as (
+    select t.id,t.slug,t.question,t.category_slug,coalesce(sum(td.impressions),0) impressions,
       coalesce(sum(td.viewable_impressions),0) viewable_impressions,coalesce(sum(td.active_duration_ms),0) active_duration_ms
-    FROM public.topics t LEFT JOIN topic_daily td ON td.entity_id=t.id
-    GROUP BY t.id,t.slug,t.question,t.category_slug ORDER BY impressions DESC,t.question 
-  ), sponsors AS (
-    SELECT s.id,s.sponsor_name,s.status,count(DISTINCT sc.id) campaign_count,
-      coalesce(sum(sd.served_count),0) served,coalesce(sum(sd.viewable_impressions),0) viewable_impressions,
-      coalesce(sum(sd.clicks),0) clicks
-    FROM public.sponsors s LEFT JOIN public.sponsor_campaigns sc ON sc.sponsor_id=s.id
-    LEFT JOIN sponsor_daily sd ON sd.campaign_id=sc.id GROUP BY s.id,s.sponsor_name,s.status ORDER BY served DESC,s.sponsor_name
-  ), comments AS (
-    SELECT c.id,c.topic_id,t.question topic_question,c.created_at,coalesce(cd.impressions,0) impressions,
+    from public.topics t left join topic_daily td on td.entity_id=t.id
+    group by t.id,t.slug,t.question,t.category_slug order by impressions desc,t.question
+  ), sponsors as (
+    select s.id,s.sponsor_name,s.status,count(distinct sc.id) campaign_count,
+      coalesce(sum(sd.served_count),0) served,coalesce(sum(sd.viewable_impressions),0) viewable_impressions,coalesce(sum(sd.clicks),0) clicks
+    from public.sponsors s left join public.sponsor_campaigns sc on sc.sponsor_id=s.id
+    left join sponsor_daily sd on sd.campaign_id=sc.id group by s.id,s.sponsor_name,s.status order by served desc,s.sponsor_name
+  ), comments as (
+    select c.id,c.topic_id,t.question topic_question,c.created_at,coalesce(cd.impressions,0) impressions,
       coalesce(cd.viewable_impressions,0) viewable_impressions,coalesce(cd.active_duration_ms,0) active_duration_ms,
       coalesce(cd.skips,0) skips,coalesce(cd.opens,0) opens,
-      (SELECT count(*) FROM public.comment_likes cl WHERE cl.comment_id=c.id AND cl.created_at>=p_from AND cl.created_at<p_to) likes,
-      (SELECT count(*) FROM public.comments r WHERE r.parent_id=c.id AND r.is_deleted=false AND r.created_at>=p_from AND r.created_at<p_to) replies
-    FROM public.comments c LEFT JOIN public.topics t ON t.id=c.topic_id
-    LEFT JOIN (SELECT card_id,sum(impressions) impressions,sum(viewable_impressions) viewable_impressions,
-      sum(active_duration_ms) active_duration_ms,sum(skips) skips,sum(opens) opens FROM comment_daily GROUP BY card_id) cd
-      ON cd.card_id=c.id::text
-    WHERE c.parent_id IS NULL AND c.is_deleted=false ORDER BY impressions DESC,c.created_at DESC 
+      (select count(*) from public.comment_likes cl where cl.comment_id=c.id and cl.created_at>=p_from and cl.created_at<p_to) likes,
+      (select count(*) from public.comments r where r.parent_id=c.id and r.is_deleted=false and r.created_at>=p_from and r.created_at<p_to) replies
+    from public.comments c left join public.topics t on t.id=c.topic_id
+    left join (select card_id,sum(impressions) impressions,sum(viewable_impressions) viewable_impressions,
+      sum(active_duration_ms) active_duration_ms,sum(skips) skips,sum(opens) opens from comment_daily group by card_id) cd
+      on cd.card_id=c.id::text
+    where c.parent_id is null and c.is_deleted=false order by impressions desc,c.created_at desc
   )
-  SELECT jsonb_build_object('totals',(SELECT to_jsonb(totals) FROM totals),
-    'categories',(SELECT coalesce(jsonb_agg(to_jsonb(categories)),'[]'::jsonb) FROM categories),
-    'topics',(SELECT coalesce(jsonb_agg(to_jsonb(topics)),'[]'::jsonb) FROM topics),
-    'sponsors',(SELECT coalesce(jsonb_agg(to_jsonb(sponsors)),'[]'::jsonb) FROM sponsors),
-    'comments',(SELECT coalesce(jsonb_agg(to_jsonb(comments)),'[]'::jsonb) FROM comments)) INTO v_result;
-  RETURN v_result;
-END;
+  select jsonb_build_object('totals',(select to_jsonb(totals) from totals),
+    'categories',(select coalesce(jsonb_agg(to_jsonb(categories)),'[]'::jsonb) from categories),
+    'topics',(select coalesce(jsonb_agg(to_jsonb(topics)),'[]'::jsonb) from topics),
+    'sponsors',(select coalesce(jsonb_agg(to_jsonb(sponsors)),'[]'::jsonb) from sponsors),
+    'comments',(select coalesce(jsonb_agg(to_jsonb(comments)),'[]'::jsonb) from comments)) into v_result;
+  return v_result;
+end;
 $function$;
 ALTER FUNCTION public.get_admin_analytics_overview(uuid,timestamptz,timestamptz) OWNER TO postgres;
-CREATE OR REPLACE FUNCTION public.get_admin_sponsor_analytics(p_actor_user_id uuid,p_sponsor_id uuid,p_from timestamptz,p_to timestamptz)
-RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
+CREATE OR REPLACE FUNCTION public.get_admin_sponsor_analytics(p_actor_user_id uuid, p_sponsor_id uuid, p_from timestamp with time zone, p_to timestamp with time zone)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
 AS $function$
-DECLARE v_result jsonb;
-BEGIN
-  IF p_actor_user_id IS NULL OR NOT EXISTS(SELECT 1 FROM public.admin_users WHERE user_id=p_actor_user_id) THEN
-    RAISE EXCEPTION 'administrator access required' USING ERRCODE='42501';
-  END IF;
-  IF p_sponsor_id IS NULL OR p_from IS NULL OR p_to IS NULL OR p_to<=p_from OR p_to-p_from>interval '180 days' THEN
-    RAISE EXCEPTION 'invalid sponsor analytics range' USING ERRCODE='22023';
-  END IF;
-  IF NOT EXISTS(SELECT 1 FROM public.sponsors WHERE id=p_sponsor_id) THEN RAISE EXCEPTION 'sponsor not found' USING ERRCODE='P0002'; END IF;
-  WITH campaigns AS (SELECT id,campaign_name,status FROM public.sponsor_campaigns WHERE sponsor_id=p_sponsor_id),
-  metrics AS (
-    SELECT coalesce(sum(d.served_count),0) served,coalesce(sum(d.viewable_impressions),0) viewable_impressions,
-      coalesce(sum(d.clicks),0) clicks,count(DISTINCT d.campaign_id) FILTER(WHERE d.served_count>0) active_campaigns
-    FROM catho_private.sponsor_campaign_daily d JOIN campaigns c ON c.id=d.campaign_id
-    WHERE d.event_date>=p_from::date AND d.event_date<=p_to::date
-  ), series AS (
-    SELECT d.event_date,coalesce(sum(d.served_count),0) served,coalesce(sum(d.viewable_impressions),0) viewable_impressions,
-      coalesce(sum(d.clicks),0) clicks FROM catho_private.sponsor_campaign_daily d JOIN campaigns c ON c.id=d.campaign_id
-    WHERE d.event_date>=p_from::date AND d.event_date<=p_to::date GROUP BY d.event_date ORDER BY d.event_date
+declare v_result jsonb;
+begin
+  if p_actor_user_id is null or not exists(select 1 from public.admin_users where user_id=p_actor_user_id) then
+    raise exception 'administrator access required' using errcode='42501';
+  end if;
+  if p_sponsor_id is null or p_from is null or p_to is null or p_to <= p_from or p_to-p_from > interval '180 days' then
+    raise exception 'invalid sponsor analytics range' using errcode='22023';
+  end if;
+  if not exists(select 1 from public.sponsors where id=p_sponsor_id) then raise exception 'sponsor not found' using errcode='P0002'; end if;
+  with campaigns as (select id,campaign_name,status from public.sponsor_campaigns where sponsor_id=p_sponsor_id),
+  metrics as (
+    select coalesce(sum(d.served_count),0) served,coalesce(sum(d.viewable_impressions),0) viewable_impressions,
+      coalesce(sum(d.clicks),0) clicks,count(distinct d.campaign_id) filter(where d.served_count>0) active_campaigns
+    from catho_private.sponsor_campaign_daily d join campaigns c on c.id=d.campaign_id
+    where d.event_date>=p_from::date and d.event_date<=p_to::date
+  ), series as (
+    select d.event_date,coalesce(sum(d.served_count),0) served,coalesce(sum(d.viewable_impressions),0) viewable_impressions,
+      coalesce(sum(d.clicks),0) clicks from catho_private.sponsor_campaign_daily d join campaigns c on c.id=d.campaign_id
+    where d.event_date>=p_from::date and d.event_date<=p_to::date group by d.event_date order by d.event_date
   )
-  SELECT jsonb_build_object('sponsor_id',p_sponsor_id,'totals',(SELECT to_jsonb(metrics) FROM metrics),
-    'campaigns',(SELECT coalesce(jsonb_agg(jsonb_build_object('id',c.id,'name',c.campaign_name,'status',c.status)),'[]'::jsonb) FROM campaigns c),
-    'series',(SELECT coalesce(jsonb_agg(to_jsonb(series)),'[]'::jsonb) FROM series)) INTO v_result;
-  RETURN v_result;
-END;
+  select jsonb_build_object('sponsor_id',p_sponsor_id,'totals',(select to_jsonb(metrics) from metrics),
+    'campaigns',(select coalesce(jsonb_agg(jsonb_build_object('id',c.id,'name',c.campaign_name,'status',c.status)),'[]'::jsonb) from campaigns c),
+    'series',(select coalesce(jsonb_agg(to_jsonb(series)),'[]'::jsonb) from series)) into v_result;
+  return v_result;
+end;
 $function$;
 ALTER FUNCTION public.get_admin_sponsor_analytics(uuid,uuid,timestamptz,timestamptz) OWNER TO postgres;
-CREATE OR REPLACE FUNCTION public.get_admin_feed_card_analytics(p_actor_user_id uuid,p_from timestamptz,p_to timestamptz,p_card_type text,p_card_id text)
-RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
+CREATE OR REPLACE FUNCTION public.get_admin_feed_card_analytics(p_actor_user_id uuid, p_from timestamp with time zone, p_to timestamp with time zone, p_card_type text, p_card_id text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
 AS $function$
-DECLARE v_result jsonb;
-BEGIN
-  IF p_actor_user_id IS NULL OR NOT EXISTS(SELECT 1 FROM public.admin_users WHERE user_id=p_actor_user_id) THEN
-    RAISE EXCEPTION 'administrator access required' USING ERRCODE='42501';
-  END IF;
-  IF p_from IS NULL OR p_to IS NULL OR p_to<=p_from OR p_to-p_from>interval '180 days'
-    OR p_card_type<>'top-comment' OR p_card_id IS NULL OR length(p_card_id) NOT BETWEEN 1 AND 64 THEN
-    RAISE EXCEPTION 'invalid comment analytics range or filter' USING ERRCODE='22023';
-  END IF;
-  WITH daily AS (
-    SELECT * FROM catho_private.feed_card_analytics_daily WHERE card_type=p_card_type AND card_id=p_card_id
-      AND event_date>=p_from::date AND event_date<=p_to::date
-  ), totals AS (
-    SELECT coalesce(sum(impressions),0) impressions,coalesce(sum(viewable_impressions),0) viewable_impressions,
+declare v_result jsonb;
+begin
+  if p_actor_user_id is null or not exists(select 1 from public.admin_users where user_id=p_actor_user_id) then
+    raise exception 'administrator access required' using errcode='42501';
+  end if;
+  if p_from is null or p_to is null or p_to<=p_from or p_to-p_from>interval '180 days'
+    or p_card_type<>'top-comment' or p_card_id is null or length(p_card_id) not between 1 and 64 then
+    raise exception 'invalid comment analytics range or filter' using errcode='22023';
+  end if;
+  with daily as (
+    select * from catho_private.feed_card_analytics_daily
+    where card_type=p_card_type and card_id=p_card_id and event_date>=p_from::date and event_date<=p_to::date
+  ), totals as (
+    select coalesce(sum(impressions),0) impressions,coalesce(sum(viewable_impressions),0) viewable_impressions,
       coalesce(sum(active_duration_ms),0) active_duration_ms,coalesce(sum(skips),0) skips,
-      coalesce(sum(completions),0) completions,coalesce(sum(opens),0) opens,coalesce(sum(unique_viewers),0) unique_viewers
-    FROM daily
-  ), series AS (SELECT event_date,impressions,viewable_impressions,active_duration_ms,skips,opens FROM daily ORDER BY event_date)
-  SELECT jsonb_build_object('totals',(SELECT to_jsonb(totals) FROM totals),
-    'series',(SELECT coalesce(jsonb_agg(to_jsonb(series)),'[]'::jsonb) FROM series)) INTO v_result;
-  RETURN v_result;
-END;
+      coalesce(sum(completions),0) completions,coalesce(sum(opens),0) opens,
+      coalesce(sum(unique_viewers),0) unique_viewers from daily
+  ), series as (
+    select event_date,impressions,viewable_impressions,active_duration_ms,skips,opens from daily order by event_date
+  )
+  select jsonb_build_object('totals',(select to_jsonb(totals) from totals),
+    'series',(select coalesce(jsonb_agg(to_jsonb(series)),'[]'::jsonb) from series)) into v_result;
+  return v_result;
+end;
 $function$;
 ALTER FUNCTION public.get_admin_feed_card_analytics(uuid,timestamptz,timestamptz,text,text) OWNER TO postgres;
-CREATE OR REPLACE FUNCTION public.get_admin_analytics_series(p_actor_user_id uuid,p_from timestamptz,p_to timestamptz)
-RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
+CREATE OR REPLACE FUNCTION public.get_admin_analytics_series(p_actor_user_id uuid, p_from timestamp with time zone, p_to timestamp with time zone)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
 AS $function$
-DECLARE v_result jsonb;
-BEGIN
-  IF p_actor_user_id IS NULL OR NOT EXISTS(SELECT 1 FROM public.admin_users WHERE user_id=p_actor_user_id) THEN
-    RAISE EXCEPTION 'administrator access required' USING ERRCODE='42501';
-  END IF;
-  IF p_from IS NULL OR p_to IS NULL OR p_to<=p_from OR p_to-p_from>interval '180 days'
-    OR p_to>statement_timestamp()+interval '1 day' THEN RAISE EXCEPTION 'invalid analytics range' USING ERRCODE='22023'; END IF;
-  WITH days AS (
-    SELECT d::date event_date FROM generate_series(date_trunc('day',p_from),date_trunc('day',p_to),interval '1 day') d
-  ), topic AS (
-    SELECT event_date,sum(impressions) impressions,sum(viewable_impressions) viewable_impressions
-    FROM catho_private.feed_analytics_daily WHERE event_date>=p_from::date AND event_date<=p_to::date GROUP BY event_date
-  ), sponsor AS (
-    SELECT event_date,sum(served_count) served,sum(viewable_impressions) viewable_impressions,sum(clicks) clicks
-    FROM catho_private.sponsor_campaign_daily WHERE event_date>=p_from::date AND event_date<=p_to::date GROUP BY event_date
-  ), comments AS (
-    SELECT event_date,sum(impressions) impressions,sum(viewable_impressions) viewable_impressions
-    FROM catho_private.feed_card_analytics_daily WHERE event_date>=p_from::date AND event_date<=p_to::date GROUP BY event_date
+declare v_result jsonb;
+begin
+  if p_actor_user_id is null or not exists(select 1 from public.admin_users where user_id=p_actor_user_id) then
+    raise exception 'administrator access required' using errcode='42501';
+  end if;
+  if p_from is null or p_to is null or p_to<=p_from or p_to-p_from>interval '180 days'
+    or p_to>statement_timestamp()+interval '1 day' then raise exception 'invalid analytics range' using errcode='22023'; end if;
+  with days as (
+    select d::date event_date from generate_series(date_trunc('day',p_from),date_trunc('day',p_to),interval '1 day') d
+  ), topic as (
+    select event_date,sum(impressions) impressions,sum(viewable_impressions) viewable_impressions
+    from catho_private.feed_analytics_daily where event_date>=p_from::date and event_date<=p_to::date group by event_date
+  ), sponsor as (
+    select event_date,sum(served_count) served,sum(viewable_impressions) viewable_impressions,sum(clicks) clicks
+    from catho_private.sponsor_campaign_daily where event_date>=p_from::date and event_date<=p_to::date group by event_date
+  ), comments as (
+    select event_date,sum(impressions) impressions,sum(viewable_impressions) viewable_impressions
+    from catho_private.feed_card_analytics_daily where event_date>=p_from::date and event_date<=p_to::date group by event_date
   )
-  SELECT coalesce(jsonb_agg(jsonb_build_object('event_date',d.event_date,
+  select coalesce(jsonb_agg(jsonb_build_object('event_date',d.event_date,
     'topic_impressions',coalesce(t.impressions,0),'topic_viewable_impressions',coalesce(t.viewable_impressions,0),
     'sponsor_served',coalesce(s.served,0),'sponsor_viewable_impressions',coalesce(s.viewable_impressions,0),
     'sponsor_clicks',coalesce(s.clicks,0),'comment_impressions',coalesce(c.impressions,0),
-    'comment_viewable_impressions',coalesce(c.viewable_impressions,0)) ORDER BY d.event_date),'[]'::jsonb)
-  INTO v_result FROM days d LEFT JOIN topic t USING(event_date) LEFT JOIN sponsor s USING(event_date) LEFT JOIN comments c USING(event_date);
-  RETURN v_result;
-END;
+    'comment_viewable_impressions',coalesce(c.viewable_impressions,0)) order by d.event_date),'[]'::jsonb)
+  into v_result from days d left join topic t using(event_date) left join sponsor s using(event_date) left join comments c using(event_date);
+  return v_result;
+end;
 $function$;
 ALTER FUNCTION public.get_admin_analytics_series(uuid,timestamptz,timestamptz) OWNER TO postgres;
 DO $function$
@@ -6826,10 +6913,10 @@ $function$;
 
 -- Record the optional, explicit personalisation choice made on the shared web/native signup form.
 CREATE OR REPLACE FUNCTION catho_private.capture_signup_personalization_consent()
-RETURNS trigger
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path TO ''
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
 AS $function$
 BEGIN
   IF NEW.raw_user_meta_data ->> 'personalization_consent' = 'true' THEN
