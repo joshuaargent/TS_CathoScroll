@@ -52,13 +52,14 @@ import { loadTopicActivity } from '@/lib/topic-activity';
 import { siteConfig } from '@/lib/constants';
 import type { TopFeedComment } from '@/lib/feed-comments';
 import type { RecommendationCursor } from '@/lib/recommendations';
+import type { GeneralFeedCursor } from '@/lib/content';
 import { openNativeDatabases, openPrivateActivityDatabase } from '@/lib/offline/native-database';
 import { SupabaseActivityTransport } from '@/lib/offline/supabase-activity-transport';
 import type { OfflineActivityKind, OfflineTopicActivity } from '@/lib/offline/activity-store';
 import type { Topic } from '@/types';
 import './style.css';
 
-type CataloguePage = { topics: Topic[]; nextCursor: CatalogueCursor | RecommendationCursor | null };
+type CataloguePage = { topics: Topic[]; nextCursor: CatalogueCursor | GeneralFeedCursor | RecommendationCursor | null };
 
 type NativeLiveTopicRow = {
   id: string;
@@ -95,6 +96,20 @@ async function loadNativeLiveTopicBySlug(slug: string): Promise<Topic | null> {
     catechism: { paragraphs: data.catechism_paragraphs ?? [], text: data.catechism_text },
     scripture: { reference: data.scripture_reference, text: data.scripture_text },
   } satisfies Topic;
+}
+
+async function loadNativeGeneralFeedPage(cursor: GeneralFeedCursor | null = null): Promise<CataloguePage> {
+  const response = await fetch(new URL('/api/content/general-feed', siteConfig.url), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    cache: 'no-store',
+    body: JSON.stringify({ cursor }),
+  });
+  const result = await response.json() as { topics?: Topic[]; nextCursor?: GeneralFeedCursor | null; error?: string };
+  if (!response.ok || !Array.isArray(result.topics) || result.nextCursor === undefined) {
+    throw new Error(result.error ?? 'Unable to load the general feed.');
+  }
+  return { topics: result.topics, nextCursor: result.nextCursor };
 }
 
 async function loadNativeLiveTopicPage(cursor?: CatalogueCursor) {
@@ -850,6 +865,7 @@ function App() {
   const [catalogue, setCatalogue] = useState<OfflineCatalogue | null>(null);
   const [firstPage, setFirstPage] = useState<CataloguePage | null>(null);
   const [feedPersonalized, setFeedPersonalized] = useState(false);
+  const [feedGeneralRanked, setFeedGeneralRanked] = useState(false);
   const [feedAttempt, setFeedAttempt] = useState(0);
   const [feedLoadError, setFeedLoadError] = useState('');
   const [catalogueRefresh, setCatalogueRefresh] = useState<CatalogueRefresh | null>(null);
@@ -907,7 +923,18 @@ function App() {
         }
 
         let page: CataloguePage;
+        let personalizedEnabled = false;
         if (user?.id) {
+          const { data: status, error: statusError } =
+            await createClient().rpc('get_my_personalization_status');
+          personalizedEnabled =
+            !statusError &&
+            typeof status === 'object' &&
+            status !== null &&
+            'enabled' in status &&
+            status.enabled === true;
+        }
+        if (personalizedEnabled) {
           const { data, error } = await createClient().rpc('get_my_recommendation_page', {
             feed_cursor: null,
             page_limit: 50,
@@ -918,12 +945,13 @@ function App() {
           }
           page = data as CataloguePage;
         } else {
-          page = await loadNativeLiveTopicPage();
+          page = await loadNativeGeneralFeedPage();
         }
         if (!active) return;
         setFirstPage(page);
         setFeedLoadError('');
-        setFeedPersonalized(Boolean(user?.id));
+        setFeedPersonalized(personalizedEnabled);
+        setFeedGeneralRanked(!personalizedEnabled);
         clearNativeStatusNotice('feed-online');
       } catch (cause) {
         if (!active || (cause instanceof DOMException && cause.name === 'AbortError')) return;
@@ -1351,9 +1379,9 @@ function App() {
   }, []);
 
   const loadPage = useCallback(
-    async (cursor: CatalogueCursor | RecommendationCursor) => {
+    async (cursor: CatalogueCursor | GeneralFeedCursor | RecommendationCursor) => {
       if (!catalogue) throw new Error('The offline catalogue is not ready.');
-      if ('categories' in cursor) {
+      if ('categories' in cursor && 'userId' in cursor) {
         // Recommendation cursors are server-owned. If the connection drops or
         // the RPC fails, switch subsequent pagination to the local catalogue.
         // TopicFeedCore preserves the current session history and anchor while
@@ -1376,6 +1404,24 @@ function App() {
           setFirstPage(page);
           setFeedPersonalized(false);
           notifyNativeStatus('Personalized recommendations are unavailable. Showing saved topics instead.', {
+            id: 'feed-pagination',
+            action: { label: 'Retry', onClick: () => setFeedAttempt((value) => value + 1) },
+          });
+          return page;
+        }
+      }
+      if ('categories' in cursor && !('userId' in cursor)) {
+        try {
+          if (!navigator.onLine) throw new Error('The device is offline.');
+          const page = await loadNativeGeneralFeedPage(cursor);
+          clearNativeStatusNotice('feed-pagination');
+          return page;
+        } catch (cause) {
+          console.error('Unable to continue general feed pagination:', cause);
+          const page = await catalogue.topics();
+          setFirstPage(page);
+          setFeedGeneralRanked(false);
+          notifyNativeStatus('The ranked general feed is unavailable. Showing saved topics instead.', {
             id: 'feed-pagination',
             action: { label: 'Retry', onClick: () => setFeedAttempt((value) => value + 1) },
           });
@@ -1469,6 +1515,7 @@ function App() {
                     topics={firstPage.topics}
                     nextCursor={firstPage.nextCursor}
                     personalized={feedPersonalized}
+                    generalRanked={feedGeneralRanked}
                     loadPage={loadPage}
                     userId={user?.id ?? null}
                     getSponsorAccessToken={getNativeSponsorAccessToken}
