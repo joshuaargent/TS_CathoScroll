@@ -1,9 +1,8 @@
 'use client';
 
-import { animate, motion, useMotionValue } from 'framer-motion';
-import { useCallback, useRef, type ReactNode } from 'react';
-import { flushSync } from 'react-dom';
-import { useTopicSwipeGesture } from './useTopicSwipeGesture';
+import type { ReactNode } from 'react';
+import { FeedSwipeViewport } from './FeedSwipeViewport';
+import type { TopicSwipeDirection } from './useTopicSwipeGesture';
 
 interface FeedInterstitialMotionProps {
   children: ReactNode;
@@ -21,6 +20,13 @@ interface FeedInterstitialMotionProps {
   previousHorizontalPreview?: ReactNode;
 }
 
+/**
+ * Compatibility adapter for comment and sponsor renderers.
+ *
+ * All positioning, gestures and transitions are owned by FeedSwipeViewport,
+ * the same five-position renderer used by TopicSwipeViewer. This component
+ * only maps the legacy left/right callback names to feed directions.
+ */
 export function FeedInterstitialMotion({
   children,
   onSwipeLeft,
@@ -36,97 +42,27 @@ export function FeedInterstitialMotion({
   nextHorizontalPreview,
   previousHorizontalPreview,
 }: FeedInterstitialMotionProps) {
-  const animationLockRef = useRef(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const x = useMotionValue(0);
-  const y = useMotionValue(0);
-
-  const move = useCallback(async (direction: 'left' | 'right' | 'up' | 'down') => {
-    if (animationLockRef.current) return;
-    if (direction === 'left' && canSwipeLeft && !canSwipeLeft()) return;
-    if (direction === 'right' && canSwipeRight && !canSwipeRight()) return;
-
-    animationLockRef.current = true;
-    try {
-      const horizontal = direction === 'left' || direction === 'right';
-      const distance = horizontal
-        ? (containerRef.current?.clientWidth ?? window.innerWidth)
-        : (containerRef.current?.clientHeight ?? window.innerHeight);
-
-      await animate(horizontal ? x : y, direction === 'left' || direction === 'up' ? -distance : distance, {
-        duration: 0.2,
-        ease: 'easeOut',
-      });
-
-      let navigation: void | Promise<void> = undefined;
-      flushSync(() => {
-        if (direction === 'left') onSwipeLeft();
-        else if (direction === 'right') onSwipeRight();
-        else if (direction === 'up') navigation = onNextTopic();
-        else navigation = onPreviousTopic();
-      });
-      await navigation;
-    } catch (error) {
-      console.error('Unable to navigate feed card:', error);
-    } finally {
-      x.jump(0);
-      y.jump(0);
-      animationLockRef.current = false;
-    }
-  }, [canSwipeLeft, canSwipeRight, onNextTopic, onPreviousTopic, onSwipeLeft, onSwipeRight, x, y]);
-
-  const {
-    handlePointerDown,
-    handlePointerMove,
-    handlePointerUp,
-  } = useTopicSwipeGesture({
-    enabled: active,
-    motionValues: { x, y },
-    isLocked: () => animationLockRef.current,
-    canSwipeHorizontal: (direction) => direction === 'next'
-      ? (!canSwipeLeft || canSwipeLeft())
-      : (!canSwipeRight || canSwipeRight()),
-    onSwipeHorizontal: (direction) => move(direction === 'next' ? 'left' : 'right'),
-    onSwipeVertical: (direction) => move(direction === 'next' ? 'up' : 'down'),
-  });
-
+  const canSwipe = (direction: TopicSwipeDirection) => direction === 'next'
+    ? (!canSwipeLeft || canSwipeLeft())
+    : (!canSwipeRight || canSwipeRight());
 
   return (
-    <div ref={containerRef} className="h-full w-full overflow-hidden" aria-hidden={!active} inert={!active}>
-      <motion.div
-        role="region"
-        aria-roledescription="feed card"
-        aria-label={ariaLabel}
-        tabIndex={0}
-        className="relative h-full w-full transform-gpu will-change-transform select-none"
-        style={{ x, y, width: '100%', height: '100%', touchAction: 'none' }}
-        onPointerDown={active ? handlePointerDown : undefined}
-        onPointerMove={active ? handlePointerMove : undefined}
-        onPointerUp={active ? handlePointerUp : undefined}
-        onPointerCancel={active ? handlePointerUp : undefined}
-      >
-        {previousPreview ? (
-          <div className="pointer-events-none absolute inset-x-0 top-[-100%] h-full opacity-90" aria-hidden="true" inert>
-            {previousPreview}
-          </div>
-        ) : null}
-        {previousHorizontalPreview ? (
-          <div className="pointer-events-none absolute top-0 left-[-100%] h-full w-full opacity-90" aria-hidden="true" inert>
-            {previousHorizontalPreview}
-          </div>
-        ) : null}
-        {children}
-        {nextHorizontalPreview ? (
-          <div className="pointer-events-none absolute top-0 left-[100%] h-full w-full opacity-90" aria-hidden="true" inert>
-            {nextHorizontalPreview}
-          </div>
-        ) : null}
-        {nextPreview ? (
-          <div className="pointer-events-none absolute inset-x-0 top-[100%] h-full opacity-90" aria-hidden="true" inert>
-            {nextPreview}
-          </div>
-        ) : null}
-      </motion.div>
-    </div>
+    <FeedSwipeViewport
+      active={active}
+      ariaLabel={ariaLabel}
+      role="region"
+      tabIndex={0}
+      containerClassName="h-full w-full overflow-hidden"
+      motionClassName="relative h-full w-full transform-gpu will-change-transform select-none"
+      canSwipeHorizontal={canSwipe}
+      onSwipeHorizontal={(direction) => direction === 'next' ? onSwipeLeft() : onSwipeRight()}
+      onSwipeVertical={(direction) => direction === 'next' ? onNextTopic() : onPreviousTopic()}
+      topPreview={previousPreview}
+      leftPreview={previousHorizontalPreview}
+      rightPreview={nextHorizontalPreview}
+      bottomPreview={nextPreview}
+    >
+      {children}
+    </FeedSwipeViewport>
   );
 }
