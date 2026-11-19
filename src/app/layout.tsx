@@ -104,6 +104,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       suppressHydrationWarning
     >
       <head>
+        <meta name="referrer" content="strict-origin" />
         <meta name="theme-color" content="#FAFAF9" media="(prefers-color-scheme: light)" />
         <meta name="theme-color" content="#0C0A09" media="(prefers-color-scheme: dark)" />
         <script
