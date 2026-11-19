@@ -286,7 +286,7 @@ export default function PrivacyPage() {
           <h2 className="mb-4 text-3xl font-bold">Data Retention</h2>
 
           <p className="text-text-secondary leading-relaxed">
-            We retain information only for as long as reasonably necessary for the purpose for which it was collected, subject to legal, security, moderation, and accounting requirements. Raw feed and community-card analytics events, together with the user/day viewer bridge used for unique-viewer reporting, are retained for up to 180 days. Daily totals that do not contain user or session identifiers are retained longer.
+            We retain information only for as long as reasonably necessary for the purpose for which it was collected, subject to legal, security, moderation, and accounting requirements. Raw feed, community-card, and sponsor-campaign analytics events, together with the user/day viewer bridge used for unique-viewer reporting, are retained for up to 180 days. Sponsor frequency-cap records are removed after campaigns have completed or been rejected and the applicable 180-day cutoff has passed. Daily totals that do not contain user or session identifiers are retained longer.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
