@@ -73,7 +73,7 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
                 className="accent-accent mt-0.5 h-4 w-4 shrink-0"
               />
               <span className="text-text-primary font-medium">
-                I explicitly consent to using my activity to personalise my recommendations.
+                I explicitly consent to CathoScroll using my topic-reading activity and selected interests, which may reveal religious or philosophical beliefs, to personalise my recommendations.
                 <span className="text-text-muted mt-1 block font-normal">
                   {loading ? 'Checking your current choice…' : saving ? 'Saving your choice…' : enabled ? 'Enabled. You can withdraw consent at any time.' : 'Off. Nothing is profiled until you opt in.'}
                 </span>
