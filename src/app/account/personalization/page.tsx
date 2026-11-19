@@ -1,13 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { ArrowLeft, ShieldCheck, Sparkles } from 'lucide-react';
 
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { createClient } from '@/lib/supabase/client';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 type PersonalizationStatus = {
   enabled: boolean;
@@ -31,7 +31,7 @@ const emptyStatus: PersonalizationStatus = {
   top_topic_interests: [],
 };
 
-export default function PersonalizationSettingsPage() {
+export default function PersonalizationSettingsPage({ client }: { client?: SupabaseClient } = {}) {
   const [status, setStatus] = useState<PersonalizationStatus>(emptyStatus);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -41,18 +41,19 @@ export default function PersonalizationSettingsPage() {
   const [categoryOptions, setCategoryOptions] = useState<{ slug: string; name: string }[]>([]);
   const [savingInterests, setSavingInterests] = useState(false);
   const [topTopicInterests, setTopTopicInterests] = useState<PersonalizationStatus['top_topic_interests']>([]);
-  const router = useRouter();
+  const [needsSignIn, setNeedsSignIn] = useState(false);
+  const supabase = useMemo(() => client ?? createClient(), [client]);
 
   const load = useCallback(async (showLoading = true) => {
     if (showLoading) setLoading(true);
     try {
-      const supabase = createClient();
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       if (userError) throw userError;
       if (!user) {
-        router.replace('/signin?next=%2Faccount%2Fpersonalization');
+        setNeedsSignIn(true);
         return;
       }
+      setNeedsSignIn(false);
       const { data, error: rpcError } = await supabase.rpc('get_my_personalization_status');
       if (rpcError) throw rpcError;
       if (!data || typeof data !== 'object' || typeof data.enabled !== 'boolean') {
@@ -78,7 +79,7 @@ export default function PersonalizationSettingsPage() {
     } finally {
       if (showLoading) setLoading(false);
     }
-  }, [router]);
+  }, [supabase]);
 
   // This effect only starts an asynchronous auth/RPC request; state changes occur after it resolves.
   // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -90,7 +91,6 @@ export default function PersonalizationSettingsPage() {
     setError('');
     setMessage('');
     try {
-      const supabase = createClient();
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       if (userError || !user) throw userError ?? new Error('Authentication required.');
       const { data, error: rpcError } = await supabase.rpc('set_my_personalization_consent', { p_enabled: enabled });
@@ -116,7 +116,6 @@ export default function PersonalizationSettingsPage() {
     setError('');
     setMessage('');
     try {
-      const supabase = createClient();
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       if (userError || !user) throw userError ?? new Error('Authentication required.');
       const { error: rpcError } = await supabase.rpc('set_my_personalization_interests', {
@@ -138,6 +137,15 @@ export default function PersonalizationSettingsPage() {
       <Link href="/account" className="text-accent inline-flex items-center gap-2 text-sm font-medium hover:underline">
         <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Back to account
       </Link>
+      {needsSignIn && (
+        <Card padding="md" className="mt-8">
+          <h2 className="text-lg font-bold">Sign in to manage personalisation</h2>
+          <p className="text-text-secondary mt-2 text-sm">These controls are private to your account.</p>
+          <Link href="/signin?next=%2Faccount%2Fpersonalization" className="text-accent mt-4 inline-flex font-semibold hover:underline">
+            Sign in
+          </Link>
+        </Card>
+      )}
       <div className="mt-8">
         <p className="text-accent text-sm font-semibold tracking-wider uppercase">Account · Privacy</p>
         <h1 className="mt-2 text-4xl font-extrabold md:text-5xl">Personalisation</h1>
@@ -146,7 +154,7 @@ export default function PersonalizationSettingsPage() {
         </p>
       </div>
 
-      <Card padding="lg" className="mt-8">
+      {!needsSignIn && <Card padding="lg" className="mt-8">
         <div className="flex items-start gap-3">
           <span className="bg-accent-light text-accent rounded-xl p-3"><Sparkles className="h-5 w-5" aria-hidden="true" /></span>
           <div className="min-w-0">
@@ -243,7 +251,7 @@ export default function PersonalizationSettingsPage() {
             Your interest profile is private and is not shown on your public profile or used for sponsor targeting. Turning personalisation off immediately deletes the derived topic-interest profile and stops using reading telemetry for recommendation weighting. Existing operational analytics events remain subject to their separate 180-day retention policy. This setting is not a declaration of religious affiliation.
           </div>
         </div>
-      </Card>
+      </Card>}
 
       {error && <p role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</p>}
       {message && <p role="status" className="mt-4 rounded-xl border border-border p-4 text-sm">{message}</p>}
