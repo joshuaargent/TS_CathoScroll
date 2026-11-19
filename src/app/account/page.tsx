@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 
 import { useRouter } from 'next/navigation';
@@ -13,6 +13,7 @@ import { usernameError } from '@/lib/username';
 
 export default function AccountPage() {
   const router = useRouter();
+  const personalizationClient = useMemo(() => createClient(), []);
 
   const [loading, setLoading] = useState(true);
 
@@ -34,7 +35,6 @@ export default function AccountPage() {
 
   const [bio, setBio] = useState('');
 
-  const [subscriptionTier, setSubscriptionTier] = useState('free');
 
   const [newPassword, setNewPassword] = useState('');
 
@@ -56,23 +56,17 @@ export default function AccountPage() {
 
         setEmail(user.email ?? '');
 
-        const [{ data: profile, error: profileError }, { data: membership, error: membershipError }] =
-          await Promise.all([
-            supabase
-              .from('profiles')
-              .select('username,display_name,bio')
-              .eq('id', user.id)
-              .single(),
-            supabase.rpc('get_own_subscription_tier'),
-          ]);
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('username,display_name,bio')
+          .eq('id', user.id)
+          .single();
         if (profileError) throw profileError;
-        if (membershipError) throw membershipError;
         if (!profile) throw new Error('Account profile is missing.');
 
         setDisplayName(profile.display_name ?? '');
         setUsername(profile.username ?? '');
         setBio(profile.bio ?? '');
-        setSubscriptionTier(typeof membership === 'string' ? membership : 'free');
       } catch (cause) {
         console.error('Unable to load account:', cause);
         setLoadFailed(true);
@@ -234,7 +228,7 @@ export default function AccountPage() {
       email={email}
       newPassword={newPassword}
       confirmPassword={confirmPassword}
-      membershipLabel={subscriptionTier}
+      personalizationClient={personalizationClient}
       saving={saving}
       signingOut={signingOut}
       saveDisabled={loadFailed}
@@ -269,24 +263,6 @@ export default function AccountPage() {
             className="border-border rounded-xl border px-4 py-2.5 text-sm font-semibold hover:bg-bg-secondary"
           >
             Security settings
-          </Link>
-        </div>
-      </div>
-    </section>
-    <section className="container mt-6">
-      <div className="border-border bg-bg-secondary/40 rounded-2xl border p-5">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h2 className="font-bold">Personalisation and privacy</h2>
-            <p className="text-text-secondary mt-1 text-sm">
-              Choose whether your activity can be used to build private topic interests and personalise recommendations.
-            </p>
-          </div>
-          <Link
-            href="/account/personalization"
-            className="border-border rounded-xl border px-4 py-2.5 text-sm font-semibold hover:bg-bg-secondary"
-          >
-            Manage personalisation
           </Link>
         </div>
       </div>
