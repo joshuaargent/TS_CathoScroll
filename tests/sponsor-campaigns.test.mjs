@@ -17,11 +17,11 @@ const [bootstrap, feedCore, cardRegistry, placementRegistry, sponsorCard, campai
 ]);
 
 function functionBody(name, nextMarker) {
-  const start = bootstrap.indexOf(`CREATE OR REPLACE FUNCTION ${name}`);
+  const start = bootstrap.lastIndexOf(`CREATE OR REPLACE FUNCTION ${name}`);
   assert.notEqual(start, -1, `Missing function ${name}`);
-  const end = bootstrap.indexOf(nextMarker, start);
-  assert.notEqual(end, -1, `Missing end marker after ${name}`);
-  return bootstrap.slice(start, end);
+  const end = bootstrap.indexOf('$function$;', start);
+  assert.notEqual(end, -1, `Missing function terminator after ${name}`);
+  return bootstrap.slice(start, end + '$function$;'.length);
 }
 
 test('campaign inventory is private and supports bounded, weighted delivery', () => {
