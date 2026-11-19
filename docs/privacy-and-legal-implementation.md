@@ -80,6 +80,12 @@ When consent is enabled, the existing bounded scoring model applies. Behavioural
 
 Do not describe aggregate analytics as a unique count of all visitors where the relevant pipeline only measures authenticated users.
 
+## Public policy alignment
+
+The public Privacy Policy now states that signed-in operational analytics can be linked to an account and the topic or card involved while raw event and viewer-bridge records are retained. It explicitly says those records are not anonymous during that period, are not supplied to sponsors, and are not covered by the personalisation checkbox. The policy also discloses that the separate UK GDPR Article 9 position for this operational stream is still being assessed. This is a transparency disclosure, not a finding that the processing is lawful; complete the assessment and implement any required consent or data-minimisation changes before broad rollout.
+
+The Terms and Cookie Policy state that individual learning, account and community features are free and that business/organisation sponsorship is the only paid offering. There are no user premium tiers, paid learning subscriptions, or in-app card payments. Sponsor invoices are settled through direct bank transfer outside the app.
+
 ## Lawful-basis and DPIA work
 
 The current policy wording identifies:
