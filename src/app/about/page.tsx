@@ -145,7 +145,7 @@ export default function AboutPage() {
 
             <article className="border-border rounded-2xl border p-6">
               <Badge variant="accent" size="sm">
-                Free - planned
+                Free · planned
               </Badge>
 
               <h3 className="mt-4 text-2xl font-bold">Audio Lessons</h3>
@@ -158,7 +158,7 @@ export default function AboutPage() {
 
             <article className="border-border rounded-2xl border p-6">
               <Badge variant="accent" size="sm">
-                Free - planned
+                Free · planned
               </Badge>
 
               <h3 className="mt-4 text-2xl font-bold">Learning Paths</h3>
@@ -171,7 +171,7 @@ export default function AboutPage() {
 
             <article className="border-border rounded-2xl border p-6">
               <Badge variant="accent" size="sm">
-                Free - planned
+                Free · planned
               </Badge>
 
               <h3 className="mt-4 text-2xl font-bold">Quizzes</h3>
@@ -181,6 +181,29 @@ export default function AboutPage() {
                 interactive quizzes.
               </p>
             </article>
+          </div>
+        </section>
+
+        <section>
+          <h2 className="mb-6 text-3xl font-bold">How CathoScroll Is Funded</h2>
+
+          <div className="space-y-4">
+            <p className="text-text-secondary leading-relaxed">
+              CathoScroll's learning and community features are free for individual users.
+              We do not charge for memberships, learning paths, audio lessons, quizzes, or
+              access to educational content.
+            </p>
+            <p className="text-text-secondary leading-relaxed">
+              The only paid offering is sponsorship purchased by businesses and organisations.
+              Sponsored placements are clearly labelled, remain separate from organic topic
+              recommendations, and do not give sponsors access to individual users' identities,
+              reading histories, or private personalisation profiles.
+            </p>
+            <p className="text-text-secondary leading-relaxed">
+              Read the <Link href="/terms" className="text-accent hover:underline">Terms of Service</Link>
+              {' '}and <Link href="/privacy" className="text-accent hover:underline">Privacy Policy</Link>
+              {' '}for further details.
+            </p>
           </div>
         </section>
 
