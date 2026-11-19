@@ -13,7 +13,7 @@ export default function PrivacyPage() {
       <div className="mt-16 mb-16">
         <h1 className="text-5xl font-extrabold md:text-7xl">Privacy Policy</h1>
 
-        <p className="text-text-secondary mt-4 text-lg">Last updated: 31 October 2026</p>
+        <p className="text-text-secondary mt-4 text-lg">Last updated: 19 November 2026</p>
       </div>
 
       <div className="space-y-12">
@@ -52,7 +52,6 @@ export default function PrivacyPage() {
             <li>Username.</li>
             <li>Display name.</li>
             <li>Profile biography.</li>
-            <li>Subscription status.</li>
             <li>Bookmarks.</li>
             <li>Progress and streak data.</li>
             <li>Private notes.</li>
@@ -60,7 +59,9 @@ export default function PrivacyPage() {
             <li>Likes and interactions.</li>
             <li>Quiz progress and quiz results.</li>
             <li>Learning path progress.</li>
-            <li>Technical and analytics data.</li>
+            <li>Technical, device, security, and analytics data.</li>
+            <li>Optional personalisation consent records, selected category interests, and derived topic-interest scores when you opt in.</li>
+            <li>For sponsor representatives: organisation membership, campaign submissions, invoice details, and payment references.</li>
           </ul>
         </section>
 
@@ -113,9 +114,10 @@ export default function PrivacyPage() {
             <li>Track learning progress.</li>
             <li>Save bookmarks and notes.</li>
             <li>Display comments and profiles.</li>
-            <li>Deliver premium features.</li>
-            <li>Provide audio lessons.</li>
-            <li>Provide quizzes and learning paths.</li>
+            <li>Provide learning paths, quizzes, audio, and other platform features without charging individual users.</li>
+            <li>Personalise topic recommendations only where you have explicitly opted in.</li>
+            <li>Administer paid sponsor campaigns, invoices, and sponsor account access.</li>
+            <li>Measure sponsored campaign delivery and provide sponsors with aggregate campaign reports.</li>
             <li>Improve performance and reliability.</li>
             <li>Monitor abuse, spam, fraud, and security issues.</li>
             <li>Comply with legal obligations.</li>
@@ -123,20 +125,80 @@ export default function PrivacyPage() {
         </section>
 
         <section>
-          <h2 className="mb-4 text-3xl font-bold">Premium Subscriptions</h2>
+          <h2 className="mb-4 text-3xl font-bold">Personalisation and Sensitive Interests</h2>
 
           <p className="text-text-secondary leading-relaxed">
-            If you purchase a premium subscription, payment processing is handled by our payment
-            provider.
+            Personalisation is optional and is off by default. If you explicitly opt in,
+            CathoScroll may use your topic-reading activity (such as viewable reading time,
+            completion, repeat visits, and skips), your likes and bookmarks, relevant
+            community interactions, and category interests you choose to create a private
+            content-interest profile and personalise your topic recommendations.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            CathoScroll does not store complete payment card numbers or payment credentials.
+            Because CathoScroll focuses on Catholic theology, Scripture, and related
+            religious subjects, these interests and activity patterns may reveal or allow
+            inferences about religious or philosophical beliefs. We treat this possibility
+            as sensitive and only use this profile for personalising your own educational
+            recommendations after your explicit opt-in. It is not a declaration of your
+            religious affiliation, is not displayed on your public profile, and is not
+            shared with sponsors or used for advertising targeting.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            We may store information relating to subscription status, billing history, and access
-            permissions in order to manage premium features.
+            You can review the categories and topics influencing your recommendations,
+            change your selected interests, or withdraw consent at any time in
+            <Link href="/account/personalization" className="text-accent mx-1 hover:underline">Account → Personalisation</Link>.
+            Withdrawing consent stops profile-based recommendation weighting and deletes
+            the derived topic-interest scores and selected category interests. It does not
+            erase separate operational analytics records that are retained for their
+            stated operational period.
+          </p>
+        </section>
+
+        <section>
+          <h2 className="mb-4 text-3xl font-bold">Lawful Bases for Processing</h2>
+
+          <p className="text-text-secondary leading-relaxed">
+            Where UK data protection law applies, the lawful basis depends on the purpose:
+          </p>
+
+          <ul className="text-text-secondary mt-4 list-disc space-y-2 pl-6">
+            <li>Contract: to create and operate your account and provide features you request.</li>
+            <li>Legitimate interests: to secure, maintain, troubleshoot, moderate, and improve the service, prevent abuse, and measure aggregate service performance, where those interests are not overridden by your rights.</li>
+            <li>Legal obligation: to keep or disclose information where applicable law requires it.</li>
+            <li>Consent: for optional personalisation. Because this processing may reveal religious or philosophical beliefs, we rely on your explicit consent for the relevant special-category processing as well as consent under the general UK GDPR lawful-basis framework.</li>
+          </ul>
+
+          <p className="text-text-secondary mt-4 leading-relaxed">
+            You may withdraw personalisation consent at any time using the account
+            controls described above. Withdrawal does not affect processing carried out
+            before withdrawal.
+          </p>
+        </section>
+
+        <section>
+          <h2 className="mb-4 text-3xl font-bold">Sponsorships and Payments</h2>
+
+          <p className="text-text-secondary leading-relaxed">
+            Individual users do not pay for CathoScroll learning or community features.
+            The only paid offering is sponsorship purchased by businesses or organisations.
+            Sponsor payments are made by direct bank transfer outside the app; CathoScroll
+            does not process user card payments or store card credentials.
+          </p>
+
+          <p className="text-text-secondary mt-4 leading-relaxed">
+            For sponsor organisations and their authorised representatives, we may process
+            business contact details, sponsor membership roles, campaign information,
+            agreed amounts, invoice balances, payment dates, bank references, and
+            transaction identifiers supplied for reconciliation. We do not collect or
+            store sponsor bank login credentials or full payment-card details.
+          </p>
+
+          <p className="text-text-secondary mt-4 leading-relaxed">
+            Sponsors receive aggregate campaign performance reporting. They do not receive
+            user identities, individual reading histories, private notes, personalisation
+            profiles, or raw user-level analytics events.
           </p>
         </section>
 
@@ -184,8 +246,8 @@ export default function PrivacyPage() {
 
           <ul className="text-text-secondary mt-4 list-disc space-y-2 pl-6">
             <li>Supabase for authentication and database services.</li>
-            <li>Vercel for hosting and analytics.</li>
-            <li>Stripe for payment processing and subscription management.</li>
+            <li>Vercel for hosting, deployment, and site analytics.</li>
+            <li>Formspree for contact-form delivery when the optional form integration is configured.</li>
           </ul>
         </section>
 
@@ -202,7 +264,7 @@ export default function PrivacyPage() {
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            By using CathoScroll, you acknowledge that such transfers may occur.
+            Where a transfer is subject to UK data protection transfer rules, we use an applicable adequacy decision or another lawful transfer safeguard. You can contact us for further information about the safeguards relevant to a particular provider.
           </p>
         </section>
 
@@ -210,8 +272,11 @@ export default function PrivacyPage() {
           <h2 className="mb-4 text-3xl font-bold">Data Retention</h2>
 
           <p className="text-text-secondary leading-relaxed">
-            We retain information for as long as reasonably necessary to operate CathoScroll and
-            fulfil the purposes described in this policy.
+            We retain information only for as long as reasonably necessary for the purpose for which it was collected, subject to legal, security, moderation, and accounting requirements. Raw feed and community-card analytics events are retained for up to 180 days. Daily aggregates are retained longer in a form that does not contain user or session identifiers.
+          </p>
+
+          <p className="text-text-secondary mt-4 leading-relaxed">
+            While personalisation is enabled, behavioural topic-interest scores use a rolling evidence window of up to 90 days. Explicit category choices remain stored while consent remains enabled. When you withdraw consent, the derived profile and explicit category choices are deleted. The separate operational analytics event records are not deleted by withdrawing personalisation consent and remain subject to their own retention period.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
@@ -245,9 +310,11 @@ export default function PrivacyPage() {
           <ul className="text-text-secondary mt-4 list-disc space-y-2 pl-6">
             <li>Access your information.</li>
             <li>Correct inaccurate information.</li>
-            <li>Request deletion of personal information.</li>
+            <li>Request deletion or restriction of personal information.</li>
             <li>Object to certain processing activities.</li>
             <li>Request a copy of certain information held about you.</li>
+            <li>Withdraw consent at any time where processing is based on consent.</li>
+            <li>Complain to the UK Information Commissioner's Office (ICO), or your local supervisory authority.</li>
           </ul>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
@@ -290,8 +357,7 @@ export default function PrivacyPage() {
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            Continued use of CathoScroll after changes are published constitutes acceptance of the
-            updated policy.
+            We will publish the updated policy and, where required, provide additional notice or obtain fresh consent before carrying out materially changed consent-based processing.
           </p>
         </section>
 
