@@ -8,7 +8,7 @@ const settings = readFileSync(new URL('../src/app/account/personalization/page.t
 const deepDive = readFileSync(new URL('../src/components/admin/AnalyticsDeepDivePanel.tsx', import.meta.url), 'utf8');
 
 function functionBody(name) {
-  const start = bootstrap.indexOf('CREATE OR REPLACE FUNCTION ' + name);
+  const start = bootstrap.lastIndexOf('CREATE OR REPLACE FUNCTION ' + name);
   assert.notEqual(start, -1, 'missing SQL function: ' + name);
   const end = bootstrap.indexOf('$function$;', start);
   assert.notEqual(end, -1, 'unterminated SQL function: ' + name);
