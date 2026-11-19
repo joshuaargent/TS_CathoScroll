@@ -24,9 +24,12 @@ export function nativeApiCorsHeaders(request: Request): Headers {
   return headers;
 }
 
-export function isSameOriginOrNativeRequest(request: Request): boolean {
+export function isSameOriginOrNativeRequest(request: Request, allowAnonymousNative = false): boolean {
   if (isSameOrigin(request)) return true;
-  return Boolean(nativeOrigin(request) && /^Bearer\s+\S+$/i.test(request.headers.get('authorization') ?? ''));
+  return Boolean(
+    nativeOrigin(request) &&
+    (allowAnonymousNative || /^Bearer\s+\S+$/i.test(request.headers.get('authorization') ?? ''))
+  );
 }
 
 export async function getAuthenticatedUserFromRequest(request: Request) {
