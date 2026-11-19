@@ -13,6 +13,7 @@ import {
   recordFeedTopicVisit,
 } from '@/lib/feed-analytics-client';
 import { TopicCard } from './TopicCard';
+import { recordAnonymousFeedEvent } from '@/lib/anonymous-feed-analytics-client';
 import { FeedSwipeViewport } from './FeedSwipeViewport';
 
 function getActiveElapsed(startedAt: number | null) {
@@ -105,6 +106,61 @@ export function TopicSwipeViewer({
       getAccessToken: getAnalyticsAccessToken,
     });
   }, [active, analyticsEndpoint, getAnalyticsAccessToken, userId]);
+
+  useEffect(() => {
+    if (userId || !active) return;
+    recordAnonymousFeedEvent('topic', currentTopicId, 'impression');
+    let intersecting = false;
+    let viewable = false;
+    let viewTimer: number | null = null;
+    let durationTimer: number | null = null;
+    let activeSince = 0;
+    let totalActive = 0;
+    const flushDuration = () => {
+      if (!activeSince) return;
+      const elapsed = Math.max(0, Math.round(performance.now() - activeSince));
+      activeSince = 0;
+      totalActive += elapsed;
+      if (elapsed > 0) recordAnonymousFeedEvent('topic', currentTopicId, 'active_duration', elapsed);
+    };
+    const startDuration = () => {
+      if (!viewable || document.visibilityState !== 'visible' || activeSince) return;
+      activeSince = performance.now();
+      if (durationTimer === null) durationTimer = window.setInterval(flushDuration, 30000);
+    };
+    const scheduleView = () => {
+      if (!intersecting || viewable || viewTimer !== null || document.visibilityState !== 'visible') return;
+      viewTimer = window.setTimeout(() => {
+        viewTimer = null;
+        if (!intersecting || document.visibilityState !== 'visible') return;
+        viewable = true;
+        recordAnonymousFeedEvent('topic', currentTopicId, 'viewable_impression');
+        startDuration();
+      }, 1000);
+    };
+    const observer = typeof IntersectionObserver !== 'undefined' && containerRef.current
+      ? new IntersectionObserver((entries) => {
+          intersecting = Boolean(entries[0]?.isIntersecting && entries[0].intersectionRatio >= 0.5);
+          if (intersecting) scheduleView();
+          else { if (viewTimer !== null) window.clearTimeout(viewTimer); viewTimer = null; flushDuration(); }
+        }, { threshold: [0, 0.5, 1] })
+      : null;
+    if (containerRef.current && observer) observer.observe(containerRef.current);
+    else { intersecting = true; scheduleView(); }
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') { if (viewTimer !== null) window.clearTimeout(viewTimer); viewTimer = null; flushDuration(); }
+      else if (intersecting) { if (viewable) startDuration(); else scheduleView(); }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      flushDuration();
+      if (durationTimer !== null) window.clearInterval(durationTimer);
+      if (viewTimer !== null) window.clearTimeout(viewTimer);
+      observer?.disconnect();
+      document.removeEventListener('visibilitychange', onVisibility);
+      if (totalActive < 2000) recordAnonymousFeedEvent('topic', currentTopicId, 'skip');
+    };
+  }, [active, currentTopicId, userId]);
 
   useEffect(() => {
     if (!userId || !active) return;
@@ -206,6 +262,7 @@ export function TopicSwipeViewer({
   }, [currentTopicId, userId, active]);
 
   useEffect(() => {
+    if (!userId && slideIndex === slides.length - 1) recordAnonymousFeedEvent('topic', currentTopicId, 'completion');
     if (!userId || slideIndex <= 0) return;
     recordFeedAnalyticsEvent(userId, 'swipe_depth', currentTopicId, {
       slide_index: slideIndex,
@@ -243,6 +300,9 @@ export function TopicSwipeViewer({
   };
 
   const moveTopic = (direction: 'next' | 'previous') => {
+    if (direction === 'next' && !userId && topicActiveDurationRef.current + getActiveElapsed(topicActiveSinceRef.current) < 2000) {
+      recordAnonymousFeedEvent('topic', currentTopicId, 'skip');
+    }
     if (direction === 'next' && userId) {
       const activeElapsed = getActiveElapsed(topicActiveSinceRef.current);
       if (topicActiveDurationRef.current + activeElapsed < 2000) {
