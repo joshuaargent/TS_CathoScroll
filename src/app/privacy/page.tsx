@@ -234,34 +234,33 @@ export default function PrivacyPage() {
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            For signed-in users, CathoScroll's first-party topic-feed and Top Comments exposure telemetry have been paused
-            while the separate UK GDPR Article 6 and Article 9 position is resolved. The existing
-            implementations record topic impressions, viewability, active duration, skips,
-            completions, return visits, and comment-card impressions, opens and viewability when enabled. Historical raw events and the user/day
-            viewer bridge remain subject to the documented retention schedule (up to 180 days);
-            daily totals without user or session identifiers are retained longer. These records
-            are not anonymous while identifiers are retained and are not provided to sponsors or
-            used for sponsor targeting. Turning off recommendation personalisation is not the
-            same as analytics consent.
+            For signed-in users, first-party topic-feed and Top Comments analytics are linked to
+            the account that generated them. They measure impressions, viewability, active reading
+            time, skips, completions, slide depth, return visits and discussion opens. Raw events
+            and the restricted daily viewer bridge are retained for up to 180 days; daily totals
+            without account or session identifiers are retained longer. These records are not
+            anonymous while account-linked identifiers are retained and are not used for
+            individual sponsor targeting. Turning off recommendation personalisation does not
+            automatically disable operational analytics.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            For signed-in users, CathoScroll records first-party topic-feed and Top Comments
-            analytics such as impressions, viewability, reading time, skips, slide depth,
-            completions and discussion opens. These records are linked to the account that generated
-            them and are used to understand service performance and improve the feed. Topic activity
-            on a Catholic learning platform may reveal religious or philosophical interests, so we
-            treat it as potentially sensitive information and apply restricted access and retention
-            controls. The recommendation-personalisation setting remains separate: only users who
-            have enabled personalisation have their activity used to build and apply a private
-            recommendation-interest profile.
+            Signed-out visitors also contribute to CathoScroll's separate first-party anonymous
+            topic and Top Comments measurement. The browser sends event IDs and the relevant topic
+            or comment identifier, but no account ID, persistent visitor ID, raw session ID or
+            cross-visit profile. The server deduplicates events and stores only UTC daily aggregate
+            counts for impressions, viewability, active duration, skips, completions and discussion
+            opens. Event receipts used only for deduplication are deleted after seven days. The
+            aggregate counts do not support an anonymous unique-person or session count.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            Signed-out visitors are not sent to CathoScroll's account-linked topic or comment
-            analytics pipeline. Those endpoints require an authenticated account, and the client
-            only queues these detailed events for signed-in users. Signed-out visits are included
-            in Vercel's site-level traffic and performance measurement.
+            Signed-out sponsor delivery uses a separate campaign pipeline. A random session
+            token exists only in the active page/app memory and its SHA-256 hash is stored briefly
+            to enforce sponsor frequency limits. Raw anonymous sponsor event and frequency rows
+            are deleted after 48 hours; daily campaign-level served, viewable and click totals are
+            retained for aggregate reporting. The token is not used to build a visitor profile or
+            link topic/comment reading activity across visits.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
