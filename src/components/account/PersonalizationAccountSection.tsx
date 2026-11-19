@@ -71,13 +71,12 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
 
-  const load = useCallback(async (showLoading = true) => {
-    if (showLoading) setLoading(true);
-    setError('');
+  const load = useCallback(async () => {
     try {
       const { data: authData, error: authError } = await client.auth.getUser();
       if (authError) throw authError;
       if (!authData.user) throw new Error('Authentication required.');
+      setError('');
 
       const { data, error: rpcError } = await client.rpc('get_my_personalization_status');
       if (rpcError) throw rpcError;
@@ -96,9 +95,11 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
       };
       setStatus(nextStatus);
       setSelectedCategories(nextStatus.selected_categories);
+      return true;
     } catch (cause) {
       console.error('Unable to load personalisation settings:', cause);
       setError('Unable to load these settings. Check your connection and retry.');
+      return false;
     } finally {
       // Always release the initial loading state, including the first mount request.
       setLoading(false);
@@ -126,16 +127,24 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
         throw new Error('Personalisation settings were not confirmed.');
       }
 
-      await load(false);
-      setMessage(enabled
-        ? 'Personalised recommendations are now enabled.'
-        : 'Personalisation is off. Your stored interest profile has been deleted.');
+      const refreshed = await load();
+      setMessage(refreshed
+        ? enabled
+          ? 'Personalised recommendations are now enabled.'
+          : 'Personalisation is off. Your stored interest profile has been deleted.'
+        : 'Your setting was saved, but the latest status could not be refreshed. Use Refresh status to verify it.');
     } catch (cause) {
       console.error('Unable to update personalisation consent:', cause);
       setError('Your setting could not be changed. No change has been assumed; try again.');
     } finally {
       setSaving(false);
     }
+  }
+
+  function refreshStatus() {
+    if (loading) return;
+    setLoading(true);
+    void load();
   }
 
   async function saveInterests() {
@@ -152,8 +161,10 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
       });
       if (rpcError) throw rpcError;
 
-      await load(false);
-      setMessage('Your explicit category interests have been saved.');
+      const refreshed = await load();
+      setMessage(refreshed
+        ? 'Your explicit category interests have been saved.'
+        : 'Your interests were saved, but the latest status could not be refreshed. Use Refresh status to verify them.');
     } catch (cause) {
       console.error('Unable to save explicit category interests:', cause);
       setError('Your category interests could not be saved. Try again.');
@@ -305,7 +316,7 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
         {error && (
           <div role="alert" className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
             <span>{error}</span>
-            <Button type="button" size="sm" variant="secondary" onClick={() => void load()}>
+            <Button type="button" size="sm" variant="secondary" onClick={refreshStatus}>
               Retry
             </Button>
           </div>
