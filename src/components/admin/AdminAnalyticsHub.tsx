@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardDescription, CardTitle } from '@/components/ui/Card';
 import type { AnalyticsPeriod } from '@/lib/analytics/content-analytics';
 
-type AnalyticsDay = { event_date: string; topic_impressions: number; sponsor_served: number; comment_impressions: number; topic_viewable_impressions: number; sponsor_viewable_impressions: number; sponsor_clicks: number; comment_viewable_impressions: number };
+type AnalyticsDay = { event_date: string; topic_impressions: number; sponsor_served: number; comment_impressions: number; topic_viewable_impressions: number; sponsor_viewable_impressions: number; sponsor_clicks: number; comment_viewable_impressions: number; anonymous_topic_impressions?: number; anonymous_sponsor_served?: number; anonymous_comment_impressions?: number };
 
 type Overview = {
   totals: {
@@ -21,11 +21,14 @@ type Overview = {
     category_count: number; topic_count: number; sponsor_count: number; comment_count: number;
     topic_likes: number; bookmarks: number; completed_topics: number; comments_created: number; replies: number; comment_likes: number;
     unique_topic_viewers: number; unique_sponsor_viewers: number; unique_comment_viewers: number; unique_feed_viewers: number;
+    anonymous_topic_impressions: number; anonymous_topic_viewable_impressions: number; anonymous_topic_active_duration_ms: number; anonymous_topic_skips: number; anonymous_topic_completions: number;
+    anonymous_sponsor_served: number; anonymous_sponsor_viewable_impressions: number; anonymous_sponsor_clicks: number;
+    anonymous_comment_card_impressions: number; anonymous_comment_card_viewable_impressions: number; anonymous_comment_card_active_duration_ms: number; anonymous_comment_card_skips: number; anonymous_comment_card_opens: number;
   };
-  categories: { slug: string; name: string; topic_count: number; impressions: number; viewable_impressions: number }[];
-  topics: { id: string; slug: string; question: string; category_slug: string; impressions: number; viewable_impressions: number; active_duration_ms: number }[];
-  sponsors: { id: string; sponsor_name: string; status: string; campaign_count: number; served: number; viewable_impressions: number; clicks: number }[];
-  comments: { id: number; topic_id: string; topic_question: string | null; created_at: string; impressions: number; viewable_impressions: number; active_duration_ms: number; skips: number; opens: number; likes: number; replies: number }[];
+  categories: { slug: string; name: string; topic_count: number; impressions: number; viewable_impressions: number; anonymous_impressions?: number; anonymous_viewable_impressions?: number }[];
+  topics: { id: string; slug: string; question: string; category_slug: string; impressions: number; viewable_impressions: number; active_duration_ms: number; anonymous_impressions?: number; anonymous_viewable_impressions?: number }[];
+  sponsors: { id: string; sponsor_name: string; status: string; campaign_count: number; served: number; viewable_impressions: number; clicks: number; anonymous_served?: number; anonymous_viewable_impressions?: number; anonymous_clicks?: number }[];
+  comments: { id: number; topic_id: string; topic_question: string | null; created_at: string; impressions: number; viewable_impressions: number; active_duration_ms: number; skips: number; opens: number; likes: number; replies: number; anonymous_impressions?: number; anonymous_viewable_impressions?: number; anonymous_opens?: number }[];
 };
 
 const periods: { value: AnalyticsPeriod; label: string }[] = [
@@ -72,7 +75,7 @@ function DailyOverviewChart({ series }: { series: AnalyticsDay[] }) {
   const padding = { left: 42, right: 18, top: 18, bottom: 36 };
   const chartWidth = width - padding.left - padding.right;
   const chartHeight = height - padding.top - padding.bottom;
-  const values = series.flatMap((day) => [day.topic_impressions, day.sponsor_served, day.comment_impressions]);
+  const values = series.flatMap((day) => [day.topic_impressions, day.sponsor_served, day.comment_impressions, day.anonymous_topic_impressions ?? 0, day.anonymous_sponsor_served ?? 0, day.anonymous_comment_impressions ?? 0]);
   const max = Math.max(1, ...values);
   const point = (value: number, index: number) => {
     const x = padding.left + (series.length <= 1 ? chartWidth / 2 : index / (series.length - 1) * chartWidth);
@@ -101,7 +104,7 @@ function DailyOverviewChart({ series }: { series: AnalyticsDay[] }) {
 
 export function AdminAnalyticsHub({ overview, period, section = 'overview', series, deepDive, comparison }: { overview: Overview; period: AnalyticsPeriod; section?: string; series: AnalyticsDay[]; deepDive: AnalyticsDeepDiveData; comparison: Overview }) {
   const t = overview.totals;
-  const totalExposures = t.topic_impressions + t.sponsor_served + t.comment_card_impressions;
+  const totalExposures = t.topic_impressions + t.sponsor_served + t.comment_card_impressions + t.anonymous_topic_impressions + t.anonymous_sponsor_served + t.anonymous_comment_card_impressions;
   const previous = comparison.totals;
   const change = (current: number, prior: number) => prior > 0 ? ((current - prior) / prior * 100).toFixed(1) + '%' : current > 0 ? 'New' : '0.0%';
   const sectionHref = (value: string) => `/admin/analytics?period=${period}&section=${value}`;
@@ -145,10 +148,10 @@ export function AdminAnalyticsHub({ overview, period, section = 'overview', seri
     </nav>
 
     <section className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-      <Metric label="Topic impressions vs previous" value={change(t.topic_impressions, previous.topic_impressions)} detail={number(t.topic_impressions) + ' current · ' + number(previous.topic_impressions) + ' previous'} icon={Activity} />
-      <Metric label="Sponsor delivery vs previous" value={change(t.sponsor_served, previous.sponsor_served)} detail={number(t.sponsor_served) + ' current · ' + number(previous.sponsor_served) + ' previous'} icon={Megaphone} />
-      <Metric label="Comment exposure vs previous" value={change(t.comment_card_impressions, previous.comment_card_impressions)} detail={number(t.comment_card_impressions) + ' current · ' + number(previous.comment_card_impressions) + ' previous'} icon={MessageCircle} />
-      <Metric label="Total placements vs previous" value={change(totalExposures, previous.topic_impressions + previous.sponsor_served + previous.comment_card_impressions)} detail="Same-length immediately preceding period" icon={Activity} />
+      <Metric label="Topic impressions vs previous" value={change(t.topic_impressions + t.anonymous_topic_impressions, previous.topic_impressions + previous.anonymous_topic_impressions)} detail={number(t.topic_impressions + t.anonymous_topic_impressions) + ' current · ' + number(previous.topic_impressions + previous.anonymous_topic_impressions) + ' previous'} icon={Activity} />
+      <Metric label="Sponsor delivery vs previous" value={change(t.sponsor_served + t.anonymous_sponsor_served, previous.sponsor_served + previous.anonymous_sponsor_served)} detail={number(t.sponsor_served + t.anonymous_sponsor_served) + ' current · ' + number(previous.sponsor_served + previous.anonymous_sponsor_served) + ' previous'} icon={Megaphone} />
+      <Metric label="Comment exposure vs previous" value={change(t.comment_card_impressions + t.anonymous_comment_card_impressions, previous.comment_card_impressions + previous.anonymous_comment_card_impressions)} detail={number(t.comment_card_impressions + t.anonymous_comment_card_impressions) + ' current · ' + number(previous.comment_card_impressions + previous.anonymous_comment_card_impressions) + ' previous'} icon={MessageCircle} />
+      <Metric label="Total placements vs previous" value={change(totalExposures, previous.topic_impressions + previous.sponsor_served + previous.comment_card_impressions + previous.anonymous_topic_impressions + previous.anonymous_sponsor_served + previous.anonymous_comment_card_impressions)} detail="Same-length immediately preceding period" icon={Activity} />
     </section>
     <section className="mt-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       <Metric label="Total feed placements" value={number(totalExposures)} detail="Topic impressions + sponsor deliveries + comment-card impressions" icon={Activity} />
@@ -172,7 +175,7 @@ export function AdminAnalyticsHub({ overview, period, section = 'overview', seri
     <DailyOverviewChart series={series} />
     <AnalyticsDeepDivePanel data={deepDive} />
     <section className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-      <Metric label="Unique signed-in viewers" value={number(t.unique_feed_viewers)} detail={'Distinct signed-in accounts · ' + number(t.unique_topic_viewers) + ' topic · ' + number(t.unique_sponsor_viewers) + ' sponsor · ' + number(t.unique_comment_viewers) + ' comment viewers'} icon={Users} />
+      <Metric label="Unique signed-in viewers" value={number(t.unique_feed_viewers)} detail={'Distinct signed-in accounts only · ' + number(t.unique_topic_viewers) + ' topic · ' + number(t.unique_sponsor_viewers) + ' sponsor · ' + number(t.unique_comment_viewers) + ' comment viewers'} icon={Users} />
       <Metric label="Topic likes" value={number(t.topic_likes)} detail="Topic likes created in this period" icon={Heart} />
       <Metric label="Bookmarks" value={number(t.bookmarks)} detail="Topic bookmarks created in this period" icon={BookOpen} />
       <Metric label="Completed topics" value={number(t.completed_topics)} detail="Topic completions recorded in this period" icon={CheckCircle2} />
@@ -211,7 +214,7 @@ export function AdminAnalyticsHub({ overview, period, section = 'overview', seri
       </SectionCard>}
     </section>
     <Card padding="md" className="mt-8"><p className="text-text-secondary text-sm">Measurement notes</p>
-      <p className="text-text-muted mt-2 text-xs leading-relaxed">Topic feed impressions, sponsor served/viewable/click events and Top Comments card exposures are separate event streams. The combined placement figure is a cross-surface total, not a unique-user count. Comment likes and replies are shown as community interactions and are not added to feed impressions. Comment-card exposure tracking begins when the new client instrumentation is deployed; historical exposure cannot be reconstructed.</p>
+      <p className="text-text-muted mt-2 text-xs leading-relaxed">Topic feed impressions, sponsor served/viewable/click events and Top Comments card exposures are separate event streams. Anonymous event counts are shown separately; no anonymous unique-person count is created. Signed-in unique viewers exclude anonymous sessions. Comment likes and replies are shown as community interactions and are not added to feed impressions. Comment-card exposure tracking begins when the new client instrumentation is deployed; historical exposure cannot be reconstructed.</p>
     </Card>
   </main>;
 }
