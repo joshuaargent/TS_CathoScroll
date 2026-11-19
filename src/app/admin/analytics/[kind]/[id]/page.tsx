@@ -19,10 +19,11 @@ function Metric({ label, value, detail }: { label: string; value: string; detail
 const fmt = (value: unknown) => new Intl.NumberFormat('en-GB').format(typeof value === 'number' && Number.isFinite(value) ? value : 0);
 
 export default async function AdminAnalyticsEntityPage({ params, searchParams }: Props) {
-  const [{ kind, id }, query] = await Promise.all([params, searchParams ?? Promise.resolve({})]);
+  const { kind, id } = await params;
+  const query = (await searchParams) ?? {};
   if (!['sponsors', 'comments'].includes(kind)) notFound();
   if (kind === 'sponsors' && !isValidUuid(id)) notFound();
-  if (kind === 'comments' && (!/^\\d{1,18}$/.test(id) || Number(id) < 1)) notFound();
+  if (kind === 'comments' && (!/^\\d{1,18}$/.test(id) || !Number.isSafeInteger(Number(id)) || Number(id) < 1)) notFound();
 
   const period: AnalyticsPeriod = isAnalyticsPeriod(query.period) ? query.period : '30d';
   const { from, to } = getAnalyticsRange(period);
@@ -90,7 +91,7 @@ export default async function AdminAnalyticsEntityPage({ params, searchParams }:
         <Metric label="Likes / replies" value={fmt(totals.likes) + ' / ' + fmt(totals.replies)} detail="Existing community interaction records, shown separately" />
       </>}
     </div>
-    {kind === 'sponsors' && <Card padding="lg" className="mt-8"><h2 className="text-xl font-bold">Campaigns</h2><p className="text-text-muted mt-1 text-sm">Campaigns belonging to this sponsor.</p><div className="mt-4 divide-border divide-y">{campaigns.map((campaign) => <div key={campaign.id} className="flex flex-wrap items-center justify-between gap-3 py-3"><span className="text-text-primary text-sm font-semibold">{campaign.name}</span><Badge variant="secondary">{campaign.status}</Badge></div>)}</div>{campaigns.length === 0 && <p className="text-text-muted mt-4 text-sm">No campaigns are associated with this sponsor.</p>}</Card>}
+    {kind === 'sponsors' && <Card padding="lg" className="mt-8"><h2 className="text-xl font-bold">Campaigns</h2><p className="text-text-muted mt-1 text-sm">Campaigns belonging to this sponsor.</p><div className="mt-4 divide-border divide-y">{campaigns.map((campaign) => <div key={campaign.id} className="flex flex-wrap items-center justify-between gap-3 py-3"><span className="text-text-primary text-sm font-semibold">{campaign.name}</span><Badge variant="outline">{campaign.status}</Badge></div>)}</div>{campaigns.length === 0 && <p className="text-text-muted mt-4 text-sm">No campaigns are associated with this sponsor.</p>}</Card>}
     <Card padding="lg" className="mt-8"><h2 className="text-xl font-bold">Daily activity</h2>
       <p className="text-text-muted mt-1 text-sm">Daily aggregate rows for the selected reporting period.</p>
       {series.length ? <div className="mt-4 divide-border divide-y">{series.map((row, index) => <div key={String(row.event_date ?? index)} className="flex flex-wrap justify-between gap-3 py-3 text-sm"><span className="text-text-secondary">{String(row.event_date ?? '')}</span><span className="text-text-primary tabular-nums">{kind === 'sponsors' ? fmt(row.served) + ' served · ' + fmt(row.viewable_impressions) + ' viewable · ' + fmt(row.clicks) + ' clicks' : fmt(row.impressions) + ' impressions · ' + fmt(row.viewable_impressions) + ' viewable'}</span></div>)}</div> : <p className="text-text-muted mt-5 text-sm">No analytics have been recorded for this item in the selected period.</p>}

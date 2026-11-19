@@ -10,7 +10,7 @@ export const metadata: Metadata = { title: 'Analytics', robots: { index: false, 
 interface Props { searchParams?: Promise<{ period?: string; section?: string }> }
 
 export default async function AdminAnalyticsPage({ searchParams }: Props) {
-  const query = await (searchParams ?? Promise.resolve({}));
+  const query = (await searchParams) ?? {};
   const { adminClient, user } = await requireAdminPage('/admin/analytics');
   const rateLimit = await checkApiRateLimit({ scope: 'admin:analytics:read', identifier: user.id, limit: 60, windowSeconds: 60 });
   if (!rateLimit.allowed) throw new Error(rateLimit.unavailable ? 'Analytics are temporarily unavailable. Please try again.' : 'Too many analytics requests. Please wait before refreshing.');

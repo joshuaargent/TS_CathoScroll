@@ -51,7 +51,7 @@ function SectionCard({ title, description, count, href, icon: Icon, children }: 
 }) {
   return <Card padding="lg" className="h-full"><div className="flex items-start justify-between gap-3">
     <div className="flex items-center gap-3"><span className="bg-accent-light text-accent rounded-xl p-2.5"><Icon className="h-5 w-5" /></span><div><CardTitle>{title}</CardTitle><CardDescription className="mt-1">{description}</CardDescription></div></div>
-    <Badge variant="secondary">{count}</Badge>
+    <Badge variant="outline">{count}</Badge>
   </div><div className="mt-5 space-y-2">{children}</div><Link href={href} className="text-accent mt-5 inline-flex items-center gap-1 text-sm font-semibold hover:underline">Explore {title.toLowerCase()} <ArrowUpRight className="h-4 w-4" /></Link></Card>;
 }
 
