@@ -11,6 +11,7 @@ import { BaseFeedCard } from './BaseFeedCard';
 interface SponsorFeedCardProps {
   campaigns: SponsorFeedCampaign[];
   sessionId: string;
+  placementKey: string;
   userId: string | null;
   previewMode?: boolean;
   sponsorApiBaseUrl?: string;
@@ -35,8 +36,8 @@ function createEventId() {
 // revisit does not lose the fact that the impression was already recorded.
 const viewableSponsorPlacements = new Set<string>();
 
-function getSponsorPlacementKey(userId: string | null, sessionId: string, campaignId: string) {
-  return JSON.stringify([userId ?? 'anonymous', sessionId, campaignId]);
+function getSponsorPlacementKey(userId: string | null, sessionId: string, campaignId: string, placementKey: string) {
+  return JSON.stringify([userId ?? 'anonymous', sessionId, placementKey, campaignId]);
 }
 
 function rememberViewableSponsorPlacement(key: string) {
@@ -51,6 +52,7 @@ function rememberViewableSponsorPlacement(key: string) {
 export function SponsorFeedCard({
   campaigns,
   sessionId,
+  placementKey,
   userId,
   previewMode = false,
   sponsorApiBaseUrl,
@@ -68,7 +70,7 @@ export function SponsorFeedCard({
   const campaign = campaigns[safeIndex];
   const campaignId = campaign?.campaign_id;
   const viewablePlacementKey = campaignId
-    ? getSponsorPlacementKey(userId, sessionId, campaignId)
+    ? getSponsorPlacementKey(userId, sessionId, campaignId, placementKey)
     : null;
 
   useEffect(() => {
