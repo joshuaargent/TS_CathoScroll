@@ -227,10 +227,10 @@ export default function PrivacyPage() {
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            For signed-in users, CathoScroll's first-party topic-feed telemetry has been paused while
-            the separate UK GDPR Article 6 and Article 9 position is resolved. The existing
-            implementation records topic impressions, viewability, active duration, skips,
-            completions and return visits when enabled. Historical raw events and the user/day
+            For signed-in users, CathoScroll's first-party topic-feed and Top Comments exposure telemetry have been paused
+            while the separate UK GDPR Article 6 and Article 9 position is resolved. The existing
+            implementations record topic impressions, viewability, active duration, skips,
+            completions, return visits, and comment-card impressions, opens and viewability when enabled. Historical raw events and the user/day
             viewer bridge remain subject to the documented retention schedule (up to 180 days);
             daily totals without user or session identifiers are retained longer. These records
             are not anonymous while identifiers are retained and are not provided to sponsors or
