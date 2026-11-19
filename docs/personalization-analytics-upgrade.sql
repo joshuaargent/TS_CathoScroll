@@ -401,9 +401,7 @@ BEGIN
   SELECT count(*)::integer INTO v_count FROM upserted;
 
   DELETE FROM catho_private.user_topic_interest_scores s
-  WHERE s.user_id=p_user_id AND NOT EXISTS (
-    SELECT 1 FROM public.topics t WHERE t.id=s.topic_id AND t.is_published=true
-  );
+  WHERE s.user_id=p_user_id AND s.updated_at < v_now;
   RETURN v_count;
 END;
 $function$;
