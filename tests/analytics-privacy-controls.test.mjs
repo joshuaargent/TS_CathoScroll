@@ -24,10 +24,12 @@ test('account-linked topic and comment telemetry fail closed pending legal appro
 
 test('site analytics removes content paths and query strings before transmission', async () => {
   const layout = await read('../src/app/layout.tsx');
-  assert.ok(layout.includes('beforeSend={redactAnalyticsEvent}'));
-  assert.ok(layout.includes("url.pathname = '/'"));
-  assert.ok(layout.includes("url.search = ''"));
-  assert.ok(layout.includes("url.hash = ''"));
+  const analytics = await read('../src/components/providers/PrivacySafeAnalytics.tsx');
+  assert.ok(layout.includes('<PrivacySafeAnalytics />'));
+  assert.ok(analytics.includes('beforeSend={redactAnalyticsEvent}'));
+  assert.ok(analytics.includes("url.pathname = '/'"));
+  assert.ok(analytics.includes("url.search = ''"));
+  assert.ok(analytics.includes("url.hash = ''"));
   assert.ok(!layout.includes('<SpeedInsights'));
 });
 
