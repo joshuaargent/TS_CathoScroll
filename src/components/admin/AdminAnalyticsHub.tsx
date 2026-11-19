@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardDescription, CardTitle } from '@/components/ui/Card';
 import type { AnalyticsPeriod } from '@/lib/analytics/content-analytics';
 
+type AnalyticsDay = { event_date: string; topic_impressions: number; sponsor_served: number; comment_impressions: number; topic_viewable_impressions: number; sponsor_viewable_impressions: number; sponsor_clicks: number; comment_viewable_impressions: number };
+
 type Overview = {
   totals: {
     topic_impressions: number; topic_viewable_impressions: number; topic_active_duration_ms: number;
@@ -60,7 +62,41 @@ function EntityLink({ href, title, detail, metric }: { href: string; title: stri
   </Link>;
 }
 
-export function AdminAnalyticsHub({ overview, period, section = 'overview' }: { overview: Overview; period: AnalyticsPeriod; section?: string }) {
+
+function DailyOverviewChart({ series }: { series: AnalyticsDay[] }) {
+  const width = 760;
+  const height = 250;
+  const padding = { left: 42, right: 18, top: 18, bottom: 36 };
+  const chartWidth = width - padding.left - padding.right;
+  const chartHeight = height - padding.top - padding.bottom;
+  const values = series.flatMap((day) => [day.topic_impressions, day.sponsor_served, day.comment_impressions]);
+  const max = Math.max(1, ...values);
+  const point = (value: number, index: number) => {
+    const x = padding.left + (series.length <= 1 ? chartWidth / 2 : index / (series.length - 1) * chartWidth);
+    const y = padding.top + chartHeight - value / max * chartHeight;
+    return x.toFixed(1) + ',' + y.toFixed(1);
+  };
+  const topic = series.map((day, index) => point(day.topic_impressions, index)).join(' ');
+  const sponsor = series.map((day, index) => point(day.sponsor_served, index)).join(' ');
+  const comments = series.map((day, index) => point(day.comment_impressions, index)).join(' ');
+  return <Card padding="lg" className="mt-6">
+    <div><h2 className="text-xl font-bold">Daily feed activity</h2><p className="text-text-muted mt-1 text-sm">Separate daily trends for learning topics, paid sponsor delivery and Top Comments.</p></div>
+    <div className="mt-5 flex flex-wrap gap-4 text-xs">
+      <span className="text-text-secondary inline-flex items-center gap-2"><span className="bg-accent h-2.5 w-2.5 rounded-full" /> Topic impressions</span>
+      <span className="text-text-secondary inline-flex items-center gap-2"><span className="bg-emerald-600 h-2.5 w-2.5 rounded-full" /> Sponsor deliveries</span>
+      <span className="text-text-secondary inline-flex items-center gap-2"><span className="bg-sky-600 h-2.5 w-2.5 rounded-full" /> Comment-card impressions</span>
+    </div>
+    {series.length ? <svg viewBox={'0 0 ' + width + ' ' + height} className="mt-3 h-auto w-full" role="img" aria-label="Daily topic, sponsor and comment card activity">
+      {[0,0.5,1].map((fraction) => <g key={fraction}><line x1={padding.left} y1={padding.top+chartHeight*(1-fraction)} x2={width-padding.right} y2={padding.top+chartHeight*(1-fraction)} className="stroke-border" strokeDasharray="4 5" /><text x={padding.left-9} y={padding.top+chartHeight*(1-fraction)+4} textAnchor="end" className="fill-text-muted" fontSize="11">{number(Math.round(max*fraction))}</text></g>)}
+      <polyline points={topic} fill="none" className="stroke-accent" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+      <polyline points={sponsor} fill="none" className="stroke-emerald-600" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+      <polyline points={comments} fill="none" className="stroke-sky-600" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+      {series.length > 0 && <><text x={padding.left} y={height-8} className="fill-text-muted" fontSize="11">{series[0].event_date}</text><text x={width-padding.right} y={height-8} textAnchor="end" className="fill-text-muted" fontSize="11">{series[series.length-1].event_date}</text></>}
+    </svg> : <p className="text-text-muted mt-6 text-sm">No daily activity has been recorded in this period yet.</p>}
+  </Card>;
+}
+
+export function AdminAnalyticsHub({ overview, period, section = 'overview', series }: { overview: Overview; period: AnalyticsPeriod; section?: string; series: AnalyticsDay[] }) {
   const t = overview.totals;
   const totalExposures = t.topic_impressions + t.sponsor_served + t.comment_card_impressions;
   const sectionHref = (value: string) => `/admin/analytics?period=${period}&section=${value}`;
@@ -105,6 +141,14 @@ export function AdminAnalyticsHub({ overview, period, section = 'overview' }: { 
       <Metric label="Sponsors" value={number(t.sponsor_count)} detail="Sponsor organisations" icon={Users} />
       <Metric label="Comments" value={number(t.comment_count)} detail={number(t.comment_card_skips) + ' Top Comments card skips in range'} icon={Heart} />
     </section>
+
+    <section className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <Metric label="Topic viewability" value={t.topic_impressions ? ((t.topic_viewable_impressions / t.topic_impressions) * 100).toFixed(1) + '%' : '—'} detail="Viewable topic impressions ÷ impressions" icon={Activity} />
+      <Metric label="Topic completion rate" value={t.topic_impressions ? ((t.topic_completions / t.topic_impressions) * 100).toFixed(1) + '%' : '—'} detail="Recorded completions ÷ impressions" icon={BookOpen} />
+      <Metric label="Sponsor click-through" value={t.sponsor_served ? ((t.sponsor_clicks / t.sponsor_served) * 100).toFixed(2) + '%' : '—'} detail="Clicks ÷ served placements" icon={Megaphone} />
+      <Metric label="Comment-card viewability" value={t.comment_card_impressions ? ((t.comment_card_viewable_impressions / t.comment_card_impressions) * 100).toFixed(1) + '%' : '—'} detail="Viewable comment-card impressions ÷ impressions" icon={MessageCircle} />
+    </section>
+    <DailyOverviewChart series={series} />
 
     <section className="mt-10 grid gap-5 lg:grid-cols-2">
       {(section === 'overview' || section === 'categories') && <SectionCard title="Categories" description="Compare category reach and topic coverage." count={number(t.category_count)} href={sectionHref('categories')} icon={BarChart3}>

@@ -16,7 +16,7 @@ const queueLimit = 200;
 type FeedCardAnalyticsTransport = { endpoint?: string; getAccessToken?: () => Promise<string | null>; retired?: boolean };
 const transports = new Map<string, FeedCardAnalyticsTransport>();
 const flushingUsers = new Set<string>();
-let sessionId: string | null = null;
+const sessionIds = new Map<string, string>();
 
 function uuid(): string | null {
   try {
@@ -25,9 +25,13 @@ function uuid(): string | null {
   } catch { return null; }
 }
 
-function getSessionId(): string | null {
-  if (!sessionId) sessionId = uuid();
-  return sessionId;
+function getSessionId(userId: string): string | null {
+  let value = sessionIds.get(userId);
+  if (!value) {
+    value = uuid() ?? undefined;
+    if (value) sessionIds.set(userId, value);
+  }
+  return value ?? null;
 }
 
 function readQueue(userId: string): QueuedEvent[] {
@@ -61,7 +65,7 @@ export function recordFeedCardAnalyticsEvent(
 ) {
   if (!userId || !Number.isSafeInteger(commentId) || commentId < 1 || typeof window === 'undefined') return;
   const eventId = uuid();
-  const currentSessionId = getSessionId();
+  const currentSessionId = getSessionId(userId);
   if (!eventId || !currentSessionId) return;
   const queue = readQueue(userId);
   queue.push({

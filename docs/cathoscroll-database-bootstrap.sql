@@ -7107,7 +7107,7 @@ BEGIN
     SELECT t.id,t.slug,t.question,t.category_slug,coalesce(sum(td.impressions),0) impressions,
       coalesce(sum(td.viewable_impressions),0) viewable_impressions,coalesce(sum(td.active_duration_ms),0) active_duration_ms
     FROM public.topics t LEFT JOIN topic_daily td ON td.entity_id=t.id
-    GROUP BY t.id,t.slug,t.question,t.category_slug ORDER BY impressions DESC,t.question LIMIT 100
+    GROUP BY t.id,t.slug,t.question,t.category_slug ORDER BY impressions DESC,t.question 
   ), sponsors AS (
     SELECT s.id,s.sponsor_name,s.status,count(DISTINCT sc.id) campaign_count,
       coalesce(sum(sd.served_count),0) served,coalesce(sum(sd.viewable_impressions),0) viewable_impressions,
@@ -7124,7 +7124,7 @@ BEGIN
     LEFT JOIN (SELECT card_id,sum(impressions) impressions,sum(viewable_impressions) viewable_impressions,
       sum(active_duration_ms) active_duration_ms,sum(skips) skips,sum(opens) opens FROM comment_daily GROUP BY card_id) cd
       ON cd.card_id=c.id::text
-    WHERE c.parent_id IS NULL AND c.is_deleted=false ORDER BY impressions DESC,c.created_at DESC LIMIT 100
+    WHERE c.parent_id IS NULL AND c.is_deleted=false ORDER BY impressions DESC,c.created_at DESC 
   )
   SELECT jsonb_build_object('totals',(SELECT to_jsonb(totals) FROM totals),
     'categories',(SELECT coalesce(jsonb_agg(to_jsonb(categories)),'[]'::jsonb) FROM categories),
@@ -7200,6 +7200,42 @@ $function$;
 ALTER FUNCTION public.get_admin_feed_card_analytics(uuid,timestamptz,timestamptz,text,text) OWNER TO postgres;
 REVOKE ALL ON FUNCTION public.get_admin_feed_card_analytics(uuid,timestamptz,timestamptz,text,text) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.get_admin_feed_card_analytics(uuid,timestamptz,timestamptz,text,text) TO service_role;
+
+
+CREATE OR REPLACE FUNCTION public.get_admin_analytics_series(p_actor_user_id uuid,p_from timestamptz,p_to timestamptz)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
+AS $function$
+DECLARE v_result jsonb;
+BEGIN
+  IF p_actor_user_id IS NULL OR NOT EXISTS(SELECT 1 FROM public.admin_users WHERE user_id=p_actor_user_id) THEN
+    RAISE EXCEPTION 'administrator access required' USING ERRCODE='42501';
+  END IF;
+  IF p_from IS NULL OR p_to IS NULL OR p_to<=p_from OR p_to-p_from>interval '180 days'
+    OR p_to>statement_timestamp()+interval '1 day' THEN RAISE EXCEPTION 'invalid analytics range' USING ERRCODE='22023'; END IF;
+  WITH days AS (
+    SELECT d::date event_date FROM generate_series(date_trunc('day',p_from),date_trunc('day',p_to),interval '1 day') d
+  ), topic AS (
+    SELECT event_date,sum(impressions) impressions,sum(viewable_impressions) viewable_impressions
+    FROM catho_private.feed_analytics_daily WHERE event_date>=p_from::date AND event_date<=p_to::date GROUP BY event_date
+  ), sponsor AS (
+    SELECT event_date,sum(served_count) served,sum(viewable_impressions) viewable_impressions,sum(clicks) clicks
+    FROM catho_private.sponsor_campaign_daily WHERE event_date>=p_from::date AND event_date<=p_to::date GROUP BY event_date
+  ), comments AS (
+    SELECT event_date,sum(impressions) impressions,sum(viewable_impressions) viewable_impressions
+    FROM catho_private.feed_card_analytics_daily WHERE event_date>=p_from::date AND event_date<=p_to::date GROUP BY event_date
+  )
+  SELECT coalesce(jsonb_agg(jsonb_build_object('event_date',d.event_date,
+    'topic_impressions',coalesce(t.impressions,0),'topic_viewable_impressions',coalesce(t.viewable_impressions,0),
+    'sponsor_served',coalesce(s.served,0),'sponsor_viewable_impressions',coalesce(s.viewable_impressions,0),
+    'sponsor_clicks',coalesce(s.clicks,0),'comment_impressions',coalesce(c.impressions,0),
+    'comment_viewable_impressions',coalesce(c.viewable_impressions,0)) ORDER BY d.event_date),'[]'::jsonb)
+  INTO v_result FROM days d LEFT JOIN topic t USING(event_date) LEFT JOIN sponsor s USING(event_date) LEFT JOIN comments c USING(event_date);
+  RETURN v_result;
+END;
+$function$;
+ALTER FUNCTION public.get_admin_analytics_series(uuid,timestamptz,timestamptz) OWNER TO postgres;
+REVOKE ALL ON FUNCTION public.get_admin_analytics_series(uuid,timestamptz,timestamptz) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.get_admin_analytics_series(uuid,timestamptz,timestamptz) TO service_role;
 
 DO $function$
 BEGIN

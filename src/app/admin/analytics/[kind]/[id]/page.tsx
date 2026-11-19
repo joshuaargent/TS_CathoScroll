@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 
 import { AdminNavigation } from '@/components/admin/AdminNavigation';
+import { Badge } from '@/components/ui/Badge';
 import { Card } from '@/components/ui/Card';
 import { requireAdminPage } from '@/lib/moderation/require-admin';
 import { checkApiRateLimit } from '@/lib/security/api-rate-limit';
@@ -33,6 +34,7 @@ export default async function AdminAnalyticsEntityPage({ params, searchParams }:
   let description = '';
   let totals: Record<string, unknown> = {};
   let series: Record<string, unknown>[] = [];
+  let campaigns: { id: string; name: string; status: string }[] = [];
 
   if (kind === 'sponsors') {
     const [{ data: sponsor, error: sponsorError }, { data, error }] = await Promise.all([
@@ -43,12 +45,13 @@ export default async function AdminAnalyticsEntityPage({ params, searchParams }:
     if (!sponsor) notFound();
     title = sponsor.sponsor_name;
     description = 'Sponsored campaign delivery, viewability and click-through performance.';
-    const payload = data as { totals?: Record<string, unknown>; series?: Record<string, unknown>[] } | null;
+    const payload = data as { totals?: Record<string, unknown>; series?: Record<string, unknown>[]; campaigns?: { id: string; name: string; status: string }[] } | null;
     totals = payload?.totals ?? {};
     series = payload?.series ?? [];
+    campaigns = payload?.campaigns ?? [];
   } else {
     const [{ data: comment, error: commentError }, { data, error }] = await Promise.all([
-      adminClient.from('comments').select('id,topic_id,created_at,is_deleted').eq('id', Number(id)).maybeSingle(),
+      adminClient.from('comments').select('id,topic_id,content,created_at,is_deleted').eq('id', Number(id)).maybeSingle(),
       adminClient.rpc('get_admin_feed_card_analytics', { p_actor_user_id: user.id, p_from: from.toISOString(), p_to: to.toISOString(), p_card_type: 'top-comment', p_card_id: id }),
     ]);
     if (commentError || error) throw new Error('Unable to load comment analytics.');
@@ -57,7 +60,7 @@ export default async function AdminAnalyticsEntityPage({ params, searchParams }:
     const { count: likes } = await adminClient.from('comment_likes').select('id', { count: 'exact', head: true }).eq('comment_id', Number(id));
     const { count: replies } = await adminClient.from('comments').select('id', { count: 'exact', head: true }).eq('parent_id', Number(id)).eq('is_deleted', false);
     title = `Comment #${id}`;
-    description = topic?.question ?? 'Top-level community comment';
+    description = (topic?.question ?? 'Top-level community comment') + ' · ' + comment.content.slice(0, 180);
     const payload = data as { totals?: Record<string, unknown>; series?: Record<string, unknown>[] } | null;
     totals = { ...(payload?.totals ?? {}), likes: likes ?? 0, replies: replies ?? 0 };
     series = payload?.series ?? [];
@@ -87,6 +90,7 @@ export default async function AdminAnalyticsEntityPage({ params, searchParams }:
         <Metric label="Likes / replies" value={fmt(totals.likes) + ' / ' + fmt(totals.replies)} detail="Existing community interaction records, shown separately" />
       </>}
     </div>
+    {kind === 'sponsors' && <Card padding="lg" className="mt-8"><h2 className="text-xl font-bold">Campaigns</h2><p className="text-text-muted mt-1 text-sm">Campaigns belonging to this sponsor.</p><div className="mt-4 divide-border divide-y">{campaigns.map((campaign) => <div key={campaign.id} className="flex flex-wrap items-center justify-between gap-3 py-3"><span className="text-text-primary text-sm font-semibold">{campaign.name}</span><Badge variant="secondary">{campaign.status}</Badge></div>)}</div>{campaigns.length === 0 && <p className="text-text-muted mt-4 text-sm">No campaigns are associated with this sponsor.</p>}</Card>}
     <Card padding="lg" className="mt-8"><h2 className="text-xl font-bold">Daily activity</h2>
       <p className="text-text-muted mt-1 text-sm">Daily aggregate rows for the selected reporting period.</p>
       {series.length ? <div className="mt-4 divide-border divide-y">{series.map((row, index) => <div key={String(row.event_date ?? index)} className="flex flex-wrap justify-between gap-3 py-3 text-sm"><span className="text-text-secondary">{String(row.event_date ?? '')}</span><span className="text-text-primary tabular-nums">{kind === 'sponsors' ? fmt(row.served) + ' served · ' + fmt(row.viewable_impressions) + ' viewable · ' + fmt(row.clicks) + ' clicks' : fmt(row.impressions) + ' impressions · ' + fmt(row.viewable_impressions) + ' viewable'}</span></div>)}</div> : <p className="text-text-muted mt-5 text-sm">No analytics have been recorded for this item in the selected period.</p>}
