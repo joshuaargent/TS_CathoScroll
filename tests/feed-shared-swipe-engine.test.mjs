@@ -45,3 +45,15 @@ test('all three card types use the same five-position preview renderer', () => {
   assert.match(sponsor, /previousHorizontalPreview=\{renderCampaignPreview/);
   assert.match(sponsor, /nextHorizontalPreview=\{renderCampaignPreview/);
 });
+
+
+test('horizontal slide commits reset the viewport before React can paint the next preview', () => {
+  const horizontalBranch = sharedViewport.match(
+    /if \(axis === 'horizontal'\) \{([\s\S]*?)\n      \} else if \(!awaitVerticalNavigation\)/,
+  );
+  assert.ok(horizontalBranch, 'horizontal navigation must have its own synchronous commit path');
+  assert.match(horizontalBranch[1], /Promise\.resolve\(navigation\)\.catch/);
+  assert.doesNotMatch(horizontalBranch[1], /await navigation/);
+  assert.match(sharedViewport, /x\.jump\(0\);[\s\S]*?y\.jump\(0\);/);
+  assert.match(topicViewer, /onSwipeHorizontal=\{moveSlide\}/);
+});
