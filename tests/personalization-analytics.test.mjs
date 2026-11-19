@@ -151,7 +151,7 @@ test('personalisation settings disclose the profile purpose and sponsor isolatio
 test('signup collects separate, unchecked explicit consent on web and native', () => {
   assert.match(signupForm, /name="personalizationConsent"/);
   assert.match(signupForm, /type="checkbox"/);
-  assert.match(signupForm, /I explicitly consent to CathoScroll using my topic-reading activity and selected interests/);
+  assert.match(signupForm, /I explicitly consent to CathoScroll using my reading activity and chosen interests/);
   assert.doesNotMatch(signupForm, /name="personalizationConsent"[\s\S]{0,180}checked/);
   assert.match(webSignup, /personalization_consent: personalizationConsent/);
   assert.match(nativeSignup, /personalization_consent: personalizationConsent/);
@@ -259,7 +259,7 @@ test('personalisation settings disclose the profile purpose and sponsor isolatio
 test('signup collects separate, unchecked explicit consent on web and native', () => {
   assert.match(signupForm, /name="personalizationConsent"/);
   assert.match(signupForm, /type="checkbox"/);
-  assert.match(signupForm, /I explicitly consent to CathoScroll using my topic-reading activity and selected interests/);
+  assert.match(signupForm, /I explicitly consent to CathoScroll using my reading activity and chosen interests/);
   assert.doesNotMatch(signupForm, /name="personalizationConsent"[\s\S]{0,180}checked/);
   assert.match(webSignup, /personalization_consent: personalizationConsent/);
   assert.match(nativeSignup, /personalization_consent: personalizationConsent/);
