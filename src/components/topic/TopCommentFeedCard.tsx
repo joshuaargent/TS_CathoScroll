@@ -185,6 +185,7 @@ export function TopCommentFeedCard({
     if (!active || previewMode || !userId || activeCommentId === undefined) return;
     recordFeedCardAnalyticsEvent(userId, 'impression', activeCommentId);
     let viewable = false;
+    let viewableImpressionRecorded = false;
     let isIntersecting = false;
     let viewableTimer: ReturnType<typeof setTimeout> | null = null;
     let durationTimer: ReturnType<typeof setInterval> | null = null;
@@ -216,7 +217,10 @@ export function TopCommentFeedCard({
         viewableTimer = null;
         if (!isIntersecting || document.visibilityState !== 'visible') return;
         viewable = true;
-        recordFeedCardAnalyticsEvent(userId, 'viewable_impression', activeCommentId);
+        if (!viewableImpressionRecorded) {
+          viewableImpressionRecorded = true;
+          recordFeedCardAnalyticsEvent(userId, 'viewable_impression', activeCommentId);
+        }
         startDuration();
       }, 1000);
     };

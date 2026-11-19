@@ -73,6 +73,7 @@ test('Top Comments viewability requires half visibility for one continuous secon
   const detail = await readFile(new URL('../src/app/admin/analytics/[kind]/[id]/page.tsx', import.meta.url), 'utf8');
   assert.ok(card.includes('ref={commentArticleRef}'));
   assert.ok(card.includes('scheduleViewability'));
+  assert.ok(card.includes('viewableImpressionRecorded'));
   assert.ok(card.includes("document.visibilityState === 'hidden'"));
   assert.ok(card.includes('intersectionRatio >= 0.5'));
   assert.ok(card.includes('}, 1000)'));
