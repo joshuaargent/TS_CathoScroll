@@ -70,12 +70,12 @@ When consent is enabled, the existing bounded scoring model applies. Behavioural
 
 ## Analytics and retention
 
-- Raw topic feed and community-card analytics events, together with the user/day viewer bridge used for unique-viewer reporting, are retained for up to 180 days.
+- Raw topic feed, community-card, and sponsor-campaign analytics events, together with the user/day viewer bridge used for unique-viewer reporting, are retained for up to 180 days.
 - Daily totals that do not contain user or session identifiers are retained longer.
 - Behavioural topic-interest evidence is bounded to 90 days.
 - Explicit account-interaction evidence (including likes, bookmarks, progress and comment engagement) is bounded to 180 days.
 - Explicit category selections and derived profile rows are deleted on personalisation withdrawal.
-- Sponsor campaign reporting is maintained separately from organic topic and comment recommendation signals.
+- Sponsor campaign reporting is maintained separately from organic topic and comment recommendation signals. Sponsor frequency-cap rows for completed or rejected campaigns are pruned after the campaign has ended and the applicable 180-day cutoff has passed.
 - Sponsor invoice/payment ledger retention needs a documented accounting retention period, confirmed with the operator's accountant before sponsor volume increases.
 
 Do not describe aggregate analytics as a unique count of all visitors where the relevant pipeline only measures authenticated users.
