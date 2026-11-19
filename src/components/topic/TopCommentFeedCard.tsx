@@ -192,13 +192,17 @@ export function TopCommentFeedCard({
     let startedAt: number | null = null;
     let activeMilliseconds = 0;
 
-    const flushDuration = () => {
-      if (startedAt === null) return;
-      const elapsed = Math.max(0, Math.round(Date.now() - startedAt));
-      startedAt = null;
-      if (elapsed > 0) {
-        activeMilliseconds += elapsed;
-        recordAnonymousFeedEvent('comment', activeCommentId, 'active_duration', elapsed);
+    const flushDuration = (resume = true) => {
+      if (startedAt !== null) {
+        const elapsed = Math.max(0, Math.round(Date.now() - startedAt));
+        startedAt = null;
+        if (elapsed > 0) {
+          activeMilliseconds += elapsed;
+          recordAnonymousFeedEvent('comment', activeCommentId, 'active_duration', elapsed);
+        }
+      }
+      if (resume && viewable && isIntersecting && document.visibilityState === 'visible') {
+        startedAt = Date.now();
       }
     };
     const startDuration = () => {
@@ -246,7 +250,7 @@ export function TopCommentFeedCard({
     document.addEventListener('visibilitychange', onVisibility);
     return () => {
       if (viewTimer !== null) clearTimeout(viewTimer);
-      flushDuration();
+      flushDuration(false);
       if (durationTimer !== null) clearInterval(durationTimer);
       observer?.disconnect();
       document.removeEventListener('visibilitychange', onVisibility);
