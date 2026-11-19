@@ -73,11 +73,11 @@ export async function POST(request: Request) {
     console.error('Unable to verify sponsor-feed authentication:', cause);
     return respond(request, { error: 'Authentication is temporarily unavailable.' }, 503);
   }
-  if (!auth.user) return respond(request, { error: 'Authentication required' }, 401);
+  const isAnonymous = !auth.user;
 
   const rateLimit = await checkApiRateLimit({
     scope: 'sponsor-campaigns:serve',
-    identifier: auth.user.id,
+    identifier: auth.user?.id ?? `anonymous:${request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'}`,
     limit: 12,
     windowSeconds: 60,
   });
@@ -111,13 +111,20 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { data, error } = await createServiceRoleClient().rpc('get_weighted_sponsor_campaigns', {
-      p_user_id: auth.user.id,
-      p_session_id: parsed.value.sessionId,
-      p_category_slug: parsed.value.categorySlug,
-      p_topic_id: parsed.value.topicId,
-      p_limit: 1,
-    });
+    const { data, error } = isAnonymous
+      ? await createServiceRoleClient().rpc('get_anonymous_sponsor_campaigns', {
+          p_session_token: parsed.value.sessionId,
+          p_category_slug: parsed.value.categorySlug,
+          p_topic_id: parsed.value.topicId,
+          p_limit: 1,
+        })
+      : await createServiceRoleClient().rpc('get_weighted_sponsor_campaigns', {
+          p_user_id: auth.user!.id,
+          p_session_id: parsed.value.sessionId,
+          p_category_slug: parsed.value.categorySlug,
+          p_topic_id: parsed.value.topicId,
+          p_limit: 1,
+        });
     if (error) {
       console.error('Unable to select sponsor campaigns:', error.message);
       return respond(request, { error: 'Sponsored content is temporarily unavailable.' }, 503);
