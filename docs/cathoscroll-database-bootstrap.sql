@@ -7438,7 +7438,14 @@ BEGIN
                 * exp(-greatest(0, current_date-d.event_date)::numeric / 45.0)
               - d.skips * 0.35 * exp(-greatest(0, current_date-d.event_date)::numeric / 45.0)
             )
-            FROM catho_private.feed_analytics_daily d
+            FROM (
+              SELECT d.event_date,d.viewable_impressions,d.impressions,d.completions,d.active_duration_ms,d.skips,d.entity_id
+              FROM catho_private.feed_analytics_daily d
+              UNION ALL
+              SELECT a.event_date,a.viewable_impressions,a.impressions,a.completions,a.active_duration_ms,a.skips,a.entity_id
+              FROM catho_private.anonymous_feed_analytics_daily a
+              WHERE a.entity_type='topic'
+            ) d
             WHERE d.entity_id=t.id AND d.event_date >= current_date-89
           ),0)
           + ln(1 + (SELECT count(*) FROM public.topic_likes l WHERE l.topic_id=t.id)) * 1.2
@@ -7446,7 +7453,14 @@ BEGIN
           + ln(1 + (SELECT count(*) FROM public.comments cm WHERE cm.topic_id=t.id
             AND cm.parent_id IS NULL AND cm.is_deleted=false)) * 0.8
           + 2.0 / sqrt(1 + coalesce((
-            SELECT sum(d.viewable_impressions) FROM catho_private.feed_analytics_daily d
+            SELECT sum(d.viewable_impressions) FROM (
+              SELECT d.event_date,d.viewable_impressions,d.impressions,d.completions,d.active_duration_ms,d.skips,d.entity_id
+              FROM catho_private.feed_analytics_daily d
+              UNION ALL
+              SELECT a.event_date,a.viewable_impressions,a.impressions,a.completions,a.active_duration_ms,a.skips,a.entity_id
+              FROM catho_private.anonymous_feed_analytics_daily a
+              WHERE a.entity_type='topic'
+            ) d
             WHERE d.entity_id=t.id AND d.event_date >= current_date-89
           ),0))
         )::numeric AS rank_score
@@ -7518,10 +7532,9 @@ BEGIN
   );
 END;
 $function$
-
+;
 REVOKE ALL ON FUNCTION public.get_public_general_topic_page(jsonb,integer) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.get_public_general_topic_page(jsonb,integer) TO anon,authenticated;
-
  
 -- ANONYMOUS ANALYTICS ROLLOUT
 -- Signed-out topic/comment analytics are stored only as daily entity aggregates.
