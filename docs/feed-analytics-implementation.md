@@ -163,3 +163,14 @@ The authenticated `POST /api/analytics/feed-card-events` endpoint validates same
 For the current Top Comments renderer, a card impression is recorded when a signed-in user enters that comment card. A viewable impression requires at least 50% of the comment content to remain visible for one continuous second. Active duration is emitted in bounded five-second increments only while the document is visible and the content is viewable; a final partial interval is recorded when the card leaves. Leaving before three seconds of active viewing is classified as an early skip; three seconds or more is a meaningful-view completion. Opening the discussion is recorded separately. The offline queue is account-scoped, capped at 200 events, and drains in bounded batches. Analytics are best-effort and do not block feed navigation.
 
 The rollup job runs every five minutes. Raw events are pruned in bounded batches every fifteen minutes after 180 days; daily aggregates remain available. The sponsor stream remains the source of truth for sponsor delivery and click analytics. No comment text, author identifiers, profile details or raw user/session identifiers are included in the dashboard payload.
+
+
+## 8. Anonymous first-party analytics (implementation status)
+
+The current branch introduces a distinct signed-out event path for topic and Top Comments exposure. The ingestion endpoint applies same-origin/native request checks, bounded request parsing and rate limiting; the database validates entity/event types, bounds active-duration values, deduplicates event IDs, and writes daily aggregates without storing account IDs, raw session IDs or a persistent visitor identifier. Deduplication receipts are retained for seven days. This design does not produce anonymous unique-person counts.
+
+Signed-out sponsor delivery uses separate campaign selection, event, daily aggregate and session-frequency records. A random session token is generated in page memory and only its SHA-256 hash is stored for frequency enforcement. Anonymous sponsor event and session-frequency rows are pruned after 48 hours. Campaign approval, sponsor status/payment, date windows, category/topic targeting and impression caps are still checked. Sponsors do not receive raw event or session records.
+
+This is a technical implementation status, not a legal conclusion. Topic and comment context can still reveal or permit inferences about religious or philosophical beliefs. The controller must complete the Article 6 assessment and obtain advice on Article 9 applicability/condition before treating the processing as cleared.
+
+**Outstanding release work:** anonymous aggregates are not yet integrated into every analytics hub and detail-page query, and the canonical fresh-project bootstrap still needs the anonymous schema/functions/retention job appended and tested. Until those are complete, do not treat the analytics dashboard as a complete signed-in-plus-anonymous picture.
