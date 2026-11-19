@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { readBoundedJson } from '@/lib/http/read-json';
-import { checkApiRateLimit, rateLimitResponseHeaders } from '@/lib/security/api-rate-limit';
+import { checkApiRateLimit, getTrustedClientIp, rateLimitResponseHeaders } from '@/lib/security/api-rate-limit';
 import { createServiceRoleClient, isSameOriginOrNativeRequest, nativeApiCorsHeaders } from '@/lib/supabase/admin';
 
 export const runtime = 'nodejs';
@@ -28,7 +28,7 @@ export async function POST(request: Request) {
       !Array.isArray(parsed.value.events) || parsed.value.events.length < 1 || parsed.value.events.length > 40) {
     return respond(request, { error: 'Invalid anonymous analytics batch.' }, 400);
   }
-  const address = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
+  const address = getTrustedClientIp(request) ?? 'unknown';
   const rateLimit = await checkApiRateLimit({
     scope: 'anonymous-feed-analytics:write',
     identifier: address,
