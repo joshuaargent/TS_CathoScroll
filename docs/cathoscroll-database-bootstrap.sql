@@ -3711,10 +3711,10 @@ REVOKE ALL ON TABLE catho_private.feed_analytics_events FROM PUBLIC, anon, authe
 REVOKE ALL ON TABLE catho_private.feed_analytics_event_limits FROM PUBLIC, anon, authenticated, service_role;
 
 CREATE OR REPLACE FUNCTION public.record_feed_analytics_events(p_events jsonb)
-RETURNS integer
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = pg_catalog, public, catho_private
+ RETURNS integer
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'pg_catalog', 'public', 'catho_private'
 AS $function$
 DECLARE
   v_user_id uuid := auth.uid();
@@ -3773,8 +3773,7 @@ BEGIN
     v_entity_id := v_event ->> 'entity_id';
     v_metadata := v_event -> 'metadata';
     IF v_event_type IS NULL OR v_event_type NOT IN (
-      'impression', 'viewable_impression', 'active_duration', 'skip',
-      'swipe_depth', 'completion', 'return_visit'
+      'impression', 'viewable_impression', 'active_duration', 'skip', 'swipe_depth', 'completion', 'return_visit'
     ) OR v_entity_type IS NULL OR v_entity_type <> 'topic'
        OR v_entity_id IS NULL OR length(v_entity_id) NOT BETWEEN 1 AND 100
        OR v_metadata IS NULL OR jsonb_typeof(v_metadata) <> 'object'
@@ -3788,28 +3787,42 @@ BEGIN
         RAISE EXCEPTION 'Unsupported analytics metadata field' USING ERRCODE = '22023';
       END IF;
       IF v_key IN ('slide_index', 'duration_ms', 'depth', 'completion_percent')
-         AND (jsonb_typeof(v_value) <> 'number' OR (v_value #>> '{}') !~ '^[0-9]+CREATE EVENT TRIGGER ensure_rls ON ddl_command_end EXECUTE FUNCTION public.rls_auto_enable();
+         AND (jsonb_typeof(v_value) <> 'number' OR (v_value #>> '{}') !~ '^[0-9]+$') THEN
+        RAISE EXCEPTION 'Invalid numeric analytics metadata' USING ERRCODE = '22023';
+      END IF;
+      IF v_key = 'duration_ms' AND (v_value #>> '{}')::numeric NOT BETWEEN 0 AND 60000 THEN
+        RAISE EXCEPTION 'Invalid duration' USING ERRCODE = '22023';
+      END IF;
+      IF v_key = 'slide_index' AND (v_value #>> '{}')::numeric NOT BETWEEN 0 AND 20 THEN
+        RAISE EXCEPTION 'Invalid slide index' USING ERRCODE = '22023';
+      END IF;
+      IF v_key = 'depth' AND (v_value #>> '{}')::numeric NOT BETWEEN 0 AND 20 THEN
+        RAISE EXCEPTION 'Invalid swipe depth' USING ERRCODE = '22023';
+      END IF;
+      IF v_key = 'completion_percent' AND (v_value #>> '{}')::numeric NOT BETWEEN 0 AND 100 THEN
+        RAISE EXCEPTION 'Invalid completion percentage' USING ERRCODE = '22023';
+      END IF;
+      IF v_key = 'source' AND (
+        jsonb_typeof(v_value) <> 'string'
+        OR v_value #>> '{}' NOT IN ('feed', 'topic', 'category', 'search', 'related', 'direct')
+      ) THEN
+        RAISE EXCEPTION 'Invalid analytics source' USING ERRCODE = '22023';
+      END IF;
+    END LOOP;
 
--- Scheduled retention jobs
-DO $cron_restore$
-DECLARE existing_job record;
-BEGIN
-  FOR existing_job IN SELECT jobid FROM cron.job WHERE jobname = 'cathoscroll-prune-activity' LOOP
-    PERFORM cron.unschedule(existing_job.jobid);
+    IF NOT EXISTS (SELECT 1 FROM public.topics t WHERE t.id = v_entity_id AND t.is_published = true) THEN
+      RAISE EXCEPTION 'Analytics topic is unavailable' USING ERRCODE = '22023';
+    END IF;
+    INSERT INTO catho_private.feed_analytics_events (
+      user_id, event_id, event_type, entity_type, entity_id, session_id, metadata, received_at
+    )
+    VALUES (v_user_id, v_event_id, v_event_type, v_entity_type, v_entity_id, v_session_id, v_metadata, statement_timestamp())
+    ON CONFLICT (user_id, event_id) DO NOTHING;
+    IF FOUND THEN v_inserted := v_inserted + 1; END IF;
   END LOOP;
-  PERFORM cron.schedule('cathoscroll-prune-activity', '*/5 * * * *', 'SELECT catho_private.prune_due_activity();');
-  FOR existing_job IN SELECT jobid FROM cron.job WHERE jobname = 'cathoscroll-prune-catalogue' LOOP
-    PERFORM cron.unschedule(existing_job.jobid);
-  END LOOP;
-  PERFORM cron.schedule('cathoscroll-prune-catalogue', '2,17,32,47 * * * *', 'SELECT public.offline_catalogue_prune_old(clock_timestamp() - interval ''31 days'', 1000);');
-  FOR existing_job IN SELECT jobid FROM cron.job WHERE jobname = 'cathoscroll-prune-feed-analytics' LOOP
-    PERFORM cron.unschedule(existing_job.jobid);
-  END LOOP;
-  PERFORM cron.schedule('cathoscroll-prune-feed-analytics', '*/15 * * * *',
-    'SELECT catho_private.prune_feed_analytics_events(statement_timestamp() - interval ''180 days'', 5000);');
+  RETURN v_inserted;
 END;
-$cron_restore$;
-
+$function$;
 
 CREATE OR REPLACE FUNCTION public.get_admin_content_analytics(p_entity_type text, p_entity_id text, p_from timestamp with time zone, p_to timestamp with time zone)
  RETURNS jsonb
@@ -7053,6 +7066,29 @@ $function$;
 
 -- Exact ACLs for the added overloads.
 
+
+-- RLS DDL guard and scheduled retention jobs, restored outside function bodies.
+CREATE EVENT TRIGGER ensure_rls ON ddl_command_end EXECUTE FUNCTION public.rls_auto_enable();
+
+-- Scheduled retention jobs
+DO $cron_restore$
+DECLARE existing_job record;
+BEGIN
+  FOR existing_job IN SELECT jobid FROM cron.job WHERE jobname = 'cathoscroll-prune-activity' LOOP
+    PERFORM cron.unschedule(existing_job.jobid);
+  END LOOP;
+  PERFORM cron.schedule('cathoscroll-prune-activity', '*/5 * * * *', 'SELECT catho_private.prune_due_activity();');
+  FOR existing_job IN SELECT jobid FROM cron.job WHERE jobname = 'cathoscroll-prune-catalogue' LOOP
+    PERFORM cron.unschedule(existing_job.jobid);
+  END LOOP;
+  PERFORM cron.schedule('cathoscroll-prune-catalogue', '2,17,32,47 * * * *', 'SELECT public.offline_catalogue_prune_old(clock_timestamp() - interval ''31 days'', 1000);');
+  FOR existing_job IN SELECT jobid FROM cron.job WHERE jobname = 'cathoscroll-prune-feed-analytics' LOOP
+    PERFORM cron.unschedule(existing_job.jobid);
+  END LOOP;
+  PERFORM cron.schedule('cathoscroll-prune-feed-analytics', '*/15 * * * *',
+    'SELECT catho_private.prune_feed_analytics_events(statement_timestamp() - interval ''180 days'', 5000);');
+END;
+$cron_restore$;
 
 -- Exact function privileges from the live production catalog (owner privileges are implicit).
 REVOKE ALL ON FUNCTION catho_private.activity_changed() FROM PUBLIC, anon, authenticated, service_role;
