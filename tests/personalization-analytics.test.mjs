@@ -46,6 +46,7 @@ test('profile scoring separates short and long horizons and suppresses one-sessi
   assert.match(body, /inferred_score/);
   assert.match(body, /v_consent_at/);
   assert.match(body, /greatest\\(v_now-interval '90 days',v_consent_at\\)/);
+  assert.match(body, /s\\.updated_at < v_now/);
 });
 
 test('admin deep dive returns aggregate reports and correctly censors immature cohorts', () => {
