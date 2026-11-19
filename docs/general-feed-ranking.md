@@ -37,7 +37,7 @@ Sponsor selection is a separate paid-placement system. Sponsor delivery must not
 
 ## Operational and privacy notes
 
-General ranking consumes aggregate site-wide topic metrics. Those metrics currently originate from the existing authenticated first-party analytics rollups; they are not yet a complete measure of signed-out activity. Do not describe the current rollups as including anonymous visitors until the separate anonymous analytics pipeline and reporting changes are implemented and verified.
+General ranking consumes aggregate site-wide topic metrics from both the signed-in feed analytics daily rollup and the separate signed-out anonymous daily rollup. Anonymous topic impressions, viewable impressions, completions, active duration and skips contribute to the same site-wide score; they are never linked to a current visitor or used as a visitor-specific preference. The score remains an aggregate content-ranking signal, not a profile of signed-out readers. Anonymous comment and sponsor metrics are excluded from organic topic ranking.
 
 The ranking function is part of the emergency clean-project bootstrap at `docs/cathoscroll-database-bootstrap.sql`. Production schema changes were applied directly to Supabase; no standalone SQL migration file is maintained for this change.
 
@@ -48,3 +48,8 @@ The ranking function is part of the emergency clean-project bootstrap at `docs/c
 - Verified two consecutive pages of ten topics had zero duplicate topic IDs.
 - Optimised the scoring pass from repeated per-slot score calculation to one score calculation per page. A 24-topic production query measured approximately 17.7 ms and 3,419 shared-buffer hits after the change (compared with approximately 76.7 ms and 12,007 buffer hits before optimisation; timings are a single production measurement, not a load test).
 - The application integration is on the open draft PR branch. A full application build and automated test run are still required before deployment.
+
+
+## Signed-out analytics contribution
+
+The general feed score now reads both account-free daily topic aggregates and anonymous daily topic aggregates over the same rolling 90-day window. This means signed-out engagement can influence which topics are generally surfaced to everyone, including signed-out and opted-out signed-in visitors. The query still reads no current viewer identity, account progress, or individual history. Anonymous daily data is weighted with the same viewability, completion, active-duration, skip and recency rules as signed-in daily aggregates; exposure-based exploration and category balancing continue to prevent a small set of high-volume topics from dominating.
