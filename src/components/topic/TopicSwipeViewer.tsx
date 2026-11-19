@@ -1,8 +1,7 @@
 'use client';
 
-import { animate, motion } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { flushSync } from 'react-dom';
 import { Heart } from 'lucide-react';
 import type { Topic } from '@/types';
 import type { TopicActivity } from '@/lib/topic-activity';
@@ -14,7 +13,7 @@ import {
   recordFeedTopicVisit,
 } from '@/lib/feed-analytics-client';
 import { TopicCard } from './TopicCard';
-import { useTopicSwipeGesture } from './useTopicSwipeGesture';
+import { FeedSwipeViewport } from './FeedSwipeViewport';
 
 function getActiveElapsed(startedAt: number | null) {
   return startedAt === null ? 0 : Math.max(0, performance.now() - startedAt);
@@ -78,9 +77,7 @@ export function TopicSwipeViewer({
 }: TopicSwipeViewerProps) {
   const [slideIndex, setSlideIndex] = useState(0);
 
-  const containerRef = useRef<HTMLDivElement>(null);
   const [isAnimating, setIsAnimating] = useState(false);
-  const animationLockRef = useRef(false);
   const [showHeart, setShowHeart] = useState(false);
   const currentTopic = topics[topicIndex];
   const currentTopicId = String(currentTopic.id);
@@ -236,42 +233,15 @@ export function TopicSwipeViewer({
   };
 
   const moveSlide = async (direction: 'next' | 'previous') => {
-    if (animationLockRef.current) return;
-    animationLockRef.current = true;
-    setIsAnimating(true);
+    const nextIndex = direction === 'next' ? slideIndex + 1 : slideIndex - 1;
+    setSlideIndex(nextIndex);
 
-    try {
-      // Horizontal movement changes a section of the current topic. Completing
-      // its Scripture slide records topic progress before the viewer resets.
-      const width = containerRef.current?.clientWidth ?? window.innerWidth;
-
-      await animate(x, direction === 'next' ? -width : width, {
-        duration: 0.2,
-        ease: 'easeOut',
-      });
-
-      let nextIndex = slideIndex;
-
-      flushSync(() => {
-        nextIndex = direction === 'next' ? slideIndex + 1 : slideIndex - 1;
-
-        setSlideIndex(nextIndex);
-      });
-
-      if (slides[nextIndex]?.type === 'scripture') {
-        onComplete(currentTopicId);
-      }
-
-      x.jump(0);
-    } finally {
-      animationLockRef.current = false;
-      setIsAnimating(false);
+    if (slides[nextIndex]?.type === 'scripture') {
+      onComplete(currentTopicId);
     }
   };
 
   const moveTopic = async (direction: 'next' | 'previous') => {
-    if (animationLockRef.current) return;
-
     if (direction === 'next' && userId) {
       const activeElapsed = getActiveElapsed(topicActiveSinceRef.current);
       if (topicActiveDurationRef.current + activeElapsed < 2000) {
@@ -281,49 +251,14 @@ export function TopicSwipeViewer({
       }
     }
 
-    animationLockRef.current = true;
-    setIsAnimating(true);
-
     try {
-      // Vertical movement changes the topic and always starts the new topic
-      // on its first slide.
-      const height = containerRef.current?.clientHeight ?? window.innerHeight;
-
-      await animate(y, direction === 'next' ? -height : height, {
-        duration: 0.2,
-        ease: 'easeOut',
-      });
-
-      let navigation: void | Promise<void> = undefined;
-      flushSync(() => {
-        setSlideIndex(0);
-        navigation = direction === 'next' ? onNextTopic?.() : onPreviousTopic?.();
-      });
-
+      setSlideIndex(0);
+      const navigation = direction === 'next' ? onNextTopic?.() : onPreviousTopic?.();
       await navigation;
     } catch (error) {
       console.error('Unable to navigate topic feed:', error);
-    } finally {
-      y.jump(0);
-      animationLockRef.current = false;
-      setIsAnimating(false);
     }
   };
-
-
-  const {
-    x,
-    y,
-    handlePointerDown,
-    handlePointerMove,
-    handlePointerUp,
-  } = useTopicSwipeGesture({
-    enabled: active && !isAnimating,
-    canSwipeHorizontal: (direction) => direction === 'next' ? Boolean(nextSlide) : Boolean(previousSlide),
-    onSwipeHorizontal: moveSlide,
-    onSwipeVertical: moveTopic,
-    onDoubleTap: likeTopic,
-  });
 
   return (
     <div className="flex h-full flex-col">
@@ -340,113 +275,82 @@ export function TopicSwipeViewer({
           {actionError && <p>{actionError}</p>}
         </div>
       )}
-      <div ref={containerRef} className="relative flex-1 overflow-hidden pt-1">
-        <motion.div
-          style={{
-            x,
-            y,
-            width: '100%',
-            height: '100%',
-            touchAction: 'none',
-          }}
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
-          onPointerCancel={handlePointerUp}
-          className="absolute inset-0 transform-gpu will-change-transform select-none"
-        >
-          {/* TOP */}
-
-          {previousEntryPreview !== null ? (
-            <div className="pointer-events-none absolute inset-x-0 top-[-100%] h-full opacity-90" aria-hidden="true" inert>
-              {previousEntryPreview === undefined ? (
-                <TopicCard type="question" title="Question" content={previousTopic.question} />
-              ) : previousEntryPreview}
-            </div>
-          ) : null}
-
-          {/* LEFT */}
-
-          {previousSlide && (
-            <div className="absolute top-0 left-[-100%] h-full w-full opacity-90">
-              <TopicCard
-                type={previousSlide.type}
-                title={previousSlide.title}
-                content={previousSlide.content}
-                reference={previousSlide.reference}
-              />
-            </div>
+      <FeedSwipeViewport
+        active={active}
+        containerClassName="relative flex-1 overflow-hidden pt-1"
+        motionClassName="absolute inset-0 transform-gpu will-change-transform select-none"
+        canSwipeHorizontal={(direction) => direction === 'next' ? Boolean(nextSlide) : Boolean(previousSlide)}
+        onSwipeHorizontal={moveSlide}
+        onSwipeVertical={moveTopic}
+        onDoubleTap={likeTopic}
+        onTransitionStart={() => setIsAnimating(true)}
+        onTransitionEnd={() => setIsAnimating(false)}
+        topPreview={
+          previousEntryPreview !== null
+            ? previousEntryPreview === undefined
+              ? <TopicCard type="question" title="Question" content={previousTopic.question} />
+              : previousEntryPreview
+            : null
+        }
+        leftPreview={previousSlide ? (
+          <TopicCard
+            type={previousSlide.type}
+            title={previousSlide.title}
+            content={previousSlide.content}
+            reference={previousSlide.reference}
+          />
+        ) : null}
+        rightPreview={nextSlide ? (
+          <TopicCard
+            type={nextSlide.type}
+            title={nextSlide.title}
+            content={nextSlide.content}
+            reference={nextSlide.reference}
+          />
+        ) : null}
+        bottomPreview={
+          nextEntryPreview !== null
+            ? nextEntryPreview === undefined
+              ? <TopicCard type="question" title="Question" content={nextTopic.question} />
+              : nextEntryPreview
+            : null
+        }
+      >
+        <div className="absolute inset-0">
+          {showHeart && (
+            <motion.div
+              initial={{ scale: 0.6, opacity: 0 }}
+              animate={{ scale: [0.6, 1.2, 1], opacity: [0, 1, 0] }}
+              transition={{ duration: 0.8 }}
+              className="pointer-events-none absolute inset-0 z-50 flex items-center justify-center"
+            >
+              <div className="bg-accent/10 rounded-full p-8">
+                <Heart className="text-accent h-40 w-40 fill-current drop-shadow-lg" />
+              </div>
+            </motion.div>
           )}
 
-          {/* CENTER */}
-
-          <div className="absolute inset-0">
-            {showHeart && (
-              <motion.div
-                initial={{
-                  scale: 0.6,
-                  opacity: 0,
-                }}
-                animate={{
-                  scale: [0.6, 1.2, 1],
-                  opacity: [0, 1, 0],
-                }}
-                transition={{
-                  duration: 0.8,
-                }}
-                className="pointer-events-none absolute inset-0 z-50 flex items-center justify-center"
-              >
-                <div className="bg-accent/10 rounded-full p-8">
-                  <Heart className="text-accent h-40 w-40 fill-current drop-shadow-lg" />
-                </div>
-              </motion.div>
-            )}
-
-            <TopicCard
-              type={currentSlide.type}
-              title={currentSlide.title}
-              content={currentSlide.content}
-              reference={currentSlide.reference}
-              isLiked={interactionVisible && Boolean(currentActivity?.liked)}
-              likes={currentActivity?.likes ?? displayCounts?.likes ?? null}
-              comments={currentActivity?.comments ?? displayCounts?.comments ?? null}
-              onComments={onComments}
-              onLike={onLike}
-              isBookmarked={interactionVisible && Boolean(currentActivity?.bookmarked)}
-              onBookmark={onBookmark}
-              onShare={onShare}
-              interactionsDisabled={
-                (Boolean(userId) && !currentActivity) ||
-                pendingActions.has(`like:${currentTopicId}`) ||
-                pendingActions.has(`bookmark:${currentTopicId}`)
-              }
-            />
-          </div>
-
-          {/* RIGHT */}
-
-          {nextSlide && (
-            <div className="absolute top-0 left-[100%] h-full w-full opacity-90">
-              <TopicCard
-                type={nextSlide.type}
-                title={nextSlide.title}
-                content={nextSlide.content}
-                reference={nextSlide.reference}
-              />
-            </div>
-          )}
-
-          {/* BOTTOM */}
-
-          {nextEntryPreview !== null ? (
-            <div className="pointer-events-none absolute inset-x-0 top-[100%] h-full opacity-90" aria-hidden="true" inert>
-              {nextEntryPreview === undefined ? (
-                <TopicCard type="question" title="Question" content={nextTopic.question} />
-              ) : nextEntryPreview}
-            </div>
-          ) : null}
-        </motion.div>
-      </div>
+          <TopicCard
+            type={currentSlide.type}
+            title={currentSlide.title}
+            content={currentSlide.content}
+            reference={currentSlide.reference}
+            isLiked={interactionVisible && Boolean(currentActivity?.liked)}
+            likes={currentActivity?.likes ?? displayCounts?.likes ?? null}
+            comments={currentActivity?.comments ?? displayCounts?.comments ?? null}
+            onComments={onComments}
+            onLike={onLike}
+            isBookmarked={interactionVisible && Boolean(currentActivity?.bookmarked)}
+            onBookmark={onBookmark}
+            onShare={onShare}
+            interactionsDisabled={
+              (Boolean(userId) && !currentActivity) ||
+              pendingActions.has(`like:${currentTopicId}`) ||
+              pendingActions.has(`bookmark:${currentTopicId}`)
+            }
+          />
+        </div>
+      </FeedSwipeViewport>
     </div>
   );
 }
