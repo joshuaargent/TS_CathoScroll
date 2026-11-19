@@ -22,6 +22,7 @@ import {
   NativeGridSkeleton,
 } from './skeletons';
 import { AccountPageSkeleton } from '@/components/account/AccountPageView';
+import PersonalizationSettingsPage from '@/app/account/personalization/page';
 import AboutPage from '@/app/about/page';
 import FAQPage from '@/app/faq/page';
 import ContactPage from '@/app/contact/page';
@@ -143,6 +144,7 @@ type Route =
   | { kind: 'learn'; pathname: string }
   | { kind: 'categories'; pathname: string }
   | { kind: 'account'; pathname: string }
+  | { kind: 'personalization'; pathname: string }
   | { kind: 'about' | 'faq' | 'contact' | 'privacy' | 'terms' | 'cookies'; pathname: string }
   | { kind: 'signup'; pathname: string }
   | { kind: 'bookmarks'; pathname: string }
@@ -171,6 +173,7 @@ function parseRoute(href: string): Route | null {
     }
     if (pathname === '/categories') return { kind: 'categories', pathname };
     if (pathname === '/signin' || pathname === '/account') return { kind: 'account', pathname };
+    if (pathname === '/account/personalization') return { kind: 'personalization', pathname };
     if (pathname === '/signup') return { kind: 'signup', pathname };
     if (pathname === '/bookmarks') return { kind: 'bookmarks', pathname };
     if (pathname === '/appeal') return { kind: 'appeal', pathname };
@@ -1517,6 +1520,7 @@ function App() {
               {route?.kind === 'terms' && <TermsPage />}
               {route?.kind === 'cookies' && <CookiesPage />}
               {route?.kind === 'learn' && <LearnContent />}
+              {route?.kind === 'personalization' && <PersonalizationSettingsPage client={createClient()} />}
               {route?.kind === 'account' && (
                 <NativeAccount
                   key={user?.id ?? 'signed-out'}
