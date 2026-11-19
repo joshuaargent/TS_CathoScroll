@@ -74,6 +74,7 @@ export function createFeedCardRegistry(
           campaigns={entry.campaigns}
           previewMode={context.previewMode}
           sessionId={entry.sessionId ?? ''}
+          placementKey={entry.topicId}
           userId={context.userId}
           sponsorApiBaseUrl={context.sponsorApiBaseUrl}
           getAccessToken={context.getSponsorAccessToken ?? (async () => null)}
