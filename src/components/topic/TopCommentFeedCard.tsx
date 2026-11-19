@@ -10,6 +10,7 @@ import type { TopFeedComment } from '@/lib/feed-comments';
 import { cn } from '@/lib/utils';
 import { FeedInterstitialMotion } from './FeedInterstitialMotion';
 import { BaseFeedCard } from './BaseFeedCard';
+import { flushFeedCardAnalytics, recordFeedCardAnalyticsEvent } from '@/lib/feed-card-analytics-client';
 
 interface TopCommentFeedCardProps {
   comments: TopFeedComment[];
@@ -150,6 +151,7 @@ export function TopCommentFeedCard({
 }: TopCommentFeedCardProps) {
   const [activeIndex, setActiveIndex] = useState(initialActiveIndex);
   const navigationStarted = useRef(false);
+  const commentArticleRef = useRef<HTMLElement | null>(null);
 
   const safeIndex = Math.min(Math.max(0, activeIndex), Math.max(0, comments.length - 1));
   const comment = comments[safeIndex];
@@ -167,9 +169,82 @@ export function TopCommentFeedCard({
     if (active && !previewMode && activeCommentId !== undefined) onCommentViewed(activeCommentId);
   }, [active, activeCommentId, onCommentViewed, previewMode]);
 
+  useEffect(() => {
+    if (!active || previewMode || !userId || activeCommentId === undefined) return;
+    recordFeedCardAnalyticsEvent(userId, 'impression', activeCommentId);
+    let viewable = false;
+    let viewableTimer: ReturnType<typeof setTimeout> | null = null;
+    let durationTimer: ReturnType<typeof setInterval> | null = null;
+    let activeMilliseconds = 0;
+    let startedAt = Date.now();
+    const startDuration = () => {
+      if (!viewable || document.visibilityState !== 'visible' || durationTimer) return;
+      startedAt = Date.now();
+      durationTimer = setInterval(() => {
+        const elapsed = Date.now() - startedAt;
+        activeMilliseconds += elapsed;
+        startedAt = Date.now();
+        recordFeedCardAnalyticsEvent(userId, 'active_duration', activeCommentId, elapsed);
+      }, 5000);
+    };
+    const stopDuration = () => {
+      if (!durationTimer) return;
+      clearInterval(durationTimer);
+      durationTimer = null;
+      const elapsed = Date.now() - startedAt;
+      if (elapsed > 0) {
+        activeMilliseconds += elapsed;
+        recordFeedCardAnalyticsEvent(userId, 'active_duration', activeCommentId, elapsed);
+      }
+    };
+    const handleVisibility = () => {
+      if (document.visibilityState === 'hidden') stopDuration();
+      else startDuration();
+    };
+    const observer = typeof IntersectionObserver !== 'undefined' && commentArticleRef.current
+      ? new IntersectionObserver((entries) => {
+          const entry = entries[0];
+          const isVisible = Boolean(entry?.isIntersecting && entry.intersectionRatio >= 0.5);
+          if (viewableTimer) clearTimeout(viewableTimer);
+          viewableTimer = null;
+          if (isVisible && !viewable) {
+            viewableTimer = setTimeout(() => {
+              viewable = true;
+              recordFeedCardAnalyticsEvent(userId, 'viewable_impression', activeCommentId);
+              startDuration();
+            }, 1000);
+          } else if (!isVisible) {
+            stopDuration();
+            viewable = false;
+          }
+        }, { threshold: [0, 0.5, 1] })
+      : null;
+    if (commentArticleRef.current && observer) observer.observe(commentArticleRef.current);
+    else {
+      viewableTimer = setTimeout(() => {
+        viewable = true;
+        recordFeedCardAnalyticsEvent(userId, 'viewable_impression', activeCommentId);
+        startDuration();
+      }, 1000);
+    }
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => {
+      if (viewableTimer) clearTimeout(viewableTimer);
+      observer?.disconnect();
+      document.removeEventListener('visibilitychange', handleVisibility);
+      stopDuration();
+      if (activeMilliseconds < 3000) recordFeedCardAnalyticsEvent(userId, 'skip', activeCommentId);
+      else recordFeedCardAnalyticsEvent(userId, 'completion', activeCommentId);
+      void flushFeedCardAnalytics(userId, true);
+    };
+  }, [active, activeCommentId, previewMode, userId]);
+
   if (!comment) return null;
 
-  const openComment = () => onOpenComment(comment);
+  const openComment = () => {
+    recordFeedCardAnalyticsEvent(userId, 'open', comment.comment_id);
+    onOpenComment(comment);
+  };
 
   const navigateNextTopic = async () => {
     if (navigationStarted.current) return;

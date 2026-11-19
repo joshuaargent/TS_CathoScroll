@@ -8,6 +8,12 @@ export function AdminNavigation({ showContent = true }: { showContent?: boolean 
         Dashboard
       </a>
       <a
+        href="/admin/analytics"
+        className="border-border hover:bg-bg-secondary rounded-lg border px-4 py-2 text-sm"
+      >
+        Analytics
+      </a>
+      <a
         href="/admin/sponsors"
         className="border-border hover:bg-bg-secondary rounded-lg border px-4 py-2 text-sm"
       >

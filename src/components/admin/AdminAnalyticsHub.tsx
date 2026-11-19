@@ -1,10 +1,11 @@
 import Link from 'next/link';
 import { Activity, ArrowUpRight, BarChart3, BookOpen, Heart, MessageCircle, Megaphone, Users } from 'lucide-react';
+import type { ReactNode } from 'react';
 
 import { AdminNavigation } from '@/components/admin/AdminNavigation';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Card, CardDescription, CardTitle } from '@/components/ui/Card';
 import type { AnalyticsPeriod } from '@/lib/analytics/content-analytics';
 
 type Overview = {
@@ -44,7 +45,7 @@ function Metric({ label, value, detail, icon: Icon }: { label: string; value: st
 }
 
 function SectionCard({ title, description, count, href, icon: Icon, children }: {
-  title: string; description: string; count: string; href: string; icon: typeof Activity; children: React.ReactNode;
+  title: string; description: string; count: string; href: string; icon: typeof Activity; children: ReactNode;
 }) {
   return <Card padding="lg" className="h-full"><div className="flex items-start justify-between gap-3">
     <div className="flex items-center gap-3"><span className="bg-accent-light text-accent rounded-xl p-2.5"><Icon className="h-5 w-5" /></span><div><CardTitle>{title}</CardTitle><CardDescription className="mt-1">{description}</CardDescription></div></div>

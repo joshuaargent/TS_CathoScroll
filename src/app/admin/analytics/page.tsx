@@ -16,7 +16,7 @@ export default async function AdminAnalyticsPage({ searchParams }: Props) {
   if (!rateLimit.allowed) throw new Error(rateLimit.unavailable ? 'Analytics are temporarily unavailable. Please try again.' : 'Too many analytics requests. Please wait before refreshing.');
   const period: AnalyticsPeriod = isAnalyticsPeriod(query.period) ? query.period : '30d';
   const { from, to } = getAnalyticsRange(period);
-  const { data, error } = await adminClient.rpc('get_admin_analytics_overview', { p_from: from.toISOString(), p_to: to.toISOString() });
+  const { data, error } = await adminClient.rpc('get_admin_analytics_overview', { p_actor_user_id: user.id, p_from: from.toISOString(), p_to: to.toISOString() });
   if (error || !data || typeof data !== 'object') {
     console.error('Unable to load admin analytics overview:', error?.message);
     throw new Error('Unable to load analytics.');

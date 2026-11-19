@@ -3,7 +3,6 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 
 import { AdminNavigation } from '@/components/admin/AdminNavigation';
-import { Badge } from '@/components/ui/Badge';
 import { Card } from '@/components/ui/Card';
 import { requireAdminPage } from '@/lib/moderation/require-admin';
 import { checkApiRateLimit } from '@/lib/security/api-rate-limit';
@@ -38,7 +37,7 @@ export default async function AdminAnalyticsEntityPage({ params, searchParams }:
   if (kind === 'sponsors') {
     const [{ data: sponsor, error: sponsorError }, { data, error }] = await Promise.all([
       adminClient.from('sponsors').select('id,sponsor_name,status').eq('id', id).maybeSingle(),
-      adminClient.rpc('get_admin_sponsor_analytics', { p_sponsor_id: id, p_from: from.toISOString(), p_to: to.toISOString() }),
+      adminClient.rpc('get_admin_sponsor_analytics', { p_actor_user_id: user.id, p_sponsor_id: id, p_from: from.toISOString(), p_to: to.toISOString() }),
     ]);
     if (sponsorError || error) throw new Error('Unable to load sponsor analytics.');
     if (!sponsor) notFound();
@@ -50,7 +49,7 @@ export default async function AdminAnalyticsEntityPage({ params, searchParams }:
   } else {
     const [{ data: comment, error: commentError }, { data, error }] = await Promise.all([
       adminClient.from('comments').select('id,topic_id,created_at,is_deleted').eq('id', Number(id)).maybeSingle(),
-      adminClient.rpc('get_admin_feed_analytics', { p_from: from.toISOString(), p_to: to.toISOString(), p_card_type: 'top-comment', p_card_id: id }),
+      adminClient.rpc('get_admin_feed_card_analytics', { p_actor_user_id: user.id, p_from: from.toISOString(), p_to: to.toISOString(), p_card_type: 'top-comment', p_card_id: id }),
     ]);
     if (commentError || error) throw new Error('Unable to load comment analytics.');
     if (!comment || comment.is_deleted) notFound();
