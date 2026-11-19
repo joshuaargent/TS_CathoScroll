@@ -61,7 +61,7 @@ export default function CookiesPage() {
         </section>
 
         <section>
-          <h2 className="mb-4 text-3xl font-bold">Analytics Cookies</h2>
+          <h2 className="mb-4 text-3xl font-bold">Analytics and Performance Measurement</h2>
 
           <p className="text-text-secondary leading-relaxed">
             CathoScroll uses first-party site analytics and authenticated, server-side product
@@ -124,9 +124,8 @@ export default function CookiesPage() {
           </p>
 
           <ul className="text-text-secondary mt-4 list-disc space-y-2 pl-6">
-            <li>Supabase for authentication and database services.</li>
-            <li>Vercel for hosting and first-party site analytics.</li>
             <li>Supabase for authentication, database, and application services.</li>
+            <li>Vercel for hosting and first-party site analytics.</li>
             <li>Formspree for contact-form delivery when configured.</li>
           </ul>
         </section>
