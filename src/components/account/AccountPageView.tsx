@@ -4,6 +4,8 @@ import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Skeleton } from '@/components/ui/Skeleton';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { PersonalizationAccountSection } from './PersonalizationAccountSection';
 
 export type AccountPageViewProps = {
   loading?: boolean;
@@ -13,7 +15,7 @@ export type AccountPageViewProps = {
   email: string;
   newPassword: string;
   confirmPassword: string;
-  membershipLabel: string;
+  personalizationClient: SupabaseClient;
   saving: boolean;
   signingOut: boolean;
   saveDisabled: boolean;
@@ -161,13 +163,6 @@ export function AccountPageView(props: AccountPageViewProps) {
           />
         </section>
 
-        <section>
-          <div className="border-border rounded-xl border p-6">
-            <p className="text-text-muted text-sm">Membership</p>
-            <p className="mt-2 text-lg font-medium capitalize">{props.membershipLabel}</p>
-          </div>
-        </section>
-
         {props.statusMessage && (
           <p role="status" className="text-text-secondary text-sm">{props.statusMessage}</p>
         )}
@@ -206,6 +201,7 @@ export function AccountPageView(props: AccountPageViewProps) {
         </div>
         {props.signOutError && <p role="alert" className="text-sm text-red-600">{props.signOutError}</p>}
       </form>
+      <PersonalizationAccountSection client={props.personalizationClient} />
     </div>
   );
 }
