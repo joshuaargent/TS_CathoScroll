@@ -68,7 +68,7 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
               <input
                 type="checkbox"
                 checked={enabled}
-                disabled={loading || saving}
+                disabled={loading || saving || Boolean(error)}
                 onChange={(event) => void updateConsent(event.target.checked)}
                 className="accent-accent mt-0.5 h-4 w-4 shrink-0"
               />
@@ -79,7 +79,12 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
                 </span>
               </span>
             </label>
-            {error && <p role="alert" className="mt-3 text-sm text-red-600">{error}</p>}
+            {error && (
+              <div className="mt-3 flex flex-wrap items-center gap-3">
+                <p role="alert" className="text-sm text-red-600">{error}</p>
+                <button type="button" onClick={() => void load()} className="text-accent text-sm font-semibold underline">Retry</button>
+              </div>
+            )}
           </div>
           <Link
             href="/account/personalization"
