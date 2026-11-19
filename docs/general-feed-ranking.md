@@ -21,7 +21,7 @@ The production function is `public.get_public_general_topic_page(jsonb, integer)
 - Recency: each day's contribution decays exponentially with a 45-day decay constant (`exp(-age_days / 45)`).
 - Public engagement: topic likes, bookmarks and visible top-level comments contribute logarithmically.
 
-The score is deliberately transformed so that a topic with a very large historical audience does not permanently dominate newer material. This is a practical engagement ranking, not a theological judgement about the correctness or importance of a topic.
+The score is deliberately transformed so that a topic with a very large historical audience does not permanently dominate newer material. A separate exposure-based exploration bonus gives under-exposed topics a better chance to surface, preventing the feed from becoming a closed loop of the same winners. This is a practical engagement ranking, not a theological judgement about the correctness or importance of a topic.
 
 ## Diversity and pagination
 
