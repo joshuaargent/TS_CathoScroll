@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AccountPageSkeleton, AccountPageView } from '@/components/account/AccountPageView';
 import { NativeSignin } from './signin';
 import { secureAuthStorage } from './secure-auth-storage';
@@ -43,8 +43,6 @@ export function NativeAccount({
   const [profileUserId, setProfileUserId] = useState<string | null>(null);
   const [emailState, setEmailState] = useState({ userId: user?.id ?? null, value: user?.email ?? '' });
   const email = emailState.userId === user?.id ? emailState.value : user?.email ?? '';
-  const [subscriptionTier, setSubscriptionTier] = useState('free');
-  const [membershipUserId, setMembershipUserId] = useState<string | null>(null);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
@@ -54,12 +52,12 @@ export function NativeAccount({
   const [signOutError, setSignOutError] = useState('');
   const cache = useRef<NativeProfileCache | null>(null);
   const notifications = useNativeNotifications();
+  const personalizationClient = useMemo(() => createClient(), []);
 
   useEffect(() => {
     const update = () => {
       const connected = navigator.onLine;
       setOnline(connected);
-      if (!connected) setMembershipUserId(null);
     };
     window.addEventListener('online', update);
     window.addEventListener('offline', update);
@@ -72,13 +70,11 @@ export function NativeAccount({
   useEffect(() => {
     const accountId = user?.id;
     if (!accountId) {
-      clearNativeStatusNotice('account-membership');
       return;
     }
     const userId: string = accountId;
     let active = true;
     cache.current = null;
-    clearNativeStatusNotice('account-membership');
     async function loadAccount() {
       try {
         let profileCache: NativeProfileCache | null = null;
@@ -147,31 +143,10 @@ export function NativeAccount({
         }
 
         clearNativeStatusNotice('account-profile-load:' + userId);
-        try {
-          const { data: membership, error: membershipError } = await client.rpc(
-            'get_own_subscription_tier'
-          );
-          if (membershipError) throw membershipError;
-          if (active) {
-            setSubscriptionTier(typeof membership === 'string' ? membership : 'free');
-            setMembershipUserId(userId);
-            clearNativeStatusNotice('account-membership');
-          }
-        } catch (membershipCause) {
-          setMembershipUserId(null);
-          console.error('Unable to load account membership:', membershipCause);
-          if (active) {
-            notifyNativeStatus('Your membership details could not be loaded.', {
-              id: 'account-membership',
-              action: { label: 'Retry', onClick: () => setAttempt((value) => value + 1) },
-            });
-          }
-        }
       } catch (cause) {
         console.error('Unable to load account details:', cause);
         if (!active) return;
         setVerified(false);
-        setMembershipUserId(null);
         setProfileUserId(userId);
         notifyNativeStatus('Some account details could not be refreshed. Cached details remain available where possible.', {
           id: 'account-profile-load:' + userId,
@@ -335,13 +310,7 @@ export function NativeAccount({
       email={email}
       newPassword={newPassword}
       confirmPassword={confirmPassword}
-      membershipLabel={
-        membershipUserId === user.id
-          ? subscriptionTier
-          : online
-            ? 'Unavailable'
-            : 'Connect to view membership'
-      }
+      personalizationClient={personalizationClient}
       saving={busy}
       signingOut={signingOut}
       saveDisabled={!canSave}
