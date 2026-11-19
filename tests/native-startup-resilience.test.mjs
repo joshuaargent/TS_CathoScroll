@@ -82,6 +82,6 @@ test('native network changes do not reload the first feed page and account chang
   assert.match(nativeMain, /\[catalogue\]/);
   assert.match(feedCore, /feedInitializedRef/);
   assert.match(feedCore, /function appendUniqueFeedTopics\(existing: Topic\[\], incoming: Topic\[\]\)/);
-  assert.match(feedCore, /appendUniqueFeedTopics\(feedTopicsRef\.current, shuffled\)/);
+  assert.match(feedCore, /appendUniqueFeedTopics\(feedTopicsRef\.current, orderedTopics\)/);
   assert.match(feedCore, /if \(sourceChanged\)/);
 });
