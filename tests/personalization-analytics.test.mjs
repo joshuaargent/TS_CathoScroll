@@ -21,6 +21,21 @@ function functionBody(name) {
   return bootstrap.slice(start, end + '$function$;'.length);
 }
 
+
+test('emergency bootstrap inventory matches the reconciled production schema', () => {
+  const functionStarts = [...bootstrap.matchAll(/CREATE(?: OR REPLACE)? FUNCTION\\s+([a-z0-9_]+\\.[a-z0-9_]+)\\s*\\(/gi)];
+  assert.equal(functionStarts.length, 105);
+  assert.equal(new Set(functionStarts.map((match) => match[1].toLowerCase())).size, 101);
+  assert.equal((bootstrap.match(/CREATE TABLE(?: IF NOT EXISTS)? /g) ?? []).length, 47);
+  assert.equal((bootstrap.match(/CREATE POLICY /g) ?? []).length, 32);
+  assert.equal((bootstrap.match(/CREATE TRIGGER /g) ?? []).length, 34);
+  assert.equal((bootstrap.match(/CREATE (?:UNIQUE )?INDEX(?: IF NOT EXISTS)? /g) ?? []).length, 88);
+  assert.doesNotMatch(bootstrap, /subscription_tier|get_own_subscription_tier/);
+  assert.match(bootstrap, /public\\.get_admin_feed_analytics/);
+  assert.match(bootstrap, /public\\.get_admin_sponsor_analytics/);
+  assert.match(bootstrap, /public\\.admin_create_sponsor/);
+});
+
 test('personalisation consent is opt-in and versioned', () => {
   assert.match(bootstrap, /user_personalization_consents[\s\S]*enabled boolean NOT NULL DEFAULT false/);
   assert.match(bootstrap, /consent_version/);
