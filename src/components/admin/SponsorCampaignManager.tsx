@@ -287,11 +287,13 @@ export function SponsorCampaignManager({
 
             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
               <label className="block text-sm font-medium">
-                Max impressions per user / 24h
+                Max impressions per signed-in user / 24h
+                <span className="text-text-muted mt-1 block text-xs">Signed-out app sessions are additionally capped at 2 per 24 hours.</span>
                 <input name="frequencyCapPerUser24h" type="number" min="1" max="25" step="1" defaultValue="1" required className="border-border bg-bg-primary mt-2 w-full rounded-lg border px-3 py-2.5" />
               </label>
               <label className="block text-sm font-medium">
-                Max impressions per user / campaign
+                Max impressions per signed-in user / campaign
+                <span className="text-text-muted mt-1 block text-xs">Signed-out app sessions are additionally capped at 5 per campaign.</span>
                 <input name="frequencyCapPerUserTotal" type="number" min="1" max="50" step="1" defaultValue="3" required className="border-border bg-bg-primary mt-2 w-full rounded-lg border px-3 py-2.5" />
               </label>
               <label className="block text-sm font-medium">
@@ -365,7 +367,7 @@ export function SponsorCampaignManager({
                     <td className="px-4 py-4">
                       <p>Weight: {campaign.placement_weight}</p>
                       <p className="text-text-muted mt-1 text-xs">
-                        {campaign.frequency_cap_per_user_24h} / 24h · {campaign.frequency_cap_per_user_total} total per user
+                        {campaign.frequency_cap_per_user_24h} / 24h · {campaign.frequency_cap_per_user_total} total per signed-in user (anonymous session: max 2 / 5)
                       </p>
                       <p className="text-text-muted mt-1 text-xs">
                         Daily: {campaign.daily_impression_cap ?? 'Unlimited'} · Total: {campaign.total_impression_cap ?? 'Unlimited'}
