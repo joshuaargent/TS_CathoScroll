@@ -76,6 +76,7 @@ export function TopicSwipeViewer({
   onProgressChange,
 }: TopicSwipeViewerProps) {
   const [slideIndex, setSlideIndex] = useState(0);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const [isAnimating, setIsAnimating] = useState(false);
   const [showHeart, setShowHeart] = useState(false);
@@ -277,6 +278,7 @@ export function TopicSwipeViewer({
       )}
       <FeedSwipeViewport
         active={active}
+        containerRef={containerRef}
         containerClassName="relative flex-1 overflow-hidden pt-1"
         motionClassName="absolute inset-0 transform-gpu will-change-transform select-none"
         canSwipeHorizontal={(direction) => direction === 'next' ? Boolean(nextSlide) : Boolean(previousSlide)}
