@@ -168,7 +168,7 @@ export default function PersonalizationSettingsPage({ client }: { client?: Supab
         <div className="border-border mt-6 rounded-xl border p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="font-semibold">I explicitly consent to CathoScroll using my activity to personalise my recommendations.</p>
+              <p className="font-semibold">I explicitly consent to CathoScroll using my topic-reading activity and selected interests, which may reveal religious or philosophical beliefs, to personalise my recommendations.</p>
               <p className="text-text-muted mt-1 text-sm">This is optional and off until you enable it. Because Catholic and religious topics may reveal religious or philosophical beliefs, this profile is treated as sensitive. It is private and never used for sponsor targeting.</p>
             </div>
             <span className={status.enabled ? 'rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300' : 'rounded-full bg-bg-secondary px-3 py-1 text-xs font-semibold text-text-secondary'}>
