@@ -6,6 +6,12 @@ const bootstrap = readFileSync(new URL('../docs/cathoscroll-database-bootstrap.s
 const documentation = readFileSync(new URL('../docs/personalization-analytics-implementation.md', import.meta.url), 'utf8');
 const settings = readFileSync(new URL('../src/app/account/personalization/page.tsx', import.meta.url), 'utf8');
 const deepDive = readFileSync(new URL('../src/components/admin/AnalyticsDeepDivePanel.tsx', import.meta.url), 'utf8');
+const signupForm = readFileSync(new URL('../src/components/auth/SignupFormView.tsx', import.meta.url), 'utf8');
+const webSignup = readFileSync(new URL('../src/app/signup/page.tsx', import.meta.url), 'utf8');
+const nativeSignup = readFileSync(new URL('../native/signup.tsx', import.meta.url), 'utf8');
+const accountView = readFileSync(new URL('../src/components/account/AccountPageView.tsx', import.meta.url), 'utf8');
+const accountSection = readFileSync(new URL('../src/components/account/PersonalizationAccountSection.tsx', import.meta.url), 'utf8');
+const nativeMain = readFileSync(new URL('../native/main.tsx', import.meta.url), 'utf8');
 
 function functionBody(name) {
   const start = bootstrap.lastIndexOf('CREATE OR REPLACE FUNCTION ' + name);
@@ -20,6 +26,9 @@ test('personalisation consent is opt-in and versioned', () => {
   assert.match(bootstrap, /consent_version/);
   assert.match(settings, /This is optional and off until you enable it/);
   assert.match(settings, /activity recorded after you opt in/);
+  assert.match(bootstrap, /capture_signup_personalization_consent/);
+  assert.match(bootstrap, /NEW\.raw_user_meta_data ->> 'personalization_consent' = 'true'/);
+  assert.match(bootstrap, /AFTER INSERT ON auth\.users/);
 });
 
 test('withdrawal deletes both inferred and explicitly selected interests', () => {
@@ -82,4 +91,36 @@ test('personalisation settings disclose the profile purpose and sponsor isolatio
   assert.match(settings, /not shown on your public profile or used for sponsor targeting/);
   assert.match(settings, /Turn off and delete profile/);
   assert.match(settings, /This setting is not a declaration of religious affiliation/);
+});
+
+test('signup collects separate, unchecked explicit consent on web and native', () => {
+  assert.match(signupForm, /name="personalizationConsent"/);
+  assert.match(signupForm, /type="checkbox"/);
+  assert.match(signupForm, /I explicitly consent to personalised recommendations/);
+  assert.doesNotMatch(signupForm, /name="personalizationConsent"[\s\S]{0,180}checked/);
+  assert.match(webSignup, /personalization_consent: personalizationConsent/);
+  assert.match(nativeSignup, /personalization_consent: personalizationConsent/);
+});
+
+test('all recommendation history signals are opt-in and withdrawal neutralises active cursors', () => {
+  const body = functionBody('public.get_my_recommendation_page');
+  assert.match(body, /SELECT coalesce\(enabled,false\) INTO personalization_enabled/);
+  assert.match(body, /WHERE personalization_enabled/);
+  assert.match(body, /include_completed := NOT personalization_enabled/);
+  assert.match(body, /IF NOT personalization_enabled THEN/);
+  assert.match(body, /jsonb_build_object\('weight',1\)/);
+  assert.match(body, /include_completed := true/);
+  assert.match(documentation, /All account-history recommendation weighting is behind the explicit consent flag/);
+});
+
+test('web and native account/settings screens reuse the same components', () => {
+  assert.match(accountView, /PersonalizationAccountSection/);
+  assert.match(accountSection, /set_my_personalization_consent/);
+  assert.match(accountSection, /I explicitly consent to using my activity/);
+  assert.match(nativeMain, /PersonalizationSettingsPage client=/);
+  assert.match(nativeMain, /kind: 'personalization'/);
+});
+
+test('retired user subscription tier is absent from the bootstrap', () => {
+  assert.doesNotMatch(bootstrap, /subscription_tier|get_own_subscription_tier/);
 });
