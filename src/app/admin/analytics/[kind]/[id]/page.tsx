@@ -106,7 +106,6 @@ export default async function AdminAnalyticsEntityPage({ params, searchParams }:
 
   return <main className="container py-12">
     <div className="mt-6"><Link href={`/admin/analytics?period=${period}&section=${kind}`} className="text-accent text-sm font-medium hover:underline">← Back to {kind} analytics</Link>
-      <p className="text-accent mt-8 text-sm font-semibold tracking-wider uppercase">Administration · Analytics · {kind}</p>
       <h1 className="mt-2 text-4xl font-extrabold md:text-5xl">{title}</h1>
       <p className="text-text-secondary mt-3 max-w-3xl">{description}</p>
     </div>
