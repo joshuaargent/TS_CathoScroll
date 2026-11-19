@@ -82,6 +82,7 @@ export function FeedInterstitialMotion({
   } = useTopicSwipeGesture({
     enabled: active,
     motionValues: { x, y },
+    isLocked: () => animationLockRef.current,
     canSwipeHorizontal: (direction) => direction === 'next'
       ? (!canSwipeLeft || canSwipeLeft())
       : (!canSwipeRight || canSwipeRight()),
@@ -89,48 +90,6 @@ export function FeedInterstitialMotion({
     onSwipeVertical: (direction) => move(direction === 'next' ? 'up' : 'down'),
   });
 
-  useEffect(() => {
-    if (!active) return;
-    const handleKeyDown = (event: globalThis.KeyboardEvent) => {
-      if (event.repeat || animationLockRef.current) return;
-
-      const target = event.target as HTMLElement | null;
-      if (
-        target instanceof HTMLInputElement ||
-        target instanceof HTMLTextAreaElement ||
-        target instanceof HTMLSelectElement ||
-        target?.isContentEditable
-      ) {
-        return;
-      }
-
-      switch (event.key) {
-        case 'ArrowLeft':
-          event.preventDefault();
-          void move('right');
-          break;
-        case 'ArrowRight':
-          event.preventDefault();
-          void move('left');
-          break;
-        case 'ArrowUp':
-          event.preventDefault();
-          void move('down');
-          break;
-        case 'ArrowDown':
-          event.preventDefault();
-          void move('up');
-          break;
-        case ' ':
-          event.preventDefault();
-          void move(event.shiftKey ? 'down' : 'up');
-          break;
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [active, move]);
 
   return (
     <div ref={containerRef} className="h-full w-full overflow-hidden" aria-hidden={!active} inert={!active}>
