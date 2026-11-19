@@ -125,7 +125,7 @@ function LineChart({ series, anonymousSeries }: { series: DailyContentAnalytics[
         viewBox={`0 0 ${width} ${height}`}
         className="h-auto w-full overflow-visible"
         role="img"
-        aria-label="Daily impressions and viewable impressions"
+        aria-label="Daily signed-in and anonymous impressions and viewability"
       >
         {gridValues.map((grid) => (
           <g key={grid.fraction}>
