@@ -7,9 +7,9 @@
 
 ## 1. Processing under review
 
-This assessment covers first-party, account-linked topic-feed and Top Comments analytics for signed-in users; Vercel Web Analytics site-level measurement, including signed-out visitors; Vercel Speed Insights performance measurement; and recommendation personalisation as a separate purpose controlled by the account personalisation setting.
+This assessment covers first-party account-linked analytics for signed-in topic-feed and Top Comments activity; separate signed-out topic/comment daily aggregates; authenticated and anonymous sponsor delivery analytics; Vercel Web Analytics and Speed Insights; and recommendation personalisation as a separate purpose controlled by the account setting.
 
-The current product behaviour is intentionally retained. Detailed first-party content analytics are collected for authenticated users; signed-out visitors are not added to that account-linked event pipeline. The existing personalisation checkbox controls whether activity is used to build and apply an individual recommendation-interest profile. It is not blanket consent for every analytics purpose.
+Signed-in topic/comment events remain account-linked. Signed-out topic/comment events are stored only as daily aggregates without account IDs, raw session IDs or persistent visitor IDs. Sponsor frequency protection uses a random token held in page memory and stores only its SHA-256 hash for a short period. The personalisation checkbox controls recommendation profiling only; it is not blanket consent for operational analytics.
 
 ## 2. Purposes and necessity
 
@@ -27,11 +27,13 @@ Raw events are associated with the authenticated account and include the topic o
 
 These records are account-linked personal data, not anonymous data. Topic activity on a Catholic learning service may reveal or permit inferences about religious or philosophical beliefs. Treat the information as potentially special-category data and restrict access accordingly.
 
-### 3.2 Signed-out visitors
+### 3.2 Signed-out topic and comment analytics
 
-The first-party topic and comment analytics clients require a signed-in user ID, and both ingestion endpoints independently authenticate the request. Signed-out visitors therefore do not create first-party account-linked topic or comment event records. No first-party persistent visitor ID or signed-out topic history is introduced by this assessment.
+Signed-out visitors use a separate first-party endpoint. It accepts bounded topic/comment event batches after same-origin/native request validation and API rate limiting. Events contain a random event UUID, entity type and entity ID, event type and (for active duration) a capped duration. The endpoint does not accept or store an account ID, raw session ID, persistent visitor ID, user-agent fingerprint or client timestamp. Event UUID receipts are retained for seven days solely for idempotency. The database stores UTC daily counts by entity for impressions, viewable impressions, active duration, skips, completions and comment opens. No anonymous unique-person or session metric is calculated.
 
-Signed-out visits can still contribute to Vercel Web Analytics and Speed Insights. These provider tools are separate from the account-linked first-party event pipeline.
+The event-level receipt ledger is not linked to a visitor, but the entity-level aggregate can still reveal that a particular topic or comment was viewed on a particular day. In the context of a Catholic learning platform, topic/comment identifiers may be sensitive inferences. The absence of a visitor identifier reduces individual attribution; it does not, by itself, prove that all surrounding request processing or logs are anonymous. Hosting/API logs and IP-based rate-limiting data require a separate retention and access review.
+
+The anonymous aggregate table is retained for long-term reporting and contains no user/session identifiers. Vercel Web Analytics and Speed Insights remain separate provider streams and are not merged into the first-party event tables.
 
 ### 3.3 Vercel Web Analytics
 
@@ -61,25 +63,28 @@ The Vercel Web Analytics integration is documented by Vercel as not using third-
 
 ## 6. Safeguards and proportionality
 
-- Keep first-party topic and comment ingestion authenticated; reject signed-out requests at the server as well as the client.
-- Keep raw analytics tables, viewer bridges and ingestion RPCs private, with administrator-only aggregate reporting and no sponsor access to raw user-level events.
-- Retain raw feed and comment analytics for no longer than the current 180-day period, and keep long-term reporting in account-free daily aggregates.
+- Keep signed-in and signed-out ingestion paths separate. The anonymous route validates event shape, bounds payload size and duration, checks same-origin/native requests and applies API rate limits.
+- Keep raw account-linked analytics tables, viewer bridges and ingestion RPCs private, with administrator-only aggregate reporting.
+- Store signed-out topic/comment activity only as UTC daily entity aggregates. Do not add visitor/session IDs, device fingerprints, account IDs or cross-visit profiles. Retain only event UUID receipts for seven days for deduplication.
 - Keep recommendation personalisation separate from operational analytics in purpose, user-facing wording and account controls.
 - Do not use reading activity or inferred religious interests for individual sponsor targeting.
+- Keep signed-out sponsor frequency control separate: generate a random token in page memory, store only its SHA-256 hash, and prune raw event/frequency rows after 48 hours.
+- Keep sponsor campaign daily aggregates separate from organic topic analytics; sponsor dashboards expose campaign-level totals only.
+- Retain signed-in raw feed/comment analytics and viewer bridges for no longer than 180 days; retain aggregate reporting without account/session identifiers.
 - Remove query strings and fragments from Vercel Web Analytics and Speed Insights events; replace topic, category and search identifiers with generic route labels.
 - Keep the strict-origin referrer policy to avoid transmitting full referring-page paths.
-- Verify deployed network requests and SDK behaviour after changes or upgrades.
+- Verify deployed web and native network requests, API origins, CORS behaviour and SDK behaviour after changes or upgrades.
 - Review Vercel's DPA, subprocessors, retention, international transfer safeguards and relevant project settings.
 - Review hosting, CDN, WAF and function logs, including IP, URL, referrer and user-agent retention; minimise what is configurable and document security logging separately.
 - Apply minimum cohort thresholds and suppression where aggregate reports could single out a person, especially for small topics or narrow time windows.
-- Keep sponsor campaign analytics separate and do not expose account-level topic/comment histories to sponsors.
+- Keep sponsor campaign analytics aggregate-only and do not expose account-level topic/comment histories to sponsors.
 
 ## 7. Risk assessment
 
 | Risk | Mitigation | Residual position |
 |---|---|---|
 | Account-linked topic activity reveals religious/philosophical interests | Restricted private storage, authentication, bounded retention, separate personalisation controls, Article 9 review | Requires controller's documented Article 9 decision |
-| Signed-out visitors are incorrectly added to account-linked topic analytics | Client requires user ID; ingestion endpoints independently require authentication | Low for first-party topic/comment event tables |
+| Signed-out activity is linked to an identifiable visitor | No account/session/persistent visitor ID in aggregate event path; event receipts contain only event UUIDs; hosting logs reviewed separately | Reduced for database aggregates; request logs still require review |
 | Sensitive paths or search terms reach analytics providers | Route-label replacement, query/hash removal and strict-origin referrer policy | Reduced; verify deployed requests and infrastructure logs |
 | Small aggregate counts expose an individual | Account-free rollups, cohort thresholds and suppression | Depends on report dimensions and traffic volume |
 | Personalisation consent is confused with operational analytics | Distinct purposes and accurate policy wording | Low if notices and implementation remain aligned |
@@ -87,19 +92,19 @@ The Vercel Web Analytics integration is documented by Vercel as not using third-
 
 ## 8. Rights, retention and transparency
 
-The privacy notice explains the types of first-party events collected, the account link, signed-out exclusion, provider-level site/performance measurement, and the separation from recommendation personalisation. Raw first-party feed/comment events and the viewer bridge are retained for up to 180 days; aggregate daily totals are retained longer where they no longer identify individuals. The controller should continue to assess whether low-volume aggregate rows could identify a person and apply suppression or deletion where needed.
+The privacy notice explains the distinct signed-in and signed-out first-party analytics streams, the lack of visitor-level identifiers in signed-out daily aggregates, the temporary sponsor frequency hash, provider-level site/performance measurement and the separation from recommendation personalisation. Signed-in raw feed/comment events and the viewer bridge are retained for up to 180 days. Signed-out deduplication receipts are retained for seven days; anonymous sponsor event/frequency rows are retained for no more than 48 hours; daily entity/campaign aggregates are retained longer. The controller should continue to assess whether low-volume entity/day aggregates or surrounding logs could identify a person and apply suppression or deletion where needed.
 
 Users can exercise applicable access, rectification, erasure, restriction and objection rights. Where personalisation is based on consent, users can withdraw it through Account settings; that withdrawal stops profile-based recommendation weighting and removes the derived personalisation profile. It does not automatically erase operational analytics records that have a separately documented purpose and lawful basis.
 
 ## 9. Conclusion and remaining actions
 
-The implementation retains detailed first-party topic and comment analytics for signed-in users and excludes signed-out visitors from those account-linked event tables. Vercel Web Analytics and Speed Insights remain available for site-level and performance measurement, with route/query minimisation intended to avoid exposing sensitive content identifiers.
+The implementation now records signed-in topic/comment events in account-linked tables and signed-out topic/comment events only as daily entity aggregates. The latter do not support anonymous unique-person counts. Signed-out sponsor delivery uses a separate campaign pipeline with hashed, short-lived frequency protection and aggregate reporting. The Admin Analytics hub, topic/category pages, sponsor/comment detail pages, admin campaign manager and sponsor portal present signed-in and anonymous counts separately. Vercel Web Analytics and Speed Insights remain separate provider streams.
 
-The principal remaining legal task is to document the Article 6 basis and, where topic activity is special-category data, the applicable Article 9 condition for operational analytics. The controller should also complete the provider/transfer and infrastructure-log reviews described above. This is a proportionate ongoing compliance review, not a claim that all analytics are anonymous or that CathoScroll has been certified as legally compliant.
+The principal remaining legal task is to document the Article 6 basis and obtain advice on Article 9 applicability/condition for account-linked operational topic/comment analytics. The controller must also review whether entity/day aggregates and infrastructure request logs could identify people in context, and complete provider/transfer and log-retention reviews. This is not a legal sign-off or a claim that every data flow is anonymous.
 
 ## 10. Sponsor analytics
 
-Sponsor campaign delivery, viewability, click analytics and frequency controls are a separate pipeline. This assessment does not certify their lawful basis or retention. Continue to prevent sponsors from accessing raw user-level events or using individual religious/topic interests for targeting. Review campaign placement and frequency data separately to ensure it is not combined with sensitive reading histories.
+Sponsor campaign delivery, viewability, click analytics and frequency controls are a separate pipeline. Authenticated and signed-out delivery are counted in separate daily aggregates; sponsor representatives receive campaign-level totals with signed-in and anonymous counts distinguished. Raw anonymous sponsor event and session-frequency records are pruned after 48 hours; campaign daily aggregates are retained. Sponsors do not receive raw session hashes, user-level event records or topic/comment browsing histories, and campaign selection is based on campaign eligibility/targeting settings rather than individual reading histories. This assessment does not certify the lawful basis; the controller must document the Article 6 basis and assess whether any processing in context engages Article 9.
 
 ## 11. Controller action list
 
@@ -114,10 +119,12 @@ Sponsor campaign delivery, viewability, click analytics and frequency controls a
 **Approval record:** This is a provisional internal assessment. The controller should record the reviewer, date, selected lawful bases, Article 9 condition where applicable, provider/transfer checks and any accepted residual risks before treating the review as complete.
 
 
-## 12. Anonymous analytics and signed-out sponsorship — implementation status
+## 12. Anonymous analytics and signed-out sponsorship — implemented controls
 
-The current application branch adds signed-out topic and Top Comments aggregate ingestion and a separate anonymous sponsor delivery/event pipeline. Anonymous event aggregates contain daily entity-level counts, not account IDs or persistent visitor IDs. The deduplication receipt ledger is short-lived (seven days). Sponsor frequency protection stores a hash of a page-memory session token; raw anonymous sponsor event/session-frequency rows are pruned after 48 hours. Campaign eligibility and sponsor reporting remain separate from recommendation personalisation.
+The signed-out topic and Top Comments path posts event UUID, entity type/ID and bounded event metrics to the anonymous analytics endpoint. The server checks same-origin/native requests, bounds request size and batch length, applies rate limiting, and calls a service-role-only database function. The database validates event types and IDs, caps active-duration values, deduplicates receipts for seven days and writes UTC daily entity aggregates without account IDs, raw session IDs or persistent visitor IDs.
 
-This does not make the underlying subject matter automatically anonymous for legal purposes. Topic and comment identifiers may still reveal sensitive interests in context. The Article 6/Article 9 review and provider/transfer review remain controller tasks.
+Signed-out sponsor selection and event recording use dedicated service-role-only database functions and separate daily campaign aggregates. A random session token is held only in page memory; its SHA-256 hash is stored for session-frequency control. Raw anonymous sponsor event and session-frequency rows are pruned after 48 hours. Campaign approval, sponsor/payment status, dates, targeting, placement weights and daily/total caps remain enforced. Signed-in and anonymous sponsor metrics are reported separately in Admin Analytics, the admin campaign manager and sponsor portal.
 
-The analytics dashboard has not yet been updated across every overview and entity detail page to show anonymous aggregates alongside signed-in data. The canonical emergency bootstrap also requires the new anonymous schema, functions and retention schedule before this work is fully disaster-recovery documented. Until those tasks are complete, the dashboard and bootstrap must not be described as complete for anonymous analytics.
+The shared topic viewer, TopCommentFeedCard and SponsorFeedCard are used by web and native. Native requests use the configured CathoScroll API origin rather than the Capacitor local origin. This implementation has not yet been manually verified on physical Android/Electron builds; automated CI and deployed acceptance must be checked separately.
+
+These controls reduce direct attribution but do not automatically settle legal classification. Topic/comment IDs and request metadata can remain sensitive in context. Article 6 basis, Article 9 applicability/condition where relevant, PECR, infrastructure logs and provider/transfer review remain controller tasks. No anonymous unique-person count is calculated or shown.
