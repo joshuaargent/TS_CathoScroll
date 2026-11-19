@@ -112,3 +112,12 @@ Sponsor campaign delivery, viewability, click analytics and frequency controls a
 7. Revisit this assessment after material changes and at least annually.
 
 **Approval record:** This is a provisional internal assessment. The controller should record the reviewer, date, selected lawful bases, Article 9 condition where applicable, provider/transfer checks and any accepted residual risks before treating the review as complete.
+
+
+## 12. Anonymous analytics and signed-out sponsorship — implementation status
+
+The current application branch adds signed-out topic and Top Comments aggregate ingestion and a separate anonymous sponsor delivery/event pipeline. Anonymous event aggregates contain daily entity-level counts, not account IDs or persistent visitor IDs. The deduplication receipt ledger is short-lived (seven days). Sponsor frequency protection stores a hash of a page-memory session token; raw anonymous sponsor event/session-frequency rows are pruned after 48 hours. Campaign eligibility and sponsor reporting remain separate from recommendation personalisation.
+
+This does not make the underlying subject matter automatically anonymous for legal purposes. Topic and comment identifiers may still reveal sensitive interests in context. The Article 6/Article 9 review and provider/transfer review remain controller tasks.
+
+The analytics dashboard has not yet been updated across every overview and entity detail page to show anonymous aggregates alongside signed-in data. The canonical emergency bootstrap also requires the new anonymous schema, functions and retention schedule before this work is fully disaster-recovery documented. Until those tasks are complete, the dashboard and bootstrap must not be described as complete for anonymous analytics.
