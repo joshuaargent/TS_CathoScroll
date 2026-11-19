@@ -90,9 +90,9 @@ The controller must provide a clear route to exercise access, erasure, objection
 
 **Signed-out first-party topic-level analytics: not approved.** The current product already has signed-out site-level measurement through Vercel Web Analytics. CathoScroll has therefore not added a second, visitor-level topic-tracking system. The Vercel page URL is now normalised to the site root to reduce the risk of topic-specific path disclosure. Speed Insights is disabled pending its separate review.
 
-**Signed-in first-party topic-level analytics: not certified by this assessment.** The current event stream contains account-linked topic activity and requires a documented Article 6 basis and Article 9 condition. The recommendation personalisation checkbox is not that condition. This remains a launch/compliance action, not something that can be resolved by changing wording in the privacy policy.
+**Signed-in first-party topic-level analytics: paused by default and not certified by this assessment.** The viewer is gated by `NEXT_PUBLIC_ACCOUNT_LINKED_FEED_ANALYTICS=true`, and the ingestion route independently fails closed unless `ACCOUNT_LINKED_FEED_ANALYTICS_ENABLED=true`. Both must remain unset until the controller documents the Article 6 basis and applicable Article 9 condition, and implements any required separate explicit consent, withdrawal, and deletion controls. The recommendation personalisation checkbox is not that condition.
 
-The residual risk cannot be marked fully accepted until the controller completes the actions below. If the controller cannot identify an applicable Article 9 condition, the account-linked topic-level stream must be paused or redesigned before further collection.
+The residual risk cannot be marked fully accepted until the controller completes the actions below. If the controller cannot identify an applicable Article 9 condition, the account-linked topic-level stream must remain paused or be redesigned.
 
 ## 10. Required controller actions before declaring the analytics processing approved
 
