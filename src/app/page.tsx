@@ -55,6 +55,29 @@ async function HomeFeed() {
     );
   }
 
+  const { data: personalizationStatus, error: personalizationStatusError } =
+    await supabase.rpc('get_my_personalization_status');
+  const personalizationEnabled =
+    !personalizationStatusError &&
+    typeof personalizationStatus === 'object' &&
+    personalizationStatus !== null &&
+    'enabled' in personalizationStatus &&
+    personalizationStatus.enabled === true;
+
+  if (!personalizationEnabled) {
+    const { topics, nextCursor } = await getPublicGeneralTopicPage(null, 24);
+    return (
+      <div className="h-[calc(100vh-4rem)] overflow-hidden">
+        <TopicFeed
+          topics={topics}
+          nextCursor={nextCursor}
+          userId={user.id}
+          generalRanked
+        />
+      </div>
+    );
+  }
+
   const { topics, nextCursor } = await getRecommendationPage(supabase);
 
   return (
