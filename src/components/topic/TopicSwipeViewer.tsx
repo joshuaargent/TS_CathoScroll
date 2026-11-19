@@ -115,18 +115,26 @@ export function TopicSwipeViewer({
     let viewTimer: number | null = null;
     let durationTimer: number | null = null;
     let activeSince = 0;
-    let totalActive = 0;
-    const flushDuration = () => {
-      if (!activeSince) return;
-      const elapsed = Math.max(0, Math.round(performance.now() - activeSince));
-      activeSince = 0;
-      totalActive += elapsed;
-      if (elapsed > 0) recordAnonymousFeedEvent('topic', currentTopicId, 'active_duration', elapsed);
+    topicActiveDurationRef.current = 0;
+    topicActiveSinceRef.current = null;
+    const flushDuration = (resume = true) => {
+      if (activeSince) {
+        const elapsed = Math.max(0, Math.round(performance.now() - activeSince));
+        activeSince = 0;
+        topicActiveSinceRef.current = null;
+        topicActiveDurationRef.current += elapsed;
+        if (elapsed > 0) recordAnonymousFeedEvent('topic', currentTopicId, 'active_duration', elapsed);
+      }
+      if (resume && viewable && intersecting && document.visibilityState === 'visible') {
+        activeSince = performance.now();
+        topicActiveSinceRef.current = activeSince;
+      }
     };
     const startDuration = () => {
       if (!viewable || document.visibilityState !== 'visible' || activeSince) return;
       activeSince = performance.now();
-      if (durationTimer === null) durationTimer = window.setInterval(flushDuration, 30000);
+      topicActiveSinceRef.current = activeSince;
+      if (durationTimer === null) durationTimer = window.setInterval(() => flushDuration(true), 30000);
     };
     const scheduleView = () => {
       if (!intersecting || viewable || viewTimer !== null || document.visibilityState !== 'visible') return;
@@ -142,18 +150,18 @@ export function TopicSwipeViewer({
       ? new IntersectionObserver((entries) => {
           intersecting = Boolean(entries[0]?.isIntersecting && entries[0].intersectionRatio >= 0.5);
           if (intersecting) scheduleView();
-          else { if (viewTimer !== null) window.clearTimeout(viewTimer); viewTimer = null; flushDuration(); }
+          else { if (viewTimer !== null) window.clearTimeout(viewTimer); viewTimer = null; flushDuration(false); }
         }, { threshold: [0, 0.5, 1] })
       : null;
     if (containerRef.current && observer) observer.observe(containerRef.current);
     else { intersecting = true; scheduleView(); }
     const onVisibility = () => {
-      if (document.visibilityState === 'hidden') { if (viewTimer !== null) window.clearTimeout(viewTimer); viewTimer = null; flushDuration(); }
+      if (document.visibilityState === 'hidden') { if (viewTimer !== null) window.clearTimeout(viewTimer); viewTimer = null; flushDuration(false); }
       else if (intersecting) { if (viewable) startDuration(); else scheduleView(); }
     };
     document.addEventListener('visibilitychange', onVisibility);
     return () => {
-      flushDuration();
+      flushDuration(false);
       if (durationTimer !== null) window.clearInterval(durationTimer);
       if (viewTimer !== null) window.clearTimeout(viewTimer);
       observer?.disconnect();
@@ -261,7 +269,7 @@ export function TopicSwipeViewer({
   }, [currentTopicId, userId, active]);
 
   useEffect(() => {
-    if (!userId && slideIndex === slides.length - 1) recordAnonymousFeedEvent('topic', currentTopicId, 'completion');
+    if (!userId && active && slideIndex === slides.length - 1) recordAnonymousFeedEvent('topic', currentTopicId, 'completion');
     if (!userId || slideIndex <= 0) return;
     recordFeedAnalyticsEvent(userId, 'swipe_depth', currentTopicId, {
       slide_index: slideIndex,
@@ -271,7 +279,7 @@ export function TopicSwipeViewer({
     if (slideIndex === slides.length - 1) {
       recordFeedTopicCompletion(userId, currentTopicId, slideIndex);
     }
-  }, [currentTopicId, userId, slideIndex, slides.length]);
+  }, [active, currentTopicId, userId, slideIndex, slides.length]);
 
   const likeTopic = () => {
     if (
