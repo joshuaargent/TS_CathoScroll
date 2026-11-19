@@ -89,6 +89,12 @@ export function useTopicSwipeGesture({
   const handlePointerUp = useCallback(async () => {
     if (!isDragging) return;
     setIsDragging(false);
+    if (!enabled) {
+      springHome();
+      currentRef.current = { x: 0, y: 0 };
+      axisRef.current = null;
+      return;
+    }
 
     const dx = currentRef.current.x;
     const dy = currentRef.current.y;
@@ -132,6 +138,7 @@ export function useTopicSwipeGesture({
     }
   }, [
     canSwipeHorizontal,
+    enabled,
     isDragging,
     onDoubleTap,
     onSwipeHorizontal,
