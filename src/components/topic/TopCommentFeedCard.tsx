@@ -185,6 +185,7 @@ export function TopCommentFeedCard({
     if (!active || previewMode || !userId || activeCommentId === undefined) return;
     recordFeedCardAnalyticsEvent(userId, 'impression', activeCommentId);
     let viewable = false;
+    let isIntersecting = false;
     let viewableTimer: ReturnType<typeof setTimeout> | null = null;
     let durationTimer: ReturnType<typeof setInterval> | null = null;
     let activeMilliseconds = 0;
@@ -209,35 +210,45 @@ export function TopCommentFeedCard({
         recordFeedCardAnalyticsEvent(userId, 'active_duration', activeCommentId, elapsed);
       }
     };
-    const handleVisibility = () => {
-      if (document.visibilityState === 'hidden') stopDuration();
-      else startDuration();
-    };
-    const observer = typeof IntersectionObserver !== 'undefined' && commentArticleRef.current
-      ? new IntersectionObserver((entries) => {
-          const entry = entries[0];
-          const isVisible = Boolean(entry?.isIntersecting && entry.intersectionRatio >= 0.5);
-          if (viewableTimer) clearTimeout(viewableTimer);
-          viewableTimer = null;
-          if (isVisible && !viewable) {
-            viewableTimer = setTimeout(() => {
-              viewable = true;
-              recordFeedCardAnalyticsEvent(userId, 'viewable_impression', activeCommentId);
-              startDuration();
-            }, 1000);
-          } else if (!isVisible) {
-            stopDuration();
-            viewable = false;
-          }
-        }, { threshold: [0, 0.5, 1] })
-      : null;
-    if (commentArticleRef.current && observer) observer.observe(commentArticleRef.current);
-    else {
+    const scheduleViewability = () => {
+      if (!isIntersecting || viewable || viewableTimer || document.visibilityState !== 'visible') return;
       viewableTimer = setTimeout(() => {
+        viewableTimer = null;
+        if (!isIntersecting || document.visibilityState !== 'visible') return;
         viewable = true;
         recordFeedCardAnalyticsEvent(userId, 'viewable_impression', activeCommentId);
         startDuration();
       }, 1000);
+    };
+    const handleVisibility = () => {
+      if (document.visibilityState === 'hidden') {
+        if (viewableTimer) clearTimeout(viewableTimer);
+        viewableTimer = null;
+        stopDuration();
+      } else if (viewable) {
+        startDuration();
+      } else {
+        scheduleViewability();
+      }
+    };
+    const observer = typeof IntersectionObserver !== 'undefined' && commentArticleRef.current
+      ? new IntersectionObserver((entries) => {
+          const entry = entries[0];
+          isIntersecting = Boolean(entry?.isIntersecting && entry.intersectionRatio >= 0.5);
+          if (!isIntersecting) {
+            if (viewableTimer) clearTimeout(viewableTimer);
+            viewableTimer = null;
+            stopDuration();
+            viewable = false;
+            return;
+          }
+          scheduleViewability();
+        }, { threshold: [0, 0.5, 1] })
+      : null;
+    if (commentArticleRef.current && observer) observer.observe(commentArticleRef.current);
+    else {
+      isIntersecting = true;
+      scheduleViewability();
     }
     document.addEventListener('visibilitychange', handleVisibility);
     return () => {
