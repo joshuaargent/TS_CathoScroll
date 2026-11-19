@@ -103,9 +103,8 @@ export async function POST(request: Request) {
       (typeof parsed.value.categorySlug !== 'string' ||
         !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(parsed.value.categorySlug))) ||
     !('topicId' in parsed.value) ||
-    (parsed.value.topicId !== null &&
-      (typeof parsed.value.topicId !== 'string' ||
-        !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(parsed.value.topicId)))
+    typeof parsed.value.topicId !== 'string' ||
+    !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(parsed.value.topicId)
   ) {
     return respond(request, { error: 'Invalid sponsored-content request.' }, 400);
   }
