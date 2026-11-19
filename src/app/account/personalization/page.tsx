@@ -65,6 +65,7 @@ export default function PersonalizationSettingsPage() {
         model_version: typeof data.model_version === 'string' ? data.model_version : emptyStatus.model_version,
         selected_categories: Array.isArray(data.selected_categories) ? data.selected_categories.filter((item: unknown): item is string => typeof item === 'string') : [],
         category_options: Array.isArray(data.category_options) ? data.category_options.filter((item: unknown): item is { slug: string; name: string } => Boolean(item) && typeof item === 'object' && typeof (item as { slug?: unknown }).slug === 'string' && typeof (item as { name?: unknown }).name === 'string') : [],
+        top_topic_interests: Array.isArray(data.top_topic_interests) ? data.top_topic_interests.filter((item: unknown): item is PersonalizationStatus['top_topic_interests'][number] => Boolean(item) && typeof item === 'object' && typeof (item as { topic_id?: unknown }).topic_id === 'string' && typeof (item as { question?: unknown }).question === 'string' && typeof (item as { score?: unknown }).score === 'number') : [],
       });
       setSelectedCategories(Array.isArray(data.selected_categories) ? data.selected_categories.filter((item: unknown): item is string => typeof item === 'string') : []);
       setCategoryOptions(Array.isArray(data.category_options) ? data.category_options.filter((item: unknown): item is { slug: string; name: string } => Boolean(item) && typeof item === 'object' && typeof (item as { slug?: unknown }).slug === 'string' && typeof (item as { name?: unknown }).name === 'string') : []);
