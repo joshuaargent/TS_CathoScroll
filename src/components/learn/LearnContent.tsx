@@ -38,7 +38,7 @@ export function LearnContent() {
           <div className="grid gap-6 md:grid-cols-3">
             <article className="border-border rounded-2xl border p-6">
               <Badge variant="accent" size="sm">
-                Premium
+                Free
               </Badge>
 
               <h3 className="mt-4 text-2xl font-bold">Audio Lessons</h3>
@@ -50,7 +50,7 @@ export function LearnContent() {
 
             <article className="border-border rounded-2xl border p-6">
               <Badge variant="accent" size="sm">
-                Premium
+                Free
               </Badge>
 
               <h3 className="mt-4 text-2xl font-bold">Learning Paths</h3>
@@ -63,7 +63,7 @@ export function LearnContent() {
 
             <article className="border-border rounded-2xl border p-6">
               <Badge variant="accent" size="sm">
-                Premium
+                Free
               </Badge>
 
               <h3 className="mt-4 text-2xl font-bold">Quizzes</h3>
