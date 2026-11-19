@@ -275,16 +275,26 @@ export default function PrivacyPage() {
           <h2 className="mb-4 text-3xl font-bold">International Data Processing</h2>
 
           <p className="text-text-secondary leading-relaxed">
-            CathoScroll is available internationally.
+            The primary CathoScroll database and authentication services are hosted by Supabase
+            in AWS Stockholm, Sweden (eu-north-1). The website's server-side functions are
+            currently deployed by Vercel in the United States (US East, iad1). These locations
+            may change as the service develops.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            Information may be transferred to, processed in, and stored in countries outside your
-            own jurisdiction, including locations where our service providers operate.
+            Supabase and Vercel may also process service metadata, support requests, security
+            logs, and other information through their own operations and subprocessors in
+            additional countries, including the United States and Singapore. This means some
+            personal data may be transferred outside the UK and EEA.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            Where a transfer is subject to UK data protection transfer rules, we use an applicable adequacy decision or another lawful transfer safeguard. You can contact us for further information about the safeguards relevant to a particular provider.
+            Where a transfer is subject to UK data protection transfer rules, we use an applicable
+            adequacy decision or another lawful transfer safeguard, such as the UK International
+            Data Transfer Addendum or approved Standard Contractual Clauses where applicable.
+            Provider information: <Link href="https://supabase.com/legal/customer-resources/data-processing-addendum" className="text-accent underline">Supabase DPA</Link>,
+            {' '}<Link href="https://supabase.com/legal/privacy-resources/data-residency-and-transfers-faq" className="text-accent underline">Supabase data residency and transfers</Link>,
+            {' '}and <Link href="https://vercel.com/legal/dpa" className="text-accent underline">Vercel DPA</Link>.
           </p>
         </section>
 
