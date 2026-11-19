@@ -1608,11 +1608,6 @@ END;
 $function$;
 
 ALTER FUNCTION catho_private.get_user_feed_preference_signals(uuid) OWNER TO postgres;
-REVOKE ALL ON FUNCTION catho_private.get_user_feed_preference_signals(uuid)
-  FROM PUBLIC, anon, authenticated, service_role;
-GRANT EXECUTE ON FUNCTION catho_private.get_user_feed_preference_signals(uuid)
-  TO authenticated;
-
 CREATE OR REPLACE FUNCTION public.get_my_recommendation_page(feed_cursor jsonb DEFAULT NULL::jsonb, page_limit integer DEFAULT 50)
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -3752,123 +3747,6 @@ GRANT UPDATE ON SEQUENCE public.user_comment_bans_id_seq TO service_role;
 GRANT USAGE ON SEQUENCE public.user_comment_bans_id_seq TO service_role;
 
 -- Function grants: reset default access then restore exact source ACL
-REVOKE ALL ON FUNCTION catho_private.activity_changed() FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION catho_private.audit_moderation_change() FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION catho_private.consume_recommendation_rate_limit(p_user_id uuid) FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION catho_private.enforce_activity_mutation_rate_limit() FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION catho_private.enforce_user_action_rate_limit() FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION catho_private.is_cathoscroll_content_admin() FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION catho_private.prevent_audit_mutation() FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION catho_private.prune_activity(p_user uuid, p_through bigint) FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION catho_private.prune_due_activity() FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION catho_private.prune_old_activity(p_user uuid, p_before timestamp with time zone, p_limit integer) FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION catho_private.record_activity(p_user uuid, p_kind text, p_topic text, p_value boolean, p_completed_at timestamp with time zone) FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION catho_private.validate_comment_write() FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION catho_private.validate_notification_read_update() FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION public.admin_get_action_audit(p_actor_user_id uuid, p_before_id bigint, p_limit integer) FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION public.admin_manage_comment_ban(target_user_id uuid, moderator_user_id uuid, moderation_action text, moderation_reason text, hide_existing_comments boolean, restore_hidden_comments boolean) FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION public.admin_mfa_enforcement_enabled() FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION public.admin_review_comment_ban_appeal(target_appeal_id bigint, approve_appeal boolean, reviewer_user_id uuid, review_note text, restore_hidden_comments boolean) FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION public.admin_review_comment_report(target_report_id bigint, review_action text, reviewer_user_id uuid, review_note text) FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION public.admin_set_comment_pin(target_comment_id bigint, should_pin boolean, moderator_user_id uuid) FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION public.admin_set_user_role(p_target_user_id uuid, p_actor_user_id uuid, p_grant boolean) FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION public.admin_user_has_verified_totp(p_user_id uuid) FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION public.consume_api_rate_limit(p_key_hash text, p_limit integer, p_window_seconds integer) FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION public.enable_admin_mfa_enforcement(p_actor_user_id uuid) FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION public.get_my_recommendation_page(feed_cursor jsonb, page_limit integer) FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION public.get_my_topic_engagement() FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION public.get_public_profile_metrics(p_profile_id uuid, p_timezone text) FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION public.get_topic_comment_page(p_topic_id text, p_before_created_at timestamp with time zone, p_before_id bigint, p_limit integer) FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION public.get_topic_like_state(p_topic_id text) FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION public.is_cathoscroll_admin_owner(p_user_id uuid) FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION public.is_cathoscroll_content_admin() FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION public.notify_comment_appeal_reviewed() FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION public.notify_comment_pin_change() FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION public.notify_comment_reply() FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION public.notify_comment_report_reviewed() FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION public.notify_comment_restriction_created() FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION public.notify_comment_restriction_lifted() FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION public.notify_moderated_comment_visibility() FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION public.notify_profile_created() FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION public.offline_activity_changes(p_user uuid, p_after text, p_limit integer) FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION public.offline_activity_head(p_user uuid) FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION public.offline_activity_snapshot(p_user uuid, p_cursor text) FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION public.offline_apply_activity(p_user uuid, p_operation uuid, p_kind text, p_topic text, p_value boolean, p_completed_at timestamp with time zone) FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION public.offline_apply_activity_batch(p_user uuid, p_operations jsonb) FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION public.offline_apply_activity_v2(p_user uuid, p_operation uuid, p_device uuid, p_sequence text, p_acknowledged text, p_kind text, p_topic text, p_value boolean, p_completed_at timestamp with time zone) FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION public.offline_catalogue_category_changed() FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION public.offline_catalogue_changes(p_after text, p_through text) FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION public.offline_catalogue_counts() FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION public.offline_catalogue_head() FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION public.offline_catalogue_lock() FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION public.offline_catalogue_prune(p_through bigint) FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION public.offline_catalogue_prune_old(p_before timestamp with time zone, p_limit integer) FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION public.offline_catalogue_record(p_kind text, p_key text) FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION public.offline_catalogue_topic_changed() FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION public.offline_catalogue_truncated() FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION public.reject_comment_edit_from_banned_user() FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION public.reject_comment_from_banned_user() FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION public.rls_auto_enable() FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION public.search_published_topics(search_query text, result_limit integer) FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION public.set_content_updated_at() FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION public.submit_comment_report(reporter_user_id uuid, target_comment_id bigint, report_reason text, report_details text) FROM PUBLIC, anon, authenticated, service_role;
-GRANT EXECUTE ON FUNCTION catho_private.consume_recommendation_rate_limit(p_user_id uuid) TO authenticated;
-GRANT EXECUTE ON FUNCTION catho_private.is_cathoscroll_content_admin() TO anon;
-GRANT EXECUTE ON FUNCTION catho_private.is_cathoscroll_content_admin() TO authenticated;
-GRANT EXECUTE ON FUNCTION catho_private.validate_notification_read_update() TO PUBLIC;
-GRANT EXECUTE ON FUNCTION public.admin_get_action_audit(p_actor_user_id uuid, p_before_id bigint, p_limit integer) TO service_role;
-GRANT EXECUTE ON FUNCTION public.admin_manage_comment_ban(target_user_id uuid, moderator_user_id uuid, moderation_action text, moderation_reason text, hide_existing_comments boolean, restore_hidden_comments boolean) TO service_role;
-GRANT EXECUTE ON FUNCTION public.admin_mfa_enforcement_enabled() TO service_role;
-GRANT EXECUTE ON FUNCTION public.admin_review_comment_ban_appeal(target_appeal_id bigint, approve_appeal boolean, reviewer_user_id uuid, review_note text, restore_hidden_comments boolean) TO service_role;
-GRANT EXECUTE ON FUNCTION public.admin_review_comment_report(target_report_id bigint, review_action text, reviewer_user_id uuid, review_note text) TO service_role;
-GRANT EXECUTE ON FUNCTION public.admin_set_comment_pin(target_comment_id bigint, should_pin boolean, moderator_user_id uuid) TO service_role;
-GRANT EXECUTE ON FUNCTION public.admin_set_user_role(p_target_user_id uuid, p_actor_user_id uuid, p_grant boolean) TO service_role;
-GRANT EXECUTE ON FUNCTION public.admin_user_has_verified_totp(p_user_id uuid) TO service_role;
-GRANT EXECUTE ON FUNCTION public.consume_api_rate_limit(p_key_hash text, p_limit integer, p_window_seconds integer) TO service_role;
-GRANT EXECUTE ON FUNCTION public.enable_admin_mfa_enforcement(p_actor_user_id uuid) TO service_role;
-GRANT EXECUTE ON FUNCTION public.get_my_recommendation_page(feed_cursor jsonb, page_limit integer) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.get_my_recommendation_page(feed_cursor jsonb, page_limit integer) TO service_role;
-GRANT EXECUTE ON FUNCTION public.get_my_topic_engagement() TO authenticated;
-GRANT EXECUTE ON FUNCTION public.get_my_topic_engagement() TO service_role;
-GRANT EXECUTE ON FUNCTION public.get_public_profile_metrics(p_profile_id uuid, p_timezone text) TO anon;
-GRANT EXECUTE ON FUNCTION public.get_public_profile_metrics(p_profile_id uuid, p_timezone text) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.get_topic_comment_page(p_topic_id text, p_before_created_at timestamp with time zone, p_before_id bigint, p_limit integer) TO anon;
-GRANT EXECUTE ON FUNCTION public.get_topic_comment_page(p_topic_id text, p_before_created_at timestamp with time zone, p_before_id bigint, p_limit integer) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.get_topic_like_state(p_topic_id text) TO anon;
-GRANT EXECUTE ON FUNCTION public.get_topic_like_state(p_topic_id text) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.is_cathoscroll_admin_owner(p_user_id uuid) TO service_role;
-GRANT EXECUTE ON FUNCTION public.is_cathoscroll_content_admin() TO anon;
-GRANT EXECUTE ON FUNCTION public.is_cathoscroll_content_admin() TO authenticated;
-GRANT EXECUTE ON FUNCTION public.offline_activity_changes(p_user uuid, p_after text, p_limit integer) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.offline_activity_changes(p_user uuid, p_after text, p_limit integer) TO service_role;
-GRANT EXECUTE ON FUNCTION public.offline_activity_head(p_user uuid) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.offline_activity_head(p_user uuid) TO service_role;
-GRANT EXECUTE ON FUNCTION public.offline_activity_snapshot(p_user uuid, p_cursor text) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.offline_activity_snapshot(p_user uuid, p_cursor text) TO service_role;
-GRANT EXECUTE ON FUNCTION public.offline_apply_activity(p_user uuid, p_operation uuid, p_kind text, p_topic text, p_value boolean, p_completed_at timestamp with time zone) TO service_role;
-GRANT EXECUTE ON FUNCTION public.offline_apply_activity_batch(p_user uuid, p_operations jsonb) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.offline_apply_activity_v2(p_user uuid, p_operation uuid, p_device uuid, p_sequence text, p_acknowledged text, p_kind text, p_topic text, p_value boolean, p_completed_at timestamp with time zone) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.offline_apply_activity_v2(p_user uuid, p_operation uuid, p_device uuid, p_sequence text, p_acknowledged text, p_kind text, p_topic text, p_value boolean, p_completed_at timestamp with time zone) TO service_role;
-GRANT EXECUTE ON FUNCTION public.offline_catalogue_changes(p_after text, p_through text) TO anon;
-GRANT EXECUTE ON FUNCTION public.offline_catalogue_changes(p_after text, p_through text) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.offline_catalogue_changes(p_after text, p_through text) TO service_role;
-GRANT EXECUTE ON FUNCTION public.offline_catalogue_counts() TO anon;
-GRANT EXECUTE ON FUNCTION public.offline_catalogue_counts() TO authenticated;
-GRANT EXECUTE ON FUNCTION public.offline_catalogue_counts() TO service_role;
-GRANT EXECUTE ON FUNCTION public.offline_catalogue_head() TO anon;
-GRANT EXECUTE ON FUNCTION public.offline_catalogue_head() TO authenticated;
-GRANT EXECUTE ON FUNCTION public.offline_catalogue_head() TO service_role;
-GRANT EXECUTE ON FUNCTION public.offline_catalogue_prune(p_through bigint) TO service_role;
-GRANT EXECUTE ON FUNCTION public.offline_catalogue_prune_old(p_before timestamp with time zone, p_limit integer) TO service_role;
-GRANT EXECUTE ON FUNCTION public.offline_catalogue_record(p_kind text, p_key text) TO service_role;
-GRANT EXECUTE ON FUNCTION public.search_published_topics(search_query text, result_limit integer) TO anon;
-GRANT EXECUTE ON FUNCTION public.search_published_topics(search_query text, result_limit integer) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.set_content_updated_at() TO anon;
-GRANT EXECUTE ON FUNCTION public.set_content_updated_at() TO authenticated;
-GRANT EXECUTE ON FUNCTION public.set_content_updated_at() TO service_role;
-GRANT EXECUTE ON FUNCTION public.set_content_updated_at() TO PUBLIC;
-GRANT EXECUTE ON FUNCTION public.submit_comment_report(reporter_user_id uuid, target_comment_id bigint, report_reason text, report_details text) TO service_role;
-
 -- Preserve least-privilege defaults for future objects as well as the
 -- explicit grants above. New public tables/sequences must not become writable
 -- by anon/authenticated merely because of project-level default ACLs.
@@ -4386,11 +4264,6 @@ END;
 $function$;
 
 ALTER FUNCTION public.get_admin_content_analytics(text, text, timestamptz, timestamptz) OWNER TO postgres;
-REVOKE ALL ON FUNCTION public.get_admin_content_analytics(text, text, timestamptz, timestamptz) FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.get_admin_content_analytics(text, text, timestamptz, timestamptz) FROM anon;
-REVOKE ALL ON FUNCTION public.get_admin_content_analytics(text, text, timestamptz, timestamptz) FROM authenticated;
-GRANT EXECUTE ON FUNCTION public.get_admin_content_analytics(text, text, timestamptz, timestamptz) TO service_role;
-
 COMMENT ON FUNCTION public.get_admin_content_analytics(text, text, timestamptz, timestamptz) IS
   'Returns privacy-safe aggregate analytics and historical interaction counts for server-authorized admin topic/category dashboards. Only service_role may execute; never returns user-level data.';
 
@@ -4436,11 +4309,6 @@ COMMENT ON FUNCTION public.get_admin_content_analytics(text, text, timestamptz, 
   RETURN v_inserted;
 END;
 $function$;
-REVOKE ALL ON FUNCTION public.record_feed_analytics_events(jsonb) FROM PUBLIC, anon, service_role;
-GRANT EXECUTE ON FUNCTION public.record_feed_analytics_events(jsonb) TO authenticated;
-
-
-
 CREATE OR REPLACE FUNCTION catho_private.prune_feed_analytics_events(
   p_before timestamptz DEFAULT statement_timestamp() - interval '180 days',
   p_limit integer DEFAULT 5000
@@ -4484,10 +4352,6 @@ BEGIN
   RETURN v_deleted;
 END;
 $function$;
-REVOKE ALL ON FUNCTION catho_private.prune_feed_analytics_events(timestamptz, integer)
-  FROM PUBLIC, anon, authenticated, service_role;
-
-
 CREATE OR REPLACE FUNCTION catho_private.refresh_feed_analytics_daily(p_days_back integer DEFAULT 2)
 RETURNS integer
 LANGUAGE plpgsql
@@ -4556,10 +4420,6 @@ BEGIN
 END;
 $function$;
 ALTER FUNCTION catho_private.refresh_feed_analytics_daily(integer) OWNER TO postgres;
-REVOKE ALL ON FUNCTION catho_private.refresh_feed_analytics_daily(integer)
-  FROM PUBLIC, anon, authenticated, service_role;
-GRANT EXECUTE ON FUNCTION catho_private.refresh_feed_analytics_daily(integer) TO service_role;
-
 -- DDL event triggers
 CREATE EVENT TRIGGER ensure_rls ON ddl_command_end EXECUTE FUNCTION public.rls_auto_enable();
 
@@ -4739,11 +4599,6 @@ $function$;
 COMMENT ON FUNCTION public.get_top_feed_comments(integer, integer) IS
   'Returns a bounded page of recent, visible, top-level comments with meaningful engagement for feed interstitials. Pages are ordered by engagement score and bounded to the newest 5,000 eligible root comments in the 90-day window. Deleted comments and unpublished topics/categories are excluded.';
 
-REVOKE ALL ON FUNCTION public.get_top_feed_comments(integer, integer) FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.get_top_feed_comments(integer, integer) FROM anon;
-REVOKE ALL ON FUNCTION public.get_top_feed_comments(integer, integer) FROM authenticated;
-GRANT EXECUTE ON FUNCTION public.get_top_feed_comments(integer, integer) TO service_role;
-
 NOTIFY pgrst, 'reload schema';
 -- Sponsor and campaign extensions to the application schema follow.
 
@@ -4860,14 +4715,6 @@ $function$;
 ALTER FUNCTION public.admin_create_sponsor(
   uuid, text, text, text, text, date, date, text, bigint, text, text, text, text
 ) OWNER TO postgres;
-REVOKE ALL ON FUNCTION public.admin_create_sponsor(
-  uuid, text, text, text, text, date, date, text, bigint, text, text, text, text
-) FROM PUBLIC, anon, authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.admin_create_sponsor(
-  uuid, text, text, text, text, date, date, text, bigint, text, text, text, text
-) TO service_role;
-
-
 CREATE OR REPLACE FUNCTION public.admin_mark_sponsor_payment_received(
   p_actor_user_id uuid,
   p_sponsor_id uuid,
@@ -4941,12 +4788,6 @@ END;
 $function$;
 
 ALTER FUNCTION public.admin_mark_sponsor_payment_received(uuid, uuid, text) OWNER TO postgres;
-REVOKE ALL ON FUNCTION public.admin_mark_sponsor_payment_received(uuid, uuid, text)
-  FROM PUBLIC, anon, authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.admin_mark_sponsor_payment_received(uuid, uuid, text)
-  TO service_role;
-
-
 -- Sponsor campaign management, weighted delivery and aggregate reporting foundation.
 
 CREATE TABLE public.sponsor_campaigns (
@@ -5100,13 +4941,6 @@ $function$;
 ALTER FUNCTION public.admin_create_sponsor_campaign(
   uuid, uuid, text, text, text, text, text, text, date, date, text[], text[], integer, integer, integer, bigint, bigint
 ) OWNER TO postgres;
-REVOKE ALL ON FUNCTION public.admin_create_sponsor_campaign(
-  uuid, uuid, text, text, text, text, text, text, date, date, text[], text[], integer, integer, integer, bigint, bigint
-) FROM PUBLIC, anon, authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.admin_create_sponsor_campaign(
-  uuid, uuid, text, text, text, text, text, text, date, date, text[], text[], integer, integer, integer, bigint, bigint
-) TO service_role;
-
 CREATE OR REPLACE FUNCTION public.admin_set_sponsor_campaign_status(p_actor_user_id uuid, p_campaign_id uuid, p_action text)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
 AS $function$
@@ -5168,10 +5002,6 @@ BEGIN
 END;
 $function$;
 ALTER FUNCTION public.admin_set_sponsor_campaign_status(uuid, uuid, text) OWNER TO postgres;
-REVOKE ALL ON FUNCTION public.admin_set_sponsor_campaign_status(uuid, uuid, text)
-  FROM PUBLIC, anon, authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.admin_set_sponsor_campaign_status(uuid, uuid, text) TO service_role;
-
 CREATE OR REPLACE FUNCTION public.get_weighted_sponsor_campaigns(
   p_user_id uuid, p_session_id uuid, p_category_slug text DEFAULT NULL,
   p_topic_id text DEFAULT NULL, p_limit integer DEFAULT 5
@@ -5268,11 +5098,6 @@ BEGIN
 END;
 $function$;
 ALTER FUNCTION public.get_weighted_sponsor_campaigns(uuid, uuid, text, text, integer) OWNER TO postgres;
-REVOKE ALL ON FUNCTION public.get_weighted_sponsor_campaigns(uuid, uuid, text, text, integer)
-  FROM PUBLIC, anon, authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.get_weighted_sponsor_campaigns(uuid, uuid, text, text, integer) TO service_role;
-
-
 CREATE OR REPLACE FUNCTION public.record_sponsor_campaign_event(
   p_user_id uuid, p_campaign_id uuid, p_event_id uuid, p_session_id uuid, p_event_type text
 )
@@ -5330,10 +5155,6 @@ BEGIN
 END;
 $function$;
 ALTER FUNCTION public.record_sponsor_campaign_event(uuid, uuid, uuid, uuid, text) OWNER TO postgres;
-REVOKE ALL ON FUNCTION public.record_sponsor_campaign_event(uuid, uuid, uuid, uuid, text)
-  FROM PUBLIC, anon, authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.record_sponsor_campaign_event(uuid, uuid, uuid, uuid, text) TO service_role;
-
 CREATE OR REPLACE FUNCTION catho_private.prune_sponsor_campaign_events(
   p_before timestamptz DEFAULT statement_timestamp() - interval '180 days', p_limit integer DEFAULT 5000
 )
@@ -5386,9 +5207,6 @@ BEGIN
   RETURN v_deleted;
 END;
 $function$;
-REVOKE ALL ON FUNCTION catho_private.prune_sponsor_campaign_events(timestamptz, integer)
-  FROM PUBLIC, anon, authenticated, service_role;
-
 DO $sponsor_cron$
 DECLARE existing_job record;
 BEGIN
@@ -5463,13 +5281,6 @@ BEGIN
 END;
 $function$;
 ALTER FUNCTION public.get_admin_sponsor_campaign_analytics(uuid, date, date) OWNER TO postgres;
-REVOKE ALL ON FUNCTION public.get_admin_sponsor_campaign_analytics(uuid, date, date)
-  FROM PUBLIC, anon, authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.get_admin_sponsor_campaign_analytics(uuid, date, date)
-  TO service_role;
-
-
-
 -- Applied migration: sponsor_accounts_and_self_service_campaigns
 
 CREATE TABLE public.sponsor_memberships (
@@ -5542,10 +5353,6 @@ BEGIN
 END;
 $function$;
 ALTER FUNCTION public.admin_add_sponsor_member(uuid, uuid, uuid, text) OWNER TO postgres;
-REVOKE ALL ON FUNCTION public.admin_add_sponsor_member(uuid, uuid, uuid, text)
-  FROM PUBLIC, anon, authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.admin_add_sponsor_member(uuid, uuid, uuid, text) TO service_role;
-
 CREATE OR REPLACE FUNCTION public.admin_set_sponsor_member_status(
   p_actor_user_id uuid, p_membership_id uuid, p_action text
 )
@@ -5582,10 +5389,6 @@ BEGIN
 END;
 $function$;
 ALTER FUNCTION public.admin_set_sponsor_member_status(uuid, uuid, text) OWNER TO postgres;
-REVOKE ALL ON FUNCTION public.admin_set_sponsor_member_status(uuid, uuid, text)
-  FROM PUBLIC, anon, authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.admin_set_sponsor_member_status(uuid, uuid, text) TO service_role;
-
 CREATE OR REPLACE FUNCTION public.sponsor_create_campaign(
   p_actor_user_id uuid, p_sponsor_id uuid, p_campaign_name text, p_headline text, p_body text,
   p_image_url text, p_destination_url text, p_cta_label text, p_starts_on date, p_ends_on date,
@@ -5651,10 +5454,6 @@ BEGIN
 END;
 $function$;
 ALTER FUNCTION public.sponsor_create_campaign(uuid, uuid, text, text, text, text, text, text, date, date, text[], text[], integer, integer, integer, bigint, bigint) OWNER TO postgres;
-REVOKE ALL ON FUNCTION public.sponsor_create_campaign(uuid, uuid, text, text, text, text, text, text, date, date, text[], text[], integer, integer, integer, bigint, bigint)
-  FROM PUBLIC, anon, authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.sponsor_create_campaign(uuid, uuid, text, text, text, text, text, text, date, date, text[], text[], integer, integer, integer, bigint, bigint) TO service_role;
-
 CREATE OR REPLACE FUNCTION public.sponsor_update_campaign(
   p_actor_user_id uuid, p_campaign_id uuid, p_campaign_name text, p_headline text, p_body text,
   p_image_url text, p_destination_url text, p_cta_label text, p_starts_on date, p_ends_on date,
@@ -5723,10 +5522,6 @@ BEGIN
 END;
 $function$;
 ALTER FUNCTION public.sponsor_update_campaign(uuid, uuid, text, text, text, text, text, text, date, date, text[], text[], integer, integer, integer, bigint, bigint) OWNER TO postgres;
-REVOKE ALL ON FUNCTION public.sponsor_update_campaign(uuid, uuid, text, text, text, text, text, text, date, date, text[], text[], integer, integer, integer, bigint, bigint)
-  FROM PUBLIC, anon, authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.sponsor_update_campaign(uuid, uuid, text, text, text, text, text, text, date, date, text[], text[], integer, integer, integer, bigint, bigint) TO service_role;
-
 CREATE OR REPLACE FUNCTION public.get_sponsor_campaign_analytics(
   p_actor_user_id uuid, p_sponsor_id uuid,
   p_from date DEFAULT (timezone('UTC', statement_timestamp()))::date - 29,
@@ -5769,11 +5564,6 @@ BEGIN
 END;
 $function$;
 ALTER FUNCTION public.get_sponsor_campaign_analytics(uuid, uuid, date, date) OWNER TO postgres;
-REVOKE ALL ON FUNCTION public.get_sponsor_campaign_analytics(uuid, uuid, date, date)
-  FROM PUBLIC, anon, authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.get_sponsor_campaign_analytics(uuid, uuid, date, date) TO service_role;
-
-
 -- Applied migration: harden_sponsor_membership_rpc_null_validation
 
 CREATE OR REPLACE FUNCTION public.admin_add_sponsor_member(
@@ -5805,10 +5595,6 @@ BEGIN
 END;
 $function$;
 ALTER FUNCTION public.admin_add_sponsor_member(uuid, uuid, uuid, text) OWNER TO postgres;
-REVOKE ALL ON FUNCTION public.admin_add_sponsor_member(uuid, uuid, uuid, text)
-  FROM PUBLIC, anon, authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.admin_add_sponsor_member(uuid, uuid, uuid, text) TO service_role;
-
 CREATE OR REPLACE FUNCTION public.admin_set_sponsor_member_status(
   p_actor_user_id uuid, p_membership_id uuid, p_action text
 )
@@ -5839,10 +5625,6 @@ BEGIN
 END;
 $function$;
 ALTER FUNCTION public.admin_set_sponsor_member_status(uuid, uuid, text) OWNER TO postgres;
-REVOKE ALL ON FUNCTION public.admin_set_sponsor_member_status(uuid, uuid, text)
-  FROM PUBLIC, anon, authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.admin_set_sponsor_member_status(uuid, uuid, text) TO service_role;
-
 -- Applied migration: sponsor_invoice_and_payment_reconciliation_ledger
 
 CREATE TABLE catho_private.sponsor_invoices (
@@ -5936,10 +5718,6 @@ BEGIN
 END;
 $function$;
 ALTER FUNCTION public.admin_create_sponsor_invoice(uuid, uuid, text, bigint, text, date, date, boolean) OWNER TO postgres;
-REVOKE ALL ON FUNCTION public.admin_create_sponsor_invoice(uuid, uuid, text, bigint, text, date, date, boolean)
-  FROM PUBLIC, anon, authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.admin_create_sponsor_invoice(uuid, uuid, text, bigint, text, date, date, boolean) TO service_role;
-
 CREATE OR REPLACE FUNCTION public.admin_set_sponsor_invoice_status(
   p_actor_user_id uuid, p_invoice_id uuid, p_action text
 )
@@ -5984,10 +5762,6 @@ BEGIN
 END;
 $function$;
 ALTER FUNCTION public.admin_set_sponsor_invoice_status(uuid, uuid, text) OWNER TO postgres;
-REVOKE ALL ON FUNCTION public.admin_set_sponsor_invoice_status(uuid, uuid, text)
-  FROM PUBLIC, anon, authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.admin_set_sponsor_invoice_status(uuid, uuid, text) TO service_role;
-
 CREATE OR REPLACE FUNCTION public.admin_record_sponsor_payment(
   p_actor_user_id uuid, p_sponsor_id uuid, p_invoice_id uuid, p_amount_minor bigint,
   p_currency text, p_bank_reference text DEFAULT NULL, p_bank_transaction_date date DEFAULT NULL,
@@ -6115,10 +5889,6 @@ BEGIN
 END;
 $function$;
 ALTER FUNCTION public.admin_record_sponsor_payment(uuid, uuid, uuid, bigint, text, text, date, text) OWNER TO postgres;
-REVOKE ALL ON FUNCTION public.admin_record_sponsor_payment(uuid, uuid, uuid, bigint, text, text, date, text)
-  FROM PUBLIC, anon, authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.admin_record_sponsor_payment(uuid, uuid, uuid, bigint, text, text, date, text) TO service_role;
-
 CREATE OR REPLACE FUNCTION public.admin_record_sponsor_refund(
   p_actor_user_id uuid, p_payment_id uuid, p_amount_minor bigint,
   p_bank_reference text DEFAULT NULL, p_bank_transaction_date date DEFAULT NULL,
@@ -6213,10 +5983,6 @@ BEGIN
 END;
 $function$;
 ALTER FUNCTION public.admin_record_sponsor_refund(uuid, uuid, bigint, text, date, text) OWNER TO postgres;
-REVOKE ALL ON FUNCTION public.admin_record_sponsor_refund(uuid, uuid, bigint, text, date, text)
-  FROM PUBLIC, anon, authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.admin_record_sponsor_refund(uuid, uuid, bigint, text, date, text) TO service_role;
-
 CREATE OR REPLACE FUNCTION public.get_admin_sponsor_financials(
   p_actor_user_id uuid, p_sponsor_id uuid
 )
@@ -6265,10 +6031,6 @@ BEGIN
 END;
 $function$;
 ALTER FUNCTION public.get_admin_sponsor_financials(uuid, uuid) OWNER TO postgres;
-REVOKE ALL ON FUNCTION public.get_admin_sponsor_financials(uuid, uuid)
-  FROM PUBLIC, anon, authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.get_admin_sponsor_financials(uuid, uuid) TO service_role;
-
 CREATE OR REPLACE FUNCTION public.get_sponsor_financials(
   p_actor_user_id uuid, p_sponsor_id uuid
 )
@@ -6316,11 +6078,6 @@ BEGIN
 END;
 $function$;
 ALTER FUNCTION public.get_sponsor_financials(uuid, uuid) OWNER TO postgres;
-REVOKE ALL ON FUNCTION public.get_sponsor_financials(uuid, uuid)
-  FROM PUBLIC, anon, authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.get_sponsor_financials(uuid, uuid) TO service_role;
-
-
 -- Applied migration: enforce_invoice_based_sponsor_reconciliation
 
 CREATE OR REPLACE FUNCTION public.admin_create_sponsor(
@@ -6360,13 +6117,6 @@ BEGIN
 END;
 $function$;
 ALTER FUNCTION public.admin_create_sponsor(uuid, text, text, text, text, date, date, text, bigint, text, text, text, text) OWNER TO postgres;
-REVOKE ALL ON FUNCTION public.admin_create_sponsor(uuid, text, text, text, text, date, date, text, bigint, text, text, text, text)
-  FROM PUBLIC, anon, authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.admin_create_sponsor(uuid, text, text, text, text, date, date, text, bigint, text, text, text, text) TO service_role;
-
-REVOKE ALL ON FUNCTION public.admin_mark_sponsor_payment_received(uuid, uuid, text)
-  FROM PUBLIC, anon, authenticated, service_role;
-
 CREATE OR REPLACE FUNCTION public.admin_create_sponsor_invoice(
   p_actor_user_id uuid, p_sponsor_id uuid, p_description text, p_amount_minor bigint,
   p_currency text, p_issued_on date, p_due_on date, p_issue_now boolean DEFAULT true
@@ -6407,10 +6157,6 @@ BEGIN
 END;
 $function$;
 ALTER FUNCTION public.admin_create_sponsor_invoice(uuid, uuid, text, bigint, text, date, date, boolean) OWNER TO postgres;
-REVOKE ALL ON FUNCTION public.admin_create_sponsor_invoice(uuid, uuid, text, bigint, text, date, date, boolean)
-  FROM PUBLIC, anon, authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.admin_create_sponsor_invoice(uuid, uuid, text, bigint, text, date, date, boolean) TO service_role;
-
 CREATE OR REPLACE FUNCTION public.admin_record_sponsor_payment(
   p_actor_user_id uuid, p_sponsor_id uuid, p_invoice_id uuid, p_amount_minor bigint,
   p_currency text, p_bank_reference text DEFAULT NULL, p_bank_transaction_date date DEFAULT NULL,
@@ -6545,10 +6291,6 @@ BEGIN
 END;
 $function$;
 ALTER FUNCTION public.admin_record_sponsor_payment(uuid, uuid, uuid, bigint, text, text, date, text) OWNER TO postgres;
-REVOKE ALL ON FUNCTION public.admin_record_sponsor_payment(uuid, uuid, uuid, bigint, text, text, date, text)
-  FROM PUBLIC, anon, authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.admin_record_sponsor_payment(uuid, uuid, uuid, bigint, text, text, date, text) TO service_role;
-
 CREATE OR REPLACE FUNCTION public.admin_record_sponsor_refund(
   p_actor_user_id uuid, p_payment_id uuid, p_amount_minor bigint,
   p_bank_reference text DEFAULT NULL, p_bank_transaction_date date DEFAULT NULL,
@@ -6652,10 +6394,6 @@ BEGIN
 END;
 $function$;
 ALTER FUNCTION public.admin_record_sponsor_refund(uuid, uuid, bigint, text, date, text) OWNER TO postgres;
-REVOKE ALL ON FUNCTION public.admin_record_sponsor_refund(uuid, uuid, bigint, text, date, text)
-  FROM PUBLIC, anon, authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.admin_record_sponsor_refund(uuid, uuid, bigint, text, date, text) TO service_role;
-
 -- Applied migration: add_admin_sponsor_account_lookup
 
 CREATE OR REPLACE FUNCTION public.admin_find_sponsor_user_by_email(
@@ -6680,10 +6418,6 @@ BEGIN
 END;
 $function$;
 ALTER FUNCTION public.admin_find_sponsor_user_by_email(uuid, text) OWNER TO postgres;
-REVOKE ALL ON FUNCTION public.admin_find_sponsor_user_by_email(uuid, text)
-  FROM PUBLIC, anon, authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.admin_find_sponsor_user_by_email(uuid, text) TO service_role;
-
 -- Applied migration: enforce_sponsor_invoice_agreement_currency
 
 CREATE OR REPLACE FUNCTION public.admin_create_sponsor_invoice(
@@ -6729,10 +6463,6 @@ BEGIN
 END;
 $function$;
 ALTER FUNCTION public.admin_create_sponsor_invoice(uuid, uuid, text, bigint, text, date, date, boolean) OWNER TO postgres;
-REVOKE ALL ON FUNCTION public.admin_create_sponsor_invoice(uuid, uuid, text, bigint, text, date, date, boolean)
-  FROM PUBLIC, anon, authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.admin_create_sponsor_invoice(uuid, uuid, text, bigint, text, date, date, boolean) TO service_role;
-
 -- Applied migration: scope_sponsor_refunds_and_prevent_owner_lockout
 
 CREATE OR REPLACE FUNCTION public.admin_set_sponsor_member_status(
@@ -6774,10 +6504,6 @@ BEGIN
 END;
 $function$;
 ALTER FUNCTION public.admin_set_sponsor_member_status(uuid, uuid, text) OWNER TO postgres;
-REVOKE ALL ON FUNCTION public.admin_set_sponsor_member_status(uuid, uuid, text)
-  FROM PUBLIC, anon, authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.admin_set_sponsor_member_status(uuid, uuid, text) TO service_role;
-
 CREATE OR REPLACE FUNCTION public.admin_record_sponsor_refund(
   p_actor_user_id uuid, p_sponsor_id uuid, p_payment_id uuid, p_amount_minor bigint,
   p_bank_reference text DEFAULT NULL, p_bank_transaction_date date DEFAULT NULL,
@@ -6801,12 +6527,6 @@ BEGIN
 END;
 $function$;
 ALTER FUNCTION public.admin_record_sponsor_refund(uuid, uuid, uuid, bigint, text, date, text) OWNER TO postgres;
-REVOKE ALL ON FUNCTION public.admin_record_sponsor_refund(uuid, uuid, uuid, bigint, text, date, text)
-  FROM PUBLIC, anon, authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.admin_record_sponsor_refund(uuid, uuid, uuid, bigint, text, date, text) TO service_role;
-REVOKE ALL ON FUNCTION public.admin_record_sponsor_refund(uuid, uuid, bigint, text, date, text)
-  FROM PUBLIC, anon, authenticated, service_role;
-
 -- Applied migration: prevent_unpaid_sponsor_from_bypassing_invoice_reconciliation
 
 CREATE OR REPLACE FUNCTION public.admin_create_sponsor(
@@ -6849,10 +6569,6 @@ BEGIN
 END;
 $function$;
 ALTER FUNCTION public.admin_create_sponsor(uuid, text, text, text, text, date, date, text, bigint, text, text, text, text) OWNER TO postgres;
-REVOKE ALL ON FUNCTION public.admin_create_sponsor(uuid, text, text, text, text, date, date, text, bigint, text, text, text, text)
-  FROM PUBLIC, anon, authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.admin_create_sponsor(uuid, text, text, text, text, date, date, text, bigint, text, text, text, text) TO service_role;
-
 -- Applied migration: index_sponsor_platform_foreign_keys
 
 CREATE INDEX sponsor_invoices_created_by_idx
@@ -6902,11 +6618,6 @@ BEGIN
 END;
 $function$;
 ALTER FUNCTION public.admin_set_sponsor_status(uuid, uuid, text) OWNER TO postgres;
-REVOKE ALL ON FUNCTION public.admin_set_sponsor_status(uuid, uuid, text)
-  FROM PUBLIC, anon, authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.admin_set_sponsor_status(uuid, uuid, text) TO service_role;
-
-
 -- Applied migration: add_feed_card_analytics
 
 CREATE TABLE IF NOT EXISTS catho_private.feed_card_analytics_events (
@@ -7002,9 +6713,6 @@ BEGIN
 END;
 $function$;
 ALTER FUNCTION public.record_feed_card_analytics_events(jsonb) OWNER TO postgres;
-REVOKE ALL ON FUNCTION public.record_feed_card_analytics_events(jsonb) FROM PUBLIC,anon;
-GRANT EXECUTE ON FUNCTION public.record_feed_card_analytics_events(jsonb) TO authenticated;
-
 CREATE OR REPLACE FUNCTION catho_private.refresh_feed_card_analytics_daily()
 RETURNS integer LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
 AS $function$
@@ -7043,8 +6751,6 @@ BEGIN
 END;
 $function$;
 ALTER FUNCTION catho_private.refresh_feed_card_analytics_daily() OWNER TO postgres;
-REVOKE ALL ON FUNCTION catho_private.refresh_feed_card_analytics_daily() FROM PUBLIC,anon,authenticated;
-
 CREATE OR REPLACE FUNCTION catho_private.prune_feed_card_analytics_events(p_before timestamptz,p_batch_size integer DEFAULT 5000)
 RETURNS integer LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
 AS $function$
@@ -7065,8 +6771,6 @@ BEGIN
 END;
 $function$;
 ALTER FUNCTION catho_private.prune_feed_card_analytics_events(timestamptz,integer) OWNER TO postgres;
-REVOKE ALL ON FUNCTION catho_private.prune_feed_card_analytics_events(timestamptz,integer) FROM PUBLIC,anon,authenticated;
-
 CREATE OR REPLACE FUNCTION public.get_admin_analytics_overview(p_actor_user_id uuid,p_from timestamptz,p_to timestamptz)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
 AS $function$
@@ -7154,9 +6858,6 @@ BEGIN
 END;
 $function$;
 ALTER FUNCTION public.get_admin_analytics_overview(uuid,timestamptz,timestamptz) OWNER TO postgres;
-REVOKE ALL ON FUNCTION public.get_admin_analytics_overview(uuid,timestamptz,timestamptz) FROM PUBLIC,anon,authenticated;
-GRANT EXECUTE ON FUNCTION public.get_admin_analytics_overview(uuid,timestamptz,timestamptz) TO service_role;
-
 CREATE OR REPLACE FUNCTION public.get_admin_sponsor_analytics(p_actor_user_id uuid,p_sponsor_id uuid,p_from timestamptz,p_to timestamptz)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
 AS $function$
@@ -7187,9 +6888,6 @@ BEGIN
 END;
 $function$;
 ALTER FUNCTION public.get_admin_sponsor_analytics(uuid,uuid,timestamptz,timestamptz) OWNER TO postgres;
-REVOKE ALL ON FUNCTION public.get_admin_sponsor_analytics(uuid,uuid,timestamptz,timestamptz) FROM PUBLIC,anon,authenticated;
-GRANT EXECUTE ON FUNCTION public.get_admin_sponsor_analytics(uuid,uuid,timestamptz,timestamptz) TO service_role;
-
 CREATE OR REPLACE FUNCTION public.get_admin_feed_card_analytics(p_actor_user_id uuid,p_from timestamptz,p_to timestamptz,p_card_type text,p_card_id text)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
 AS $function$
@@ -7217,10 +6915,6 @@ BEGIN
 END;
 $function$;
 ALTER FUNCTION public.get_admin_feed_card_analytics(uuid,timestamptz,timestamptz,text,text) OWNER TO postgres;
-REVOKE ALL ON FUNCTION public.get_admin_feed_card_analytics(uuid,timestamptz,timestamptz,text,text) FROM PUBLIC,anon,authenticated;
-GRANT EXECUTE ON FUNCTION public.get_admin_feed_card_analytics(uuid,timestamptz,timestamptz,text,text) TO service_role;
-
-
 CREATE OR REPLACE FUNCTION public.get_admin_analytics_series(p_actor_user_id uuid,p_from timestamptz,p_to timestamptz)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
 AS $function$
@@ -7253,9 +6947,6 @@ BEGIN
 END;
 $function$;
 ALTER FUNCTION public.get_admin_analytics_series(uuid,timestamptz,timestamptz) OWNER TO postgres;
-REVOKE ALL ON FUNCTION public.get_admin_analytics_series(uuid,timestamptz,timestamptz) FROM PUBLIC,anon,authenticated;
-GRANT EXECUTE ON FUNCTION public.get_admin_analytics_series(uuid,timestamptz,timestamptz) TO service_role;
-
 DO $function$
 BEGIN
   IF NOT EXISTS(SELECT 1 FROM cron.job WHERE jobname='cathoscroll-rollup-feed-card-analytics') THEN
@@ -7770,19 +7461,6 @@ END;
 $function$;
 
 
-REVOKE ALL ON FUNCTION public.set_my_personalization_consent(boolean) FROM PUBLIC,anon;
-REVOKE ALL ON FUNCTION public.get_my_personalization_status() FROM PUBLIC,anon;
-REVOKE ALL ON FUNCTION public.set_my_personalization_interests(text[]) FROM PUBLIC,anon;
-GRANT EXECUTE ON FUNCTION public.set_my_personalization_consent(boolean) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.get_my_personalization_status() TO authenticated;
-GRANT EXECUTE ON FUNCTION public.set_my_personalization_interests(text[]) TO authenticated;
-REVOKE ALL ON FUNCTION catho_private.refresh_user_interest_profile(uuid) FROM PUBLIC,anon,authenticated,service_role;
-REVOKE ALL ON FUNCTION catho_private.get_user_feed_preference_signals(uuid) FROM PUBLIC,anon;
-GRANT EXECUTE ON FUNCTION catho_private.get_user_feed_preference_signals(uuid) TO authenticated;
-REVOKE ALL ON FUNCTION public.get_admin_analytics_deep_dive(uuid,timestamptz,timestamptz) FROM PUBLIC,anon,authenticated;
-GRANT EXECUTE ON FUNCTION public.get_admin_analytics_deep_dive(uuid,timestamptz,timestamptz) TO service_role;
-
-
 -- Record the optional, explicit personalisation choice made on the shared web/native signup form.
 CREATE OR REPLACE FUNCTION catho_private.capture_signup_personalization_consent()
 RETURNS trigger
@@ -7801,7 +7479,6 @@ BEGIN
   RETURN NEW;
 END;
 $function$;
-REVOKE ALL ON FUNCTION catho_private.capture_signup_personalization_consent() FROM PUBLIC,anon,authenticated,service_role;
 DROP TRIGGER IF EXISTS cathoscroll_capture_signup_personalization_consent ON auth.users;
 CREATE TRIGGER cathoscroll_capture_signup_personalization_consent
 AFTER INSERT ON auth.users
@@ -8140,11 +7817,201 @@ END;
 $function$;
 
 -- Exact ACLs for the added overloads.
+
+
+-- Exact function privileges from the live production catalog (owner privileges are implicit).
+REVOKE ALL ON FUNCTION catho_private.activity_changed() FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION catho_private.audit_moderation_change() FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION catho_private.capture_signup_personalization_consent() FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION catho_private.consume_recommendation_rate_limit(uuid) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION catho_private.consume_recommendation_rate_limit(uuid) TO authenticated;
+REVOKE ALL ON FUNCTION catho_private.enforce_activity_mutation_rate_limit() FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION catho_private.enforce_user_action_rate_limit() FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION catho_private.get_user_feed_preference_signals(uuid) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION catho_private.get_user_feed_preference_signals(uuid) TO authenticated;
+REVOKE ALL ON FUNCTION catho_private.is_cathoscroll_content_admin() FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION catho_private.is_cathoscroll_content_admin() TO anon;
+GRANT EXECUTE ON FUNCTION catho_private.is_cathoscroll_content_admin() TO authenticated;
+REVOKE ALL ON FUNCTION catho_private.prevent_audit_mutation() FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION catho_private.prune_activity(uuid, bigint) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION catho_private.prune_due_activity() FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION catho_private.prune_feed_analytics_events(timestamp with time zone, integer) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION catho_private.prune_feed_card_analytics_events(timestamp with time zone, integer) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION catho_private.prune_old_activity(uuid, timestamp with time zone, integer) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION catho_private.prune_sponsor_campaign_events(timestamp with time zone, integer) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION catho_private.record_activity(uuid, text, text, boolean, timestamp with time zone) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION catho_private.refresh_feed_analytics_daily(integer) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION catho_private.refresh_feed_analytics_daily(integer) TO service_role;
+REVOKE ALL ON FUNCTION catho_private.refresh_feed_card_analytics_daily() FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION catho_private.refresh_user_interest_profile(uuid) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION catho_private.validate_comment_write() FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION catho_private.validate_notification_read_update() FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION catho_private.validate_notification_read_update() TO PUBLIC;
+REVOKE ALL ON FUNCTION public.admin_add_sponsor_member(uuid, uuid, uuid, text) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.admin_add_sponsor_member(uuid, uuid, uuid, text) TO service_role;
+REVOKE ALL ON FUNCTION public.admin_create_sponsor(uuid, text, text, text, text, date, date, text, bigint, text, text, text, text) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.admin_create_sponsor(uuid, text, text, text, text, date, date, text, bigint, text, text, text, text) TO service_role;
 REVOKE ALL ON FUNCTION public.admin_create_sponsor(uuid, text, text, text, text, text, date, date, text, bigint, text, text, text, text) FROM PUBLIC, anon, authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.admin_create_sponsor(uuid, text, text, text, text, text, date, date, text, bigint, text, text, text, text) TO service_role;
+REVOKE ALL ON FUNCTION public.admin_create_sponsor_campaign(uuid, uuid, text, text, text, text, text, text, date, date, text[], text[], integer, integer, integer, bigint, bigint) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.admin_create_sponsor_campaign(uuid, uuid, text, text, text, text, text, text, date, date, text[], text[], integer, integer, integer, bigint, bigint) TO service_role;
+REVOKE ALL ON FUNCTION public.admin_create_sponsor_invoice(uuid, uuid, text, bigint, text, date, date, boolean) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.admin_create_sponsor_invoice(uuid, uuid, text, bigint, text, date, date, boolean) TO service_role;
+REVOKE ALL ON FUNCTION public.admin_find_sponsor_user_by_email(uuid, text) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.admin_find_sponsor_user_by_email(uuid, text) TO service_role;
+REVOKE ALL ON FUNCTION public.admin_get_action_audit(uuid, bigint, integer) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.admin_get_action_audit(uuid, bigint, integer) TO service_role;
+REVOKE ALL ON FUNCTION public.admin_manage_comment_ban(uuid, uuid, text, text, boolean, boolean) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.admin_manage_comment_ban(uuid, uuid, text, text, boolean, boolean) TO service_role;
+REVOKE ALL ON FUNCTION public.admin_mark_sponsor_payment_received(uuid, uuid, text) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION public.admin_mfa_enforcement_enabled() FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.admin_mfa_enforcement_enabled() TO service_role;
+REVOKE ALL ON FUNCTION public.admin_record_sponsor_payment(uuid, uuid, uuid, bigint, text, text, date, text) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.admin_record_sponsor_payment(uuid, uuid, uuid, bigint, text, text, date, text) TO service_role;
+REVOKE ALL ON FUNCTION public.admin_record_sponsor_refund(uuid, uuid, bigint, text, date, text) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION public.admin_record_sponsor_refund(uuid, uuid, uuid, bigint, text, date, text) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.admin_record_sponsor_refund(uuid, uuid, uuid, bigint, text, date, text) TO service_role;
+REVOKE ALL ON FUNCTION public.admin_review_comment_ban_appeal(bigint, boolean, uuid, text, boolean) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.admin_review_comment_ban_appeal(bigint, boolean, uuid, text, boolean) TO service_role;
+REVOKE ALL ON FUNCTION public.admin_review_comment_report(bigint, text, uuid, text) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.admin_review_comment_report(bigint, text, uuid, text) TO service_role;
+REVOKE ALL ON FUNCTION public.admin_set_comment_pin(bigint, boolean, uuid) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.admin_set_comment_pin(bigint, boolean, uuid) TO service_role;
+REVOKE ALL ON FUNCTION public.admin_set_sponsor_campaign_status(uuid, uuid, text) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.admin_set_sponsor_campaign_status(uuid, uuid, text) TO service_role;
+REVOKE ALL ON FUNCTION public.admin_set_sponsor_invoice_status(uuid, uuid, text) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.admin_set_sponsor_invoice_status(uuid, uuid, text) TO service_role;
+REVOKE ALL ON FUNCTION public.admin_set_sponsor_member_status(uuid, uuid, text) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.admin_set_sponsor_member_status(uuid, uuid, text) TO service_role;
+REVOKE ALL ON FUNCTION public.admin_set_sponsor_status(uuid, uuid, text) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.admin_set_sponsor_status(uuid, uuid, text) TO service_role;
+REVOKE ALL ON FUNCTION public.admin_set_user_role(uuid, uuid, boolean) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.admin_set_user_role(uuid, uuid, boolean) TO service_role;
+REVOKE ALL ON FUNCTION public.admin_user_has_verified_totp(uuid) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.admin_user_has_verified_totp(uuid) TO service_role;
+REVOKE ALL ON FUNCTION public.consume_api_rate_limit(text, integer, integer) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.consume_api_rate_limit(text, integer, integer) TO service_role;
+REVOKE ALL ON FUNCTION public.enable_admin_mfa_enforcement(uuid) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.enable_admin_mfa_enforcement(uuid) TO service_role;
+REVOKE ALL ON FUNCTION public.get_admin_analytics_deep_dive(uuid, timestamp with time zone, timestamp with time zone) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.get_admin_analytics_deep_dive(uuid, timestamp with time zone, timestamp with time zone) TO service_role;
 REVOKE ALL ON FUNCTION public.get_admin_analytics_overview(timestamp with time zone, timestamp with time zone) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION public.get_admin_analytics_overview(uuid, timestamp with time zone, timestamp with time zone) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.get_admin_analytics_overview(uuid, timestamp with time zone, timestamp with time zone) TO service_role;
+REVOKE ALL ON FUNCTION public.get_admin_analytics_series(uuid, timestamp with time zone, timestamp with time zone) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.get_admin_analytics_series(uuid, timestamp with time zone, timestamp with time zone) TO service_role;
+REVOKE ALL ON FUNCTION public.get_admin_content_analytics(text, text, timestamp with time zone, timestamp with time zone) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.get_admin_content_analytics(text, text, timestamp with time zone, timestamp with time zone) TO service_role;
 REVOKE ALL ON FUNCTION public.get_admin_feed_analytics(timestamp with time zone, timestamp with time zone, text, text) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION public.get_admin_feed_card_analytics(uuid, timestamp with time zone, timestamp with time zone, text, text) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.get_admin_feed_card_analytics(uuid, timestamp with time zone, timestamp with time zone, text, text) TO service_role;
 REVOKE ALL ON FUNCTION public.get_admin_sponsor_analytics(uuid, timestamp with time zone, timestamp with time zone) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION public.get_admin_sponsor_analytics(uuid, uuid, timestamp with time zone, timestamp with time zone) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.get_admin_sponsor_analytics(uuid, uuid, timestamp with time zone, timestamp with time zone) TO service_role;
+REVOKE ALL ON FUNCTION public.get_admin_sponsor_campaign_analytics(uuid, date, date) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.get_admin_sponsor_campaign_analytics(uuid, date, date) TO service_role;
+REVOKE ALL ON FUNCTION public.get_admin_sponsor_financials(uuid, uuid) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.get_admin_sponsor_financials(uuid, uuid) TO service_role;
+REVOKE ALL ON FUNCTION public.get_my_personalization_status() FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.get_my_personalization_status() TO authenticated;
+REVOKE ALL ON FUNCTION public.get_my_recommendation_page(jsonb, integer) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.get_my_recommendation_page(jsonb, integer) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_my_recommendation_page(jsonb, integer) TO service_role;
+REVOKE ALL ON FUNCTION public.get_my_topic_engagement() FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.get_my_topic_engagement() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_my_topic_engagement() TO service_role;
+REVOKE ALL ON FUNCTION public.get_public_profile_metrics(uuid, text) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.get_public_profile_metrics(uuid, text) TO anon;
+GRANT EXECUTE ON FUNCTION public.get_public_profile_metrics(uuid, text) TO authenticated;
+REVOKE ALL ON FUNCTION public.get_sponsor_campaign_analytics(uuid, uuid, date, date) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.get_sponsor_campaign_analytics(uuid, uuid, date, date) TO service_role;
+REVOKE ALL ON FUNCTION public.get_sponsor_financials(uuid, uuid) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.get_sponsor_financials(uuid, uuid) TO service_role;
+REVOKE ALL ON FUNCTION public.get_top_feed_comments(integer, integer) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.get_top_feed_comments(integer, integer) TO service_role;
+REVOKE ALL ON FUNCTION public.get_topic_comment_page(text, timestamp with time zone, bigint, integer) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.get_topic_comment_page(text, timestamp with time zone, bigint, integer) TO anon;
+GRANT EXECUTE ON FUNCTION public.get_topic_comment_page(text, timestamp with time zone, bigint, integer) TO authenticated;
+REVOKE ALL ON FUNCTION public.get_topic_like_state(text) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.get_topic_like_state(text) TO anon;
+GRANT EXECUTE ON FUNCTION public.get_topic_like_state(text) TO authenticated;
+REVOKE ALL ON FUNCTION public.get_weighted_sponsor_campaigns(uuid, uuid, text, text, integer) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.get_weighted_sponsor_campaigns(uuid, uuid, text, text, integer) TO service_role;
+REVOKE ALL ON FUNCTION public.is_cathoscroll_admin_owner(uuid) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.is_cathoscroll_admin_owner(uuid) TO service_role;
+REVOKE ALL ON FUNCTION public.is_cathoscroll_content_admin() FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.is_cathoscroll_content_admin() TO anon;
+GRANT EXECUTE ON FUNCTION public.is_cathoscroll_content_admin() TO authenticated;
+REVOKE ALL ON FUNCTION public.notify_comment_appeal_reviewed() FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION public.notify_comment_pin_change() FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION public.notify_comment_reply() FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION public.notify_comment_report_reviewed() FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION public.notify_comment_restriction_created() FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION public.notify_comment_restriction_lifted() FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION public.notify_moderated_comment_visibility() FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION public.notify_profile_created() FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION public.offline_activity_changes(uuid, text, integer) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.offline_activity_changes(uuid, text, integer) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.offline_activity_changes(uuid, text, integer) TO service_role;
+REVOKE ALL ON FUNCTION public.offline_activity_head(uuid) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.offline_activity_head(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.offline_activity_head(uuid) TO service_role;
+REVOKE ALL ON FUNCTION public.offline_activity_snapshot(uuid, text) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.offline_activity_snapshot(uuid, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.offline_activity_snapshot(uuid, text) TO service_role;
+REVOKE ALL ON FUNCTION public.offline_apply_activity(uuid, uuid, text, text, boolean, timestamp with time zone) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.offline_apply_activity(uuid, uuid, text, text, boolean, timestamp with time zone) TO service_role;
+REVOKE ALL ON FUNCTION public.offline_apply_activity_batch(uuid, jsonb) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.offline_apply_activity_batch(uuid, jsonb) TO authenticated;
 REVOKE ALL ON FUNCTION public.offline_apply_activity_v2(uuid, uuid, uuid, text, text, text, text, boolean, timestamp with time zone) FROM PUBLIC, anon, authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.offline_apply_activity_v2(uuid, uuid, uuid, text, text, text, text, boolean, timestamp with time zone) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.offline_apply_activity_v2(uuid, uuid, uuid, text, text, text, text, boolean, timestamp with time zone) TO service_role;
+REVOKE ALL ON FUNCTION public.offline_catalogue_category_changed() FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION public.offline_catalogue_changes(text, text) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.offline_catalogue_changes(text, text) TO anon;
+GRANT EXECUTE ON FUNCTION public.offline_catalogue_changes(text, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.offline_catalogue_changes(text, text) TO service_role;
+REVOKE ALL ON FUNCTION public.offline_catalogue_counts() FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.offline_catalogue_counts() TO anon;
+GRANT EXECUTE ON FUNCTION public.offline_catalogue_counts() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.offline_catalogue_counts() TO service_role;
+REVOKE ALL ON FUNCTION public.offline_catalogue_head() FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.offline_catalogue_head() TO anon;
+GRANT EXECUTE ON FUNCTION public.offline_catalogue_head() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.offline_catalogue_head() TO service_role;
+REVOKE ALL ON FUNCTION public.offline_catalogue_lock() FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION public.offline_catalogue_prune(bigint) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.offline_catalogue_prune(bigint) TO service_role;
+REVOKE ALL ON FUNCTION public.offline_catalogue_prune_old(timestamp with time zone, integer) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.offline_catalogue_prune_old(timestamp with time zone, integer) TO service_role;
+REVOKE ALL ON FUNCTION public.offline_catalogue_record(text, text) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.offline_catalogue_record(text, text) TO service_role;
+REVOKE ALL ON FUNCTION public.offline_catalogue_topic_changed() FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION public.offline_catalogue_truncated() FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION public.record_feed_analytics_events(jsonb) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.record_feed_analytics_events(jsonb) TO authenticated;
+REVOKE ALL ON FUNCTION public.record_feed_card_analytics_events(jsonb) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.record_feed_card_analytics_events(jsonb) TO authenticated;
+REVOKE ALL ON FUNCTION public.record_sponsor_campaign_event(uuid, uuid, uuid, uuid, text) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.record_sponsor_campaign_event(uuid, uuid, uuid, uuid, text) TO service_role;
+REVOKE ALL ON FUNCTION public.reject_comment_edit_from_banned_user() FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION public.reject_comment_from_banned_user() FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION public.rls_auto_enable() FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION public.search_published_topics(text, integer) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.search_published_topics(text, integer) TO anon;
+GRANT EXECUTE ON FUNCTION public.search_published_topics(text, integer) TO authenticated;
+REVOKE ALL ON FUNCTION public.set_content_updated_at() FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.set_content_updated_at() TO PUBLIC;
+GRANT EXECUTE ON FUNCTION public.set_content_updated_at() TO anon;
+GRANT EXECUTE ON FUNCTION public.set_content_updated_at() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.set_content_updated_at() TO service_role;
+REVOKE ALL ON FUNCTION public.set_my_personalization_consent(boolean) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.set_my_personalization_consent(boolean) TO authenticated;
+REVOKE ALL ON FUNCTION public.set_my_personalization_interests(text[]) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.set_my_personalization_interests(text[]) TO authenticated;
+REVOKE ALL ON FUNCTION public.sponsor_create_campaign(uuid, uuid, text, text, text, text, text, text, date, date, text[], text[], integer, integer, integer, bigint, bigint) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.sponsor_create_campaign(uuid, uuid, text, text, text, text, text, text, date, date, text[], text[], integer, integer, integer, bigint, bigint) TO service_role;
+REVOKE ALL ON FUNCTION public.sponsor_update_campaign(uuid, uuid, text, text, text, text, text, text, date, date, text[], text[], integer, integer, integer, bigint, bigint) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.sponsor_update_campaign(uuid, uuid, text, text, text, text, text, text, date, date, text[], text[], integer, integer, integer, bigint, bigint) TO service_role;
+REVOKE ALL ON FUNCTION public.submit_comment_report(uuid, bigint, text, text) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.submit_comment_report(uuid, bigint, text, text) TO service_role;
