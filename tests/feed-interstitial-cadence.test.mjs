@@ -177,7 +177,7 @@ test('topic, comment and sponsor cards use the same shared base card', () => {
 
 
 test('the original analytics-ranked topic feed is retained and interstitials are precomputed in one boundary map', () => {
-  assert.match(feedCore, /const shuffled = personalized \? topics : shuffle\(topics\)/);
+  assert.match(feedCore, /const orderedTopics = personalized \|\| generalRanked \? topics : shuffle\(topics\)/);
   assert.match(feedCore, /const result = await loadPage\(nextCursor\)/);
   assert.match(feedCore, /setTopicIndex\(\(prev\) => \(prev \+ 1\) % feedTopics\.length\)/);
   assert.match(feedCore, /feedEntryMapRef = useRef/);
@@ -254,7 +254,7 @@ test('transient sponsor request failures remain retryable and cannot overwrite a
 
 test('sponsor viewability attribution survives card unmounts and remounts', () => {
   assert.match(sponsorCard, /const viewableSponsorPlacements = new Set<string>\(\)/);
-  assert.match(sponsorCard, /getSponsorPlacementKey\(userId, sessionId, campaignId\)/);
+  assert.match(sponsorCard, /getSponsorPlacementKey\(userId, sessionId, campaignId, placementKey\)/);
   assert.match(sponsorCard, /viewableSponsorPlacements\.has\(viewablePlacementKey\)/);
   assert.match(sponsorCard, /rememberViewableSponsorPlacement\(viewablePlacementKey\)/);
   assert.match(sponsorCard, /viewableSponsorPlacements\.size > 5000/);
