@@ -21,6 +21,7 @@ interface FeedSwipeViewportProps {
   canSwipeHorizontal?: (direction: TopicSwipeDirection) => boolean;
   onSwipeHorizontal?: (direction: TopicSwipeDirection) => void | Promise<void>;
   onSwipeVertical: (direction: TopicSwipeDirection) => void | Promise<void>;
+  awaitVerticalNavigation?: boolean;
   onDoubleTap?: () => void;
   onTransitionStart?: () => void;
   onTransitionEnd?: () => void;
@@ -50,6 +51,7 @@ export function FeedSwipeViewport({
   canSwipeHorizontal,
   onSwipeHorizontal,
   onSwipeVertical,
+  awaitVerticalNavigation = true,
   onDoubleTap,
   onTransitionStart,
   onTransitionEnd,
@@ -88,7 +90,13 @@ export function FeedSwipeViewport({
           ? onSwipeHorizontal?.(direction)
           : onSwipeVertical(direction);
       });
-      await navigation;
+      if (axis === 'vertical' && !awaitVerticalNavigation) {
+        void Promise.resolve(navigation).catch((error: unknown) => {
+          console.error('Unable to complete feed navigation:', error);
+        });
+      } else {
+        await navigation;
+      }
     } catch (error) {
       console.error('Unable to navigate feed card:', error);
     } finally {
@@ -104,6 +112,7 @@ export function FeedSwipeViewport({
     containerRef,
     onSwipeHorizontal,
     onSwipeVertical,
+    awaitVerticalNavigation,
     onTransitionEnd,
     onTransitionStart,
     x,
