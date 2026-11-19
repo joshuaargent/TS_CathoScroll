@@ -147,7 +147,7 @@ export default function PersonalizationSettingsPage() {
           <div className="min-w-0">
             <h2 className="text-xl font-bold">Personalised topic recommendations</h2>
             <p className="text-text-secondary mt-2 text-sm leading-relaxed">
-              If enabled, we use your topic reading signals (viewable time, completions, repeat visits and skips) alongside your likes, bookmarks and community interactions to estimate topic and category interests. Signals decay over time, are capped, and help balance relevance with category variety.
+              If enabled, we use activity recorded after you opt in: topic reading signals (viewable time, completions, repeat visits and skips), likes, bookmarks and community interactions. These signals estimate topic and category interests. Signals decay over time, are capped, and help balance relevance with category variety.
             </p>
           </div>
         </div>
