@@ -280,7 +280,7 @@ export function ContentAnalyticsDashboard({
       icon: Users,
     },
     {
-      label: 'Unique viewers',
+      label: 'Unique signed-in viewers',
       value: hasTelemetry ? formatNumber(events.unique_viewers) : '—',
       detail: 'Distinct signed-in viewers',
       icon: Users,
@@ -401,6 +401,8 @@ export function ContentAnalyticsDashboard({
                 )}{' '}
                 · Last event {formatDate(analytics.last_event_at as string)}
               </>
+            ) : anonymous.topic_impressions > 0 ? (
+              <>No signed-in feed events are retained for this content in the selected period. Anonymous aggregate activity is available below; no anonymous unique-person count is calculated.</>
             ) : analytics.first_retained_event_at ? (
               <>
                 Feed event collection has started, but no events are retained for this content.
@@ -433,7 +435,7 @@ export function ContentAnalyticsDashboard({
           <CardHeader>
             <CardTitle>Daily feed activity</CardTitle>
             <CardDescription>
-              Impressions and viewable impressions. Event telemetry is retained for 180 days.
+              Signed-in event telemetry is retained for 180 days. Anonymous daily aggregates are shown separately and do not include unique-person counts.
             </CardDescription>
           </CardHeader>
           <CardContent className="pt-6">
