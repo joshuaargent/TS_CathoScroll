@@ -7452,7 +7452,7 @@ BEGIN
   ) INTO v_result;
   RETURN v_result;
 END;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.get_my_personalization_status()
@@ -7530,7 +7530,7 @@ BEGIN
     'model_version','2026-11-19-v2'
   );
 END;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION catho_private.get_user_feed_preference_signals(p_user_id uuid)
@@ -7560,7 +7560,7 @@ BEGIN
   ) combined
   GROUP BY combined.category_slug;
 END;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION catho_private.refresh_user_interest_profile(p_user_id uuid)
@@ -7710,7 +7710,7 @@ BEGIN
   );
   RETURN v_count;
 END;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.set_my_personalization_consent(p_enabled boolean)
@@ -7746,7 +7746,7 @@ BEGIN
   END IF;
   RETURN jsonb_build_object('enabled',p_enabled,'updated_at',v_now);
 END;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.set_my_personalization_interests(p_category_slugs text[])
@@ -7783,7 +7783,7 @@ BEGIN
   GET DIAGNOSTICS v_count = ROW_COUNT;
   RETURN jsonb_build_object('selected_categories',v_count);
 END;
-$function$
+$function$;
 
 
 REVOKE ALL ON FUNCTION public.set_my_personalization_consent(boolean) FROM PUBLIC,anon;
