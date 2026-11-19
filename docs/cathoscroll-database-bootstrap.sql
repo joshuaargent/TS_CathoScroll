@@ -15,8 +15,8 @@
 --     the same PostgreSQL major version as the source project.
 --   * pg_cron and permission to create the ensure_rls event trigger are required.
 --
--- Production inventory (2026-11-19): 52 tables, 110 unique functions,
--- 34 application/Auth triggers, 32 policies, 88 explicit indexes,
+-- Production inventory (2026-11-19): 52 tables, 107 unique functions,
+-- 34 application/Auth triggers, 32 policies, 91 explicit indexes,
 -- 15 categories and 86 topics. Constraint-backed indexes are additional.
 --
 DO $bootstrap_guard$
@@ -5132,56 +5132,34 @@ CREATE OR REPLACE FUNCTION public.get_admin_sponsor_campaign_analytics(p_actor_u
  SECURITY DEFINER
  SET search_path TO ''
 AS $function$
-DECLARE
-  v_result jsonb;
+DECLARE v_result jsonb;
 BEGIN
-  IF p_actor_user_id IS NULL OR NOT EXISTS (
-    SELECT 1 FROM public.admin_users AS admins WHERE admins.user_id = p_actor_user_id
-  ) THEN
-    RAISE EXCEPTION 'Administrator access required' USING ERRCODE = '42501';
-  END IF;
-  IF p_from IS NULL OR p_to IS NULL OR p_to < p_from OR p_to - p_from > 179 THEN
-    RAISE EXCEPTION 'Invalid sponsor analytics date range' USING ERRCODE = '22023';
-  END IF;
-
-  SELECT pg_catalog.jsonb_build_object(
-    'from', p_from,
-    'to', p_to,
-    'campaigns', coalesce(
-      pg_catalog.jsonb_agg(
-        pg_catalog.jsonb_build_object(
-          'campaign_id', metrics.campaign_id,
-          'served', metrics.served,
-          'viewable_impressions', metrics.viewable_impressions,
-          'clicks', metrics.clicks,
-          'click_through_rate', CASE
-            WHEN metrics.viewable_impressions > 0
-              THEN pg_catalog.round(metrics.clicks::numeric * 100 / metrics.viewable_impressions, 2)
-            ELSE 0
-          END
-        ) ORDER BY metrics.served DESC, metrics.campaign_id
-      ),
-      '[]'::jsonb
-    )
-  )
-  INTO v_result
-  FROM (
-    SELECT
-      campaign.id AS campaign_id,
-      coalesce(sum(daily.served_count), 0) AS served,
-      coalesce(sum(daily.viewable_impressions), 0) AS viewable_impressions,
-      coalesce(sum(daily.clicks), 0) AS clicks
-    FROM public.sponsor_campaigns AS campaign
-    LEFT JOIN catho_private.sponsor_campaign_daily AS daily
-      ON daily.campaign_id = campaign.id
-      AND daily.event_date >= p_from
-      AND daily.event_date <= p_to
-    GROUP BY campaign.id
-  ) AS metrics;
-
-  RETURN v_result;
-END;
-$function$;
+ IF p_actor_user_id IS NULL OR NOT EXISTS(SELECT 1 FROM public.admin_users a WHERE a.user_id=p_actor_user_id) THEN
+  RAISE EXCEPTION 'Administrator access required' USING ERRCODE='42501'; END IF;
+ IF p_from IS NULL OR p_to IS NULL OR p_to<p_from OR p_to-p_from>179 THEN
+  RAISE EXCEPTION 'Invalid sponsor analytics date range' USING ERRCODE='22023'; END IF;
+ WITH auth AS (
+  SELECT d.campaign_id,sum(d.served_count) served,sum(d.viewable_impressions) viewable_impressions,sum(d.clicks) clicks
+  FROM catho_private.sponsor_campaign_daily d WHERE d.event_date BETWEEN p_from AND p_to GROUP BY d.campaign_id
+ ), anon AS (
+  SELECT d.campaign_id,sum(d.served_count) served,sum(d.viewable_impressions) viewable_impressions,sum(d.clicks) clicks
+  FROM catho_private.anonymous_sponsor_campaign_daily d WHERE d.event_date BETWEEN p_from AND p_to GROUP BY d.campaign_id
+ ), metrics AS (
+  SELECT c.id campaign_id,coalesce(a.served,0) served,coalesce(a.viewable_impressions,0) viewable_impressions,
+   coalesce(a.clicks,0) clicks,coalesce(n.served,0) anonymous_served,
+   coalesce(n.viewable_impressions,0) anonymous_viewable_impressions,coalesce(n.clicks,0) anonymous_clicks
+  FROM public.sponsor_campaigns c LEFT JOIN auth a ON a.campaign_id=c.id LEFT JOIN anon n ON n.campaign_id=c.id
+ )
+ SELECT jsonb_build_object('from',p_from,'to',p_to,'campaigns',coalesce(jsonb_agg(jsonb_build_object(
+  'campaign_id',m.campaign_id,'served',m.served,'viewable_impressions',m.viewable_impressions,'clicks',m.clicks,
+  'anonymous_served',m.anonymous_served,'anonymous_viewable_impressions',m.anonymous_viewable_impressions,'anonymous_clicks',m.anonymous_clicks,
+  'total_served',m.served+m.anonymous_served,'total_viewable_impressions',m.viewable_impressions+m.anonymous_viewable_impressions,
+  'total_clicks',m.clicks+m.anonymous_clicks,
+  'click_through_rate',CASE WHEN m.viewable_impressions+m.anonymous_viewable_impressions>0
+   THEN round((m.clicks+m.anonymous_clicks)::numeric*100/(m.viewable_impressions+m.anonymous_viewable_impressions),2) ELSE 0 END
+ ) ORDER BY m.served+m.anonymous_served DESC,m.campaign_id),'[]'::jsonb)) INTO v_result FROM metrics m;
+ RETURN v_result;
+END; $function$;
 ALTER FUNCTION public.get_admin_sponsor_campaign_analytics(uuid, date, date) OWNER TO postgres;
 -- Applied migration: sponsor_accounts_and_self_service_campaigns
 
@@ -5424,38 +5402,39 @@ CREATE OR REPLACE FUNCTION public.get_sponsor_campaign_analytics(p_actor_user_id
 AS $function$
 DECLARE v_result jsonb;
 BEGIN
-  IF p_actor_user_id IS NULL OR NOT EXISTS (
-    SELECT 1 FROM public.sponsor_memberships AS membership
-    WHERE membership.sponsor_id = p_sponsor_id AND membership.user_id = p_actor_user_id
-      AND membership.status = 'active'
-  ) THEN RAISE EXCEPTION 'Sponsor dashboard access required' USING ERRCODE = '42501'; END IF;
-  IF p_from IS NULL OR p_to IS NULL OR p_to < p_from OR p_to - p_from > 179 THEN
-    RAISE EXCEPTION 'Invalid sponsor analytics date range' USING ERRCODE = '22023';
-  END IF;
-  SELECT jsonb_build_object(
-    'from', p_from, 'to', p_to,
-    'campaigns', coalesce(jsonb_agg(jsonb_build_object(
-      'campaign_id', metrics.campaign_id, 'campaign_name', metrics.campaign_name,
-      'status', metrics.status, 'served', metrics.served,
-      'viewable_impressions', metrics.viewable_impressions, 'clicks', metrics.clicks,
-      'click_through_rate', CASE WHEN metrics.viewable_impressions > 0
-        THEN round(metrics.clicks::numeric * 100 / metrics.viewable_impressions, 2) ELSE 0 END
-    ) ORDER BY metrics.served DESC, metrics.campaign_name), '[]'::jsonb)
-  ) INTO v_result
-  FROM (
-    SELECT campaign.id AS campaign_id, campaign.campaign_name, campaign.status,
-      coalesce(sum(daily.served_count), 0) AS served,
-      coalesce(sum(daily.viewable_impressions), 0) AS viewable_impressions,
-      coalesce(sum(daily.clicks), 0) AS clicks
-    FROM public.sponsor_campaigns AS campaign
-    LEFT JOIN catho_private.sponsor_campaign_daily AS daily
-      ON daily.campaign_id = campaign.id AND daily.event_date BETWEEN p_from AND p_to
-    WHERE campaign.sponsor_id = p_sponsor_id
-    GROUP BY campaign.id
-  ) AS metrics;
-  RETURN v_result;
-END;
-$function$;
+ IF p_actor_user_id IS NULL OR NOT EXISTS(SELECT 1 FROM public.sponsor_memberships m
+  WHERE m.sponsor_id=p_sponsor_id AND m.user_id=p_actor_user_id AND m.status='active') THEN
+  RAISE EXCEPTION 'Sponsor dashboard access required' USING ERRCODE='42501'; END IF;
+ IF p_from IS NULL OR p_to IS NULL OR p_to<p_from OR p_to-p_from>179 THEN
+  RAISE EXCEPTION 'Invalid sponsor analytics date range' USING ERRCODE='22023'; END IF;
+ WITH campaigns AS (
+  SELECT c.id,c.campaign_name,c.status FROM public.sponsor_campaigns c WHERE c.sponsor_id=p_sponsor_id
+ ), auth AS (
+  SELECT d.campaign_id,sum(d.served_count) served,sum(d.viewable_impressions) viewable_impressions,sum(d.clicks) clicks
+  FROM catho_private.sponsor_campaign_daily d JOIN campaigns c ON c.id=d.campaign_id
+  WHERE d.event_date BETWEEN p_from AND p_to GROUP BY d.campaign_id
+ ), anon AS (
+  SELECT d.campaign_id,sum(d.served_count) served,sum(d.viewable_impressions) viewable_impressions,sum(d.clicks) clicks
+  FROM catho_private.anonymous_sponsor_campaign_daily d JOIN campaigns c ON c.id=d.campaign_id
+  WHERE d.event_date BETWEEN p_from AND p_to GROUP BY d.campaign_id
+ ), metrics AS (
+  SELECT c.id campaign_id,c.campaign_name,c.status,coalesce(a.served,0) served,
+   coalesce(a.viewable_impressions,0) viewable_impressions,coalesce(a.clicks,0) clicks,
+   coalesce(n.served,0) anonymous_served,coalesce(n.viewable_impressions,0) anonymous_viewable_impressions,
+   coalesce(n.clicks,0) anonymous_clicks
+  FROM campaigns c LEFT JOIN auth a ON a.campaign_id=c.id LEFT JOIN anon n ON n.campaign_id=c.id
+ )
+ SELECT jsonb_build_object('from',p_from,'to',p_to,'campaigns',coalesce(jsonb_agg(jsonb_build_object(
+  'campaign_id',m.campaign_id,'campaign_name',m.campaign_name,'status',m.status,
+  'served',m.served,'viewable_impressions',m.viewable_impressions,'clicks',m.clicks,
+  'anonymous_served',m.anonymous_served,'anonymous_viewable_impressions',m.anonymous_viewable_impressions,'anonymous_clicks',m.anonymous_clicks,
+  'total_served',m.served+m.anonymous_served,'total_viewable_impressions',m.viewable_impressions+m.anonymous_viewable_impressions,
+  'total_clicks',m.clicks+m.anonymous_clicks,
+  'click_through_rate',CASE WHEN m.viewable_impressions+m.anonymous_viewable_impressions>0
+   THEN round((m.clicks+m.anonymous_clicks)::numeric*100/(m.viewable_impressions+m.anonymous_viewable_impressions),2) ELSE 0 END
+ ) ORDER BY m.served+m.anonymous_served DESC,m.campaign_name),'[]'::jsonb)) INTO v_result FROM metrics m;
+ RETURN v_result;
+END; $function$;
 ALTER FUNCTION public.get_sponsor_campaign_analytics(uuid, uuid, date, date) OWNER TO postgres;
 -- Applied migration: harden_sponsor_membership_rpc_null_validation
 
@@ -7761,82 +7740,9 @@ $anonymous_analytics_cron$;
 
 
 -- ANONYMOUS SPONSOR ANALYTICS REPLACEMENTS
-CREATE OR REPLACE FUNCTION public.get_admin_sponsor_campaign_analytics(p_actor_user_id uuid, p_from date DEFAULT ((timezone('UTC'::text, statement_timestamp()))::date - 29), p_to date DEFAULT (timezone('UTC'::text, statement_timestamp()))::date)
- RETURNS jsonb
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO ''
-AS $function$
-DECLARE v_result jsonb;
-BEGIN
- IF p_actor_user_id IS NULL OR NOT EXISTS(SELECT 1 FROM public.admin_users a WHERE a.user_id=p_actor_user_id) THEN
-  RAISE EXCEPTION 'Administrator access required' USING ERRCODE='42501'; END IF;
- IF p_from IS NULL OR p_to IS NULL OR p_to<p_from OR p_to-p_from>179 THEN
-  RAISE EXCEPTION 'Invalid sponsor analytics date range' USING ERRCODE='22023'; END IF;
- WITH auth AS (
-  SELECT d.campaign_id,sum(d.served_count) served,sum(d.viewable_impressions) viewable_impressions,sum(d.clicks) clicks
-  FROM catho_private.sponsor_campaign_daily d WHERE d.event_date BETWEEN p_from AND p_to GROUP BY d.campaign_id
- ), anon AS (
-  SELECT d.campaign_id,sum(d.served_count) served,sum(d.viewable_impressions) viewable_impressions,sum(d.clicks) clicks
-  FROM catho_private.anonymous_sponsor_campaign_daily d WHERE d.event_date BETWEEN p_from AND p_to GROUP BY d.campaign_id
- ), metrics AS (
-  SELECT c.id campaign_id,coalesce(a.served,0) served,coalesce(a.viewable_impressions,0) viewable_impressions,
-   coalesce(a.clicks,0) clicks,coalesce(n.served,0) anonymous_served,
-   coalesce(n.viewable_impressions,0) anonymous_viewable_impressions,coalesce(n.clicks,0) anonymous_clicks
-  FROM public.sponsor_campaigns c LEFT JOIN auth a ON a.campaign_id=c.id LEFT JOIN anon n ON n.campaign_id=c.id
- )
- SELECT jsonb_build_object('from',p_from,'to',p_to,'campaigns',coalesce(jsonb_agg(jsonb_build_object(
-  'campaign_id',m.campaign_id,'served',m.served,'viewable_impressions',m.viewable_impressions,'clicks',m.clicks,
-  'anonymous_served',m.anonymous_served,'anonymous_viewable_impressions',m.anonymous_viewable_impressions,'anonymous_clicks',m.anonymous_clicks,
-  'total_served',m.served+m.anonymous_served,'total_viewable_impressions',m.viewable_impressions+m.anonymous_viewable_impressions,
-  'total_clicks',m.clicks+m.anonymous_clicks,
-  'click_through_rate',CASE WHEN m.viewable_impressions+m.anonymous_viewable_impressions>0
-   THEN round((m.clicks+m.anonymous_clicks)::numeric*100/(m.viewable_impressions+m.anonymous_viewable_impressions),2) ELSE 0 END
- ) ORDER BY m.served+m.anonymous_served DESC,m.campaign_id),'[]'::jsonb)) INTO v_result FROM metrics m;
- RETURN v_result;
-END; $function$;
 
-CREATE OR REPLACE FUNCTION public.get_sponsor_campaign_analytics(p_actor_user_id uuid, p_sponsor_id uuid, p_from date DEFAULT ((timezone('UTC'::text, statement_timestamp()))::date - 29), p_to date DEFAULT (timezone('UTC'::text, statement_timestamp()))::date)
- RETURNS jsonb
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO ''
-AS $function$
-DECLARE v_result jsonb;
-BEGIN
- IF p_actor_user_id IS NULL OR NOT EXISTS(SELECT 1 FROM public.sponsor_memberships m
-  WHERE m.sponsor_id=p_sponsor_id AND m.user_id=p_actor_user_id AND m.status='active') THEN
-  RAISE EXCEPTION 'Sponsor dashboard access required' USING ERRCODE='42501'; END IF;
- IF p_from IS NULL OR p_to IS NULL OR p_to<p_from OR p_to-p_from>179 THEN
-  RAISE EXCEPTION 'Invalid sponsor analytics date range' USING ERRCODE='22023'; END IF;
- WITH campaigns AS (
-  SELECT c.id,c.campaign_name,c.status FROM public.sponsor_campaigns c WHERE c.sponsor_id=p_sponsor_id
- ), auth AS (
-  SELECT d.campaign_id,sum(d.served_count) served,sum(d.viewable_impressions) viewable_impressions,sum(d.clicks) clicks
-  FROM catho_private.sponsor_campaign_daily d JOIN campaigns c ON c.id=d.campaign_id
-  WHERE d.event_date BETWEEN p_from AND p_to GROUP BY d.campaign_id
- ), anon AS (
-  SELECT d.campaign_id,sum(d.served_count) served,sum(d.viewable_impressions) viewable_impressions,sum(d.clicks) clicks
-  FROM catho_private.anonymous_sponsor_campaign_daily d JOIN campaigns c ON c.id=d.campaign_id
-  WHERE d.event_date BETWEEN p_from AND p_to GROUP BY d.campaign_id
- ), metrics AS (
-  SELECT c.id campaign_id,c.campaign_name,c.status,coalesce(a.served,0) served,
-   coalesce(a.viewable_impressions,0) viewable_impressions,coalesce(a.clicks,0) clicks,
-   coalesce(n.served,0) anonymous_served,coalesce(n.viewable_impressions,0) anonymous_viewable_impressions,
-   coalesce(n.clicks,0) anonymous_clicks
-  FROM campaigns c LEFT JOIN auth a ON a.campaign_id=c.id LEFT JOIN anon n ON n.campaign_id=c.id
- )
- SELECT jsonb_build_object('from',p_from,'to',p_to,'campaigns',coalesce(jsonb_agg(jsonb_build_object(
-  'campaign_id',m.campaign_id,'campaign_name',m.campaign_name,'status',m.status,
-  'served',m.served,'viewable_impressions',m.viewable_impressions,'clicks',m.clicks,
-  'anonymous_served',m.anonymous_served,'anonymous_viewable_impressions',m.anonymous_viewable_impressions,'anonymous_clicks',m.anonymous_clicks,
-  'total_served',m.served+m.anonymous_served,'total_viewable_impressions',m.viewable_impressions+m.anonymous_viewable_impressions,
-  'total_clicks',m.clicks+m.anonymous_clicks,
-  'click_through_rate',CASE WHEN m.viewable_impressions+m.anonymous_viewable_impressions>0
-   THEN round((m.clicks+m.anonymous_clicks)::numeric*100/(m.viewable_impressions+m.anonymous_viewable_impressions),2) ELSE 0 END
- ) ORDER BY m.served+m.anonymous_served DESC,m.campaign_name),'[]'::jsonb)) INTO v_result FROM metrics m;
- RETURN v_result;
-END; $function$;
+
+
 ),
   placement_id text NOT NULL CHECK (length(placement_id) BETWEEN 1 AND 160),
   event_type text NOT NULL CHECK (event_type IN ('served','viewable_impression','click')),
@@ -7976,6 +7882,46 @@ REVOKE ALL ON FUNCTION public.record_anonymous_feed_analytics(jsonb) FROM PUBLIC
 GRANT EXECUTE ON FUNCTION public.record_anonymous_feed_analytics(jsonb) TO service_role;
 REVOKE ALL ON FUNCTION public.get_anonymous_sponsor_campaigns(text,text,text,integer) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.get_anonymous_sponsor_campaigns(text,text,text,integer) TO service_role;
+CREATE OR REPLACE FUNCTION public.record_anonymous_sponsor_campaign_event(p_session_token text, p_campaign_id uuid, p_placement_id text, p_event_id uuid, p_event_type text)
+ RETURNS boolean
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE v_hash text; v_served timestamptz; v_today date:=(pg_catalog.timezone('UTC',statement_timestamp()))::date;
+BEGIN
+ IF p_session_token IS NULL OR p_session_token !~* '^[0-9a-f-]{36}$'
+  OR p_campaign_id IS NULL OR p_placement_id IS NULL OR length(p_placement_id) NOT BETWEEN 1 AND 160
+  OR p_event_id IS NULL OR p_event_type NOT IN ('viewable_impression','click') THEN
+  RAISE EXCEPTION 'Invalid anonymous sponsor event' USING ERRCODE='22023';
+ END IF;
+ v_hash:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p_session_token,'UTF8')),'hex');
+ SELECT received_at INTO v_served FROM catho_private.anonymous_sponsor_events
+ WHERE campaign_id=p_campaign_id AND session_hash=v_hash AND placement_id=p_placement_id
+  AND event_type='served' AND received_at>=statement_timestamp()-interval '24 hours'
+ ORDER BY received_at DESC LIMIT 1;
+ IF v_served IS NULL THEN RAISE EXCEPTION 'Sponsor placement was not eligible' USING ERRCODE='42501'; END IF;
+ IF p_event_type='click' AND NOT EXISTS(
+  SELECT 1 FROM catho_private.anonymous_sponsor_events
+  WHERE campaign_id=p_campaign_id AND session_hash=v_hash AND placement_id=p_placement_id
+   AND event_type='viewable_impression' AND received_at>=v_served
+ ) THEN RAISE EXCEPTION 'Click requires a viewable impression for this placement' USING ERRCODE='42501'; END IF;
+ INSERT INTO catho_private.anonymous_sponsor_events(campaign_id,event_id,session_hash,placement_id,event_type)
+ VALUES(p_campaign_id,p_event_id,v_hash,p_placement_id,p_event_type) ON CONFLICT DO NOTHING;
+ IF NOT FOUND THEN RETURN false; END IF;
+ IF p_event_type='viewable_impression' THEN
+  INSERT INTO catho_private.anonymous_sponsor_campaign_daily(event_date,campaign_id,viewable_impressions)
+  VALUES(v_today,p_campaign_id,1)
+  ON CONFLICT(event_date,campaign_id) DO UPDATE SET
+   viewable_impressions=catho_private.anonymous_sponsor_campaign_daily.viewable_impressions+1;
+ ELSE
+  INSERT INTO catho_private.anonymous_sponsor_campaign_daily(event_date,campaign_id,clicks)
+  VALUES(v_today,p_campaign_id,1)
+  ON CONFLICT(event_date,campaign_id) DO UPDATE SET
+   clicks=catho_private.anonymous_sponsor_campaign_daily.clicks+1;
+ END IF;
+ RETURN true;
+END; $function$;
 REVOKE ALL ON FUNCTION public.record_anonymous_sponsor_campaign_event(text,uuid,text,uuid,text) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.record_anonymous_sponsor_campaign_event(text,uuid,text,uuid,text) TO service_role;
 REVOKE ALL ON FUNCTION catho_private.prune_anonymous_analytics() FROM PUBLIC,anon,authenticated;
