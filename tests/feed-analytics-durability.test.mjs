@@ -62,7 +62,7 @@ test('sponsor analytics queue survives restarts and flushes even when no sponsor
   assert.ok(topicFeed.includes("new URL('/api/content/sponsored-campaigns', effectiveSponsorApiBaseUrl)"));
   assert.ok(topicFeed.includes("window.location.protocol === 'capacitor:'"));
   assert.ok(sponsorAnalytics.includes("new URL('/api/content/sponsor-campaign-events', apiBaseUrl)"));
-  assert.ok(cardRegistry.includes("userId={context.userId ?? ''}"));
+  assert.ok(cardRegistry.includes("userId={context.userId}"));
   assert.ok(sponsor.includes('recordSponsorCampaignEvent('));
   assert.ok(sponsor.includes('previewMode'));
   assert.ok(sponsorAnalytics.includes('queued.sessionId === event.sessionId'));
@@ -71,8 +71,8 @@ test('sponsor analytics queue survives restarts and flushes even when no sponsor
 test('README documents bounded behavioural signals used by recommendation ranking', () => {
   assert.ok(readme.includes('bounded, decaying feed behaviour signals'));
   assert.ok(readme.includes('at least two distinct sessions'));
-  assert.ok(readme.includes('Native apps use the same authenticated analytics endpoint'));
-  assert.ok(readme.includes('Sponsor served events are recorded by the delivery API'));
+  assert.ok(readme.includes('Native apps use the same authenticated endpoint for signed-in events'));
+  assert.ok(readme.includes('Anonymous sponsor viewable/click events are sent directly for the specific topic placement'));
 });
 
 test('sponsor analytics keeps offline event storage bounded without evicting pending reports', () => {
