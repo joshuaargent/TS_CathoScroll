@@ -72,22 +72,20 @@ export default function CookiesPage() {
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            CathoScroll rewrites every Vercel Web Analytics page URL to the site root and removes
-            query strings and fragments before sending the event. The site also applies a
-            strict-origin referrer policy, so only the referring site's origin is exposed by the
-            browser. This prevents topic-specific paths and query values from being included in
-            page URLs or referrer paths. Vercel's processing of
-            request-derived information remains subject to its own privacy documentation and our
-            processor and international-transfer review.
+            CathoScroll preserves ordinary page-level reporting but replaces topic, category
+            and search identifiers with generic route labels, removes query strings and fragments,
+            and applies a strict-origin referrer policy so only the referring site's origin is
+            exposed by the browser. Vercel's processing of request-derived information remains
+            subject to its own privacy documentation and our processor and international-transfer
+            review.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            First-party topic-level feed and Top Comments exposure analytics are paused by default
-            while the lawful-basis assessment is completed. The ingestion endpoint fails closed unless an explicit server
-            feature flag is enabled after approval. Signed-out visitors are included in Vercel's
-            aggregate site-level reporting, but their topic-level feed events are not sent to
-            CathoScroll's own feed analytics tables. Vercel Speed Insights is disabled while its separate data
-            processing is assessed.
+            First-party topic-level feed and Top Comments exposure analytics remain enabled
+            for authenticated users and are linked to their accounts. The ingestion endpoints
+            require authentication, so signed-out visitors do not generate account-linked topic or
+            comment records. Vercel Web Analytics and Speed Insights provide separate site-traffic
+            and technical-performance reporting for signed-in and signed-out visitors.
           </p>
         </section>
 
