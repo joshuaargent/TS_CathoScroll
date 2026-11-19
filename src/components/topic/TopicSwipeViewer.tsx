@@ -158,7 +158,6 @@ export function TopicSwipeViewer({
       if (viewTimer !== null) window.clearTimeout(viewTimer);
       observer?.disconnect();
       document.removeEventListener('visibilitychange', onVisibility);
-      if (totalActive < 2000) recordAnonymousFeedEvent('topic', currentTopicId, 'skip');
     };
   }, [active, currentTopicId, userId]);
 
