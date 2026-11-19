@@ -13,7 +13,7 @@ export default function CookiesPage() {
       <div className="mt-16 mb-16">
         <h1 className="text-5xl font-extrabold md:text-7xl">Cookie Policy</h1>
 
-        <p className="text-text-secondary mt-4 text-lg">Last updated: 31 October 2026</p>
+        <p className="text-text-secondary mt-4 text-lg">Last updated: 19 November 2026</p>
       </div>
 
       <div className="space-y-12">
@@ -32,8 +32,9 @@ export default function CookiesPage() {
 
           <p className="text-text-secondary leading-relaxed">
             CathoScroll uses cookies and similar technologies to provide core functionality,
-            maintain authentication sessions, improve security, remember preferences, analyse usage,
-            and operate premium features.
+            maintain authentication sessions, improve security, remember essential preferences,
+            support offline functionality, and measure service performance. We do not use
+            advertising cookies to target users.
           </p>
         </section>
 
@@ -63,8 +64,10 @@ export default function CookiesPage() {
           <h2 className="mb-4 text-3xl font-bold">Analytics Cookies</h2>
 
           <p className="text-text-secondary leading-relaxed">
-            CathoScroll uses analytics technologies to understand how visitors interact with the
-            platform and to improve performance, functionality, and user experience.
+            CathoScroll uses first-party site analytics and authenticated, server-side product
+            analytics to understand platform use and improve reliability and learning features.
+            These product events are not advertising cookies and are not shared with sponsors at
+            an individual-user level.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
@@ -80,33 +83,35 @@ export default function CookiesPage() {
           </ul>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            CathoScroll currently uses Vercel Analytics to help understand and improve platform
-            usage.
+            CathoScroll uses Vercel Web Analytics for site measurement. Vercel describes this
+            product as first-party analytics that does not rely on cookies for its visitor hash and
+            does not track visitors across unrelated websites. Our own feed analytics are sent to
+            CathoScroll's servers when a signed-in user interacts with the feed. See the Privacy
+            Policy for event categories and retention periods.
           </p>
         </section>
 
         <section>
-          <h2 className="mb-4 text-3xl font-bold">Payment Processing Cookies</h2>
+          <h2 className="mb-4 text-3xl font-bold">Sponsor Payments</h2>
 
           <p className="text-text-secondary leading-relaxed">
-            Premium subscriptions on CathoScroll are processed through Stripe.
+            Individual users do not pay for CathoScroll features. Sponsorship is the only paid
+            offering. Sponsor invoices are settled by direct bank transfer outside the app;
+            CathoScroll does not embed a card-payment checkout or use payment-processing cookies.
+            Sponsor financial records are handled in the sponsor administration and portal
+            workflows described in the Privacy Policy.
           </p>
+        </section>
 
-          <p className="text-text-secondary mt-4 leading-relaxed">
-            Stripe may use cookies and similar technologies to:
-          </p>
+        <section>
+          <h2 className="mb-4 text-3xl font-bold">Local Storage and Offline Apps</h2>
 
-          <ul className="text-text-secondary mt-4 list-disc space-y-2 pl-6">
-            <li>Process subscription payments.</li>
-            <li>Authenticate payment requests.</li>
-            <li>Prevent fraud and abuse.</li>
-            <li>Maintain payment security.</li>
-            <li>Comply with legal and financial obligations.</li>
-          </ul>
-
-          <p className="text-text-secondary mt-4 leading-relaxed">
-            These technologies are controlled by Stripe and are subject to Stripe's own privacy and
-            cookie practices.
+          <p className="text-text-secondary leading-relaxed">
+            CathoScroll uses browser local storage, IndexedDB, and app-private device storage for
+            essential functions such as session support, offline topic and account data, pending
+            activity synchronisation, and retry queues. These technologies store information on
+            your device but are not browser cookies. Clearing them may remove offline data or
+            require you to sign in again; pending unsynchronised activity may be lost.
           </p>
         </section>
 
@@ -120,8 +125,9 @@ export default function CookiesPage() {
 
           <ul className="text-text-secondary mt-4 list-disc space-y-2 pl-6">
             <li>Supabase for authentication and database services.</li>
-            <li>Vercel for hosting and analytics.</li>
-            <li>Stripe for payment processing and subscription management.</li>
+            <li>Vercel for hosting and first-party site analytics.</li>
+            <li>Supabase for authentication, database, and application services.</li>
+            <li>Formspree for contact-form delivery when configured.</li>
           </ul>
         </section>
 
@@ -134,8 +140,11 @@ export default function CookiesPage() {
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            Disabling cookies may affect the operation of CathoScroll and may prevent certain
-            features from functioning correctly.
+            You can restrict cookies through your browser. Blocking essential authentication
+            cookies can prevent sign-in and other account features from working. Browser cookie
+            controls do not automatically clear local storage or IndexedDB; manage those through
+            your browser or device settings. We do not currently use optional advertising cookies
+            or cross-site advertising trackers.
           </p>
         </section>
 
@@ -156,8 +165,9 @@ export default function CookiesPage() {
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            Continued use of CathoScroll after changes are published constitutes acceptance of the
-            updated policy.
+            We will publish material changes to this policy. Where a change requires consent under
+            applicable law, we will request that consent separately before using the relevant
+            non-essential storage or access technology.
           </p>
         </section>
 
