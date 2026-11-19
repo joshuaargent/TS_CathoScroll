@@ -74,7 +74,7 @@ export function createFeedCardRegistry(
           campaigns={entry.campaigns}
           previewMode={context.previewMode}
           sessionId={entry.sessionId ?? ''}
-          userId={context.userId ?? ''}
+          userId={context.userId}
           sponsorApiBaseUrl={context.sponsorApiBaseUrl}
           getAccessToken={context.getSponsorAccessToken ?? (async () => null)}
           onNextTopic={() => invokeRegisteredFeedEntryAction(entry, 'next', registrations, context)}
