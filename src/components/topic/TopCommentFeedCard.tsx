@@ -8,6 +8,7 @@ import { useSignInPrompt } from '@/components/providers/SignInPromptProvider';
 import { createClient } from '@/lib/supabase/client';
 import type { TopFeedComment } from '@/lib/feed-comments';
 import { cn } from '@/lib/utils';
+import { clearPendingContentAnalyticsQueues } from '@/lib/feed-analytics-privacy';
 import { FeedInterstitialMotion } from './FeedInterstitialMotion';
 import { BaseFeedCard } from './BaseFeedCard';
 import { flushFeedCardAnalytics, installFeedCardAnalyticsListeners, recordFeedCardAnalyticsEvent } from '@/lib/feed-card-analytics-client';
@@ -164,6 +165,10 @@ export function TopCommentFeedCard({
   const safeIndex = Math.min(Math.max(0, activeIndex), Math.max(0, comments.length - 1));
   const comment = comments[safeIndex];
   const activeCommentId = comment?.comment_id;
+
+  useEffect(() => {
+    if (!ACCOUNT_LINKED_FEED_ANALYTICS_ENABLED) clearPendingContentAnalyticsQueues();
+  }, []);
 
   useLayoutEffect(() => {
     if (active && !previewMode) onProgressChange(safeIndex, comments.length);
