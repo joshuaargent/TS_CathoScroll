@@ -4,14 +4,14 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import type { TopFeedComment } from '@/lib/feed-comments';
-import type { GeneralFeedCursor } from '@/lib/content';
+import type { GeneralFeedCursor, TopicPageCursor } from '@/lib/content';
 import type { RecommendationCursor } from '@/lib/recommendations';
 import type { Topic } from '@/types';
 import { TopicFeedCore } from './TopicFeedCore';
 import { TopicViewer } from './TopicViewer';
 
 type TopicFeedProps = { topics: Topic[]; userId: string | null } & (
-  | { nextCursor: GeneralFeedCursor | null; personalized?: false; generalRanked?: boolean }
+  | { nextCursor: GeneralFeedCursor | TopicPageCursor | null; personalized?: false; generalRanked?: boolean }
   | { nextCursor: RecommendationCursor | null; personalized: true; generalRanked?: false }
 );
 
@@ -39,7 +39,7 @@ export function TopicFeed({ topics, nextCursor, personalized = false, generalRan
   );
 
   const loadPage = useCallback(
-    async (cursor: GeneralFeedCursor | RecommendationCursor) => {
+    async (cursor: GeneralFeedCursor | TopicPageCursor | RecommendationCursor) => {
       let response: Response;
       if (personalized && 'categories' in cursor && 'userId' in cursor) {
         response = await fetch('/api/content/recommendations', {
@@ -54,12 +54,19 @@ export function TopicFeed({ topics, nextCursor, personalized = false, generalRan
           cache: 'no-store',
           body: JSON.stringify({ cursor }),
         });
+      } else if (!personalized && 'orderIndex' in cursor) {
+        const params = new URLSearchParams({
+          afterOrder: String(cursor.orderIndex),
+          afterId: cursor.id,
+          limit: '50',
+        });
+        response = await fetch(`/api/content/topics?${params.toString()}`);
       } else {
         throw new Error('The topic feed cursor is invalid. Refresh the page.');
       }
       const result = (await response.json()) as {
         topics?: Topic[];
-        nextCursor?: GeneralFeedCursor | RecommendationCursor | null;
+        nextCursor?: GeneralFeedCursor | TopicPageCursor | RecommendationCursor | null;
         error?: string;
       };
       if (!response.ok) throw new Error(result.error ?? 'Unable to load more topics.');
