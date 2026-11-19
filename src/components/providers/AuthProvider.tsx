@@ -15,8 +15,6 @@ export interface Profile {
 
   bio: string | null;
 
-  subscription_tier: string;
-
 }
 
 interface AuthContextValue {
@@ -50,29 +48,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const loadProfile = useCallback(async (userId: string, isActive: () => boolean = () => true) => {
     const requestId = ++profileRequest.current;
-    const [{ data, error }, { data: subscriptionTier, error: subscriptionError }] = await Promise.all([
-      supabase
-        .from('profiles')
-        .select('id,username,display_name,bio')
-        .eq('id', userId)
-        .single(),
-      supabase.rpc('get_own_subscription_tier'),
-    ]);
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id,username,display_name,bio')
+      .eq('id', userId)
+      .single();
     if (!isActive() || requestId !== profileRequest.current) return;
 
-    if (error || subscriptionError) {
-      if (error) console.error('Unable to load account profile:', error.message);
-      if (subscriptionError) {
-        console.error('Unable to load account membership:', subscriptionError.message);
-      }
+    if (error) {
+      console.error('Unable to load account profile:', error.message);
       setProfile(null);
       return;
     }
 
-    setProfile({
-      ...data,
-      subscription_tier: typeof subscriptionTier === 'string' ? subscriptionTier : 'free',
-    });
+    setProfile(data);
   }, [supabase]);
 
   const refreshProfile = useCallback(async () => {
