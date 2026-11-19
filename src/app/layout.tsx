@@ -8,6 +8,7 @@ import { AuthProvider } from '@/components/providers/AuthProvider';
 import { SignInPromptProvider } from '@/components/providers/SignInPromptProvider';
 import { SponsorAnalyticsSync } from '@/components/providers/SponsorAnalyticsSync';
 import { PrivacySafeAnalytics } from '@/components/providers/PrivacySafeAnalytics';
+import { PrivacySafeSpeedInsights } from '@/components/providers/PrivacySafeSpeedInsights';
 import './globals.css';
 
 // ============================================
@@ -148,6 +149,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <main className="flex-1">{children}</main>
               <ConditionalFooter />
               <PrivacySafeAnalytics />
+              <PrivacySafeSpeedInsights />
             </SignInPromptProvider>
           </AuthProvider>
         </ThemeProvider>
