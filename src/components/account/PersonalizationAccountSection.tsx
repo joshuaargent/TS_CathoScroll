@@ -192,7 +192,7 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
 
   return (
     <section id="personalization" className="container mt-10 scroll-mt-8">
-      <div className="border-border bg-bg-secondary/40 rounded-2xl border p-5 sm:p-6">
+      <div className="border-border bg-bg-card rounded-2xl border p-5 shadow-sm sm:p-6">
         <div className="flex items-start gap-3">
           <span className="bg-accent-light text-accent rounded-xl p-3">
             <Sparkles className="h-5 w-5" aria-hidden="true" />
@@ -220,7 +220,7 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
           </div>
         </div>
 
-        <div className="border-border mt-6 rounded-xl border p-4">
+        <div className="border-border bg-bg-secondary/30 mt-6 rounded-xl border p-4">
           <p className="font-semibold text-sm leading-relaxed">
             I explicitly consent to CathoScroll using my topic-reading activity and selected interests, which may reveal religious or philosophical beliefs, to personalise my recommendations.
           </p>
