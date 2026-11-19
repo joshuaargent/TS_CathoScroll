@@ -9,6 +9,7 @@ test('anonymous feed ingestion is bounded, rate-limited and service-role mediate
   const sql = read('../docs/cathoscroll-database-bootstrap.sql');
   assert.match(route, /readBoundedJson/);
   assert.match(route, /checkApiRateLimit/);
+  assert.match(route, /getTrustedClientIp/);
   assert.match(route, /isSameOriginOrNativeRequest\(request, true\)/);
   assert.match(route, /record_anonymous_feed_analytics/);
   assert.match(sql, /REVOKE ALL ON FUNCTION public\.record_anonymous_feed_analytics\(jsonb\) FROM PUBLIC,anon,authenticated/);
@@ -42,6 +43,8 @@ test('signed-out topic and Top Comments cards emit aggregate events', () => {
   assert.match(comment, /'active_duration'/);
   assert.match(comment, /'open'/);
   assert.match(client, /recentEventKeys/);
+  assert.match(client, /pendingEvents/);
+  assert.match(client, /addEventListener\('online'/);
 });
 
 test('native anonymous analytics uses the configured server origin and trusted CORS path', () => {
@@ -52,6 +55,7 @@ test('native anonymous analytics uses the configured server origin and trusted C
   assert.match(client, /window\.location\.protocol === 'capacitor:'/);
   assert.match(admin, /allowAnonymousNative = false/);
   assert.match(admin, /nativeOrigin\(request\) &&/);
+  assert.match(route, /getTrustedClientIp/);
   assert.match(route, /isSameOriginOrNativeRequest\(request, true\)/);
   const native = read('../native/main.tsx');
   assert.match(native, /siteConfig\.url/);
