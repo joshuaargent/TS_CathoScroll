@@ -7,6 +7,7 @@ export type TopicSwipeDirection = 'next' | 'previous';
 
 interface UseTopicSwipeGestureOptions {
   enabled?: boolean;
+  motionValues?: { x: MotionValue<number>; y: MotionValue<number> };
   canSwipeHorizontal?: (direction: TopicSwipeDirection) => boolean;
   onSwipeHorizontal?: (direction: TopicSwipeDirection) => void | Promise<void>;
   onSwipeVertical: (direction: TopicSwipeDirection) => void | Promise<void>;
@@ -35,9 +36,12 @@ export function useTopicSwipeGesture({
   onSwipeHorizontal,
   onSwipeVertical,
   onDoubleTap,
+  motionValues,
 }: UseTopicSwipeGestureOptions): TopicSwipeGesture {
-  const x = useMotionValue(0);
-  const y = useMotionValue(0);
+  const internalX = useMotionValue(0);
+  const internalY = useMotionValue(0);
+  const x = motionValues?.x ?? internalX;
+  const y = motionValues?.y ?? internalY;
   const startRef = useRef({ x: 0, y: 0 });
   const currentRef = useRef({ x: 0, y: 0 });
   const axisRef = useRef<'x' | 'y' | null>(null);
