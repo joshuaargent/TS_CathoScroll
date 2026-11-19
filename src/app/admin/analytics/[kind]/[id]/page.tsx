@@ -71,28 +71,37 @@ export default async function AdminAnalyticsEntityPage({ params, searchParams }:
   let title = '';
   let description = '';
   let totals: Record<string, unknown> = {};
+  let anonymousTotals: Record<string, unknown> = {};
   let series: Record<string, unknown>[] = [];
   let campaigns: { id: string; name: string; status: string }[] = [];
 
   if (kind === 'sponsors') {
-    const [{ data: sponsor, error: sponsorError }, { data, error }] = await Promise.all([
+    const [{ data: sponsor, error: sponsorError }, { data, error }, { data: anonymousData, error: anonymousError }] = await Promise.all([
       adminClient.from('sponsors').select('id,sponsor_name,status').eq('id', id).maybeSingle(),
       adminClient.rpc('get_admin_sponsor_analytics', { p_actor_user_id: user.id, p_sponsor_id: id, p_from: from.toISOString(), p_to: to.toISOString() }),
+      adminClient.rpc('get_admin_anonymous_analytics', { p_actor_user_id: user.id, p_from: from.toISOString(), p_to: to.toISOString(), p_entity_type: 'sponsor', p_entity_id: id }),
     ]);
-    if (sponsorError || error) throw new Error('Unable to load sponsor analytics.');
+    if (sponsorError || error || anonymousError) throw new Error('Unable to load sponsor analytics.');
     if (!sponsor) notFound();
     title = sponsor.sponsor_name;
     description = 'Sponsored campaign delivery, viewability and click-through performance.';
     const payload = data as { totals?: Record<string, unknown>; series?: Record<string, unknown>[]; campaigns?: { id: string; name: string; status: string }[] } | null;
     totals = payload?.totals ?? {};
-    series = payload?.series ?? [];
+    const anonymousPayload = anonymousData as { totals?: Record<string, unknown>; series?: Record<string, unknown>[] } | null;
+    anonymousTotals = anonymousPayload?.totals ?? {};
+    const anonymousByDate = new Map((anonymousPayload?.series ?? []).map((row) => [String(row.event_date), row]));
+    series = (payload?.series ?? []).map((row) => {
+      const anon = anonymousByDate.get(String(row.event_date)) ?? {};
+      return { ...row, anonymous_served: anon.sponsor_served ?? 0, anonymous_viewable_impressions: anon.sponsor_viewable_impressions ?? 0, anonymous_clicks: anon.sponsor_clicks ?? 0 };
+    });
     campaigns = payload?.campaigns ?? [];
   } else {
-    const [{ data: comment, error: commentError }, { data, error }] = await Promise.all([
+    const [{ data: comment, error: commentError }, { data, error }, { data: anonymousData, error: anonymousError }] = await Promise.all([
       adminClient.from('comments').select('id,topic_id,content,created_at,is_deleted').eq('id', Number(id)).maybeSingle(),
       adminClient.rpc('get_admin_feed_card_analytics', { p_actor_user_id: user.id, p_from: from.toISOString(), p_to: to.toISOString(), p_card_type: 'top-comment', p_card_id: id }),
+      adminClient.rpc('get_admin_anonymous_analytics', { p_actor_user_id: user.id, p_from: from.toISOString(), p_to: to.toISOString(), p_entity_type: 'comment', p_entity_id: id }),
     ]);
-    if (commentError || error) throw new Error('Unable to load comment analytics.');
+    if (commentError || error || anonymousError) throw new Error('Unable to load comment analytics.');
     if (!comment || comment.is_deleted) notFound();
     const { data: topic } = await adminClient.from('topics').select('question,slug').eq('id', comment.topic_id).maybeSingle();
     const { count: likes } = await adminClient.from('comment_likes').select('id', { count: 'exact', head: true }).eq('comment_id', Number(id)).gte('created_at', from.toISOString()).lt('created_at', to.toISOString());
@@ -100,8 +109,14 @@ export default async function AdminAnalyticsEntityPage({ params, searchParams }:
     title = `Comment #${id}`;
     description = (topic?.question ?? 'Top-level community comment') + ' · ' + comment.content.slice(0, 180);
     const payload = data as { totals?: Record<string, unknown>; series?: Record<string, unknown>[] } | null;
+    const anonymousPayload = anonymousData as { totals?: Record<string, unknown>; series?: Record<string, unknown>[] } | null;
+    anonymousTotals = anonymousPayload?.totals ?? {};
     totals = { ...(payload?.totals ?? {}), likes: likes ?? 0, replies: replies ?? 0 };
-    series = payload?.series ?? [];
+    const anonymousByDate = new Map((anonymousPayload?.series ?? []).map((row) => [String(row.event_date), row]));
+    series = (payload?.series ?? []).map((row) => {
+      const anon = anonymousByDate.get(String(row.event_date)) ?? {};
+      return { ...row, anonymous_impressions: anon.comment_impressions ?? 0, anonymous_viewable_impressions: anon.comment_viewable_impressions ?? 0 };
+    });
   }
 
   return <main className="container py-12">
