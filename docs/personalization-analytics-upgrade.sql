@@ -570,9 +570,9 @@ BEGIN
 
   IF initial_page THEN
     include_completed := NOT personalization_enabled;
-    -- Freeze category preferences for this feed cursor. Legacy learning actions
-    -- remain strong signals; feed telemetry adds bounded, decaying evidence.
-    WITH signals AS (
+    IF personalization_enabled THEN
+      -- Read account history only inside this consented branch.
+      WITH signals AS (
       SELECT p.topic_id, 5::numeric AS weight
       FROM public.progress p
       WHERE p.user_id = current_user_id
@@ -603,13 +603,11 @@ BEGIN
         ON t.id = s.topic_id AND t.is_published
       JOIN public.categories c
         ON c.slug = t.category_slug AND c.is_published
-      WHERE personalization_enabled
       GROUP BY t.category_slug
     ),
     feed_preferences AS (
       SELECT feed_signals.category_slug, sum(feed_signals.weight) AS weight
       FROM catho_private.get_user_feed_preference_signals(current_user_id) AS feed_signals
-      WHERE personalization_enabled
       GROUP BY feed_signals.category_slug
     ),
     preferences AS (
@@ -637,13 +635,30 @@ BEGIN
       GROUP BY category_slug
     ) p ON p.category_slug = c.slug
     WHERE c.is_published;
+    ELSE
+      SELECT coalesce(
+        jsonb_agg(
+          jsonb_build_object(
+            'slug', c.slug,
+            'weight', 1,
+            'served', 0,
+            'order', NULL,
+            'id', NULL
+          ) ORDER BY c.slug
+        ),
+        '[]'::jsonb
+      )
+      INTO categories
+      FROM public.categories c
+      WHERE c.is_published;
+    END IF;
 
     state := jsonb_build_object(
       'userId', current_user_id,
       'categories', categories,
       'last', NULL,
       'streak', 0,
-      'includeCompleted', false
+      'includeCompleted', include_completed
     );
   ELSE
     state := feed_cursor;
