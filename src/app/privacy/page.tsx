@@ -239,15 +239,22 @@ export default function PrivacyPage() {
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            Topic-level reading activity on a Catholic learning platform can reveal or allow
-            inferences about religious or philosophical beliefs. It therefore requires a separate
-            UK GDPR Article 6 basis and Article 9 condition; the personalisation checkbox is not
-            consent for this operational analytics. Our provisional analytics impact assessment
-            records the lawful-basis review for this account-linked stream as outstanding; the
-            assessment does not certify the current topic-level processing as legally approved.
-            CathoScroll does not currently record first-party topic-level feed events from signed-out
-            visitors. It does not attach signed-out feed activity to an account or create a
-            persistent visitor profile for that purpose.
+            For signed-in users, CathoScroll records first-party topic-feed and Top Comments
+            analytics such as impressions, viewability, reading time, skips, slide depth,
+            completions and discussion opens. These records are linked to the account that generated
+            them and are used to understand service performance and improve the feed. Topic activity
+            on a Catholic learning platform may reveal religious or philosophical interests, so we
+            treat it as potentially sensitive information and apply restricted access and retention
+            controls. The recommendation-personalisation setting remains separate: only users who
+            have enabled personalisation have their activity used to build and apply a private
+            recommendation-interest profile.
+          </p>
+
+          <p className="text-text-secondary mt-4 leading-relaxed">
+            Signed-out visitors are not sent to CathoScroll's account-linked topic or comment
+            analytics pipeline. Those endpoints require an authenticated account, and the client
+            only queues these detailed events for signed-in users. Signed-out visits are included
+            in Vercel's site-level traffic and performance measurement.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
@@ -256,22 +263,23 @@ export default function PrivacyPage() {
             third-party cookies and derives a short-lived visitor hash from the incoming request,
             which is discarded after 24 hours. Its analytics data points may include timestamps,
             page URLs, referrers, filtered query parameters, approximate geolocation, and device
-            and browser information. CathoScroll configures the analytics event hook to replace
-            every page URL with the site root and remove query strings and fragments, and applies
-            a strict-origin referrer policy so only the referring site's origin is exposed by the
-            browser. Topic paths, query values and referrer paths are therefore not intentionally
-            sent as page or referrer URLs. Vercel's own processing and any
-            request-level metadata remain subject to Vercel's privacy documentation and our
-            processor and international-transfer review.
+            and browser information. CathoScroll preserves ordinary page-level reporting but
+            replaces topic, category and search identifiers with generic route labels, removes
+            query strings and fragments, and applies a strict-origin referrer policy so the browser
+            sends only the referring site's origin. Vercel's own processing and any request-level
+            metadata remain subject to Vercel's privacy documentation and our processor and
+            international-transfer review.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            Vercel Speed Insights has been disabled while its separate data fields and processing
-            are assessed. Site-level Vercel Web Analytics reports are provider-level aggregates;
-            they are not first-party topic impressions, reading duration, skips, or completions and
-            are not merged into CathoScroll's Admin Analytics topic/event tables. The app does not
-            claim that a short-lived hash or provider-level aggregate is automatically anonymous
-            for every legal purpose.
+            Vercel Speed Insights is enabled to measure Core Web Vitals and real-world page
+            performance. Its event hook removes query strings and fragments and replaces
+            topic/category/search identifiers with generic route labels before transmission.
+            Speed Insights reports technical performance and is separate from CathoScroll's
+            account-linked product analytics. Vercel describes its Speed Insights data points as
+            anonymous and says they are not designed to identify visitors or reconstruct browsing
+            sessions; its published data fields include route and URL, device, browser, country and
+            web-vital measurements.
           </p>
         </section>
 
