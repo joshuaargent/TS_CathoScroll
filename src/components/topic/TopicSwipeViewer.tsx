@@ -6,7 +6,6 @@ import { Heart } from 'lucide-react';
 import type { Topic } from '@/types';
 import type { TopicActivity } from '@/lib/topic-activity';
 import { getTopicSlides } from '@/lib/topicSlides';
-import { clearPendingContentAnalyticsQueues } from '@/lib/feed-analytics-privacy';
 import {
   installFeedAnalyticsListeners,
   recordFeedAnalyticsEvent,
@@ -15,11 +14,6 @@ import {
 } from '@/lib/feed-analytics-client';
 import { TopicCard } from './TopicCard';
 import { FeedSwipeViewport } from './FeedSwipeViewport';
-
-// Account-linked topic telemetry is paused until a separate Article 9 basis/consent
-// decision is documented. Do not enable with recommendation personalisation consent.
-const ACCOUNT_LINKED_FEED_ANALYTICS_ENABLED =
-  process.env.NEXT_PUBLIC_ACCOUNT_LINKED_FEED_ANALYTICS === 'true';
 
 function getActiveElapsed(startedAt: number | null) {
   return startedAt === null ? 0 : Math.max(0, performance.now() - startedAt);
@@ -93,10 +87,6 @@ export function TopicSwipeViewer({
   const slides = useMemo(() => getTopicSlides(currentTopic), [currentTopic]);
   const currentSlide = slides[slideIndex];
 
-  useEffect(() => {
-    if (!ACCOUNT_LINKED_FEED_ANALYTICS_ENABLED) clearPendingContentAnalyticsQueues();
-  }, []);
-
   useLayoutEffect(() => {
     if (active) onProgressChange?.(slideIndex, slides.length);
   }, [active, currentTopicId, onProgressChange, slideIndex, slides.length]);
@@ -109,7 +99,7 @@ export function TopicSwipeViewer({
   const topicViewableRef = useRef(false);
 
   useEffect(() => {
-    if (!ACCOUNT_LINKED_FEED_ANALYTICS_ENABLED || !userId || !active) return;
+    if (!userId || !active) return;
     return installFeedAnalyticsListeners(userId, {
       endpoint: analyticsEndpoint,
       getAccessToken: getAnalyticsAccessToken,
@@ -117,7 +107,7 @@ export function TopicSwipeViewer({
   }, [active, analyticsEndpoint, getAnalyticsAccessToken, userId]);
 
   useEffect(() => {
-    if (!ACCOUNT_LINKED_FEED_ANALYTICS_ENABLED || !userId || !active) return;
+    if (!userId || !active) return;
 
     recordFeedTopicVisit(userId, currentTopicId);
 
@@ -216,7 +206,7 @@ export function TopicSwipeViewer({
   }, [currentTopicId, userId, active]);
 
   useEffect(() => {
-    if (!ACCOUNT_LINKED_FEED_ANALYTICS_ENABLED || !userId || slideIndex <= 0) return;
+    if (!userId || slideIndex <= 0) return;
     recordFeedAnalyticsEvent(userId, 'swipe_depth', currentTopicId, {
       slide_index: slideIndex,
       depth: slideIndex,
@@ -253,7 +243,7 @@ export function TopicSwipeViewer({
   };
 
   const moveTopic = (direction: 'next' | 'previous') => {
-    if (ACCOUNT_LINKED_FEED_ANALYTICS_ENABLED && direction === 'next' && userId) {
+    if (direction === 'next' && userId) {
       const activeElapsed = getActiveElapsed(topicActiveSinceRef.current);
       if (topicActiveDurationRef.current + activeElapsed < 2000) {
         recordFeedAnalyticsEvent(userId, 'skip', currentTopicId, {
