@@ -91,8 +91,8 @@ test('admin deep dive returns aggregate reports and correctly censors immature c
 
 
 test('admin deep-dive analytics is service-role only', () => {
-  assert.match(bootstrap, /REVOKE ALL ON FUNCTION public\.get_admin_analytics_deep_dive\(uuid,timestamptz,timestamptz\) FROM PUBLIC,anon,authenticated/);
-  assert.match(bootstrap, /GRANT EXECUTE ON FUNCTION public\.get_admin_analytics_deep_dive\(uuid,timestamptz,timestamptz\) TO service_role/);
+  assert.match(bootstrap, /REVOKE ALL ON FUNCTION public\.get_admin_analytics_deep_dive\(uuid, timestamp with time zone, timestamp with time zone\) FROM PUBLIC, anon, authenticated, service_role/);
+  assert.match(bootstrap, /GRANT EXECUTE ON FUNCTION public\.get_admin_analytics_deep_dive\(uuid, timestamp with time zone, timestamp with time zone\) TO service_role/);
 });
 
 test('explicit category interests are bounded and validated', () => {
@@ -125,7 +125,7 @@ test('all recommendation history signals are opt-in and withdrawal neutralises a
   assert.match(body, /IF NOT personalization_enabled THEN/);
   assert.match(body, /jsonb_build_object\('weight',1\)/);
   assert.match(body, /include_completed := true/);
-  assert.match(documentation, /All account-history recommendation weighting is behind the explicit consent flag/);
+  assert.match(documentation, /All account-history recommendation weighting is consent-gated/);
 });
 
 test('web and native account/settings screens reuse the same components', () => {
