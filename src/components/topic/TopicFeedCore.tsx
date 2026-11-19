@@ -28,11 +28,11 @@ import { TopicCard } from './TopicCard';
 import type { FeedCardRendererContext } from './feed-card-registry.types';
 import { getAdjacentFeedEntry, getFeedEntryKey, reconcileFeedEntryCursor } from '@/lib/feed-entry-cursor';
 
-import type { TopicPageCursor } from '@/lib/content';
+import type { GeneralFeedCursor } from '@/lib/content';
 import type { RecommendationCursor } from '@/lib/recommendations';
 import { Topic } from '@/types';
 
-type FeedCursor = TopicPageCursor | RecommendationCursor;
+type FeedCursor = GeneralFeedCursor | RecommendationCursor;
 type FeedPage = { topics: Topic[]; nextCursor: FeedCursor | null };
 
 function appendUniqueFeedTopics(existing: Topic[], incoming: Topic[]): Topic[] {
@@ -600,13 +600,13 @@ export function TopicFeedCore({
   useEffect(() => {
     // Signed-out users get the existing shuffled feed. Signed-in users keep
     // the server's analytics-ranked recommendation order and cursor.
-    const shuffled = personalized ? topics : shuffle(topics);
+    const orderedTopics = personalized || generalRanked ? topics : shuffle(topics);
     const sourceChanged = previousPersonalizedRef.current !== personalized;
 
     if (preservePositionOnUpdate && feedInitializedRef.current) {
       // Native catalogue/background updates must not replace the active
       // session snapshot or discard pages already visited. Append only new IDs.
-      const nextFeedTopics = appendUniqueFeedTopics(feedTopicsRef.current, shuffled);
+      const nextFeedTopics = appendUniqueFeedTopics(feedTopicsRef.current, orderedTopics);
       const preservedIndex = nextFeedTopics.findIndex(
         (topic) => topic.id === currentTopicId.current
       );
@@ -642,7 +642,7 @@ export function TopicFeedCore({
     setLoadError('');
     feedInitializedRef.current = true;
     previousPersonalizedRef.current = personalized;
-  }, [topics, initialCursor, personalized, preservePositionOnUpdate]);
+  }, [topics, initialCursor, personalized, generalRanked, preservePositionOnUpdate]);
 
   const loadMoreTopics = useCallback(async () => {
     if (!nextCursor || loadingRef.current) return;
@@ -654,7 +654,7 @@ export function TopicFeedCore({
     try {
       const result = await loadPage(nextCursor);
       if (generation !== generationRef.current) return;
-      const newTopics = personalized ? result.topics : shuffle(result.topics);
+      const newTopics = personalized || generalRanked ? result.topics : shuffle(result.topics);
       const previousLength = feedTopicsRef.current.length;
       const nextTopics = appendUniqueFeedTopics(feedTopicsRef.current, newTopics);
       feedTopicsRef.current = nextTopics;
