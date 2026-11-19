@@ -227,14 +227,15 @@ export default function PrivacyPage() {
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            For signed-in users, CathoScroll's first-party feed analytics currently records topic
-            and comment-card impressions, viewability, active duration, skips, completions, repeat
-            visits, and related interactions. These raw events are linked to the account and the
-            topic or card involved. Raw event records and the user/day viewer bridge are retained
-            for up to 180 days; daily totals without user or session identifiers are retained
-            longer. These records are not anonymous while identifiers are retained and are not
-            provided to sponsors or used for sponsor targeting. Turning off recommendation
-            personalisation does not itself switch off this separate operational analytics stream.
+            For signed-in users, CathoScroll's first-party topic-feed telemetry has been paused while
+            the separate UK GDPR Article 6 and Article 9 position is resolved. The existing
+            implementation records topic impressions, viewability, active duration, skips,
+            completions and return visits when enabled. Historical raw events and the user/day
+            viewer bridge remain subject to the documented retention schedule (up to 180 days);
+            daily totals without user or session identifiers are retained longer. These records
+            are not anonymous while identifiers are retained and are not provided to sponsors or
+            used for sponsor targeting. Turning off recommendation personalisation is not the
+            same as analytics consent.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
