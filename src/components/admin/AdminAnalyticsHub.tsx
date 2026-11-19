@@ -123,12 +123,23 @@ export function AdminAnalyticsHub({ overview, period, section = 'overview', seri
         </Button>)}
       </div>
     </div>
-    <nav aria-label="Analytics views" className="mt-5 flex flex-wrap gap-2">
+    <nav aria-label="Analytics views" className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
       {[
-        ['overview','Overall'],['categories','Categories'],['topics','Topics'],['sponsors','Sponsors'],['comments','Comments'],
-      ].map(([value,label]) => <Button key={value} asChild size="sm" variant={section === value ? 'primary' : 'secondary'}>
-        <Link href={sectionHref(value)} aria-current={section === value ? 'page' : undefined}>{label}</Link>
-      </Button>)}
+        { value: 'overview', label: 'Overall', description: 'All feed streams and trends', count: number(totalExposures), suffix: 'placements', icon: Activity },
+        { value: 'categories', label: 'Categories', description: 'Reach by category', count: number(t.category_count), suffix: 'categories', icon: BarChart3 },
+        { value: 'topics', label: 'Topics', description: 'Reading and completion', count: number(t.topic_count), suffix: 'topics', icon: BookOpen },
+        { value: 'sponsors', label: 'Sponsors', description: 'Delivery and campaign results', count: number(t.sponsor_count), suffix: 'sponsors', icon: Megaphone },
+        { value: 'comments', label: 'Comments', description: 'Exposure and community activity', count: number(t.comment_count), suffix: 'comments', icon: MessageCircle },
+      ].map((item) => {
+        const Icon = item.icon;
+        return <Link key={item.value} href={sectionHref(item.value)} aria-current={section === item.value ? 'page' : undefined}
+          className={`rounded-2xl border p-4 transition-colors ${section === item.value ? 'border-accent bg-accent-light/20 ring-1 ring-accent/30' : 'border-border hover:bg-bg-secondary'}`}>
+          <div className="flex items-center justify-between gap-2"><span className="text-text-primary text-sm font-semibold">{item.label}</span><Icon className={`h-4 w-4 ${section === item.value ? 'text-accent' : 'text-text-muted'}`} aria-hidden="true" /></div>
+          <p className="text-text-muted mt-2 text-xs">{item.description}</p>
+          <p className="text-text-primary mt-4 text-xl font-bold tabular-nums">{item.count}</p>
+          <p className="text-text-muted text-xs">{item.suffix}</p>
+        </Link>;
+      })}
     </nav>
 
     <section className="mt-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

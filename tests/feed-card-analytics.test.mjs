@@ -70,6 +70,7 @@ test('Top Comments viewability requires half visibility for one continuous secon
   const card = await readFile(new URL('../src/components/topic/TopCommentFeedCard.tsx', import.meta.url), 'utf8');
   const route = await readFile(new URL('../src/app/api/analytics/feed-card-events/route.ts', import.meta.url), 'utf8');
   const hub = await readFile(new URL('../src/components/admin/AdminAnalyticsHub.tsx', import.meta.url), 'utf8');
+  const detail = await readFile(new URL('../src/app/admin/analytics/[kind]/[id]/page.tsx', import.meta.url), 'utf8');
   assert.ok(card.includes('ref={commentArticleRef}'));
   assert.ok(card.includes('scheduleViewability'));
   assert.ok(card.includes("document.visibilityState === 'hidden'"));
@@ -80,8 +81,11 @@ test('Top Comments viewability requires half visibility for one continuous secon
   assert.ok(card.includes("'completion'"));
   assert.ok(card.includes("'open'"));
   assert.ok(route.includes("record_feed_card_analytics_events"));
-  assert.match(hub, /\['overview','Overall'\].*\['categories','Categories'\].*\['topics','Topics'\].*\['sponsors','Sponsors'\].*\['comments','Comments'\]/s);
+  for (const section of ["value: 'overview', label: 'Overall'", "value: 'categories', label: 'Categories'", "value: 'topics', label: 'Topics'", "value: 'sponsors', label: 'Sponsors'", "value: 'comments', label: 'Comments'"]) assert.ok(hub.includes(section));
   assert.ok(hub.includes('Top Comments exposure'));
+  assert.ok(hub.includes('DailyOverviewChart'));
+  assert.ok(detail.includes('TrendChart'));
+  assert.ok(detail.includes('Daily performance'));
   assert.ok(hub.includes('Discussion open rate'));
   assert.ok(hub.includes('Comment active time'));
   assert.ok(hub.includes('Sponsor click-through'));
