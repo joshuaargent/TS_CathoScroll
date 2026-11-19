@@ -139,7 +139,7 @@ test('topic, comment and sponsor cards use the same shared base card', () => {
   assert.match(sharedSwipeGesture, /absDx > window\.innerWidth \* 0\.07 \|\| velocityX > 25/);
   assert.match(sharedSwipeGesture, /absDy > window\.innerHeight \* 0\.07 \|\| velocityY > 25/);
   assert.match(sharedSwipeGesture, /case ' '/);
-  assert.match(interstitialMotion, /setPointerCapture\(event\.pointerId\)/);
+  assert.match(sharedSwipeGesture, /setPointerCapture\(event\.pointerId\)/);
   assert.match(interstitialMotion, /flushSync\(\(\) =>/);
   assert.match(interstitialMotion, /await navigation;/);
   assert.match(topicViewer, /await navigation;/);
