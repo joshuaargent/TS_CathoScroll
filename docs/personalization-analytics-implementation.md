@@ -65,8 +65,9 @@ The unified `/admin/analytics` page now adds:
 - Recommendation outcomes: actual feed-origin topic entries followed by viewability, active time, completion, skip and return behaviour.
 - Cohort retention: first-observed feed cohorts with 7-day and 30-day return rates, counting a return only when it occurs in a distinct feed session. A rate remains unavailable until the cohort has a complete observation window; it is never shown as a false zero.
 - Category discovery: published topic coverage, impressions, viewability and completions by category.
+- Period comparison: the same-length immediately preceding period for topic, sponsor, comment-card and combined placement volume.
 
-All report payloads are aggregated. They do not return user IDs, session IDs, raw comment text or individual activity histories. The current recommendation report measures outcomes for topics users actually entered. It is not a randomized A/B experiment and does not claim to measure unshown candidate topics.
+All report payloads are aggregated. They do not return user IDs, session IDs, raw comment text or individual activity histories. The current recommendation report measures outcomes for topics users actually entered. It is not a randomized A/B experiment and does not claim to measure unshown candidate topics. Period-over-period changes are descriptive comparisons, not statistical-significance claims.
 
 The date range remains capped at 180 days because identifier-bearing raw analytics are retained for 180 days. Daily user-free aggregates continue to support the existing historical trend views.
 
