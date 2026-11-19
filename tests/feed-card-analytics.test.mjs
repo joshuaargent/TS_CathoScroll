@@ -85,6 +85,7 @@ test('Top Comments viewability requires half visibility for one continuous secon
   assert.ok(hub.includes('Top Comments exposure'));
   assert.ok(hub.includes('DailyOverviewChart'));
   assert.ok(detail.includes('TrendChart'));
+  assert.ok(detail.includes('/^\\d{1,18}$/'));
   assert.ok(detail.includes('Daily performance'));
   assert.ok(hub.includes('Discussion open rate'));
   assert.ok(hub.includes('Comment active time'));
