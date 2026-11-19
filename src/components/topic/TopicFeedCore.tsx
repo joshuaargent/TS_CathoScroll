@@ -65,6 +65,7 @@ type TopicFeedCoreProps = {
   topics: Topic[];
   nextCursor: FeedCursor | null;
   personalized: boolean;
+  generalRanked?: boolean;
   loadPage: (cursor: FeedCursor) => Promise<FeedPage>;
   userId: string | null;
   viewer: ComponentType<ViewerProps>;
@@ -79,6 +80,7 @@ export function TopicFeedCore({
   topics,
   nextCursor: initialCursor,
   personalized,
+  generalRanked = false,
   loadPage,
   userId,
   viewer: Viewer,
@@ -634,9 +636,9 @@ export function TopicFeedCore({
 
     generationRef.current += 1;
     loadingRef.current = false;
-    setFeedTopics(shuffled);
-    feedTopicsRef.current = shuffled;
-    setTopicIndex(personalized ? 0 : Math.floor(shuffled.length / 2));
+    setFeedTopics(orderedTopics);
+    feedTopicsRef.current = orderedTopics;
+    setTopicIndex(personalized || generalRanked ? 0 : Math.floor(orderedTopics.length / 2));
     setNextCursor(initialCursor);
     setLoadingMore(false);
     setLoadError('');
