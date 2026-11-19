@@ -12,6 +12,7 @@ const nativeSignup = readFileSync(new URL('../native/signup.tsx', import.meta.ur
 const accountView = readFileSync(new URL('../src/components/account/AccountPageView.tsx', import.meta.url), 'utf8');
 const accountSection = readFileSync(new URL('../src/components/account/PersonalizationAccountSection.tsx', import.meta.url), 'utf8');
 const nativeMain = readFileSync(new URL('../native/main.tsx', import.meta.url), 'utf8');
+const nativeAccount = readFileSync(new URL('../native/account.tsx', import.meta.url), 'utf8');
 
 
 function bootstrapFunctionRanges(source) {
@@ -174,8 +175,9 @@ test('web and native account/settings screens reuse the same components', () => 
   assert.match(accountView, /PersonalizationAccountSection/);
   assert.match(accountSection, /set_my_personalization_consent/);
   assert.match(accountSection, /I explicitly consent to CathoScroll using my topic-reading activity and selected interests/);
-  assert.match(nativeMain, /PersonalizationSettingsPage client=/);
-  assert.match(nativeMain, /kind: 'personalization'/);
+  assert.match(nativeMain, /pathname === '\/account\/personalization'.*kind: 'account'/);
+  assert.match(nativeAccount, /AccountPageView/);
+  assert.match(accountView, /PersonalizationAccountSection/);
 });
 
 test('retired user subscription tier is absent from the bootstrap', () => {
@@ -281,8 +283,9 @@ test('web and native account/settings screens reuse the same components', () => 
   assert.match(accountView, /PersonalizationAccountSection/);
   assert.match(accountSection, /set_my_personalization_consent/);
   assert.match(accountSection, /I explicitly consent to CathoScroll using my topic-reading activity and selected interests/);
-  assert.match(nativeMain, /PersonalizationSettingsPage client=/);
-  assert.match(nativeMain, /kind: 'personalization'/);
+  assert.match(nativeMain, /pathname === '\/account\/personalization'.*kind: 'account'/);
+  assert.match(nativeAccount, /AccountPageView/);
+  assert.match(accountView, /PersonalizationAccountSection/);
 });
 
 test('retired user subscription tier is absent from the bootstrap', () => {
