@@ -2,7 +2,7 @@ import { Activity, BarChart3, BookOpen, Clock3, Repeat2, Users } from 'lucide-re
 
 import { Card } from '@/components/ui/Card';
 
-type DeepDive = {
+export type AnalyticsDeepDiveData = {
   funnel: { impressions: number; viewable_sessions: number; completed_sessions: number; skipped_sessions: number };
   sessions: { sessions: number; average_topic_impressions: number; average_active_seconds: number; average_completions: number; low_engagement_sessions: number; return_visits: number };
   recommendations: { impressions: number; viewable_impressions: number; completions: number; skips: number; return_visits: number; active_duration_ms: number };
@@ -21,7 +21,7 @@ function Stat({ label, value, detail, icon: Icon }: { label: string; value: stri
   </div>;
 }
 
-export function AnalyticsDeepDivePanel({ data }: { data: DeepDive }) {
+export function AnalyticsDeepDivePanel({ data }: { data: AnalyticsDeepDiveData }) {
   const f = data.funnel;
   const s = data.sessions;
   const r = data.recommendations;
