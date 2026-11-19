@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS catho_private.user_personalization_consents (
   consent_version text,
   granted_at timestamptz,
   withdrawn_at timestamptz,
+  profile_refreshed_at timestamptz,
   updated_at timestamptz NOT NULL DEFAULT statement_timestamp(),
   CONSTRAINT user_personalization_consent_state_check CHECK (
     (enabled AND consent_version IS NOT NULL AND granted_at IS NOT NULL AND withdrawn_at IS NULL)
@@ -273,12 +274,17 @@ DECLARE
   v_count integer := 0;
   v_now timestamptz := statement_timestamp();
   v_consent_at timestamptz;
+  v_last_refresh timestamptz;
 BEGIN
   IF p_user_id IS NULL THEN RETURN 0; END IF;
-  SELECT c.granted_at INTO v_consent_at
+  SELECT c.granted_at,c.profile_refreshed_at INTO v_consent_at,v_last_refresh
   FROM catho_private.user_personalization_consents c
   WHERE c.user_id=p_user_id AND c.enabled=true;
   IF v_consent_at IS NULL THEN RETURN 0; END IF;
+  IF v_last_refresh IS NOT NULL AND v_last_refresh >= v_now-interval '5 minutes' THEN
+    SELECT count(*)::integer INTO v_count FROM catho_private.user_topic_interest_scores WHERE user_id=p_user_id;
+    RETURN v_count;
+  END IF;
 
   WITH event_scores AS (
     SELECT e.entity_id AS topic_id,
@@ -406,6 +412,9 @@ BEGIN
 
   DELETE FROM catho_private.user_topic_interest_scores s
   WHERE s.user_id=p_user_id AND s.updated_at < v_now;
+  UPDATE catho_private.user_personalization_consents
+  SET profile_refreshed_at=v_now,updated_at=v_now
+  WHERE user_id=p_user_id AND enabled=true;
   RETURN v_count;
 END;
 $function$;
@@ -431,14 +440,16 @@ BEGIN
       enabled=true,consent_version=EXCLUDED.consent_version,
       granted_at=CASE WHEN catho_private.user_personalization_consents.enabled
         THEN catho_private.user_personalization_consents.granted_at ELSE EXCLUDED.granted_at END,
-      withdrawn_at=NULL,updated_at=EXCLUDED.updated_at;
+      withdrawn_at=NULL,
+      profile_refreshed_at=CASE WHEN catho_private.user_personalization_consents.enabled THEN catho_private.user_personalization_consents.profile_refreshed_at ELSE NULL END,
+      updated_at=EXCLUDED.updated_at;
     PERFORM catho_private.refresh_user_interest_profile(v_user_id);
   ELSE
     INSERT INTO catho_private.user_personalization_consents
       (user_id,enabled,consent_version,granted_at,withdrawn_at,updated_at)
     VALUES(v_user_id,false,NULL,NULL,v_now,v_now)
     ON CONFLICT(user_id) DO UPDATE SET enabled=false,consent_version=NULL,granted_at=NULL,
-      withdrawn_at=EXCLUDED.withdrawn_at,updated_at=EXCLUDED.updated_at;
+      withdrawn_at=EXCLUDED.withdrawn_at,profile_refreshed_at=NULL,updated_at=EXCLUDED.updated_at;
     DELETE FROM catho_private.user_topic_interest_scores WHERE user_id=v_user_id;
     DELETE FROM catho_private.user_explicit_category_interests WHERE user_id=v_user_id;
   END IF;
