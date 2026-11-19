@@ -12,6 +12,10 @@ import { FeedInterstitialMotion } from './FeedInterstitialMotion';
 import { BaseFeedCard } from './BaseFeedCard';
 import { flushFeedCardAnalytics, installFeedCardAnalyticsListeners, recordFeedCardAnalyticsEvent } from '@/lib/feed-card-analytics-client';
 
+// Comment-level exposure can reveal sensitive interests too; pause alongside topic telemetry.
+const ACCOUNT_LINKED_FEED_ANALYTICS_ENABLED =
+  process.env.NEXT_PUBLIC_ACCOUNT_LINKED_FEED_ANALYTICS === 'true';
+
 interface TopCommentFeedCardProps {
   comments: TopFeedComment[];
   userId: string | null;
@@ -170,7 +174,7 @@ export function TopCommentFeedCard({
   }, [active, comments]);
 
   useEffect(() => {
-    if (!active || !userId || previewMode) return;
+    if (!ACCOUNT_LINKED_FEED_ANALYTICS_ENABLED || !active || !userId || previewMode) return;
     return installFeedCardAnalyticsListeners(userId, {
       endpoint: analyticsEndpoint,
       getAccessToken: getAnalyticsAccessToken,
@@ -182,7 +186,7 @@ export function TopCommentFeedCard({
   }, [active, activeCommentId, onCommentViewed, previewMode]);
 
   useEffect(() => {
-    if (!active || previewMode || !userId || activeCommentId === undefined) return;
+    if (!ACCOUNT_LINKED_FEED_ANALYTICS_ENABLED || !active || previewMode || !userId || activeCommentId === undefined) return;
     recordFeedCardAnalyticsEvent(userId, 'impression', activeCommentId);
     let viewable = false;
     let viewableImpressionRecorded = false;
@@ -269,7 +273,9 @@ export function TopCommentFeedCard({
   if (!comment) return null;
 
   const openComment = () => {
-    recordFeedCardAnalyticsEvent(userId, 'open', comment.comment_id);
+    if (ACCOUNT_LINKED_FEED_ANALYTICS_ENABLED) {
+      recordFeedCardAnalyticsEvent(userId, 'open', comment.comment_id);
+    }
     onOpenComment(comment);
   };
 
