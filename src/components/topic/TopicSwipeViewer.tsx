@@ -242,7 +242,7 @@ export function TopicSwipeViewer({
     }
   };
 
-  const moveTopic = async (direction: 'next' | 'previous') => {
+  const moveTopic = (direction: 'next' | 'previous') => {
     if (direction === 'next' && userId) {
       const activeElapsed = getActiveElapsed(topicActiveSinceRef.current);
       if (topicActiveDurationRef.current + activeElapsed < 2000) {
@@ -252,12 +252,11 @@ export function TopicSwipeViewer({
       }
     }
 
-    try {
-      setSlideIndex(0);
-      const navigation = direction === 'next' ? onNextTopic?.() : onPreviousTopic?.();
-      await navigation;
-    } catch (error) {
-      console.error('Unable to navigate topic feed:', error);
+    setSlideIndex(0);
+    if (direction === 'next') {
+      void onNextTopic?.();
+    } else {
+      void onPreviousTopic?.();
     }
   };
 
@@ -284,6 +283,7 @@ export function TopicSwipeViewer({
         canSwipeHorizontal={(direction) => direction === 'next' ? Boolean(nextSlide) : Boolean(previousSlide)}
         onSwipeHorizontal={moveSlide}
         onSwipeVertical={moveTopic}
+        awaitVerticalNavigation={false}
         onDoubleTap={likeTopic}
         onTransitionStart={() => setIsAnimating(true)}
         onTransitionEnd={() => setIsAnimating(false)}
