@@ -136,8 +136,8 @@ test('topic, comment and sponsor cards use the same shared base card', () => {
   assert.ok(topCommentCard.includes('href={`/profile/${encodeURIComponent(comment.author_username)}`}'));
   assert.doesNotMatch(topCommentCard, /Pinned comment|Previous comment|Next comment/);
   assert.doesNotMatch(topCommentCard, /footer=\{/);
-  assert.match(interstitialMotion, /absDx > width \* 0\.07 \|\| velocityX > 25/);
-  assert.match(interstitialMotion, /absDy > height \* 0\.07 \|\| velocityY > 25/);
+  assert.match(sharedSwipeGesture, /absDx > window\.innerWidth \* 0\.07 \|\| velocityX > 25/);
+  assert.match(sharedSwipeGesture, /absDy > window\.innerHeight \* 0\.07 \|\| velocityY > 25/);
   assert.match(interstitialMotion, /case ' '/);
   assert.match(interstitialMotion, /setPointerCapture\(event\.pointerId\)/);
   assert.match(interstitialMotion, /flushSync\(\(\) =>/);
