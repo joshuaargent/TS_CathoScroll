@@ -11,8 +11,9 @@ const [bootstrap, route, manager] = await Promise.all([
 test('sponsor status changes are administrator-only, audited and constrained', () => {
   const start = bootstrap.lastIndexOf('CREATE OR REPLACE FUNCTION public.admin_set_sponsor_status');
   assert.notEqual(start, -1);
-  const end = bootstrap.indexOf('ALTER FUNCTION ', start);
-  const body = bootstrap.slice(start, end);
+  const end = bootstrap.indexOf('$function$;', start);
+  assert.notEqual(end, -1);
+  const body = bootstrap.slice(start, end + '$function$;'.length);
   assert.match(body, /public\.admin_users/);
   assert.match(body, /draft', 'scheduled', 'active', 'paused', 'completed/);
   assert.match(body, /sponsor\.status_changed/);
