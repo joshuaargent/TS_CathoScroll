@@ -27,7 +27,7 @@ The score is deliberately transformed so that a topic with a very large historic
 
 The selector keeps a per-category served count and offset in its opaque cursor. It chooses the highest-scoring next topic from the least-served eligible category. It avoids a third consecutive topic from the same category where another category has eligible content. Within each category, topics are ordered by general score, then the existing editorial `order_index`, then stable topic ID.
 
-The cursor records category offsets so the same topic is not intentionally selected twice during ordinary pagination. The ranking score is recomputed when a new page is requested, so engagement changes can affect later pages; already-loaded cards are kept in the active feed session.
+The score for each published topic is calculated once per page request and cached in an in-memory JSON ranking map for the selection loop. The cursor records category offsets so the same topic is not intentionally selected twice during ordinary pagination. The ranking score is recomputed when a new page is requested, so engagement changes can affect later pages; already-loaded cards are kept in the active feed session.
 
 The general path includes completed topics. It does not consult `progress`, bookmarks, likes, comments or feed telemetry belonging to the current visitor. Signed-out and opted-out visitors therefore receive the same general ranking logic.
 
@@ -45,4 +45,6 @@ The ranking function is part of the emergency clean-project bootstrap at `docs/c
 
 - Applied the function directly to the production Supabase database.
 - Executed the function against the live published catalogue and confirmed it returned ranked topic records, category slugs and a continuation cursor.
+- Verified two consecutive pages of ten topics had zero duplicate topic IDs.
+- Optimised the scoring pass from repeated per-slot score calculation to one score calculation per page. A 24-topic production query measured approximately 17.7 ms and 3,419 shared-buffer hits after the change (compared with approximately 76.7 ms and 12,007 buffer hits before optimisation; timings are a single production measurement, not a load test).
 - The application integration is on the open draft PR branch. A full application build and automated test run are still required before deployment.
