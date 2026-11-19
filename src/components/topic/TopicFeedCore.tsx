@@ -197,13 +197,14 @@ export function TopicFeedCore({
   const loadSponsorCampaigns = useCallback(
     async (topic: Topic): Promise<{ campaigns: SponsorFeedCampaign[]; sessionId: string | null; retryable?: boolean }> => {
 
-      // Give each sponsor-card placement its own ID for reliable event attribution.
+      // Reuse one in-memory token for this active app session so anonymous frequency caps span placements.
       const sessionId = createSponsorSessionId();
       if (!sessionId) return { campaigns: [], sessionId: null, retryable: true };
 
       try {
         let accessToken = userId && getSponsorAccessToken ? await getSponsorAccessToken() : null;
         if (userId && !accessToken) {
+          if (!getSponsorAccessToken) return { campaigns: [], sessionId: null, retryable: true };
           // Auth state can briefly lag the feed's signed-in state during
           // session hydration. Retry once before treating the request as transient.
           await new Promise((resolve) => window.setTimeout(resolve, 250));
