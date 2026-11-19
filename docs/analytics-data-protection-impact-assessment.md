@@ -65,6 +65,7 @@ The controller must verify the exact deployed Vercel script/version and any othe
 - Normalise Vercel page-view URLs to the site root before transmission. Verify this in a deployed network capture after release.
 - Keep Vercel Speed Insights disabled until its data fields, route handling, retention, processor terms, and transfer position have been reviewed.
 - Keep first-party raw analytics in the private database schema, with no direct client table grants, validated RPC ingestion, strict rate limits, bounded payloads, deduplication, and bounded retention.
+- While content-level collection is paused, clear any queued, unsent topic/comment event batches from browser localStorage so a later deployment cannot upload stale activity unexpectedly.
 - Keep individual analytics unavailable to sponsors and out of sponsor targeting.
 - Do not publish small-cell analytics that could single out an individual or reveal sensitive interests. Any future aggregate report should apply minimum cohort thresholds and suppress low-count rows.
 - Do not create a signed-out unique-visitor metric unless a separate privacy assessment establishes a proportionate and lawful identifier strategy.
