@@ -28,11 +28,11 @@ import { TopicCard } from './TopicCard';
 import type { FeedCardRendererContext } from './feed-card-registry.types';
 import { getAdjacentFeedEntry, getFeedEntryKey, reconcileFeedEntryCursor } from '@/lib/feed-entry-cursor';
 
-import type { GeneralFeedCursor } from '@/lib/content';
+import type { GeneralFeedCursor, TopicPageCursor } from '@/lib/content';
 import type { RecommendationCursor } from '@/lib/recommendations';
 import { Topic } from '@/types';
 
-type FeedCursor = GeneralFeedCursor | RecommendationCursor;
+type FeedCursor = TopicPageCursor | GeneralFeedCursor | RecommendationCursor;
 type FeedPage = { topics: Topic[]; nextCursor: FeedCursor | null };
 
 function appendUniqueFeedTopics(existing: Topic[], incoming: Topic[]): Topic[] {
