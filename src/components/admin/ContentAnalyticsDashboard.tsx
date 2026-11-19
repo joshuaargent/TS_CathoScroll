@@ -96,12 +96,13 @@ function LineChart({ series, anonymousSeries }: { series: DailyContentAnalytics[
     const y = padding.top + chartHeight - (value / maxValue) * chartHeight;
     return `${x.toFixed(1)},${y.toFixed(1)}`;
   };
-  const impressions = series.map((item, index) => pointFor(item.impressions, index)).join(' ');
-  const viewable = series
-    .map((item, index) => pointFor(item.viewable_impressions, index))
-    .join(' ');
-  const anonymousImpressions = anonymousSeries.map((item,index) => pointFor(item.impressions,index)).join(' ');
-  const anonymousViewable = anonymousSeries.map((item,index) => pointFor(item.viewable_impressions,index)).join(' ');
+  const dates = [...new Set([...series.map((item) => item.date), ...anonymousSeries.map((item) => item.date)])].sort();
+  const signedByDate = new Map(series.map((item) => [item.date, item]));
+  const anonymousByDate = new Map(anonymousSeries.map((item) => [item.date, item]));
+  const impressions = dates.map((date,index) => pointFor(signedByDate.get(date)?.impressions ?? 0,index)).join(' ');
+  const viewable = dates.map((date,index) => pointFor(signedByDate.get(date)?.viewable_impressions ?? 0,index)).join(' ');
+  const anonymousImpressions = dates.map((date,index) => pointFor(anonymousByDate.get(date)?.impressions ?? 0,index)).join(' ');
+  const anonymousViewable = dates.map((date,index) => pointFor(anonymousByDate.get(date)?.viewable_impressions ?? 0,index)).join(' ');
   const gridValues = [0, 0.5, 1].map((fraction) => ({
     fraction,
     y: padding.top + chartHeight - fraction * chartHeight,
@@ -189,7 +190,7 @@ function LineChart({ series, anonymousSeries }: { series: DailyContentAnalytics[
         />
         <polyline points={anonymousImpressions} fill="none" className="stroke-accent" strokeWidth="2" strokeDasharray="5 5" />
         <polyline points={anonymousViewable} fill="none" className="stroke-emerald-600" strokeWidth="2" strokeDasharray="5 5" />
-        {series.length > 0 && (
+        {dates.length > 0 && (
           <>
             <text
               x={padding.left}
@@ -198,7 +199,7 @@ function LineChart({ series, anonymousSeries }: { series: DailyContentAnalytics[
               className="fill-text-muted"
               fontSize="11"
             >
-              {formatDate(series[0].date)}
+              {formatDate(dates[0])}
             </text>
             <text
               x={width - padding.right}
@@ -207,7 +208,7 @@ function LineChart({ series, anonymousSeries }: { series: DailyContentAnalytics[
               className="fill-text-muted"
               fontSize="11"
             >
-              {formatDate(series[series.length - 1].date)}
+              {formatDate(dates[dates.length - 1])}
             </text>
           </>
         )}
