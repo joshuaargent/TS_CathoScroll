@@ -94,10 +94,14 @@ export default async function AdminAnalyticsEntityPage({ params, searchParams }:
     totals = payload?.totals ?? {};
     const anonymousPayload = anonymousData as { totals?: Record<string, unknown>; series?: Record<string, unknown>[] } | null;
     anonymousTotals = anonymousPayload?.totals ?? {};
+    const signedSeries = payload?.series ?? [];
     const anonymousByDate = new Map((anonymousPayload?.series ?? []).map((row) => [String(row.event_date), row]));
-    series = (payload?.series ?? []).map((row) => {
-      const anon = anonymousByDate.get(String(row.event_date)) ?? {};
-      return { ...row, anonymous_served: anon.sponsor_served ?? 0, anonymous_viewable_impressions: anon.sponsor_viewable_impressions ?? 0, anonymous_clicks: anon.sponsor_clicks ?? 0 };
+    const signedByDate = new Map(signedSeries.map((row) => [String(row.event_date), row]));
+    const dates = [...new Set([...signedByDate.keys(), ...anonymousByDate.keys()])].sort();
+    series = dates.map((date) => {
+      const row = signedByDate.get(date) ?? {};
+      const anon = anonymousByDate.get(date) ?? {};
+      return { event_date: date, ...row, anonymous_served: anon.sponsor_served ?? 0, anonymous_viewable_impressions: anon.sponsor_viewable_impressions ?? 0, anonymous_clicks: anon.sponsor_clicks ?? 0 };
     });
     campaigns = payload?.campaigns ?? [];
   } else {
@@ -117,10 +121,14 @@ export default async function AdminAnalyticsEntityPage({ params, searchParams }:
     const anonymousPayload = anonymousData as { totals?: Record<string, unknown>; series?: Record<string, unknown>[] } | null;
     anonymousTotals = anonymousPayload?.totals ?? {};
     totals = { ...(payload?.totals ?? {}), likes: likes ?? 0, replies: replies ?? 0 };
+    const signedSeries = payload?.series ?? [];
     const anonymousByDate = new Map((anonymousPayload?.series ?? []).map((row) => [String(row.event_date), row]));
-    series = (payload?.series ?? []).map((row) => {
-      const anon = anonymousByDate.get(String(row.event_date)) ?? {};
-      return { ...row, anonymous_impressions: anon.comment_impressions ?? 0, anonymous_viewable_impressions: anon.comment_viewable_impressions ?? 0 };
+    const signedByDate = new Map(signedSeries.map((row) => [String(row.event_date), row]));
+    const dates = [...new Set([...signedByDate.keys(), ...anonymousByDate.keys()])].sort();
+    series = dates.map((date) => {
+      const row = signedByDate.get(date) ?? {};
+      const anon = anonymousByDate.get(date) ?? {};
+      return { event_date: date, ...row, anonymous_impressions: anon.comment_impressions ?? 0, anonymous_viewable_impressions: anon.comment_viewable_impressions ?? 0 };
     });
   }
 
