@@ -8213,7 +8213,7 @@ BEGIN
      IF NOT FOUND THEN RAISE EXCEPTION 'Unknown or unpublished topic analytics entity' USING ERRCODE='22023'; END IF;
    ELSIF v_type='comment' THEN
      BEGIN
-       PERFORM 1 FROM public.comments c WHERE c.id=v_id::bigint AND c.parent_id IS NULL AND c.is_deleted=false;
+       PERFORM 1 FROM public.comments c JOIN public.topics t ON t.id=c.topic_id WHERE c.id=v_id::bigint AND c.parent_id IS NULL AND c.is_deleted=false AND t.is_published;
      EXCEPTION WHEN invalid_text_representation OR numeric_value_out_of_range THEN
        RAISE EXCEPTION 'Invalid comment analytics entity' USING ERRCODE='22023';
      END;
@@ -8244,48 +8244,6 @@ BEGIN
    v_count := v_count+1;
  END LOOP;
  RETURN v_count;
-END; $function$
-;
-
-CREATE OR REPLACE FUNCTION public.record_anonymous_sponsor_campaign_event(p_session_token text, p_campaign_id uuid, p_placement_id text, p_event_id uuid, p_event_type text)
- RETURNS boolean
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO ''
-AS $function$
-DECLARE v_hash text; v_served timestamptz; v_today date:=(pg_catalog.timezone('UTC',statement_timestamp()))::date;
-BEGIN
- IF p_session_token IS NULL OR p_session_token !~* '^[0-9a-f-]{36}$'
-  OR p_campaign_id IS NULL OR p_placement_id IS NULL OR length(p_placement_id) NOT BETWEEN 1 AND 160
-  OR p_event_id IS NULL OR p_event_type NOT IN ('viewable_impression','click') THEN
-  RAISE EXCEPTION 'Invalid anonymous sponsor event' USING ERRCODE='22023';
- END IF;
- v_hash:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p_session_token,'UTF8')),'hex');
- SELECT received_at INTO v_served FROM catho_private.anonymous_sponsor_events
- WHERE campaign_id=p_campaign_id AND session_hash=v_hash AND placement_id=p_placement_id
-  AND event_type='served' AND received_at>=statement_timestamp()-interval '24 hours'
- ORDER BY received_at DESC LIMIT 1;
- IF v_served IS NULL THEN RAISE EXCEPTION 'Sponsor placement was not eligible' USING ERRCODE='42501'; END IF;
- IF p_event_type='click' AND NOT EXISTS(
-  SELECT 1 FROM catho_private.anonymous_sponsor_events
-  WHERE campaign_id=p_campaign_id AND session_hash=v_hash AND placement_id=p_placement_id
-   AND event_type='viewable_impression' AND received_at>=v_served
- ) THEN RAISE EXCEPTION 'Click requires a viewable impression for this placement' USING ERRCODE='42501'; END IF;
- INSERT INTO catho_private.anonymous_sponsor_events(campaign_id,event_id,session_hash,placement_id,event_type)
- VALUES(p_campaign_id,p_event_id,v_hash,p_placement_id,p_event_type) ON CONFLICT DO NOTHING;
- IF NOT FOUND THEN RETURN false; END IF;
- IF p_event_type='viewable_impression' THEN
-  INSERT INTO catho_private.anonymous_sponsor_campaign_daily(event_date,campaign_id,viewable_impressions)
-  VALUES(v_today,p_campaign_id,1)
-  ON CONFLICT(event_date,campaign_id) DO UPDATE SET
-   viewable_impressions=catho_private.anonymous_sponsor_campaign_daily.viewable_impressions+1;
- ELSE
-  INSERT INTO catho_private.anonymous_sponsor_campaign_daily(event_date,campaign_id,clicks)
-  VALUES(v_today,p_campaign_id,1)
-  ON CONFLICT(event_date,campaign_id) DO UPDATE SET
-   clicks=catho_private.anonymous_sponsor_campaign_daily.clicks+1;
- END IF;
- RETURN true;
 END; $function$
 ;
 REVOKE ALL ON FUNCTION public.record_anonymous_feed_analytics(jsonb) FROM PUBLIC,anon,authenticated;
