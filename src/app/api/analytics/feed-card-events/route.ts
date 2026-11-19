@@ -21,6 +21,10 @@ export function OPTIONS(request: Request) {
 }
 
 export async function POST(request: Request) {
+  // Fail closed until a distinct Article 9 basis/consent decision is approved.
+  if (process.env.ACCOUNT_LINKED_FEED_ANALYTICS_ENABLED !== 'true') {
+    return respond(request, { error: 'Feed-card analytics are temporarily disabled.' }, 410);
+  }
   if (!isSameOriginOrNativeRequest(request)) return respond(request, { error: 'Forbidden' }, 403);
   const { supabase, user } = await getAuthenticatedUserFromRequest(request);
   if (!user) return respond(request, { error: 'Authentication required.' }, 401);
