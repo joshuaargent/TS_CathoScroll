@@ -38,7 +38,7 @@ Whether you're exploring Catholicism for the first time, returning to the faith,
 - **Community discussion** - comment, reply, like contributions, and engage with other learners.
 - **Public profiles** - view user profiles, progress, activity, and community contributions.
 - **Structured learning** - planned learning paths that guide users through key areas of Catholic teaching; all learning tools are free.
-- **Audio lessons** - planned narrated audio versions of topics, available without a paid user membership.
+- **Audio lessons** - planned narrated audio versions of topics, free to all users.
 - **Quizzes** - planned quizzes designed to reinforce learning and understanding, available free to users.
 - **Sponsorships** - clearly labelled paid placements purchased by businesses; user learning features remain free and sponsor activity never changes organic recommendation ranking.
 - **SEO and discoverability** - sitemap generation, robots rules, metadata, and rich social previews.
@@ -526,9 +526,11 @@ calculations and bookmark card/date formatting are shared as well.
 
 The native account adapter reads its profile from Supabase when connected and
 uses the encrypted per-device profile cache for read-only display when
-offline. Membership is always treated as live data; the app does not present
-an old cached tier as current. Profile, email, password, sign-in, and sign-out
-changes require a connection and are never silently queued.
+offline. CathoScroll has no paid user membership, subscription, or user access
+tier: individual learning and community features are free. Sponsor-organisation
+memberships are separate role assignments for sponsor representatives and do
+not change a user's learning access. Profile, email, password, sign-in, and
+sign-out changes require a connection and are never silently queued.
 
 The website and native app also share `NavbarView`. The native app supplies
 its own notification bell, navigation handling, and offline activity data
