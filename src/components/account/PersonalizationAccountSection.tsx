@@ -112,8 +112,17 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
   }, [client]);
 
   useEffect(() => {
-    void load();
+    let active = true;
+
+    // Start the initial request in a microtask. This keeps state updates inside
+    // the async request lifecycle rather than running them synchronously from
+    // the effect body, while still loading immediately after mount.
+    void Promise.resolve().then(() => {
+      if (active) void load();
+    });
+
     return () => {
+      active = false;
       requestVersion.current += 1;
     };
   }, [load]);
