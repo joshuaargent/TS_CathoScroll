@@ -16,6 +16,7 @@ type PersonalizationStatus = {
   model_version: string;
   selected_categories: string[];
   category_options: { slug: string; name: string }[];
+  top_topic_interests: { topic_id: string; slug: string; question: string; category_slug: string; score: number; short_term_score: number; long_term_score: number; explicit_score: number; inferred_score: number }[];
 };
 
 const emptyStatus: PersonalizationStatus = {
@@ -26,6 +27,7 @@ const emptyStatus: PersonalizationStatus = {
   model_version: '2026-11-19-v2',
   selected_categories: [],
   category_options: [],
+  top_topic_interests: [],
 };
 
 export default function PersonalizationSettingsPage() {
@@ -37,6 +39,7 @@ export default function PersonalizationSettingsPage() {
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [categoryOptions, setCategoryOptions] = useState<{ slug: string; name: string }[]>([]);
   const [savingInterests, setSavingInterests] = useState(false);
+  const [topTopicInterests, setTopTopicInterests] = useState<PersonalizationStatus['top_topic_interests']>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -64,7 +67,7 @@ export default function PersonalizationSettingsPage() {
         category_options: Array.isArray(data.category_options) ? data.category_options.filter((item: unknown): item is { slug: string; name: string } => Boolean(item) && typeof item === 'object' && typeof (item as { slug?: unknown }).slug === 'string' && typeof (item as { name?: unknown }).name === 'string') : [],
       });
       setSelectedCategories(Array.isArray(data.selected_categories) ? data.selected_categories.filter((item: unknown): item is string => typeof item === 'string') : []);
-      setCategoryOptions(Array.isArray(data.category_options) ? data.category_options.filter((item: unknown): item is { slug: string; name: string } => Boolean(item) && typeof item === 'object' && typeof (item as { slug?: unknown }).slug === 'string' && typeof (item as { name?: unknown }).name === 'string') : []);
+      setCategoryOptions(Array.isArray(data.category_options) ? data.category_options.filter((item: unknown): item is { slug: string; name: string } => Boolean(item) && typeof item === 'object' && typeof (item as { slug?: unknown }).slug === 'string' && typeof (item as { name?: unknown }).name === 'string') : []);\n      setTopTopicInterests(Array.isArray(data.top_topic_interests) ? data.top_topic_interests.filter((item: unknown): item is PersonalizationStatus['top_topic_interests'][number] => Boolean(item) && typeof item === 'object' && typeof (item as { topic_id?: unknown }).topic_id === 'string' && typeof (item as { question?: unknown }).question === 'string' && typeof (item as { score?: unknown }).score === 'number') : []);
     } catch (cause) {
       console.error('Unable to load personalisation settings:', cause);
       setError('Unable to load these settings. Refresh the page and try again.');
@@ -207,6 +210,26 @@ export default function PersonalizationSettingsPage() {
             <p className="mt-2 text-2xl font-bold tabular-nums">{loading ? '—' : status.category_interests}</p>
           </div>
         </div>
+
+        {status.enabled && (
+          <div className="border-border mt-6 border-t pt-5">
+            <h3 className="font-semibold">Topics currently influencing your recommendations</h3>
+            <p className="text-text-muted mt-1 text-sm">These are content-interest signals, not a measure of your religious beliefs or identity. The score is a relative ranking value used by the recommendation system.</p>
+            {topTopicInterests.length ? (
+              <ul className="mt-3 space-y-2">
+                {topTopicInterests.map((topic) => (
+                  <li key={topic.topic_id} className="border-border flex flex-wrap items-center justify-between gap-3 rounded-xl border px-3 py-3">
+                    <span className="min-w-0">
+                      <span className="text-text-primary block text-sm font-medium">{topic.question}</span>
+                      <span className="text-text-muted mt-0.5 block text-xs">{categoryOptions.find((category) => category.slug === topic.category_slug)?.name ?? topic.category_slug}</span>
+                    </span>
+                    <span className="text-text-secondary shrink-0 text-xs tabular-nums">Weight {topic.score.toFixed(2)}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : <p className="text-text-muted mt-3 text-sm">No topic interests have been calculated yet.</p>}
+          </div>
+        )}
 
         <div className="border-border mt-6 flex items-start gap-3 border-t pt-5">
           <ShieldCheck className="text-text-muted mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
