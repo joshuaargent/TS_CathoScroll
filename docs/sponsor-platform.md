@@ -1,5 +1,8 @@
 # Sponsor Platform
 
+**Commercial model:** Sponsorship is CathoScroll's only paid offering. Individual users do not pay for learning, community, account, or personalisation features. Sponsor invoices are settled by direct bank transfer outside the app; there are no user subscriptions or in-app card payments.
+
+
 This document describes the current sponsor workflow, permissions, payment controls and feed behaviour. Sponsor payments are direct bank transfers to CathoScroll; the application does not process payments.
 
 ## Feed placement rules
