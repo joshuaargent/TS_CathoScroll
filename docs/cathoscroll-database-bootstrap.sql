@@ -1628,6 +1628,7 @@ DECLARE
   last_category text;
   streak integer;
   include_completed boolean;
+  personalization_enabled boolean := false;
   initial_page boolean := feed_cursor IS NULL OR feed_cursor = 'null'::jsonb;
   item_count integer := 0;
 BEGIN
@@ -1643,7 +1644,12 @@ BEGIN
     RAISE EXCEPTION 'Invalid page limit' USING ERRCODE = '22023';
   END IF;
 
+  SELECT coalesce(enabled,false) INTO personalization_enabled
+  FROM catho_private.user_personalization_consents
+  WHERE user_id=current_user_id;
+
   IF initial_page THEN
+    include_completed := NOT personalization_enabled;
     -- Freeze category preferences for this feed cursor. Legacy learning actions
     -- remain strong signals; feed telemetry adds bounded, decaying evidence.
     WITH signals AS (
@@ -1677,11 +1683,13 @@ BEGIN
         ON t.id = s.topic_id AND t.is_published
       JOIN public.categories c
         ON c.slug = t.category_slug AND c.is_published
+      WHERE personalization_enabled
       GROUP BY t.category_slug
     ),
     feed_preferences AS (
       SELECT feed_signals.category_slug, sum(feed_signals.weight) AS weight
       FROM catho_private.get_user_feed_preference_signals(current_user_id) AS feed_signals
+      WHERE personalization_enabled
       GROUP BY feed_signals.category_slug
     ),
     preferences AS (
@@ -1782,6 +1790,13 @@ BEGIN
   last_category := state->>'last';
   streak := (state->>'streak')::integer;
   include_completed := (state->>'includeCompleted')::boolean;
+
+  IF NOT personalization_enabled THEN
+    SELECT coalesce(jsonb_agg(a.entry || jsonb_build_object('weight',1) ORDER BY a.ordinality),'[]'::jsonb)
+      INTO categories
+    FROM jsonb_array_elements(categories) WITH ORDINALITY AS a(entry,ordinality);
+    include_completed := true;
+  END IF;
 
   -- Select the category with the smallest served / weight.
   -- Avoid a third consecutive topic from one category where possible.
