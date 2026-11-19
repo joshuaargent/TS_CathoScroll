@@ -90,7 +90,7 @@ The product's current minimum age is 13. This does not settle whether a particul
 2. **DPIA completion:** Complete the necessity/proportionality assessment, risk scoring, mitigations, residual-risk decision, and controller approval. Do not treat this screening as approval.
 3. **Children:** Decide whether personalisation is available to users aged 13–17 and document capacity/parental considerations.
 4. **Controller details:** Add the controller's full legal identity and postal address to the public Privacy Policy.
-5. **Processors/transfers:** Verify actual Supabase and Vercel regions, processor agreements, subprocessors, and UK international-transfer safeguards.
+5. **Processors/transfers:** Supabase is currently in AWS Stockholm (eu-north-1); Vercel functions are currently in US East (iad1). Verify the Vercel plan includes the published DPA, confirm the Supabase DPA and subprocessors, review SCCs/UK IDTA coverage, and re-check deployment regions before launch.
 6. **Financial retention:** Confirm sponsor invoice/payment record retention with an accountant or legal adviser.
 7. **Production notice:** Verify the exact consent wording, version, signup state, Account settings, and policy copy on both web and native before release.
 
