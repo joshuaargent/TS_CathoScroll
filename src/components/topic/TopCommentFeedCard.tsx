@@ -204,7 +204,7 @@ export function TopCommentFeedCard({
     const startDuration = () => {
       if (!viewable || document.visibilityState !== 'visible' || startedAt !== null) return;
       startedAt = Date.now();
-      if (durationTimer === null) durationTimer = setInterval(flushDuration, 5000);
+      if (durationTimer === null) durationTimer = setInterval(() => flushDuration(true), 5000);
     };
     const scheduleViewability = () => {
       if (!isIntersecting || viewable || viewTimer !== null || document.visibilityState !== 'visible') return;
@@ -224,7 +224,7 @@ export function TopCommentFeedCard({
           else {
             if (viewTimer !== null) clearTimeout(viewTimer);
             viewTimer = null;
-            flushDuration();
+            flushDuration(false);
           }
         }, { threshold: [0, 0.5, 1] })
       : null;
@@ -237,7 +237,7 @@ export function TopCommentFeedCard({
       if (document.visibilityState === 'hidden') {
         if (viewTimer !== null) clearTimeout(viewTimer);
         viewTimer = null;
-        flushDuration();
+        flushDuration(false);
       } else if (isIntersecting) {
         if (viewable) startDuration();
         else scheduleViewability();
