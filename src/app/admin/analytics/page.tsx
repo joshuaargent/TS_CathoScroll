@@ -96,7 +96,7 @@ export default async function AdminAnalyticsPage({ searchParams }: Props) {
   };
 
   return <AdminAnalyticsHub overview={mergedCurrent as Parameters<typeof AdminAnalyticsHub>[0]['overview']}
-    anonymous={anonymous} series={mergedSeries as Parameters<typeof AdminAnalyticsHub>[0]['series']} period={period}
+    series={mergedSeries as Parameters<typeof AdminAnalyticsHub>[0]['series']} period={period}
     section={query.section && ['overview','categories','topics','sponsors','comments'].includes(query.section) ? query.section : 'overview'}
     deepDive={deepDiveData as Parameters<typeof AdminAnalyticsHub>[0]['deepDive']}
     comparison={mergedPrevious as Parameters<typeof AdminAnalyticsHub>[0]['overview']} />;
