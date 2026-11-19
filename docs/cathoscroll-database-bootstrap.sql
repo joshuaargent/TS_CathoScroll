@@ -1,5 +1,5 @@
 -- CathoScroll complete application-schema and public catalogue bootstrap
--- Generated from production on 2026-11-16.
+-- Reconciled against production on 2026-11-19.
 --
 -- IMPORTANT:
 --   * Run ONLY against a fresh Supabase project. This script intentionally
@@ -280,7 +280,6 @@ CREATE TABLE public.profiles (
   username text NOT NULL,
   display_name text NOT NULL,
   bio text,
-  subscription_tier text DEFAULT 'free'::text NOT NULL,
   created_at timestamp with time zone DEFAULT now() NOT NULL,
   updated_at timestamp with time zone DEFAULT now() NOT NULL,
   CONSTRAINT profiles_pkey PRIMARY KEY (id),
@@ -494,7 +493,7 @@ ELSE RETURN NEW; END IF;
 IF actor IS NULL THEN RAISE EXCEPTION 'Administrator identity is required for moderation changes' USING ERRCODE='42501'; END IF;
 INSERT INTO catho_private.admin_action_audit(actor_user_id,action,target_type,target_id,target_user_id,details) VALUES(actor,action_name,TG_TABLE_NAME,target_identifier,target_user,event_details);
 RETURN NEW;
-END;$function$
+END;$function$;
 
 CREATE OR REPLACE FUNCTION catho_private.consume_recommendation_rate_limit(p_user_id uuid)
  RETURNS boolean
@@ -742,7 +741,7 @@ CREATE OR REPLACE FUNCTION catho_private.prevent_audit_mutation()
  RETURNS trigger
  LANGUAGE plpgsql
  SET search_path TO ''
-AS $function$ BEGIN RAISE EXCEPTION 'Administrator audit records are append-only' USING ERRCODE='42501'; END;$function$
+AS $function$ BEGIN RAISE EXCEPTION 'Administrator audit records are append-only' USING ERRCODE='42501'; END;$function$;
 
 CREATE OR REPLACE FUNCTION catho_private.prune_activity(p_user uuid, p_through bigint)
  RETURNS void
@@ -1943,16 +1942,7 @@ AS $function$
     );
 $function$;
 
-CREATE OR REPLACE FUNCTION public.get_own_subscription_tier()
- RETURNS text
- LANGUAGE sql
- STABLE SECURITY DEFINER
- SET search_path TO ''
-AS $function$
-  SELECT p.subscription_tier
-  FROM public.profiles AS p
-  WHERE p.id = (SELECT auth.uid())
-$function$;
+
 
 CREATE OR REPLACE FUNCTION public.get_public_profile_metrics(p_profile_id uuid, p_timezone text DEFAULT 'UTC'::text)
  RETURNS jsonb
@@ -2416,7 +2406,7 @@ CREATE OR REPLACE FUNCTION public.notify_comment_appeal_reviewed()
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'pg_catalog', 'public'
-AS $function$
+AS $function$;
 begin
   if old.status = 'pending' and new.status <> 'pending' then
     if new.status = 'approved'
@@ -3646,10 +3636,7 @@ GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON
 GRANT SELECT ON TABLE public.user_comment_bans TO authenticated;
 GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.user_comment_bans TO service_role;
 
--- Column-level grants are part of the source security model. In particular,
--- subscription_tier is deliberately not writable/readable through direct
--- profile table access; clients obtain their own tier through the guarded RPC.
---
+-- Column-level grants are part of the source security model.
 -- Comments expose only non-content metadata to anonymous clients. Authenticated
 -- clients can read only non-content metadata directly. Comment text is available
 -- exclusively through get_topic_comment_page, which enforces publication and
@@ -3790,7 +3777,6 @@ REVOKE ALL ON FUNCTION public.consume_api_rate_limit(p_key_hash text, p_limit in
 REVOKE ALL ON FUNCTION public.enable_admin_mfa_enforcement(p_actor_user_id uuid) FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION public.get_my_recommendation_page(feed_cursor jsonb, page_limit integer) FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION public.get_my_topic_engagement() FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION public.get_own_subscription_tier() FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION public.get_public_profile_metrics(p_profile_id uuid, p_timezone text) FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION public.get_topic_comment_page(p_topic_id text, p_before_created_at timestamp with time zone, p_before_id bigint, p_limit integer) FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION public.get_topic_like_state(p_topic_id text) FROM PUBLIC, anon, authenticated, service_role;
@@ -3844,7 +3830,6 @@ GRANT EXECUTE ON FUNCTION public.get_my_recommendation_page(feed_cursor jsonb, p
 GRANT EXECUTE ON FUNCTION public.get_my_recommendation_page(feed_cursor jsonb, page_limit integer) TO service_role;
 GRANT EXECUTE ON FUNCTION public.get_my_topic_engagement() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.get_my_topic_engagement() TO service_role;
-GRANT EXECUTE ON FUNCTION public.get_own_subscription_tier() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.get_public_profile_metrics(p_profile_id uuid, p_timezone text) TO anon;
 GRANT EXECUTE ON FUNCTION public.get_public_profile_metrics(p_profile_id uuid, p_timezone text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.get_topic_comment_page(p_topic_id text, p_before_created_at timestamp with time zone, p_before_id bigint, p_limit integer) TO anon;
@@ -4079,7 +4064,7 @@ CREATE OR REPLACE FUNCTION public.get_admin_content_analytics(p_entity_type text
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO ''
-AS $function$
+AS $function$;
 DECLARE
   v_first_retained_event_at timestamptz;
   v_effective_from timestamptz;
@@ -7821,3 +7806,345 @@ DROP TRIGGER IF EXISTS cathoscroll_capture_signup_personalization_consent ON aut
 CREATE TRIGGER cathoscroll_capture_signup_personalization_consent
 AFTER INSERT ON auth.users
 FOR EACH ROW EXECUTE FUNCTION catho_private.capture_signup_personalization_consent();
+
+
+-- Production overloads added after the previous emergency snapshot.
+CREATE OR REPLACE FUNCTION public.admin_create_sponsor(p_actor_user_id uuid, p_sponsor_name text, p_contact_email text, p_website_url text, p_logo_url text, p_description text, p_starts_on date, p_ends_on date, p_status text, p_agreed_amount_minor bigint, p_currency text, p_payment_status text, p_payment_reference text, p_admin_notes text)
+ RETURNS jsonb
+ LANGUAGE sql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+  SELECT public.admin_create_sponsor(
+    p_actor_user_id,
+    p_sponsor_name,
+    p_contact_email,
+    p_website_url,
+    p_description,
+    p_starts_on,
+    p_ends_on,
+    p_status,
+    p_agreed_amount_minor,
+    p_currency,
+    p_payment_status,
+    p_payment_reference,
+    p_admin_notes
+  );
+$function$;
+
+CREATE OR REPLACE FUNCTION public.get_admin_analytics_overview(p_from timestamp with time zone, p_to timestamp with time zone)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare v_result jsonb;
+begin
+  if not exists(select 1 from public.admin_users where user_id=auth.uid()) then
+    raise exception 'administrator access required' using errcode='42501';
+  end if;
+  if p_from is null or p_to is null or p_to <= p_from or p_to-p_from > interval '180 days'
+    or p_to > statement_timestamp()+interval '1 day' then
+    raise exception 'invalid analytics range' using errcode='22023';
+  end if;
+  with topic_daily as (
+    select d.entity_id,d.event_date,d.impressions,d.viewable_impressions,d.active_duration_ms,d.skips,d.completions,d.return_visits
+    from catho_private.feed_analytics_daily d where d.event_date >= p_from::date and d.event_date <= p_to::date
+  ), sponsor_daily as (
+    select d.campaign_id,d.event_date,d.served_count,d.viewable_impressions,d.clicks
+    from catho_private.sponsor_campaign_daily d where d.event_date >= p_from::date and d.event_date <= p_to::date
+  ), comment_daily as (
+    select d.card_id,d.event_date,d.impressions,d.viewable_impressions,d.active_duration_ms,d.skips,d.completions,d.opens,d.unique_viewers
+    from catho_private.feed_card_analytics_daily d where d.event_date >= p_from::date and d.event_date <= p_to::date
+  ), totals as (
+    select
+      coalesce((select sum(impressions) from topic_daily),0) topic_impressions,
+      coalesce((select sum(viewable_impressions) from topic_daily),0) topic_viewable_impressions,
+      coalesce((select sum(active_duration_ms) from topic_daily),0) topic_active_duration_ms,
+      coalesce((select sum(skips) from topic_daily),0) topic_skips,
+      coalesce((select sum(completions) from topic_daily),0) topic_completions,
+      coalesce((select sum(served_count) from sponsor_daily),0) sponsor_served,
+      coalesce((select sum(viewable_impressions) from sponsor_daily),0) sponsor_viewable_impressions,
+      coalesce((select sum(clicks) from sponsor_daily),0) sponsor_clicks,
+      coalesce((select sum(impressions) from comment_daily),0) comment_card_impressions,
+      coalesce((select sum(viewable_impressions) from comment_daily),0) comment_card_viewable_impressions,
+      coalesce((select sum(active_duration_ms) from comment_daily),0) comment_card_active_duration_ms,
+      coalesce((select sum(skips) from comment_daily),0) comment_card_skips,
+      coalesce((select sum(opens) from comment_daily),0) comment_card_opens,
+      (select count(*) from public.categories) category_count,
+      (select count(*) from public.topics) topic_count,
+      (select count(*) from public.sponsors) sponsor_count,
+      (select count(*) from public.comments where is_deleted=false and parent_id is null) comment_count
+  ), categories as (
+    select c.slug,c.name,count(t.id) topic_count,
+      coalesce(sum(td.impressions),0) impressions,coalesce(sum(td.viewable_impressions),0) viewable_impressions
+    from public.categories c
+    left join public.topics t on t.category_slug=c.slug
+    left join topic_daily td on td.entity_id=t.id
+    group by c.slug,c.name
+    order by impressions desc,c.name
+  ), topics as (
+    select t.id,t.slug,t.question,t.category_slug,
+      coalesce(sum(td.impressions),0) impressions,coalesce(sum(td.viewable_impressions),0) viewable_impressions,
+      coalesce(sum(td.active_duration_ms),0) active_duration_ms
+    from public.topics t left join topic_daily td on td.entity_id=t.id
+    group by t.id,t.slug,t.question,t.category_slug
+    order by impressions desc,t.question
+    limit 100
+  ), sponsors as (
+    select s.id,s.sponsor_name,s.status,count(distinct sc.id) campaign_count,
+      coalesce(sum(sd.served_count),0) served,coalesce(sum(sd.viewable_impressions),0) viewable_impressions,
+      coalesce(sum(sd.clicks),0) clicks
+    from public.sponsors s left join public.sponsor_campaigns sc on sc.sponsor_id=s.id
+    left join sponsor_daily sd on sd.campaign_id=sc.id
+    group by s.id,s.sponsor_name,s.status
+    order by served desc,s.sponsor_name
+    limit 100
+  ), comments as (
+    select c.id,c.topic_id,t.question topic_question,c.created_at,
+      coalesce(cd.impressions,0) impressions,coalesce(cd.viewable_impressions,0) viewable_impressions,
+      coalesce(cd.active_duration_ms,0) active_duration_ms,coalesce(cd.skips,0) skips,
+      coalesce(cd.opens,0) opens,
+      (select count(*) from public.comment_likes cl where cl.comment_id=c.id) likes,
+      (select count(*) from public.comments r where r.parent_id=c.id and r.is_deleted=false) replies
+    from public.comments c left join public.topics t on t.id=c.topic_id
+    left join (select card_id,sum(impressions) impressions,sum(viewable_impressions) viewable_impressions,
+      sum(active_duration_ms) active_duration_ms,sum(skips) skips,sum(opens) opens
+      from comment_daily group by card_id) cd on cd.card_id=c.id::text
+    where c.parent_id is null and c.is_deleted=false
+    order by impressions desc,c.created_at desc
+    limit 100
+  )
+  select jsonb_build_object(
+    'totals',(select to_jsonb(totals) from totals),
+    'categories',(select coalesce(jsonb_agg(to_jsonb(categories)),'[]'::jsonb) from categories),
+    'topics',(select coalesce(jsonb_agg(to_jsonb(topics)),'[]'::jsonb) from topics),
+    'sponsors',(select coalesce(jsonb_agg(to_jsonb(sponsors)),'[]'::jsonb) from sponsors),
+    'comments',(select coalesce(jsonb_agg(to_jsonb(comments)),'[]'::jsonb) from comments)
+  ) into v_result;
+  return v_result;
+end;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.get_admin_feed_analytics(p_from timestamp with time zone, p_to timestamp with time zone, p_card_type text DEFAULT NULL::text, p_card_id text DEFAULT NULL::text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare v_result jsonb;
+begin
+  if not exists(select 1 from public.admin_users where user_id=auth.uid()) then
+    raise exception 'administrator access required' using errcode='42501';
+  end if;
+  if p_from is null or p_to is null or p_to <= p_from or p_to-p_from > interval '180 days'
+    or (p_card_type is not null and p_card_type <> 'top-comment')
+    or (p_card_id is not null and (length(p_card_id) not between 1 and 64 or p_card_type is null)) then
+    raise exception 'invalid analytics range or filter' using errcode='22023';
+  end if;
+  with days as (
+    select d::date as event_date from generate_series(date_trunc('day',p_from),date_trunc('day',p_to),interval '1 day') d
+  ), daily as (
+    select * from catho_private.feed_card_analytics_daily
+    where event_date >= p_from::date and event_date <= p_to::date
+      and (p_card_type is null or card_type=p_card_type)
+      and (p_card_id is null or card_id=p_card_id)
+  ), totals as (
+    select coalesce(sum(impressions),0) impressions,coalesce(sum(viewable_impressions),0) viewable_impressions,
+      coalesce(sum(active_duration_ms),0) active_duration_ms,coalesce(sum(skips),0) skips,
+      coalesce(sum(completions),0) completions,coalesce(sum(opens),0) opens,
+      coalesce(sum(unique_viewers),0) unique_viewers,
+      max(refreshed_at) last_refreshed_at
+    from daily
+  ), series as (
+    select d.event_date,coalesce(sum(a.impressions),0) impressions,
+      coalesce(sum(a.viewable_impressions),0) viewable_impressions,
+      coalesce(sum(a.active_duration_ms),0) active_duration_ms,
+      coalesce(sum(a.skips),0) skips
+    from days d left join daily a on a.event_date=d.event_date
+    group by d.event_date order by d.event_date
+  ), top_cards as (
+    select card_id, sum(impressions) impressions,sum(viewable_impressions) viewable_impressions,
+      sum(active_duration_ms) active_duration_ms,sum(skips) skips,sum(completions) completions,sum(opens) opens
+    from daily group by card_id order by sum(impressions) desc limit 100
+  )
+  select jsonb_build_object(
+    'range_start',p_from,'range_end',p_to,
+    'totals',(select to_jsonb(totals) from totals),
+    'series',(select coalesce(jsonb_agg(to_jsonb(series)),'[]'::jsonb) from series),
+    'top_cards',(select coalesce(jsonb_agg(to_jsonb(top_cards)),'[]'::jsonb) from top_cards)
+  ) into v_result;
+  return v_result;
+end;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.get_admin_sponsor_analytics(p_sponsor_id uuid, p_from timestamp with time zone, p_to timestamp with time zone)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare v_result jsonb;
+begin
+  if not exists(select 1 from public.admin_users where user_id=auth.uid()) then
+    raise exception 'administrator access required' using errcode='42501';
+  end if;
+  if p_sponsor_id is null or p_from is null or p_to is null or p_to <= p_from
+    or p_to-p_from > interval '180 days' then
+    raise exception 'invalid sponsor analytics range' using errcode='22023';
+  end if;
+  if not exists(select 1 from public.sponsors where id=p_sponsor_id) then
+    raise exception 'sponsor not found' using errcode='P0002';
+  end if;
+  with campaigns as (
+    select id,campaign_name,status from public.sponsor_campaigns where sponsor_id=p_sponsor_id
+  ), metrics as (
+    select coalesce(sum(d.served_count),0) served,
+      coalesce(sum(d.viewable_impressions),0) viewable_impressions,
+      coalesce(sum(d.clicks),0) clicks,
+      count(distinct d.campaign_id) filter(where d.served_count > 0) active_campaigns
+    from catho_private.sponsor_campaign_daily d join campaigns c on c.id=d.campaign_id
+    where d.event_date >= p_from::date and d.event_date <= p_to::date
+  ), series as (
+    select d.event_date,coalesce(sum(d.served_count),0) served,
+      coalesce(sum(d.viewable_impressions),0) viewable_impressions,coalesce(sum(d.clicks),0) clicks
+    from catho_private.sponsor_campaign_daily d join campaigns c on c.id=d.campaign_id
+    where d.event_date >= p_from::date and d.event_date <= p_to::date
+    group by d.event_date order by d.event_date
+  )
+  select jsonb_build_object(
+    'sponsor_id',p_sponsor_id,
+    'totals',(select to_jsonb(metrics) from metrics),
+    'campaigns',(select coalesce(jsonb_agg(jsonb_build_object('id',c.id,'name',c.campaign_name,'status',c.status)),'[]'::jsonb) from campaigns c),
+    'series',(select coalesce(jsonb_agg(to_jsonb(series)),'[]'::jsonb) from series)
+  ) into v_result;
+  return v_result;
+end;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.offline_apply_activity_v2(p_user uuid, p_operation uuid, p_device uuid, p_sequence text, p_acknowledged text, p_kind text, p_topic text, p_value boolean, p_completed_at timestamp with time zone DEFAULT NULL::timestamp with time zone)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'pg_catalog', 'public', 'auth', 'catho_private'
+AS $function$
+DECLARE
+  actor uuid := auth.uid();
+  seq bigint;
+  ack bigint;
+  state catho_private.activity_devices%rowtype;
+  mapped uuid;
+  result jsonb;
+  now_at timestamptz := clock_timestamp();
+  sync_count integer;
+BEGIN
+  IF actor IS NULL OR actor IS DISTINCT FROM p_user THEN
+    RAISE EXCEPTION 'Account does not match' USING ERRCODE = '42501';
+  END IF;
+
+  IF p_device IS NULL OR p_operation IS NULL
+    OR p_sequence IS NULL OR p_sequence !~ '^[1-9][0-9]{0,18}$'
+    OR p_acknowledged IS NULL OR p_acknowledged !~ '^(0|[1-9][0-9]{0,18})$'
+  THEN RAISE EXCEPTION 'Invalid activity device sequence'; END IF;
+
+  seq := p_sequence::bigint;
+  ack := p_acknowledged::bigint;
+  IF ack >= seq THEN RAISE EXCEPTION 'Invalid activity acknowledgement'; END IF;
+
+  INSERT INTO catho_private.activity_devices(user_id, device_id)
+  VALUES (actor, p_device) ON CONFLICT DO NOTHING;
+
+  SELECT * INTO state FROM catho_private.activity_devices
+  WHERE user_id = actor AND device_id = p_device FOR UPDATE;
+
+  IF seq <= state.acknowledged_sequence THEN
+    RAISE EXCEPTION 'Activity operation was already acknowledged';
+  END IF;
+  IF ack > state.last_sequence THEN RAISE EXCEPTION 'Unknown activity acknowledgement'; END IF;
+  IF ack > state.acknowledged_sequence AND NOT EXISTS (
+    SELECT 1 FROM catho_private.activity_receipt_sequences
+    WHERE user_id = actor AND device_id = p_device AND sequence = ack
+  ) THEN RAISE EXCEPTION 'Unknown activity acknowledgement'; END IF;
+
+  SELECT operation_id INTO mapped FROM catho_private.activity_receipt_sequences
+  WHERE user_id = actor AND device_id = p_device AND sequence = seq;
+
+  IF (FOUND AND mapped IS DISTINCT FROM p_operation)
+    OR (NOT FOUND AND seq <= state.last_sequence) THEN
+    RAISE EXCEPTION 'Activity device sequence was reused';
+  END IF;
+  IF mapped IS NULL AND ack < state.last_sequence AND seq <> state.last_sequence + 1 THEN
+    RAISE EXCEPTION 'Previous activity operation was not acknowledged';
+  END IF;
+  IF mapped IS NULL AND EXISTS (
+    SELECT 1 FROM catho_private.activity_receipt_sequences
+    WHERE user_id = actor AND operation_id = p_operation
+  ) THEN RAISE EXCEPTION 'Activity operation ID was reused'; END IF;
+
+  -- Count only new operations. Replaying a committed receipt after a lost
+  -- response must remain idempotent and must not consume the write allowance.
+  IF mapped IS NULL THEN
+    INSERT INTO catho_private.user_action_limits(user_id)
+    VALUES(actor) ON CONFLICT(user_id) DO NOTHING;
+
+    UPDATE catho_private.user_action_limits
+    SET
+      offline_sync_count = CASE
+        WHEN offline_sync_window_started_at IS NULL
+          OR offline_sync_window_started_at <= now_at - interval '1 minute' THEN 1
+        ELSE LEAST(offline_sync_count + 1, 301)
+      END,
+      offline_sync_window_started_at = CASE
+        WHEN offline_sync_window_started_at IS NULL
+          OR offline_sync_window_started_at <= now_at - interval '1 minute' THEN now_at
+        ELSE offline_sync_window_started_at
+      END
+    WHERE user_id = actor
+    RETURNING offline_sync_count INTO sync_count;
+
+    IF sync_count > 300 THEN
+      RAISE EXCEPTION 'Offline activity sync rate limit exceeded' USING ERRCODE = 'P0001';
+    END IF;
+  END IF;
+
+  IF ack > state.acknowledged_sequence THEN
+    DELETE FROM catho_private.activity_receipts r
+    USING catho_private.activity_receipt_sequences s
+    WHERE s.user_id = actor AND s.device_id = p_device AND s.sequence <= ack
+      AND r.user_id = s.user_id AND r.operation_id = s.operation_id;
+
+    UPDATE catho_private.activity_devices
+    SET acknowledged_sequence = ack
+    WHERE user_id = actor AND device_id = p_device;
+  END IF;
+
+  DELETE FROM catho_private.activity_receipt_sequences
+  WHERE user_id = actor AND device_id = p_device AND sequence <= ack;
+
+  result := public.offline_apply_activity(
+    p_user, p_operation, p_kind, p_topic, p_value, p_completed_at
+  );
+
+  IF mapped IS NULL THEN
+    INSERT INTO catho_private.activity_receipt_sequences(
+      user_id, device_id, sequence, operation_id
+    ) VALUES (actor, p_device, seq, p_operation);
+
+    UPDATE catho_private.activity_devices
+    SET last_sequence = seq
+    WHERE user_id = actor AND device_id = p_device;
+  END IF;
+
+  RETURN result;
+END;
+$function$;
+
+-- Exact ACLs for the added overloads.
+REVOKE ALL ON FUNCTION public.admin_create_sponsor(uuid, text, text, text, text, text, date, date, text, bigint, text, text, text, text) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.admin_create_sponsor(uuid, text, text, text, text, text, date, date, text, bigint, text, text, text, text) TO service_role;
+REVOKE ALL ON FUNCTION public.get_admin_analytics_overview(timestamp with time zone, timestamp with time zone) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION public.get_admin_feed_analytics(timestamp with time zone, timestamp with time zone, text, text) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION public.get_admin_sponsor_analytics(uuid, timestamp with time zone, timestamp with time zone) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION public.offline_apply_activity_v2(uuid, uuid, uuid, text, text, text, text, boolean, timestamp with time zone) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.offline_apply_activity_v2(uuid, uuid, uuid, text, text, text, text, boolean, timestamp with time zone) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.offline_apply_activity_v2(uuid, uuid, uuid, text, text, text, text, boolean, timestamp with time zone) TO service_role;
