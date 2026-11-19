@@ -90,7 +90,15 @@ export function FeedSwipeViewport({
           ? onSwipeHorizontal?.(direction)
           : onSwipeVertical(direction);
       });
-      if (axis === 'vertical' && !awaitVerticalNavigation) {
+      if (axis === 'horizontal') {
+        // Horizontal topic-slide navigation must commit and reset in the same
+        // turn. Awaiting even an already-resolved async callback yields after
+        // React has rendered the new slide while x is still off-screen. That
+        // exposes the following preview (two slides ahead) for one frame.
+        void Promise.resolve(navigation).catch((error: unknown) => {
+          console.error('Unable to complete horizontal feed navigation:', error);
+        });
+      } else if (!awaitVerticalNavigation) {
         void Promise.resolve(navigation).catch((error: unknown) => {
           console.error('Unable to complete feed navigation:', error);
         });
