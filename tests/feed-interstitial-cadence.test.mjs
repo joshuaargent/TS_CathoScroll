@@ -78,7 +78,7 @@ test('sponsor fetches cannot race feed navigation or account changes', () => {
 
 
 test('interstitial cards share the topic viewer swipe and animation model', () => {
-  assert.match(interstitialMotion, /duration: 0\.2,[\s\S]*ease: 'easeOut'/);
+  assert.match(sharedViewport, /duration: 0\.2,[\s\S]*ease: 'easeOut'/);
   assert.match(sharedSwipeGesture, /stiffness: 1800, damping: 120/);
   assert.match(sharedSwipeGesture, /window\.innerWidth \* 0\.07/);
   assert.match(sharedSwipeGesture, /window\.innerHeight \* 0\.07/);
@@ -93,9 +93,9 @@ test('interstitial cards share the topic viewer swipe and animation model', () =
     assert.match(source, /onPreviousTopic=\{navigatePreviousTopic\}/);
     assert.match(source, /<BaseFeedCard/);
   }
-  assert.match(topicViewer, /const animationLockRef = useRef\(false\)/);
+  assert.match(topicViewer, /<FeedSwipeViewport/);
   assert.match(topicViewer, /if \(active\) onProgressChange\?\.\(slideIndex, slides\.length\)/);
-  assert.match(topicViewer, /duration: 0\.2/);
+  assert.match(topicViewer, /onTransitionStart=\{\(\) => setIsAnimating\(true\)\}/);
   assert.match(interstitialMotion, /<FeedSwipeViewport/);
 });
 test('topic, comment and sponsor cards use the same shared base card', () => {
@@ -141,7 +141,7 @@ test('topic, comment and sponsor cards use the same shared base card', () => {
   assert.match(sharedSwipeGesture, /absDy > window\.innerHeight \* 0\.07 \|\| velocityY > 25/);
   assert.match(sharedSwipeGesture, /case ' '/);
   assert.match(sharedSwipeGesture, /setPointerCapture\(event\.pointerId\)/);
-  assert.match(interstitialMotion, /flushSync\(\(\) =>/);
+  assert.match(sharedViewport, /flushSync\(\(\) =>/);
   assert.match(sharedViewport, /await navigation;/);
   assert.match(topicViewer, /await navigation;/);
   assert.match(topCommentCard, /await onNextTopic\(\)/);
