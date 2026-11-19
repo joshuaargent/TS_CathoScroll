@@ -73,7 +73,7 @@ The date range remains capped at 180 days because identifier-bearing raw analyti
 
 ## Data interpretation and current limitations
 
-- Current telemetry is authenticated-account telemetry. It must be labelled as signed-in activity, not total site traffic. Anonymous users are not silently fingerprinted or profiled.
+- Recommendation-profile signals and account-specific outcome metrics are authenticated-account telemetry and must be labelled as signed-in activity. Separately, the general feed ranking consumes site-wide daily topic aggregates from signed-in and signed-out activity; anonymous rows contain no visitor identifiers and do not create a visitor-specific profile. Admin analytics displays signed-in and anonymous event counts separately. No anonymous unique-person or session count is inferred.
 - Topic and comment-card raw event tables currently have relatively low volume. Early rates can be volatile and should be interpreted alongside denominators.
 - Historical events can only support metrics that were actually collected. Comment-card exposure history cannot be reconstructed before its instrumentation was deployed.
 - The current content model has category and topic identifiers but no governed subtopic/tag taxonomy. Subtopic affinities should not be fabricated from free-text or inferred religious labels. Add curated topic tags before implementing that layer.
