@@ -112,7 +112,7 @@ export function TopicSwipeViewer({
   }, [active, analyticsEndpoint, getAnalyticsAccessToken, userId]);
 
   useEffect(() => {
-    if (!userId || !active) return;
+    if (!ACCOUNT_LINKED_FEED_ANALYTICS_ENABLED || !userId || !active) return;
 
     recordFeedTopicVisit(userId, currentTopicId);
 
