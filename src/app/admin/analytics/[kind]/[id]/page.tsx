@@ -95,8 +95,8 @@ export default async function AdminAnalyticsEntityPage({ params, searchParams }:
     if (commentError || error) throw new Error('Unable to load comment analytics.');
     if (!comment || comment.is_deleted) notFound();
     const { data: topic } = await adminClient.from('topics').select('question,slug').eq('id', comment.topic_id).maybeSingle();
-    const { count: likes } = await adminClient.from('comment_likes').select('id', { count: 'exact', head: true }).eq('comment_id', Number(id));
-    const { count: replies } = await adminClient.from('comments').select('id', { count: 'exact', head: true }).eq('parent_id', Number(id)).eq('is_deleted', false);
+    const { count: likes } = await adminClient.from('comment_likes').select('id', { count: 'exact', head: true }).eq('comment_id', Number(id)).gte('created_at', from.toISOString()).lt('created_at', to.toISOString());
+    const { count: replies } = await adminClient.from('comments').select('id', { count: 'exact', head: true }).eq('parent_id', Number(id)).eq('is_deleted', false).gte('created_at', from.toISOString()).lt('created_at', to.toISOString());
     title = `Comment #${id}`;
     description = (topic?.question ?? 'Top-level community comment') + ' · ' + comment.content.slice(0, 180);
     const payload = data as { totals?: Record<string, unknown>; series?: Record<string, unknown>[] } | null;

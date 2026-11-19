@@ -7137,8 +7137,8 @@ BEGIN
     SELECT c.id,c.topic_id,t.question topic_question,c.created_at,coalesce(cd.impressions,0) impressions,
       coalesce(cd.viewable_impressions,0) viewable_impressions,coalesce(cd.active_duration_ms,0) active_duration_ms,
       coalesce(cd.skips,0) skips,coalesce(cd.opens,0) opens,
-      (SELECT count(*) FROM public.comment_likes cl WHERE cl.comment_id=c.id) likes,
-      (SELECT count(*) FROM public.comments r WHERE r.parent_id=c.id AND r.is_deleted=false) replies
+      (SELECT count(*) FROM public.comment_likes cl WHERE cl.comment_id=c.id AND cl.created_at>=p_from AND cl.created_at<p_to) likes,
+      (SELECT count(*) FROM public.comments r WHERE r.parent_id=c.id AND r.is_deleted=false AND r.created_at>=p_from AND r.created_at<p_to) replies
     FROM public.comments c LEFT JOIN public.topics t ON t.id=c.topic_id
     LEFT JOIN (SELECT card_id,sum(impressions) impressions,sum(viewable_impressions) viewable_impressions,
       sum(active_duration_ms) active_duration_ms,sum(skips) skips,sum(opens) opens FROM comment_daily GROUP BY card_id) cd
