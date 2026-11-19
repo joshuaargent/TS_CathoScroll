@@ -84,7 +84,7 @@ export default function CookiesPage() {
 
           <p className="text-text-secondary mt-4 leading-relaxed">
             CathoScroll uses Vercel Web Analytics for site measurement. Vercel describes this
-            product as first-party analytics that does not rely on cookies for its visitor hash and
+            product as first-party analytics that does not rely on cookies for its visitor hash. The visitor hash is reset daily and
             does not track visitors across unrelated websites. Our own feed analytics are sent to
             CathoScroll's servers when a signed-in user interacts with the feed. See the Privacy
             Policy for event categories and retention periods.
