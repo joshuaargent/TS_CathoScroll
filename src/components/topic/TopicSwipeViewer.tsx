@@ -253,11 +253,7 @@ export function TopicSwipeViewer({
     }
 
     setSlideIndex(0);
-    if (direction === 'next') {
-      void onNextTopic?.();
-    } else {
-      void onPreviousTopic?.();
-    }
+    return direction === 'next' ? onNextTopic?.() : onPreviousTopic?.();
   };
 
   return (
