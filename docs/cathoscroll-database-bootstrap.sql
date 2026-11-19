@@ -7837,7 +7837,21 @@ BEGIN
    END IF;
    v_event_id := (v_event->>'eventId')::uuid;
    v_type := v_event->>'entityType'; v_id := v_event->>'entityId'; v_kind := v_event->>'eventType';
-   v_duration := CASE WHEN v_kind='active_duration' THEN least(greatest(coalesce((v_event->>'durationMs')::integer,0),0),60000) ELSE 0 END;
+   IF v_type='topic' THEN
+     PERFORM 1 FROM public.topics t WHERE t.id=v_id AND t.is_published;
+     IF NOT FOUND THEN RAISE EXCEPTION 'Unknown or unpublished topic analytics entity' USING ERRCODE='22023'; END IF;
+   ELSIF v_type='comment' THEN
+     BEGIN
+       PERFORM 1 FROM public.comments c WHERE c.id=v_id::bigint AND c.parent_id IS NULL AND c.is_deleted=false;
+     EXCEPTION WHEN invalid_text_representation OR numeric_value_out_of_range THEN
+       RAISE EXCEPTION 'Invalid comment analytics entity' USING ERRCODE='22023';
+     END;
+     IF NOT FOUND THEN RAISE EXCEPTION 'Unknown or unavailable comment analytics entity' USING ERRCODE='22023'; END IF;
+   END IF;
+   IF v_kind='active_duration' AND jsonb_typeof(v_event->'durationMs') <> 'number' THEN
+     RAISE EXCEPTION 'Invalid active duration' USING ERRCODE='22023';
+   END IF;
+   v_duration := CASE WHEN v_kind='active_duration' THEN least(greatest(coalesce((v_event->>'durationMs')::numeric,0),0),60000)::integer ELSE 0 END;
    INSERT INTO catho_private.anonymous_feed_event_receipts(event_id) VALUES(v_event_id) ON CONFLICT DO NOTHING;
    IF NOT FOUND THEN CONTINUE; END IF;
    INSERT INTO catho_private.anonymous_feed_analytics_daily(event_date,entity_type,entity_id,impressions,viewable_impressions,active_duration_ms,skips,completions,opens)
@@ -7861,38 +7875,6 @@ BEGIN
  RETURN v_count;
 END; $function$
 ;
-
-CREATE OR REPLACE FUNCTION public.record_anonymous_sponsor_campaign_event(p_session_token text, p_campaign_id uuid, p_event_id uuid, p_event_type text)
- RETURNS boolean
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO ''
-AS $function$
-DECLARE v_hash text; v_served timestamptz; v_today date:=(pg_catalog.timezone('UTC',statement_timestamp()))::date;
-BEGIN
- IF p_session_token IS NULL OR p_session_token !~* '^[0-9a-f-]{36}$' OR p_campaign_id IS NULL OR p_event_id IS NULL
-  OR p_event_type NOT IN ('viewable_impression','click') THEN RAISE EXCEPTION 'Invalid anonymous sponsor event' USING ERRCODE='22023'; END IF;
- v_hash:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p_session_token,'UTF8')),'hex');
- SELECT received_at INTO v_served FROM catho_private.anonymous_sponsor_events
- WHERE campaign_id=p_campaign_id AND session_hash=v_hash AND event_type='served'
- AND received_at>=statement_timestamp()-interval '24 hours' ORDER BY received_at DESC LIMIT 1;
- IF v_served IS NULL THEN RAISE EXCEPTION 'Sponsor placement not eligible' USING ERRCODE='42501'; END IF;
- IF p_event_type='click' AND NOT EXISTS(SELECT 1 FROM catho_private.anonymous_sponsor_events WHERE campaign_id=p_campaign_id AND session_hash=v_hash AND event_type='viewable_impression' AND received_at>=v_served) THEN
-  RAISE EXCEPTION 'Click requires viewable impression' USING ERRCODE='42501'; END IF;
- INSERT INTO catho_private.anonymous_sponsor_events(campaign_id,event_id,session_hash,event_type)
- VALUES(p_campaign_id,p_event_id,v_hash,p_event_type) ON CONFLICT DO NOTHING;
- IF NOT FOUND THEN RETURN false; END IF;
- IF p_event_type='viewable_impression' THEN
-  INSERT INTO catho_private.anonymous_sponsor_campaign_daily(event_date,campaign_id,viewable_impressions) VALUES(v_today,p_campaign_id,1)
-  ON CONFLICT(event_date,campaign_id) DO UPDATE SET viewable_impressions=catho_private.anonymous_sponsor_campaign_daily.viewable_impressions+1;
- ELSE
-  INSERT INTO catho_private.anonymous_sponsor_campaign_daily(event_date,campaign_id,clicks) VALUES(v_today,p_campaign_id,1)
-  ON CONFLICT(event_date,campaign_id) DO UPDATE SET clicks=catho_private.anonymous_sponsor_campaign_daily.clicks+1;
- END IF;
- RETURN true;
-END; $function$
-;
-
 REVOKE ALL ON FUNCTION public.record_anonymous_feed_analytics(jsonb) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.record_anonymous_feed_analytics(jsonb) TO service_role;
 REVOKE ALL ON FUNCTION public.get_anonymous_sponsor_campaigns(text,text,text,integer) FROM PUBLIC,anon,authenticated;
