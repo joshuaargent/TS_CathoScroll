@@ -88,14 +88,14 @@ export function SponsorFeedCard({
             : '/api/content/sponsor-campaign-events';
           const response = await fetch(endpoint, {
             method: 'POST', credentials: 'same-origin', keepalive: true,
-            headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(event),
+            headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...event, placementKey }),
           });
           return response.ok;
         } catch { return false; }
       }
       return recordSponsorCampaignEvent(userId, event, getAccessToken, sponsorApiBaseUrl);
     },
-    [getAccessToken, previewMode, sessionId, sponsorApiBaseUrl, userId]
+    [getAccessToken, placementKey, previewMode, sessionId, sponsorApiBaseUrl, userId]
   );
 
   useEffect(() => {
