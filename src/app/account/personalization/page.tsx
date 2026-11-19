@@ -1,0 +1,163 @@
+'use client';
+
+import { useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
+import { ArrowLeft, ShieldCheck, Sparkles } from 'lucide-react';
+
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
+import { createClient } from '@/lib/supabase/client';
+
+type PersonalizationStatus = {
+  enabled: boolean;
+  updated_at: string | null;
+  topic_interests: number;
+  category_interests: number;
+  model_version: string;
+};
+
+const emptyStatus: PersonalizationStatus = {
+  enabled: false,
+  updated_at: null,
+  topic_interests: 0,
+  category_interests: 0,
+  model_version: '2026-11-19-v1',
+};
+
+export default function PersonalizationSettingsPage() {
+  const [status, setStatus] = useState<PersonalizationStatus>(emptyStatus);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const supabase = createClient();
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError) throw userError;
+      if (!user) {
+        window.location.assign('/signin?next=%2Faccount%2Fpersonalization');
+        return;
+      }
+      const { data, error: rpcError } = await supabase.rpc('get_my_personalization_status');
+      if (rpcError) throw rpcError;
+      if (!data || typeof data !== 'object' || typeof data.enabled !== 'boolean') {
+        throw new Error('Invalid personalisation settings response.');
+      }
+      setStatus({
+        enabled: data.enabled,
+        updated_at: typeof data.updated_at === 'string' ? data.updated_at : null,
+        topic_interests: Number.isSafeInteger(data.topic_interests) ? data.topic_interests : 0,
+        category_interests: Number.isSafeInteger(data.category_interests) ? data.category_interests : 0,
+        model_version: typeof data.model_version === 'string' ? data.model_version : emptyStatus.model_version,
+      });
+    } catch (cause) {
+      console.error('Unable to load personalisation settings:', cause);
+      setError('Unable to load these settings. Refresh the page and try again.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { void load(); }, [load]);
+
+  async function updateConsent(enabled: boolean) {
+    if (saving || loading || enabled === status.enabled) return;
+    setSaving(true);
+    setError('');
+    setMessage('');
+    try {
+      const supabase = createClient();
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) throw userError ?? new Error('Authentication required.');
+      const { data, error: rpcError } = await supabase.rpc('set_my_personalization_consent', { p_enabled: enabled });
+      if (rpcError) throw rpcError;
+      if (!data || typeof data !== 'object' || data.enabled !== enabled) {
+        throw new Error('Personalisation settings were not confirmed.');
+      }
+      await load();
+      setMessage(enabled
+        ? 'Personalised recommendations are now enabled.'
+        : 'Personalisation is off. Your stored interest profile has been deleted.');
+    } catch (cause) {
+      console.error('Unable to update personalisation consent:', cause);
+      setError('Your setting could not be changed. No change has been assumed; try again.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <main className="container max-w-4xl py-12">
+      <Link href="/account" className="text-accent inline-flex items-center gap-2 text-sm font-medium hover:underline">
+        <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Back to account
+      </Link>
+      <div className="mt-8">
+        <p className="text-accent text-sm font-semibold tracking-wider uppercase">Account · Privacy</p>
+        <h1 className="mt-2 text-4xl font-extrabold md:text-5xl">Personalisation</h1>
+        <p className="text-text-secondary mt-4 max-w-3xl">
+          Control whether CathoScroll may build a private interest profile from your activity to improve your topic recommendations.
+        </p>
+      </div>
+
+      <Card padding="lg" className="mt-8">
+        <div className="flex items-start gap-3">
+          <span className="bg-accent-light text-accent rounded-xl p-3"><Sparkles className="h-5 w-5" aria-hidden="true" /></span>
+          <div className="min-w-0">
+            <h2 className="text-xl font-bold">Personalised topic recommendations</h2>
+            <p className="text-text-secondary mt-2 text-sm leading-relaxed">
+              If enabled, we use your topic reading signals (viewable time, completions, repeat visits and skips) alongside your likes, bookmarks and community interactions to estimate topic and category interests. Signals decay over time, are capped, and help balance relevance with category variety.
+            </p>
+          </div>
+        </div>
+
+        <div className="border-border mt-6 rounded-xl border p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="font-semibold">Use my activity to personalise recommendations</p>
+              <p className="text-text-muted mt-1 text-sm">This is optional and off until you enable it.</p>
+            </div>
+            <span className={status.enabled ? 'rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300' : 'rounded-full bg-bg-secondary px-3 py-1 text-xs font-semibold text-text-secondary'}>
+              {loading ? 'Loading' : status.enabled ? 'Enabled' : 'Disabled'}
+            </span>
+          </div>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <Button type="button" size="sm" disabled={loading || saving || status.enabled} onClick={() => void updateConsent(true)}>
+              {saving && !status.enabled ? 'Saving…' : 'Enable personalisation'}
+            </Button>
+            <Button type="button" size="sm" variant="secondary" disabled={loading || saving || !status.enabled} onClick={() => void updateConsent(false)}>
+              {saving && status.enabled ? 'Saving…' : 'Turn off and delete profile'}
+            </Button>
+          </div>
+        </div>
+
+        <div className="mt-6 grid gap-3 sm:grid-cols-2">
+          <div className="bg-bg-secondary/60 rounded-xl p-4">
+            <p className="text-text-muted text-xs font-medium uppercase tracking-wide">Topic interests stored</p>
+            <p className="mt-2 text-2xl font-bold tabular-nums">{loading ? '—' : status.topic_interests}</p>
+          </div>
+          <div className="bg-bg-secondary/60 rounded-xl p-4">
+            <p className="text-text-muted text-xs font-medium uppercase tracking-wide">Category interests stored</p>
+            <p className="mt-2 text-2xl font-bold tabular-nums">{loading ? '—' : status.category_interests}</p>
+          </div>
+        </div>
+
+        <div className="border-border mt-6 flex items-start gap-3 border-t pt-5">
+          <ShieldCheck className="text-text-muted mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
+          <div className="text-text-muted text-sm leading-relaxed">
+            Your interest profile is private and is not shown on your public profile or used for sponsor targeting. Turning personalisation off immediately deletes the derived topic-interest profile and stops using reading telemetry for recommendation weighting. Existing operational analytics events remain subject to their separate 180-day retention policy. This setting is not a declaration of religious affiliation.
+          </div>
+        </div>
+      </Card>
+
+      {error && <p role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</p>}
+      {message && <p role="status" className="mt-4 rounded-xl border border-border p-4 text-sm">{message}</p>}
+      <div className="mt-5 flex justify-end">
+        <Button variant="secondary" size="sm" disabled={loading || saving} onClick={() => void load()}>Refresh status</Button>
+      </div>
+    </main>
+  );
+}
