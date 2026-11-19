@@ -16,7 +16,7 @@ const [bootstrap, feedCore, cardRegistry, placementRegistry, sponsorCard, campai
   readFile(new URL('../src/app/admin/sponsor-campaigns/page.tsx', import.meta.url), 'utf8'),
 ]);
 
-function functionBody(name, nextMarker) {
+function functionBody(name) {
   const start = bootstrap.lastIndexOf(`CREATE OR REPLACE FUNCTION ${name}`);
   assert.notEqual(start, -1, `Missing function ${name}`);
   const end = bootstrap.indexOf('$function$;', start);
