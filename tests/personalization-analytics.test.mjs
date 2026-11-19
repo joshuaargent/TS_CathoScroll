@@ -181,14 +181,6 @@ test('web and native account/settings screens reuse the same components', () => 
 test('retired user subscription tier is absent from the bootstrap', () => {
   assert.doesNotMatch(bootstrap, /subscription_tier|get_own_subscription_tier/);
 });
-);
-  assert.ok(!functionRanges.some((range) => eventTriggerPosition >= range.start && eventTriggerPosition < range.end));
-  assert.ok(!functionRanges.some((range) => retentionPosition >= range.start && retentionPosition < range.end));
-  assert.doesNotMatch(bootstrap, /subscription_tier|get_own_subscription_tier/);
-  assert.match(bootstrap, /public\.get_admin_feed_analytics/);
-  assert.match(bootstrap, /public\.get_admin_sponsor_analytics/);
-  assert.match(bootstrap, /public\.admin_create_sponsor/);
-});
 
 test('personalisation consent is opt-in and versioned', () => {
   assert.match(bootstrap, /user_personalization_consents[\s\S]*enabled boolean NOT NULL DEFAULT false/);
