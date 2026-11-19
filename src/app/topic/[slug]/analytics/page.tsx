@@ -61,6 +61,23 @@ export default async function TopicAnalyticsPage({ params, searchParams }: Props
 
   const period: AnalyticsPeriod = isAnalyticsPeriod(query.period) ? query.period : '30d';
   const { from, to } = getAnalyticsRange(period);
+  const { data: anonymousData, error: anonymousError } = await adminClient.rpc('get_admin_anonymous_analytics', {
+    p_actor_user_id: user.id,
+    p_from: from.toISOString(),
+    p_to: to.toISOString(),
+    p_entity_type: 'topic',
+    p_entity_id: topic.slug,
+  });
+  if (anonymousError) {
+    console.error('Unable to load anonymous topic analytics:', anonymousError.message);
+    throw new Error('Unable to load topic analytics.');
+  }
+  const anonymousAnalytics = anonymousData as {
+    totals: Record<string, number>;
+    series: { event_date: string; topic_impressions: number; topic_viewable_impressions: number }[];
+    topics: { slug: string; impressions: number; viewable_impressions: number }[];
+  };
+
   const { data, error } = await adminClient.rpc('get_admin_content_analytics', {
     p_entity_type: 'topic',
     p_entity_id: topic.slug,
@@ -82,6 +99,7 @@ export default async function TopicAnalyticsPage({ params, searchParams }: Props
   return (
     <ContentAnalyticsDashboard
       analytics={analytics}
+      anonymousAnalytics={anonymousAnalytics}
       title={topic.question}
       description="Performance and community engagement for this learning topic."
       backHref={`/topic/${encodeURIComponent(topic.slug)}`}
