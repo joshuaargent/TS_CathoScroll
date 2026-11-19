@@ -80,6 +80,8 @@ export default function PersonalizationSettingsPage() {
     }
   }, [router]);
 
+  // This effect only starts an asynchronous auth/RPC request; state changes occur after it resolves.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { void load(false); }, [load]);
 
   async function updateConsent(enabled: boolean) {
