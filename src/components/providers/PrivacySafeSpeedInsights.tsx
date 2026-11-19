@@ -1,8 +1,11 @@
 'use client';
 
 import { SpeedInsights } from '@vercel/speed-insights/next';
+import type { ComponentProps } from 'react';
 
-function sanitiseSpeedInsightsEvent(data: { url: string; [key: string]: unknown }) {
+type SpeedInsightsEvent = Parameters<NonNullable<ComponentProps<typeof SpeedInsights>['beforeSend']>>[0];
+
+function sanitiseSpeedInsightsEvent(data: SpeedInsightsEvent) {
   const url = new URL(data.url);
   const path = url.pathname;
   const sensitiveContentRoutes = [
