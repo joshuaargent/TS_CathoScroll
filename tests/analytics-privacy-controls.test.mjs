@@ -30,6 +30,7 @@ test('site analytics removes content paths and query strings before transmission
   const layout = await read('../src/app/layout.tsx');
   const analytics = await read('../src/components/providers/PrivacySafeAnalytics.tsx');
   assert.ok(layout.includes('<PrivacySafeAnalytics />'));
+  assert.ok(layout.includes('<meta name="referrer" content="strict-origin" />'));
   assert.ok(analytics.includes('beforeSend={redactAnalyticsEvent}'));
   assert.ok(analytics.includes("url.pathname = '/'"));
   assert.ok(analytics.includes("url.search = ''"));
