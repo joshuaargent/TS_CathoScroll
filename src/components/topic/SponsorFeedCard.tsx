@@ -11,7 +11,7 @@ import { BaseFeedCard } from './BaseFeedCard';
 interface SponsorFeedCardProps {
   campaigns: SponsorFeedCampaign[];
   sessionId: string;
-  userId: string;
+  userId: string | null;
   previewMode?: boolean;
   sponsorApiBaseUrl?: string;
   getAccessToken: () => Promise<string | null>;
@@ -78,17 +78,20 @@ export function SponsorFeedCard({
   const recordEvent = useCallback(
     async (targetCampaignId: string, eventType: 'viewable_impression' | 'click') => {
       if (previewMode) return false;
-      return recordSponsorCampaignEvent(
-        userId,
-        {
-          campaignId: targetCampaignId,
-          eventId: createEventId(),
-          sessionId,
-          eventType,
-        },
-        getAccessToken,
-        sponsorApiBaseUrl
-      );
+      const event = { campaignId: targetCampaignId, eventId: createEventId(), sessionId, eventType };
+      if (!userId) {
+        try {
+          const endpoint = sponsorApiBaseUrl
+            ? new URL('/api/content/sponsor-campaign-events', sponsorApiBaseUrl).toString()
+            : '/api/content/sponsor-campaign-events';
+          const response = await fetch(endpoint, {
+            method: 'POST', credentials: 'same-origin', keepalive: true,
+            headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(event),
+          });
+          return response.ok;
+        } catch { return false; }
+      }
+      return recordSponsorCampaignEvent(userId, event, getAccessToken, sponsorApiBaseUrl);
     },
     [getAccessToken, previewMode, sessionId, sponsorApiBaseUrl, userId]
   );
