@@ -11,7 +11,7 @@ Personalisation is not required to receive a ranked feed.
 
 ## General ranking signals
 
-The production function is `public.get_public_general_topic_page(jsonb, integer)`. It ranks published topics using the rolling 90-day window from `catho_private.feed_analytics_daily`:
+The production function is `public.get_public_general_topic_page(jsonb, integer)`. It ranks published topics using the rolling 90-day window across `catho_private.feed_analytics_daily` (signed-in aggregates) and `catho_private.anonymous_feed_analytics_daily` (signed-out aggregates):
 
 - Viewable impressions: strongest exposure signal.
 - Impressions: smaller contribution, to avoid treating every loaded card as meaningful engagement.
@@ -29,7 +29,7 @@ The selector keeps a per-category served count and offset in its opaque cursor. 
 
 The score for each published topic is calculated once per page request and cached in an in-memory JSON ranking map for the selection loop. The cursor records category offsets so the same topic is not intentionally selected twice during ordinary pagination. The ranking score is recomputed when a new page is requested, so engagement changes can affect later pages; already-loaded cards are kept in the active feed session.
 
-The general path includes completed topics. It does not consult `progress`, bookmarks, likes, comments or feed telemetry belonging to the current visitor. Signed-out and opted-out visitors therefore receive the same general ranking logic.
+The general path includes completed topics. It does not consult `progress` or any bookmarks, likes, comments or feed telemetry belonging to the current visitor; public engagement counts and account-free site-wide aggregates are shared ranking inputs. Signed-out and opted-out visitors therefore receive the same general ranking logic.
 
 ## Sponsor separation
 
@@ -43,7 +43,7 @@ The ranking function is part of the emergency clean-project bootstrap at `docs/c
 
 ## Validation performed
 
-- Applied the function directly to the production Supabase database.
+- Applied the function directly to the production Supabase database and verified the anonymous aggregate source is included.
 - Executed the function against the live published catalogue and confirmed it returned ranked topic records, category slugs and a continuation cursor.
 - Verified two consecutive pages of ten topics had zero duplicate topic IDs.
 - Optimised the scoring pass from repeated per-slot score calculation to one score calculation per page. A 24-topic production query measured approximately 17.7 ms and 3,419 shared-buffer hits after the change (compared with approximately 76.7 ms and 12,007 buffer hits before optimisation; timings are a single production measurement, not a load test).
