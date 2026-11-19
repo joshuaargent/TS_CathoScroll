@@ -7752,7 +7752,7 @@ GRANT EXECUTE ON FUNCTION catho_private.prune_anonymous_analytics() TO service_r
 DO $anonymous_analytics_cron$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM cron.job WHERE jobname='cathoscroll-anonymous-analytics-prune') THEN
-    PERFORM cron.schedule('cathoscroll-anonymous-analytics-prune','17 3 * * *',
+    PERFORM cron.schedule('cathoscroll-anonymous-analytics-prune','*/15 * * * *',
       'SELECT catho_private.prune_anonymous_analytics();');
   END IF;
 END;
