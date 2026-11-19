@@ -7,7 +7,7 @@ import { ThemeProvider } from '@/components/providers/ThemeProvider';
 import { AuthProvider } from '@/components/providers/AuthProvider';
 import { SignInPromptProvider } from '@/components/providers/SignInPromptProvider';
 import { SponsorAnalyticsSync } from '@/components/providers/SponsorAnalyticsSync';
-import { Analytics, type BeforeSendEvent } from '@vercel/analytics/react';
+import { PrivacySafeAnalytics } from '@/components/providers/PrivacySafeAnalytics';
 import './globals.css';
 
 // ============================================
@@ -92,18 +92,6 @@ const websiteStructuredData = {
   },
 };
 
-// Vercel Web Analytics is retained for aggregate site-level measurement, but
-// content-specific paths and query strings must never leave the application.
-// This deliberately collapses every page view to the site root: CathoScroll's
-// religious-topic catalogue must not become a third-party browsing history.
-function redactAnalyticsEvent(event: BeforeSendEvent): BeforeSendEvent {
-  const url = new URL(event.url);
-  url.pathname = '/';
-  url.search = '';
-  url.hash = '';
-  return { ...event, url: url.toString() };
-}
-
 // ============================================
 // Root Layout
 // ============================================
@@ -158,7 +146,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <Navbar />
               <main className="flex-1">{children}</main>
               <ConditionalFooter />
-              <Analytics beforeSend={redactAnalyticsEvent} />
+              <PrivacySafeAnalytics />
             </SignInPromptProvider>
           </AuthProvider>
         </ThemeProvider>
