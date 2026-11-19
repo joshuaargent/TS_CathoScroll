@@ -17,6 +17,8 @@ interface FeedInterstitialMotionProps {
   active?: boolean;
   nextPreview?: ReactNode;
   previousPreview?: ReactNode;
+  nextHorizontalPreview?: ReactNode;
+  previousHorizontalPreview?: ReactNode;
 }
 
 export function FeedInterstitialMotion({
@@ -31,6 +33,8 @@ export function FeedInterstitialMotion({
   active = true,
   nextPreview,
   previousPreview,
+  nextHorizontalPreview,
+  previousHorizontalPreview,
 }: FeedInterstitialMotionProps) {
   const animationLockRef = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -142,13 +146,23 @@ export function FeedInterstitialMotion({
         onPointerCancel={active ? handlePointerUp : undefined}
       >
         {previousPreview ? (
-          <div className="pointer-events-none absolute inset-x-0 top-[-100%] h-full opacity-90">
+          <div className="pointer-events-none absolute inset-x-0 top-[-100%] h-full opacity-90" aria-hidden="true" inert>
             {previousPreview}
           </div>
         ) : null}
+        {previousHorizontalPreview ? (
+          <div className="pointer-events-none absolute top-0 left-[-100%] h-full w-full opacity-90" aria-hidden="true" inert>
+            {previousHorizontalPreview}
+          </div>
+        ) : null}
         {children}
+        {nextHorizontalPreview ? (
+          <div className="pointer-events-none absolute top-0 left-[100%] h-full w-full opacity-90" aria-hidden="true" inert>
+            {nextHorizontalPreview}
+          </div>
+        ) : null}
         {nextPreview ? (
-          <div className="pointer-events-none absolute inset-x-0 top-[100%] h-full opacity-90">
+          <div className="pointer-events-none absolute inset-x-0 top-[100%] h-full opacity-90" aria-hidden="true" inert>
             {nextPreview}
           </div>
         ) : null}
