@@ -118,7 +118,7 @@ export function AdminAnalyticsHub({ overview, period, section = 'overview', seri
       <div><h2 className="text-xl font-bold">{section === 'overview' ? 'Overall performance' : section[0]?.toUpperCase() + section.slice(1)}</h2>
         <p className="text-text-muted mt-1 text-sm">Reporting window · {periods.find((item) => item.value === period)?.label}</p></div>
       <div className="flex flex-wrap gap-2" aria-label="Analytics date range">
-        {periods.map((item) => <Button key={item.value} asChild size="sm" variant={period === item.value ? 'primary' : 'secondary'}>
+        {periods.map((item) => <Button key={item.value} asChild size="sm" variant={period === item.value ? 'primary' : 'secondary'} className={period === item.value ? '!text-white dark:!text-[#241f1a]' : undefined}>
           <Link href={`/admin/analytics?period=${item.value}&section=${section}`} aria-current={period === item.value ? 'page' : undefined}>{item.label}</Link>
         </Button>)}
       </div>
