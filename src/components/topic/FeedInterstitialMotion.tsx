@@ -1,6 +1,6 @@
 'use client';
 
-import { animate, motion } from 'framer-motion';
+import { animate, motion, useMotionValue } from 'framer-motion';
 import { useCallback, useEffect, useRef, type ReactNode } from 'react';
 import { flushSync } from 'react-dom';
 import { useTopicSwipeGesture } from './useTopicSwipeGesture';
@@ -38,21 +38,8 @@ export function FeedInterstitialMotion({
 }: FeedInterstitialMotionProps) {
   const animationLockRef = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
-
-  const {
-    x,
-    y,
-    handlePointerDown,
-    handlePointerMove,
-    handlePointerUp,
-  } = useTopicSwipeGesture({
-    enabled: active,
-    canSwipeHorizontal: (direction) => direction === 'next'
-      ? (!canSwipeLeft || canSwipeLeft())
-      : (!canSwipeRight || canSwipeRight()),
-    onSwipeHorizontal: (direction) => move(direction === 'next' ? 'left' : 'right'),
-    onSwipeVertical: (direction) => move(direction === 'next' ? 'up' : 'down'),
-  });
+  const x = useMotionValue(0);
+  const y = useMotionValue(0);
 
   const move = useCallback(async (direction: 'left' | 'right' | 'up' | 'down') => {
     if (animationLockRef.current) return;
@@ -87,6 +74,20 @@ export function FeedInterstitialMotion({
       animationLockRef.current = false;
     }
   }, [canSwipeLeft, canSwipeRight, onNextTopic, onPreviousTopic, onSwipeLeft, onSwipeRight, x, y]);
+
+  const {
+    handlePointerDown,
+    handlePointerMove,
+    handlePointerUp,
+  } = useTopicSwipeGesture({
+    enabled: active,
+    motionValues: { x, y },
+    canSwipeHorizontal: (direction) => direction === 'next'
+      ? (!canSwipeLeft || canSwipeLeft())
+      : (!canSwipeRight || canSwipeRight()),
+    onSwipeHorizontal: (direction) => move(direction === 'next' ? 'left' : 'right'),
+    onSwipeVertical: (direction) => move(direction === 'next' ? 'up' : 'down'),
+  });
 
   useEffect(() => {
     if (!active) return;
