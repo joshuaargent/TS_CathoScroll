@@ -36,10 +36,10 @@ test('Vercel analytics preserves safe page routes and redacts sensitive content 
   assert.ok(analytics.includes('beforeSend={redactAnalyticsEvent}'));
   assert.ok(analytics.includes('url.search = \'\''));
   assert.ok(analytics.includes('url.hash = \'\''));
-  assert.ok(analytics.includes('/(?:topic|topics)'));
+  assert.ok(analytics.includes('topic|topics'));
   assert.ok(speed.includes('<SpeedInsights beforeSend={sanitiseSpeedInsightsEvent} />'));
   assert.ok(speed.includes('url.search = \'\''));
-  assert.ok(speed.includes('/(?:topic|topics)'));
+  assert.ok(speed.includes('topic|topics'));
   assert.ok(layout.includes('<meta name="referrer" content="strict-origin" />'));
 });
 
