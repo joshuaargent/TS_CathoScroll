@@ -64,9 +64,11 @@ test('emergency bootstrap inventory matches the reconciled production schema', (
     assert.ok(functionRanges[index].end <= functionRanges[index + 1].start, 'Function body overlaps the next SQL definition: ' + functionRanges[index].name);
   }
   assert.equal((bootstrap.match(/CREATE EVENT TRIGGER ensure_rls/g) ?? []).length, 1);
-  assert.equal((bootstrap.match(/DO \\$cron_restore\\\$/g) ?? []).length, 1);
+  assert.equal(bootstrap.split('DO $cron_restore$').length - 1, 1);
   const eventTriggerPosition = bootstrap.indexOf('CREATE EVENT TRIGGER ensure_rls');
-  const retentionPosition = bootstrap.indexOf('DO $cron_restore
+  const retentionPosition = bootstrap.indexOf('DO $cron_restore$');
+  assert.ok(!functionRanges.some((range) => eventTriggerPosition >= range.start && eventTriggerPosition < range.end));
+  assert.ok(!functionRanges.some((range) => retentionPosition >= range.start && retentionPosition < range.end));
   assert.doesNotMatch(bootstrap, /subscription_tier|get_own_subscription_tier/);
   assert.match(bootstrap, /public\.get_admin_feed_analytics/);
   assert.match(bootstrap, /public\.get_admin_sponsor_analytics/);
