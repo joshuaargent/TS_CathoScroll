@@ -12,7 +12,7 @@ The live Supabase project has:
 - Row Level Security enabled on every public table.
 - Restricted grants for sensitive profile, comment and like data.
 - No direct anonymous or authenticated SELECT access to comment content.
-- No direct anonymous or authenticated SELECT access to profile subscription-tier fields.
+- No direct anonymous or authenticated SELECT access to private profile fields.
 - Public profile reads restricted to explicitly public fields.
 - Raw comment/topic liker identities restricted; public counts and the current viewer's like state are returned through bounded RPCs.
 - Notification updates restricted to `read_at`; a database trigger prevents content/ownership changes, client-controlled timestamps and marking read notifications unread.
@@ -20,7 +20,6 @@ The live Supabase project has:
 
 Important RPCs include:
 
-- `get_own_subscription_tier`
 - `get_topic_comment_page`
 - `get_topic_like_state`
 - `get_public_profile_metrics`
@@ -98,7 +97,7 @@ API rate-limit responses include `Retry-After` where applicable.
 
 ## Recommendation telemetry access
 
-The existing `public.get_my_recommendation_page(jsonb,integer)` remains SECURITY INVOKER and authenticated-only. On a new cursor it calls `catho_private.get_user_feed_preference_signals(uuid)`, a private SECURITY DEFINER helper owned by postgres with an empty search path. The helper rejects null or mismatched account IDs using `auth.uid()`, returns only category-level scores, and is executable by authenticated users only. It does not grant access to the raw analytics table. The partial per-user/time index supports its 90-day scan.
+The existing `public.get_my_recommendation_page(jsonb,integer)` remains SECURITY INVOKER and authenticated-only. On a new cursor it calls `catho_private.get_user_feed_preference_signals(uuid)`, a private SECURITY DEFINER helper owned by postgres with an empty search path. The helper rejects null or mismatched account IDs using `auth.uid()`, returns only category-level scores, and is executable by authenticated users only. The recommendation RPC calls it only when explicit personalisation consent is enabled. Legacy progress, bookmarks, likes, comments and feed telemetry are also gated by that consent; when disabled, category weights are neutral and completed-topic suppression is off. Withdrawing consent normalises active cursors. The helper does not grant access to raw analytics tables. The partial per-user/time index supports its 90-day scan.
 
 ## Comment invariants
 
