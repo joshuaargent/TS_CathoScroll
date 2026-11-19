@@ -223,7 +223,7 @@ export default function PrivacyPage() {
             CathoScroll uses product analytics to measure feed and content performance, diagnose
             reliability issues, protect the service, and improve the user experience. For signed-in
             sessions, this may include topic and comment-card impressions, viewability, active
-            duration, skips, completions, repeat visits, interactions, and session timing.
+            duration, skips, completions, repeat visits, interactions, sponsor campaign delivery/viewability/click events, and session timing.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
