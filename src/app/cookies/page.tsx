@@ -64,32 +64,29 @@ export default function CookiesPage() {
           <h2 className="mb-4 text-3xl font-bold">Analytics and Performance Measurement</h2>
 
           <p className="text-text-secondary leading-relaxed">
-            CathoScroll uses first-party site analytics and authenticated, server-side product
-            analytics to understand platform use and improve reliability and learning features.
-            These product events are not advertising cookies and are not shared with sponsors at
-            an individual-user level.
+            CathoScroll uses Vercel Web Analytics for aggregate site-level traffic measurement.
+            Vercel states that it does not use third-party cookies and derives a short-lived visitor
+            hash from the incoming request, discarded after 24 hours. Its data points may include
+            timestamps, page URLs, referrers, filtered query parameters, approximate geolocation,
+            and device and browser information.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            Analytics information may include:
+            CathoScroll rewrites every Vercel Web Analytics page URL to the site root and removes
+            query strings and fragments before sending the event. This prevents topic-specific
+            paths and query values from being included in the page URL. Vercel's processing of
+            request-derived information remains subject to its own privacy documentation and our
+            processor and international-transfer review.
           </p>
-
-          <ul className="text-text-secondary mt-4 list-disc space-y-2 pl-6">
-            <li>Pages visited.</li>
-            <li>Navigation behaviour.</li>
-            <li>Browser and device information.</li>
-            <li>General usage trends.</li>
-            <li>Performance and reliability metrics.</li>
-          </ul>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            CathoScroll uses Vercel Web Analytics for site measurement. Vercel describes this
-            product as first-party analytics that does not rely on cookies for its visitor hash. The visitor hash is reset daily and
-            does not track visitors across unrelated websites. Our own feed analytics are sent to
-            CathoScroll's servers when a signed-in user interacts with the feed. See the Privacy
-            Policy for event categories and retention periods.
+            First-party topic-level feed analytics are currently collected only for signed-in
+            sessions and are linked to the account and topic/card involved. They are separate from
+            recommendation personalisation. Signed-out visitors are included in Vercel's aggregate
+            site-level reporting, but their topic-level feed events are not sent to CathoScroll's
+            own feed analytics tables. Vercel Speed Insights is disabled while its separate data
+            processing is assessed.
           </p>
-        </section>
 
         <section>
           <h2 className="mb-4 text-3xl font-bold">Personalisation</h2>
