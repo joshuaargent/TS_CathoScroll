@@ -202,6 +202,41 @@ export function TopCommentFeedCard({
   const showPreviousComment = () => updateActiveIndex(safeIndex - 1);
   const showNextComment = () => updateActiveIndex(safeIndex + 1);
 
+  const renderCommentPreview = (previewComment: TopFeedComment | undefined) => {
+    if (!previewComment) return null;
+    const previewTextClasses = previewComment.content.length > 360
+      ? 'text-lg md:text-xl'
+      : previewComment.content.length > 180
+        ? 'text-xl md:text-2xl'
+        : 'text-2xl md:text-4xl';
+
+    return (
+      <BaseFeedCard
+        className="bg-accent-light/5"
+        contentWidthClassName="max-w-3xl"
+        title={<span className="text-text-muted text-xs tracking-wider uppercase">Top Comments</span>}
+      >
+        <article className="w-full">
+          <p className="text-text-muted mb-5 text-sm font-medium md:text-base">
+            {previewComment.topic_question}
+          </p>
+          <p className={cn('text-text-primary leading-tight font-semibold', previewTextClasses)}>
+            {previewComment.content}
+            {previewComment.content_truncated ? '…' : ''}
+          </p>
+          <div className="mt-6 flex items-center justify-center">
+            <span className="text-text-muted text-sm font-medium">
+              {previewComment.author_display_name}
+              {previewComment.author_username ? (
+                <span className="ml-2 font-normal">@{previewComment.author_username}</span>
+              ) : null}
+            </span>
+          </div>
+        </article>
+      </BaseFeedCard>
+    );
+  };
+
   return (
     <FeedInterstitialMotion
       ariaLabel="Top community comments"
