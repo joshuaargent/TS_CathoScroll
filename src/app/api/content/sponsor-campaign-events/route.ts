@@ -69,7 +69,13 @@ export async function POST(request: Request) {
     !isValidUuid(parsed.value.sessionId) ||
     !('eventType' in parsed.value) ||
     typeof parsed.value.eventType !== 'string' ||
-    !eventTypes.includes(parsed.value.eventType as (typeof eventTypes)[number])
+    !eventTypes.includes(parsed.value.eventType as (typeof eventTypes)[number]) ||
+    (isAnonymous && (
+      !('placementKey' in parsed.value) ||
+      typeof parsed.value.placementKey !== 'string' ||
+      parsed.value.placementKey.length < 1 ||
+      parsed.value.placementKey.length > 160
+    ))
   ) {
     return respond(request, { error: 'Invalid sponsor event.' }, 400);
   }
@@ -79,6 +85,7 @@ export async function POST(request: Request) {
       ? await createServiceRoleClient().rpc('record_anonymous_sponsor_campaign_event', {
           p_session_token: parsed.value.sessionId,
           p_campaign_id: parsed.value.campaignId,
+          p_placement_id: parsed.value.placementKey,
           p_event_id: parsed.value.eventId,
           p_event_type: parsed.value.eventType,
         })
