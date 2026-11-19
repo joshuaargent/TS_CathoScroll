@@ -187,7 +187,7 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
             </div>
             <p className="text-text-secondary mt-3 text-sm leading-relaxed">
               Control whether CathoScroll may build a private interest profile from your activity to improve your topic recommendations.
-              This is optional and is off until you explicitly enable it.
+              This is optional and off until you enable it. Only activity recorded after you opt in is used to build this profile.
             </p>
           </div>
         </div>
