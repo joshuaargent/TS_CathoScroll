@@ -149,6 +149,13 @@ export function AdminAnalyticsHub({ overview, period, section = 'overview', seri
       <Metric label="Comment-card viewability" value={t.comment_card_impressions ? ((t.comment_card_viewable_impressions / t.comment_card_impressions) * 100).toFixed(1) + '%' : '—'} detail="Viewable comment-card impressions ÷ impressions" icon={MessageCircle} />
     </section>
     <DailyOverviewChart series={series} />
+    <section className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <Metric label="Topic skip rate" value={t.topic_impressions ? ((t.topic_skips / t.topic_impressions) * 100).toFixed(1) + '%' : '—'} detail="Recorded skips ÷ topic impressions" icon={Activity} />
+      <Metric label="Sponsor viewability" value={t.sponsor_served ? ((t.sponsor_viewable_impressions / t.sponsor_served) * 100).toFixed(1) + '%' : '—'} detail="Viewable sponsor impressions ÷ served placements" icon={Megaphone} />
+      <Metric label="Comment active time" value={t.comment_card_viewable_impressions ? duration(t.comment_card_active_duration_ms / t.comment_card_viewable_impressions) : '—'} detail="Average active time per viewable comment card" icon={MessageCircle} />
+      <Metric label="Discussion open rate" value={t.comment_card_impressions ? ((t.comment_card_opens / t.comment_card_impressions) * 100).toFixed(1) + '%' : '—'} detail="Feed discussion opens ÷ comment-card impressions" icon={Heart} />
+    </section>
+
 
     <section className="mt-10 grid gap-5 lg:grid-cols-2">
       {(section === 'overview' || section === 'categories') && <SectionCard title="Categories" description="Compare category reach and topic coverage." count={number(t.category_count)} href={sectionHref('categories')} icon={BarChart3}>

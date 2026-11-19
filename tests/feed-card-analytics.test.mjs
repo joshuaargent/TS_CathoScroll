@@ -70,6 +70,7 @@ test('Top Comments viewability requires half visibility for one continuous secon
   const card = await readFile(new URL('../src/components/topic/TopCommentFeedCard.tsx', import.meta.url), 'utf8');
   const route = await readFile(new URL('../src/app/api/analytics/feed-card-events/route.ts', import.meta.url), 'utf8');
   const hub = await readFile(new URL('../src/components/admin/AdminAnalyticsHub.tsx', import.meta.url), 'utf8');
+  assert.ok(card.includes('ref={commentArticleRef}'));
   assert.ok(card.includes('intersectionRatio >= 0.5'));
   assert.ok(card.includes('}, 1000)'));
   assert.ok(card.includes("'active_duration'"));
@@ -77,10 +78,35 @@ test('Top Comments viewability requires half visibility for one continuous secon
   assert.ok(card.includes("'completion'"));
   assert.ok(card.includes("'open'"));
   assert.ok(route.includes("record_feed_card_analytics_events"));
-  assert.ok(hub.includes("['overview','categories','topics','sponsors','comments']"));
+  assert.match(hub, /\['overview','Overall'\].*\['categories','Categories'\].*\['topics','Topics'\].*\['sponsors','Sponsors'\].*\['comments','Comments'\]/s);
   assert.ok(hub.includes('Top Comments exposure'));
+  assert.ok(hub.includes('Discussion open rate'));
+  assert.ok(hub.includes('Comment active time'));
+  assert.ok(hub.includes('Sponsor click-through'));
   const bootstrap = await readFile(new URL('../docs/cathoscroll-database-bootstrap.sql', import.meta.url), 'utf8');
   assert.ok(bootstrap.includes('feed_card_analytics_daily_viewers v using doomed d'));
   assert.ok(bootstrap.includes('event_date<p_before::date'));
   assert.ok(!hub.includes('bookmark'));
+});
+
+test('uses the authenticated API endpoint and bearer token for native feed analytics', async () => {
+  Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { onLine: false } });
+  globalThis.document = { visibilityState: 'visible', addEventListener() {}, removeEventListener() {} };
+  analytics.recordFeedCardAnalyticsEvent('native-account', 'impression', 81);
+  const requests = [];
+  globalThis.fetch = async (url, options) => {
+    requests.push({ url, options });
+    return new Response(JSON.stringify({ accepted: 1 }), { status: 200 });
+  };
+  const cleanup = analytics.installFeedCardAnalyticsListeners('native-account', {
+    endpoint: 'https://www.cathoscroll.com/api/analytics/feed-card-events',
+    getAccessToken: async () => 'native-access-token',
+  });
+  Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { onLine: true } });
+  await analytics.flushFeedCardAnalytics('native-account');
+  cleanup();
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].url, 'https://www.cathoscroll.com/api/analytics/feed-card-events');
+  assert.equal(requests[0].options.headers.get('Authorization'), 'Bearer native-access-token');
+  assert.equal(requests[0].options.credentials, 'omit');
 });
