@@ -268,13 +268,13 @@ AS $function$
 DECLARE
   v_count integer := 0;
   v_now timestamptz := statement_timestamp();
+  v_consent_at timestamptz;
 BEGIN
-  IF p_user_id IS NULL OR NOT EXISTS (
-    SELECT 1 FROM catho_private.user_personalization_consents c
-    WHERE c.user_id=p_user_id AND c.enabled=true
-  ) THEN
-    RETURN 0;
-  END IF;
+  IF p_user_id IS NULL THEN RETURN 0; END IF;
+  SELECT c.granted_at INTO v_consent_at
+  FROM catho_private.user_personalization_consents c
+  WHERE c.user_id=p_user_id AND c.enabled=true;
+  IF v_consent_at IS NULL THEN RETURN 0; END IF;
 
   WITH event_scores AS (
     SELECT e.entity_id AS topic_id,
@@ -304,7 +304,7 @@ BEGIN
       count(*)::integer AS evidence_count
     FROM catho_private.feed_analytics_events e
     WHERE e.user_id=p_user_id
-      AND e.received_at>=v_now-interval '90 days' AND e.received_at<v_now
+      AND e.received_at>=greatest(v_now-interval '90 days',v_consent_at) AND e.received_at<v_now
       AND e.event_type IN ('viewable_impression','active_duration','swipe_depth','completion','return_visit')
     GROUP BY e.entity_id
   ),
@@ -313,7 +313,7 @@ BEGIN
       max(power(0.5::numeric,greatest(0,extract(epoch FROM (v_now-e.received_at))/2592000))) AS decay
     FROM catho_private.feed_analytics_events e
     WHERE e.user_id=p_user_id AND e.event_type='skip'
-      AND e.received_at>=v_now-interval '90 days' AND e.received_at<v_now
+      AND e.received_at>=greatest(v_now-interval '90 days',v_consent_at) AND e.received_at<v_now
     GROUP BY e.entity_id,e.session_id
   ),
   skip_scores AS (
@@ -323,25 +323,25 @@ BEGIN
   ),
   explicit_events AS (
     SELECT p.topic_id,5::numeric AS weight,p.completed_at AS happened_at FROM public.progress p
-      WHERE p.user_id=p_user_id AND p.completed_at>=v_now-interval '180 days'
+      WHERE p.user_id=p_user_id AND p.completed_at>=greatest(v_now-interval '180 days',v_consent_at)
     UNION ALL
     SELECT b.topic_id,4::numeric,b.created_at FROM public.bookmarks b
-      WHERE b.user_id=p_user_id AND b.created_at>=v_now-interval '180 days'
+      WHERE b.user_id=p_user_id AND b.created_at>=greatest(v_now-interval '180 days',v_consent_at)
     UNION ALL
     SELECT l.topic_id,3::numeric,l.created_at FROM public.topic_likes l
-      WHERE l.user_id=p_user_id AND l.created_at>=v_now-interval '180 days'
+      WHERE l.user_id=p_user_id AND l.created_at>=greatest(v_now-interval '180 days',v_consent_at)
     UNION ALL
     SELECT c.topic_id,3::numeric,c.created_at FROM public.comments c
-      WHERE c.user_id=p_user_id AND c.is_deleted=false AND c.created_at>=v_now-interval '180 days'
+      WHERE c.user_id=p_user_id AND c.is_deleted=false AND c.created_at>=greatest(v_now-interval '180 days',v_consent_at)
     UNION ALL
     SELECT c.topic_id,3::numeric,cl.created_at FROM public.comment_likes cl
       JOIN public.comments c ON c.id=cl.comment_id
-      WHERE cl.user_id=p_user_id AND c.is_deleted=false AND cl.created_at>=v_now-interval '180 days'
+      WHERE cl.user_id=p_user_id AND c.is_deleted=false AND cl.created_at>=greatest(v_now-interval '180 days',v_consent_at)
     UNION ALL
     SELECT parent.topic_id,2.5::numeric,reply.created_at FROM public.comments reply
       JOIN public.comments parent ON parent.id=reply.parent_id
       WHERE reply.user_id=p_user_id AND reply.is_deleted=false AND parent.is_deleted=false
-        AND reply.created_at>=v_now-interval '180 days'
+        AND reply.created_at>=greatest(v_now-interval '180 days',v_consent_at)
     UNION ALL
     SELECT c.topic_id,
       CASE e.event_type
@@ -353,7 +353,7 @@ BEGIN
       JOIN public.comments c ON c.id::text=e.card_id
     WHERE e.user_id=p_user_id AND e.card_type='top-comment'
       AND e.event_type IN ('viewable_impression','active_duration','open')
-      AND e.received_at>=v_now-interval '90 days' AND e.received_at<v_now
+      AND e.received_at>=greatest(v_now-interval '90 days',v_consent_at) AND e.received_at<v_now
   ),
   explicit_scores AS (
     SELECT topic_id,
