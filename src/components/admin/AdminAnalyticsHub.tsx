@@ -99,9 +99,11 @@ function DailyOverviewChart({ series }: { series: AnalyticsDay[] }) {
   </Card>;
 }
 
-export function AdminAnalyticsHub({ overview, period, section = 'overview', series, deepDive }: { overview: Overview; period: AnalyticsPeriod; section?: string; series: AnalyticsDay[]; deepDive: AnalyticsDeepDiveData }) {
+export function AdminAnalyticsHub({ overview, period, section = 'overview', series, deepDive, comparison }: { overview: Overview; period: AnalyticsPeriod; section?: string; series: AnalyticsDay[]; deepDive: AnalyticsDeepDiveData; comparison: Overview }) {
   const t = overview.totals;
   const totalExposures = t.topic_impressions + t.sponsor_served + t.comment_card_impressions;
+  const previous = comparison.totals;
+  const change = (current: number, prior: number) => prior > 0 ? ((current - prior) / prior * 100).toFixed(1) + '%' : current > 0 ? 'New' : '0.0%';
   const sectionHref = (value: string) => `/admin/analytics?period=${period}&section=${value}`;
   const showAll = section === 'overview';
   const categories = showAll ? overview.categories.slice(0, 5) : overview.categories;
@@ -143,6 +145,12 @@ export function AdminAnalyticsHub({ overview, period, section = 'overview', seri
       })}
     </nav>
 
+    <section className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <Metric label="Topic impressions vs previous" value={change(t.topic_impressions, previous.topic_impressions)} detail={number(t.topic_impressions) + ' current · ' + number(previous.topic_impressions) + ' previous'} icon={Activity} />
+      <Metric label="Sponsor delivery vs previous" value={change(t.sponsor_served, previous.sponsor_served)} detail={number(t.sponsor_served) + ' current · ' + number(previous.sponsor_served) + ' previous'} icon={Megaphone} />
+      <Metric label="Comment exposure vs previous" value={change(t.comment_card_impressions, previous.comment_card_impressions)} detail={number(t.comment_card_impressions) + ' current · ' + number(previous.comment_card_impressions) + ' previous'} icon={MessageCircle} />
+      <Metric label="Total placements vs previous" value={change(totalExposures, previous.topic_impressions + previous.sponsor_served + previous.comment_card_impressions)} detail="Same-length immediately preceding period" icon={Activity} />
+    </section>
     <section className="mt-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       <Metric label="Total feed placements" value={number(totalExposures)} detail="Topic impressions + sponsor deliveries + comment-card impressions" icon={Activity} />
       <Metric label="Topic impressions" value={number(t.topic_impressions)} detail={number(t.topic_viewable_impressions) + ' viewable · ' + duration(t.topic_active_duration_ms) + ' active time'} icon={BookOpen} />
