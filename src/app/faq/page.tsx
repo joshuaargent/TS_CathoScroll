@@ -175,19 +175,21 @@ export default function FAQPage() {
         </section>
 
         <section>
-          <h2 className="mb-4 text-3xl font-bold">How much does Premium cost?</h2>
+          <h2 className="mb-4 text-3xl font-bold">How much does a sponsorship cost?</h2>
 
           <p className="text-text-secondary leading-relaxed">
-            Premium pricing is displayed on the Premium page and during the subscription process.
+            Sponsorship prices are agreed individually based on the campaign, dates, and
+            agreed delivery. There is no user subscription or public fixed sponsor price.
+            Sponsor terms are confirmed in writing before a campaign begins.
           </p>
         </section>
 
         <section>
-          <h2 className="mb-4 text-3xl font-bold">Do you offer refunds?</h2>
+          <h2 className="mb-4 text-3xl font-bold">Do sponsors receive my personal data?</h2>
 
           <p className="text-text-secondary leading-relaxed">
-            Subscription purchases are non refundable except where required by applicable law.
-            Please review the Terms of Service for complete details.
+            No. Sponsors receive aggregate campaign reporting only. They do not receive
+            your identity, reading history, personalisation profile, or individual activity.
           </p>
         </section>
 
