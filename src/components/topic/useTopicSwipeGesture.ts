@@ -1,13 +1,14 @@
 'use client';
 
 import { animate, useMotionValue, type MotionValue } from 'framer-motion';
-import { useCallback, useRef, useState, type PointerEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type PointerEvent } from 'react';
 
 export type TopicSwipeDirection = 'next' | 'previous';
 
 interface UseTopicSwipeGestureOptions {
   enabled?: boolean;
   motionValues?: { x: MotionValue<number>; y: MotionValue<number> };
+  isLocked?: () => boolean;
   canSwipeHorizontal?: (direction: TopicSwipeDirection) => boolean;
   onSwipeHorizontal?: (direction: TopicSwipeDirection) => void | Promise<void>;
   onSwipeVertical: (direction: TopicSwipeDirection) => void | Promise<void>;
@@ -37,6 +38,7 @@ export function useTopicSwipeGesture({
   onSwipeVertical,
   onDoubleTap,
   motionValues,
+  isLocked,
 }: UseTopicSwipeGestureOptions): TopicSwipeGesture {
   const internalX = useMotionValue(0);
   const internalY = useMotionValue(0);
@@ -52,6 +54,54 @@ export function useTopicSwipeGesture({
     animate(x, 0, { type: 'spring', stiffness: 1800, damping: 120 });
     animate(y, 0, { type: 'spring', stiffness: 1800, damping: 120 });
   }, [x, y]);
+
+  useEffect(() => {
+    if (!enabled) return;
+
+    const handleKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.repeat || isLocked?.()) return;
+
+      const target = event.target as HTMLElement | null;
+      if (
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLSelectElement ||
+        target?.isContentEditable
+      ) {
+        return;
+      }
+
+      switch (event.key) {
+        case 'ArrowLeft':
+          event.preventDefault();
+          if (!canSwipeHorizontal || canSwipeHorizontal('previous')) {
+            void onSwipeHorizontal?.('previous');
+          }
+          break;
+        case 'ArrowRight':
+          event.preventDefault();
+          if (!canSwipeHorizontal || canSwipeHorizontal('next')) {
+            void onSwipeHorizontal?.('next');
+          }
+          break;
+        case 'ArrowUp':
+          event.preventDefault();
+          void onSwipeVertical('previous');
+          break;
+        case 'ArrowDown':
+          event.preventDefault();
+          void onSwipeVertical('next');
+          break;
+        case ' ':
+          event.preventDefault();
+          void onSwipeVertical(event.shiftKey ? 'previous' : 'next');
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [canSwipeHorizontal, enabled, isLocked, onSwipeHorizontal, onSwipeVertical]);
 
   const handlePointerDown = useCallback((event: PointerEvent<HTMLDivElement>) => {
     if (!enabled) return;
