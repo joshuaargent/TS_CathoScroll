@@ -38,11 +38,11 @@ export async function POST(request: Request) {
     console.error('Unable to verify sponsor-event authentication:', cause);
     return respond(request, { error: 'Authentication is temporarily unavailable.' }, 503);
   }
-  if (!auth.user) return respond(request, { error: 'Authentication required' }, 401);
+  const isAnonymous = !auth.user;
 
   const rateLimit = await checkApiRateLimit({
     scope: 'sponsor-campaign-events:write',
-    identifier: auth.user.id,
+    identifier: auth.user?.id ?? `anonymous:${request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'}`,
     limit: 60,
     windowSeconds: 60,
   });
@@ -75,13 +75,20 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { data, error } = await createServiceRoleClient().rpc('record_sponsor_campaign_event', {
-      p_user_id: auth.user.id,
-      p_campaign_id: parsed.value.campaignId,
-      p_event_id: parsed.value.eventId,
-      p_session_id: parsed.value.sessionId,
-      p_event_type: parsed.value.eventType,
-    });
+    const { data, error } = isAnonymous
+      ? await createServiceRoleClient().rpc('record_anonymous_sponsor_campaign_event', {
+          p_session_token: parsed.value.sessionId,
+          p_campaign_id: parsed.value.campaignId,
+          p_event_id: parsed.value.eventId,
+          p_event_type: parsed.value.eventType,
+        })
+      : await createServiceRoleClient().rpc('record_sponsor_campaign_event', {
+          p_user_id: auth.user!.id,
+          p_campaign_id: parsed.value.campaignId,
+          p_event_id: parsed.value.eventId,
+          p_session_id: parsed.value.sessionId,
+          p_event_type: parsed.value.eventType,
+        });
     if (error) {
       if (error.code === '42501') return respond(request, { error: 'Sponsor placement was not eligible.' }, 403);
       if (error.code === '22023') return respond(request, { error: 'Invalid sponsor event.' }, 400);
