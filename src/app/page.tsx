@@ -1,6 +1,6 @@
 import { Suspense } from 'react';
 import { TopicFeed } from '@/components/topic/TopicFeed';
-import { getPublishedTopicPage } from '@/lib/content';
+import { getPublicGeneralTopicPage } from '@/lib/content';
 import { siteConfig } from '@/lib/constants';
 import { getRecommendationPage } from '@/lib/recommendations-server';
 import { createClient } from '@/lib/supabase/server';
@@ -47,10 +47,10 @@ async function HomeFeed() {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    const { topics, nextCursor } = await getPublishedTopicPage({ limit: 50 });
+    const { topics, nextCursor } = await getPublicGeneralTopicPage(null, 50);
     return (
       <div className="h-[calc(100vh-4rem)] overflow-hidden">
-        <TopicFeed topics={topics} nextCursor={nextCursor} userId={null} />
+        <TopicFeed topics={topics} nextCursor={nextCursor} userId={null} generalRanked />
       </div>
     );
   }
