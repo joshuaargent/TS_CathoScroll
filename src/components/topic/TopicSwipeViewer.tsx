@@ -1,6 +1,6 @@
 'use client';
 
-import { animate, motion, useMotionValue } from 'framer-motion';
+import { animate, motion } from 'framer-motion';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { flushSync } from 'react-dom';
 import { Heart } from 'lucide-react';
@@ -14,6 +14,7 @@ import {
   recordFeedTopicVisit,
 } from '@/lib/feed-analytics-client';
 import { TopicCard } from './TopicCard';
+import { useTopicSwipeGesture } from './useTopicSwipeGesture';
 
 interface TopicSwipeViewerProps {
   topics: Topic[];
@@ -72,13 +73,7 @@ export function TopicSwipeViewer({
   onProgressChange,
 }: TopicSwipeViewerProps) {
   const [slideIndex, setSlideIndex] = useState(0);
-  const [axis, setAxis] = useState<'x' | 'y' | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
-  const x = useMotionValue(0);
-  const y = useMotionValue(0);
-  const startRef = useRef({ x: 0, y: 0 });
-  const currentRef = useRef({ x: 0, y: 0 });
-  const lastTapRef = useRef(0);
+
   const containerRef = useRef<HTMLDivElement>(null);
   const [isAnimating, setIsAnimating] = useState(false);
   const animationLockRef = useRef(false);
@@ -404,133 +399,19 @@ export function TopicSwipeViewer({
     onPreviousTopic,
   ]);
 
-  const handlePointerDown = (event: React.PointerEvent) => {
-    setIsDragging(true);
-
-    event.currentTarget.setPointerCapture(event.pointerId);
-
-    setAxis(null);
-
-    currentRef.current = {
-      x: 0,
-      y: 0,
-    };
-
-    startRef.current = {
-      x: event.clientX,
-      y: event.clientY,
-    };
-  };
-
-  const handlePointerMove = (event: React.PointerEvent) => {
-    if (!isDragging) return;
-
-    const deltaX = event.clientX - startRef.current.x;
-
-    const deltaY = event.clientY - startRef.current.y;
-
-    if (!axis) {
-      // Lock the gesture to whichever direction moved farther once the
-      // pointer has moved enough to distinguish a swipe from a tap.
-      if (Math.abs(deltaX) > 2 || Math.abs(deltaY) > 2) {
-        setAxis(Math.abs(deltaX) > Math.abs(deltaY) ? 'x' : 'y');
-      }
-
-      return;
-    }
-
-    if (axis === 'x') {
-      x.set(deltaX);
-
-      y.set(0);
-
-      currentRef.current.x = deltaX;
-    }
-
-    if (axis === 'y') {
-      y.set(deltaY);
-
-      x.set(0);
-
-      currentRef.current.y = deltaY;
-    }
-  };
-
-  const handlePointerUp = async () => {
-    setIsDragging(false);
-
-    const dx = currentRef.current.x;
-
-    const dy = currentRef.current.y;
-
-    const absDx = Math.abs(dx);
-    const absDy = Math.abs(dy);
-
-    const wasTap = absDx < 10 && absDy < 10;
-
-    const velocityX = absDx / 16;
-
-    const velocityY = absDy / 16;
-
-    const width = window.innerWidth;
-
-    const height = window.innerHeight;
-
-    // AQA-style pseudocode:
-    // IF gesture axis is horizontal THEN
-    //   commit ← distance > 7% of width OR estimated velocity > 25
-    //   IF committed and moved left/right with a slide available THEN move slide
-    //   ELSE return the card to its starting position
-    // ELSE IF gesture axis is vertical THEN
-    //   apply the same rule using height and move between topics
-    // IF both distances are under 10 pixels AND taps are under 300 ms apart
-    //   LIKE current topic
-    if (axis === 'x') {
-      const threshold = width * 0.07;
-
-      const commit = absDx > threshold || velocityX > 25;
-
-      if (commit && dx < 0 && nextSlide) {
-        await moveSlide('next');
-      } else if (commit && dx > 0 && previousSlide) {
-        await moveSlide('previous');
-      } else {
-        springHome();
-      }
-    }
-
-    if (axis === 'y') {
-      const threshold = height * 0.07;
-
-      const commit = absDy > threshold || velocityY > 25;
-
-      if (commit && dy < 0) {
-        await moveTopic('next');
-      } else if (commit && dy > 0) {
-        await moveTopic('previous');
-      } else {
-        springHome();
-      }
-    }
-
-    if (wasTap) {
-      // Two taps within 300 ms like the current topic; a single tap does not.
-      const now = Date.now();
-
-      if (now - lastTapRef.current < 300) {
-        void likeTopic();
-      }
-
-      lastTapRef.current = now;
-    }
-
-    currentRef.current = {
-      x: 0,
-      y: 0,
-    };
-
-    setAxis(null);
-  };
+  const {
+    x,
+    y,
+    handlePointerDown,
+    handlePointerMove,
+    handlePointerUp,
+  } = useTopicSwipeGesture({
+    enabled: active && !isAnimating,
+    canSwipeHorizontal: (direction) => direction === 'next' ? Boolean(nextSlide) : Boolean(previousSlide),
+    onSwipeHorizontal: moveSlide,
+    onSwipeVertical: moveTopic,
+    onDoubleTap: likeTopic,
+  });
 
   return (
     <div className="flex h-full flex-col">
