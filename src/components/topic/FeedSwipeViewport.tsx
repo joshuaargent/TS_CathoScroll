@@ -101,6 +101,7 @@ export function FeedSwipeViewport({
   }, [
     active,
     canSwipeHorizontal,
+    containerRef,
     onSwipeHorizontal,
     onSwipeVertical,
     onTransitionEnd,
