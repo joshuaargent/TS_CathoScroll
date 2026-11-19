@@ -16,6 +16,10 @@ import {
 import { TopicCard } from './TopicCard';
 import { useTopicSwipeGesture } from './useTopicSwipeGesture';
 
+function getActiveElapsed(startedAt: number | null) {
+  return startedAt === null ? 0 : Math.max(0, performance.now() - startedAt);
+}
+
 interface TopicSwipeViewerProps {
   topics: Topic[];
   topicIndex: number;
@@ -231,20 +235,6 @@ export function TopicSwipeViewer({
     onDoubleTapLike();
   };
 
-  const springHome = () => {
-    animate(x, 0, {
-      type: 'spring',
-      stiffness: 1800,
-      damping: 120,
-    });
-
-    animate(y, 0, {
-      type: 'spring',
-      stiffness: 1800,
-      damping: 120,
-    });
-  };
-
   const moveSlide = async (direction: 'next' | 'previous') => {
     if (animationLockRef.current) return;
     animationLockRef.current = true;
@@ -283,9 +273,7 @@ export function TopicSwipeViewer({
     if (animationLockRef.current) return;
 
     if (direction === 'next' && userId) {
-      const activeElapsed = topicActiveSinceRef.current === null
-        ? 0
-        : Math.max(0, performance.now() - topicActiveSinceRef.current);
+      const activeElapsed = getActiveElapsed(topicActiveSinceRef.current);
       if (topicActiveDurationRef.current + activeElapsed < 2000) {
         recordFeedAnalyticsEvent(userId, 'skip', currentTopicId, {
           slide_index: slideIndex,
