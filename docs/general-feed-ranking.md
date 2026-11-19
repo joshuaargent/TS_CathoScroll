@@ -18,7 +18,7 @@ The production function is `public.get_public_general_topic_page(jsonb, integer)
 - Completions: positive quality signal.
 - Active reading duration: positive signal, capped per daily aggregate to reduce runaway values.
 - Skips: negative signal.
-- Recency: each day's contribution decays exponentially with a 45-day half-life approximation (`exp(-age_days / 45)`).
+- Recency: each day's contribution decays exponentially with a 45-day decay constant (`exp(-age_days / 45)`).
 - Public engagement: topic likes, bookmarks and visible top-level comments contribute logarithmically.
 
 The score is deliberately transformed so that a topic with a very large historical audience does not permanently dominate newer material. This is a practical engagement ranking, not a theological judgement about the correctness or importance of a topic.
