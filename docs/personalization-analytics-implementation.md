@@ -32,7 +32,7 @@ When enabled, the private topic-interest profile is recomputed from bounded, dec
 | Comments written, comment likes and replies written | Explicit community interaction evidence |
 | Top Comments viewability, active time and discussion opens | Low-to-moderate topic evidence |
 
-The model uses only activity recorded after consent was granted, with a maximum 90-day behavioural evidence window and 180-day explicit-interaction window. It maintains separate short-term (14-day half-life) and long-term (90-day half-life) scores. Per-topic scores and evidence are capped. A category preference is calculated from the topic profile, then combined with user-selected category interests. Explicit category interests are stored separately and receive a stronger category signal.
+The model uses only activity recorded after consent was granted, with a maximum 90-day behavioural evidence window and 180-day explicit-interaction window. It maintains separate short-term (14-day half-life) and long-term (90-day half-life) scores. Per-topic scores and evidence are capped, and profile rows are removed once their evidence ages out of the scoring windows. A category preference is calculated from the topic profile, then combined with user-selected category interests. Explicit category interests are stored separately and receive a stronger category signal.
 
 The recommendation service still preserves its existing category-weighted scheduling, category-diversity rule, pagination cursor and topic-only content ordering. Behavioural profile signals are read only when consent is enabled. Existing direct learning actions continue to work as explicit product interactions even when the optional inferred profile is disabled.
 
