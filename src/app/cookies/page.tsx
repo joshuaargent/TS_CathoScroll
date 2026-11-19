@@ -92,6 +92,18 @@ export default function CookiesPage() {
         </section>
 
         <section>
+          <h2 className="mb-4 text-3xl font-bold">Personalisation</h2>
+
+          <p className="text-text-secondary leading-relaxed">
+            Optional personalisation is controlled by your account consent setting. Your consent
+            record, selected interests, and private topic-interest profile are stored server-side
+            in CathoScroll's database; they are not stored in advertising cookies or used for
+            cross-site tracking. You can turn personalisation off and delete the derived profile
+            in Account settings.
+          </p>
+        </section>
+
+        <section>
           <h2 className="mb-4 text-3xl font-bold">Sponsor Payments</h2>
 
           <p className="text-text-secondary leading-relaxed">
