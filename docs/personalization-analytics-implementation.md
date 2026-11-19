@@ -63,7 +63,7 @@ The unified `/admin/analytics` page now adds:
 - Feed reading funnel: feed impressions and sessions reaching viewability, completion or skip.
 - Session quality: distinct signed-in feed sessions, average topic entries, active time, completions and low-active-time sessions.
 - Recommendation outcomes: actual feed-origin topic entries followed by viewability, active time, completion, skip and return behaviour.
-- Cohort retention: first-observed feed cohorts with 7-day and 30-day return rates. A rate remains unavailable until the cohort has a complete observation window; it is never shown as a false zero.
+- Cohort retention: first-observed feed cohorts with 7-day and 30-day return rates, counting a return only when it occurs in a distinct feed session. A rate remains unavailable until the cohort has a complete observation window; it is never shown as a false zero.
 - Category discovery: published topic coverage, impressions, viewability and completions by category.
 
 All report payloads are aggregated. They do not return user IDs, session IDs, raw comment text or individual activity histories. The current recommendation report measures outcomes for topics users actually entered. It is not a randomized A/B experiment and does not claim to measure unshown candidate topics.
