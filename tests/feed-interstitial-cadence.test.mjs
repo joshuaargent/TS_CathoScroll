@@ -143,7 +143,8 @@ test('topic, comment and sponsor cards use the same shared base card', () => {
   assert.match(sharedSwipeGesture, /setPointerCapture\(event\.pointerId\)/);
   assert.match(sharedViewport, /flushSync\(\(\) =>/);
   assert.match(sharedViewport, /await navigation;/);
-  assert.match(topicViewer, /await navigation;/);
+  assert.match(topicViewer, /awaitVerticalNavigation=\{false\}/);
+  assert.match(topicViewer, /return direction === 'next' \? onNextTopic\?\.\(\) : onPreviousTopic\?\.\(\)/);
   assert.match(topCommentCard, /await onNextTopic\(\)/);
   assert.match(sponsorCard, /await onNextTopic\(\)/);
   assert.match(sponsorCard, /navigationStarted\.current = false/);
