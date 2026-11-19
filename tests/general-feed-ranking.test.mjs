@@ -41,3 +41,11 @@ test('general-ranked public feed does not locally shuffle server-ranked pages', 
   assert.match(core, /personalized \|\| generalRanked \? topics : shuffle\(topics\)/);
   assert.match(core, /personalized \|\| generalRanked \? result\.topics : shuffle\(result\.topics\)/);
 });
+
+test('native feed uses the same personalisation consent gate and general ranking', () => {
+  const native = read('../native/main.tsx');
+  assert.match(native, /get_my_personalization_status/);
+  assert.match(native, /loadNativeGeneralFeedPage/);
+  assert.match(native, /generalRanked=\{feedGeneralRanked\}/);
+  assert.match(native, /'userId' in cursor/);
+});
