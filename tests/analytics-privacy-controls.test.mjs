@@ -5,17 +5,21 @@ import test from 'node:test';
 const read = (path) => readFile(new URL(path, import.meta.url), 'utf8');
 
 test('account-linked topic and comment telemetry fail closed pending legal approval', async () => {
-  const [topicViewer, commentViewer, topicRoute, commentRoute] = await Promise.all([
+  const [topicViewer, commentViewer, topicRoute, commentRoute, queuePrivacy] = await Promise.all([
     read('../src/components/topic/TopicSwipeViewer.tsx'),
     read('../src/components/topic/TopCommentFeedCard.tsx'),
     read('../src/app/api/analytics/feed-events/route.ts'),
     read('../src/app/api/analytics/feed-card-events/route.ts'),
+    read('../src/lib/feed-analytics-privacy.ts'),
   ]);
 
   for (const source of [topicViewer, commentViewer]) {
     assert.ok(source.includes("process.env.NEXT_PUBLIC_ACCOUNT_LINKED_FEED_ANALYTICS === 'true'"));
     assert.ok(!source.includes('if (!userId || !active) return;'));
   }
+  assert.ok(queuePrivacy.includes("'cathoscroll.feed-analytics.v1.'"));
+  assert.ok(queuePrivacy.includes("'cathoscroll:feed-card-analytics:v1:'"));
+  assert.ok(queuePrivacy.includes('window.localStorage.removeItem(key)'));
   for (const source of [topicRoute, commentRoute]) {
     assert.ok(source.includes("process.env.ACCOUNT_LINKED_FEED_ANALYTICS_ENABLED !== 'true'"));
     assert.ok(source.includes("}, 410)"));
