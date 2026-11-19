@@ -101,10 +101,10 @@ export function AdminAnalyticsHub({ overview, period, section = 'overview', seri
   const totalExposures = t.topic_impressions + t.sponsor_served + t.comment_card_impressions;
   const sectionHref = (value: string) => `/admin/analytics?period=${period}&section=${value}`;
   const showAll = section === 'overview';
-  const categories = overview.categories.slice(0, showAll ? 5 : 100);
-  const topics = overview.topics.slice(0, showAll ? 5 : 100);
-  const sponsors = overview.sponsors.slice(0, showAll ? 5 : 100);
-  const comments = overview.comments.slice(0, showAll ? 5 : 100);
+  const categories = showAll ? overview.categories.slice(0, 5) : overview.categories;
+  const topics = showAll ? overview.topics.slice(0, 5) : overview.topics;
+  const sponsors = showAll ? overview.sponsors.slice(0, 5) : overview.sponsors;
+  const comments = showAll ? overview.comments.slice(0, 5) : overview.comments;
 
   return <main className="container py-12">
     <div className="mt-6"><p className="text-accent text-sm font-semibold tracking-wider uppercase">Administration · Insights</p>

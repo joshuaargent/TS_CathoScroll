@@ -7048,15 +7048,20 @@ REVOKE ALL ON FUNCTION catho_private.refresh_feed_card_analytics_daily() FROM PU
 CREATE OR REPLACE FUNCTION catho_private.prune_feed_card_analytics_events(p_before timestamptz,p_batch_size integer DEFAULT 5000)
 RETURNS integer LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
 AS $function$
-DECLARE v_deleted integer;
+DECLARE v_deleted integer; v_viewers_deleted integer;
 BEGIN
   IF p_before>statement_timestamp()-interval '180 days' OR p_batch_size NOT BETWEEN 1 AND 5000 THEN
     RAISE EXCEPTION 'invalid retention boundary or batch size' USING ERRCODE='22023';
   END IF;
+  WITH doomed AS (SELECT ctid FROM catho_private.feed_card_analytics_daily_viewers
+    WHERE event_date<p_before::date ORDER BY event_date LIMIT p_batch_size)
+  DELETE FROM catho_private.feed_card_analytics_daily_viewers v USING doomed d WHERE v.ctid=d.ctid;
+  GET DIAGNOSTICS v_viewers_deleted=ROW_COUNT;
   WITH doomed AS (SELECT ctid FROM catho_private.feed_card_analytics_events
     WHERE received_at<p_before ORDER BY received_at LIMIT p_batch_size)
   DELETE FROM catho_private.feed_card_analytics_events e USING doomed d WHERE e.ctid=d.ctid;
-  GET DIAGNOSTICS v_deleted=ROW_COUNT; RETURN v_deleted;
+  GET DIAGNOSTICS v_deleted=ROW_COUNT;
+  RETURN v_deleted+v_viewers_deleted;
 END;
 $function$;
 ALTER FUNCTION catho_private.prune_feed_card_analytics_events(timestamptz,integer) OWNER TO postgres;

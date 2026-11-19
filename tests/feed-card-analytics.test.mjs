@@ -79,5 +79,8 @@ test('Top Comments viewability requires half visibility for one continuous secon
   assert.ok(route.includes("record_feed_card_analytics_events"));
   assert.ok(hub.includes("['overview','categories','topics','sponsors','comments']"));
   assert.ok(hub.includes('Top Comments exposure'));
+  const bootstrap = await readFile(new URL('../docs/cathoscroll-database-bootstrap.sql', import.meta.url), 'utf8');
+  assert.ok(bootstrap.includes('feed_card_analytics_daily_viewers v using doomed d'));
+  assert.ok(bootstrap.includes('event_date<p_before::date'));
   assert.ok(!hub.includes('bookmark'));
 });

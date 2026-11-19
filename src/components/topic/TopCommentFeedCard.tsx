@@ -303,7 +303,7 @@ export function TopCommentFeedCard({
         contentWidthClassName="max-w-3xl"
         title={<span className="text-text-muted text-xs tracking-wider uppercase">Top Comments</span>}
       >
-        <article className="w-full">
+        <article ref={commentArticleRef} className="w-full">
           <p className="text-text-muted mb-5 text-sm font-medium md:text-base">
             {previewComment.topic_question}
           </p>
