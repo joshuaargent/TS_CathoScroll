@@ -510,10 +510,10 @@ GRANT EXECUTE ON FUNCTION public.get_admin_analytics_deep_dive(uuid,timestamptz,
 
 -- Record the optional, explicit personalisation choice made on the shared web/native signup form.
 CREATE OR REPLACE FUNCTION catho_private.capture_signup_personalization_consent()
-RETURNS trigger
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path TO ''
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
 AS $function$
 BEGIN
   IF NEW.raw_user_meta_data ->> 'personalization_consent' = 'true' THEN
