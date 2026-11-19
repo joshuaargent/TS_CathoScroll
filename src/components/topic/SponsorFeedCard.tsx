@@ -202,6 +202,31 @@ export function SponsorFeedCard({
     } catch {}
   };
 
+  const renderCampaignPreview = (previewCampaign: SponsorFeedCampaign | undefined) => {
+    if (!previewCampaign) return null;
+    return (
+      <BaseFeedCard
+        title={
+          <div className="min-w-0">
+            <p className="text-text-muted truncate text-sm font-medium">{previewCampaign.sponsor_name}</p>
+            <p className="text-text-muted text-xs tracking-wider uppercase">
+              {previewCampaign.disclosure || 'Sponsored'}
+            </p>
+          </div>
+        }
+      >
+        <article className="mx-auto w-full max-w-3xl px-1 py-3 text-center md:px-4 md:py-5">
+          <h3 className="text-text-primary text-3xl leading-tight font-bold md:text-4xl">
+            {previewCampaign.headline}
+          </h3>
+          <p className="text-text-secondary mx-auto mt-4 max-w-2xl whitespace-pre-line text-base leading-relaxed md:text-lg">
+            {previewCampaign.body}
+          </p>
+        </article>
+      </BaseFeedCard>
+    );
+  };
+
   return (
     <FeedInterstitialMotion
       ariaLabel="Sponsored content"
