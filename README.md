@@ -516,7 +516,7 @@ Never put Supabase service-role keys or other server secrets in `NEXT_PUBLIC_*` 
 
 ## Native page parity and offline behaviour
 
-The website and Android/Electron apps render the same shared
+The website and native Android/iOS/Electron apps render the same shared
 `AccountPageView`, `PublicProfileView`, `CategoriesGrid`,
 `CategoryTopicGrid`, `CategoryBottomNavigation`, `SigninForm`, and
 `SignupFormView` components. These keep the account, public profile,
