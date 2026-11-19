@@ -73,7 +73,7 @@ test('admin deep-dive analytics is service-role only', () => {
 
 test('explicit category interests are bounded and validated', () => {
   const body = functionBody('public.set_my_personalization_interests');
-  assert.match(body, /cardinality\)p_category_slugs\\)>20/);
+  assert.match(body, /cardinality\(p_category_slugs\)>20/);
   assert.match(body, /Enable personalisation before saving interests/);
   assert.match(body, /is_published=true/);
 });
