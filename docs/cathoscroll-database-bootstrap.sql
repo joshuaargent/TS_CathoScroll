@@ -1470,6 +1470,7 @@ ALTER FUNCTION catho_private.get_user_feed_preference_signals(uuid) OWNER TO pos
 CREATE OR REPLACE FUNCTION public.get_my_recommendation_page(feed_cursor jsonb DEFAULT NULL::jsonb, page_limit integer DEFAULT 50)
  RETURNS jsonb
  LANGUAGE plpgsql
+ SECURITY DEFINER
  SET search_path TO ''
 AS $function$
 DECLARE
