@@ -115,19 +115,19 @@ export function SignupFormView({
               </button>
             </div>
 
-            <div className="border-border bg-bg-secondary/40 rounded-xl border p-4">
-              <label htmlFor="signup-personalization-consent" className="flex cursor-pointer items-start gap-3">
+            <div className="border-border bg-bg-secondary/40 rounded-xl border p-3">
+              <label htmlFor="signup-personalization-consent" className="flex cursor-pointer items-start gap-2.5">
                 <input
                   id="signup-personalization-consent"
                   name="personalizationConsent"
                   type="checkbox"
                   value="true"
                   disabled={loading || !online}
-                  className="accent-accent mt-1 h-4 w-4 shrink-0"
+                  className="accent-accent mt-0.5 h-4 w-4 shrink-0"
                 />
-                <span className="text-text-secondary text-sm leading-relaxed">
-                  <span className="text-text-primary font-semibold">Optional: I explicitly consent to CathoScroll using my topic-reading activity and selected interests, which may reveal religious or philosophical beliefs, to personalise my recommendations.</span>{' '}
-                  This is not required to use CathoScroll. The profile is private, is not used for sponsor targeting, and can be deleted by withdrawing consent at any time in Account settings. Read the{' '}
+                <span className="text-text-secondary text-xs leading-relaxed">
+                  <span className="text-text-primary font-semibold">Optional — I explicitly consent to CathoScroll using my reading activity and chosen interests, which may reveal religious or philosophical beliefs, to personalise my recommendations.</span>{' '}
+                  This is not needed to use CathoScroll. My profile is private, is not used for sponsor targeting, and I can withdraw consent in Account settings. See the{' '}
                   <Link href="/privacy" className="text-accent font-medium underline">Privacy Policy</Link>.
                 </span>
               </label>
