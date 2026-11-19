@@ -91,12 +91,18 @@ function DailyOverviewChart({ series }: { series: AnalyticsDay[] }) {
       <span className="text-text-secondary inline-flex items-center gap-2"><span className="bg-accent h-2.5 w-2.5 rounded-full" /> Topic impressions</span>
       <span className="text-text-secondary inline-flex items-center gap-2"><span className="bg-emerald-600 h-2.5 w-2.5 rounded-full" /> Sponsor deliveries</span>
       <span className="text-text-secondary inline-flex items-center gap-2"><span className="bg-sky-600 h-2.5 w-2.5 rounded-full" /> Comment-card impressions</span>
+      <span className="text-text-secondary inline-flex items-center gap-2"><span className="border-accent h-2.5 w-2.5 rounded-full border" /> Anonymous topics</span>
+      <span className="text-text-secondary inline-flex items-center gap-2"><span className="border-emerald-600 h-2.5 w-2.5 rounded-full border" /> Anonymous sponsors</span>
+      <span className="text-text-secondary inline-flex items-center gap-2"><span className="border-sky-600 h-2.5 w-2.5 rounded-full border" /> Anonymous comments</span>
     </div>
     {series.length ? <svg viewBox={'0 0 ' + width + ' ' + height} className="mt-3 h-auto w-full" role="img" aria-label="Daily topic, sponsor and comment card activity">
       {[0,0.5,1].map((fraction) => <g key={fraction}><line x1={padding.left} y1={padding.top+chartHeight*(1-fraction)} x2={width-padding.right} y2={padding.top+chartHeight*(1-fraction)} className="stroke-border" strokeDasharray="4 5" /><text x={padding.left-9} y={padding.top+chartHeight*(1-fraction)+4} textAnchor="end" className="fill-text-muted" fontSize="11">{number(Math.round(max*fraction))}</text></g>)}
       <polyline points={topic} fill="none" className="stroke-accent" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
       <polyline points={sponsor} fill="none" className="stroke-emerald-600" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
       <polyline points={comments} fill="none" className="stroke-sky-600" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+      <polyline points={series.map((day,index) => point(day.anonymous_topic_impressions ?? 0,index)).join(' ')} fill="none" className="stroke-accent" strokeWidth="2" strokeDasharray="5 5" />
+      <polyline points={series.map((day,index) => point(day.anonymous_sponsor_served ?? 0,index)).join(' ')} fill="none" className="stroke-emerald-600" strokeWidth="2" strokeDasharray="5 5" />
+      <polyline points={series.map((day,index) => point(day.anonymous_comment_impressions ?? 0,index)).join(' ')} fill="none" className="stroke-sky-600" strokeWidth="2" strokeDasharray="5 5" />
       {series.length > 0 && <><text x={padding.left} y={height-8} className="fill-text-muted" fontSize="11">{series[0].event_date}</text><text x={width-padding.right} y={height-8} textAnchor="end" className="fill-text-muted" fontSize="11">{series[series.length-1].event_date}</text></>}
     </svg> : <p className="text-text-muted mt-6 text-sm">No daily activity has been recorded in this period yet.</p>}
   </Card>;
@@ -154,10 +160,15 @@ export function AdminAnalyticsHub({ overview, period, section = 'overview', seri
       <Metric label="Total placements vs previous" value={change(totalExposures, previous.topic_impressions + previous.sponsor_served + previous.comment_card_impressions + previous.anonymous_topic_impressions + previous.anonymous_sponsor_served + previous.anonymous_comment_card_impressions)} detail="Same-length immediately preceding period" icon={Activity} />
     </section>
     <section className="mt-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-      <Metric label="Total feed placements" value={number(totalExposures)} detail="Topic impressions + sponsor deliveries + comment-card impressions" icon={Activity} />
+      <Metric label="Total feed placements" value={number(totalExposures)} detail="Signed-in and anonymous placements; stream metrics remain separate below" icon={Activity} />
       <Metric label="Topic impressions" value={number(t.topic_impressions)} detail={number(t.topic_viewable_impressions) + ' viewable · ' + duration(t.topic_active_duration_ms) + ' active time'} icon={BookOpen} />
       <Metric label="Sponsored delivery" value={number(t.sponsor_served)} detail={number(t.sponsor_viewable_impressions) + ' viewable · ' + number(t.sponsor_clicks) + ' clicks'} icon={Megaphone} />
       <Metric label="Top Comments exposure" value={number(t.comment_card_impressions)} detail={number(t.comment_card_viewable_impressions) + ' viewable · ' + number(t.comment_card_opens) + ' discussion opens'} icon={MessageCircle} />
+    </section>
+    <section className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <Metric label="Anonymous topic activity" value={number(t.anonymous_topic_impressions)} detail={number(t.anonymous_topic_viewable_impressions) + ' viewable · ' + duration(t.anonymous_topic_active_duration_ms) + ' active time'} icon={BookOpen} />
+      <Metric label="Anonymous sponsor delivery" value={number(t.anonymous_sponsor_served)} detail={number(t.anonymous_sponsor_viewable_impressions) + ' viewable · ' + number(t.anonymous_sponsor_clicks) + ' clicks'} icon={Megaphone} />
+      <Metric label="Anonymous Top Comments" value={number(t.anonymous_comment_card_impressions)} detail={number(t.anonymous_comment_card_viewable_impressions) + ' viewable · ' + number(t.anonymous_comment_card_opens) + ' discussion opens'} icon={MessageCircle} />
     </section>
     <section className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       <Metric label="Categories" value={number(t.category_count)} detail="All categories in the library" icon={BarChart3} />
@@ -197,7 +208,7 @@ export function AdminAnalyticsHub({ overview, period, section = 'overview', seri
 
     <section className="mt-10 grid gap-5 lg:grid-cols-2">
       {(section === 'overview' || section === 'categories') && <SectionCard title="Categories" description="Compare category reach and topic coverage." count={number(t.category_count)} href={sectionHref('categories')} icon={BarChart3}>
-        {categories.map((item) => <EntityLink key={item.slug} href={`/categories/${encodeURIComponent(item.slug)}/analytics?period=${period}`} title={item.name} detail={number(item.topic_count) + ' topics'} metric={number(item.impressions) + ' impressions'} />)}
+        {categories.map((item) => <EntityLink key={item.slug} href={`/categories/${encodeURIComponent(item.slug)}/analytics?period=${period}`} title={item.name} detail={number(item.topic_count) + ' topics'} metric={number(item.impressions) + ' signed-in · ' + number(item.anonymous_impressions ?? 0) + ' anonymous'} />)}
         {categories.length === 0 && <p className="text-text-muted text-sm">No categories available.</p>}
       </SectionCard>}
       {(section === 'overview' || section === 'topics') && <SectionCard title="Topics" description="Inspect individual learning content and reading behaviour." count={number(t.topic_count)} href={sectionHref('topics')} icon={BookOpen}>
@@ -205,11 +216,11 @@ export function AdminAnalyticsHub({ overview, period, section = 'overview', seri
         {topics.length === 0 && <p className="text-text-muted text-sm">No topics available.</p>}
       </SectionCard>}
       {(section === 'overview' || section === 'sponsors') && <SectionCard title="Sponsors" description="Track paid delivery, viewability and campaign clicks." count={number(t.sponsor_count)} href={sectionHref('sponsors')} icon={Megaphone}>
-        {sponsors.map((item) => <EntityLink key={item.id} href={`/admin/analytics/sponsors/${item.id}?period=${period}`} title={item.sponsor_name} detail={item.status + ' · ' + item.campaign_count + ' campaigns'} metric={number(item.served) + ' served'} />)}
+        {sponsors.map((item) => <EntityLink key={item.id} href={`/admin/analytics/sponsors/${item.id}?period=${period}`} title={item.sponsor_name} detail={item.status + ' · ' + item.campaign_count + ' campaigns'} metric={number(item.served) + ' signed-in · ' + number(item.anonymous_served ?? 0) + ' anonymous served'} />)}
         {sponsors.length === 0 && <p className="text-text-muted text-sm">No sponsors available.</p>}
       </SectionCard>}
       {(section === 'overview' || section === 'comments') && <SectionCard title="Comments" description="Measure Top Comments card exposure separately from likes and replies." count={number(t.comment_count)} href={sectionHref('comments')} icon={MessageCircle}>
-        {comments.map((item) => <EntityLink key={item.id} href={`/admin/analytics/comments/${item.id}?period=${period}`} title={item.topic_question ?? 'Comment #' + item.id} detail={number(item.likes) + ' likes · ' + number(item.replies) + ' replies'} metric={number(item.impressions) + ' card impressions'} />)}
+        {comments.map((item) => <EntityLink key={item.id} href={`/admin/analytics/comments/${item.id}?period=${period}`} title={item.topic_question ?? 'Comment #' + item.id} detail={number(item.likes) + ' likes · ' + number(item.replies) + ' replies'} metric={number(item.impressions) + ' signed-in · ' + number(item.anonymous_impressions ?? 0) + ' anonymous'} />)}
         {comments.length === 0 && <p className="text-text-muted text-sm">No comments available.</p>}
       </SectionCard>}
     </section>
