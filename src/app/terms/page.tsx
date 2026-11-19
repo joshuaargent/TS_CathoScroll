@@ -169,7 +169,7 @@ export default function TermsPage() {
           <p className="text-text-secondary leading-relaxed">
             CathoScroll does not charge individual users for access to its learning,
             reading, search, account, progress, or community features. We do not offer
-            paid user memberships, premium content subscriptions, or paywalled learning
+            paid user memberships, paid content subscriptions, or paywalled learning
             features. This includes available and future learning paths, quizzes, and
             audio learning features.
           </p>
