@@ -20,7 +20,7 @@ export default async function AdminPage() {
 
 
   return (
-    <main className="container py-12">
+    <main className="container py-10">
       <div className="mt-8">
         <p className="text-accent text-sm font-semibold tracking-wider uppercase">Moderation</p>
         <h1 className="mt-2 text-4xl font-extrabold md:text-5xl">Admin dashboard</h1>
@@ -41,7 +41,7 @@ export default async function AdminPage() {
         </div>
       )}
 
-      <section className="mb-14">
+      <section className="mb-8 rounded-2xl border border-border bg-bg-card p-6 shadow-sm">
         <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
           <div>
             <h2 className="text-2xl font-bold">Latest comment reports</h2>
