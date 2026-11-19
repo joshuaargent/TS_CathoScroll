@@ -2,7 +2,9 @@
 
 import { siteConfig } from '@/lib/constants';
 
-type AnonymousEntityType = 'topic' | 'comment';
+const recentEventKeys = new Map<string, number>();
+
+ type AnonymousEntityType = 'topic' | 'comment';
 type AnonymousEventType = 'impression' | 'viewable_impression' | 'active_duration' | 'skip' | 'completion' | 'open';
 
 function uuid(): string | null {
@@ -21,6 +23,16 @@ export function recordAnonymousFeedEvent(
   const eventId = uuid();
   const id = String(entityId);
   if (!eventId || !id || id.length > 160) return;
+  const now = Date.now();
+  const dedupeKey = `${entityType}:${id}:${eventType}`;
+  if (eventType !== 'active_duration') {
+    const previous = recentEventKeys.get(dedupeKey);
+    if (previous !== undefined && now - previous < 1500) return;
+    recentEventKeys.set(dedupeKey, now);
+  }
+  if (recentEventKeys.size > 500) {
+    for (const [key, timestamp] of recentEventKeys) if (now - timestamp > 60000) recentEventKeys.delete(key);
+  }
   const event = {
     eventId,
     entityType,
