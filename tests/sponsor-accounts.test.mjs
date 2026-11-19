@@ -61,7 +61,7 @@ test('admin sponsor membership changes are audited and service-role-only', () =>
 test('sponsor campaign submission and editing are restricted to active managers', () => {
   const create = functionBody('public.sponsor_create_campaign');
   const update = functionBody('public.sponsor_update_campaign');
-  assert.match(create, /membership\.status = 'active'/);
+  assert.match(create, /m\.status='active'/);
   assert.match(create, /membership\.role IN \('owner', 'manager'\)/);
   assert.match(create, /'pending_approval'/);
   assert.match(update, /membership\.status = 'active'/);
