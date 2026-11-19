@@ -76,6 +76,7 @@ export function TopicFeed({ topics, nextCursor, personalized = false, generalRan
       topics={topics}
       nextCursor={nextCursor}
       personalized={personalized}
+      generalRanked={generalRanked}
       preservePositionOnUpdate
       loadPage={loadPage}
       userId={activeUserId}
