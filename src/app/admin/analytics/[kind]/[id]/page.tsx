@@ -30,10 +30,15 @@ function TrendChart({ kind, series }: { kind: 'sponsors' | 'comments'; series: R
         { key: 'served', label: 'Served', color: 'stroke-accent', dot: 'bg-accent' },
         { key: 'viewable_impressions', label: 'Viewable', color: 'stroke-emerald-600 dark:stroke-emerald-400', dot: 'bg-emerald-600 dark:bg-emerald-400' },
         { key: 'clicks', label: 'Clicks', color: 'stroke-sky-600 dark:stroke-sky-400', dot: 'bg-sky-600 dark:bg-sky-400' },
+        { key: 'anonymous_served', label: 'Anonymous served', color: 'stroke-accent', dot: 'bg-accent', dash: '5 5' },
+        { key: 'anonymous_viewable_impressions', label: 'Anonymous viewable', color: 'stroke-emerald-600 dark:stroke-emerald-400', dot: 'bg-emerald-600 dark:bg-emerald-400', dash: '5 5' },
+        { key: 'anonymous_clicks', label: 'Anonymous clicks', color: 'stroke-sky-600 dark:stroke-sky-400', dot: 'bg-sky-600 dark:bg-sky-400', dash: '5 5' },
       ]
     : [
-        { key: 'impressions', label: 'Card impressions', color: 'stroke-accent', dot: 'bg-accent' },
-        { key: 'viewable_impressions', label: 'Viewable impressions', color: 'stroke-emerald-600 dark:stroke-emerald-400', dot: 'bg-emerald-600 dark:bg-emerald-400' },
+        { key: 'impressions', label: 'Signed-in impressions', color: 'stroke-accent', dot: 'bg-accent' },
+        { key: 'viewable_impressions', label: 'Signed-in viewable', color: 'stroke-emerald-600 dark:stroke-emerald-400', dot: 'bg-emerald-600 dark:bg-emerald-400' },
+        { key: 'anonymous_impressions', label: 'Anonymous impressions', color: 'stroke-accent', dot: 'bg-accent', dash: '5 5' },
+        { key: 'anonymous_viewable_impressions', label: 'Anonymous viewable', color: 'stroke-emerald-600 dark:stroke-emerald-400', dot: 'bg-emerald-600 dark:bg-emerald-400', dash: '5 5' },
       ];
   const values = series.flatMap((row) => lines.map((line) => Number(row[line.key] ?? 0)));
   const max = Math.max(1, ...values);
@@ -48,7 +53,7 @@ function TrendChart({ kind, series }: { kind: 'sponsors' | 'comments'; series: R
     <div className="mt-5 flex flex-wrap gap-4 text-xs">{lines.map((line) => <span key={line.key} className="text-text-secondary inline-flex items-center gap-2"><span className={'h-2.5 w-2.5 rounded-full ' + line.dot} />{line.label}</span>)}</div>
     {series.length ? <svg viewBox={'0 0 ' + width + ' ' + height} className="mt-3 h-auto w-full" role="img" aria-label="Daily analytics trend">
       {[0,0.5,1].map((fraction) => <g key={fraction}><line x1={padding.left} y1={padding.top+chartHeight*(1-fraction)} x2={width-padding.right} y2={padding.top+chartHeight*(1-fraction)} className="stroke-border" strokeDasharray="4 5" /><text x={padding.left-9} y={padding.top+chartHeight*(1-fraction)+4} textAnchor="end" className="fill-text-muted" fontSize="11">{fmt(Math.round(max*fraction))}</text></g>)}
-      {lines.map((line) => <polyline key={line.key} points={points(line.key)} fill="none" className={line.color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />)}
+      {lines.map((line) => <polyline key={line.key} points={points(line.key)} fill="none" className={line.color} strokeWidth={line.dash ? 2 : 3} strokeDasharray={line.dash} strokeLinecap="round" strokeLinejoin="round" />)}
       <text x={padding.left} y={height-8} className="fill-text-muted" fontSize="11">{String(series[0].event_date ?? '')}</text>
       <text x={width-padding.right} y={height-8} textAnchor="end" className="fill-text-muted" fontSize="11">{String(series[series.length-1].event_date ?? '')}</text>
     </svg> : <p className="text-text-muted mt-6 text-sm">No daily activity has been recorded in this period yet.</p>}
@@ -129,16 +134,20 @@ export default async function AdminAnalyticsEntityPage({ params, searchParams }:
       <Link key={value} href={`/admin/analytics/${kind}/${id}?period=${value}`} className={`rounded-lg border px-4 py-2 text-sm ${period === value ? 'border-accent bg-accent-light text-accent font-semibold' : 'border-border text-text-secondary'}`}>{value}</Link>)}</div>
     <div className="mt-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
       {kind === 'sponsors' ? <>
-        <Metric label="Campaign deliveries" value={fmt(totals.served)} detail="Served sponsor placements" />
-        <Metric label="Viewable impressions" value={fmt(totals.viewable_impressions)} detail="Sponsor placements meeting viewability criteria" />
-        <Metric label="Clicks" value={fmt(totals.clicks)} detail="Campaign destination clicks" />
-        <Metric label="Active campaigns" value={fmt(totals.active_campaigns)} detail="Campaigns with delivery in this period" />
+        <Metric label="Campaign deliveries" value={fmt(totals.served)} detail="Signed-in served sponsor placements" />
+        <Metric label="Anonymous deliveries" value={fmt(anonymousTotals.sponsor_served)} detail="Signed-out served sponsor placements" />
+        <Metric label="Signed-in viewable / clicks" value={fmt(totals.viewable_impressions) + ' / ' + fmt(totals.clicks)} detail="Authenticated delivery events" />
+        <Metric label="Anonymous viewable / clicks" value={fmt(anonymousTotals.sponsor_viewable_impressions) + ' / ' + fmt(anonymousTotals.sponsor_clicks)} detail="Anonymous aggregate delivery events" />
+        <Metric label="Active campaigns" value={fmt(totals.active_campaigns)} detail="Campaigns with signed-in delivery in this period" />
       </> : <>
-        <Metric label="Card impressions" value={fmt(totals.impressions)} detail="Top Comments cards displayed" />
-        <Metric label="Viewable impressions" value={fmt(totals.viewable_impressions)} detail="At least 50% visible for one second" />
-        <Metric label="Active time" value={Math.round(Number(totals.active_duration_ms ?? 0) / 1000) + ' sec'} detail="Time while visible and active" />
-        <Metric label="Discussion opens" value={fmt(totals.opens)} detail="Open-comment actions from the feed card" />
-        <Metric label="Skips" value={fmt(totals.skips)} detail="Cards left before meaningful viewing time" />
+        <Metric label="Signed-in card impressions" value={fmt(totals.impressions)} detail="Top Comments cards displayed to signed-in users" />
+        <Metric label="Anonymous card impressions" value={fmt(anonymousTotals.comment_card_impressions)} detail="Top Comments cards displayed to signed-out visitors" />
+        <Metric label="Signed-in viewable" value={fmt(totals.viewable_impressions)} detail="At least 50% visible for one second" />
+        <Metric label="Anonymous viewable" value={fmt(anonymousTotals.comment_card_viewable_impressions)} detail="At least 50% visible for one second" />
+        <Metric label="Signed-in active time" value={Math.round(Number(totals.active_duration_ms ?? 0) / 1000) + ' sec'} detail="Time while visible and active" />
+        <Metric label="Anonymous active time" value={Math.round(Number(anonymousTotals.comment_card_active_duration_ms ?? 0) / 1000) + ' sec'} detail="Aggregate signed-out visible time" />
+        <Metric label="Discussion opens" value={fmt(totals.opens) + ' signed-in · ' + fmt(anonymousTotals.comment_card_opens) + ' anonymous'} detail="Open-comment actions" />
+        <Metric label="Skips" value={fmt(totals.skips) + ' signed-in · ' + fmt(anonymousTotals.comment_card_skips) + ' anonymous'} detail="Cards left before meaningful viewing time" />
         <Metric label="Likes / replies" value={fmt(totals.likes) + ' / ' + fmt(totals.replies)} detail="Existing community interaction records, shown separately" />
       </>}
     </div>
