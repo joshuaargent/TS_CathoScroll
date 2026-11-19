@@ -273,6 +273,24 @@ export default function AccountPage() {
         </div>
       </div>
     </section>
+    <section className="container mt-6">
+      <div className="border-border bg-bg-secondary/40 rounded-2xl border p-5">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 className="font-bold">Personalisation and privacy</h2>
+            <p className="text-text-secondary mt-1 text-sm">
+              Choose whether your activity can be used to build private topic interests and personalise recommendations.
+            </p>
+          </div>
+          <Link
+            href="/account/personalization"
+            className="border-border rounded-xl border px-4 py-2.5 text-sm font-semibold hover:bg-bg-secondary"
+          >
+            Manage personalisation
+          </Link>
+        </div>
+      </div>
+    </section>
     </main>
   );
 }
