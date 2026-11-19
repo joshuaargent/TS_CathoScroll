@@ -4584,7 +4584,7 @@ BEGIN
     PERFORM cron.unschedule(existing_job.jobid);
   END LOOP;
   PERFORM cron.schedule('cathoscroll-prune-feed-analytics', '*/15 * * * *',
-    'SELECT catho_private.prune_feed_analytics_events(clock_timestamp() - interval ''180 days'', 5000);');
+    'SELECT catho_private.prune_feed_analytics_events(statement_timestamp() - interval ''180 days'', 5000);');
 END;
 $cron_restore$;
 
