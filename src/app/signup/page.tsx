@@ -36,6 +36,7 @@ export default function SignupPage() {
     const password = String(formData.get('password') ?? '');
 
     const confirmPassword = String(formData.get('confirmPassword') ?? '');
+    const personalizationConsent = formData.get('personalizationConsent') === 'true';
 
     const invalidUsername = usernameError(username);
     if (invalidUsername) {
@@ -68,6 +69,7 @@ export default function SignupPage() {
           data: {
             username,
             display_name: username,
+            personalization_consent: personalizationConsent,
           },
         },
       });
