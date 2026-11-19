@@ -45,8 +45,8 @@ test('profile scoring separates short and long horizons and suppresses one-sessi
   assert.match(body, /explicit_score/);
   assert.match(body, /inferred_score/);
   assert.match(body, /v_consent_at/);
-  assert.match(body, /greatest\\(v_now-interval '90 days',v_consent_at\\)/);
-  assert.match(body, /s\\.updated_at < v_now/);
+  assert.match(body, /greatest\(v_now-interval '90 days',v_consent_at\)/);
+  assert.match(body, /s\.updated_at < v_now/);
   assert.match(body, /v_last_refresh >= v_now-interval '5 minutes'/);
 });
 
@@ -56,9 +56,9 @@ test('admin deep dive returns aggregate reports and correctly censors immature c
   assert.match(body, /'sessions'/);
   assert.match(body, /'recommendations'/);
   assert.match(body, /feed_topics AS/);
-  assert.match(body, /t\\.entity_id=e\\.entity_id/);
+  assert.match(body, /t\.entity_id=e\.entity_id/);
   assert.match(body, /'retention'/);
-  assert.match(body, /IS DISTINCT FROM f\\.first_session_id/);
+  assert.match(body, /IS DISTINCT FROM f\.first_session_id/);
   assert.match(body, /ELSE NULL END AS returned_7d/);
   assert.match(body, /ELSE NULL END AS returned_30d/);
   assert.match(deepDive, /not an A\/B test/);
@@ -67,19 +67,19 @@ test('admin deep dive returns aggregate reports and correctly censors immature c
 
 
 test('admin deep-dive analytics is service-role only', () => {
-  assert.match(bootstrap, /REVOKE ALL ON FUNCTION public\\.get_admin_analytics_deep_dive\\(uuid,timestamptz,timestamptz\\) FROM PUBLIC,anon,authenticated/);
-  assert.match(bootstrap, /GRANT EXECUTE ON FUNCTION public\\.get_admin_analytics_deep_dive\\(uuid,timestamptz,timestamptz\\) TO service_role/);
+  assert.match(bootstrap, /REVOKE ALL ON FUNCTION public\.get_admin_analytics_deep_dive\(uuid,timestamptz,timestamptz\) FROM PUBLIC,anon,authenticated/);
+  assert.match(bootstrap, /GRANT EXECUTE ON FUNCTION public\.get_admin_analytics_deep_dive\(uuid,timestamptz,timestamptz\) TO service_role/);
 });
 
 test('explicit category interests are bounded and validated', () => {
   const body = functionBody('public.set_my_personalization_interests');
-  assert.match(body, /cardinality\\(p_category_slugs\\)>20/);
+  assert.match(body, /cardinality\)p_category_slugs\\)>20/);
   assert.match(body, /Enable personalisation before saving interests/);
   assert.match(body, /is_published=true/);
 });
 
 test('personalisation settings disclose the profile purpose and sponsor isolation', () => {
-  assert.match(settings, /not used for sponsor targeting/);
+  assert.match(settings, /not shown on your public profile or used for sponsor targeting/);
   assert.match(settings, /Turn off and delete profile/);
   assert.match(settings, /This setting is not a declaration of religious affiliation/);
 });
