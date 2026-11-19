@@ -27,16 +27,16 @@ function TrendChart({ kind, series }: { kind: 'sponsors' | 'comments'; series: R
   const chartHeight = height - padding.top - padding.bottom;
   const lines = kind === 'sponsors'
     ? [
-        { key: 'served', label: 'Served', color: 'stroke-accent', dot: 'bg-accent' },
-        { key: 'viewable_impressions', label: 'Viewable', color: 'stroke-emerald-600 dark:stroke-emerald-400', dot: 'bg-emerald-600 dark:bg-emerald-400' },
-        { key: 'clicks', label: 'Clicks', color: 'stroke-sky-600 dark:stroke-sky-400', dot: 'bg-sky-600 dark:bg-sky-400' },
+        { key: 'served', label: 'Served', color: 'stroke-accent', dot: 'bg-accent', dash: undefined },
+        { key: 'viewable_impressions', label: 'Viewable', color: 'stroke-emerald-600 dark:stroke-emerald-400', dot: 'bg-emerald-600 dark:bg-emerald-400', dash: undefined },
+        { key: 'clicks', label: 'Clicks', color: 'stroke-sky-600 dark:stroke-sky-400', dot: 'bg-sky-600 dark:bg-sky-400', dash: undefined },
         { key: 'anonymous_served', label: 'Anonymous served', color: 'stroke-accent', dot: 'bg-accent', dash: '5 5' },
         { key: 'anonymous_viewable_impressions', label: 'Anonymous viewable', color: 'stroke-emerald-600 dark:stroke-emerald-400', dot: 'bg-emerald-600 dark:bg-emerald-400', dash: '5 5' },
         { key: 'anonymous_clicks', label: 'Anonymous clicks', color: 'stroke-sky-600 dark:stroke-sky-400', dot: 'bg-sky-600 dark:bg-sky-400', dash: '5 5' },
       ]
     : [
-        { key: 'impressions', label: 'Signed-in impressions', color: 'stroke-accent', dot: 'bg-accent' },
-        { key: 'viewable_impressions', label: 'Signed-in viewable', color: 'stroke-emerald-600 dark:stroke-emerald-400', dot: 'bg-emerald-600 dark:bg-emerald-400' },
+        { key: 'impressions', label: 'Signed-in impressions', color: 'stroke-accent', dot: 'bg-accent', dash: undefined },
+        { key: 'viewable_impressions', label: 'Signed-in viewable', color: 'stroke-emerald-600 dark:stroke-emerald-400', dot: 'bg-emerald-600 dark:bg-emerald-400', dash: undefined },
         { key: 'anonymous_impressions', label: 'Anonymous impressions', color: 'stroke-accent', dot: 'bg-accent', dash: '5 5' },
         { key: 'anonymous_viewable_impressions', label: 'Anonymous viewable', color: 'stroke-emerald-600 dark:stroke-emerald-400', dot: 'bg-emerald-600 dark:bg-emerald-400', dash: '5 5' },
       ];
