@@ -86,7 +86,7 @@ API rate-limit responses include `Retry-After` where applicable.
 - Event IDs are unique per user, making retries idempotent.
 - Each request is limited to 50 events and 16 KiB; database ingestion is limited to 120 submitted events per user per minute. The HTTP route also uses the shared PostgreSQL API rate limiter.
 - Client telemetry is queued per signed-in account and does not share or block the durable offline activity outbox.
-- Raw analytics events are retained for 180 days. A bounded database cleanup job runs every 15 minutes and removes at most 5,000 expired events per run. Admin reporting uses on-demand aggregate queries; no long-term rollup table is implemented.
+- Signed-in raw analytics events are retained for 180 days. A bounded database cleanup job runs every 15 minutes and removes at most 5,000 expired events per run. Signed-in admin reporting uses on-demand aggregate queries; signed-out topic/comment reporting uses a separate long-term daily entity aggregate table with no visitor identifiers.
 - Signed-out topic and Top Comments tracking uses a separate bounded, rate-limited endpoint. It stores UTC daily entity aggregates only; no account ID, raw session ID, persistent visitor ID or device fingerprint is stored in the event aggregates. Event UUID receipts are deleted after seven days. The in-memory client queue is not persisted and unsent events are lost on app exit.
 - Sponsor and administrator reporting must use server-side aggregate functions; raw events and individual user identities must never be exposed to sponsor accounts.
 
