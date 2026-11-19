@@ -7353,8 +7353,7 @@ REVOKE ALL ON FUNCTION public.submit_comment_report(uuid, bigint, text, text) FR
 GRANT EXECUTE ON FUNCTION public.submit_comment_report(uuid, bigint, text, text) TO service_role;
 
 -- Public analytics-ranked general feed. Mirrors the live production function.
--- General ranking uses only site-wide aggregates and public engagement counts;
--- it never reads the requesting visitor's account activity.
+-- Uses aggregate site-wide engagement and public content interactions only.
 CREATE OR REPLACE FUNCTION public.get_public_general_topic_page(feed_cursor jsonb DEFAULT NULL::jsonb, page_limit integer DEFAULT 50)
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -7364,6 +7363,7 @@ AS $function$
 DECLARE
   state jsonb;
   categories jsonb;
+  ranked_topics jsonb := '{}'::jsonb;
   chosen record;
   items jsonb := '[]'::jsonb;
   last_category text;
@@ -7376,12 +7376,8 @@ BEGIN
   END IF;
 
   IF initial_page THEN
-    SELECT coalesce(jsonb_agg(jsonb_build_object(
-      'slug', c.slug, 'served', 0, 'offset', 0
-    ) ORDER BY c.slug), '[]'::jsonb)
-    INTO categories
-    FROM public.categories c
-    WHERE c.is_published;
+    SELECT coalesce(jsonb_agg(jsonb_build_object('slug', c.slug, 'served', 0, 'offset', 0) ORDER BY c.slug), '[]'::jsonb)
+    INTO categories FROM public.categories c WHERE c.is_published;
     state := jsonb_build_object('categories', categories, 'last', NULL, 'streak', 0);
   ELSE
     state := feed_cursor;
@@ -7408,6 +7404,7 @@ BEGIN
       OR NOT (entry ?& ARRAY['slug','served','offset'])
       OR jsonb_typeof(entry->'slug') IS DISTINCT FROM 'string'
       OR entry->>'slug' !~ '^[a-z0-9]+(-[a-z0-9]+)*$'
+      OR length(entry->>'slug') > 100
       OR jsonb_typeof(entry->'served') IS DISTINCT FROM 'number'
       OR coalesce(entry->>'served','') !~ '^[0-9]{1,9}$'
       OR jsonb_typeof(entry->'offset') IS DISTINCT FROM 'number'
@@ -7423,18 +7420,14 @@ BEGIN
   last_category := state->>'last';
   streak := (state->>'streak')::integer;
 
-  WHILE item_count < page_limit LOOP
-    SELECT a.ordinality::integer - 1 AS position, a.entry, c.slug AS category_slug,
-      candidate.id, candidate.slug, candidate.order_index, candidate.question,
-      candidate.answer, candidate.explanation, candidate.catechism_paragraphs,
-      candidate.catechism_text, candidate.scripture_reference, candidate.scripture_text,
-      c.name AS category_name, candidate.rank_score
-    INTO chosen
-    FROM jsonb_array_elements(categories) WITH ORDINALITY a(entry, ordinality)
-    JOIN public.categories c ON c.slug=a.entry->>'slug' AND c.is_published
-    CROSS JOIN LATERAL (
-      SELECT t.id,t.slug,t.order_index,t.question,t.answer,t.explanation,
-        t.catechism_paragraphs,t.catechism_text,t.scripture_reference,t.scripture_text,
+  -- Compute each topic score once per requested page, not once per feed slot.
+  SELECT coalesce(jsonb_object_agg(category_slug, topic_ids), '{}'::jsonb)
+  INTO ranked_topics
+  FROM (
+    SELECT category_slug,
+      jsonb_agg(topic_id ORDER BY rank_score DESC, order_index, topic_id) AS topic_ids
+    FROM (
+      SELECT t.id AS topic_id, t.category_slug, t.order_index,
         (
           coalesce((
             SELECT sum(
@@ -7452,12 +7445,35 @@ BEGIN
           + ln(1 + (SELECT count(*) FROM public.bookmarks b WHERE b.topic_id=t.id)) * 1.0
           + ln(1 + (SELECT count(*) FROM public.comments cm WHERE cm.topic_id=t.id
             AND cm.parent_id IS NULL AND cm.is_deleted=false)) * 0.8
+          + 2.0 / sqrt(1 + coalesce((
+            SELECT sum(d.viewable_impressions) FROM catho_private.feed_analytics_daily d
+            WHERE d.entity_id=t.id AND d.event_date >= current_date-89
+          ),0))
         )::numeric AS rank_score
       FROM public.topics t
-      WHERE t.category_slug=c.slug AND t.is_published
-      ORDER BY rank_score DESC, t.order_index, t.id
-      OFFSET (a.entry->>'offset')::integer LIMIT 1
-    ) candidate
+      JOIN public.categories c ON c.slug=t.category_slug AND c.is_published
+      WHERE t.is_published
+    ) scored
+    GROUP BY category_slug
+  ) grouped_topics;
+
+  WHILE item_count < page_limit LOOP
+    SELECT a.ordinality::integer - 1 AS position, a.entry,
+      t.id, t.slug, t.order_index, t.question, t.answer, t.explanation,
+      t.catechism_paragraphs, t.catechism_text, t.scripture_reference,
+      t.scripture_text, c.name AS category_name, c.slug AS category_slug
+    INTO chosen
+    FROM jsonb_array_elements(categories) WITH ORDINALITY a(entry, ordinality)
+    JOIN public.categories c ON c.slug=a.entry->>'slug' AND c.is_published
+    CROSS JOIN LATERAL (
+      SELECT topic.*
+      FROM jsonb_array_elements_text(coalesce(ranked_topics->c.slug,'[]'::jsonb))
+        WITH ORDINALITY ranked(topic_id, position)
+      JOIN public.topics topic ON topic.id=ranked.topic_id
+      ORDER BY ranked.position
+      OFFSET (a.entry->>'offset')::integer
+      LIMIT 1
+    ) t
     ORDER BY
       CASE WHEN streak >= 2 AND c.slug=last_category THEN 1 ELSE 0 END,
       (a.entry->>'served')::integer,
@@ -7467,7 +7483,8 @@ BEGIN
     IF NOT FOUND THEN EXIT; END IF;
 
     items := items || jsonb_build_array(jsonb_build_object(
-      'id',chosen.id,'slug',chosen.slug,'category',chosen.category_name,'categorySlug',chosen.category_slug,
+      'id',chosen.id,'slug',chosen.slug,'category',chosen.category_name,
+      'categorySlug',chosen.category_slug,
       'question',chosen.question,'answer',chosen.answer,'explanation',chosen.explanation,
       'catechism',jsonb_build_object(
         'paragraphs',coalesce(chosen.catechism_paragraphs,ARRAY[]::text[]),
