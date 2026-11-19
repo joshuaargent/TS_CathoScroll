@@ -160,16 +160,6 @@ export function NativeAccount({
     };
   }, [user?.id, user?.email, online, attempt]);
 
-  useEffect(() => {
-    const accountId = user?.id;
-    if (!accountId) return;
-    if (!online) {
-      notifyNativeStatus('Connect to the internet to view your latest membership details.', {
-        id: 'account-membership',
-      });
-    }
-  }, [user?.id, online]);
-
   async function saveChanges(event: React.FormEvent) {
     event.preventDefault();
     if (busy || signingOut) return;
