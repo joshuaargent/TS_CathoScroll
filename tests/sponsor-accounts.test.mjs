@@ -64,7 +64,7 @@ test('sponsor campaign submission and editing are restricted to active managers'
   assert.match(create, /m\.status='active'/);
   assert.match(create, /membership\.role IN \('owner', 'manager'\)/);
   assert.match(create, /'pending_approval'/);
-  assert.match(update, /membership\.status = 'active'/);
+  assert.match(update, /m\.status='active'/);
   assert.match(update, /membership\.role IN \('owner', 'manager'\)/);
   assert.match(update, /v_campaign\.status NOT IN \('draft', 'pending_approval', 'rejected'\)/);
   assert.match(update, /Approved or paused campaigns cannot be edited/);
