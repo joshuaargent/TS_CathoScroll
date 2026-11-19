@@ -7568,7 +7568,34 @@ CREATE TABLE catho_private.anonymous_sponsor_session_frequency (
 CREATE TABLE catho_private.anonymous_sponsor_events (
   campaign_id uuid NOT NULL REFERENCES public.sponsor_campaigns(id) ON DELETE CASCADE,
   event_id uuid NOT NULL,
-  session_hash text NOT NULL CHECK (session_hash ~ '^[0-9a-f]{64}$'
+  session_hash text NOT NULL CHECK (session_hash ~ '^[0-9a-f]{64}$'),
+  placement_id text NOT NULL CHECK (length(placement_id) BETWEEN 1 AND 160),
+  event_type text NOT NULL CHECK (event_type IN ('served','viewable_impression','click')),
+  received_at timestamptz NOT NULL DEFAULT statement_timestamp(),
+  PRIMARY KEY(campaign_id,event_id)
+);
+CREATE INDEX anonymous_sponsor_events_recent_idx
+  ON catho_private.anonymous_sponsor_events(campaign_id,event_type,received_at);
+CREATE INDEX anonymous_sponsor_events_placement_idx
+  ON catho_private.anonymous_sponsor_events(campaign_id,session_hash,placement_id,event_type,received_at);
+CREATE TABLE catho_private.anonymous_sponsor_campaign_daily (
+  event_date date NOT NULL,
+  campaign_id uuid NOT NULL REFERENCES public.sponsor_campaigns(id) ON DELETE CASCADE,
+  served_count bigint NOT NULL DEFAULT 0,
+  viewable_impressions bigint NOT NULL DEFAULT 0,
+  clicks bigint NOT NULL DEFAULT 0,
+  PRIMARY KEY(event_date,campaign_id)
+);
+ALTER TABLE catho_private.anonymous_feed_analytics_daily ENABLE ROW LEVEL SECURITY;
+ALTER TABLE catho_private.anonymous_feed_event_receipts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE catho_private.anonymous_sponsor_session_frequency ENABLE ROW LEVEL SECURITY;
+ALTER TABLE catho_private.anonymous_sponsor_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE catho_private.anonymous_sponsor_campaign_daily ENABLE ROW LEVEL SECURITY;
+REVOKE ALL PRIVILEGES ON TABLE catho_private.anonymous_feed_analytics_daily,
+  catho_private.anonymous_feed_event_receipts,
+  catho_private.anonymous_sponsor_session_frequency,
+  catho_private.anonymous_sponsor_events,
+  catho_private.anonymous_sponsor_campaign_daily FROM PUBLIC,anon,authenticated,service_role;
 
 CREATE OR REPLACE FUNCTION public.get_admin_anonymous_analytics(p_actor_user_id uuid, p_from timestamp with time zone, p_to timestamp with time zone, p_entity_type text DEFAULT 'all'::text, p_entity_id text DEFAULT NULL::text)
  RETURNS jsonb
