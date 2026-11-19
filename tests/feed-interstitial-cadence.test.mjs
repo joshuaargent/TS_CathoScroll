@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import ts from 'typescript';
 
-const [commentSource, sponsorSource, feedCore, topicFeed, cardRegistry, placementRegistry, topicCard, topCommentCard, sponsorCard, topicViewer, interstitialMotion, sponsorLoadingCard, baseFeedCard, feedRenderer, sharedSwipeGesture] = await Promise.all([
+const [commentSource, sponsorSource, feedCore, topicFeed, cardRegistry, placementRegistry, topicCard, topCommentCard, sponsorCard, topicViewer, interstitialMotion, sponsorLoadingCard, baseFeedCard, feedRenderer, sharedSwipeGesture, sharedViewport] = await Promise.all([
   readFile(new URL('../src/lib/feed-comments.ts', import.meta.url), 'utf8'),
   readFile(new URL('../src/lib/sponsor-campaigns.ts', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/TopicFeedCore.tsx', import.meta.url), 'utf8'),
@@ -19,6 +19,7 @@ const [commentSource, sponsorSource, feedCore, topicFeed, cardRegistry, placemen
   readFile(new URL('../src/components/topic/BaseFeedCard.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/FeedRenderer.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/useTopicSwipeGesture.ts', import.meta.url), 'utf8'),
+  readFile(new URL('../src/components/topic/FeedSwipeViewport.tsx', import.meta.url), 'utf8'),
 ]);
 
 async function importTypeScript(source) {
@@ -95,7 +96,7 @@ test('interstitial cards share the topic viewer swipe and animation model', () =
   assert.match(topicViewer, /const animationLockRef = useRef\(false\)/);
   assert.match(topicViewer, /if \(active\) onProgressChange\?\.\(slideIndex, slides\.length\)/);
   assert.match(topicViewer, /duration: 0\.2/);
-  assert.match(topicViewer, /useTopicSwipeGesture/);
+  assert.match(interstitialMotion, /<FeedSwipeViewport/);
 });
 test('topic, comment and sponsor cards use the same shared base card', () => {
   for (const source of [topicCard, topCommentCard, sponsorCard, sponsorLoadingCard]) {
@@ -141,7 +142,7 @@ test('topic, comment and sponsor cards use the same shared base card', () => {
   assert.match(sharedSwipeGesture, /case ' '/);
   assert.match(sharedSwipeGesture, /setPointerCapture\(event\.pointerId\)/);
   assert.match(interstitialMotion, /flushSync\(\(\) =>/);
-  assert.match(interstitialMotion, /await navigation;/);
+  assert.match(sharedViewport, /await navigation;/);
   assert.match(topicViewer, /await navigation;/);
   assert.match(topCommentCard, /await onNextTopic\(\)/);
   assert.match(sponsorCard, /await onNextTopic\(\)/);
