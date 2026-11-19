@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 
 const bootstrap = readFileSync(new URL('../docs/cathoscroll-database-bootstrap.sql', import.meta.url), 'utf8');
 const documentation = readFileSync(new URL('../docs/personalization-analytics-implementation.md', import.meta.url), 'utf8');
-const settings = readFileSync(new URL('../src/app/account/personalization/page.tsx', import.meta.url), 'utf8');
+const settings = readFileSync(new URL('../src/components/account/PersonalizationAccountSection.tsx', import.meta.url), 'utf8');
 const deepDive = readFileSync(new URL('../src/components/admin/AnalyticsDeepDivePanel.tsx', import.meta.url), 'utf8');
 const signupForm = readFileSync(new URL('../src/components/auth/SignupFormView.tsx', import.meta.url), 'utf8');
 const webSignup = readFileSync(new URL('../src/app/signup/page.tsx', import.meta.url), 'utf8');
