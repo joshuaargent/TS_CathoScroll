@@ -21,6 +21,7 @@ test('topic cards and feed interstitials share the original topic swipe gesture 
   assert.match(gesture, /velocityY > 25/);
   assert.match(gesture, /now - lastTapRef\.current < 300/);
   assert.match(gesture, /setPointerCapture\(event\.pointerId\)/);
+  assert.match(gesture, /window\.addEventListener\('keydown', handleKeyDown\)/);
   assert.doesNotMatch(topicViewer, /const handlePointerDown =/);
   assert.doesNotMatch(topicViewer, /const handlePointerMove =/);
   assert.doesNotMatch(topicViewer, /const handlePointerUp =/);
