@@ -16,7 +16,7 @@ async function importTypeScript(relativePath, instance = '') {
   return import('data:text/javascript;base64,' + encoded + (instance ? '#' + instance : ''));
 }
 
-const [analytics, sponsor, sponsorAnalytics, topicFeed, cardRegistry, readme, sponsorClient, sync, layout, nativeMain] = await Promise.all([
+const [analytics, sponsor, sponsorAnalytics, topicFeed, cardRegistry, readme, sponsorClient, sync, layout, nativeMain, bootstrap] = await Promise.all([
   readFile(new URL('../src/lib/feed-analytics-client.ts', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/SponsorFeedCard.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/lib/sponsor-analytics-client.ts', import.meta.url), 'utf8'),
@@ -27,6 +27,7 @@ const [analytics, sponsor, sponsorAnalytics, topicFeed, cardRegistry, readme, sp
   readFile(new URL('../src/components/providers/SponsorAnalyticsSync.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/app/layout.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../native/main.tsx', import.meta.url), 'utf8'),
+  readFile(new URL('../docs/cathoscroll-database-bootstrap.sql', import.meta.url), 'utf8'),
 ]);
 
 test('feed analytics retains queued events until server acknowledgement and drains on startup', () => {
@@ -39,7 +40,7 @@ test('feed analytics retains queued events until server acknowledgement and drai
   assert.ok(analytics.includes('latestQueue.filter((event) => !acceptedIds.has(event.event_id))'));
 });
 
-test('sponsor analytics queue survives restarts and flushes even when no sponsor card is visible', () => {
+test('feed analytics retention cron uses the same statement timestamp as its retention validator', () => {\n  assert.match(bootstrap, /prune_feed_analytics_events\\(statement_timestamp\\(\\) - interval ''180 days'', 5000\\)/);\n  assert.doesNotMatch(bootstrap, /prune_feed_analytics_events\\(clock_timestamp\\(/);\n});\n\ntest('sponsor analytics queue survives restarts and flushes even when no sponsor card is visible', () => {
   assert.ok(sponsorAnalytics.includes('cathoscroll.sponsor-events.v1.'));
   assert.ok(sponsorAnalytics.includes('latest.filter((queued) => queued.eventId !== eventId)'));
   assert.ok(sponsorAnalytics.includes("window.addEventListener('online', flush)"));
