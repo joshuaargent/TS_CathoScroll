@@ -257,8 +257,10 @@ export default function PrivacyPage() {
             which is discarded after 24 hours. Its analytics data points may include timestamps,
             page URLs, referrers, filtered query parameters, approximate geolocation, and device
             and browser information. CathoScroll configures the analytics event hook to replace
-            every page URL with the site root and remove query strings and fragments, so topic
-            paths and query values are not sent as page URLs. Vercel's own processing and any
+            every page URL with the site root and remove query strings and fragments, and applies
+            a strict-origin referrer policy so only the referring site's origin is exposed by the
+            browser. Topic paths, query values and referrer paths are therefore not intentionally
+            sent as page or referrer URLs. Vercel's own processing and any
             request-level metadata remain subject to Vercel's privacy documentation and our
             processor and international-transfer review.
           </p>
