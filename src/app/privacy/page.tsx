@@ -220,37 +220,52 @@ export default function PrivacyPage() {
           <h2 className="mb-4 text-3xl font-bold">Analytics</h2>
 
           <p className="text-text-secondary leading-relaxed">
-            CathoScroll uses product analytics to measure feed and content performance, diagnose
-            reliability issues, protect the service, and improve the user experience. For signed-in
-            sessions, this may include topic and comment-card impressions, viewability, active
-            duration, skips, completions, repeat visits, interactions, sponsor campaign delivery/viewability/click events, and session timing.
+            CathoScroll uses analytics to measure general site usage, understand feed performance,
+            diagnose reliability issues, protect the service, and improve the user experience.
+            Analytics is separate from optional recommendation personalisation and is not used for
+            sponsor targeting.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            This may include information such as pages visited, browser type, device information,
-            approximate location derived from network information, and usage patterns.
+            For signed-in users, CathoScroll's first-party feed analytics currently records topic
+            and comment-card impressions, viewability, active duration, skips, completions, repeat
+            visits, and related interactions. These raw events are linked to the account and the
+            topic or card involved. Raw event records and the user/day viewer bridge are retained
+            for up to 180 days; daily totals without user or session identifiers are retained
+            longer. These records are not anonymous while identifiers are retained and are not
+            provided to sponsors or used for sponsor targeting. Turning off recommendation
+            personalisation does not itself switch off this separate operational analytics stream.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            These operational analytics are separate from optional personalisation and are not
-            used to build your recommendation profile or change your personal feed unless you
-            separately opt in to personalisation. For signed-in activity, event records and the
-            user/day viewer bridge can be linked to your account and the topic or card involved;
-            they are not anonymous while those identifiers are retained. Raw event records and the
-            viewer bridge are retained for up to 180 days, while daily totals without user or
-            session identifiers are retained longer. CathoScroll does not provide these individual
-            event records to sponsors or use them for sponsor targeting. Because the platform
-            covers religious subjects, topic-level activity may reveal sensitive interests even
-            when it is used only for service measurement. We are assessing the applicable UK GDPR
-            Article 9 position for this operational analytics stream separately from personalisation
-            consent. The personalisation checkbox is not consent for operational analytics.
-            CathoScroll also uses Vercel Analytics for site-level traffic and performance
-            measurement on the website, including visits from people who are not signed in.
-            This provider-level reporting is separate from the first-party feed-event pipeline
-            described above: signed-out topic impressions, reading duration, skips and completions
-            are not currently sent to CathoScroll's own feed analytics tables or Admin Analytics.
-            Signing out therefore does not mean that all site measurement stops, but it does mean
-            that the account-linked first-party feed event stream is not recorded for that visit.
+            Topic-level reading activity on a Catholic learning platform can reveal or allow
+            inferences about religious or philosophical beliefs. It therefore requires a separate
+            UK GDPR Article 6 and Article 9 assessment; the personalisation checkbox is not consent
+            for this operational analytics. CathoScroll does not currently record first-party
+            topic-level feed events from signed-out visitors. It does not attach signed-out feed
+            activity to an account or create a persistent visitor profile for that purpose.
+          </p>
+
+          <p className="text-text-secondary mt-4 leading-relaxed">
+            CathoScroll uses Vercel Web Analytics for aggregate site-level traffic measurement,
+            including visits from people who are not signed in. Vercel states that it does not use
+            third-party cookies and derives a short-lived visitor hash from the incoming request,
+            which is discarded after 24 hours. Its analytics data points may include timestamps,
+            page URLs, referrers, filtered query parameters, approximate geolocation, and device
+            and browser information. CathoScroll configures the analytics event hook to replace
+            every page URL with the site root and remove query strings and fragments, so topic
+            paths and query values are not sent as page URLs. Vercel's own processing and any
+            request-level metadata remain subject to Vercel's privacy documentation and our
+            processor and international-transfer review.
+          </p>
+
+          <p className="text-text-secondary mt-4 leading-relaxed">
+            Vercel Speed Insights has been disabled while its separate data fields and processing
+            are assessed. Site-level Vercel Web Analytics reports are provider-level aggregates;
+            they are not first-party topic impressions, reading duration, skips, or completions and
+            are not merged into CathoScroll's Admin Analytics topic/event tables. The app does not
+            claim that a short-lived hash or provider-level aggregate is automatically anonymous
+            for every legal purpose.
           </p>
         </section>
 
