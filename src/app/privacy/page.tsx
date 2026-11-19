@@ -251,7 +251,10 @@ export default function PrivacyPage() {
             cross-visit profile. The server deduplicates events and stores only UTC daily aggregate
             counts for impressions, viewability, active duration, skips, completions and discussion
             opens. Event receipts used only for deduplication are deleted after seven days. The
-            aggregate counts do not support an anonymous unique-person or session count.
+            API also applies abuse-prevention rate limits using a keyed, short-lived request-IP
+            fingerprint; that fingerprint is not joined to feed event aggregates. Standard
+            hosting/security logs may separately process network metadata under their own controls.
+            The aggregate counts do not support an anonymous unique-person or session count.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
