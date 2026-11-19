@@ -7476,7 +7476,11 @@ BEGIN
   FROM catho_private.user_personalization_consents WHERE user_id=v_user_id;
   IF coalesce(v_enabled,false) THEN
     SELECT count(*),count(DISTINCT category_slug) INTO v_topics,v_categories
-    FROM catho_private.user_topic_interest_scores WHERE user_id=v_user_id;
+    FROM (
+      SELECT category_slug FROM catho_private.user_topic_interest_scores WHERE user_id=v_user_id
+      UNION
+      SELECT category_slug FROM catho_private.user_explicit_category_interests WHERE user_id=v_user_id
+    ) interests;
     SELECT coalesce(jsonb_agg(category_slug ORDER BY category_slug),'[]'::jsonb)
       INTO v_selected FROM catho_private.user_explicit_category_interests WHERE user_id=v_user_id;
     SELECT coalesce(jsonb_agg(jsonb_build_object(
