@@ -7590,16 +7590,11 @@ ALTER TABLE catho_private.anonymous_feed_event_receipts ENABLE ROW LEVEL SECURIT
 ALTER TABLE catho_private.anonymous_sponsor_session_frequency ENABLE ROW LEVEL SECURITY;
 ALTER TABLE catho_private.anonymous_sponsor_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE catho_private.anonymous_sponsor_campaign_daily ENABLE ROW LEVEL SECURITY;
-REVOKE ALL ON TABLE catho_private.anonymous_feed_analytics_daily,
+REVOKE ALL PRIVILEGES ON TABLE catho_private.anonymous_feed_analytics_daily,
   catho_private.anonymous_feed_event_receipts,
   catho_private.anonymous_sponsor_session_frequency,
   catho_private.anonymous_sponsor_events,
-  catho_private.anonymous_sponsor_campaign_daily FROM PUBLIC,anon,authenticated;
-GRANT ALL ON TABLE catho_private.anonymous_feed_analytics_daily,
-  catho_private.anonymous_feed_event_receipts,
-  catho_private.anonymous_sponsor_session_frequency,
-  catho_private.anonymous_sponsor_events,
-  catho_private.anonymous_sponsor_campaign_daily TO service_role;
+  catho_private.anonymous_sponsor_campaign_daily FROM PUBLIC,anon,authenticated,service_role;
 
 CREATE OR REPLACE FUNCTION public.get_admin_anonymous_analytics(p_actor_user_id uuid, p_from timestamp with time zone, p_to timestamp with time zone, p_entity_type text DEFAULT 'all'::text, p_entity_id text DEFAULT NULL::text)
  RETURNS jsonb
