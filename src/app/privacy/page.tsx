@@ -255,7 +255,7 @@ export default function PrivacyPage() {
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            These providers may process information on our behalf.
+            These providers may process information on our behalf under contractual and security controls. CathoScroll does not sell personal data. We do not disclose personal reading histories or private personalisation profiles to sponsors. We may disclose information where required by law or to protect the service, users, or our legal rights.
           </p>
 
           <ul className="text-text-secondary mt-4 list-disc space-y-2 pl-6">
