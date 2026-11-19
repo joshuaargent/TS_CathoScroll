@@ -126,7 +126,7 @@ export function SignupFormView({
                   className="accent-accent mt-1 h-4 w-4 shrink-0"
                 />
                 <span className="text-text-secondary text-sm leading-relaxed">
-                  <span className="text-text-primary font-semibold">Optional: I explicitly consent to personalised recommendations.</span>{' '}
+                  <span className="text-text-primary font-semibold">Optional: I explicitly consent to CathoScroll using my topic-reading activity and selected interests, which may reveal religious or philosophical beliefs, to personalise my recommendations.</span>{' '}
                   I agree that CathoScroll may use my topic-reading activity and the interests I choose to build a private profile and personalise the topics recommended to me. Because CathoScroll covers Catholic and religious subjects, these interests may reveal information about religious or philosophical beliefs. This is not required to use CathoScroll, is not used for sponsor targeting, and can be withdrawn at any time in Account settings. Read the{' '}
                   <Link href="/privacy" className="text-accent font-medium underline">Privacy Policy</Link>.
                 </span>
