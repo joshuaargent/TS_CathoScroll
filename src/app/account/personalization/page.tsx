@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { ArrowLeft, ShieldCheck, Sparkles } from 'lucide-react';
 
 import { Button } from '@/components/ui/Button';
@@ -40,16 +41,16 @@ export default function PersonalizationSettingsPage() {
   const [categoryOptions, setCategoryOptions] = useState<{ slug: string; name: string }[]>([]);
   const [savingInterests, setSavingInterests] = useState(false);
   const [topTopicInterests, setTopTopicInterests] = useState<PersonalizationStatus['top_topic_interests']>([]);
+  const router = useRouter();
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError('');
+  const load = useCallback(async (showLoading = true) => {
+    if (showLoading) setLoading(true);
     try {
       const supabase = createClient();
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       if (userError) throw userError;
       if (!user) {
-        window.location.assign('/signin?next=%2Faccount%2Fpersonalization');
+        router.replace('/signin?next=%2Faccount%2Fpersonalization');
         return;
       }
       const { data, error: rpcError } = await supabase.rpc('get_my_personalization_status');
@@ -57,6 +58,7 @@ export default function PersonalizationSettingsPage() {
       if (!data || typeof data !== 'object' || typeof data.enabled !== 'boolean') {
         throw new Error('Invalid personalisation settings response.');
       }
+      setError('');
       setStatus({
         enabled: data.enabled,
         updated_at: typeof data.updated_at === 'string' ? data.updated_at : null,
@@ -74,11 +76,11 @@ export default function PersonalizationSettingsPage() {
       console.error('Unable to load personalisation settings:', cause);
       setError('Unable to load these settings. Refresh the page and try again.');
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
-  }, []);
+  }, [router]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { void load(false); }, [load]);
 
   async function updateConsent(enabled: boolean) {
     if (saving || loading || enabled === status.enabled) return;
@@ -94,7 +96,7 @@ export default function PersonalizationSettingsPage() {
       if (!data || typeof data !== 'object' || data.enabled !== enabled) {
         throw new Error('Personalisation settings were not confirmed.');
       }
-      await load();
+      await load(false);
       setMessage(enabled
         ? 'Personalised recommendations are now enabled.'
         : 'Personalisation is off. Your stored interest profile has been deleted.');
@@ -120,7 +122,7 @@ export default function PersonalizationSettingsPage() {
       });
       if (rpcError) throw rpcError;
       setMessage('Your explicit category interests have been saved.');
-      await load();
+      await load(false);
     } catch (cause) {
       console.error('Unable to save explicit category interests:', cause);
       setError('Your category interests could not be saved. Try again.');
