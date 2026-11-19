@@ -11,8 +11,8 @@ import { TopicFeedCore } from './TopicFeedCore';
 import { TopicViewer } from './TopicViewer';
 
 type TopicFeedProps = { topics: Topic[]; userId: string | null } & (
-  | { nextCursor: TopicPageCursor | null; personalized?: false }
-  | { nextCursor: RecommendationCursor | null; personalized: true }
+  | { nextCursor: GeneralFeedCursor | null; personalized?: false; generalRanked?: boolean }
+  | { nextCursor: RecommendationCursor | null; personalized: true; generalRanked?: false }
 );
 
 export function TopicFeed({ topics, nextCursor, personalized = false, generalRanked = false, userId }: TopicFeedProps) {
@@ -41,19 +41,19 @@ export function TopicFeed({ topics, nextCursor, personalized = false, generalRan
   const loadPage = useCallback(
     async (cursor: GeneralFeedCursor | RecommendationCursor) => {
       let response: Response;
-      if (personalized && 'categories' in cursor) {
+      if (personalized && 'categories' in cursor && 'userId' in cursor) {
         response = await fetch('/api/content/recommendations', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ cursor }),
         });
-      } else if (!personalized && 'orderIndex' in cursor) {
-        const params = new URLSearchParams({
-          afterOrder: String(cursor.orderIndex),
-          afterId: cursor.id,
-          limit: '50',
+      } else if (!personalized && 'categories' in cursor) {
+        response = await fetch('/api/content/general-feed', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          cache: 'no-store',
+          body: JSON.stringify({ cursor }),
         });
-        response = await fetch(`/api/content/topics?${params.toString()}`);
       } else {
         throw new Error('The topic feed cursor is invalid. Refresh the page.');
       }
