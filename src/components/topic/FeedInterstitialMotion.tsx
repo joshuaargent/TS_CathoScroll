@@ -1,8 +1,8 @@
 'use client';
 
-import { animate, motion, useMotionValue } from 'framer-motion';
-import { flushSync } from 'react-dom';
-import { useCallback, useEffect, useRef, useState, type PointerEvent, type ReactNode } from 'react';
+import { animate, motion } from 'framer-motion';
+import { useCallback, useEffect, useRef, type ReactNode } from 'react';
+import { useTopicSwipeGesture } from './useTopicSwipeGesture';
 
 interface FeedInterstitialMotionProps {
   children: ReactNode;
@@ -31,14 +31,8 @@ export function FeedInterstitialMotion({
   nextPreview,
   previousPreview,
 }: FeedInterstitialMotionProps) {
-  const x = useMotionValue(0);
-  const y = useMotionValue(0);
-  const startRef = useRef({ x: 0, y: 0 });
-  const currentRef = useRef({ x: 0, y: 0 });
-  const axisRef = useRef<'x' | 'y' | null>(null);
   const animationLockRef = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [isDragging, setIsDragging] = useState(false);
 
   const springHome = useCallback(() => {
     animate(x, 0, { type: 'spring', stiffness: 1800, damping: 120 });
@@ -88,84 +82,20 @@ export function FeedInterstitialMotion({
     }
   }, [canSwipeLeft, canSwipeRight, onNextTopic, onPreviousTopic, onSwipeLeft, onSwipeRight, springHome, x, y]);
 
-  const handlePointerDown = (event: PointerEvent<HTMLDivElement>) => {
-    if (animationLockRef.current) return;
-
-    setIsDragging(true);
-    event.currentTarget.setPointerCapture(event.pointerId);
-    axisRef.current = null;
-    currentRef.current = { x: 0, y: 0 };
-    startRef.current = { x: event.clientX, y: event.clientY };
-  };
-
-  const handlePointerMove = (event: PointerEvent<HTMLDivElement>) => {
-    if (!isDragging) return;
-
-    const deltaX = event.clientX - startRef.current.x;
-    const deltaY = event.clientY - startRef.current.y;
-
-    if (!axisRef.current) {
-      if (Math.abs(deltaX) > 2 || Math.abs(deltaY) > 2) {
-        const nextAxis = Math.abs(deltaX) > Math.abs(deltaY) ? 'x' : 'y';
-        axisRef.current = nextAxis;
-      }
-      return;
-    }
-
-    if (axisRef.current === 'x') {
-      x.set(deltaX);
-      y.set(0);
-      currentRef.current.x = deltaX;
-      currentRef.current.y = 0;
-    } else {
-      y.set(deltaY);
-      x.set(0);
-      currentRef.current.x = 0;
-      currentRef.current.y = deltaY;
-    }
-  };
-
-  const handlePointerUp = async () => {
-    if (!isDragging) return;
-
-    setIsDragging(false);
-
-    const dx = currentRef.current.x;
-    const dy = currentRef.current.y;
-    const absDx = Math.abs(dx);
-    const absDy = Math.abs(dy);
-    const velocityX = absDx / 16;
-    const velocityY = absDy / 16;
-    const width = window.innerWidth;
-    const height = window.innerHeight;
-
-    if (axisRef.current === 'x') {
-      const commit = absDx > width * 0.07 || velocityX > 25;
-
-      if (commit && dx < 0 && (!canSwipeLeft || canSwipeLeft())) {
-        await move('left');
-      } else if (commit && dx > 0 && (!canSwipeRight || canSwipeRight())) {
-        await move('right');
-      } else {
-        springHome();
-      }
-    } else if (axisRef.current === 'y') {
-      const commit = absDy > height * 0.07 || velocityY > 25;
-
-      if (commit && dy < 0) {
-        await move('up');
-      } else if (commit && dy > 0) {
-        await move('down');
-      } else {
-        springHome();
-      }
-    } else {
-      springHome();
-    }
-
-    currentRef.current = { x: 0, y: 0 };
-    axisRef.current = null;
-  };
+  const {
+    x,
+    y,
+    handlePointerDown,
+    handlePointerMove,
+    handlePointerUp,
+  } = useTopicSwipeGesture({
+    enabled: active,
+    canSwipeHorizontal: (direction) => direction === 'next'
+      ? (!canSwipeLeft || canSwipeLeft())
+      : (!canSwipeRight || canSwipeRight()),
+    onSwipeHorizontal: (direction) => move(direction === 'next' ? 'left' : 'right'),
+    onSwipeVertical: (direction) => move(direction === 'next' ? 'up' : 'down'),
+  });
 
   useEffect(() => {
     if (!active) return;
