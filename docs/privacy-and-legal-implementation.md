@@ -39,7 +39,7 @@ CathoScroll's subject matter includes Catholic theology and other religious topi
 | Derived topic/category scores | Private profile tables | Rank the user's own recommendations | Created/refreshed only while enabled |
 | Consent version and timestamps | Signup trigger / account settings RPC | Demonstrate opt-in and withdrawal | Stored as a private audit record |
 
-The profile is not displayed on public profiles, is not provided to sponsors, and is not used to target sponsored campaigns. No raw comment text is included in the profile. The system does not intentionally infer a user's religious affiliation or make a statement about their beliefs.
+The profile is not displayed on public profiles, is not provided to sponsors, and is not used for user-level sponsor targeting. Sponsors may choose contextual category or topic placement criteria for a campaign; those criteria are not derived from a user's private personalisation profile or inferred beliefs. No raw comment text is included in the profile. The system does not intentionally infer a user's religious affiliation or make a statement about their beliefs.
 
 ### Consent collection and withdrawal
 
