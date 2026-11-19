@@ -249,6 +249,8 @@ export function TopCommentFeedCard({
       onPreviousTopic={navigatePreviousTopic}
       nextPreview={nextEntryPreview}
       previousPreview={previousEntryPreview}
+      previousHorizontalPreview={renderCommentPreview(comments[safeIndex - 1])}
+      nextHorizontalPreview={renderCommentPreview(comments[safeIndex + 1])}
     >
       <BaseFeedCard
         className="bg-accent-light/5"
