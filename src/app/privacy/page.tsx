@@ -167,10 +167,17 @@ export default function PrivacyPage() {
 
           <ul className="text-text-secondary mt-4 list-disc space-y-2 pl-6">
             <li>Contract: to create and operate your account and provide features you request.</li>
-            <li>Legitimate interests: to secure, maintain, troubleshoot, moderate, and improve the service, prevent abuse, and measure aggregate service performance, where those interests are not overridden by your rights.</li>
+            <li>Legitimate interests: to secure, maintain, troubleshoot, moderate, prevent abuse, and understand and improve service performance, where a documented assessment shows that our interests are not overridden by your rights.</li>
             <li>Legal obligation: to keep or disclose information where applicable law requires it.</li>
             <li>Consent: for optional personalisation. Because this processing may reveal religious or philosophical beliefs, we rely on your explicit consent under Article 6(1)(a) UK GDPR and the Article 9(2)(a) exception for the relevant special-category processing.</li>
           </ul>
+
+          <p className="text-text-secondary mt-4 leading-relaxed">
+            Where analytics involves information that reveals or permits inferences about
+            religious or philosophical beliefs, we also identify and document an applicable
+            Article 9 condition in addition to the Article 6 lawful basis. The operational
+            analytics review is recorded in our provisional analytics impact assessment.
+          </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
             You may withdraw personalisation consent at any time using the account
