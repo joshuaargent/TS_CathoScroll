@@ -9,7 +9,7 @@
 
 This assessment covers:
 
-1. First-party, account-linked feed and comment-card analytics for signed-in users.
+1. First-party, account-linked topic-feed and Top Comments exposure analytics for signed-in users.
 2. Vercel Web Analytics site-level measurement, including signed-out visitors.
 3. Vercel Speed Insights, which is disabled pending a separate data-field and transfer review.
 4. The proposed collection of first-party topic-level analytics from signed-out visitors. This proposal is **not approved** by this assessment.
@@ -90,11 +90,15 @@ The controller must provide a clear route to exercise access, erasure, objection
 
 **Signed-out first-party topic-level analytics: not approved.** The current product already has signed-out site-level measurement through Vercel Web Analytics. CathoScroll has therefore not added a second, visitor-level topic-tracking system. The Vercel page URL is now normalised to the site root to reduce the risk of topic-specific path disclosure. Speed Insights is disabled pending its separate review.
 
-**Signed-in first-party topic-level analytics: paused by default and not certified by this assessment.** The viewer is gated by `NEXT_PUBLIC_ACCOUNT_LINKED_FEED_ANALYTICS=true`, and the ingestion route independently fails closed unless `ACCOUNT_LINKED_FEED_ANALYTICS_ENABLED=true`. Both must remain unset until the controller documents the Article 6 basis and applicable Article 9 condition, and implements any required separate explicit consent, withdrawal, and deletion controls. The recommendation personalisation checkbox is not that condition.
+**Signed-in first-party topic- and comment-level analytics: paused by default and not certified by this assessment.** Both viewers are gated by `NEXT_PUBLIC_ACCOUNT_LINKED_FEED_ANALYTICS=true`, and both ingestion routes independently fail closed unless `ACCOUNT_LINKED_FEED_ANALYTICS_ENABLED=true`. Both must remain unset until the controller documents the Article 6 basis and applicable Article 9 condition, and implements any required separate explicit consent, withdrawal, and deletion controls. The recommendation personalisation checkbox is not that condition.
 
 The residual risk cannot be marked fully accepted until the controller completes the actions below. If the controller cannot identify an applicable Article 9 condition, the account-linked topic-level stream must remain paused or be redesigned.
 
-## 10. Required controller actions before declaring the analytics processing approved
+## 10. Scope limitation: sponsor campaign analytics
+
+Sponsor campaign delivery, viewability and click analytics are implemented as a separate pipeline. They are not the same as topic/comment feed telemetry, and this assessment does not certify their lawful basis, retention, or possible linkage to sensitive reading context. Review that pipeline separately, including whether campaign IDs or placement context can reveal special-category interests and whether any user-level frequency data is retained. Sponsors must not receive individual reading histories or use them for sensitive-interest targeting.
+
+## 11. Required controller actions before declaring the analytics processing approved
 
 1. Complete and sign a purpose-specific legitimate interests assessment for any processing relying on Article 6(1)(f), or document the selected Article 6 basis.
 2. Obtain specialist UK data-protection advice on whether the existing topic-level feed and comment-card telemetry processes special-category data and identify the applicable Article 9 condition.
