@@ -2,6 +2,7 @@
 
 import { animate, motion } from 'framer-motion';
 import { useCallback, useEffect, useRef, type ReactNode } from 'react';
+import { flushSync } from 'react-dom';
 import { useTopicSwipeGesture } from './useTopicSwipeGesture';
 
 interface FeedInterstitialMotionProps {
@@ -34,25 +35,27 @@ export function FeedInterstitialMotion({
   const animationLockRef = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const springHome = useCallback(() => {
-    animate(x, 0, { type: 'spring', stiffness: 1800, damping: 120 });
-    animate(y, 0, { type: 'spring', stiffness: 1800, damping: 120 });
-  }, [x, y]);
+  const {
+    x,
+    y,
+    handlePointerDown,
+    handlePointerMove,
+    handlePointerUp,
+  } = useTopicSwipeGesture({
+    enabled: active,
+    canSwipeHorizontal: (direction) => direction === 'next'
+      ? (!canSwipeLeft || canSwipeLeft())
+      : (!canSwipeRight || canSwipeRight()),
+    onSwipeHorizontal: (direction) => move(direction === 'next' ? 'left' : 'right'),
+    onSwipeVertical: (direction) => move(direction === 'next' ? 'up' : 'down'),
+  });
 
   const move = useCallback(async (direction: 'left' | 'right' | 'up' | 'down') => {
     if (animationLockRef.current) return;
-
-    if (direction === 'left' && canSwipeLeft && !canSwipeLeft()) {
-      springHome();
-      return;
-    }
-    if (direction === 'right' && canSwipeRight && !canSwipeRight()) {
-      springHome();
-      return;
-    }
+    if (direction === 'left' && canSwipeLeft && !canSwipeLeft()) return;
+    if (direction === 'right' && canSwipeRight && !canSwipeRight()) return;
 
     animationLockRef.current = true;
-
     try {
       const horizontal = direction === 'left' || direction === 'right';
       const distance = horizontal
@@ -71,7 +74,6 @@ export function FeedInterstitialMotion({
         else if (direction === 'up') navigation = onNextTopic();
         else navigation = onPreviousTopic();
       });
-
       await navigation;
     } catch (error) {
       console.error('Unable to navigate feed card:', error);
@@ -80,22 +82,7 @@ export function FeedInterstitialMotion({
       y.jump(0);
       animationLockRef.current = false;
     }
-  }, [canSwipeLeft, canSwipeRight, onNextTopic, onPreviousTopic, onSwipeLeft, onSwipeRight, springHome, x, y]);
-
-  const {
-    x,
-    y,
-    handlePointerDown,
-    handlePointerMove,
-    handlePointerUp,
-  } = useTopicSwipeGesture({
-    enabled: active,
-    canSwipeHorizontal: (direction) => direction === 'next'
-      ? (!canSwipeLeft || canSwipeLeft())
-      : (!canSwipeRight || canSwipeRight()),
-    onSwipeHorizontal: (direction) => move(direction === 'next' ? 'left' : 'right'),
-    onSwipeVertical: (direction) => move(direction === 'next' ? 'up' : 'down'),
-  });
+  }, [canSwipeLeft, canSwipeRight, onNextTopic, onPreviousTopic, onSwipeLeft, onSwipeRight, x, y]);
 
   useEffect(() => {
     if (!active) return;
