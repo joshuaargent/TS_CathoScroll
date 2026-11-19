@@ -60,7 +60,7 @@ function comment(overrides = {}) {
       display_name: 'Author',
       bio: 'Do not cache',
       created_at: '2026-01-01T00:00:00.000Z',
-      subscription_tier: 'premium',
+      personalization_profile: { topic_interests: ['god'] },
     },
     likes: 3,
     likedByUser: true,
@@ -83,7 +83,7 @@ test('persists public comment trees without account-specific or deleted content'
     assert.equal(snapshot.comments[0].content, 'Hello');
     assert.equal(snapshot.comments[0].likedByUser, false);
     assert.equal(snapshot.comments[0].profile.bio, null);
-    assert.equal(snapshot.comments[0].profile.subscription_tier, undefined);
+    assert.equal(snapshot.comments[0].profile.personalization_profile, undefined);
     assert.equal(snapshot.comments[0].profile.created_at, undefined);
     assert.equal(snapshot.comments[0].replies[0].content, '');
     assert.ok(!Number.isNaN(Date.parse(snapshot.savedAt)));
