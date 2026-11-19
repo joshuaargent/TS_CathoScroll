@@ -5,7 +5,7 @@
 - Existing topic cards and their five-slide topic-reading experience remain the primary feed experience.
 - Do not redesign or replace topic cards as part of feed diversification. Changes to topic ranking must preserve the current card UI and navigation.
 - The website and native applications continue to share feed and topic presentation wherever the current architecture supports it.
-- The currently planned premium features become free. Do not introduce membership gating in this work.
+- All individual learning and community features are free. The only paid commercial offering is business/organisation sponsorship.
 - Sponsorships are clearly disclosed, brand-approved placements, not disguised organic recommendations.
 - Feed analytics must measure meaningful learning and discovery, not maximise compulsive scrolling or raw time spent.
 
@@ -58,7 +58,7 @@ The scheduler must:
 - Never count a sponsor impression until the placement meets a defined viewability threshold.
 - Keep sponsor events separate from organic topic recommendation signals.
 
-A proposed commercial starting point is £25/month for one weight unit, with higher tiers buying proportionally more share of the eligible impression pool. This is a product/pricing proposal only; do not activate billing or promise guaranteed impressions until inventory, traffic, viewability, reporting, refunds, and payment integration are defined. Sponsor pricing and campaign weight must be controlled server-side, never trusted from browser input.
+There is no public fixed sponsorship price or automatic subscription. Sponsor amounts, campaign scope, dates, and any delivery commitments are agreed individually in writing and recorded in the sponsor invoice/workflow. Campaign weight and eligibility remain administrator-controlled and are never trusted from browser input.
 
 ## Sponsor management and accounts
 
@@ -103,7 +103,7 @@ Offline analytics must never block or delay bookmarks, likes, progress, notes, c
 
 ## Recommendation system
 
-The existing weighted-category RPC has been extended rather than replaced. It retains completed topics, bookmarks, likes and comments as strong signals and now incorporates signed-in feed telemetry when a new feed cursor is created. Category weights are frozen into that cursor so pagination remains deterministic; a refresh starts a new preference snapshot.
+The existing weighted-category RPC has been extended rather than replaced. It uses completed topics, bookmarks, likes, comments and signed-in feed telemetry as recommendation signals only when the account has explicitly enabled personalisation. Without consent, it does not read or aggregate those account-history signals: all category weights remain neutral and completed-topic history is not used to suppress recommendations. Category weights are frozen into the cursor so pagination remains deterministic; withdrawing consent also normalises already-issued cursors immediately.
 
 Feed signals use a 90-day window and a 30-day half-life:
 - Viewable impression: +0.40, capped at +1.20 per topic.
@@ -115,7 +115,7 @@ Feed signals use a 90-day window and a 30-day half-life:
 
 The combined telemetry score is clamped between -4 and +6 per topic. Topic scores are aggregated by published category and combined with the existing explicit learning signals. The category weight remains at least 1, using the square root of the non-negative combined preference score; negative telemetry can reduce an existing preference but cannot eliminate baseline category exploration. The existing weighted round-robin selection and no-three-consecutive-category safeguard remain intact.
 
-Telemetry is read through a private SECURITY DEFINER helper that checks `auth.uid()` against the requested account. Authenticated clients cannot read raw analytics rows or query another user's preference signals. A partial `(user_id, received_at)` index supports the 90-day lookup. The helper is invoked only when a new recommendation cursor is created, not for every page continuation.
+Telemetry and profile signals are read through private SECURITY DEFINER helpers that check `auth.uid()` against the requested account. They are invoked only when consent is enabled. Authenticated clients cannot read raw analytics rows or query another user's preference signals. A partial `(user_id, received_at)` index supports the 90-day lookup. The helper is invoked only when a new recommendation cursor is created, not for every page continuation.
 
 This is a first bounded scoring model, not a trained machine-learning system. It deliberately avoids treating a single skip as dislike, caps repeated signals, decays older behaviour and preserves cold-start diversity. Topic freshness/quality scoring, explicit feedback and model evaluation against controlled experiments remain future work. Sponsor allocation stays separate from organic recommendations.
 
