@@ -37,9 +37,10 @@ Whether you're exploring Catholicism for the first time, returning to the faith,
 - **Progress tracking** - keep track of completed topics and learning streaks.
 - **Community discussion** - comment, reply, like contributions, and engage with other learners.
 - **Public profiles** - view user profiles, progress, activity, and community contributions.
-- **Structured learning** - planned premium learning paths that guide users through key areas of Catholic teaching.
-- **Audio lessons** - planned premium narrated audio versions of topics; written topics remain free.
-- **Quizzes** - planned premium quizzes designed to reinforce learning and understanding.
+- **Structured learning** - planned learning paths that guide users through key areas of Catholic teaching; all learning tools are free.
+- **Audio lessons** - planned narrated audio versions of topics, available without a paid user membership.
+- **Quizzes** - planned quizzes designed to reinforce learning and understanding, available free to users.
+- **Sponsorships** - clearly labelled paid placements purchased by businesses; user learning features remain free and sponsor activity never changes organic recommendation ranking.
 - **SEO and discoverability** - sitemap generation, robots rules, metadata, and rich social previews.
 - **RSS feed** - public topic feed available at `/feed.xml`.
 - **Responsive design** - designed to work seamlessly across desktop and mobile devices.
@@ -48,7 +49,7 @@ Whether you're exploring Catholicism for the first time, returning to the faith,
 
 The topic feed retains the original recommendation-driven navigation model. Signed-in users receive topics in the order returned by the recommendation service; signed-out users receive a shuffled catalogue. Additional pages are appended using the active recommendation or catalogue cursor. Once the available catalogue is exhausted, the existing topic sequence loops without reshuffling it.
 
-- **Analytics-ranked topics:** The feed consumes the server-owned recommendation page and cursor. Category preferences combine completed topics, bookmarks, likes and distinct comments with 90 days of decaying feed telemetry: viewable impressions, active duration, swipe depth, completion and return visits. Skips reduce preference only after at least two distinct sessions. The ranking balances served topics against category weight and avoids long same-category streaks. The initial category preferences are frozen in the cursor, so pagination preserves the same session ordering. Signed-in topics are never locally shuffled. Native uses the same recommendation RPC and falls back to its saved catalogue only when recommendations are unavailable.
+- **Analytics-ranked topics:** The feed consumes the server-owned recommendation page and cursor. Category preferences combine completed topics, bookmarks, likes and distinct comments with 90 days of decaying feed telemetry: viewable impressions, active duration, swipe depth, completion and return visits. Skips reduce preference only after at least two distinct sessions. The ranking balances served topics against category weight and avoids long same-category streaks. The initial category preferences are frozen in the cursor, so pagination preserves the same session ordering. Signed-in topics are never locally shuffled. Behavioural and explicit-interest weighting is used only after the user explicitly opts in to personalisation; without consent, category weights remain neutral and completed-topic history is not used to suppress recommendations. Native uses the same recommendation RPC and falls back to its saved catalogue only when recommendations are unavailable.
 - **Top Comments:** Up to five eligible, unseen top-level comments are inserted after every five topic advances when inventory is available. Further 100-comment inventory pages are fetched as the unseen pool runs low, with duplicate IDs removed. The selected group is cached against the topic that introduced it. Returning to that topic replays the same group instead of selecting different comments.
 - **Sponsored placements:** Eligible campaigns are considered after every ten topic advances for signed-in users. When both card types are due at the same boundary, Top Comments appears first and the sponsor follows it. Each sponsor placement is cached against its topic and keeps its attribution session ID when revisited. Campaign selection uses the existing rolling 30-day weighted fair-queue pacing based on viewable impressions; sponsorship does not affect organic recommendations.
 - **Session mapping:** Topic order, comment groups, sponsor placements, cadence and reserved-comment IDs remain in memory for the active account session. Back/forward navigation and looping reuse those mappings. A full page/app reload or account change starts a new mapping. Background native catalogue updates append previously unseen topic IDs without replacing loaded history or changing the active topic.
@@ -56,7 +57,13 @@ The topic feed retains the original recommendation-driven navigation model. Sign
 - **Card surfaces:** The progress-bar region stays on the neutral feed background. The subtle accent tint is applied only to the topic/comment card surface beneath it.
 - **Analytics:** Feed impressions, viewable impressions, active duration, early skips, slide depth, completion and repeat visits continue through the existing analytics pipeline. Visit/completion deduplication survives topic-viewer unmounts when interstitials appear. Sponsor served, viewable-impression and click events use their separate durable, authenticated reporting pipeline. Both queues are best-effort and never block navigation; offline topic telemetry is bounded to 200 unacknowledged events per account, and sponsor reporting retains up to 1,000 pending placement events.
 
-Implementation and operational details are maintained in [Feed experience and analytics](docs/feed-experience-and-analytics.md), [Feed analytics implementation](docs/feed-analytics-implementation.md), [Personalisation and analytics implementation](docs/personalization-analytics-implementation.md), and [Sponsor platform](docs/sponsor-platform.md). The temporary logo-free deployment bridge and final cleanup are documented in [sponsor-logo-compatibility.sql](docs/sponsor-logo-compatibility.sql) and [sponsor-logo-removal.sql](docs/sponsor-logo-removal.sql); the narrow upstream dependency exception is documented in [security-dependency-exceptions.md](docs/security-dependency-exceptions.md).
+Implementation and operational details are maintained in [Feed experience and analytics](docs/feed-experience-and-analytics.md), [Feed analytics implementation](docs/feed-analytics-implementation.md), [Personalisation and analytics implementation](docs/personalization-analytics-implementation.md), [Sponsor platform](docs/sponsor-platform.md), and [Privacy and legal implementation notes](docs/privacy-and-legal-implementation.md). The public [Privacy Policy](/privacy), [Cookie Policy](/cookies), and [Terms of Service](/terms) describe user-facing data and commercial terms. The temporary logo-free deployment bridge and final cleanup are documented in [sponsor-logo-compatibility.sql](docs/sponsor-logo-compatibility.sql) and [sponsor-logo-removal.sql](docs/sponsor-logo-removal.sql); the narrow upstream dependency exception is documented in [security-dependency-exceptions.md](docs/security-dependency-exceptions.md).
+
+### Account personalisation and shared native UI
+
+Personalisation is optional, off by default, and requires a separate explicit opt-in at signup or later in Account settings. The shared signup view is used by both the website and native app. The shared account view also renders the same personalisation summary and consent control on web and native; the detailed settings route at `/account/personalization` reuses the same settings screen and is supported by the native router. Platform-specific Supabase session storage, navigation and offline behaviour remain in the web/native adapters rather than duplicating the interface.
+
+The consent choice is written server-side when a new Auth user is created. The recommendation RPC only reads account history and the private interest profile while consent is enabled. When consent is withdrawn, existing recommendation cursors are normalised to neutral category weights and completed-topic suppression is disabled immediately; the derived profile and explicit category choices are deleted. Operational analytics are separate and follow their own retention rules. See [Personalisation and analytics implementation](docs/personalization-analytics-implementation.md) and [Privacy and legal implementation notes](docs/privacy-and-legal-implementation.md).
 
 ## Why CathoScroll?
 
@@ -278,10 +285,10 @@ Copy `.env.example` to `.env.local` in the project root and fill in the values f
 
 ## Authentication and protected pages
 
-The `/account` and `/bookmarks` pages have two layers of sign-in checks:
+The `/account`, `/account/personalization`, and `/bookmarks` pages have two layers of sign-in checks:
 
 1. The Next.js 16 `src/proxy.ts` layer validates the Supabase session and redirects signed-out requests to `/signin`, preserving the requested local path so sign-in can return the user to it.
-2. The account page repeats the check client-side, and the bookmarks page checks the session on the server before reading user data.
+2. The account and personalisation pages repeat the check client-side, and the bookmarks page checks the session on the server before reading user data.
 
 These redirects improve navigation but do not replace authorization. Supabase Row Level Security policies and server-side checks must continue to protect user data and mutations. The moderation dashboard and moderation API routes independently verify the signed-in user's database-backed admin role; hiding admin UI is never treated as authorization.
 
@@ -291,7 +298,7 @@ Supabase schema changes are managed directly against the connected project. The 
 
 Comment pinning and moderation use server endpoints and a database-backed `admin_users` role table. The service-role key is used only on the server and must never be exposed in a `NEXT_PUBLIC_*` variable. The canonical bootstrap contains the application tables, constraints, comment-ban insert/edit triggers, atomic moderation functions and report throttling function. Do not maintain or apply a separate chain of SQL migration files.
 
-Authenticated users can privately report comments. Admins can review and dismiss reports, resolve them, or hide the reported comment. Comment restrictions prevent new comments, replies, and edits, but do not disable sign-in or other account features; users can still delete their own comments. Admins may optionally hide a user's existing visible comments when applying a restriction, while retaining them in moderation history. Restricted users can submit one pending appeal; admins can review paginated comment history with reply context and lift the restriction. Subscription tiers must only be changed by trusted billing/server-side code.
+Authenticated users can privately report comments. Admins can review and dismiss reports, resolve them, or hide the reported comment. Comment restrictions prevent new comments, replies, and edits, but do not disable sign-in or other account features; users can still delete their own comments. Admins may optionally hide a user's existing visible comments when applying a restriction, while retaining them in moderation history. Restricted users can submit one pending appeal; admins can review paginated comment history with reply context and lift the restriction. Sponsor payment status and campaign eligibility can only be changed through the trusted sponsor-financial workflow.
 
 The notification center is available to signed-in users from the navbar bell. It displays the latest 50 notifications and supports marking one or all as read; the badge shows `1`–`9`, then `9+`, and is hidden when there are no unread notifications. The notification table, owner-only RLS policies, and database notification triggers/functions are included in the canonical bootstrap for fresh-project recovery; do not run that bootstrap against an existing project. Those database-side handlers create welcome, reply, and moderation notifications transactionally; email notifications are not used.
 
@@ -699,10 +706,9 @@ not a substitute for these device-level checks.
 
 Planned features include:
 
-- Premium audio versions of topics; written topic content remains free.
-- Structured learning paths.
-- Interactive quizzes.
-- Guided study experiences.
+- Free audio learning, structured learning paths, and interactive quizzes.
+- Improved opt-in personalisation controls and recommendation quality.
+- More sponsor reporting and self-service campaign management.
 
 The focus for now remains on growing the content library and improving the core learning experience.
 
