@@ -268,13 +268,13 @@ export function ContentAnalyticsDashboard({
 
   const eventMetrics = [
     {
-      label: 'Impressions',
+      label: 'Signed-in impressions',
       value: hasTelemetry ? formatNumber(events.impressions) : '—',
       detail: 'Topic feed cards displayed',
       icon: BarChart3,
     },
     {
-      label: 'Viewable impressions',
+      label: 'Signed-in viewable impressions',
       value: hasTelemetry ? formatNumber(events.viewable_impressions) : '—',
       detail: 'At least 50% visible for one second',
       icon: Users,
@@ -286,19 +286,19 @@ export function ContentAnalyticsDashboard({
       icon: Users,
     },
     {
-      label: 'Active reading time',
+      label: 'Signed-in active reading time',
       value: hasTelemetry ? formatDuration(events.active_seconds) : '—',
       detail: 'Time while visible and active',
       icon: BarChart3,
     },
     {
-      label: 'Skip rate',
+      label: 'Signed-in skip rate',
       value: hasTelemetry && skipRate !== null ? `${skipRate.toFixed(1)}%` : '—',
       detail: 'Early skips ÷ impressions',
       icon: BarChart3,
     },
     {
-      label: 'Average active time',
+      label: 'Signed-in average active time',
       value:
         hasTelemetry && averageActiveSeconds !== null
           ? formatDuration(averageActiveSeconds)
@@ -308,32 +308,32 @@ export function ContentAnalyticsDashboard({
     },
 
     {
-      label: 'Average slide depth',
+      label: 'Signed-in average slide depth',
       value: hasTelemetry ? formatNumber(events.average_slide_depth) : '—',
       detail: 'Average slide index reached (1–4)',
       icon: BarChart3,
     },
     {
-      label: 'Completion events',
+      label: 'Signed-in completion events',
       value: hasTelemetry ? formatNumber(events.completions) : '—',
       detail: 'Completed topic reading sessions',
       icon: CheckCircle2,
     },
     {
-      label: 'Average completion',
+      label: 'Signed-in average completion',
       value: hasTelemetry ? `${events.average_completion_percent.toFixed(1)}%` : '—',
       detail: 'Average recorded completion percentage',
       icon: CheckCircle2,
     },
     {
-      label: 'Completion rate',
+      label: 'Signed-in completion rate',
       value:
         hasTelemetry && completionRate !== null ? `${completionRate.toFixed(1)}%` : '—',
       detail: 'Completions ÷ impressions',
       icon: CheckCircle2,
     },
     {
-      label: 'Return visits',
+      label: 'Signed-in return visits',
       value: hasTelemetry ? formatNumber(events.return_visits) : '—',
       detail: 'Additional visits to this content',
       icon: Users,
