@@ -80,8 +80,8 @@ export default function CookiesPage() {
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            First-party topic-level feed analytics are paused by default while the lawful-basis
-            assessment is completed. The ingestion endpoint fails closed unless an explicit server
+            First-party topic-level feed and Top Comments exposure analytics are paused by default
+            while the lawful-basis assessment is completed. The ingestion endpoint fails closed unless an explicit server
             feature flag is enabled after approval. Signed-out visitors are included in Vercel's
             aggregate site-level reporting, but their topic-level feed events are not sent to
             CathoScroll's own feed analytics tables. Vercel Speed Insights is disabled while its separate data
