@@ -8,14 +8,9 @@ import { useSignInPrompt } from '@/components/providers/SignInPromptProvider';
 import { createClient } from '@/lib/supabase/client';
 import type { TopFeedComment } from '@/lib/feed-comments';
 import { cn } from '@/lib/utils';
-import { clearPendingContentAnalyticsQueues } from '@/lib/feed-analytics-privacy';
 import { FeedInterstitialMotion } from './FeedInterstitialMotion';
 import { BaseFeedCard } from './BaseFeedCard';
 import { flushFeedCardAnalytics, installFeedCardAnalyticsListeners, recordFeedCardAnalyticsEvent } from '@/lib/feed-card-analytics-client';
-
-// Comment-level exposure can reveal sensitive interests too; pause alongside topic telemetry.
-const ACCOUNT_LINKED_FEED_ANALYTICS_ENABLED =
-  process.env.NEXT_PUBLIC_ACCOUNT_LINKED_FEED_ANALYTICS === 'true';
 
 interface TopCommentFeedCardProps {
   comments: TopFeedComment[];
@@ -166,10 +161,6 @@ export function TopCommentFeedCard({
   const comment = comments[safeIndex];
   const activeCommentId = comment?.comment_id;
 
-  useEffect(() => {
-    if (!ACCOUNT_LINKED_FEED_ANALYTICS_ENABLED) clearPendingContentAnalyticsQueues();
-  }, []);
-
   useLayoutEffect(() => {
     if (active && !previewMode) onProgressChange(safeIndex, comments.length);
   }, [active, comments.length, onProgressChange, previewMode, safeIndex]);
@@ -179,7 +170,7 @@ export function TopCommentFeedCard({
   }, [active, comments]);
 
   useEffect(() => {
-    if (!ACCOUNT_LINKED_FEED_ANALYTICS_ENABLED || !active || !userId || previewMode) return;
+    if (!active || !userId || previewMode) return;
     return installFeedCardAnalyticsListeners(userId, {
       endpoint: analyticsEndpoint,
       getAccessToken: getAnalyticsAccessToken,
@@ -191,7 +182,7 @@ export function TopCommentFeedCard({
   }, [active, activeCommentId, onCommentViewed, previewMode]);
 
   useEffect(() => {
-    if (!ACCOUNT_LINKED_FEED_ANALYTICS_ENABLED || !active || previewMode || !userId || activeCommentId === undefined) return;
+    if (!active || previewMode || !userId || activeCommentId === undefined) return;
     recordFeedCardAnalyticsEvent(userId, 'impression', activeCommentId);
     let viewable = false;
     let viewableImpressionRecorded = false;
@@ -278,9 +269,7 @@ export function TopCommentFeedCard({
   if (!comment) return null;
 
   const openComment = () => {
-    if (ACCOUNT_LINKED_FEED_ANALYTICS_ENABLED) {
-      recordFeedCardAnalyticsEvent(userId, 'open', comment.comment_id);
-    }
+    if (userId) recordFeedCardAnalyticsEvent(userId, 'open', comment.comment_id);
     onOpenComment(comment);
   };
 
