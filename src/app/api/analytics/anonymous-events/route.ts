@@ -21,7 +21,7 @@ export function OPTIONS(request: Request) {
 }
 
 export async function POST(request: Request) {
-  if (!isSameOriginOrNativeRequest(request)) return respond(request, { error: 'Forbidden' }, 403);
+  if (!isSameOriginOrNativeRequest(request, true)) return respond(request, { error: 'Forbidden' }, 403);
   const parsed = await readBoundedJson(request, 16384);
   if (!parsed.ok) return respond(request, { error: parsed.error }, parsed.status);
   if (!parsed.value || typeof parsed.value !== 'object' || !('events' in parsed.value) ||
