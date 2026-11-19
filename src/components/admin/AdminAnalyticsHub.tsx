@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Activity, ArrowUpRight, BarChart3, BookOpen, Heart, MessageCircle, Megaphone, Users } from 'lucide-react';
+import { Activity, ArrowUpRight, BarChart3, BookOpen, CheckCircle2, Heart, MessageCircle, Megaphone, Users } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 import { AdminNavigation } from '@/components/admin/AdminNavigation';
@@ -18,6 +18,8 @@ type Overview = {
     comment_card_impressions: number; comment_card_viewable_impressions: number;
     comment_card_active_duration_ms: number; comment_card_skips: number; comment_card_opens: number;
     category_count: number; topic_count: number; sponsor_count: number; comment_count: number;
+    topic_likes: number; bookmarks: number; completed_topics: number; comments_created: number; replies: number; comment_likes: number;
+    unique_topic_viewers: number; unique_sponsor_viewers: number; unique_comment_viewers: number; unique_feed_viewers: number;
   };
   categories: { slug: string; name: string; topic_count: number; impressions: number; viewable_impressions: number }[];
   topics: { id: string; slug: string; question: string; category_slug: string; impressions: number; viewable_impressions: number; active_duration_ms: number }[];
@@ -130,7 +132,7 @@ export function AdminAnalyticsHub({ overview, period, section = 'overview', seri
     </nav>
 
     <section className="mt-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-      <Metric label="Total feed exposures" value={number(totalExposures)} detail="Topic impressions + sponsor deliveries + comment-card impressions" icon={Activity} />
+      <Metric label="Total feed placements" value={number(totalExposures)} detail="Topic impressions + sponsor deliveries + comment-card impressions" icon={Activity} />
       <Metric label="Topic impressions" value={number(t.topic_impressions)} detail={number(t.topic_viewable_impressions) + ' viewable · ' + duration(t.topic_active_duration_ms) + ' active time'} icon={BookOpen} />
       <Metric label="Sponsored delivery" value={number(t.sponsor_served)} detail={number(t.sponsor_viewable_impressions) + ' viewable · ' + number(t.sponsor_clicks) + ' clicks'} icon={Megaphone} />
       <Metric label="Top Comments exposure" value={number(t.comment_card_impressions)} detail={number(t.comment_card_viewable_impressions) + ' viewable · ' + number(t.comment_card_opens) + ' discussion opens'} icon={MessageCircle} />
@@ -139,7 +141,7 @@ export function AdminAnalyticsHub({ overview, period, section = 'overview', seri
       <Metric label="Categories" value={number(t.category_count)} detail="All categories in the library" icon={BarChart3} />
       <Metric label="Topics" value={number(t.topic_count)} detail={number(t.topic_completions) + ' recorded completions in range'} icon={BookOpen} />
       <Metric label="Sponsors" value={number(t.sponsor_count)} detail="Sponsor organisations" icon={Users} />
-      <Metric label="Comments" value={number(t.comment_count)} detail={number(t.comment_card_skips) + ' Top Comments card skips in range'} icon={Heart} />
+      <Metric label="Comments" value={number(t.comment_count)} detail={number(t.comment_likes) + ' comment likes · ' + number(t.replies) + ' replies · ' + number(t.comment_card_skips) + ' card skips'} icon={Heart} />
     </section>
 
     <section className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -149,6 +151,19 @@ export function AdminAnalyticsHub({ overview, period, section = 'overview', seri
       <Metric label="Comment-card viewability" value={t.comment_card_impressions ? ((t.comment_card_viewable_impressions / t.comment_card_impressions) * 100).toFixed(1) + '%' : '—'} detail="Viewable comment-card impressions ÷ impressions" icon={MessageCircle} />
     </section>
     <DailyOverviewChart series={series} />
+    <section className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <Metric label="Unique feed viewers" value={number(t.unique_feed_viewers)} detail={number(t.unique_topic_viewers) + ' topic · ' + number(t.unique_sponsor_viewers) + ' sponsor · ' + number(t.unique_comment_viewers) + ' comment viewers'} icon={Users} />
+      <Metric label="Topic likes" value={number(t.topic_likes)} detail="Topic likes created in this period" icon={Heart} />
+      <Metric label="Bookmarks" value={number(t.bookmarks)} detail="Topic bookmarks created in this period" icon={BookOpen} />
+      <Metric label="Completed topics" value={number(t.completed_topics)} detail="Topic completions recorded in this period" icon={CheckCircle2} />
+    </section>
+    <section className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <Metric label="New top-level comments" value={number(t.comments_created)} detail="Comments created in this period" icon={MessageCircle} />
+      <Metric label="Replies" value={number(t.replies)} detail="Replies created in this period" icon={MessageCircle} />
+      <Metric label="Comment likes" value={number(t.comment_likes)} detail="Comment likes recorded in this period" icon={Heart} />
+      <Metric label="Top Comments opens" value={number(t.comment_card_opens)} detail="Discussion opens from a feed comment card" icon={MessageCircle} />
+    </section>
+
     <section className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       <Metric label="Topic skip rate" value={t.topic_impressions ? ((t.topic_skips / t.topic_impressions) * 100).toFixed(1) + '%' : '—'} detail="Recorded skips ÷ topic impressions" icon={Activity} />
       <Metric label="Sponsor viewability" value={t.sponsor_served ? ((t.sponsor_viewable_impressions / t.sponsor_served) * 100).toFixed(1) + '%' : '—'} detail="Viewable sponsor impressions ÷ served placements" icon={Megaphone} />

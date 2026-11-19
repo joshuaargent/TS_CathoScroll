@@ -7102,7 +7102,21 @@ BEGIN
       coalesce((SELECT sum(opens) FROM comment_daily),0) comment_card_opens,
       (SELECT count(*) FROM public.categories) category_count,(SELECT count(*) FROM public.topics) topic_count,
       (SELECT count(*) FROM public.sponsors) sponsor_count,
-      (SELECT count(*) FROM public.comments WHERE is_deleted=false AND parent_id IS NULL) comment_count
+      (SELECT count(*) FROM public.comments WHERE is_deleted=false AND parent_id IS NULL) comment_count,
+      (SELECT count(*) FROM public.topic_likes WHERE created_at>=p_from AND created_at<p_to) topic_likes,
+      (SELECT count(*) FROM public.bookmarks WHERE created_at>=p_from AND created_at<p_to) bookmarks,
+      (SELECT count(*) FROM public.progress WHERE completed_at>=p_from AND completed_at<p_to) completed_topics,
+      (SELECT count(*) FROM public.comments WHERE parent_id IS NULL AND is_deleted=false AND created_at>=p_from AND created_at<p_to) comments_created,
+      (SELECT count(*) FROM public.comments WHERE parent_id IS NOT NULL AND is_deleted=false AND created_at>=p_from AND created_at<p_to) replies,
+      (SELECT count(*) FROM public.comment_likes WHERE created_at>=p_from AND created_at<p_to) comment_likes,
+      (SELECT count(DISTINCT user_id) FROM catho_private.feed_analytics_events WHERE entity_type='topic' AND event_type IN ('impression','viewable_impression') AND received_at>=p_from AND received_at<p_to) unique_topic_viewers,
+      (SELECT count(DISTINCT user_id) FROM catho_private.sponsor_campaign_events WHERE event_type IN ('served','viewable_impression') AND received_at>=p_from AND received_at<p_to) unique_sponsor_viewers,
+      (SELECT count(DISTINCT user_id) FROM catho_private.feed_card_analytics_events WHERE event_type IN ('impression','viewable_impression') AND received_at>=p_from AND received_at<p_to) unique_comment_viewers,
+      (SELECT count(DISTINCT user_id) FROM (
+        SELECT user_id FROM catho_private.feed_analytics_events WHERE entity_type='topic' AND event_type IN ('impression','viewable_impression') AND received_at>=p_from AND received_at<p_to
+        UNION SELECT user_id FROM catho_private.sponsor_campaign_events WHERE event_type IN ('served','viewable_impression') AND received_at>=p_from AND received_at<p_to
+        UNION SELECT user_id FROM catho_private.feed_card_analytics_events WHERE event_type IN ('impression','viewable_impression') AND received_at>=p_from AND received_at<p_to
+      ) all_viewers) unique_feed_viewers
   ), categories AS (
     SELECT c.slug,c.name,count(t.id) topic_count,coalesce(sum(td.impressions),0) impressions,
       coalesce(sum(td.viewable_impressions),0) viewable_impressions

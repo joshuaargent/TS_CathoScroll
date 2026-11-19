@@ -85,10 +85,15 @@ test('Top Comments viewability requires half visibility for one continuous secon
   assert.ok(hub.includes('Discussion open rate'));
   assert.ok(hub.includes('Comment active time'));
   assert.ok(hub.includes('Sponsor click-through'));
+  assert.ok(hub.includes('Unique feed viewers'));
+  assert.ok(hub.includes('Topic likes'));
+  assert.ok(hub.includes('Completed topics'));
   const bootstrap = await readFile(new URL('../docs/cathoscroll-database-bootstrap.sql', import.meta.url), 'utf8');
   assert.ok(bootstrap.toLowerCase().includes('delete from catho_private.feed_card_analytics_daily_viewers v using doomed d'));
   assert.ok(bootstrap.toLowerCase().includes('event_date<p_before::date'));
-  assert.ok(!hub.includes('bookmark'));
+  assert.ok(!source.includes("'save'"));
+  assert.ok(!source.includes("'share'"));
+  assert.ok(!source.includes("'like'"));
 });
 
 test('uses the authenticated API endpoint and bearer token for native feed analytics', async () => {
