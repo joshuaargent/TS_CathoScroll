@@ -14,6 +14,8 @@ type PersonalizationStatus = {
   topic_interests: number;
   category_interests: number;
   model_version: string;
+  selected_categories: string[];
+  category_options: { slug: string; name: string }[];
 };
 
 const emptyStatus: PersonalizationStatus = {
@@ -21,7 +23,9 @@ const emptyStatus: PersonalizationStatus = {
   updated_at: null,
   topic_interests: 0,
   category_interests: 0,
-  model_version: '2026-11-19-v1',
+  model_version: '2026-11-19-v2',
+  selected_categories: [],
+  category_options: [],
 };
 
 export default function PersonalizationSettingsPage() {
@@ -30,6 +34,9 @@ export default function PersonalizationSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [categoryOptions, setCategoryOptions] = useState<{ slug: string; name: string }[]>([]);
+  const [savingInterests, setSavingInterests] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -53,7 +60,11 @@ export default function PersonalizationSettingsPage() {
         topic_interests: Number.isSafeInteger(data.topic_interests) ? data.topic_interests : 0,
         category_interests: Number.isSafeInteger(data.category_interests) ? data.category_interests : 0,
         model_version: typeof data.model_version === 'string' ? data.model_version : emptyStatus.model_version,
+        selected_categories: Array.isArray(data.selected_categories) ? data.selected_categories.filter((item: unknown): item is string => typeof item === 'string') : [],
+        category_options: Array.isArray(data.category_options) ? data.category_options.filter((item: unknown): item is { slug: string; name: string } => Boolean(item) && typeof item === 'object' && typeof (item as { slug?: unknown }).slug === 'string' && typeof (item as { name?: unknown }).name === 'string') : [],
       });
+      setSelectedCategories(Array.isArray(data.selected_categories) ? data.selected_categories.filter((item: unknown): item is string => typeof item === 'string') : []);
+      setCategoryOptions(Array.isArray(data.category_options) ? data.category_options.filter((item: unknown): item is { slug: string; name: string } => Boolean(item) && typeof item === 'object' && typeof (item as { slug?: unknown }).slug === 'string' && typeof (item as { name?: unknown }).name === 'string') : []);
     } catch (cause) {
       console.error('Unable to load personalisation settings:', cause);
       setError('Unable to load these settings. Refresh the page and try again.');
@@ -87,6 +98,29 @@ export default function PersonalizationSettingsPage() {
       setError('Your setting could not be changed. No change has been assumed; try again.');
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function saveInterests() {
+    if (savingInterests || loading || !status.enabled || selectedCategories.length > 20) return;
+    setSavingInterests(true);
+    setError('');
+    setMessage('');
+    try {
+      const supabase = createClient();
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) throw userError ?? new Error('Authentication required.');
+      const { error: rpcError } = await supabase.rpc('set_my_personalization_interests', {
+        p_category_slugs: selectedCategories,
+      });
+      if (rpcError) throw rpcError;
+      setMessage('Your explicit category interests have been saved.');
+      await load();
+    } catch (cause) {
+      console.error('Unable to save explicit category interests:', cause);
+      setError('Your category interests could not be saved. Try again.');
+    } finally {
+      setSavingInterests(false);
     }
   }
 
@@ -130,6 +164,35 @@ export default function PersonalizationSettingsPage() {
             </Button>
             <Button type="button" size="sm" variant="secondary" disabled={loading || saving || !status.enabled} onClick={() => void updateConsent(false)}>
               {saving && status.enabled ? 'Saving…' : 'Turn off and delete profile'}
+            </Button>
+          </div>
+        </div>
+
+        <div className="border-border mt-6 border-t pt-5">
+          <div>
+            <h3 className="font-semibold">Categories I want to explore</h3>
+            <p className="text-text-muted mt-1 text-sm">These are interests you explicitly choose. They receive a stronger recommendation signal than inferred reading behaviour.</p>
+          </div>
+          <div className="mt-4 grid gap-2 sm:grid-cols-2">
+            {categoryOptions.map((category) => (
+              <label key={category.slug} className={`border-border flex cursor-pointer items-center gap-3 rounded-xl border p-3 text-sm ${!status.enabled ? 'opacity-50' : 'hover:bg-bg-secondary'}`}>
+                <input
+                  type="checkbox"
+                  checked={selectedCategories.includes(category.slug)}
+                  disabled={!status.enabled || loading || savingInterests}
+                  onChange={(event) => setSelectedCategories((current) => event.target.checked
+                    ? [...current, category.slug]
+                    : current.filter((slug) => slug !== category.slug))}
+                  className="accent-accent h-4 w-4"
+                />
+                <span className="font-medium">{category.name}</span>
+              </label>
+            ))}
+          </div>
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-text-muted text-xs">{selectedCategories.length} selected · up to 20</p>
+            <Button type="button" size="sm" variant="secondary" disabled={!status.enabled || loading || savingInterests || selectedCategories.length > 20} onClick={() => void saveInterests()}>
+              {savingInterests ? 'Saving interests…' : 'Save category interests'}
             </Button>
           </div>
         </div>
