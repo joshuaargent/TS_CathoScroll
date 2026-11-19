@@ -6,7 +6,7 @@ export type AnalyticsDeepDiveData = {
   funnel: { impressions: number; viewable_sessions: number; completed_sessions: number; skipped_sessions: number };
   sessions: { sessions: number; average_topic_impressions: number; average_active_seconds: number; average_completions: number; low_engagement_sessions: number; return_visits: number };
   recommendations: { impressions: number; viewable_impressions: number; completions: number; skips: number; return_visits: number; active_duration_ms: number };
-  retention: { cohort_date: string; users: number; returned_7d: number; returned_30d: number; retention_7d: number; retention_30d: number }[];
+  retention: { cohort_date: string; users: number; returned_7d: number; returned_30d: number; retention_7d: number | null; retention_30d: number | null }[];
   categories: { slug: string; name: string; published_topics: number; impressions: number; viewable_impressions: number; completions: number }[];
 };
 
@@ -68,7 +68,7 @@ export function AnalyticsDeepDivePanel({ data }: { data: AnalyticsDeepDiveData }
       {data.retention.length ? <div className="mt-4 overflow-x-auto">
         <table className="w-full min-w-[520px] text-left text-sm">
           <thead><tr className="border-border text-text-muted border-b text-xs"><th className="py-2 pr-4">Cohort</th><th className="py-2 pr-4">Users</th><th className="py-2 pr-4">7-day return</th><th className="py-2">30-day return</th></tr></thead>
-          <tbody>{data.retention.map((row) => <tr key={row.cohort_date} className="border-border border-b last:border-0"><td className="py-3 pr-4 tabular-nums">{row.cohort_date}</td><td className="py-3 pr-4 tabular-nums">{fmt(row.users)}</td><td className="py-3 pr-4 tabular-nums">{fmt(row.retention_7d)}%</td><td className="py-3 tabular-nums">{fmt(row.retention_30d)}%</td></tr>)}</tbody>
+          <tbody>{data.retention.map((row) => <tr key={row.cohort_date} className="border-border border-b last:border-0"><td className="py-3 pr-4 tabular-nums">{row.cohort_date}</td><td className="py-3 pr-4 tabular-nums">{fmt(row.users)}</td><td className="py-3 pr-4 tabular-nums">{row.retention_7d === null ? '—' : fmt(row.retention_7d) + '%'}</td><td className="py-3 tabular-nums">{row.retention_30d === null ? '—' : fmt(row.retention_30d) + '%'}</td></tr>)}</tbody>
         </table>
       </div> : <p className="text-text-muted mt-4 text-sm">No mature feed cohorts in this period yet.</p>}
     </Card>
