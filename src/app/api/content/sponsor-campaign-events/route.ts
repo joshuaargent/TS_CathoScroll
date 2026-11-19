@@ -29,7 +29,7 @@ export function OPTIONS(request: Request) {
 }
 
 export async function POST(request: Request) {
-  if (!isSameOriginOrNativeRequest(request)) return respond(request, { error: 'Forbidden' }, 403);
+  if (!isSameOriginOrNativeRequest(request, true)) return respond(request, { error: 'Forbidden' }, 403);
 
   let auth: Awaited<ReturnType<typeof getAuthenticatedUserFromRequest>>;
   try {
