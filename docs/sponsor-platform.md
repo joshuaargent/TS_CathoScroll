@@ -128,3 +128,14 @@ Financial reconciliation:
 - `public.get_sponsor_financials`
 
 Private tables have RLS enabled and no direct client/service-role table grants where functions provide the required access. Privileged mutations use postgres-owned SECURITY DEFINER functions with an empty search path, explicit administrator or sponsor-membership checks, service-role-only execution and audit records.
+
+
+## Signed-out campaign delivery and analytics
+
+Approved, active and paid campaigns can also be selected for signed-out visitors. The signed-out selector is a separate service-role-only database function and preserves sponsor status/payment checks, campaign dates, category/topic targeting, weighted pacing, daily/total impression caps and frequency limits. It returns only the approved public creative fields and an explicit Sponsored disclosure.
+
+A random UUID token is generated in memory for the active web/native app session. The database stores only its SHA-256 hash in the private session-frequency table; the raw token is not written to cookies, local storage or a persistent visitor profile. Anonymous sponsor event rows include the campaign, hashed session and exact topic placement key so a click must follow a viewable impression for that same served placement. Raw anonymous event and session-frequency rows are deleted after the 48-hour retention threshold by a 15-minute cleanup job. Daily campaign served/viewable/click aggregates are retained for reporting.
+
+Signed-in and anonymous campaign delivery metrics remain separately labelled in the Admin Analytics hub, admin campaign manager and sponsor portal. Combined CTR uses combined clicks divided by combined viewable impressions; the dashboard does not calculate anonymous unique people or sessions. Sponsors receive campaign-level aggregate counts only, not session hashes, raw event rows or organic topic/comment browsing histories.
+
+The shared SponsorFeedCard and its API calls are used by both web and native feed implementations. Native requests use the configured CathoScroll API origin and allowlisted native CORS origins; anonymous requests do not require a signed-in access token. Physical Android/Electron acceptance tests remain a release gate.
