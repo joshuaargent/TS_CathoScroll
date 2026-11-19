@@ -7503,35 +7503,6 @@ BEGIN
   );
 END;
 $function$;
-DECLARE
-  v_user_id uuid := auth.uid();
-  v_enabled boolean := false;
-  v_updated_at timestamptz;
-  v_topics integer := 0;
-  v_categories integer := 0;
-  v_selected jsonb := '[]'::jsonb;
-  v_options jsonb := '[]'::jsonb;
-BEGIN
-  IF v_user_id IS NULL THEN RAISE EXCEPTION 'Authentication required' USING ERRCODE='42501'; END IF;
-  SELECT enabled,updated_at INTO v_enabled,v_updated_at
-  FROM catho_private.user_personalization_consents WHERE user_id=v_user_id;
-  IF coalesce(v_enabled,false) THEN
-    SELECT count(*),count(DISTINCT category_slug) INTO v_topics,v_categories
-    FROM catho_private.user_topic_interest_scores WHERE user_id=v_user_id;
-    SELECT coalesce(jsonb_agg(category_slug ORDER BY category_slug),'[]'::jsonb)
-      INTO v_selected FROM catho_private.user_explicit_category_interests WHERE user_id=v_user_id;
-  END IF;
-  SELECT coalesce(jsonb_agg(jsonb_build_object('slug',slug,'name',name) ORDER BY order_index,name),'[]'::jsonb)
-    INTO v_options FROM public.categories WHERE is_published=true;
-  RETURN jsonb_build_object(
-    'enabled',coalesce(v_enabled,false),'updated_at',v_updated_at,
-    'topic_interests',v_topics,'category_interests',v_categories,
-    'selected_categories',v_selected,'category_options',v_options,
-    'model_version','2026-11-19-v2'
-  );
-END;
-$function$;
-
 
 CREATE OR REPLACE FUNCTION catho_private.get_user_feed_preference_signals(p_user_id uuid)
  RETURNS TABLE(category_slug text, weight numeric)
