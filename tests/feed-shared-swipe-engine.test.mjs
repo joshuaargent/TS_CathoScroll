@@ -3,10 +3,11 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 const root = new URL('../src/components/topic/', import.meta.url);
-const [gesture, topicViewer, interstitial, comments, sponsor] = await Promise.all([
+const [gesture, topicViewer, interstitial, sharedViewport, comments, sponsor] = await Promise.all([
   readFile(new URL('useTopicSwipeGesture.ts', root), 'utf8'),
   readFile(new URL('TopicSwipeViewer.tsx', root), 'utf8'),
   readFile(new URL('FeedInterstitialMotion.tsx', root), 'utf8'),
+  readFile(new URL('FeedSwipeViewport.tsx', root), 'utf8'),
   readFile(new URL('TopCommentFeedCard.tsx', root), 'utf8'),
   readFile(new URL('SponsorFeedCard.tsx', root), 'utf8'),
 ]);
