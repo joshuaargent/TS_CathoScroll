@@ -54,6 +54,7 @@ test('admin deep dive returns aggregate reports and correctly censors immature c
   assert.match(body, /'sessions'/);
   assert.match(body, /'recommendations'/);
   assert.match(body, /'retention'/);
+  assert.match(body, /IS DISTINCT FROM f\\.first_session_id/);
   assert.match(body, /ELSE NULL END AS returned_7d/);
   assert.match(body, /ELSE NULL END AS returned_30d/);
   assert.match(deepDive, /not an A\/B test/);
