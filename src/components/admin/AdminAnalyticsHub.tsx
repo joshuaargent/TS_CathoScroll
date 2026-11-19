@@ -202,7 +202,7 @@ export function AdminAnalyticsHub({ overview, period, section = 'overview', seri
       </SectionCard>}
     </section>
     <Card padding="md" className="mt-8"><p className="text-text-secondary text-sm">Measurement notes</p>
-      <p className="text-text-muted mt-2 text-xs leading-relaxed">Topic feed impressions, sponsor served/viewable/click events and Top Comments card exposures are separate event streams. The combined exposure figure is a cross-surface total, not a unique-user count. Comment likes and replies are shown as community interactions and are not added to feed impressions. Comment-card exposure tracking begins when the new client instrumentation is deployed; historical exposure cannot be reconstructed.</p>
+      <p className="text-text-muted mt-2 text-xs leading-relaxed">Topic feed impressions, sponsor served/viewable/click events and Top Comments card exposures are separate event streams. The combined placement figure is a cross-surface total, not a unique-user count. Comment likes and replies are shown as community interactions and are not added to feed impressions. Comment-card exposure tracking begins when the new client instrumentation is deployed; historical exposure cannot be reconstructed.</p>
     </Card>
   </main>;
 }
