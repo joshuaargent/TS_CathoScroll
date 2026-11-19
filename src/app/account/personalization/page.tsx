@@ -253,7 +253,7 @@ export default function PersonalizationSettingsPage({ client }: { client?: Supab
         </div>
       </Card>}
 
-      {error && <p role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</p>}
+      {error && <div role="alert" className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700"><span>{error}</span><Button type="button" size="sm" variant="secondary" onClick={() => void load()}>Retry</Button></div>}
       {message && <p role="status" className="mt-4 rounded-xl border border-border p-4 text-sm">{message}</p>}
       <div className="mt-5 flex justify-end">
         <Button variant="secondary" size="sm" disabled={loading || saving} onClick={() => void load()}>Refresh status</Button>
