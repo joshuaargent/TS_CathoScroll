@@ -244,7 +244,13 @@ export default function PrivacyPage() {
             when it is used only for service measurement. We are assessing the applicable UK GDPR
             Article 9 position for this operational analytics stream separately from personalisation
             consent. The personalisation checkbox is not consent for operational analytics.
-            CathoScroll also uses Vercel Analytics for site analytics and performance insights.
+            CathoScroll also uses Vercel Analytics for site-level traffic and performance
+            measurement on the website, including visits from people who are not signed in.
+            This provider-level reporting is separate from the first-party feed-event pipeline
+            described above: signed-out topic impressions, reading duration, skips and completions
+            are not currently sent to CathoScroll's own feed analytics tables or Admin Analytics.
+            Signing out therefore does not mean that all site measurement stops, but it does mean
+            that the account-linked first-party feed event stream is not recorded for that visit.
           </p>
         </section>
 
