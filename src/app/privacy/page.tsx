@@ -220,8 +220,10 @@ export default function PrivacyPage() {
           <h2 className="mb-4 text-3xl font-bold">Analytics</h2>
 
           <p className="text-text-secondary leading-relaxed">
-            CathoScroll uses analytics tools to understand how the platform is used and to improve
-            performance and user experience.
+            CathoScroll uses product analytics to measure feed and content performance, diagnose
+            reliability issues, protect the service, and improve the user experience. For signed-in
+            sessions, this may include topic and comment-card impressions, viewability, active
+            duration, skips, completions, repeat visits, interactions, and session timing.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
@@ -230,6 +232,10 @@ export default function PrivacyPage() {
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
+            These operational analytics are separate from optional personalisation. They are not
+            used to build your recommendation profile or change your personal feed unless you
+            separately opt in to personalisation. Raw event records and the user/day viewer bridge
+            are retained for up to 180 days; non-identifying daily totals are retained longer.
             CathoScroll currently uses Vercel Analytics for site analytics and performance insights.
           </p>
         </section>
