@@ -45,6 +45,7 @@ async function flushAnonymousEvents(): Promise<void> {
   const batch = pendingEvents.filter((item) => item.target === target).slice(0, 40);
   if (batch.length === 0) return;
 
+  let shouldContinue = false;
   flushPromise = (async () => {
     try {
       const response = await fetch(target, {
@@ -56,6 +57,7 @@ async function flushAnonymousEvents(): Promise<void> {
         body: JSON.stringify({ events: batch.map((item) => item.event) }),
       });
       if (response.ok || (response.status >= 400 && response.status < 500 && response.status !== 429)) {
+        shouldContinue = true;
         const completed = new Set(batch.map((item) => item.event.eventId));
         for (let index = pendingEvents.length - 1; index >= 0; index -= 1) {
           if (completed.has(pendingEvents[index].event.eventId)) pendingEvents.splice(index, 1);
@@ -66,7 +68,7 @@ async function flushAnonymousEvents(): Promise<void> {
     }
   })().finally(() => {
     flushPromise = null;
-    if (pendingEvents.length > 0 && navigator.onLine) void flushAnonymousEvents();
+    if (shouldContinue && pendingEvents.length > 0 && navigator.onLine) void flushAnonymousEvents();
   });
 
   await flushPromise;
