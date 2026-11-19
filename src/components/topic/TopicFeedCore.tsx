@@ -149,7 +149,7 @@ export function TopicFeedCore({
     setActiveFeedEntryKeyState(key);
   }, []);
 
-  const [topicIndex, setTopicIndex] = useState(personalized ? 0 : Math.floor(topics.length / 2));
+  const [topicIndex, setTopicIndex] = useState(personalized || generalRanked ? 0 : Math.floor(topics.length / 2));
   const [nextCursor, setNextCursor] = useState(initialCursor);
   const [loadingMore, setLoadingMore] = useState(false);
   const [loadError, setLoadError] = useState('');
@@ -600,8 +600,8 @@ export function TopicFeedCore({
   // ----------------------------------
 
   useEffect(() => {
-    // Signed-out users get the existing shuffled feed. Signed-in users keep
-    // the server's analytics-ranked recommendation order and cursor.
+    // Personalised and general-ranked modes preserve server ordering. The
+    // legacy catalogue shuffle remains only for non-ranked fallback feeds.
     const orderedTopics = personalized || generalRanked ? topics : shuffle(topics);
     const sourceChanged = previousPersonalizedRef.current !== personalized;
 
