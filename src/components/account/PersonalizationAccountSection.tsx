@@ -200,7 +200,6 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <p className="text-accent text-xs font-semibold tracking-wider uppercase">Account · Privacy</p>
                 <h2 className="mt-1 text-2xl font-bold">Personalisation</h2>
               </div>
               <span
