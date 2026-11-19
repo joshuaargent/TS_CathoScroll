@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { readBoundedJson } from '@/lib/http/read-json';
-import { checkApiRateLimit, rateLimitResponseHeaders } from '@/lib/security/api-rate-limit';
+import { checkApiRateLimit, getTrustedClientIp, rateLimitResponseHeaders } from '@/lib/security/api-rate-limit';
 import {
   createServiceRoleClient,
   getAuthenticatedUserFromRequest,
@@ -77,7 +77,7 @@ export async function POST(request: Request) {
 
   const rateLimit = await checkApiRateLimit({
     scope: 'sponsor-campaigns:serve',
-    identifier: auth.user?.id ?? `anonymous:${request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'}`,
+    identifier: auth.user?.id ?? `anonymous:${getTrustedClientIp(request) ?? 'unknown'}`,
     limit: 12,
     windowSeconds: 60,
   });
