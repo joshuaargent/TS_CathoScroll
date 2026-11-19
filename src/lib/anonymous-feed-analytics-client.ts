@@ -1,5 +1,7 @@
 'use client';
 
+import { siteConfig } from '@/lib/constants';
+
 type AnonymousEntityType = 'topic' | 'comment';
 type AnonymousEventType = 'impression' | 'viewable_impression' | 'active_duration' | 'skip' | 'completion' | 'open';
 
@@ -31,7 +33,7 @@ export function recordAnonymousFeedEvent(
     window.location.protocol === 'capacitor-electron:' ||
     window.location.origin === 'http://localhost' ||
     window.location.origin === 'https://localhost'
-  ) ? 'https://cathoscroll.com' : undefined;
+  ) ? siteConfig.url : undefined;
   const target = endpoint ?? (nativeOrigin
     ? new URL('/api/analytics/anonymous-events', nativeOrigin).toString()
     : '/api/analytics/anonymous-events');
