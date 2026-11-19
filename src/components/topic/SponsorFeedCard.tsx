@@ -239,6 +239,8 @@ export function SponsorFeedCard({
       onPreviousTopic={navigatePreviousTopic}
       nextPreview={nextEntryPreview}
       previousPreview={previousEntryPreview}
+      previousHorizontalPreview={renderCampaignPreview(campaigns[safeIndex - 1])}
+      nextHorizontalPreview={renderCampaignPreview(campaigns[safeIndex + 1])}
     >
       <BaseFeedCard
         title={
