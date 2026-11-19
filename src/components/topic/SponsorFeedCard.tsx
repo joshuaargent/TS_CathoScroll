@@ -35,8 +35,8 @@ function createEventId() {
 // revisit does not lose the fact that the impression was already recorded.
 const viewableSponsorPlacements = new Set<string>();
 
-function getSponsorPlacementKey(userId: string, sessionId: string, campaignId: string) {
-  return JSON.stringify([userId, sessionId, campaignId]);
+function getSponsorPlacementKey(userId: string | null, sessionId: string, campaignId: string) {
+  return JSON.stringify([userId ?? 'anonymous', sessionId, campaignId]);
 }
 
 function rememberViewableSponsorPlacement(key: string) {
