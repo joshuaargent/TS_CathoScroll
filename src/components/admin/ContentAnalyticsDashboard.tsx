@@ -362,6 +362,7 @@ export function ContentAnalyticsDashboard({
               asChild
               size="sm"
               variant={period === option.value ? 'primary' : 'secondary'}
+              className={period === option.value ? '!text-white dark:!text-[#241f1a]' : undefined}
             >
               <Link
                 href={`${analyticsHref}?period=${option.value}`}
