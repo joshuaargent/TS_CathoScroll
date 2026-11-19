@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/Button';
 
 export const metadata = createPageMetadata({
   title: "FAQs",
-  description: "Answers to common questions about CathoScroll, Catholic learning, accounts, and subscriptions.",
+  description: "Answers to common questions about CathoScroll, Catholic learning, accounts, and sponsorships.",
   path: "/faq",
 });
 
@@ -16,7 +16,7 @@ export default function FAQPage() {
         <h1 className="text-5xl font-extrabold md:text-7xl">Frequently Asked Questions</h1>
 
         <p className="text-text-secondary mt-6 max-w-3xl text-xl">
-          Answers to common questions about CathoScroll, learning paths, subscriptions, accounts,
+          Answers to common questions about CathoScroll, learning paths, accounts,
           and the platform.
         </p>
       </div>
@@ -42,20 +42,35 @@ export default function FAQPage() {
         </section>
 
         <section>
-          <h2 className="mb-4 text-3xl font-bold">What is CathoScroll Premium?</h2>
+          <h2 className="mb-4 text-3xl font-bold">Do users have to pay for CathoScroll?</h2>
 
           <p className="text-text-secondary leading-relaxed">
-            CathoScroll Premium provides additional learning tools designed for users who want a
-            more structured study experience.
+            No. CathoScroll's learning and community features are free to individual users.
+            We do not sell premium memberships, paid learning content, or user subscriptions.
+            The only paid commercial offering is sponsorship purchased by businesses and
+            organisations. Sponsored placements are clearly labelled.
           </p>
+        </section>
 
-          <p className="text-text-secondary mt-4 leading-relaxed">Premium includes:</p>
+        <section>
+          <h2 className="mb-4 text-3xl font-bold">How do sponsorships work?</h2>
 
-          <ul className="text-text-secondary mt-4 list-disc space-y-2 pl-6">
-            <li>Audio versions of topics.</li>
-            <li>Structured learning paths.</li>
-            <li>Interactive quizzes.</li>
-          </ul>
+          <p className="text-text-secondary leading-relaxed">
+            Businesses and organisations can pay for approved sponsored placements in the
+            feed. These are visibly labelled as sponsored and remain separate from organic
+            topic recommendations. Sponsors receive aggregate campaign reporting, not
+            individual users' identities or reading histories. Sponsor payments are handled
+            by direct bank transfer outside the app.
+          </p>
+        </section>
+
+        <section>
+          <h2 className="mb-4 text-3xl font-bold">Are learning paths, quizzes and audio paid?</h2>
+
+          <p className="text-text-secondary leading-relaxed">
+            No. Learning paths, quizzes, audio learning features and other learning tools
+            are available without a paid user membership.
+          </p>
         </section>
 
         <section>
@@ -116,7 +131,7 @@ export default function FAQPage() {
 
           <p className="text-text-secondary mt-4 leading-relaxed">
             However, an account is required for features such as comments, bookmarks, progress
-            tracking, learning progress, and premium features.
+            tracking, learning progress, and all available learning features.
           </p>
         </section>
 
