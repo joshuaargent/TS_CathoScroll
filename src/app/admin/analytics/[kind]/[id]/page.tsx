@@ -21,7 +21,7 @@ const fmt = (value: unknown) => new Intl.NumberFormat('en-GB').format(typeof val
 export default async function AdminAnalyticsEntityPage({ params, searchParams }: Props) {
   const { kind, id } = await params;
   const query = (await searchParams) ?? {};
-  if (!['sponsors', 'comments'].includes(kind)) notFound();
+  if (kind !== 'sponsors' && kind !== 'comments') notFound();
   if (kind === 'sponsors' && !isValidUuid(id)) notFound();
   if (kind === 'comments' && (!/^\\d{1,18}$/.test(id) || !Number.isSafeInteger(Number(id)) || Number(id) < 1)) notFound();
 
