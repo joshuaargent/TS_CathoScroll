@@ -74,10 +74,6 @@ export class OfflineRankedFeedCache {
       [new Date(Date.now() - maximumPageAgeMs).toISOString()]
     );
     await db.execute(
-      'DELETE FROM offline_ranked_feed_pages WHERE rowid NOT IN (SELECT rowid FROM offline_ranked_feed_pages AS p2 WHERE p2.mode = offline_ranked_feed_pages.mode AND p2.owner_id = offline_ranked_feed_pages.owner_id ORDER BY p2.updated_at DESC LIMIT ?)',
-      [maximumPagesPerOwner]
-    );
-    await db.execute(
       'DELETE FROM offline_personalization_consent_cache WHERE checked_at < ?',
       [new Date(Date.now() - consentFreshnessMs).toISOString()]
     );
@@ -109,27 +105,27 @@ export class OfflineRankedFeedCache {
 
   async load(mode: RankedFeedMode, userId: string | null, cursor: RankedFeedCursor | null): Promise<RankedFeedPage | null> {
     const ownerId = assertOwner(mode, userId);
-    return this.database.transaction(async (db) => {
+    const rows = await this.database.transaction(async (db) => {
       await this.prune(db);
-      const rows = await db.query(
+      return db.query(
         'SELECT topic_ids, next_cursor FROM offline_ranked_feed_pages WHERE mode = ? AND owner_id = ? AND cursor_key = ?',
         [mode, ownerId, cursorKey(cursor)]
       );
-      if (rows.length !== 1 || typeof rows[0].topic_ids !== 'string') return null;
-      let ids: unknown;
-      let nextCursor: unknown;
-      try {
-        ids = JSON.parse(rows[0].topic_ids);
-        nextCursor = rows[0].next_cursor === null ? null : JSON.parse(String(rows[0].next_cursor));
-      } catch {
-        return null;
-      }
-      if (!Array.isArray(ids) || ids.length > 50 || ids.some((id) => typeof id !== 'string')) return null;
-      const topics = await this.catalogue.topicsByIds(ids);
-      if (topics.length !== ids.length) return null;
-      if (nextCursor !== null && (typeof nextCursor !== 'object' || Array.isArray(nextCursor))) return null;
-      return { topics, nextCursor: nextCursor as RankedFeedCursor | null };
     });
+    if (rows.length !== 1 || typeof rows[0].topic_ids !== 'string') return null;
+    let ids: unknown;
+    let nextCursor: unknown;
+    try {
+      ids = JSON.parse(rows[0].topic_ids);
+      nextCursor = rows[0].next_cursor === null ? null : JSON.parse(String(rows[0].next_cursor));
+    } catch {
+      return null;
+    }
+    if (!Array.isArray(ids) || ids.length > 50 || ids.some((id) => typeof id !== 'string')) return null;
+    const topics = await this.catalogue.topicsByIds(ids);
+    if (topics.length !== ids.length) return null;
+    if (nextCursor !== null && (typeof nextCursor !== 'object' || Array.isArray(nextCursor))) return null;
+    return { topics, nextCursor: nextCursor as RankedFeedCursor | null };
   }
 
   async setConsent(userId: string, enabled: boolean): Promise<void> {
