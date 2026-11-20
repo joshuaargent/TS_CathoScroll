@@ -9,8 +9,8 @@ This audit distinguishes offline browsing, offline reads, local mutation queues 
 | Capability | Current implementation | Offline status | Notes |
 |---|---|---|---|
 | Topic catalogue | Packaged SQLite catalogue, incremental catalogue refresh | Available | Native app can browse its packaged/cached catalogue without a network connection. |
-| General feed | Server-ranked when online; local catalogue order when offline | Available with fallback | Offline fallback is not the same ranking as the online general feed. |
-| Personalised feed | Consent status and recommendation pages fetched from Supabase RPC | Not implemented offline | Offline startup currently uses the local catalogue and explicitly disables personalised-feed status. No local recommendation profile or native equivalent of the server ranking is present. |
+| General feed | Server-ranked when online; latest downloaded server-ranked pages cached in catalogue SQLite | Ranked offline where cached | Cache preserves the last server-computed ordering; it does not recalculate global scores offline. If no cached page exists, fall back to catalogue order. |
+| Personalised feed | Server-ranked pages cached by cursor in the encrypted private database; last successful consent check cached for 12 hours | Previously downloaded ranked pages available offline on Android/Electron | This reuses server-computed page order; it does not recompute or infer a new profile offline. Expired consent cache, withdrawal, account switch or missing page falls back to general ranking. |
 | Likes, bookmarks, completion | Private activity SQLite store, durable outbox, revision/cursor reconciliation | Available on supported encrypted-storage platforms | Activity sync is account-linked and separate from analytics. |
 | Signed-in topic/comment exposure analytics | Encrypted private SQLite outbox (2,000 events per stream/account, seven-day expiry, server acknowledgement) on Android and Electron; memory-only on web | Durable on Android/Electron; best effort on web | Separate from activity sync. Account-scoped rows are cleared on sign-out/account switch. |
 | Signed-in sponsor event analytics | Separate bounded account-scoped queue | Best effort only | Sponsor delivery/viewability/click reporting is separate from topic/comment analytics and offline activity sync. |
@@ -35,11 +35,11 @@ The queue is intentionally not encrypted because its schema excludes account-lin
 
 ## Personalisation offline decision
 
-A true offline personalised feed needs an offline-safe, account-scoped profile containing the signals and explicit category choices required by the ranking model, plus a verified consent lifecycle. The current app does not have that. The server model also uses decaying telemetry and distinct-session signals that are not fully represented in the local activity store.
+The native app now caches only server-ranked personalised pages, keyed by account and server cursor, in the encrypted private database. A successful online consent check is cached for 12 hours. This allows previously downloaded pages to be read offline without creating a second ranking algorithm or copying the derived interest profile into local storage. It does not calculate new personalised rankings offline.
 
 Do not persist a derived religious-interest profile in the public catalogue database. Do not treat a stale cached consent flag as current consent after an offline account switch or withdrawal on another device. Implementing this safely requires encrypted private storage and secure key lifecycle on iOS as well as Android and Electron; a versioned minimal account-scoped recommendation snapshot; a consent-version/revocation check with conservative fallback; local ranking parity tests; and reconciliation that never lets local approximations overwrite server-authoritative state.
 
-Until those conditions exist, native offline mode should continue to show the cached general catalogue rather than claim to provide personalised recommendations.
+Offline personalisation is limited to previously downloaded pages while the local consent check remains fresh. After 12 hours, on withdrawal, account change, or when the next page was not downloaded, the app falls back to the cached server-ranked general feed, then catalogue order.
 
 ## Notes decision
 
@@ -53,7 +53,7 @@ No offline note-editing queue is proposed. The existing design caches only serve
 - Confirm signed-out analytics never acquire an account/session/visitor ID and remain separate from sponsor reporting.
 - Verify offline catalogue browsing and cache freshness on each platform.
 - Verify encrypted private activity, notes and signed-in analytics outbox behaviour on Android and Electron.
-- Verify personalisation consent/withdrawal online and confirm offline mode falls back to general catalogue.
+- Verify personalisation consent/withdrawal online, the 12-hour consent freshness limit, encrypted page-cache isolation, and general-ranked fallback.
 - Complete the existing feed visual/navigation and sponsor acceptance matrix before making the PR ready for review.
 
 
