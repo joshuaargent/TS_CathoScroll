@@ -564,7 +564,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
                 <span className="text-text-secondary mt-1 block text-sm leading-relaxed">
                   Measures topic and Top Comments engagement, signed-out aggregate activity, and Vercel site/performance analytics. When signed in, topic/comment activity is linked to your account and may reveal religious or philosophical beliefs. If personalisation is enabled, these reading signals also inform your private recommendations. Enabling personalisation automatically enables this choice; turn off personalisation before disabling it.
                 </span>
-                {personalizationEnabled && <span className="text-accent mt-2 block text-xs font-semibold">Required while personalisation is enabled — turn off personalisation first to disable this choice.</span>}
+                {personalizationEnabled && <span className="text-accent mt-2 block text-xs font-semibold">Required while personalisation is enabled — Turn off personalisation first to disable this choice.</span>}
               </span>
             </label>
             <label className="border-border flex cursor-pointer items-start gap-3 rounded-xl border p-4">
