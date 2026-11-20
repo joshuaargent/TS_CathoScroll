@@ -205,8 +205,9 @@ export function TopicFeedCore({
   const loadSponsorCampaigns = useCallback(
     async (topic: Topic): Promise<{ campaigns: SponsorFeedCampaign[]; sessionId: string | null; retryable?: boolean }> => {
 
-      // Anonymous placements share an in-memory session token for frequency caps;
-      // signed-in placements get unique IDs so separate card views are not deduplicated.
+      // Only opted-in anonymous placements share an in-memory session token for
+      // frequency caps; opted-out placements send no token. Signed-in opted-in
+      // placements get unique IDs so separate card views are not deduplicated.
       const measurementEnabled = hasAnalyticsConsent('sponsorMeasurement', userId);
       const sessionId = measurementEnabled
         ? (userId ? createSponsorPlacementId() : createSponsorSessionId())
