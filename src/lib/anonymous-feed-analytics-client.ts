@@ -100,6 +100,7 @@ export async function setAnonymousFeedAnalyticsEnabled(enabled: boolean): Promis
     await Promise.allSettled([...pendingOutboxWrites]);
     pendingEvents.splice(0, pendingEvents.length);
     volatileEventIds.clear();
+    recentEventKeys.clear();
     if (persistentOutbox) await persistentOutbox.clear();
     if (enabled) {
       window.localStorage.removeItem(anonymousAnalyticsPreferenceKey);
@@ -109,6 +110,7 @@ export async function setAnonymousFeedAnalyticsEnabled(enabled: boolean): Promis
     failure = cause;
     pendingEvents.splice(0, pendingEvents.length);
     volatileEventIds.clear();
+    recentEventKeys.clear();
     try {
       if (persistentOutbox) await persistentOutbox.clear();
     } catch {
@@ -177,6 +179,7 @@ export async function flushAnonymousFeedAnalyticsQueue(): Promise<void> {
   if (!anonymousAnalyticsEnabled()) {
     pendingEvents.splice(0, pendingEvents.length);
     volatileEventIds.clear();
+    recentEventKeys.clear();
     if (persistentOutbox) {
       try { await outboxReady; await persistentOutbox.clear(); } catch { /* Disabled analytics are never uploaded. */ }
     }
