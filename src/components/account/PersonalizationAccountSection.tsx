@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ShieldCheck, Sparkles } from 'lucide-react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+import { AnalyticsConsentSettingsButton } from '@/components/privacy/AnalyticsConsentManager';
 import { Button } from '@/components/ui/Button';
 
 type PersonalizationStatus = {
@@ -252,17 +253,17 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
               </span>
             </div>
             <p className="text-text-secondary mt-2 text-sm leading-relaxed">
-              Build a private interest profile to tailor your topic recommendations. This is optional and off until you enable it; only activity recorded after you opt in is used.
+              Build a private interest profile to tailor your topic recommendations. This is optional and off until you enable it; only account actions recorded after you opt in are used. Operational analytics remain separate.
             </p>
           </div>
         </div>
 
         <div className="border-border bg-bg-secondary/30 mt-6 rounded-xl border p-4">
           <p className="font-semibold text-sm leading-relaxed">
-            I explicitly consent to CathoScroll using my topic-reading activity and selected interests, which may reveal religious or philosophical beliefs, to personalise my recommendations.
+            I explicitly consent to CathoScroll using my account actions (progress, bookmarks, likes and comments) and selected interests to personalise my recommendations. This activity may reveal religious or philosophical interests.
           </p>
           <p className="text-text-muted mt-2 text-sm leading-relaxed">
-            Because Catholic and religious topics may reveal religious or philosophical beliefs, this profile is treated as sensitive. It is private and never used for sponsor targeting. You can withdraw consent at any time.
+            Only these account actions and the categories you choose are used for recommendations. Operational analytics such as impressions, reading time, swipes and skips are not used for personalisation. The profile is private, never used for sponsor targeting, and can be deleted by withdrawing consent.
           </p>
           <div className="mt-4 flex flex-wrap gap-3">
             <Button
@@ -365,6 +366,24 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
           <p className="text-text-muted text-sm leading-relaxed">
             Your profile is private and is not shown on your public profile or used for sponsor targeting. Turning this off deletes the profile and stops recommendation weighting; operational analytics follow a separate retention policy.
           </p>
+        </div>
+
+        <div className="border-border mt-6 border-t pt-5">
+          <h3 className="font-semibold">Analytics choices</h3>
+          <p className="text-text-muted mt-1 text-sm leading-relaxed">
+            These are separate from personalisation and never change how your recommendations are ranked.
+          </p>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <div className="bg-bg-secondary/50 rounded-xl p-4">
+              <p className="font-semibold text-sm">Service improvement analytics</p>
+              <p className="text-text-muted mt-1 text-sm">Optional topic and comment engagement, signed-out aggregate activity, and site/performance measurement.</p>
+            </div>
+            <div className="bg-bg-secondary/50 rounded-xl p-4">
+              <p className="font-semibold text-sm">Sponsor measurement</p>
+              <p className="text-text-muted mt-1 text-sm">Optional sponsor viewability, clicks and frequency. Sponsored placements continue if this is off.</p>
+            </div>
+          </div>
+          <p className="mt-4"><AnalyticsConsentSettingsButton /></p>
         </div>
 
         {error && (
