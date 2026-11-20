@@ -117,9 +117,9 @@ test('all analytics surfaces report anonymous counts separately', () => {
   const chartStart = contentPage.indexOf('function LineChart');
   const chartEnd = contentPage.indexOf('function InteractionCard', chartStart);
   const chartSource = contentPage.slice(chartStart, chartEnd);
-  assert.match(chartSource, /dates\\.length <= 1/);
-  assert.match(chartSource, /index \/ \\(dates\\.length - 1\\)/);
-  assert.doesNotMatch(chartSource, /series\\.length <= 1/);
+  assert.match(chartSource, /dates\.length <= 1/);
+  assert.match(chartSource, /index \/ \(dates\.length - 1\)/);
+  assert.doesNotMatch(chartSource, /series\.length <= 1/);
   assert.match(sponsorPortal, /Anonymous served/);
   assert.match(campaignManager, /anonymous served/);
 });
@@ -154,4 +154,34 @@ test('native signed-out analytics is durably queued without visitor or account i
   assert.doesNotMatch(store, /user_id|session_id|visitor_id|account_id/i);
   assert.match(native, /new NativeAnonymousAnalyticsOutbox\(databases\.catalogue\)/);
   assert.match(native, /configureAnonymousFeedAnalyticsOutbox/);
+});
+
+
+test('admin analytics keeps navigation and detailed sections without duplicate summary rows', async () => {
+  const hub = read('../src/components/admin/AdminAnalyticsHub.tsx');
+  const page = read('../src/app/admin/analytics/page.tsx');
+  assert.doesNotMatch(hub, /vs previous/);
+  assert.doesNotMatch(hub, /<Metric label="Categories"/);
+  assert.match(hub, /count: number\(t\.category_count\)/);
+  assert.match(hub, /SectionCard title="Categories"/);
+  assert.match(hub, /SectionCard title="Topics"/);
+  assert.match(hub, /SectionCard title="Sponsors"/);
+  assert.match(hub, /SectionCard title="Comments"/);
+  assert.doesNotMatch(page, /previousFrom|comparisonData/);
+});
+
+test('admin navigation and shells no longer expose the retired feed preview or Administration eyebrow', async () => {
+  const [navigation, adminLoading, contentLoading, contentPage, sponsorsPage, campaignsPage, nativeAdmin] = await Promise.all([
+    read('../src/components/admin/AdminNavigation.tsx'),
+    read('../src/app/admin/loading.tsx'),
+    read('../src/app/admin/content/loading.tsx'),
+    read('../src/app/admin/content/page.tsx'),
+    read('../src/app/admin/sponsors/page.tsx'),
+    read('../src/app/admin/sponsor-campaigns/page.tsx'),
+    read('../native/admin.tsx'),
+  ]);
+  assert.doesNotMatch(navigation, /admin\\/previews|Feed card previews/);
+  for (const source of [adminLoading, contentLoading, contentPage, sponsorsPage, campaignsPage, nativeAdmin]) {
+    assert.doesNotMatch(source, /Administration<\\/p>/);
+  }
 });
