@@ -692,7 +692,7 @@ export function TopicFeedCore({
         setLoadingMore(false);
       }
     }
-  }, [nextCursor, personalized, loadPage]);
+  }, [nextCursor, personalized, generalRanked, loadPage]);
 
   // ----------------------------------
   // Navigation
@@ -1010,8 +1010,8 @@ export function TopicFeedCore({
       previousEntryPreview: undefined,
     };
     // The registry stores deferred callbacks; refs are read only when users interact with the preview's active counterpart.
-    const previewRegistry = createFeedCardRegistry(previewContext); // eslint-disable-line react-hooks/refs
-    return renderRegisteredFeedEntry(entry, previewRegistry, previewContext); // eslint-disable-line react-hooks/refs
+    const previewRegistry = createFeedCardRegistry(previewContext);
+    return renderRegisteredFeedEntry(entry, previewRegistry, previewContext);
   };
 
   const nextEntryPreview = renderFeedEntryPreview(nextFeedEntry); // eslint-disable-line react-hooks/refs

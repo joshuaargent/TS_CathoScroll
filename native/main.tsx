@@ -1350,7 +1350,7 @@ function App() {
       }
       return catalogue.topics({ cursor });
     },
-    [catalogue, user?.id]
+    [catalogue, user]
   );
 
   return (
