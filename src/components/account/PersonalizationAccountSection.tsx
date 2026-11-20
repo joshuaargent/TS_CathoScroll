@@ -5,7 +5,13 @@ import { ShieldCheck, Sparkles } from 'lucide-react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { Button } from '@/components/ui/Button';
-import { requestAnalyticsConsentSync } from '@/lib/analytics-consent';
+import {
+  denyAnalyticsConsentInMemory,
+  readAnalyticsConsent,
+  requestAnalyticsConsentSync,
+  saveAnalyticsConsent,
+} from '@/lib/analytics-consent';
+import { clearAnalyticsConsentQueues } from '@/components/privacy/AnalyticsConsentManager';
 
 type AnalyticsChoices = {
   serviceImprovement: boolean;
@@ -202,10 +208,24 @@ export function PersonalizationAccountSection({ client, apiBaseUrl }: { client: 
       if (typeof payload.consent.serviceImprovement !== 'boolean' || typeof payload.consent.sponsorMeasurement !== 'boolean') {
         throw new Error('Invalid analytics choices response.');
       }
-      setAnalyticsChoices({
+      const confirmedChoices = {
         serviceImprovement: payload.consent.serviceImprovement,
         sponsorMeasurement: payload.consent.sponsorMeasurement,
-      });
+      };
+      const updatedAt = typeof payload.consent.updatedAt === 'string'
+        ? payload.consent.updatedAt
+        : new Date().toISOString();
+      const previousChoices = accountUserId ? readAnalyticsConsent(accountUserId) : null;
+      const interimChoices = {
+        serviceImprovement: previousChoices?.serviceImprovement === true && confirmedChoices.serviceImprovement,
+        sponsorMeasurement: previousChoices?.sponsorMeasurement === true && confirmedChoices.sponsorMeasurement,
+      };
+      if (!interimChoices.serviceImprovement) denyAnalyticsConsentInMemory('serviceImprovement', accountUserId);
+      if (!interimChoices.sponsorMeasurement) denyAnalyticsConsentInMemory('sponsorMeasurement', accountUserId);
+      saveAnalyticsConsent(interimChoices, accountUserId, { updatedAt, syncPending: false });
+      await clearAnalyticsConsentQueues(accountUserId, previousChoices, confirmedChoices);
+      saveAnalyticsConsent(confirmedChoices, accountUserId, { updatedAt, syncPending: false });
+      setAnalyticsChoices(confirmedChoices);
       requestAnalyticsConsentSync();
       setMessage('Analytics choices saved.');
     } catch (cause) {
