@@ -54,3 +54,9 @@ test('offline personalisation withdrawal persists a deny tombstone until server 
   assert.match(native, /set_my_personalization_consent', \{ p_enabled: false \}/);
   assert.match(native, /cathoscroll:personalization-consent-changed/);
 });
+
+
+test('pending offline withdrawal tombstones survive cache expiry and account cache cleanup', () => {
+  assert.match(cache, /checked_at < \? AND pending_sync = 0/);
+  assert.match(cache, /DELETE FROM offline_personalization_consent_cache WHERE user_id = \? AND pending_sync = 0/);
+});
