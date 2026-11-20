@@ -72,10 +72,29 @@ export default async function CategoryAnalyticsPage({ params, searchParams }: Pr
     console.error('Unable to load anonymous category analytics:', anonymousError.message);
     throw new Error('Unable to load category analytics.');
   }
-  const anonymousAnalytics = anonymousData as {
-    totals: Record<string, number>;
-    series: { event_date: string; topic_impressions: number; topic_viewable_impressions: number }[];
-    topics: { slug: string; impressions: number; viewable_impressions: number }[];
+  const anonymousRaw = anonymousData as {
+    totals?: Record<string, number>;
+    series?: Record<string, unknown>[];
+    topics?: Record<string, unknown>[];
+  };
+  const anonymousAnalytics = {
+    totals: {
+      topic_impressions: Number(anonymousRaw.totals?.topic_impressions ?? 0),
+      topic_viewable_impressions: Number(anonymousRaw.totals?.topic_viewable_impressions ?? 0),
+      topic_active_duration_ms: Number(anonymousRaw.totals?.topic_active_duration_ms ?? 0),
+      topic_skips: Number(anonymousRaw.totals?.topic_skips ?? 0),
+      topic_completions: Number(anonymousRaw.totals?.topic_completions ?? 0),
+    },
+    series: (anonymousRaw.series ?? []).map((row) => ({
+      event_date: String(row.event_date ?? ''),
+      topic_impressions: Number(row.topic_impressions ?? 0),
+      topic_viewable_impressions: Number(row.topic_viewable_impressions ?? 0),
+    })),
+    topics: (anonymousRaw.topics ?? []).map((row) => ({
+      slug: String(row.slug ?? ''),
+      impressions: Number(row.impressions ?? 0),
+      viewable_impressions: Number(row.viewable_impressions ?? 0),
+    })),
   };
 
   const { data, error } = await adminClient.rpc('get_admin_content_analytics', {
