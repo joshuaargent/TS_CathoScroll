@@ -33,21 +33,19 @@ const [analytics, sponsor, sponsorAnalytics, topicFeed, cardRegistry, readme, sp
 ]);
 
 
-test('anonymous analytics queue is persisted locally and restored by the shared web/native sync provider', () => {
-  assert.ok(anonymousAnalytics.includes("const queueStorageKey = 'cathoscroll.anonymous-feed-events.v1';"));
-  assert.ok(anonymousAnalytics.includes('window.localStorage.setItem(queueStorageKey'));
-  assert.ok(anonymousAnalytics.includes('window.localStorage.getItem(queueStorageKey)'));
-  assert.ok(anonymousAnalytics.includes('function hydrateQueue()'));
-  assert.ok(anonymousAnalytics.includes('const queueMaxAgeMs = 29 * 24 * 60 * 60 * 1000;'));
-  assert.ok(anonymousAnalytics.includes('queuedAt: now'));
+test('first-party analytics retries stay in memory and never use terminal storage', () => {
+  assert.ok(anonymousAnalytics.includes('const pendingEvents: AnonymousEvent[] = [];'));
   assert.ok(anonymousAnalytics.includes('pendingEvents.slice(0, 40)'));
   assert.ok(anonymousAnalytics.includes("window.addEventListener('online'"));
   assert.ok(anonymousAnalytics.includes("window.addEventListener('pageshow'"));
-  assert.ok(anonymousAnalytics.includes('persistQueue();'));
+  assert.doesNotMatch(anonymousAnalytics, /localStorage|sessionStorage|indexedDB/);
+  assert.ok(analytics.includes('const pendingQueues = new Map'));
+  assert.ok(cardAnalytics.includes('const pendingQueues = new Map'));
+  assert.ok(sponsorAnalytics.includes('const pendingQueues = new Map'));
+  assert.doesNotMatch(analytics + cardAnalytics + sponsorAnalytics, /localStorage|sessionStorage|indexedDB/);
   assert.ok(sponsorSync.includes('installAnonymousFeedAnalyticsSync();'));
   assert.ok(layout.includes('<SponsorAnalyticsSync />'));
   assert.ok(nativeMain.includes('<SponsorAnalyticsSync'));
-  assert.doesNotMatch(anonymousAnalytics, /sessionStorage|indexedDB/);
 });
 
 test('anonymous sponsor event retries stay in memory and never persist the session token', () => {
@@ -88,8 +86,9 @@ test('feed analytics retention cron uses the same statement timestamp as its ret
   assert.doesNotMatch(bootstrap, /prune_feed_analytics_events\(clock_timestamp\(/);
 });
 
-test('sponsor analytics queue survives restarts and flushes even when no sponsor card is visible', () => {
-  assert.ok(sponsorAnalytics.includes('cathoscroll.sponsor-events.v1.'));
+test('sponsor analytics queue stays in memory and flushes without a visible sponsor card', () => {
+  assert.ok(sponsorAnalytics.includes('const pendingQueues = new Map'));
+  assert.doesNotMatch(sponsorAnalytics, /localStorage|sessionStorage|indexedDB/);
   assert.ok(sponsorAnalytics.includes('latest.filter((queued) => queued.eventId !== eventId)'));
   assert.ok(sponsorAnalytics.includes("window.addEventListener('online', flush)"));
   assert.ok(sponsorAnalytics.includes("window.addEventListener('pageshow', flush)"));
@@ -118,26 +117,17 @@ test('README documents bounded behavioural signals used by recommendation rankin
   assert.ok(readme.includes('Anonymous sponsor viewable/click events use a bounded in-memory retry queue'));
 });
 
-test('sponsor analytics keeps offline event storage bounded without evicting pending reports', () => {
+test('sponsor analytics bounds the in-memory queue and sends the retained events', async () => {
   const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
   const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
-  const values = new Map();
-
-  Object.defineProperty(globalThis, 'window', {
-    configurable: true,
-    value: {
-      localStorage: {
-        getItem: (key) => values.get(key) ?? null,
-        setItem: (key, value) => values.set(key, value),
-        removeItem: (key) => values.delete(key),
-      },
-    },
-  });
-  Object.defineProperty(globalThis, 'navigator', {
-    configurable: true,
-    value: { onLine: false },
-  });
-
+  const originalFetch = globalThis.fetch;
+  const sent = [];
+  Object.defineProperty(globalThis, 'window', { configurable: true, value: { addEventListener() {}, removeEventListener() {} } });
+  Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { onLine: false } });
+  globalThis.fetch = async (_url, init) => {
+    sent.push(JSON.parse(init.body).eventId);
+    return new Response(null, { status: 200 });
+  };
   try {
     const userId = 'bounded-sponsor-queue-test';
     for (let index = 0; index < 1005; index += 1) {
@@ -146,14 +136,15 @@ test('sponsor analytics keeps offline event storage bounded without evicting pen
         eventId: 'event-' + index,
         sessionId: 'placement-' + index,
         eventType: 'viewable_impression',
-      }, async () => null);
+      }, async () => 'token');
     }
-
-    const queue = JSON.parse(values.get('cathoscroll.sponsor-events.v1.' + userId));
-    assert.equal(queue.length, 1000);
-    assert.equal(queue[0].eventId, 'event-0');
-    assert.equal(queue.at(-1).eventId, 'event-999');
+    Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { onLine: true } });
+    await sponsorClient.flushSponsorCampaignEvents(userId, async () => 'token');
+    assert.equal(sent.length, 1000);
+    assert.equal(sent[0], 'event-0');
+    assert.equal(sent.at(-1), 'event-999');
   } finally {
+    globalThis.fetch = originalFetch;
     if (originalWindow) Object.defineProperty(globalThis, 'window', originalWindow);
     else delete globalThis.window;
     if (originalNavigator) Object.defineProperty(globalThis, 'navigator', originalNavigator);
@@ -161,85 +152,31 @@ test('sponsor analytics keeps offline event storage bounded without evicting pen
   }
 });
 
-test('sponsor events survive a failed send and are retried with the same IDs after restart', async () => {
+test('sponsor events remain retryable after a failed send within the active process', async () => {
   const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
   const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
   const originalDocument = Object.getOwnPropertyDescriptor(globalThis, 'document');
   const originalFetch = globalThis.fetch;
-  const values = new Map();
   const requests = [];
-
-  Object.defineProperty(globalThis, 'window', {
-    configurable: true,
-    value: {
-      localStorage: {
-        getItem: (key) => values.get(key) ?? null,
-        setItem: (key, value) => values.set(key, value),
-        removeItem: (key) => values.delete(key),
-      },
-      addEventListener() {},
-      removeEventListener() {},
-    },
-  });
-  Object.defineProperty(globalThis, 'navigator', {
-    configurable: true,
-    value: { onLine: false },
-  });
-  Object.defineProperty(globalThis, 'document', {
-    configurable: true,
-    value: {
-      visibilityState: 'visible',
-      addEventListener() {},
-      removeEventListener() {},
-    },
-  });
+  Object.defineProperty(globalThis, 'window', { configurable: true, value: { addEventListener() {}, removeEventListener() {} } });
+  Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { onLine: false } });
+  Object.defineProperty(globalThis, 'document', { configurable: true, value: { visibilityState: 'visible', addEventListener() {}, removeEventListener() {} } });
   globalThis.fetch = async (_url, init) => {
     requests.push(JSON.parse(init.body));
-    if (requests.length === 1) return new Response(null, { status: 503 });
-    return new Response(JSON.stringify({ recorded: true }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return new Response(null, { status: requests.length === 1 ? 503 : 200 });
   };
-
   try {
-    const userId = 'sponsor-queue-restart-test';
-    const event = {
-      campaignId: 'campaign-1',
-      eventId: 'event-stable-1',
-      sessionId: 'placement-session-1',
-      eventType: 'viewable_impression',
-    };
-    assert.equal(
-      sponsorClient.recordSponsorCampaignEvent(userId, event, async () => 'token'),
-      true
-    );
-    assert.equal(
-      JSON.parse(values.get('cathoscroll.sponsor-events.v1.' + userId)).length,
-      1
-    );
-
-    Object.defineProperty(globalThis, 'navigator', {
-      configurable: true,
-      value: { onLine: true },
-    });
+    const userId = 'sponsor-memory-retry-test';
+    const event = { campaignId: 'campaign-1', eventId: 'event-stable-1', sessionId: 'placement-session-1', eventType: 'viewable_impression' };
+    assert.equal(sponsorClient.recordSponsorCampaignEvent(userId, event, async () => 'token'), true);
+    Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { onLine: true } });
     await sponsorClient.flushSponsorCampaignEvents(userId, async () => 'token');
-    assert.equal(
-      JSON.parse(values.get('cathoscroll.sponsor-events.v1.' + userId))[0].eventId,
-      'event-stable-1'
-    );
-
-    const restartedClient = await importTypeScript(
-      '../src/lib/sponsor-analytics-client.ts',
-      'after-restart'
-    );
-    await restartedClient.flushSponsorCampaignEvents(userId, async () => 'token');
-
-    assert.deepEqual(requests.map((request) => request.eventId), [
-      'event-stable-1',
-      'event-stable-1',
-    ]);
-    assert.equal(values.has('cathoscroll.sponsor-events.v1.' + userId), false);
+    assert.equal(requests.length, 1);
+    await sponsorClient.flushSponsorCampaignEvents(userId, async () => 'token');
+    assert.equal(requests.length, 2);
+    assert.deepEqual(requests.map((request) => request.eventId), ['event-stable-1', 'event-stable-1']);
+    await sponsorClient.flushSponsorCampaignEvents(userId, async () => 'token');
+    assert.equal(requests.length, 2);
   } finally {
     globalThis.fetch = originalFetch;
     if (originalWindow) Object.defineProperty(globalThis, 'window', originalWindow);
