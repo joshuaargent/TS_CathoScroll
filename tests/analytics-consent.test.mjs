@@ -19,8 +19,8 @@ test('optional analytics consent is explicit, versioned and off by default', asy
   assert.ok(manager.includes('Manage choices'));
   assert.ok(manager.includes('Service improvement analytics'));
   assert.ok(manager.includes('Sponsor measurement'));
-  assert.ok(layout.includes('<AnalyticsConsentManager />'));
-  assert.ok(native.includes('<NativeAnalyticsConsentManager'));
+  assert.ok(layout.includes('<WebAnalyticsConsentManager />'));
+  assert.ok(native.includes('<AnalyticsConsentManager'));
 });
 
 test('signed-in consent is synchronized and enforced by authenticated ingestion APIs', async () => {
