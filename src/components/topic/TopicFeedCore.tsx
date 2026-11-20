@@ -204,7 +204,8 @@ export function TopicFeedCore({
   const loadSponsorCampaigns = useCallback(
     async (topic: Topic): Promise<{ campaigns: SponsorFeedCampaign[]; sessionId: string | null; retryable?: boolean }> => {
 
-      // Reuse one in-memory token for this active app session so anonymous frequency caps span placements.
+      // Anonymous placements share an in-memory session token for frequency caps;
+      // signed-in placements get unique IDs so separate card views are not deduplicated.
       const sessionId = userId ? createSponsorPlacementId() : createSponsorSessionId();
       if (!sessionId) return { campaigns: [], sessionId: null, retryable: true };
 
