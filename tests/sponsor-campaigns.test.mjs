@@ -79,6 +79,11 @@ test('signed-in and anonymous selectors derive category from the published topic
   }
   assert.match(signedIn, /campaign\.served_count \+ coalesce/);
   assert.match(signedIn, /campaign\.daily_impression_cap/);
+  assert.match(signedIn, /FROM catho_private\.anonymous_sponsor_campaign_daily AS daily[\s\S]*?campaign\.daily_impression_cap/);
+  assert.match(signedIn, /FROM catho_private\.anonymous_sponsor_campaign_daily AS daily[\s\S]*?campaign\.total_impression_cap/);
+  assert.match(signedIn, /FROM catho_private\.anonymous_sponsor_campaign_daily AS daily[\s\S]*?placement_weight::numeric ASC/);
+  assert.match(anonymous, /FROM catho_private\.sponsor_campaign_daily d[\s\S]*?campaign\.daily_impression_cap/);
+  assert.match(anonymous, /FROM catho_private\.sponsor_campaign_daily d[\s\S]*?placement_weight/);
   assert.match(signedIn, /placement_weight::numeric ASC/);
 });
 
