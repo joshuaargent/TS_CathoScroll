@@ -420,7 +420,7 @@ export function PersonalizationAccountSection({ client, apiBaseUrl }: { client: 
                 className="mt-1 h-4 w-4 accent-current"
               />
               <span className="min-w-0">
-                <span className="text-text-primary block font-semibold">I explicitly agree to Service improvement analytics{status.enabled ? ' — required for personalisation' : ''}</span>
+                <span className="text-text-primary block font-semibold">{status.enabled ? 'Service improvement analytics — required for personalisation' : 'I explicitly agree to Service improvement analytics'}</span>
                 <span className="text-text-muted mt-1 block text-sm leading-relaxed">Measures topic and Top Comments engagement, signed-out aggregate activity, and Vercel site/performance analytics. When signed in, topic/comment activity is linked to your account and may reveal religious or philosophical beliefs, potentially involving special-category data under UK GDPR. If personalisation is enabled, these reading signals also inform your private recommendations. Enabling personalisation automatically enables this choice; turn off personalisation before disabling it.</span>
               </span>
             </label>
