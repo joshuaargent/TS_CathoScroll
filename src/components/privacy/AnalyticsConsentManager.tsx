@@ -233,7 +233,13 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
       setPersonalizationEnabled(remote.personalizationEnabled);
       setPersonalizationStatusKnown(true);
       const local = readAnalyticsConsent(expectedUserId);
-      if (local && (local.syncPending || !remote.exists) && !(remote.personalizationEnabled && !local.serviceImprovement)) {
+      if (local && (local.syncPending || !remote.exists)) {
+        // Personalisation requires Service improvement analytics, but a pending
+        // Sponsor measurement withdrawal is still independent and must sync.
+        const pendingChoices = {
+          serviceImprovement: remote.personalizationEnabled ? true : local.serviceImprovement,
+          sponsorMeasurement: local.sponsorMeasurement,
+        };
         const saveResponse = await fetch(endpoint, {
           method: 'POST',
           credentials,
@@ -244,8 +250,8 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
             return nextHeaders;
           })(),
           body: JSON.stringify({
-            serviceImprovement: local.serviceImprovement,
-            sponsorMeasurement: local.sponsorMeasurement,
+            serviceImprovement: pendingChoices.serviceImprovement,
+            sponsorMeasurement: pendingChoices.sponsorMeasurement,
             version: 1,
           }),
           signal: controller.signal,
