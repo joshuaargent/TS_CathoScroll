@@ -137,6 +137,8 @@ test('authoritative bootstrap and existing personalization upgrade use the same 
   const upgradeFunction = upgrade.slice(upgradeStart, upgradeEnd);
   assert.equal(bootstrapFunction, upgradeFunction);
   assert.doesNotMatch(bootstrapFunction, /feed_analytics_events|feed_card_analytics_events/);
+  assert.match(upgrade, /DELETE FROM catho_private\.user_topic_interest_scores/);
+  assert.match(upgrade, /profile_refreshed_at = NULL/);
 });
 
 test('admin deep dive returns aggregate reports and correctly censors immature cohorts', () => {
