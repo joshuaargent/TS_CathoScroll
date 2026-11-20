@@ -155,7 +155,7 @@ export function recordFeedAnalyticsEvent(
   topicId: string,
   metadata: FeedAnalyticsMetadata = {}
 ): void {
-  if (!userId || !sessionId || typeof window === 'undefined' || !topicId || topicId.length > 100 || !hasAnalyticsConsent('serviceImprovement')) return;
+  if (!userId || !sessionId || typeof window === 'undefined' || !topicId || topicId.length > 100 || !hasAnalyticsConsent('serviceImprovement', userId)) return;
 
   const eventId = createUuid();
   if (!eventId) return;
@@ -192,7 +192,7 @@ export function recordFeedAnalyticsEvent(
 }
 
 export async function flushFeedAnalytics(userId: string, keepalive = false): Promise<void> {
-  if (typeof window === 'undefined' || !hasAnalyticsConsent('serviceImprovement')) {
+  if (typeof window === 'undefined' || !hasAnalyticsConsent('serviceImprovement', userId)) {
     writeQueue(userId, []);
     if (persistentOutbox) await persistentOutbox.clearStream(userId, 'topic');
     return;
