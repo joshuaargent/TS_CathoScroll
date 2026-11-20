@@ -250,7 +250,7 @@ export default function PrivacyPage() {
             or comment identifier, but no account ID, persistent visitor ID, raw session ID or
             cross-visit profile. The server deduplicates events and stores only UTC daily aggregate
             counts for impressions, viewability, active duration, skips, completions and discussion
-            opens. Event receipts used only for deduplication become eligible for deletion after 30 days; a scheduled cleanup runs every 15 minutes in bounded batches. Pending anonymous event batches are temporarily stored in local browser/native app storage so they can be retried after a restart; this queue contains event IDs and topic/comment event data, not a persistent visitor or session identifier. The
+            opens. Event receipts used only for deduplication become eligible for deletion after 30 days; a scheduled cleanup runs every 15 minutes in bounded batches. Unsent anonymous event batches are held in page/app memory only while the current session is active and are sent when a connection is available. They are not written to browser storage or retained across an app restart; events still pending when the page or app process ends are discarded. The
             API also applies abuse-prevention rate limits using a keyed HMAC fingerprint of the
             trusted request IP; stale rate-limit entries become eligible for cleanup after two
             days. That fingerprint is not joined to feed event aggregates. Standard hosting and
