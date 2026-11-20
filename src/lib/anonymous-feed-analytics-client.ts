@@ -16,6 +16,7 @@ let flushPromise: Promise<void> | null = null;
 let listenersInstalled = false;
 let persistentOutbox: AnonymousFeedAnalyticsOutbox | null = null;
 let outboxReady: Promise<void> | null = null;
+const persistenceFailedEventIds = new Set<string>();
 function uuid(): string | null {
   try { return typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : null; }
   catch { return null; }
@@ -36,9 +37,10 @@ function getEndpoint(): string {
   return nativeOrigin ? new URL('/api/analytics/anonymous-events', nativeOrigin).toString() : '/api/analytics/anonymous-events';
 }
 export async function configureAnonymousFeedAnalyticsOutbox(outbox: AnonymousFeedAnalyticsOutbox): Promise<void> {
+  const ready = outbox.initialize();
+  await ready;
   persistentOutbox = outbox;
-  outboxReady = outbox.initialize();
-  await outboxReady;
+  outboxReady = Promise.resolve();
   for (const event of pendingEvents.slice()) {
     await outbox.enqueue(event);
     removePendingEvents([event.eventId]);
@@ -55,7 +57,9 @@ export async function flushAnonymousFeedAnalyticsQueue(): Promise<void> {
       if (persistentOutbox) {
         await outboxReady;
         batch = await persistentOutbox.pending(40);
-        if (batch.length === 0 && pendingEvents.length > 0) batch = pendingEvents.slice(0, 40);
+        if (batch.length === 0 && persistenceFailedEventIds.size > 0) {
+          batch = pendingEvents.filter((event) => persistenceFailedEventIds.has(event.eventId)).slice(0, 40);
+        }
       } else batch = pendingEvents.slice(0, 40);
     } catch { batch = pendingEvents.slice(0, 40); }
     if (batch.length === 0) return;
@@ -72,6 +76,7 @@ export async function flushAnonymousFeedAnalyticsQueue(): Promise<void> {
           catch { return; }
         }
         removePendingEvents(completed);
+        for (const eventId of completed) persistenceFailedEventIds.delete(eventId);
       }
     } catch { /* Keep the outbox for retry after reconnect or app restart. */ }
   })().finally(() => {
@@ -91,7 +96,7 @@ export function installAnonymousFeedAnalyticsSync(): () => void {
     window.addEventListener('pagehide', () => void flushAnonymousFeedAnalyticsQueue());
     if (typeof document !== 'undefined') document.addEventListener('visibilitychange', () => void flushAnonymousFeedAnalyticsQueue());
   }
-  void flushAnonymousFeedAnalyticsQueue();
+  if (!persistentOutbox) void flushAnonymousFeedAnalyticsQueue();
   return () => undefined;
 }
 export function recordAnonymousFeedEvent(entityType: AnonymousEntityType, entityId: string | number, eventType: AnonymousEventType, durationMs = 0): void {
@@ -119,7 +124,7 @@ export function recordAnonymousFeedEvent(entityType: AnonymousEntityType, entity
   if (persistentOutbox) {
     void (async () => {
       try { await outboxReady; await persistentOutbox?.enqueue(event); removePendingEvents([event.eventId]); }
-      catch { /* Retain in memory as a same-process fallback. */ }
+      catch { persistenceFailedEventIds.add(event.eventId); }
       await flushAnonymousFeedAnalyticsQueue();
     })();
   } else void flushAnonymousFeedAnalyticsQueue();
