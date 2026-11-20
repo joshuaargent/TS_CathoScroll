@@ -92,8 +92,19 @@ async function readAnalyticsChoices(client: SupabaseClient, userId: string, apiB
   if (!response.ok || !isRecord(payload) || !isRecord(payload.consent)) {
     throw new Error(isRecord(payload) && typeof payload.error === 'string' ? payload.error : 'Unable to read analytics choices.');
   }
-  if (typeof payload.consent.serviceImprovement !== 'boolean' || typeof payload.consent.sponsorMeasurement !== 'boolean') {
+  if (
+    typeof payload.consent.serviceImprovement !== 'boolean' ||
+    typeof payload.consent.sponsorMeasurement !== 'boolean' ||
+    typeof payload.consent.personalizationEnabled !== 'boolean'
+  ) {
     throw new Error('Invalid analytics choices response.');
+  }
+  const local = readAnalyticsConsent(userId);
+  if (local?.syncPending) {
+    return {
+      serviceImprovement: payload.consent.personalizationEnabled ? true : local.serviceImprovement,
+      sponsorMeasurement: local.sponsorMeasurement,
+    };
   }
   return {
     serviceImprovement: payload.consent.serviceImprovement,
