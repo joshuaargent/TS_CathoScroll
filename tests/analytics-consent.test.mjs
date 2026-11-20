@@ -71,6 +71,7 @@ test('account consent sync is identity-bound, retryable and enforced server-side
   assert.ok(manager.includes('managingRef.current = true'));
   assert.ok(manager.includes('effectivePersonalizationStatusKnown, saving, syncServerConsent'));
   assert.ok(manager.includes('personalizationStateUserId === userId'));
+  assert.ok(manager.includes('previous?.serviceImprovement === true && !next.serviceImprovement'));
 
   assert.ok(manager.includes('clearAnalyticsConsentQueues(userId, previous, next)'));
   assert.ok(manager.includes('getAccessToken(expectedUserId)'));
