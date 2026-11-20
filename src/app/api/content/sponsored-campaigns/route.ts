@@ -123,7 +123,9 @@ export async function POST(request: Request) {
         sponsorMeasurementEnabled = false;
       }
     }
-    const measurementSessionId = sponsorMeasurementEnabled ? parsed.value.sessionId : null;
+    const measurementSessionId: string | null = sponsorMeasurementEnabled && typeof parsed.value.sessionId === 'string'
+      ? parsed.value.sessionId
+      : null;
     const { data, error } = isAnonymous
       ? await createServiceRoleClient().rpc('get_anonymous_sponsor_campaigns', {
           p_session_token: measurementSessionId,
