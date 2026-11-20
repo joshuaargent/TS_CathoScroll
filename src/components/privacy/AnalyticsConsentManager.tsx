@@ -85,8 +85,6 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
 
   useEffect(() => {
     activeUserIdRef.current = userId;
-    setPersonalizationEnabled(false);
-    setPersonalizationStatusKnown(!userId);
   }, [userId]);
 
   useEffect(() => {
