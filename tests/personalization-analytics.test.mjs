@@ -98,7 +98,8 @@ test('withdrawal deletes both inferred and explicitly selected interests', () =>
 
 test('recommendation profile signals are gated by consent', () => {
   const body = functionBody('catho_private.get_user_feed_preference_signals');
-  assert.match(body, /user_personalization_consents[\s\S]*enabled=true[\s\S]*THEN RETURN/);
+  assert.match(body, /pc\.enabled = true/);
+  assert.match(body, /ac\.service_improvement = true/);
   assert.match(body, /refresh_user_interest_profile/);
   assert.match(body, /user_explicit_category_interests/);
 });
@@ -120,8 +121,9 @@ test('recommendation profiles use explicit actions and consented passive analyti
   assert.match(body, /interval '14 days'/);
   assert.match(body, /interval '180 days'/);
   assert.match(body, /7776000/);
-  assert.match(body, /0::numeric AS inferred_score/);
-  assert.match(body, /0::numeric AS negative_score/);
+  assert.match(body, /WHEN 'viewable_impression' THEN 0\.40/);
+  assert.match(body, /WHEN 'completion' THEN 2\.50/);
+  assert.match(body, /negative_score/);
   assert.match(body, /v_consent_at/);
   assert.doesNotMatch(body, /explicit-only/);
   assert.match(body, /s\.updated_at < v_now/);
@@ -146,7 +148,8 @@ test('authoritative bootstrap and existing personalization upgrade keep profile 
     assert.ok(upgradeStart >= 0 && upgradeEnd > upgradeStart);
     assert.equal(bootstrapFunction, upgrade.slice(upgradeStart, upgradeEnd + '$function$;'.length));
   }
-  assert.doesNotMatch(functionBody('catho_private.refresh_user_interest_profile'), /feed_analytics_events|feed_card_analytics_events/);
+  assert.match(functionBody('catho_private.refresh_user_interest_profile'), /feed_analytics_events/);
+  assert.match(functionBody('catho_private.refresh_user_interest_profile'), /feed_card_analytics_events/);
   assert.doesNotMatch(functionBody('catho_private.get_user_recommendation_category_weights'), /feed_analytics_events|feed_card_analytics_events/);
   assert.match(upgrade, /DELETE FROM catho_private\.user_topic_interest_scores/);
   assert.match(upgrade, /profile_refreshed_at = NULL/);
@@ -158,7 +161,6 @@ test('recommendation category helper is account-scoped, consent-gated and bounde
   assert.match(body, /v_current_user_id IS DISTINCT FROM p_user_id/);
   assert.match(body, /pc\.enabled = true/);
   assert.match(body, /ac\.service_improvement = true/);
-  assert.match(body, /get_user_feed_preference_signals/);
   assert.match(body, /get_user_feed_preference_signals/);
   assert.doesNotMatch(body, /feed_analytics_events|feed_card_analytics_events/);
 });
@@ -285,10 +287,8 @@ test('recommendation upgrade reads consented activity signals through private he
   const profile = functionBody('catho_private.refresh_user_interest_profile');
   assert.match(body, /SECURITY DEFINER/);
   assert.match(body, /get_user_recommendation_category_weights\(current_user_id\)/);
-  for (const signalBody of [helper, profile]) {
-    assert.match(signalBody, /p\.completed_at\s*>=\s*greatest\(v_now\s*-\s*interval '180 days',\s*v_consent_at\)/);
-    assert.match(signalBody, /b\.created_at\s*>=\s*greatest\(v_now\s*-\s*interval '180 days',\s*v_consent_at\)/);
-    assert.match(signalBody, /l\.created_at\s*>=\s*greatest\(v_now\s*-\s*interval '180 days',\s*v_consent_at\)/);
+  for (const signal of [/p\.completed_at\s*>=\s*greatest\(v_now\s*-\s*interval '180 days',\s*v_consent_at\)/, /b\.created_at\s*>=\s*greatest\(v_now\s*-\s*interval '180 days',\s*v_consent_at\)/, /l\.created_at\s*>=\s*greatest\(v_now\s*-\s*interval '180 days',\s*v_consent_at\)/]) {
+    assert.match(profile, signal);
   }
   assert.match(helper, /pc\.enabled = true/);
   assert.match(helper, /ac\.service_improvement = true/);
