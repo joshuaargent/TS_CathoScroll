@@ -1,6 +1,7 @@
 'use client';
 
 import type { SignedInAnalyticsOutbox } from './offline/signed-in-analytics-store';
+import { hasAnalyticsConsent } from './analytics-consent';
 
 type FeedCardEventType = 'impression' | 'viewable_impression' | 'active_duration' | 'skip' | 'completion' | 'open';
 type QueuedEvent = {
@@ -30,6 +31,7 @@ export async function configureFeedCardAnalyticsOutbox(outbox: SignedInAnalytics
 export async function clearFeedCardAnalyticsOutbox(userId: string): Promise<void> {
   pendingQueues.delete(userId);
   sessionIds.delete(userId);
+  if (persistentOutbox) await persistentOutbox.clearStream(userId, 'comment');
 }
 
 async function hasPendingFeedCardAnalytics(userId: string): Promise<boolean> {
@@ -69,7 +71,7 @@ export function recordFeedCardAnalyticsEvent(
   commentId: number,
   durationMs = 0
 ) {
-  if (!userId || !Number.isSafeInteger(commentId) || commentId < 1 || typeof window === 'undefined') return;
+  if (!userId || !Number.isSafeInteger(commentId) || commentId < 1 || typeof window === 'undefined' || !hasAnalyticsConsent('serviceImprovement')) return;
   const eventId = uuid();
   const currentSessionId = getSessionId(userId);
   if (!eventId || !currentSessionId) return;
@@ -103,7 +105,12 @@ export function recordFeedCardAnalyticsEvent(
 }
 
 export async function flushFeedCardAnalytics(userId: string, keepalive = false) {
-  if (typeof window === 'undefined' || !navigator.onLine || flushingUsers.has(userId)) return;
+  if (typeof window === 'undefined' || !hasAnalyticsConsent('serviceImprovement')) {
+    writeQueue(userId, []);
+    if (persistentOutbox) await persistentOutbox.clearStream(userId, 'comment');
+    return;
+  }
+  if (!navigator.onLine || flushingUsers.has(userId)) return;
   flushingUsers.add(userId);
   try {
     for (;;) {
