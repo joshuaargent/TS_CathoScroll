@@ -53,7 +53,7 @@ The profile is not displayed on public profiles, is not provided to sponsors, an
 - Existing cursors are neutralised on the next recommendation RPC call after withdrawal; category weights become equal and completed-topic suppression is disabled. A new sign-in or page reload is not required for this server-side check to take effect.
 - The recommendation profile reads eligible operational reading events only while both personalisation and Service improvement analytics are enabled. The personalisation opt-in expressly enables Service improvement analytics; the analytics choice is locked until personalisation is withdrawn. Personalisation withdrawal deletes the derived profile and makes Service improvement analytics independently manageable. Historical raw analytics remain under their stated retention period.
 
-Consent version currently recorded by signup and the account RPC: `2026-11-19-v3`.
+Consent version recorded by the updated signup trigger and Account RPC: `2026-11-20-v4`. Existing v3 grants are withdrawn and must be renewed.
 
 ### Recommendation behaviour
 
