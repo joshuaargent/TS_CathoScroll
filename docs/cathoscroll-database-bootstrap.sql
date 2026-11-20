@@ -8076,3 +8076,5 @@ $function$;
 ALTER FUNCTION public.set_user_analytics_consent(uuid, boolean, boolean, integer) OWNER TO postgres;
 REVOKE ALL ON FUNCTION public.set_user_analytics_consent(uuid, boolean, boolean, integer) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.set_user_analytics_consent(uuid, boolean, boolean, integer) TO service_role;
+NOTIFY pgrst, 'reload schema';
+-- End of CathoScroll application-schema and catalogue bootstrap.
