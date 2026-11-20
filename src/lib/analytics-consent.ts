@@ -11,6 +11,10 @@ function storageKeyForUser(userId?: string | null): string {
     : analyticsConsentStorageKey + '.anonymous';
 }
 
+export function getAnalyticsConsentStorageKey(userId?: string | null): string {
+  return storageKeyForUser(userId);
+}
+
 export type AnalyticsConsent = {
   version: typeof analyticsConsentVersion;
   serviceImprovement: boolean;
