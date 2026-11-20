@@ -508,7 +508,6 @@ CREATE OR REPLACE FUNCTION catho_private.capture_signup_personalization_consent(
 AS $function$
 DECLARE
   v_now timestamptz := statement_timestamp();
-  v_previous_sponsor boolean;
 BEGIN
   IF NEW.raw_user_meta_data ->> 'personalization_consent' = 'true' THEN
     INSERT INTO catho_private.user_personalization_consents
