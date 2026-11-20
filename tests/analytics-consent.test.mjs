@@ -61,9 +61,10 @@ test('withdrawing consent clears the matching durable native analytics streams',
   assert.ok(feed.includes("clearStream(userId, 'topic')"));
   assert.ok(comments.includes("clearStream(userId, 'comment')"));
   assert.ok(sponsor.includes("clearStream(userId, 'sponsor')"));
-  assert.ok(feed.includes("hasAnalyticsConsent('serviceImprovement')"));
-  assert.ok(comments.includes("hasAnalyticsConsent('serviceImprovement')"));
-  assert.ok(sponsor.includes("hasAnalyticsConsent('sponsorMeasurement')"));
+  assert.ok(feed.includes("hasAnalyticsConsent('serviceImprovement', userId)"));
+  assert.ok(comments.includes("hasAnalyticsConsent('serviceImprovement', userId)"));
+  assert.ok(sponsor.includes("hasAnalyticsConsent('sponsorMeasurement', userId)"));
+  assert.ok(sponsor.includes("hasAnalyticsConsent('sponsorMeasurement', null)"));
 });
 
 test('declining sponsor measurement preserves sponsor delivery without session frequency tracking', async () => {
@@ -73,7 +74,7 @@ test('declining sponsor measurement preserves sponsor delivery without session f
     read('../docs/cathoscroll-database-bootstrap.sql'),
     read('../docs/analytics-consent-and-sponsor-opt-out-upgrade.sql'),
   ]);
-  assert.ok(feed.includes("hasAnalyticsConsent('sponsorMeasurement')"));
+  assert.ok(feed.includes("hasAnalyticsConsent('sponsorMeasurement', userId)"));
   assert.ok(feed.includes('const sessionId = measurementEnabled'));
   assert.ok(selectRoute.includes('const measurementSessionId: string | null'));
   assert.ok(selectRoute.includes('p_session_token: measurementSessionId'));
