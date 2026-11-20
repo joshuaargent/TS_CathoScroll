@@ -76,6 +76,8 @@ test('withdrawal immediately blocks and clears the matching web and native analy
   assert.ok(consent.includes('denyAnalyticsConsentInMemory'));
   assert.ok(consent.includes('deniedOverrides.add'));
   assert.ok(consent.includes('new BroadcastChannel'));
+  assert.ok(consent.includes("window.addEventListener('storage', onStorageChange)"));
+  assert.ok(consent.includes('event.key === storageKeyForUser(expectedUserId)'));
   assert.ok(manager.includes('denyAnalyticsConsentInMemory'));
   assert.ok(manager.includes('clearFeedAnalyticsOutbox(userId)'));
   assert.ok(manager.includes('clearFeedCardAnalyticsOutbox(userId)'));
