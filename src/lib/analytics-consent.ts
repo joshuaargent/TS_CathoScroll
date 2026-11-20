@@ -3,6 +3,11 @@
 export const analyticsConsentStorageKey = 'cathoscroll.analytics-consent.v1';
 export const analyticsConsentChangeEvent = 'cathoscroll:analytics-consent-change';
 export const analyticsConsentManageEvent = 'cathoscroll:analytics-consent-manage';
+export const analyticsConsentSyncEvent = 'cathoscroll:analytics-consent-sync';
+
+export function requestAnalyticsConsentSync(): void {
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event(analyticsConsentSyncEvent));
+}
 export const analyticsConsentVersion = 1 as const;
 
 function storageKeyForUser(userId?: string | null): string {
