@@ -250,7 +250,7 @@ export default function PrivacyPage() {
             anonymous while account-linked identifiers are retained and are not used for
             individual sponsor targeting. Turning off recommendation personalisation does not
             automatically disable operational analytics. On Android and Electron, unsent signed-in
-            topic, Top Comments and signed-in sponsor viewability/click events are also persisted in the
+            topic, Top Comments and sponsor viewability/click events are also persisted in the
             encrypted private activity database, capped at 2,000 events per stream and seven days. They are deleted only after
             server acknowledgement and are cleared when the account signs out or changes. The
             website keeps its unsent account-linked analytics in memory only.
