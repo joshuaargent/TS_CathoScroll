@@ -55,6 +55,7 @@ import { configureFeedAnalyticsOutbox, clearFeedAnalyticsOutbox } from '@/lib/fe
 import { configureFeedCardAnalyticsOutbox, clearFeedCardAnalyticsOutbox } from '@/lib/feed-card-analytics-client';
 import { NativeSignedInAnalyticsOutbox } from '@/lib/offline/signed-in-analytics-store';
 import { NativeAnonymousAnalyticsOutbox } from '@/lib/offline/anonymous-analytics-store';
+import { OfflineRankedFeedCache } from '@/lib/offline/ranked-feed-cache';
 import type { TopFeedComment } from '@/lib/feed-comments';
 import type { RecommendationCursor } from '@/lib/recommendations';
 import type { GeneralFeedCursor } from '@/lib/content';
@@ -640,6 +641,8 @@ function NativeTopicPage({
 
 function App() {
   const [catalogue, setCatalogue] = useState<OfflineCatalogue | null>(null);
+  const generalFeedCacheRef = useRef<OfflineRankedFeedCache | null>(null);
+  const personalizedFeedCacheRef = useRef<OfflineRankedFeedCache | null>(null);
   const [firstPage, setFirstPage] = useState<CataloguePage | null>(null);
   const [feedPersonalized, setFeedPersonalized] = useState(false);
   const [feedGeneralRanked, setFeedGeneralRanked] = useState(false);
@@ -690,12 +693,22 @@ function App() {
       controller = new AbortController();
       try {
         if (!navigator.onLine) {
-          const page = await localCatalogue.topics();
+          let page: CataloguePage | null = null;
+          let offlinePersonalized = false;
+          if (user?.id && personalizedFeedCacheRef.current &&
+              await personalizedFeedCacheRef.current.hasFreshConsent(user.id)) {
+            page = await personalizedFeedCacheRef.current.load('personalized', user.id, null) as CataloguePage | null;
+            offlinePersonalized = Boolean(page);
+          }
+          if (!page && generalFeedCacheRef.current) {
+            page = await generalFeedCacheRef.current.load('general', null, null) as CataloguePage | null;
+          }
+          if (!page) page = await localCatalogue.topics();
           if (!active) return;
           setFirstPage(page);
           setFeedLoadError('');
-          setFeedPersonalized(false);
-          setFeedGeneralRanked(false);
+          setFeedPersonalized(offlinePersonalized);
+          setFeedGeneralRanked(!offlinePersonalized && Boolean(generalFeedCacheRef.current));
           clearNativeStatusNotice('feed-online');
           return;
         }
@@ -711,6 +724,14 @@ function App() {
             status !== null &&
             'enabled' in status &&
             status.enabled === true;
+          if (!statusError && typeof status === 'object' && status !== null &&
+              'enabled' in status && typeof status.enabled === 'boolean') {
+            try {
+              await personalizedFeedCacheRef.current?.setConsent(user.id, status.enabled);
+            } catch (cacheError) {
+              console.error('Unable to update cached personalisation consent:', cacheError);
+            }
+          }
         }
         if (personalizedEnabled) {
           const { data, error } = await createClient().rpc('get_my_recommendation_page', {
@@ -722,8 +743,14 @@ function App() {
             throw new Error('The recommendation service returned an invalid page.');
           }
           page = data as CataloguePage;
+          if (user?.id && personalizedFeedCacheRef.current) {
+            try { await personalizedFeedCacheRef.current.save('personalized', user.id, null, page); }
+            catch (cacheError) { console.error('Unable to cache the ranked personalised feed:', cacheError); }
+          }
         } else {
           page = await loadNativeGeneralFeedPage();
+          try { await generalFeedCacheRef.current?.save('general', null, null, page); }
+          catch (cacheError) { console.error('Unable to cache the ranked general feed:', cacheError); }
         }
         if (!active) return;
         setFirstPage(page);
@@ -735,13 +762,23 @@ function App() {
         if (!active || (cause instanceof DOMException && cause.name === 'AbortError')) return;
         console.error('Unable to load the online topic feed:', cause);
         try {
-          const page = await localCatalogue.topics();
+          let page: CataloguePage | null = null;
+          let offlinePersonalized = false;
+          if (user?.id && personalizedFeedCacheRef.current &&
+              await personalizedFeedCacheRef.current.hasFreshConsent(user.id)) {
+            page = await personalizedFeedCacheRef.current.load('personalized', user.id, null) as CataloguePage | null;
+            offlinePersonalized = Boolean(page);
+          }
+          if (!page && generalFeedCacheRef.current) {
+            page = await generalFeedCacheRef.current.load('general', null, null) as CataloguePage | null;
+          }
+          if (!page) page = await localCatalogue.topics();
           if (!active) return;
           setFirstPage(page);
           setFeedLoadError('');
-          setFeedPersonalized(false);
-          setFeedGeneralRanked(false);
-          notifyNativeStatus('The live feed is unavailable. Showing saved topics instead.', {
+          setFeedPersonalized(offlinePersonalized);
+          setFeedGeneralRanked(!offlinePersonalized && Boolean(generalFeedCacheRef.current));
+          notifyNativeStatus('The live feed is unavailable. Showing your most recently saved ranked feed where available.', {
             id: 'feed-online',
             action: { label: 'Retry', onClick: () => setFeedAttempt((value) => value + 1) },
           });
@@ -845,6 +882,15 @@ function App() {
           notifyNativeStatus('Some signed-out analytics may not be retained if the app closes before upload.', { id: 'anonymous-analytics-outbox' });
         }
         const localCatalogue = new OfflineCatalogue(databases.catalogue);
+        try {
+          const generalCache = new OfflineRankedFeedCache(databases.catalogue, localCatalogue);
+          await generalCache.initialize();
+          generalFeedCacheRef.current = generalCache;
+          clearNativeStatusNotice('general-feed-cache');
+        } catch (cacheError) {
+          console.error('Offline general-ranked feed cache is unavailable:', cacheError);
+          notifyNativeStatus('The latest general feed order may not be available offline.', { id: 'general-feed-cache' });
+        }
         let cacheDatabase = databases.catalogue;
         let privateDatabaseReady = false;
         try {
@@ -861,6 +907,16 @@ function App() {
           });
         }
         if (privateDatabaseReady) {
+          try {
+            const personalizedCache = new OfflineRankedFeedCache(cacheDatabase, localCatalogue);
+            await personalizedCache.initialize();
+            personalizedFeedCacheRef.current = personalizedCache;
+          } catch (cacheError) {
+            console.error('Encrypted personalised feed cache is unavailable:', cacheError);
+            notifyNativeStatus('Offline personalised feed pages are unavailable. The general ranked feed remains available.', {
+              id: 'personalized-feed-cache',
+            });
+          }
           try {
             const signedInOutbox = new NativeSignedInAnalyticsOutbox(cacheDatabase);
             await Promise.all([
@@ -959,6 +1015,7 @@ function App() {
               void Promise.all([
                 clearFeedAnalyticsOutbox(previousUserId),
                 clearFeedCardAnalyticsOutbox(previousUserId),
+                personalizedFeedCacheRef.current?.clearUser(previousUserId),
               ]).catch((cause: unknown) => {
                 console.error('Unable to clear the previous account analytics queue:', cause);
                 notifyNativeStatus('Some unsent analytics from the previous account could not be cleared from this device.', {
@@ -1198,10 +1255,6 @@ function App() {
     async (cursor: CatalogueCursor | GeneralFeedCursor | RecommendationCursor) => {
       if (!catalogue) throw new Error('The offline catalogue is not ready.');
       if (isRecommendationCursor(cursor)) {
-        // Recommendation cursors are server-owned. If the connection drops or
-        // the RPC fails, switch subsequent pagination to the local catalogue.
-        // TopicFeedCore preserves the current session history and anchor while
-        // appending only unseen IDs from this catalogue page.
         try {
           if (!navigator.onLine) throw new Error('The device is offline.');
           const { data, error } = await createClient().rpc('get_my_recommendation_page', {
@@ -1212,15 +1265,36 @@ function App() {
           if (!data || typeof data !== 'object' || !Array.isArray(data.topics) || !('nextCursor' in data)) {
             throw new Error('The recommendation service returned an invalid page.');
           }
+          const page = data as { topics: Topic[]; nextCursor: RecommendationCursor | null };
+          if (user?.id && personalizedFeedCacheRef.current) {
+            try { await personalizedFeedCacheRef.current.save('personalized', user.id, cursor, page); }
+            catch (cacheError) { console.error('Unable to cache a personalised feed page:', cacheError); }
+          }
           clearNativeStatusNotice('feed-pagination');
-          return data as { topics: Topic[]; nextCursor: RecommendationCursor | null };
+          return page;
         } catch (cause) {
           console.error('Unable to continue personalized feed pagination:', cause);
+          if (user?.id && personalizedFeedCacheRef.current &&
+              await personalizedFeedCacheRef.current.hasFreshConsent(user.id)) {
+            const cachedPage = await personalizedFeedCacheRef.current.load('personalized', user.id, cursor);
+            if (cachedPage) return cachedPage as { topics: Topic[]; nextCursor: RecommendationCursor | null };
+          }
+          const rankedGeneral = await generalFeedCacheRef.current?.load('general', null, null);
+          if (rankedGeneral) {
+            setFirstPage(rankedGeneral as CataloguePage);
+            setFeedPersonalized(false);
+            setFeedGeneralRanked(true);
+            notifyNativeStatus('Personalised recommendations are unavailable. Continuing with the saved general ranking.', {
+              id: 'feed-pagination',
+              action: { label: 'Retry', onClick: () => setFeedAttempt((value) => value + 1) },
+            });
+            return rankedGeneral as CataloguePage;
+          }
           const page = await catalogue.topics();
           setFirstPage(page);
           setFeedPersonalized(false);
           setFeedGeneralRanked(false);
-          notifyNativeStatus('Personalized recommendations are unavailable. Showing saved topics instead.', {
+          notifyNativeStatus('Personalised recommendations are unavailable. Showing saved topics instead.', {
             id: 'feed-pagination',
             action: { label: 'Retry', onClick: () => setFeedAttempt((value) => value + 1) },
           });
@@ -1231,10 +1305,14 @@ function App() {
         try {
           if (!navigator.onLine) throw new Error('The device is offline.');
           const page = await loadNativeGeneralFeedPage(cursor);
+          try { await generalFeedCacheRef.current?.save('general', null, cursor, page); }
+          catch (cacheError) { console.error('Unable to cache a general feed page:', cacheError); }
           clearNativeStatusNotice('feed-pagination');
           return page;
         } catch (cause) {
           console.error('Unable to continue general feed pagination:', cause);
+          const cachedPage = await generalFeedCacheRef.current?.load('general', null, cursor);
+          if (cachedPage) return cachedPage as { topics: Topic[]; nextCursor: GeneralFeedCursor | null };
           const page = await catalogue.topics();
           setFirstPage(page);
           setFeedGeneralRanked(false);
@@ -1259,7 +1337,7 @@ function App() {
       }
       return catalogue.topics({ cursor });
     },
-    [catalogue]
+    [catalogue, user?.id]
   );
 
   return (
