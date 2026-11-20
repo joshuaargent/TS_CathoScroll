@@ -71,7 +71,7 @@ export function recordFeedCardAnalyticsEvent(
   commentId: number,
   durationMs = 0
 ) {
-  if (!userId || !Number.isSafeInteger(commentId) || commentId < 1 || typeof window === 'undefined' || !hasAnalyticsConsent('serviceImprovement')) return;
+  if (!userId || !Number.isSafeInteger(commentId) || commentId < 1 || typeof window === 'undefined' || !hasAnalyticsConsent('serviceImprovement', userId)) return;
   const eventId = uuid();
   const currentSessionId = getSessionId(userId);
   if (!eventId || !currentSessionId) return;
