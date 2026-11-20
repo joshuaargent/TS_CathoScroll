@@ -44,6 +44,34 @@ GRANT USAGE ON SCHEMA cron TO postgres;
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA cron TO postgres;
 CREATE SCHEMA IF NOT EXISTS catho_private;
 
+CREATE TABLE catho_private.user_analytics_consents (
+  user_id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  service_improvement boolean NOT NULL DEFAULT false,
+  sponsor_measurement boolean NOT NULL DEFAULT false,
+  consent_version integer NOT NULL DEFAULT 1 CHECK (consent_version >= 1),
+  service_improvement_updated_at timestamptz,
+  sponsor_measurement_updated_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT statement_timestamp(),
+  updated_at timestamptz NOT NULL DEFAULT statement_timestamp()
+);
+CREATE TABLE catho_private.user_analytics_consent_history (
+  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  previous_service_improvement boolean,
+  previous_sponsor_measurement boolean,
+  service_improvement boolean NOT NULL,
+  sponsor_measurement boolean NOT NULL,
+  consent_version integer NOT NULL CHECK (consent_version >= 1),
+  recorded_at timestamptz NOT NULL DEFAULT statement_timestamp()
+);
+CREATE INDEX user_analytics_consent_history_user_recorded_idx
+  ON catho_private.user_analytics_consent_history(user_id, recorded_at DESC);
+ALTER TABLE catho_private.user_analytics_consents ENABLE ROW LEVEL SECURITY;
+ALTER TABLE catho_private.user_analytics_consent_history ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON catho_private.user_analytics_consents, catho_private.user_analytics_consent_history
+  FROM PUBLIC, anon, authenticated, service_role;
+
+
 CREATE TABLE catho_private.activity_devices (
   user_id uuid NOT NULL,
   device_id uuid NOT NULL,
@@ -4833,6 +4861,8 @@ DECLARE
   v_slot integer;
   v_today date := (pg_catalog.timezone('UTC', pg_catalog.statement_timestamp()))::date;
   v_topic_category_slug text;
+  v_sponsor_measurement boolean := false;
+  v_session_id uuid;
 BEGIN
   IF p_user_id IS NULL OR p_limit IS NULL OR p_limit < 1 OR p_limit > 1
      OR NOT EXISTS (SELECT 1 FROM auth.users AS account WHERE account.id = p_user_id) THEN
@@ -4842,6 +4872,11 @@ BEGIN
   SELECT topic.category_slug INTO v_topic_category_slug
   FROM public.topics AS topic WHERE topic.id = p_topic_id AND topic.is_published;
   IF NOT FOUND THEN RAISE EXCEPTION 'Sponsor placement topic is unavailable' USING ERRCODE = '22023'; END IF;
+  SELECT coalesce(consent.sponsor_measurement, false)
+  INTO v_sponsor_measurement
+  FROM catho_private.user_analytics_consents AS consent
+  WHERE consent.user_id = p_user_id;
+  v_session_id := CASE WHEN coalesce(v_sponsor_measurement, false) THEN p_session_id ELSE NULL END;
   PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(p_user_id::text, 9173));
 
   FOR v_slot IN 1..p_limit LOOP
@@ -4873,7 +4908,7 @@ BEGIN
         SELECT pg_catalog.sum(daily.served_count) FROM catho_private.anonymous_sponsor_campaign_daily AS daily
         WHERE daily.campaign_id = campaign.id
       ), 0) < campaign.total_impression_cap)
-      AND (p_session_id IS NULL OR (
+      AND (v_session_id IS NULL OR (
         coalesce(frequency.served_count, 0) < campaign.frequency_cap_per_user_total
         AND (SELECT pg_catalog.count(*) FROM catho_private.sponsor_campaign_events AS recent_viewable
           WHERE recent_viewable.user_id = p_user_id AND recent_viewable.campaign_id = campaign.id
@@ -4900,10 +4935,10 @@ BEGIN
     UPDATE public.sponsor_campaigns SET served_count=served_count+1, updated_at=pg_catalog.statement_timestamp()
     WHERE id=v_campaign.id;
 
-    IF p_session_id IS NOT NULL THEN
+    IF v_session_id IS NOT NULL THEN
       INSERT INTO catho_private.sponsor_campaign_events
         (campaign_id,event_id,user_id,session_id,event_type,received_at)
-      VALUES (v_campaign.id,pg_catalog.gen_random_uuid(),p_user_id,p_session_id,'served',pg_catalog.statement_timestamp());
+      VALUES (v_campaign.id,pg_catalog.gen_random_uuid(),p_user_id,v_session_id,'served',pg_catalog.statement_timestamp());
 
       INSERT INTO catho_private.sponsor_campaign_user_frequency
         (campaign_id,user_id,served_count,last_served_at)
@@ -8123,3 +8158,111 @@ ALTER FUNCTION public.offline_activity_snapshot(uuid,text) SET search_path = '';
 ALTER FUNCTION public.offline_apply_activity_batch(uuid,jsonb) SET search_path = '';
 ALTER FUNCTION public.offline_apply_activity_v2(uuid,uuid,uuid,text,text,text,text,boolean,timestamptz) SET search_path = '';
 ALTER FUNCTION public.record_feed_analytics_events(jsonb) SET search_path = '';
+
+-- ACCOUNT-LINKED OPTIONAL ANALYTICS CONSENT
+
+CREATE OR REPLACE FUNCTION public.get_user_analytics_consent(p_user_id uuid)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO ''
+AS $function$
+DECLARE v_consent catho_private.user_analytics_consents%ROWTYPE;
+BEGIN
+  IF p_user_id IS NULL OR NOT EXISTS (SELECT 1 FROM auth.users AS account WHERE account.id = p_user_id) THEN
+    RAISE EXCEPTION 'Invalid account for analytics consent lookup' USING ERRCODE = '22023';
+  END IF;
+  SELECT * INTO v_consent
+  FROM catho_private.user_analytics_consents AS consent
+  WHERE consent.user_id = p_user_id;
+  IF NOT FOUND THEN
+    RETURN pg_catalog.jsonb_build_object(
+      'serviceImprovement', false,
+      'sponsorMeasurement', false,
+      'updatedAt', NULL,
+      'version', 1,
+      'exists', false
+    );
+  END IF;
+  RETURN pg_catalog.jsonb_build_object(
+    'serviceImprovement', v_consent.service_improvement,
+    'sponsorMeasurement', v_consent.sponsor_measurement,
+    'updatedAt', v_consent.updated_at,
+    'version', v_consent.consent_version,
+    'exists', true
+  );
+END;
+$function$;
+ALTER FUNCTION public.get_user_analytics_consent(uuid) OWNER TO postgres;
+REVOKE ALL ON FUNCTION public.get_user_analytics_consent(uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.get_user_analytics_consent(uuid) TO service_role;
+
+CREATE OR REPLACE FUNCTION public.set_user_analytics_consent(
+  p_user_id uuid,
+  p_service_improvement boolean,
+  p_sponsor_measurement boolean,
+  p_consent_version integer
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO ''
+AS $function$
+DECLARE
+  v_previous_service boolean;
+  v_previous_sponsor boolean;
+  v_consent catho_private.user_analytics_consents%ROWTYPE;
+  v_now timestamptz := pg_catalog.statement_timestamp();
+BEGIN
+  IF p_user_id IS NULL OR p_service_improvement IS NULL OR p_sponsor_measurement IS NULL
+     OR p_consent_version IS DISTINCT FROM 1
+     OR NOT EXISTS (SELECT 1 FROM auth.users AS account WHERE account.id = p_user_id) THEN
+    RAISE EXCEPTION 'Invalid analytics consent update' USING ERRCODE = '22023';
+  END IF;
+  SELECT service_improvement, sponsor_measurement
+  INTO v_previous_service, v_previous_sponsor
+  FROM catho_private.user_analytics_consents
+  WHERE user_id = p_user_id
+  FOR UPDATE;
+
+  INSERT INTO catho_private.user_analytics_consents (
+    user_id, service_improvement, sponsor_measurement, consent_version,
+    service_improvement_updated_at, sponsor_measurement_updated_at, created_at, updated_at
+  ) VALUES (
+    p_user_id, p_service_improvement, p_sponsor_measurement, p_consent_version,
+    v_now, v_now, v_now, v_now
+  )
+  ON CONFLICT (user_id) DO UPDATE SET
+    service_improvement = EXCLUDED.service_improvement,
+    sponsor_measurement = EXCLUDED.sponsor_measurement,
+    consent_version = EXCLUDED.consent_version,
+    service_improvement_updated_at = CASE
+      WHEN catho_private.user_analytics_consents.service_improvement IS DISTINCT FROM EXCLUDED.service_improvement
+      THEN v_now ELSE catho_private.user_analytics_consents.service_improvement_updated_at END,
+    sponsor_measurement_updated_at = CASE
+      WHEN catho_private.user_analytics_consents.sponsor_measurement IS DISTINCT FROM EXCLUDED.sponsor_measurement
+      THEN v_now ELSE catho_private.user_analytics_consents.sponsor_measurement_updated_at END,
+    updated_at = v_now
+  RETURNING * INTO v_consent;
+
+  INSERT INTO catho_private.user_analytics_consent_history (
+    user_id, previous_service_improvement, previous_sponsor_measurement,
+    service_improvement, sponsor_measurement, consent_version, recorded_at
+  ) VALUES (
+    p_user_id, v_previous_service, v_previous_sponsor,
+    p_service_improvement, p_sponsor_measurement, p_consent_version, v_now
+  );
+
+  RETURN pg_catalog.jsonb_build_object(
+    'serviceImprovement', v_consent.service_improvement,
+    'sponsorMeasurement', v_consent.sponsor_measurement,
+    'updatedAt', v_consent.updated_at,
+    'version', v_consent.consent_version,
+    'exists', true
+  );
+END;
+$function$;
+ALTER FUNCTION public.set_user_analytics_consent(uuid, boolean, boolean, integer) OWNER TO postgres;
+REVOKE ALL ON FUNCTION public.set_user_analytics_consent(uuid, boolean, boolean, integer) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.set_user_analytics_consent(uuid, boolean, boolean, integer) TO service_role;
+
