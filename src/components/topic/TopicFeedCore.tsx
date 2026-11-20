@@ -515,6 +515,17 @@ export function TopicFeedCore({
                 ? [{ ...entry, comments: currentComments }]
                 : [];
             }
+            if (entry.type === 'sponsor') {
+              const currentInventory = sponsorResultsByTopicId.current.get(boundary.topicId);
+              if (!currentInventory) return [entry];
+              if (currentInventory.campaigns.length === 0 || !currentInventory.sessionId) return [];
+              return [{
+                ...entry,
+                status: 'ready',
+                campaigns: currentInventory.campaigns,
+                sessionId: currentInventory.sessionId,
+              }];
+            }
             return [entry];
           });
           return [{
@@ -581,7 +592,7 @@ export function TopicFeedCore({
     };
     feedEntryMapRef.current = nextFeedEntryMap;
     setFeedEntryMap(nextFeedEntryMap);
-    for (const boundary of planned.boundaries) {
+    for (const boundary of boundaries) {
       const sponsorEntry = boundary.entries.find((entry) => entry.type === 'sponsor');
       if (sponsorEntry && sponsorEntry.type === 'sponsor' && sponsorEntry.status !== 'empty') {
         sponsorDueByTopicId.current.add(boundary.topicId);
@@ -592,7 +603,7 @@ export function TopicFeedCore({
 
     // Resolve only the next sponsor slot. Fetching every future campaign
     // would consume per-user delivery caps for cards the user may never reach.
-    const firstSponsor = planned.boundaries
+    const firstSponsor = boundaries
       .flatMap((boundary) => boundary.entries)
       .find((entry) => entry.type === 'sponsor');
     if (firstSponsor && firstSponsor.type === 'sponsor' && firstSponsor.status === 'pending') {
