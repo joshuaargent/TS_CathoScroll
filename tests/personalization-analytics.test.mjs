@@ -213,15 +213,17 @@ test('signup collects separate, unchecked explicit consent on web and native', (
 
 test('all recommendation history signals are opt-in and withdrawal neutralises active cursors', () => {
   const body = functionBody('public.get_my_recommendation_page');
+  const helper = functionBody('catho_private.get_user_recommendation_category_weights');
   assert.match(body, /SELECT coalesce\(enabled,false\) INTO personalization_enabled/);
   assert.match(body, /IF personalization_enabled THEN/);
-  assert.match(body, /WITH signals AS/);
+  assert.match(helper, /WITH signals AS/);
   assert.match(body, /ELSE[\s\S]*?SELECT coalesce/);
   assert.match(body, /include_completed := NOT personalization_enabled/);
   assert.match(body, /'includeCompleted', include_completed/);
   assert.match(body, /IF NOT personalization_enabled THEN/);
   assert.match(body, /'weight', 1/);
   assert.match(body, /include_completed := true/);
+  assert.match(body, /personalizationModelVersion/);
   assert.match(documentation, /All account-history recommendation weighting is consent-gated/);
 });
 
@@ -250,25 +252,21 @@ test('existing-database upgrade contains feed-card analytics schema and secure i
   assert.match(upgrade, /GRANT EXECUTE ON FUNCTION public\.record_feed_card_analytics_events\(jsonb\) TO authenticated/);
 });
 
-test('recommendation upgrade reads only activity created after explicit consent and has secure RPC ACLs', () => {
-  const start = upgrade.indexOf('CREATE OR REPLACE FUNCTION public.get_my_recommendation_page');
-  const end = upgrade.indexOf('$function$;', start);
-  assert.ok(start >= 0 && end > start);
-  const body = upgrade.slice(start, end);
+test('recommendation upgrade reads only consented explicit actions through private helpers and has secure RPC ACLs', () => {
+  const body = functionBody('public.get_my_recommendation_page');
+  const helper = functionBody('catho_private.get_user_recommendation_category_weights');
+  const profile = functionBody('catho_private.refresh_user_interest_profile');
   assert.match(body, /SECURITY DEFINER/);
-  assert.match(body, /p\.completed_at >= \(SELECT granted_at/);
-  assert.match(body, /b\.created_at >= \(SELECT granted_at/);
-  assert.match(body, /l\.created_at >= \(SELECT granted_at/);
-  assert.match(body, /c\.created_at >= \(SELECT granted_at/);
+  assert.match(body, /get_user_recommendation_category_weights\(current_user_id\)/);
+  for (const signalBody of [helper, profile]) {
+    assert.match(signalBody, /p\.completed_at\s*>=\s*greatest\(v_now\s*-\s*interval '180 days',\s*v_consent_at\)/);
+    assert.match(signalBody, /b\.created_at\s*>=\s*greatest\(v_now\s*-\s*interval '180 days',\s*v_consent_at\)/);
+    assert.match(signalBody, /l\.created_at\s*>=\s*greatest\(v_now\s*-\s*interval '180 days',\s*v_consent_at\)/);
+  }
+  assert.match(helper, /c\.enabled = true/);
+  assert.doesNotMatch(helper + profile, /feed_analytics_events|feed_card_analytics_events/);
   assert.match(upgrade, /REVOKE ALL ON FUNCTION public\.get_my_recommendation_page\(jsonb, integer\) FROM PUBLIC, anon, authenticated, service_role/);
   assert.match(upgrade, /GRANT EXECUTE ON FUNCTION public\.get_my_recommendation_page\(jsonb, integer\) TO authenticated, service_role/);
-  const bootstrapStart = bootstrap.indexOf('CREATE OR REPLACE FUNCTION public.get_my_recommendation_page');
-  const bootstrapEnd = bootstrap.indexOf('$function$;', bootstrapStart);
-  const bootstrapBody = bootstrap.slice(bootstrapStart, bootstrapEnd);
-  assert.match(bootstrapBody, /p\.completed_at >= \(SELECT granted_at/);
-  assert.match(bootstrapBody, /b\.created_at >= \(SELECT granted_at/);
-  assert.match(bootstrapBody, /l\.created_at >= \(SELECT granted_at/);
-  assert.match(bootstrapBody, /c\.created_at >= \(SELECT granted_at/);
 });
 
 
