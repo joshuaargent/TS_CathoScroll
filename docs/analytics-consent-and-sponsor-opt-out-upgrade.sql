@@ -5,8 +5,6 @@
 -- records and viewability/click measurement.
 -- Idempotent. Existing analytics events and aggregate history are preserved.
 
-BEGIN;
-
 CREATE TABLE IF NOT EXISTS catho_private.user_analytics_consents (
   user_id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   service_improvement boolean NOT NULL DEFAULT false,
@@ -57,12 +55,14 @@ DECLARE
   v_inserted integer := 0;
   v_submitted integer;
   v_count integer;
+  v_service_consent boolean := false;
 BEGIN
   IF v_user_id IS NULL THEN RAISE EXCEPTION 'Authentication required' USING ERRCODE = '42501'; END IF;
-  IF NOT EXISTS (
-    SELECT 1 FROM catho_private.user_analytics_consents AS consent
-    WHERE consent.user_id = v_user_id AND consent.service_improvement = true
-  ) THEN RETURN 0; END IF;
+  SELECT consent.service_improvement INTO v_service_consent
+  FROM catho_private.user_analytics_consents AS consent
+  WHERE consent.user_id = v_user_id
+  FOR SHARE;
+  IF coalesce(v_service_consent, false) IS NOT TRUE THEN RETURN 0; END IF;
   IF p_events IS NULL OR jsonb_typeof(p_events) <> 'array' THEN RAISE EXCEPTION 'Events must be a JSON array' USING ERRCODE = '22023'; END IF;
   v_submitted := jsonb_array_length(p_events);
   IF v_submitted < 1 OR v_submitted > 50 OR octet_length(p_events::text) > 16384 THEN
@@ -180,12 +180,14 @@ declare
   v_event_id_text text;
   v_session_id_text text;
   v_duration_text text;
+  v_service_consent boolean := false;
 begin
   if v_user_id is null then raise exception 'authentication required' using errcode='42501'; end if;
-  if not exists (
-    select 1 from catho_private.user_analytics_consents as consent
-    where consent.user_id = v_user_id and consent.service_improvement = true
-  ) then return 0; end if;
+  select consent.service_improvement into v_service_consent
+  from catho_private.user_analytics_consents as consent
+  where consent.user_id = v_user_id
+  for share;
+  if coalesce(v_service_consent, false) is not true then return 0; end if;
   if jsonb_typeof(p_events) <> 'array' or jsonb_array_length(p_events) < 1 or jsonb_array_length(p_events) > 50 then
     raise exception 'invalid event batch' using errcode='22023';
   end if;
@@ -246,16 +248,18 @@ AS $function$
 DECLARE
   v_today date := (pg_catalog.timezone('UTC', pg_catalog.statement_timestamp()))::date;
   v_inserted integer := 0;
+  v_sponsor_consent boolean := false;
 BEGIN
   IF p_user_id IS NULL OR p_campaign_id IS NULL OR p_event_id IS NULL OR p_session_id IS NULL
      OR p_event_type IS NULL OR p_event_type NOT IN ('viewable_impression', 'click')
      OR NOT EXISTS (SELECT 1 FROM auth.users AS account WHERE account.id = p_user_id) THEN
     RAISE EXCEPTION 'Invalid sponsor campaign event' USING ERRCODE = '22023';
   END IF;
-  IF NOT EXISTS (
-    SELECT 1 FROM catho_private.user_analytics_consents AS consent
-    WHERE consent.user_id = p_user_id AND consent.sponsor_measurement = true
-  ) THEN RETURN false; END IF;
+  SELECT consent.sponsor_measurement INTO v_sponsor_consent
+  FROM catho_private.user_analytics_consents AS consent
+  WHERE consent.user_id = p_user_id
+  FOR SHARE;
+  IF coalesce(v_sponsor_consent, false) IS NOT TRUE THEN RETURN false; END IF;
   IF NOT EXISTS (
     SELECT 1 FROM catho_private.sponsor_campaign_events AS served
     WHERE served.user_id=p_user_id AND served.campaign_id=p_campaign_id
@@ -331,7 +335,8 @@ BEGIN
   SELECT coalesce(consent.sponsor_measurement, false)
   INTO v_sponsor_measurement
   FROM catho_private.user_analytics_consents AS consent
-  WHERE consent.user_id = p_user_id;
+  WHERE consent.user_id = p_user_id
+  FOR SHARE;
   v_session_id := CASE WHEN coalesce(v_sponsor_measurement, false) THEN p_session_id ELSE NULL END;
   PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(p_user_id::text, 9173));
 
@@ -615,4 +620,3 @@ REVOKE ALL ON FUNCTION public.set_user_analytics_consent(uuid, boolean, boolean,
 GRANT EXECUTE ON FUNCTION public.set_user_analytics_consent(uuid, boolean, boolean, integer) TO service_role;
 
 NOTIFY pgrst, 'reload schema';
-COMMIT;
