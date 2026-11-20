@@ -261,7 +261,7 @@ export default function PrivacyPage() {
           <p className="text-text-secondary mt-4 leading-relaxed">
             Signed-out sponsor delivery uses a separate campaign pipeline. A random session
             token exists only in the active page/app memory and its SHA-256 hash is stored briefly
-            to enforce sponsor frequency limits. Raw anonymous sponsor event and frequency rows become eligible for deletion after 30 days; a scheduled cleanup runs every 15 minutes in batches of up to 5,000 rows per table per run. daily campaign-level served, viewable and click totals are retained for aggregate reporting. Failed sponsor-event sends are retried in memory after reconnect or app visibility changes; the retry queue is not persisted because the session token must not survive an app restart. The token is not used to build a visitor profile or
+            to enforce sponsor frequency limits. Raw anonymous sponsor event and frequency rows become eligible for deletion after 30 days; a scheduled cleanup runs every 15 minutes in batches of up to 5,000 rows per table per run. Daily campaign-level served, viewable and click totals are retained for aggregate reporting. Failed sponsor-event sends are retried in memory after reconnect or app visibility changes; the retry queue is not persisted because the session token must not survive an app restart. The token is not used to build a visitor profile or
             link topic/comment reading activity across visits.
           </p>
 
@@ -353,7 +353,7 @@ export default function PrivacyPage() {
           <h2 className="mb-4 text-3xl font-bold">Data Retention</h2>
 
           <p className="text-text-secondary leading-relaxed">
-            We retain information only for as long as reasonably necessary for the purpose for which it was collected, subject to legal, security, moderation, and accounting requirements. Raw feed, community-card, and sponsor-campaign analytics events, together with the user/day viewer bridge used for unique-viewer reporting, are retained for up to 180 days. Sponsor frequency-cap records are removed after campaigns have completed or been rejected and the applicable 180-day cutoff has passed. Daily totals that do not contain user or session identifiers are retained longer.
+            We retain information only for as long as reasonably necessary for the purpose for which it was collected, subject to legal, security, moderation, and accounting requirements. Raw feed, community-card, and sponsor-campaign analytics events, together with the user/day viewer bridge used for unique-viewer reporting, are retained for up to 180 days. Signed-in sponsor frequency-cap records are removed after campaigns have completed or been rejected and the applicable 180-day cutoff has passed. Anonymous sponsor session-frequency records are removed after 30 days. Daily totals that do not contain user or session identifiers are retained longer.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
