@@ -181,7 +181,7 @@ export default function PrivacyPage() {
           </ul>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            Service improvement analytics and sponsor measurement are optional and off by default. They are collected only after you enable the relevant choice in the analytics settings. Topic and comment engagement in a Catholic-content service may reveal religious or philosophical beliefs. Sponsor-measurement events can also be associated with the topic placement where a sponsor appeared. The relevant consent choices explain this possibility and are separate from recommendation personalisation. Operational analytics are not used to personalise recommendations or infer religious beliefs. Recommendation personalisation uses explicit account actions only after its own opt-in; it does not read these analytics events. We do not create a religious-affiliation label or make decisions about users from operational analytics.
+            Service improvement analytics and Sponsor measurement are separate choices. Service improvement analytics is enabled when you opt into personalisation because reading signals also inform your recommendations; it cannot be disabled until personalisation is turned off. Sponsor measurement remains optional and independent. Topic and comment engagement may reveal religious or philosophical beliefs. We do not create a religious-affiliation label or share private recommendation profiles with sponsors.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
@@ -386,7 +386,7 @@ export default function PrivacyPage() {
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            While personalisation is enabled, topic-interest scores are derived only from explicit account actions recorded after consent, with a maximum 180-day evidence window and 14-day and 90-day decay horizons. These actions include progress/completions, bookmarks, topic likes, comments, comment likes and replies. Passive operational analytics measurements such as impressions, reading duration, swipe depth, skips, return visits and Top Comments exposure are never used for recommendation personalisation. Explicit category choices remain stored while consent remains enabled. When you withdraw consent, the derived profile and explicit category choices are deleted. Separate operational analytics event records remain subject to their own retention period and are not used for recommendation ranking.
+            While personalisation is enabled, the private profile uses account actions and reading signals recorded after consent, including viewable impressions, reading duration, swipe depth, skips, completions, return visits and eligible Top Comments exposure. The evidence window is limited to 180 days, with 14-day and 90-day decay horizons. Enabling personalisation also enables Service improvement analytics; turn off personalisation before disabling that choice. Withdrawing personalisation deletes the derived profile and selected category interests. Sponsor measurement remains separate and is never used for recommendation ranking.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
