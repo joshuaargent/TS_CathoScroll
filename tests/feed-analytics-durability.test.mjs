@@ -61,9 +61,9 @@ test('anonymous sponsor event retries stay in memory and never persist the sessi
 });
 
 test('anonymous analytics receipts and sponsor session records use 30-day retention', () => {
-  assert.match(bootstrap, /anonymous_sponsor_events[\\s\\S]*?interval ''30 days''/);
-  assert.match(bootstrap, /anonymous_sponsor_session_frequency[\\s\\S]*?interval ''30 days''/);
-  assert.match(bootstrap, /anonymous_feed_event_receipts[\\s\\S]*?interval ''30 days''/);
+  assert.match(bootstrap, /anonymous_sponsor_events[\\s\\S]*?interval '?30 days'?/);
+  assert.match(bootstrap, /anonymous_sponsor_session_frequency[\\s\\S]*?interval '?30 days'?/);
+  assert.match(bootstrap, /anonymous_feed_event_receipts[\\s\\S]*?interval '?30 days'?/);
 });
 
 test('feed analytics retains queued events until server acknowledgement and drains on startup', () => {
