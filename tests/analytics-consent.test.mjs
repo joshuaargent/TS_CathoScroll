@@ -55,8 +55,8 @@ test('account consent sync is identity-bound, retryable and enforced server-side
   assert.ok(sponsorRoute.includes('getStoredAnalyticsConsent(auth.user.id)'));
   assert.ok(migration.includes('user_analytics_consents'));
   assert.ok(migration.includes('user_analytics_consent_history'));
-  assert.ok(migration.includes('consent.service_improvement = true'));
-  assert.ok(migration.includes('consent.sponsor_measurement = true'));
+  assert.ok(migration.includes('SELECT consent.service_improvement INTO v_service_consent'));
+  assert.ok(migration.includes('SELECT consent.sponsor_measurement INTO v_sponsor_consent'));
 });
 
 test('withdrawal immediately blocks and clears the matching web and native analytics queues', async () => {
