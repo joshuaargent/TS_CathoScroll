@@ -1394,7 +1394,11 @@ function App() {
 
   return (
     <ThemeProvider>
-      <NativeAnalyticsConsentManager userId={user?.id ?? null} />
+      <NativeAnalyticsConsentManager
+        userId={user?.id ?? null}
+        apiBaseUrl={siteConfig.url}
+        getAccessToken={getNativeSponsorAccessToken}
+      />
       <SponsorAnalyticsSync
         apiBaseUrl={siteConfig.url}
         userId={user?.id ?? null}
