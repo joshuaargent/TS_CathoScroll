@@ -122,7 +122,7 @@ test('declining sponsor measurement preserves delivery and campaign-day totals w
 
   assert.ok(selectRoute.includes('const measurementSessionId: string | null'));
   assert.ok(selectRoute.includes('p_session_token: measurementSessionId'));
-  assert.ok(selectRoute.includes('parsed.value.sponsorMeasurementConsent === true'));
+  assert.ok(selectRoute.includes('sponsorMeasurementConsent && parsed.value.sessionId !== null'));
   assert.ok(selectRoute.includes('Older clients that do not'));
   assert.ok(eventRoute.includes('eventPayload.sponsorMeasurementConsent !== true'));
   assert.ok(selectRoute.includes('p_session_id: measurementSessionId'));
