@@ -50,15 +50,23 @@ import { OfflineCommentCache } from '@/lib/offline/comment-cache';
 import { OfflineTopicCountCache, type CachedTopicCounts } from '@/lib/offline/topic-count-cache';
 import { loadTopicActivity } from '@/lib/topic-activity';
 import { siteConfig } from '@/lib/constants';
+import { configureAnonymousFeedAnalyticsOutbox } from '@/lib/anonymous-feed-analytics-client';
+import { configureFeedAnalyticsOutbox, clearFeedAnalyticsOutbox } from '@/lib/feed-analytics-client';
+import { configureFeedCardAnalyticsOutbox, clearFeedCardAnalyticsOutbox } from '@/lib/feed-card-analytics-client';
+import { configureSponsorAnalyticsOutbox, clearSponsorAnalyticsOutbox } from '@/lib/sponsor-analytics-client';
+import { NativeSignedInAnalyticsOutbox } from '@/lib/offline/signed-in-analytics-store';
+import { NativeAnonymousAnalyticsOutbox } from '@/lib/offline/anonymous-analytics-store';
+import { OfflineRankedFeedCache } from '@/lib/offline/ranked-feed-cache';
 import type { TopFeedComment } from '@/lib/feed-comments';
 import type { RecommendationCursor } from '@/lib/recommendations';
+import type { GeneralFeedCursor } from '@/lib/content';
 import { openNativeDatabases, openPrivateActivityDatabase } from '@/lib/offline/native-database';
 import { SupabaseActivityTransport } from '@/lib/offline/supabase-activity-transport';
 import type { OfflineActivityKind, OfflineTopicActivity } from '@/lib/offline/activity-store';
 import type { Topic } from '@/types';
 import './style.css';
 
-type CataloguePage = { topics: Topic[]; nextCursor: CatalogueCursor | RecommendationCursor | null };
+type CataloguePage = { topics: Topic[]; nextCursor: CatalogueCursor | GeneralFeedCursor | RecommendationCursor | null };
 
 type NativeLiveTopicRow = {
   id: string;
@@ -95,6 +103,28 @@ async function loadNativeLiveTopicBySlug(slug: string): Promise<Topic | null> {
     catechism: { paragraphs: data.catechism_paragraphs ?? [], text: data.catechism_text },
     scripture: { reference: data.scripture_reference, text: data.scripture_text },
   } satisfies Topic;
+}
+
+async function loadNativeGeneralFeedPage(cursor: GeneralFeedCursor | null = null): Promise<CataloguePage> {
+  const response = await fetch(new URL('/api/content/general-feed', siteConfig.url), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    cache: 'no-store',
+    body: JSON.stringify({ cursor }),
+  });
+  const result = await response.json() as { topics?: Topic[]; nextCursor?: GeneralFeedCursor | null; error?: string };
+  if (!response.ok || !Array.isArray(result.topics) || result.nextCursor === undefined) {
+    throw new Error(result.error ?? 'Unable to load the general feed.');
+  }
+  return { topics: result.topics, nextCursor: result.nextCursor };
+}
+
+function isRecommendationCursor(cursor: CatalogueCursor | GeneralFeedCursor | RecommendationCursor): cursor is RecommendationCursor {
+  return 'userId' in cursor && typeof cursor.userId === 'string';
+}
+
+function isGeneralFeedCursor(cursor: CatalogueCursor | GeneralFeedCursor | RecommendationCursor): cursor is GeneralFeedCursor {
+  return 'categories' in cursor && !('userId' in cursor);
 }
 
 async function loadNativeLiveTopicPage(cursor?: CatalogueCursor) {
@@ -171,6 +201,8 @@ function parseRoute(href: string): Route | null {
     }
     if (pathname === '/categories') return { kind: 'categories', pathname };
     if (pathname === '/signin' || pathname === '/account') return { kind: 'account', pathname };
+    if (pathname === '/account/personalization') return { kind: 'account', pathname: '/account' };
+    if (pathname === '/account/security') return { kind: 'account', pathname: '/account' };
     if (pathname === '/signup') return { kind: 'signup', pathname };
     if (pathname === '/bookmarks') return { kind: 'bookmarks', pathname };
     if (pathname === '/appeal') return { kind: 'appeal', pathname };
@@ -238,6 +270,7 @@ function NativeViewer(props: {
   topics: Topic[];
   topicIndex: number;
   initialUserId: string | null;
+  active?: boolean;
   onNextTopic: () => void;
   onPreviousTopic: () => void;
 }) {
@@ -259,13 +292,14 @@ function NativeViewer(props: {
   const [pendingActions, setPendingActions] = useState(() => new Set<string>());
   const pendingRef = useRef(new Set<string>());
   const requestSignIn = useSignInPrompt();
-  const getAnalyticsAccessToken = useCallback(async () => {
+  const getAnalyticsAccessToken = useCallback(async (expectedUserId?: string) => {
     const { data, error } = await createClient().auth.getSession();
     if (error) {
       console.error('Unable to obtain native analytics session:', error.message);
       return null;
     }
-    return data.session?.access_token ?? null;
+    if (!data.session || (expectedUserId && data.session.user.id !== expectedUserId)) return null;
+    return data.session.access_token;
   }, []);
   const navigation = useContext(TopicNavigation);
   if (!navigation) throw new Error('Native topic navigation is unavailable.');
@@ -281,7 +315,7 @@ function NativeViewer(props: {
 
   useEffect(() => {
     let active = true;
-    if (!userId || !accountActivity || !accountReady) return;
+    if (props.active === false || !userId || !accountActivity || !accountReady) return;
     accountActivity.store.topicActivity(userId, topicId).then(
       (value) => {
         if (active) {
@@ -300,9 +334,10 @@ function NativeViewer(props: {
     return () => {
       active = false;
     };
-  }, [accountActivity, accountReady, userId, topicId, navigation.activityVersion, refresh]);
+  }, [props.active, accountActivity, accountReady, userId, topicId, navigation.activityVersion, refresh]);
 
   useEffect(() => {
+    if (props.active === false) return;
     let active = true;
     async function load() {
       setCountError('');
@@ -352,9 +387,10 @@ function NativeViewer(props: {
     return () => {
       active = false;
     };
-  }, [countCache, topicId, refresh, navigation.activityVersion]);
+  }, [props.active, countCache, topicId, refresh, navigation.activityVersion]);
 
   useEffect(() => {
+    if (props.active === false) return;
     const update = () => setRefresh((version) => version + 1);
     window.addEventListener('online', update);
     window.addEventListener('offline', update);
@@ -362,9 +398,10 @@ function NativeViewer(props: {
       window.removeEventListener('online', update);
       window.removeEventListener('offline', update);
     };
-  }, []);
+  }, [props.active]);
 
   useEffect(() => {
+    if (props.active === false) return;
     const noticeId = 'topic-counts:' + topicId;
     if (!countError) {
       clearNativeStatusNotice(noticeId);
@@ -374,7 +411,7 @@ function NativeViewer(props: {
       id: noticeId,
       action: { label: 'Retry', onClick: () => setRefresh((version) => version + 1) },
     });
-  }, [countError, topicId]);
+  }, [props.active, countError, topicId]);
 
   const currentCounts = counts?.topicId === topicId ? counts : null;
   const currentSaved =
@@ -447,7 +484,7 @@ function NativeViewer(props: {
       <div className="min-h-0 flex-1">
         <TopicSwipeViewer
           {...props}
-          active={navigation.feedActive}
+          active={props.active !== false && navigation.feedActive}
           analyticsEndpoint={`${siteConfig.url.replace(/\/+$/, '')}/api/analytics/feed-events`}
           getAnalyticsAccessToken={getAnalyticsAccessToken}
           userId={userId}
@@ -604,247 +641,13 @@ function NativeTopicPage({
 }
 
 
-type NativeMfaGateState =
-  | { kind: 'setup' }
-  | { kind: 'verify'; factorId: string; challengeId: string | null };
-
-function hasNativeTotpAssurance(accessToken: string): boolean {
-  try {
-    const payload = accessToken.split('.')[1];
-    if (!payload) return false;
-    const normalizedPayload = payload.replace(/-/g, '+').replace(/_/g, '/');
-    const paddedPayload = normalizedPayload.padEnd(Math.ceil(normalizedPayload.length / 4) * 4, '=');
-    const claims = JSON.parse(atob(paddedPayload)) as { aal?: unknown; amr?: unknown };
-    return (
-      claims.aal === 'aal2' &&
-      Array.isArray(claims.amr) &&
-      claims.amr.some(
-        (entry) =>
-          typeof entry === 'object' &&
-          entry !== null &&
-          'method' in entry &&
-          entry.method === 'totp'
-      )
-    );
-  } catch {
-    return false;
-  }
-}
-
-function NativeMfaGate({ userId }: { userId: string | null }) {
-  const [gate, setGate] = useState<NativeMfaGateState | null>(null);
-  const [code, setCode] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-  const [message, setMessage] = useState('');
-
-  const refresh = useCallback(async () => {
-    if (!userId) {
-      setGate(null);
-      setCode('');
-      return;
-    }
-
-    const supabase = createClient();
-    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-    if (sessionError) throw sessionError;
-    const accessToken = sessionData.session?.access_token;
-    if (!accessToken) {
-      setGate(null);
-      return;
-    }
-
-    const response = await fetch(
-      `${siteConfig.url.replace(/\/+$/, '')}/api/admin/security/mfa-enforcement`,
-      { headers: { Authorization: `Bearer ${accessToken}` }, cache: 'no-store' }
-    );
-    if (!response.ok) throw new Error('Unable to check administrator security requirements.');
-    const status = (await response.json()) as { enforcementEnabled?: boolean };
-    if (status.enforcementEnabled !== true) {
-      setGate(null);
-      return;
-    }
-
-    const { data: adminRow, error: adminError } = await supabase
-      .from('admin_users')
-      .select('user_id')
-      .eq('user_id', userId)
-      .maybeSingle();
-    if (adminError) throw adminError;
-    if (!adminRow) {
-      setGate(null);
-      return;
-    }
-
-    const [{ data: assurance, error: assuranceError }, { data: factors, error: factorsError }] =
-      await Promise.all([
-        supabase.auth.mfa.getAuthenticatorAssuranceLevel(),
-        supabase.auth.mfa.listFactors(),
-      ]);
-    if (assuranceError) throw assuranceError;
-    if (factorsError) throw factorsError;
-
-    if (assurance.currentLevel === 'aal2' && assurance.nextLevel === 'aal2' && hasNativeTotpAssurance(accessToken)) {
-      setGate(null);
-      setError('');
-      setMessage('');
-      return;
-    }
-
-    const verifiedFactor = (factors.totp ?? []).find((factor) => factor.status === 'verified');
-    if (!verifiedFactor) {
-      setGate({ kind: 'setup' });
-      return;
-    }
-    setGate({ kind: 'verify', factorId: verifiedFactor.id, challengeId: null });
-  }, [userId]);
-
-  useEffect(() => {
-    let active = true;
-    void Promise.resolve().then(refresh).catch((cause) => {
-      if (active) {
-        console.error('Unable to check native administrator MFA:', cause);
-        setError('Unable to verify administrator security. Reconnect and try again.');
-      }
-    });
-    return () => {
-      active = false;
-    };
-  }, [refresh]);
-
-  async function startChallenge() {
-    if (!gate || gate.kind !== 'verify') return;
-    setBusy(true);
-    setError('');
-    try {
-      const { data, error: challengeError } = await createClient().auth.mfa.challenge({
-        factorId: gate.factorId,
-      });
-      if (challengeError) throw challengeError;
-      setGate({ ...gate, challengeId: data.id });
-      setMessage('Enter the current code from your authenticator app.');
-    } catch (cause) {
-      console.error('Unable to start native MFA challenge:', cause);
-      setError(cause instanceof Error ? cause.message : 'Unable to start authenticator verification.');
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function verifyChallenge() {
-    if (!gate || gate.kind !== 'verify' || !gate.challengeId) return;
-    if (!/^\d{6,8}$/.test(code.trim())) {
-      setError('Enter the current six- to eight-digit authenticator code.');
-      return;
-    }
-    setBusy(true);
-    setError('');
-    try {
-      const { error: verifyError } = await createClient().auth.mfa.verify({
-        factorId: gate.factorId,
-        challengeId: gate.challengeId,
-        code: code.trim(),
-      });
-      if (verifyError) throw verifyError;
-      setCode('');
-      setMessage('Authenticator verified. Administrator access is available.');
-      await refresh();
-    } catch (cause) {
-      console.error('Unable to verify native administrator MFA:', cause);
-      setError(cause instanceof Error ? cause.message : 'Unable to verify authenticator code.');
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  if (!gate) return null;
-
-  return (
-    <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/70 p-5">
-      <section
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="native-mfa-title"
-        className="bg-bg-secondary border-border w-full max-w-md rounded-2xl border p-6 shadow-2xl"
-      >
-        <p className="text-accent text-xs font-semibold uppercase tracking-wider">Administrator security</p>
-        <h2 id="native-mfa-title" className="mt-2 text-2xl font-bold">
-          {gate.kind === 'setup' ? 'Authenticator setup required' : 'Verify your authenticator'}
-        </h2>
-        {gate.kind === 'setup' ? (
-          <>
-            <p className="text-text-secondary mt-3 text-sm">
-              Administrator MFA is enforced for this account, but no verified authenticator is available.
-              Open CathoScroll on the website and complete Account → Security before continuing.
-            </p>
-            <button
-              type="button"
-              onClick={() => window.open(`${siteConfig.url}/account/security`, '_blank', 'noopener,noreferrer')}
-              className="bg-accent mt-5 w-full rounded-xl px-4 py-3 text-sm font-semibold text-white"
-            >
-              Open security settings
-            </button>
-          </>
-        ) : (
-          <>
-            <p className="text-text-secondary mt-3 text-sm">
-              Verify your identity to continue using administrator tools.
-            </p>
-            {!gate.challengeId ? (
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => void startChallenge()}
-                className="bg-accent mt-5 w-full rounded-xl px-4 py-3 text-sm font-semibold text-white disabled:opacity-50"
-              >
-                {busy ? 'Preparing…' : 'Send authenticator challenge'}
-              </button>
-            ) : (
-              <div className="mt-5 space-y-3">
-                <label htmlFor="native-admin-mfa-code" className="block text-sm font-semibold">
-                  Authenticator code
-                </label>
-                <input
-                  id="native-admin-mfa-code"
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  maxLength={8}
-                  value={code}
-                  onChange={(event) => setCode(event.target.value.replace(/\D/g, '').slice(0, 8))}
-                  className="border-border bg-background w-full rounded-xl border px-4 py-3"
-                  placeholder="000000"
-                />
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => void verifyChallenge()}
-                  className="bg-accent w-full rounded-xl px-4 py-3 text-sm font-semibold text-white disabled:opacity-50"
-                >
-                  {busy ? 'Verifying…' : 'Verify and continue'}
-                </button>
-              </div>
-            )}
-          </>
-        )}
-        {error && <p role="alert" className="mt-4 text-sm text-red-600">{error}</p>}
-        {message && <p role="status" className="mt-4 text-sm">{message}</p>}
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => void createClient().auth.signOut()}
-          className="border-border mt-4 w-full rounded-xl border px-4 py-3 text-sm font-semibold"
-        >
-          Sign out
-        </button>
-      </section>
-    </div>
-  );
-}
-
 function App() {
   const [catalogue, setCatalogue] = useState<OfflineCatalogue | null>(null);
+  const generalFeedCacheRef = useRef<OfflineRankedFeedCache | null>(null);
+  const personalizedFeedCacheRef = useRef<OfflineRankedFeedCache | null>(null);
   const [firstPage, setFirstPage] = useState<CataloguePage | null>(null);
   const [feedPersonalized, setFeedPersonalized] = useState(false);
+  const [feedGeneralRanked, setFeedGeneralRanked] = useState(false);
   const [feedAttempt, setFeedAttempt] = useState(0);
   const [feedLoadError, setFeedLoadError] = useState('');
   const [catalogueRefresh, setCatalogueRefresh] = useState<CatalogueRefresh | null>(null);
@@ -859,42 +662,87 @@ function App() {
   const [authStatus, setAuthStatus] = useState<'loading' | 'ready' | 'unavailable'>('loading');
   const [checkingAccount, setCheckingAccount] = useState(true);
   const [user, setUser] = useState<CachedIdentity | null>(null);
+  const feedUserIdRef = useRef<string | null>(null);
+  const [feedSnapshotUserId, setFeedSnapshotUserId] = useState<string | null>(null);
+  const feedSnapshotMatchesUser = feedSnapshotUserId === (user?.id ?? null);
   const [activity, setActivity] = useState<NativeActivity | null>(null);
   const [activityStatus, setActivityStatus] = useState<NativeActivityStatus | null>(null);
   const [activityVersion, setActivityVersion] = useState(0);
   const [activityAttempt, setActivityAttempt] = useState(0);
   const retryStartup = useRef<() => void>(() => {});
-  const getNativeSponsorAccessToken = useCallback(async () => {
+  const getNativeSponsorAccessToken = useCallback(async (expectedUserId?: string) => {
     const { data, error } = await createClient().auth.getSession();
     if (error) {
       console.error('Unable to obtain the native sponsor analytics session:', error.message);
       return null;
     }
-    return data.session?.access_token ?? null;
+    if (!data.session || (expectedUserId && data.session.user.id !== expectedUserId)) return null;
+    return data.session.access_token;
   }, []);
+  const getSponsorAccessToken = useCallback(
+    () => getNativeSponsorAccessToken(user?.id),
+    [getNativeSponsorAccessToken, user?.id]
+  );
 
   useEffect(() => {
     if (!catalogue || authStatus !== 'ready') return;
+    const nextFeedUserId = user?.id ?? null;
+    if (feedUserIdRef.current !== nextFeedUserId) {
+      feedUserIdRef.current = nextFeedUserId;
+      setFeedSnapshotUserId(nextFeedUserId);
+      setFirstPage(null);
+    }
     const localCatalogue = catalogue;
     let active = true;
     let controller: AbortController | null = null;
 
     async function loadFeed() {
-      controller?.abort();
       controller = new AbortController();
       try {
         if (!navigator.onLine) {
-          const page = await localCatalogue.topics();
+          let page: CataloguePage | null = null;
+          let offlinePersonalized = false;
+          let offlineGeneralRanked = false;
+          if (user?.id && personalizedFeedCacheRef.current &&
+              await personalizedFeedCacheRef.current.hasFreshConsent(user.id)) {
+            page = await personalizedFeedCacheRef.current.load('personalized', user.id, null) as CataloguePage | null;
+            offlinePersonalized = Boolean(page);
+          }
+          if (!page && generalFeedCacheRef.current) {
+            page = await generalFeedCacheRef.current.load('general', null, null) as CataloguePage | null;
+            offlineGeneralRanked = Boolean(page);
+          }
+          if (!page) page = await localCatalogue.topics();
           if (!active) return;
           setFirstPage(page);
           setFeedLoadError('');
-          setFeedPersonalized(false);
+          setFeedPersonalized(offlinePersonalized);
+          setFeedGeneralRanked(offlineGeneralRanked);
           clearNativeStatusNotice('feed-online');
           return;
         }
 
         let page: CataloguePage;
+        let personalizedEnabled = false;
         if (user?.id) {
+          const { data: status, error: statusError } =
+            await createClient().rpc('get_my_personalization_status');
+          personalizedEnabled =
+            !statusError &&
+            typeof status === 'object' &&
+            status !== null &&
+            'enabled' in status &&
+            status.enabled === true;
+          if (!statusError && typeof status === 'object' && status !== null &&
+              'enabled' in status && typeof status.enabled === 'boolean') {
+            try {
+              await personalizedFeedCacheRef.current?.setConsent(user.id, status.enabled);
+            } catch (cacheError) {
+              console.error('Unable to update cached personalisation consent:', cacheError);
+            }
+          }
+        }
+        if (personalizedEnabled) {
           const { data, error } = await createClient().rpc('get_my_recommendation_page', {
             feed_cursor: null,
             page_limit: 50,
@@ -904,24 +752,44 @@ function App() {
             throw new Error('The recommendation service returned an invalid page.');
           }
           page = data as CataloguePage;
+          if (user?.id && personalizedFeedCacheRef.current) {
+            try { await personalizedFeedCacheRef.current.save('personalized', user.id, null, page); }
+            catch (cacheError) { console.error('Unable to cache the ranked personalised feed:', cacheError); }
+          }
         } else {
-          page = await loadNativeLiveTopicPage();
+          page = await loadNativeGeneralFeedPage();
+          try { await generalFeedCacheRef.current?.save('general', null, null, page); }
+          catch (cacheError) { console.error('Unable to cache the ranked general feed:', cacheError); }
         }
         if (!active) return;
         setFirstPage(page);
         setFeedLoadError('');
-        setFeedPersonalized(Boolean(user?.id));
+        setFeedPersonalized(personalizedEnabled);
+        setFeedGeneralRanked(!personalizedEnabled);
         clearNativeStatusNotice('feed-online');
       } catch (cause) {
         if (!active || (cause instanceof DOMException && cause.name === 'AbortError')) return;
         console.error('Unable to load the online topic feed:', cause);
         try {
-          const page = await localCatalogue.topics();
+          let page: CataloguePage | null = null;
+          let offlinePersonalized = false;
+          let offlineGeneralRanked = false;
+          if (user?.id && personalizedFeedCacheRef.current &&
+              await personalizedFeedCacheRef.current.hasFreshConsent(user.id)) {
+            page = await personalizedFeedCacheRef.current.load('personalized', user.id, null) as CataloguePage | null;
+            offlinePersonalized = Boolean(page);
+          }
+          if (!page && generalFeedCacheRef.current) {
+            page = await generalFeedCacheRef.current.load('general', null, null) as CataloguePage | null;
+            offlineGeneralRanked = Boolean(page);
+          }
+          if (!page) page = await localCatalogue.topics();
           if (!active) return;
           setFirstPage(page);
           setFeedLoadError('');
-          setFeedPersonalized(false);
-          notifyNativeStatus('The live feed is unavailable. Showing saved topics instead.', {
+          setFeedPersonalized(offlinePersonalized);
+          setFeedGeneralRanked(offlineGeneralRanked);
+          notifyNativeStatus('The live feed is unavailable. Showing your most recently saved ranked feed where available.', {
             id: 'feed-online',
             action: { label: 'Retry', onClick: () => setFeedAttempt((value) => value + 1) },
           });
@@ -938,15 +806,10 @@ function App() {
       }
     }
 
-    const reconnect = () => void loadFeed();
     void loadFeed();
-    window.addEventListener('online', reconnect);
-    window.addEventListener('offline', reconnect);
     return () => {
       active = false;
       controller?.abort();
-      window.removeEventListener('online', reconnect);
-      window.removeEventListener('offline', reconnect);
     };
   }, [catalogue, authStatus, user?.id, feedAttempt]);
 
@@ -1022,11 +885,29 @@ function App() {
       let failure = 'Unable to open app storage. Please try again.';
       try {
         const databases = await openNativeDatabases(secureAuthStorage);
+        try {
+          await configureAnonymousFeedAnalyticsOutbox(new NativeAnonymousAnalyticsOutbox(databases.catalogue));
+          clearNativeStatusNotice('anonymous-analytics-outbox');
+        } catch (cause) {
+          console.error('Durable anonymous analytics storage is unavailable:', cause);
+          notifyNativeStatus('Some signed-out analytics may not be retained if the app closes before upload.', { id: 'anonymous-analytics-outbox' });
+        }
         const localCatalogue = new OfflineCatalogue(databases.catalogue);
+        try {
+          const generalCache = new OfflineRankedFeedCache(databases.catalogue, localCatalogue);
+          await generalCache.initialize();
+          generalFeedCacheRef.current = generalCache;
+          clearNativeStatusNotice('general-feed-cache');
+        } catch (cacheError) {
+          console.error('Offline general-ranked feed cache is unavailable:', cacheError);
+          notifyNativeStatus('The latest general feed order may not be available offline.', { id: 'general-feed-cache' });
+        }
         let cacheDatabase = databases.catalogue;
+        let privateDatabaseReady = false;
         try {
           await openPrivateActivity();
           cacheDatabase = await openPrivateActivityDatabase(secureAuthStorage);
+          privateDatabaseReady = true;
           clearNativeStatusNotice('private-cache-unavailable');
         } catch (cause) {
           // Keep public browsing and online reading available if secure storage
@@ -1035,6 +916,32 @@ function App() {
           notifyNativeStatus('Encrypted offline account storage is unavailable. Saved notes and activity may not be available offline.', {
             id: 'private-cache-unavailable',
           });
+        }
+        if (privateDatabaseReady) {
+          try {
+            const personalizedCache = new OfflineRankedFeedCache(cacheDatabase, localCatalogue, true);
+            await personalizedCache.initialize();
+            personalizedFeedCacheRef.current = personalizedCache;
+          } catch (cacheError) {
+            console.error('Encrypted personalised feed cache is unavailable:', cacheError);
+            notifyNativeStatus('Offline personalised feed pages are unavailable. The general ranked feed remains available.', {
+              id: 'personalized-feed-cache',
+            });
+          }
+          try {
+            const signedInOutbox = new NativeSignedInAnalyticsOutbox(cacheDatabase);
+            await Promise.all([
+              configureFeedAnalyticsOutbox(signedInOutbox),
+              configureFeedCardAnalyticsOutbox(signedInOutbox),
+              configureSponsorAnalyticsOutbox(signedInOutbox),
+            ]);
+            clearNativeStatusNotice('signed-in-analytics-outbox');
+          } catch (cause) {
+            console.error('Encrypted signed-in analytics outbox is unavailable:', cause);
+            notifyNativeStatus('Signed-in topic and comment analytics may not be retained if the app closes before upload.', {
+              id: 'signed-in-analytics-outbox',
+            });
+          }
         }
         const localComments = new OfflineCommentCache(cacheDatabase);
         const localCounts = new OfflineTopicCountCache(cacheDatabase);
@@ -1113,7 +1020,22 @@ function App() {
         const supabase = createClient();
         const { data } = supabase.auth.onAuthStateChange((event, session) => {
           if (active) {
+            const previousUserId = cachedIdentity?.id ?? null;
             cachedIdentity = identityAfterAuthEvent(event, session, cachedIdentity);
+            const nextUserId = cachedIdentity?.id ?? null;
+            if (previousUserId && previousUserId !== nextUserId) {
+              void Promise.all([
+                clearFeedAnalyticsOutbox(previousUserId),
+                clearFeedCardAnalyticsOutbox(previousUserId),
+                clearSponsorAnalyticsOutbox(previousUserId),
+                personalizedFeedCacheRef.current?.clearUser(previousUserId),
+              ]).catch((cause: unknown) => {
+                console.error('Unable to clear the previous account analytics queue:', cause);
+                notifyNativeStatus('Some unsent analytics from the previous account could not be cleared from this device.', {
+                  id: 'signed-in-analytics-clear',
+                });
+              });
+            }
             setUser(cachedIdentity);
             setCheckingAccount(false);
           }
@@ -1180,7 +1102,6 @@ function App() {
   useEffect(() => {
     if (!catalogueRefresh || !catalogue) return;
     const service = catalogueRefresh;
-    const localCatalogue = catalogue;
     let active = true;
     let lastAttempt = 0;
     let running = false;
@@ -1198,11 +1119,8 @@ function App() {
           // A catalogue refresh updates the offline browse cache, not the live
           // personalized feed. Replacing its first page would also mismatch
           // the server-owned recommendation cursor used by subsequent pages.
-          if (!feedPersonalized) {
-            const page = await localCatalogue.topics();
-            if (!active) return;
-            setFirstPage(page);
-          }
+          // Keep the active feed snapshot untouched. New catalogue content is
+          // picked up when a new feed session starts, not during background sync.
           if (!active) return;
           setCatalogueVersion((version) => version + 1);
           uiNeedsReload = false;
@@ -1245,7 +1163,7 @@ function App() {
       window.removeEventListener('focus', request);
       document.removeEventListener('visibilitychange', resume);
     };
-  }, [catalogueRefresh, catalogue, feedPersonalized]);
+  }, [catalogueRefresh, catalogue]);
 
   useEffect(() => {
     if (!user?.id || authStatus !== 'ready') return;
@@ -1347,12 +1265,9 @@ function App() {
   }, []);
 
   const loadPage = useCallback(
-    async (cursor: CatalogueCursor | RecommendationCursor) => {
+    async (cursor: CatalogueCursor | GeneralFeedCursor | RecommendationCursor) => {
       if (!catalogue) throw new Error('The offline catalogue is not ready.');
-      if ('categories' in cursor) {
-        // Recommendation cursors are server-owned. If the connection drops or
-        // the RPC fails, replace the feed with a fresh local catalogue page;
-        // never append page one to the existing personalized feed.
+      if (isRecommendationCursor(cursor)) {
         try {
           if (!navigator.onLine) throw new Error('The device is offline.');
           const { data, error } = await createClient().rpc('get_my_recommendation_page', {
@@ -1363,14 +1278,58 @@ function App() {
           if (!data || typeof data !== 'object' || !Array.isArray(data.topics) || !('nextCursor' in data)) {
             throw new Error('The recommendation service returned an invalid page.');
           }
+          const page = data as { topics: Topic[]; nextCursor: RecommendationCursor | null };
+          if (user?.id && personalizedFeedCacheRef.current) {
+            try { await personalizedFeedCacheRef.current.save('personalized', user.id, cursor, page); }
+            catch (cacheError) { console.error('Unable to cache a personalised feed page:', cacheError); }
+          }
           clearNativeStatusNotice('feed-pagination');
-          return data as { topics: Topic[]; nextCursor: RecommendationCursor | null };
+          return page;
         } catch (cause) {
           console.error('Unable to continue personalized feed pagination:', cause);
+          if (user?.id && personalizedFeedCacheRef.current &&
+              await personalizedFeedCacheRef.current.hasFreshConsent(user.id)) {
+            const cachedPage = await personalizedFeedCacheRef.current.load('personalized', user.id, cursor);
+            if (cachedPage) return cachedPage as { topics: Topic[]; nextCursor: RecommendationCursor | null };
+          }
+          const rankedGeneral = await generalFeedCacheRef.current?.load('general', null, null);
+          if (rankedGeneral) {
+            setFirstPage(rankedGeneral as CataloguePage);
+            setFeedPersonalized(false);
+            setFeedGeneralRanked(true);
+            notifyNativeStatus('Personalised recommendations are unavailable. Continuing with the saved general ranking.', {
+              id: 'feed-pagination',
+              action: { label: 'Retry', onClick: () => setFeedAttempt((value) => value + 1) },
+            });
+            return rankedGeneral as CataloguePage;
+          }
           const page = await catalogue.topics();
           setFirstPage(page);
           setFeedPersonalized(false);
-          notifyNativeStatus('Personalized recommendations are unavailable. Showing saved topics instead.', {
+          setFeedGeneralRanked(false);
+          notifyNativeStatus('Personalised recommendations are unavailable. Showing saved topics instead.', {
+            id: 'feed-pagination',
+            action: { label: 'Retry', onClick: () => setFeedAttempt((value) => value + 1) },
+          });
+          return page;
+        }
+      }
+      if (isGeneralFeedCursor(cursor)) {
+        try {
+          if (!navigator.onLine) throw new Error('The device is offline.');
+          const page = await loadNativeGeneralFeedPage(cursor);
+          try { await generalFeedCacheRef.current?.save('general', null, cursor, page); }
+          catch (cacheError) { console.error('Unable to cache a general feed page:', cacheError); }
+          clearNativeStatusNotice('feed-pagination');
+          return page;
+        } catch (cause) {
+          console.error('Unable to continue general feed pagination:', cause);
+          const cachedPage = await generalFeedCacheRef.current?.load('general', null, cursor);
+          if (cachedPage) return cachedPage as { topics: Topic[]; nextCursor: GeneralFeedCursor | null };
+          const page = await catalogue.topics();
+          setFirstPage(page);
+          setFeedGeneralRanked(false);
+          notifyNativeStatus('The ranked general feed is unavailable. Showing saved topics instead.', {
             id: 'feed-pagination',
             action: { label: 'Retry', onClick: () => setFeedAttempt((value) => value + 1) },
           });
@@ -1391,7 +1350,7 @@ function App() {
       }
       return catalogue.topics({ cursor });
     },
-    [catalogue]
+    [catalogue, user]
   );
 
   return (
@@ -1399,7 +1358,7 @@ function App() {
       <SponsorAnalyticsSync
         apiBaseUrl={siteConfig.url}
         userId={user?.id ?? null}
-        getAccessToken={getNativeSponsorAccessToken}
+        getAccessToken={getSponsorAccessToken}
       />
       <SignInPromptProvider>
         <NativeNotificationsProvider userId={user?.id ?? null}>
@@ -1451,23 +1410,25 @@ function App() {
                 (!catalogue || !commentCache || !noteCache) && (
                   <NativeArticleSkeleton />
                 )}
-              {firstPage && !firstPage.topics.length && (
+              {feedSnapshotMatchesUser && firstPage && !firstPage.topics.length && (
                 <p className="px-6">No topics available.</p>
               )}
-              {firstPage && firstPage.topics.length > 0 && (
+              {feedSnapshotMatchesUser && firstPage && firstPage.topics.length > 0 && (
                 <div
                   className="h-[calc(100vh-4rem)] overflow-hidden"
                   hidden={route?.kind !== 'feed'}
                 >
                   <TopicFeedCore
-                    key={feedPersonalized ? 'personalized' : 'catalogue'}
+                    key={user?.id ?? 'signed-out'}
                     topics={firstPage.topics}
                     nextCursor={firstPage.nextCursor}
                     personalized={feedPersonalized}
+                    generalRanked={feedGeneralRanked}
                     loadPage={loadPage}
                     userId={user?.id ?? null}
                     getSponsorAccessToken={getNativeSponsorAccessToken}
                     viewer={NativeViewer}
+                    preservePositionOnUpdate
                     topCommentsEndpoint={new URL(
                       '/api/content/top-comments',
                       siteConfig.url
@@ -1477,7 +1438,6 @@ function App() {
                         `/topic/${encodeURIComponent(comment.topic_slug)}#comment-${comment.comment_id}`
                       )
                     }
-                    preservePositionOnUpdate
                   />
                 </div>
               )}
@@ -1589,7 +1549,6 @@ function App() {
               )}
 
             </main>
-            <NativeMfaGate userId={user?.id ?? null} />
             <OfflineIndicator activity={activity?.userId === user?.id ? activity : null} activityVersion={activityVersion} />
           </TopicNavigation.Provider>
         </NativeNotificationsProvider>

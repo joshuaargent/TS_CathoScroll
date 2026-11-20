@@ -18,7 +18,6 @@ export interface SponsorRecord {
   sponsor_name: string;
   contact_email: string | null;
   website_url: string | null;
-  logo_url: string | null;
   description: string;
   starts_on: string | null;
   ends_on: string | null;
@@ -159,7 +158,6 @@ export function SponsorManager({ sponsors, memberships }: { sponsors: SponsorRec
       sponsorName: formData.get('sponsorName'),
       contactEmail: formData.get('contactEmail'),
       websiteUrl: formData.get('websiteUrl'),
-      logoUrl: formData.get('logoUrl'),
       description: formData.get('description'),
       startsOn: formData.get('startsOn'),
       endsOn: formData.get('endsOn'),
@@ -240,15 +238,6 @@ export function SponsorManager({ sponsors, memberships }: { sponsors: SponsorRec
                 placeholder="https://example.com"
               />
             </label>
-            <label className="block text-sm font-medium">
-              Logo URL
-              <input
-                name="logoUrl"
-                type="url"
-                className="border-border bg-bg-primary mt-2 w-full rounded-lg border px-3 py-2.5"
-                placeholder="https://example.com/logo.png"
-              />
-            </label>
           </div>
 
           <label className="block text-sm font-medium">
@@ -258,7 +247,7 @@ export function SponsorManager({ sponsors, memberships }: { sponsors: SponsorRec
               maxLength={500}
               rows={3}
               className="border-border bg-bg-primary mt-2 w-full rounded-lg border px-3 py-2.5"
-              placeholder="Short description to use alongside the sponsor's branding."
+              placeholder="Private internal description for the sponsor organisation."
             />
           </label>
 

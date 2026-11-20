@@ -20,12 +20,14 @@ const [
   readFile(new URL('../src/app/sponsor/page.tsx', import.meta.url), 'utf8'),
 ]);
 
-function functionBody(name) {
-  const start = bootstrap.lastIndexOf(`CREATE OR REPLACE FUNCTION ${name}`);
+function functionBody(name, signaturePrefix) {
+  const start = signaturePrefix
+    ? bootstrap.indexOf(`CREATE OR REPLACE FUNCTION ${name}(${signaturePrefix}`)
+    : bootstrap.lastIndexOf(`CREATE OR REPLACE FUNCTION ${name}`);
   assert.notEqual(start, -1, `Missing function ${name}`);
-  const end = bootstrap.indexOf('ALTER FUNCTION ', start);
-  assert.notEqual(end, -1, `Missing ALTER FUNCTION after ${name}`);
-  return bootstrap.slice(start, end);
+  const end = bootstrap.indexOf('$function$;', start);
+  assert.notEqual(end, -1, `Missing function terminator after ${name}`);
+  return bootstrap.slice(start, end + '$function$;'.length);
 }
 
 test('invoice and payment ledger tables are private and append-only from clients', () => {
@@ -57,7 +59,7 @@ test('invoice creation and payment reconciliation require administrators', () =>
   assert.match(refundPayment, /p_sponsor_id/);
   assert.match(refundPayment, /payment\.sponsor_id = p_sponsor_id/);
   assert.match(refundPayment, /public\.admin_record_sponsor_refund\(/);
-  const refundLedgerStart = bootstrap.indexOf('CREATE OR REPLACE FUNCTION public.admin_record_sponsor_refund(\n  p_actor_user_id uuid, p_payment_id uuid');
+  const refundLedgerStart = bootstrap.indexOf('CREATE OR REPLACE FUNCTION public.admin_record_sponsor_refund(p_actor_user_id uuid, p_payment_id uuid');
   assert.notEqual(refundLedgerStart, -1);
   assert.match(bootstrap.slice(refundLedgerStart), /refund_of_payment_id/);
   assert.match(bootstrap.slice(refundLedgerStart), /v_refunded_minor/);
@@ -79,7 +81,7 @@ test('legacy direct payment status override is revoked and new sponsors cannot b
   const legacyPaymentRevoke = bootstrap.lastIndexOf('REVOKE ALL ON FUNCTION public.admin_mark_sponsor_payment_received(uuid, uuid, text)');
   assert.notEqual(legacyPaymentRevoke, -1);
   assert.doesNotMatch(bootstrap.slice(legacyPaymentRevoke), /GRANT EXECUTE ON FUNCTION public\.admin_mark_sponsor_payment_received/);
-  const createSponsor = functionBody('public.admin_create_sponsor');
+  const createSponsor = functionBody('public.admin_create_sponsor', 'p_actor_user_id uuid, p_sponsor_name text, p_contact_email text, p_website_url text, p_description text');
   assert.match(createSponsor, /p_payment_status NOT IN \('pending', 'not_required'\)/);
   assert.match(createSponsor, /p_payment_status = 'not_required' AND coalesce\(p_agreed_amount_minor, 0\) > 0/);
   assert.match(createSponsor, /agreed fee must use pending payment and invoice reconciliation/);

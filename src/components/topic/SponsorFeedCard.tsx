@@ -1,21 +1,25 @@
 'use client';
 
-import Image from 'next/image';
-import { useCallback, useEffect, useRef, useState, type PointerEvent, type KeyboardEvent } from 'react';
-import { ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { DoorOpen, Share2 } from 'lucide-react';
 
 import type { SponsorFeedCampaign } from '@/lib/sponsor-campaigns';
-import { recordSponsorCampaignEvent } from '@/lib/sponsor-analytics-client';
+import { recordAnonymousSponsorCampaignEvent, recordSponsorCampaignEvent } from '@/lib/sponsor-analytics-client';
+import { FeedInterstitialMotion } from './FeedInterstitialMotion';
+import { BaseFeedCard } from './BaseFeedCard';
 
 interface SponsorFeedCardProps {
   campaigns: SponsorFeedCampaign[];
   sessionId: string;
-  userId: string;
+  placementKey: string;
+  userId: string | null;
   previewMode?: boolean;
   sponsorApiBaseUrl?: string;
   getAccessToken: () => Promise<string | null>;
-  onNextTopic: () => void;
-  onPreviousTopic: () => void;
+  onNextTopic: () => void | Promise<void>;
+  onPreviousTopic: () => void | Promise<void>;
+  nextEntryPreview?: ReactNode;
+  previousEntryPreview?: ReactNode;
 }
 
 function createEventId() {
@@ -27,47 +31,67 @@ function createEventId() {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
+// Sponsor cards unmount during ordinary feed navigation. Keep viewability
+// attribution for the placement/session, not the component instance, so a
+// revisit does not lose the fact that the impression was already recorded.
+const viewableSponsorPlacements = new Set<string>();
+
+function getSponsorPlacementKey(userId: string | null, sessionId: string, campaignId: string, placementKey: string) {
+  return JSON.stringify([userId ?? 'anonymous', sessionId, placementKey, campaignId]);
+}
+
+function rememberViewableSponsorPlacement(key: string) {
+  viewableSponsorPlacements.delete(key);
+  viewableSponsorPlacements.add(key);
+  if (viewableSponsorPlacements.size > 5000) {
+    const oldestKey = viewableSponsorPlacements.values().next().value;
+    if (oldestKey !== undefined) viewableSponsorPlacements.delete(oldestKey);
+  }
+}
+
 export function SponsorFeedCard({
   campaigns,
   sessionId,
+  placementKey,
   userId,
   previewMode = false,
   sponsorApiBaseUrl,
   getAccessToken,
   onNextTopic,
   onPreviousTopic,
+  nextEntryPreview,
+  previousEntryPreview,
 }: SponsorFeedCardProps) {
   const [activeIndex, setActiveIndex] = useState(0);
-  const pointerStart = useRef<{ x: number; y: number } | null>(null);
   const navigationStarted = useRef(false);
   const cardRef = useRef<HTMLElement>(null);
-  const viewableCampaignIds = useRef(new Set<string>());
 
   const safeIndex = Math.min(activeIndex, Math.max(0, campaigns.length - 1));
   const campaign = campaigns[safeIndex];
   const campaignId = campaign?.campaign_id;
+  const viewablePlacementKey = campaignId
+    ? getSponsorPlacementKey(userId, sessionId, campaignId, placementKey)
+    : null;
+
+  useEffect(() => {
+    if (!previewMode) navigationStarted.current = false;
+  }, [previewMode, campaigns]);
 
   const recordEvent = useCallback(
     async (targetCampaignId: string, eventType: 'viewable_impression' | 'click') => {
       if (previewMode) return false;
-      return recordSponsorCampaignEvent(
-        userId,
-        {
-          campaignId: targetCampaignId,
-          eventId: createEventId(),
-          sessionId,
-          eventType,
-        },
-        getAccessToken,
-        sponsorApiBaseUrl
-      );
+      const event = { campaignId: targetCampaignId, eventId: createEventId(), sessionId, eventType };
+      if (!userId) {
+        return recordAnonymousSponsorCampaignEvent({ ...event, placementKey }, sponsorApiBaseUrl);
+      }
+      return recordSponsorCampaignEvent(userId, event, getAccessToken, sponsorApiBaseUrl);
     },
-    [getAccessToken, previewMode, sessionId, sponsorApiBaseUrl, userId]
+    [getAccessToken, placementKey, previewMode, sessionId, sponsorApiBaseUrl, userId]
   );
 
   useEffect(() => {
     const node = cardRef.current;
-    if (previewMode || !node || !campaignId || viewableCampaignIds.current.has(campaignId)) return;
+    if (previewMode || !node || !campaignId || !viewablePlacementKey || viewableSponsorPlacements.has(viewablePlacementKey)) return;
 
     let timer: number | null = null;
     let visible = false;
@@ -86,7 +110,7 @@ export function SponsorFeedCard({
         timer = null;
         if (!visible || document.visibilityState !== 'visible' || cancelled) return;
         void recordEvent(campaignId, 'viewable_impression').then((recorded) => {
-          if (recorded && !cancelled) viewableCampaignIds.current.add(campaignId);
+          if (recorded) rememberViewableSponsorPlacement(viewablePlacementKey);
         });
       }, 1000);
     };
@@ -118,203 +142,172 @@ export function SponsorFeedCard({
       observer?.disconnect();
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };
-  }, [campaignId, previewMode, recordEvent]);
+  }, [campaignId, previewMode, recordEvent, viewablePlacementKey]);
 
   if (!campaign) return null;
 
-  const navigateNextTopic = () => {
+  const navigateNextTopic = async () => {
     if (navigationStarted.current) return;
     navigationStarted.current = true;
-    onNextTopic();
+    try {
+      await onNextTopic();
+    } catch (error) {
+      navigationStarted.current = false;
+      throw error;
+    }
   };
 
-  const navigatePreviousTopic = () => {
+  const navigatePreviousTopic = async () => {
     if (navigationStarted.current) return;
     navigationStarted.current = true;
-    onPreviousTopic();
-  };
-
-  const showPreviousCampaign = () => setActiveIndex(Math.max(0, safeIndex - 1));
-  const showNextCampaign = () => setActiveIndex(Math.min(campaigns.length - 1, safeIndex + 1));
-
-  const handlePointerDown = (event: PointerEvent<HTMLDivElement>) => {
-    if ((event.target as HTMLElement).closest('a,button')) return;
-    pointerStart.current = { x: event.clientX, y: event.clientY };
-  };
-
-  const handlePointerUp = (event: PointerEvent<HTMLDivElement>) => {
-    const start = pointerStart.current;
-    pointerStart.current = null;
-    if (!start) return;
-    const deltaX = event.clientX - start.x;
-    const deltaY = event.clientY - start.y;
-    if (Math.max(Math.abs(deltaX), Math.abs(deltaY)) < 40) return;
-    if (Math.abs(deltaX) > Math.abs(deltaY)) {
-      if (deltaX < 0) showNextCampaign();
-      else showPreviousCampaign();
-      return;
+    try {
+      await onPreviousTopic();
+    } catch (error) {
+      navigationStarted.current = false;
+      throw error;
     }
-    if (deltaY < 0) navigateNextTopic();
-    else navigatePreviousTopic();
   };
 
-  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === 'ArrowLeft') {
-      event.preventDefault();
-      showPreviousCampaign();
-    } else if (event.key === 'ArrowRight') {
-      event.preventDefault();
-      showNextCampaign();
-    } else if (event.key === 'ArrowUp') {
-      event.preventDefault();
-      navigateNextTopic();
-    } else if (event.key === 'ArrowDown') {
-      event.preventDefault();
-      navigatePreviousTopic();
+  const showPreviousCampaign = () => setActiveIndex((index) => Math.max(0, index - 1));
+  const showNextCampaign = () => setActiveIndex((index) => Math.min(campaigns.length - 1, index + 1));
+
+  const recordCampaignClick = () => {
+    if (!previewMode && viewablePlacementKey && viewableSponsorPlacements.has(viewablePlacementKey)) {
+      void recordEvent(campaign.campaign_id, 'click');
     }
+  };
+
+  const openDestination = () => {
+    if (previewMode) return;
+    recordCampaignClick();
+    window.open(campaign.destination_url, '_blank', 'noopener,noreferrer');
+  };
+
+  const shareCampaign = async () => {
+    if (previewMode) return;
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: campaign.headline,
+          url: campaign.destination_url,
+        });
+        return;
+      }
+
+      await navigator.clipboard.writeText(campaign.destination_url);
+    } catch {}
+  };
+
+  const renderCampaignPreview = (previewCampaign: SponsorFeedCampaign | undefined) => {
+    if (!previewCampaign) return null;
+    return (
+      <BaseFeedCard
+        title={
+          <div className="min-w-0">
+            <p className="text-text-muted truncate text-sm font-medium">{previewCampaign.sponsor_name}</p>
+            <p className="text-text-muted text-xs tracking-wider uppercase">
+              {previewCampaign.disclosure || 'Sponsored'}
+            </p>
+          </div>
+        }
+      >
+        <article className="mx-auto w-full max-w-3xl px-1 py-3 text-center md:px-4 md:py-5">
+          <h3 className="text-text-primary text-3xl leading-tight font-bold md:text-4xl">
+            {previewCampaign.headline}
+          </h3>
+          <p className="text-text-secondary mx-auto mt-4 max-w-2xl whitespace-pre-line text-base leading-relaxed md:text-lg">
+            {previewCampaign.body}
+          </p>
+        </article>
+      </BaseFeedCard>
+    );
   };
 
   return (
-    <div
-      className="flex h-full min-h-0 flex-col px-6 pb-6"
-      onPointerDown={handlePointerDown}
-      onPointerUp={handlePointerUp}
-      onPointerCancel={() => {
-        pointerStart.current = null;
-      }}
-      onKeyDown={handleKeyDown}
-      style={{ touchAction: 'pan-y' }}
-      tabIndex={0}
-      role="region"
-      aria-roledescription="sponsored feed card"
-      aria-label="Sponsored content"
+    <FeedInterstitialMotion
+      ariaLabel="Sponsored content"
+      active={!previewMode}
+      onSwipeLeft={showNextCampaign}
+      onSwipeRight={showPreviousCampaign}
+      canSwipeLeft={() => safeIndex < campaigns.length - 1}
+      canSwipeRight={() => safeIndex > 0}
+      onNextTopic={navigateNextTopic}
+      onPreviousTopic={navigatePreviousTopic}
+      nextPreview={nextEntryPreview}
+      previousPreview={previousEntryPreview}
+      previousHorizontalPreview={renderCampaignPreview(campaigns[safeIndex - 1])}
+      nextHorizontalPreview={renderCampaignPreview(campaigns[safeIndex + 1])}
     >
-      <header className="flex items-center justify-between gap-4 pt-4 pb-5">
-        <div>
-          <p className="text-accent text-xs font-semibold tracking-[0.16em] uppercase">
-            Sponsored
-          </p>
-          <h2 className="text-text-primary mt-1 text-xl font-bold">Partner message</h2>
-          <p className="text-text-secondary mt-1 text-sm">
-            Clearly labelled support for CathoScroll
-          </p>
-        </div>
-        <span className="text-text-secondary rounded-full border px-3 py-1 text-sm tabular-nums">
-          {safeIndex + 1} / {campaigns.length}
-        </span>
-      </header>
-
-      <div className="flex min-h-0 flex-1 flex-col justify-center">
-        <article
-          ref={cardRef}
-          className="mx-auto w-full max-w-3xl text-center"
-        >
-          {campaign.image_url && (
-            <div className="bg-bg-secondary relative mx-auto aspect-[16/7] w-full overflow-hidden rounded-2xl">
-              <Image
-                src={campaign.image_url}
-                alt=""
-                fill
-                sizes="(max-width: 768px) 100vw, 720px"
-                unoptimized
-                className="object-cover"
-              />
-            </div>
-          )}
-          <div className="px-1 py-4 md:px-4 md:py-6">
-            <div className="mb-5 flex flex-wrap items-center justify-center gap-3">
-              {campaign.sponsor_logo_url && (
-                <Image
-                  src={campaign.sponsor_logo_url}
-                  alt=""
-                  width={44}
-                  height={44}
-                  unoptimized
-                  className="h-11 w-11 rounded-lg border border-border object-contain"
-                />
-              )}
-              <div className="min-w-0 text-left">
-                <p className="text-text-primary truncate font-semibold">{campaign.sponsor_name}</p>
-                <p className="text-text-muted text-xs">Paid partnership</p>
-              </div>
-              <span className="border-border text-text-secondary ml-auto rounded-full border px-2.5 py-1 text-xs font-semibold">
-                Sponsored
-              </span>
-            </div>
-
-            <p className="text-text-muted mb-2 text-xs font-semibold tracking-wider uppercase">
-              {campaign.campaign_name}
-            </p>
-            <h3 className="text-text-primary text-3xl leading-tight font-bold md:text-4xl">
-              {campaign.headline}
-            </h3>
-            <p className="text-text-secondary mx-auto mt-3 max-w-2xl whitespace-pre-line text-lg leading-relaxed">
-              {campaign.body}
-            </p>
-
+      <BaseFeedCard
+        title={
+          <div className="min-w-0">
+            <p className="text-text-muted truncate text-sm font-medium">{campaign.sponsor_name}</p>
+            <p className="text-text-muted text-xs tracking-wider uppercase">{campaign.disclosure || 'Sponsored'}</p>
+          </div>
+        }
+        actions={
+          <>
+            <button
+              type="button"
+              onPointerDown={(event) => event.stopPropagation()}
+              onTouchStart={(event) => event.stopPropagation()}
+              onClick={() => void shareCampaign()}
+              disabled={previewMode}
+              aria-label={`Share ${campaign.sponsor_name}`}
+              title="Share sponsor"
+              className="text-text-muted hover:bg-bg-secondary hover:text-text-primary flex h-11 w-11 items-center justify-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+            ><Share2 className="h-5 w-5" /></button>
             <a
               href={campaign.destination_url}
               target="_blank"
               rel="noopener noreferrer sponsored"
+              onPointerDown={(event) => event.stopPropagation()}
+              onTouchStart={(event) => event.stopPropagation()}
+              onClick={(event) => { if (previewMode) { event.preventDefault(); return; } recordCampaignClick(); }}
+              aria-label={`Visit ${campaign.sponsor_name} website`}
+              title={campaign.cta_label || 'Visit website'}
+              className="text-text-muted hover:bg-bg-secondary hover:text-text-primary flex h-11 w-11 items-center justify-center rounded-full transition-colors"
+            ><DoorOpen className="h-5 w-5" /></a>
+          </>
+        }
+      >
+        <article
+          ref={cardRef}
+          className="mx-auto w-full max-w-3xl cursor-pointer px-1 py-3 text-center md:px-4 md:py-5"
+          onDoubleClick={(event) => {
+            if ((event.target as HTMLElement).closest('button, a')) return;
+            openDestination();
+          }}
+          aria-label={`${campaign.sponsor_name} sponsored message. Double-click to visit their website.`}
+          title="Double-click to visit sponsor website"
+        >
+          <h3 className="text-text-primary text-3xl leading-tight font-bold md:text-4xl">
+            {campaign.headline}
+          </h3>
+          <p className="text-text-secondary mx-auto mt-4 max-w-2xl whitespace-pre-line text-base leading-relaxed md:text-lg">
+            {campaign.body}
+          </p>
+          <div className="mt-6 flex items-center justify-center">
+            <a
+              href={campaign.destination_url}
+              target="_blank"
+              rel="noopener noreferrer sponsored"
+              onPointerDown={(event) => event.stopPropagation()}
+              onTouchStart={(event) => event.stopPropagation()}
               onClick={(event) => {
                 if (previewMode) {
                   event.preventDefault();
                   return;
                 }
-                if (viewableCampaignIds.current.has(campaign.campaign_id)) {
-                  void recordEvent(campaign.campaign_id, 'click');
-                }
+                recordCampaignClick();
               }}
-              className="bg-accent text-white hover:bg-accent/90 mt-6 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold transition-colors"
+              className="text-text-muted hover:text-text-primary text-sm font-medium transition-colors"
             >
-              {campaign.cta_label}
-              <ExternalLink className="h-4 w-4" />
+              Visit {campaign.sponsor_name}
             </a>
           </div>
         </article>
-      </div>
-
-      <footer className="flex flex-wrap items-center justify-between gap-3 pt-5">
-        <button
-          type="button"
-          onClick={navigatePreviousTopic}
-          className="border-border text-text-secondary hover:bg-bg-secondary inline-flex min-h-11 items-center gap-2 rounded-full border px-4 text-sm font-medium transition-colors"
-        >
-          <ChevronLeft className="h-4 w-4" />
-          Previous topic
-        </button>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={showPreviousCampaign}
-            disabled={safeIndex === 0}
-            aria-label="Previous sponsor"
-            className="border-border rounded-full border p-2 disabled:opacity-35"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            onClick={showNextCampaign}
-            disabled={safeIndex >= campaigns.length - 1}
-            aria-label="Next sponsor"
-            className="border-border rounded-full border p-2 disabled:opacity-35"
-          >
-            <ChevronRight className="h-4 w-4" />
-          </button>
-        </div>
-        <button
-          type="button"
-          onClick={navigateNextTopic}
-          className="border-border text-text-secondary hover:bg-bg-secondary inline-flex min-h-11 items-center gap-2 rounded-full border px-4 text-sm font-medium transition-colors"
-        >
-          Next topic
-          <ChevronRight className="h-4 w-4" />
-        </button>
-      </footer>
-      <p className="text-text-muted pt-3 text-center text-xs">
-        Swipe horizontally to browse partners, or vertically to move through the feed
-      </p>
-    </div>
+      </BaseFeedCard>
+    </FeedInterstitialMotion>
   );
 }

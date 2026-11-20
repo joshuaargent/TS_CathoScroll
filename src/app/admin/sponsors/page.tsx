@@ -16,7 +16,7 @@ export default async function AdminSponsorsPage() {
   const { data, error } = await adminClient
     .from('sponsors')
     .select(
-      'id,sponsor_name,contact_email,website_url,logo_url,description,starts_on,ends_on,status,agreed_amount_minor,currency,payment_status,payment_received_at,payment_reference,admin_notes,created_at'
+      'id,sponsor_name,contact_email,website_url,description,starts_on,ends_on,status,agreed_amount_minor,currency,payment_status,payment_received_at,payment_reference,admin_notes,created_at'
     )
     .order('created_at', { ascending: false })
     .limit(100);

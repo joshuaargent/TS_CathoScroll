@@ -3,7 +3,6 @@ export const SPONSOR_CARD_CADENCE = 10;
 export interface SponsorFeedCampaign {
   campaign_id: string;
   sponsor_name: string;
-  sponsor_logo_url: string | null;
   campaign_name: string;
   headline: string;
   body: string;
@@ -35,7 +34,6 @@ export function isSponsorFeedCampaign(value: unknown): value is SponsorFeedCampa
     typeof value.sponsor_name === 'string' &&
     value.sponsor_name.length > 0 &&
     value.sponsor_name.length <= 120 &&
-    (value.sponsor_logo_url === null || isSafeHttpsUrl(value.sponsor_logo_url)) &&
     typeof value.campaign_name === 'string' &&
     value.campaign_name.length > 0 &&
     value.campaign_name.length <= 120 &&

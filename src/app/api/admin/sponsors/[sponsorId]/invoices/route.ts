@@ -36,10 +36,9 @@ export function OPTIONS(request: Request) {
 
 export async function POST(request: Request, { params }: RouteContext) {
   if (!isSameOriginOrNativeRequest(request)) return respond(request, { error: 'Forbidden' }, 403);
-  const { user, isAdmin, error, mfaRequired } = await getAdminSessionFromRequest(request);
+  const { user, isAdmin, error } = await getAdminSessionFromRequest(request);
   if (!user) return respond(request, { error: 'Authentication required.' }, 401);
   if (error) return respond(request, { error: 'Unable to verify administrator access.' }, 500);
-  if (mfaRequired) return respond(request, { error: 'Complete administrator MFA before managing invoices.' }, 403);
   if (!isAdmin) return respond(request, { error: 'Forbidden' }, 403);
 
   const limit = await checkApiRateLimit({ scope: 'admin:sponsor-financials:write', identifier: user.id, limit: 10, windowSeconds: 60 });

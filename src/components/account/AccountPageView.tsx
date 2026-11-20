@@ -4,16 +4,19 @@ import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Skeleton } from '@/components/ui/Skeleton';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { PersonalizationAccountSection } from './PersonalizationAccountSection';
 
 export type AccountPageViewProps = {
   loading?: boolean;
+  bottomPadding?: boolean;
   displayName: string;
   username: string;
   bio: string;
   email: string;
   newPassword: string;
   confirmPassword: string;
-  membershipLabel: string;
+  personalizationClient: SupabaseClient;
   saving: boolean;
   signingOut: boolean;
   saveDisabled: boolean;
@@ -77,7 +80,7 @@ export function AccountPageView(props: AccountPageViewProps) {
   if (props.loading) return <AccountPageSkeleton />;
 
   return (
-    <div className="container py-12">
+    <div className={props.bottomPadding === false ? "container pt-12 pb-0" : "container py-12"}>
       <div className="mt-8 mb-10">
         <h1 className="text-5xl font-extrabold md:text-7xl">Account</h1>
         <p className="text-text-secondary mt-4 text-lg">
@@ -161,13 +164,6 @@ export function AccountPageView(props: AccountPageViewProps) {
           />
         </section>
 
-        <section>
-          <div className="border-border rounded-xl border p-6">
-            <p className="text-text-muted text-sm">Membership</p>
-            <p className="mt-2 text-lg font-medium capitalize">{props.membershipLabel}</p>
-          </div>
-        </section>
-
         {props.statusMessage && (
           <p role="status" className="text-text-secondary text-sm">{props.statusMessage}</p>
         )}
@@ -206,6 +202,7 @@ export function AccountPageView(props: AccountPageViewProps) {
         </div>
         {props.signOutError && <p role="alert" className="text-sm text-red-600">{props.signOutError}</p>}
       </form>
+      <PersonalizationAccountSection client={props.personalizationClient} />
     </div>
   );
 }

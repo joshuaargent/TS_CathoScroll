@@ -8,104 +8,109 @@ const code = ts.transpileModule(source, {
   compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
 }).outputText;
 
-const storage = new Map();
-globalThis.window = {
-  localStorage: {
-    getItem: (key) => storage.get(key) ?? null,
-    setItem: (key, value) => storage.set(key, value),
-    removeItem: (key) => storage.delete(key),
-  },
-  addEventListener() {},
-  removeEventListener() {},
-};
-globalThis.document = {
-  addEventListener() {},
-  removeEventListener() {},
-  visibilityState: 'visible',
-};
-Object.defineProperty(globalThis, 'navigator', {
-  configurable: true,
-  value: { onLine: false },
-});
-const analytics = await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
+globalThis.window = { addEventListener() {}, removeEventListener() {} };
+globalThis.document = { addEventListener() {}, removeEventListener() {}, visibilityState: 'visible' };
+Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { onLine: false } });
+const analytics = await import('data:text/javascript;base64,' + Buffer.from(code).toString('base64'));
 
-test('queues events separately for each signed-in account', () => {
-  analytics.recordFeedAnalyticsEvent('account-a', 'impression', 'topic-one', { source: 'feed' });
-  analytics.recordFeedAnalyticsEvent('account-b', 'impression', 'topic-two', { source: 'feed' });
-
-  const accountA = JSON.parse(storage.get('cathoscroll.feed-analytics.v1.account-a'));
-  const accountB = JSON.parse(storage.get('cathoscroll.feed-analytics.v1.account-b'));
-
-  assert.equal(accountA.length, 1);
-  assert.equal(accountB.length, 1);
-  assert.equal(accountA[0].entity_id, 'topic-one');
-  assert.equal(accountB[0].entity_id, 'topic-two');
-  assert.equal('user_id' in accountA[0], false);
-});
-
-test('retains the full persistent client queue while offline', () => {
-  for (let index = 0; index < 225; index += 1) {
-    analytics.recordFeedAnalyticsEvent('bounded-account', 'swipe_depth', 'topic-one', {
-      depth: index % 20,
-      slide_index: index % 20,
-    });
-  }
-
-  const queue = JSON.parse(storage.get('cathoscroll.feed-analytics.v1.bounded-account'));
-  assert.equal(queue.length, 225);
-});
-
-test('flushes a bounded batch and removes only acknowledged event IDs', async () => {
-  analytics.recordFeedAnalyticsEvent('flush-account', 'impression', 'topic-one');
-  analytics.recordFeedAnalyticsEvent('flush-account', 'completion', 'topic-two');
-
+test('queues events separately for each signed-in account in memory', async () => {
   const calls = [];
   globalThis.fetch = async (_url, options) => {
     calls.push(JSON.parse(options.body));
-    return new Response(JSON.stringify({ accepted: 2 }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return new Response(JSON.stringify({ accepted: 50 }), { status: 200 });
   };
-  Object.defineProperty(globalThis, 'navigator', {
-    configurable: true,
-    value: { onLine: true },
-  });
+  analytics.recordFeedAnalyticsEvent('account-a', 'impression', 'topic-one', { source: 'feed' });
+  analytics.recordFeedAnalyticsEvent('account-b', 'impression', 'topic-two', { source: 'feed' });
+  Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { onLine: true } });
+  await analytics.flushFeedAnalytics('account-a');
+  await analytics.flushFeedAnalytics('account-b');
+  assert.equal(calls.length, 2);
+  assert.equal(calls[0].events[0].entity_id, 'topic-one');
+  assert.equal(calls[1].events[0].entity_id, 'topic-two');
+  assert.equal('user_id' in calls[0].events[0], false);
+  assert.doesNotMatch(source, /localStorage|sessionStorage|indexedDB/);
+});
 
+test('bounds the in-memory queue while retaining the most recent events', async () => {
+  const calls = [];
+  globalThis.fetch = async (_url, options) => {
+    calls.push(JSON.parse(options.body));
+    return new Response(JSON.stringify({ accepted: 50 }), { status: 200 });
+  };
+  Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { onLine: false } });
+  for (let index = 0; index < 225; index += 1) {
+    analytics.recordFeedAnalyticsEvent('bounded-account', 'swipe_depth', 'topic-one', {
+      depth: index % 20, slide_index: index % 20,
+    });
+  }
+  Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { onLine: true } });
+  await analytics.flushFeedAnalytics('bounded-account');
+  const events = calls.flatMap((call) => call.events);
+  assert.equal(events.length, 200);
+  assert.equal(events[0].metadata.depth, 5);
+  assert.equal(events.at(-1).metadata.depth, 4);
+});
+
+test('flushes a bounded batch and removes acknowledged event IDs from memory', async () => {
+  const calls = [];
+  globalThis.fetch = async (_url, options) => {
+    calls.push(JSON.parse(options.body));
+    return new Response(JSON.stringify({ accepted: 50 }), { status: 200 });
+  };
+  Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { onLine: false } });
+  analytics.recordFeedAnalyticsEvent('flush-account', 'impression', 'topic-one');
+  analytics.recordFeedAnalyticsEvent('flush-account', 'completion', 'topic-two');
+  Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { onLine: true } });
   await analytics.flushFeedAnalytics('flush-account');
-
   assert.equal(calls.length, 1);
   assert.equal(calls[0].events.length, 2);
-  assert.equal(storage.has('cathoscroll.feed-analytics.v1.flush-account'), false);
-  assert.equal(storage.has('cathoscroll.feed-analytics.v1.account-a'), true);
+  await analytics.flushFeedAnalytics('flush-account');
+  assert.equal(calls.length, 1);
 });
 
 test('uses the authenticated remote API transport for native applications', async () => {
-  Object.defineProperty(globalThis, 'navigator', {
-    configurable: true,
-    value: { onLine: false },
-  });
-  analytics.recordFeedAnalyticsEvent('native-account', 'impression', 'topic-native');
-  const removeListeners = analytics.installFeedAnalyticsListeners('native-account', {
-    endpoint: 'https://www.cathoscroll.com/api/analytics/feed-events',
-    getAccessToken: async () => 'native-access-token',
-  });
-
   const requests = [];
   globalThis.fetch = async (url, options) => {
     requests.push({ url, options });
     return new Response(JSON.stringify({ accepted: 1 }), { status: 200 });
   };
-  Object.defineProperty(globalThis, 'navigator', {
-    configurable: true,
-    value: { onLine: true },
+  Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { onLine: false } });
+  analytics.recordFeedAnalyticsEvent('native-account', 'impression', 'topic-native');
+  analytics.installFeedAnalyticsListeners('native-account', {
+    endpoint: 'https://www.cathoscroll.com/api/analytics/feed-events',
+    getAccessToken: async () => 'native-access-token',
   });
-
+  Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { onLine: true } });
   await analytics.flushFeedAnalytics('native-account');
-  removeListeners();
-
   assert.equal(requests.length, 1);
   assert.equal(requests[0].url, 'https://www.cathoscroll.com/api/analytics/feed-events');
   assert.equal(requests[0].options.headers.get('Authorization'), 'Bearer native-access-token');
   assert.equal(requests[0].options.credentials, 'omit');
+});
+
+test('topic visits and completions remain deduplicated across viewer unmounts', async () => {
+  const calls = [];
+  globalThis.fetch = async (_url, options) => {
+    calls.push(JSON.parse(options.body));
+    return new Response(JSON.stringify({ accepted: 50 }), { status: 200 });
+  };
+  const originalNow = Date.now;
+  let now = 1000;
+  Date.now = () => now;
+  Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { onLine: false } });
+  try {
+    analytics.recordFeedTopicVisit('session-account', 'topic-revisited');
+    now += 101;
+    analytics.recordFeedTopicVisit('session-account', 'topic-revisited');
+    analytics.recordFeedTopicCompletion('session-account', 'topic-completed', 4);
+    analytics.recordFeedTopicCompletion('session-account', 'topic-completed', 4);
+    Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { onLine: true } });
+    await analytics.flushFeedAnalytics('session-account');
+    const events = calls.flatMap((call) => call.events);
+    assert.deepEqual(events.map((event) => event.event_type), ['impression', 'impression', 'return_visit', 'completion']);
+    assert.equal(events.at(-1).metadata.slide_index, 4);
+    assert.equal(events.at(-1).metadata.completion_percent, 100);
+  } finally {
+    Date.now = originalNow;
+  }
 });

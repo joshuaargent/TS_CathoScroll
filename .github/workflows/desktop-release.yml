@@ -185,6 +185,23 @@ jobs:
           test -n "$ANDROID_KEY_ALIAS" || { echo "Missing ANDROID_KEY_ALIAS Actions secret"; exit 1; }
           test -n "$ANDROID_KEY_PASSWORD" || { echo "Missing ANDROID_KEY_PASSWORD Actions secret"; exit 1; }
 
+      - name: Derive Android version code from release version
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${RELEASE_TAG#v}"
+          IFS=. read -r major minor patch <<< "$version"
+          if [[ ! "$major" =~ ^[0-9]+$ || ! "$minor" =~ ^[0-9]+$ || ! "$patch" =~ ^[0-9]+$ || "$minor" -gt 999 || "$patch" -gt 999 ]]; then
+            echo "Release version cannot be converted to an Android version code: $version"
+            exit 1
+          fi
+          android_version_code=$((major * 1000000 + minor * 1000 + patch))
+          if (( android_version_code < 1 || android_version_code > 2100000000 )); then
+            echo "Android version code is outside the supported range: $android_version_code"
+            exit 1
+          fi
+          echo "ANDROID_VERSION_CODE=$android_version_code" >> "$GITHUB_ENV"
+
       - name: Install project dependencies
         run: npm ci
 
@@ -193,7 +210,7 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           CATHOSCROLL_VERSION: ${{ env.RELEASE_TAG }}
-          ANDROID_VERSION_CODE: ${{ github.run_number }}
+          ANDROID_VERSION_CODE: ${{ env.ANDROID_VERSION_CODE }}
         run: |
           npm run native:build
           npx cap sync android
@@ -217,7 +234,7 @@ jobs:
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
           CATHOSCROLL_VERSION: ${{ env.RELEASE_TAG }}
-          ANDROID_VERSION_CODE: ${{ github.run_number }}
+          ANDROID_VERSION_CODE: ${{ env.ANDROID_VERSION_CODE }}
         run: bash ./gradlew --no-daemon --stacktrace testReleaseUnitTest assembleRelease
 
       - name: Verify APK output and signing certificate

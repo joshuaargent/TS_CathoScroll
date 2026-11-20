@@ -21,9 +21,9 @@ const [
 function functionBody(name) {
   const start = bootstrap.lastIndexOf(`CREATE OR REPLACE FUNCTION ${name}`);
   assert.notEqual(start, -1, `Missing function ${name}`);
-  const end = bootstrap.indexOf('ALTER FUNCTION ', start);
-  assert.notEqual(end, -1, `Missing ALTER FUNCTION after ${name}`);
-  return bootstrap.slice(start, end);
+  const end = bootstrap.indexOf('$function$;', start);
+  assert.notEqual(end, -1, `Missing function terminator after ${name}`);
+  return bootstrap.slice(start, end + '$function$;'.length);
 }
 
 test('sponsor memberships are private and support scoped organisation roles', () => {
@@ -61,10 +61,10 @@ test('admin sponsor membership changes are audited and service-role-only', () =>
 test('sponsor campaign submission and editing are restricted to active managers', () => {
   const create = functionBody('public.sponsor_create_campaign');
   const update = functionBody('public.sponsor_update_campaign');
-  assert.match(create, /membership\.status = 'active'/);
+  assert.match(create, /(?:membership|m)\.status\s*=\s*'active'/);
   assert.match(create, /membership\.role IN \('owner', 'manager'\)/);
   assert.match(create, /'pending_approval'/);
-  assert.match(update, /membership\.status = 'active'/);
+  assert.match(update, /(?:membership|m)\.status\s*=\s*'active'/);
   assert.match(update, /membership\.role IN \('owner', 'manager'\)/);
   assert.match(update, /v_campaign\.status NOT IN \('draft', 'pending_approval', 'rejected'\)/);
   assert.match(update, /Approved or paused campaigns cannot be edited/);
@@ -72,7 +72,7 @@ test('sponsor campaign submission and editing are restricted to active managers'
 
 test('sponsor analytics are aggregate-only and require active organisation membership', () => {
   const analytics = functionBody('public.get_sponsor_campaign_analytics');
-  assert.match(analytics, /membership\.status = 'active'/);
+  assert.match(analytics, /(?:membership|m)\.status\s*=\s*'active'/);
   assert.match(analytics, /sponsor_campaign_daily/);
   assert.match(analytics, /click_through_rate/);
   assert.doesNotMatch(analytics, /user_id.*jsonb_build_object|session_id.*jsonb_build_object/);

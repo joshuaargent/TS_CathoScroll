@@ -1,49 +1,74 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState, type ComponentType } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ComponentType, type ReactNode } from 'react';
 
 import { shuffle } from '@/lib/utils';
 import {
-  getNextTopCommentCadence,
   getUnseenTopFeedComments,
   parseTopFeedComments,
-  shouldInsertTopCommentCard,
   type TopFeedComment,
 } from '@/lib/feed-comments';
-import { TopCommentFeedCard } from './TopCommentFeedCard';
 import {
-  getNextSponsorCadence,
   parseSponsorFeedCampaigns,
-  shouldInsertSponsorCard,
   type SponsorFeedCampaign,
 } from '@/lib/sponsor-campaigns';
-import { SponsorFeedCard } from './SponsorFeedCard';
 import { createFeedRefreshCoordinator } from '@/lib/feed-refresh-coordinator';
 import { siteConfig } from '@/lib/constants';
+import { buildFeedEntryMap, collectReservedCommentIds, flattenFeedEntryMap, type FeedEntry, type FeedEntryMap } from '@/lib/feed-entry-map';
+import {
+  invokeRegisteredFeedEntryLifecycle,
+  renderRegisteredFeedEntry,
+  type FeedEntryDirection,
+  type FeedEntryLike,
+} from '@/lib/feed-entry-registry';
+import { createFeedCardRegistry } from './feed-card-registry';
+import { FeedProgress } from './FeedProgress';
+import { FeedRenderer } from './FeedRenderer';
+import { TopicCard } from './TopicCard';
+import type { FeedCardRendererContext } from './feed-card-registry.types';
+import { getAdjacentFeedEntry, getFeedEntryKey, reconcileFeedEntryCursor } from '@/lib/feed-entry-cursor';
 
-import type { TopicPageCursor } from '@/lib/content';
+import type { GeneralFeedCursor, TopicPageCursor } from '@/lib/content';
 import type { RecommendationCursor } from '@/lib/recommendations';
 import { Topic } from '@/types';
 
-type FeedCursor = TopicPageCursor | RecommendationCursor;
+type FeedCursor = TopicPageCursor | GeneralFeedCursor | RecommendationCursor;
 type FeedPage = { topics: Topic[]; nextCursor: FeedCursor | null };
 
+function appendUniqueFeedTopics(existing: Topic[], incoming: Topic[]): Topic[] {
+  const knownIds = new Set(existing.map((topic) => topic.id));
+  const additions = incoming.filter((topic) => {
+    if (knownIds.has(topic.id)) return false;
+    knownIds.add(topic.id);
+    return true;
+  });
+  return additions.length > 0 ? [...existing, ...additions] : existing;
+}
+
+let ephemeralSponsorSessionId: string | null = null;
 function createSponsorSessionId(): string | null {
-  return typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+  if (ephemeralSponsorSessionId) return ephemeralSponsorSessionId;
+  ephemeralSponsorSessionId = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
     ? crypto.randomUUID()
     : null;
+  return ephemeralSponsorSessionId;
 }
 type ViewerProps = {
   topics: Topic[];
   topicIndex: number;
   initialUserId: string | null;
-  onNextTopic: () => void;
-  onPreviousTopic: () => void;
+  active?: boolean;
+  onNextTopic: () => void | Promise<void>;
+  onPreviousTopic: () => void | Promise<void>;
+  onProgressChange: (current: number, total: number) => void;
+  nextEntryPreview?: ReactNode;
+  previousEntryPreview?: ReactNode;
 };
 type TopicFeedCoreProps = {
   topics: Topic[];
   nextCursor: FeedCursor | null;
   personalized: boolean;
+  generalRanked?: boolean;
   loadPage: (cursor: FeedCursor) => Promise<FeedPage>;
   userId: string | null;
   viewer: ComponentType<ViewerProps>;
@@ -58,6 +83,7 @@ export function TopicFeedCore({
   topics,
   nextCursor: initialCursor,
   personalized,
+  generalRanked = false,
   loadPage,
   userId,
   viewer: Viewer,
@@ -77,79 +103,149 @@ export function TopicFeedCore({
       : undefined;
   const effectiveSponsorApiBaseUrl = sponsorApiBaseUrl ?? nativeSponsorApiBaseUrl;
   const [feedTopics, setFeedTopics] = useState<Topic[]>(topics);
+  const feedTopicsRef = useRef(feedTopics);
+  const feedInitializedRef = useRef(false);
+  const previousPersonalizedRef = useRef(personalized);
   const [topComments, setTopComments] = useState<TopFeedComment[]>([]);
-  const [topCommentCardComments, setTopCommentCardComments] = useState<TopFeedComment[]>([]);
-  const [showTopCommentCard, setShowTopCommentCard] = useState(false);
+  const topCommentsRef = useRef<TopFeedComment[]>([]);
+  const topCommentsNextOffsetRef = useRef<number | null>(null);
+  const topCommentsLoadingRef = useRef(false);
   const seenTopCommentIds = useRef(new Set<number>());
   const seenTopCommentUserId = useRef(userId);
   const topCommentCadenceUserId = useRef(userId);
   const topCommentCardsByTopicId = useRef(new Map<string, TopFeedComment[]>());
-  const [topicsSinceTopCommentCard, setTopicsSinceTopCommentCard] = useState(0);
-  const [sponsorCampaigns, setSponsorCampaigns] = useState<SponsorFeedCampaign[]>([]);
-  const [showSponsorCard, setShowSponsorCard] = useState(false);
-  const [topicsSinceSponsorCard, setTopicsSinceSponsorCard] = useState(0);
+  const topCommentIndexByTopicId = useRef(new Map<string, number>());
+  const processedTopicBoundariesByTopicId = useRef(new Set<string>());
+  const feedEntryMapRef = useRef<FeedEntryMap | null>(null);
+  const topicsSinceTopCommentCardRef = useRef(0);
+  const [, setSponsorLoading] = useState(false);
+  const topicsSinceSponsorCardRef = useRef(0);
   const sponsorCardsByTopicId = useRef(new Map<string, { campaigns: SponsorFeedCampaign[]; sessionId: string }>());
-  const [activeSponsorSessionId, setActiveSponsorSessionId] = useState<string | null>(null);
+  const sponsorResultsByTopicId = useRef(new Map<string, { campaigns: SponsorFeedCampaign[]; sessionId: string | null }>());
+  const sponsorRequestsByTopicId = useRef(new Map<string, Promise<{ campaigns: SponsorFeedCampaign[]; sessionId: string | null; retryable?: boolean }>>());
+
   const sponsorSessionUserId = useRef(userId);
   const sponsorLoadingRef = useRef(false);
   const sponsorRequestVersion = useRef(0);
-  const sponsorRequestPreviousCadence = useRef(0);
-  const pendingSponsorAfterComment = useRef(false);
+  const sponsorDueByTopicId = useRef(new Set<string>());
+  const sponsorDirectionByTopicId = useRef(new Map<string, FeedEntryDirection>());
+  const [activeTopCommentIndex, setActiveTopCommentIndex] = useState(0);
+  const [topCommentIndices, setTopCommentIndices] = useState<Record<string, number>>({});
+  const [feedProgress, setFeedProgress] = useState({ current: 0, total: 5 });
+  const updateFeedProgress = useCallback((current: number, total: number) => {
+    setFeedProgress({ current, total });
+  }, []);
+  const activeInterstitialTopicIdRef = useRef<string | null>(null);
+  const activateInterstitialTopic = (topicId: string | null) => {
+    activeInterstitialTopicIdRef.current = topicId;
+    setActiveTopCommentIndex(
+      topicId ? topCommentIndices[topicId] ?? topCommentIndexByTopicId.current.get(topicId) ?? 0 : 0
+    );
+  };
+  const [activeFeedEntryKey, setActiveFeedEntryKeyState] = useState<string | null>(null);
+  const [feedEntryMap, setFeedEntryMap] = useState<FeedEntryMap | null>(null);
+  const feedCardRendererContextRef = useRef<FeedCardRendererContext | null>(null);
+  const feedCardRenderersRef = useRef<ReturnType<typeof createFeedCardRegistry>>([]);
+  const activeFeedEntryKeyRef = useRef<string | null>(null);
+  const setActiveFeedEntryKey = useCallback((key: string | null) => {
+    activeFeedEntryKeyRef.current = key;
+    setActiveFeedEntryKeyState(key);
+  }, []);
 
-  const [topicIndex, setTopicIndex] = useState(personalized ? 0 : Math.floor(topics.length / 2));
+  const [topicIndex, setTopicIndex] = useState(personalized || generalRanked ? 0 : Math.floor(topics.length / 2));
   const [nextCursor, setNextCursor] = useState(initialCursor);
   const [loadingMore, setLoadingMore] = useState(false);
   const [loadError, setLoadError] = useState('');
   const loadingRef = useRef(false);
+  const pendingAdvanceAfterPageRef = useRef(false);
   const generationRef = useRef(0);
   const currentTopicId = useRef<string | null>(null);
 
   useEffect(() => {
     currentTopicId.current = feedTopics[topicIndex]?.id ?? null;
+    feedTopicsRef.current = feedTopics;
   }, [feedTopics, topicIndex]);
 
   useEffect(() => {
     if (sponsorSessionUserId.current === userId) return;
     sponsorSessionUserId.current = userId;
-    setActiveSponsorSessionId(null);
+    // Never reuse an anonymous sponsor session token across sign-in/account changes.
+    ephemeralSponsorSessionId = null;
+    seenTopCommentUserId.current = userId;
+    topCommentCadenceUserId.current = userId;
+    seenTopCommentIds.current.clear();
+    topCommentCardsByTopicId.current.clear();
+    topCommentIndexByTopicId.current.clear();
+    setTopCommentIndices({});
+    setActiveTopCommentIndex(0);
+    processedTopicBoundariesByTopicId.current.clear();
+    feedEntryMapRef.current = null;
+    setFeedEntryMap(null);
+    activeInterstitialTopicIdRef.current = null;
     sponsorCardsByTopicId.current.clear();
+    sponsorResultsByTopicId.current.clear();
+    sponsorRequestsByTopicId.current.clear();
+    sponsorDueByTopicId.current.clear();
+    sponsorDirectionByTopicId.current.clear();
     sponsorRequestVersion.current += 1;
     sponsorLoadingRef.current = false;
-    pendingSponsorAfterComment.current = false;
-    setSponsorCampaigns([]);
-    setShowSponsorCard(false);
-    setTopicsSinceSponsorCard(0);
-    setTopicsSinceTopCommentCard(0);
-  }, [userId]);
+    setActiveFeedEntryKey(null);
+    setActiveTopCommentIndex(0);
+    setSponsorLoading(false);
+    topicsSinceSponsorCardRef.current = 0;
+    topicsSinceTopCommentCardRef.current = 0;
+  }, [userId, setActiveFeedEntryKey]);
 
   const loadSponsorCampaigns = useCallback(
-    async (topic: Topic): Promise<{ campaigns: SponsorFeedCampaign[]; sessionId: string | null }> => {
-      if (!userId || !getSponsorAccessToken) return { campaigns: [], sessionId: null };
-      // Give each sponsor-card placement its own ID for reliable event attribution.
+    async (topic: Topic): Promise<{ campaigns: SponsorFeedCampaign[]; sessionId: string | null; retryable?: boolean }> => {
+
+      // Reuse one in-memory token for this active app session so anonymous frequency caps span placements.
       const sessionId = createSponsorSessionId();
-      if (!sessionId) return { campaigns: [], sessionId: null };
+      if (!sessionId) return { campaigns: [], sessionId: null, retryable: true };
 
       try {
-        const accessToken = await getSponsorAccessToken();
+        let accessToken = userId && getSponsorAccessToken ? await getSponsorAccessToken() : null;
+        if (userId && !accessToken) {
+          if (!getSponsorAccessToken) return { campaigns: [], sessionId: null, retryable: true };
+          // Auth state can briefly lag the feed's signed-in state during
+          // session hydration. Retry once before treating the request as transient.
+          await new Promise((resolve) => window.setTimeout(resolve, 250));
+          accessToken = await getSponsorAccessToken();
+        }
         const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (userId && !accessToken) {
+          console.warn('Sponsor campaign request deferred because no access token is available yet.');
+          return { campaigns: [], sessionId: null, retryable: true };
+        }
         if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
         const campaignsEndpoint = effectiveSponsorApiBaseUrl
           ? new URL('/api/content/sponsored-campaigns', effectiveSponsorApiBaseUrl).toString()
           : '/api/content/sponsored-campaigns';
-        const response = await fetch(campaignsEndpoint, {
-          method: 'POST',
-          credentials: 'same-origin',
-          headers,
-          body: JSON.stringify({
-            sessionId,
-            categorySlug: topic.categorySlug ?? null,
-            topicId: topic.id,
-          }),
-        });
-        if (!response.ok) return { campaigns: [], sessionId: null };
-        return { campaigns: parseSponsorFeedCampaigns(await response.json()), sessionId };
+        const controller = new AbortController();
+        const timeoutId = window.setTimeout(() => controller.abort(), 8000);
+        try {
+          const response = await fetch(campaignsEndpoint, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers,
+            signal: controller.signal,
+            body: JSON.stringify({
+              sessionId,
+              categorySlug: topic.categorySlug ?? null,
+              topicId: topic.id,
+            }),
+          });
+          if (!response.ok) {
+            console.warn('Sponsor campaign request was not successful:', response.status);
+            return { campaigns: [], sessionId: null, retryable: true };
+          }
+          return { campaigns: parseSponsorFeedCampaigns(await response.json()), sessionId };
+        } finally {
+          window.clearTimeout(timeoutId);
+        }
       } catch {
-        return { campaigns: [], sessionId: null };
+        console.warn('Sponsor campaign request failed; the placement can be retried.');
+        return { campaigns: [], sessionId: null, retryable: true };
       }
     },
     [effectiveSponsorApiBaseUrl, getSponsorAccessToken, userId]
@@ -159,17 +255,39 @@ export function TopicFeedCore({
     let cancelled = false;
     const refresh = createFeedRefreshCoordinator(async () => {
       try {
-        const response = await fetch(topCommentsEndpoint ?? '/api/content/top-comments', {
-          cache: 'default',
-          credentials: topCommentsEndpoint ? 'omit' : 'same-origin',
-        });
-        if (!response.ok) return false;
-
-        const payload: unknown = await response.json();
+        const controller = new AbortController();
+        const timeoutId = window.setTimeout(() => controller.abort(), 8000);
+        let payload: unknown;
+        try {
+          const response = await fetch(topCommentsEndpoint ?? '/api/content/top-comments', {
+            cache: 'default',
+            credentials: topCommentsEndpoint ? 'omit' : 'same-origin',
+            signal: controller.signal,
+          });
+          if (!response.ok) return false;
+          payload = await response.json();
+        } finally {
+          window.clearTimeout(timeoutId);
+        }
         if (!cancelled) {
           const comments = parseTopFeedComments(payload);
+          const nextOffset =
+            typeof payload === 'object' && payload !== null && 'next_offset' in payload &&
+            (payload.next_offset === null ||
+              (Number.isSafeInteger(payload.next_offset) && Number(payload.next_offset) >= 0))
+              ? payload.next_offset as number | null
+              : null;
+          // Refresh the first ranked page without discarding already loaded
+          // later pages from this session. Duplicate IDs are merged once.
+          const firstPageIds = new Set(comments.map((comment) => comment.comment_id));
+          const mergedComments = [
+            ...comments,
+            ...topCommentsRef.current.filter((comment) => !firstPageIds.has(comment.comment_id)),
+          ];
+          topCommentsRef.current = mergedComments;
+          topCommentsNextOffsetRef.current = nextOffset;
           const commentsById = new Map(
-            comments.map((comment) => [comment.comment_id, comment] as const)
+            mergedComments.map((comment) => [comment.comment_id, comment] as const)
           );
           const reconcileComments = (items: TopFeedComment[]) =>
             items.flatMap((item) => {
@@ -177,8 +295,7 @@ export function TopicFeedCore({
               return currentComment ? [currentComment] : [];
             });
 
-          setTopComments(comments);
-          setTopCommentCardComments((current) => reconcileComments(current));
+          setTopComments(mergedComments);
 
           for (const [topicId, cardComments] of topCommentCardsByTopicId.current) {
             const remainingComments = reconcileComments(cardComments);
@@ -186,13 +303,19 @@ export function TopicFeedCore({
               topCommentCardsByTopicId.current.set(topicId, remainingComments);
             } else {
               topCommentCardsByTopicId.current.delete(topicId);
+              topCommentIndexByTopicId.current.delete(topicId);
             }
           }
 
           if (comments.length === 0) {
-            setShowTopCommentCard(false);
-            setTopCommentCardComments([]);
+            topCommentsRef.current = [];
+            topCommentsNextOffsetRef.current = null;
+            setTopComments([]);
+            setActiveFeedEntryKey(null);
             topCommentCardsByTopicId.current.clear();
+            topCommentIndexByTopicId.current.clear();
+            setTopCommentIndices({});
+            setActiveTopCommentIndex(0);
           }
         }
         return true;
@@ -217,32 +340,317 @@ export function TopicFeedCore({
       window.removeEventListener('online', refreshWhenOnline);
       document.removeEventListener('visibilitychange', refreshWhenVisible);
     };
+  }, [topCommentsEndpoint, setActiveFeedEntryKey]);
+
+  const getSponsorCampaignResult = useCallback(
+    (topic: Topic): Promise<{ campaigns: SponsorFeedCampaign[]; sessionId: string | null; retryable?: boolean }> => {
+      const cached = sponsorResultsByTopicId.current.get(topic.id);
+      if (cached) return Promise.resolve(cached);
+
+      const inFlight = sponsorRequestsByTopicId.current.get(topic.id);
+      if (inFlight) return inFlight;
+
+      const requestedUserId = userId;
+      const request = loadSponsorCampaigns(topic)
+        .then((result) => {
+          // Cache both successful and empty results. A missing placement is a
+          // stable decision for this topic during the current feed session.
+          if (sponsorSessionUserId.current === requestedUserId && !result.retryable) {
+            // Cache a successful placement or a successful empty eligibility
+            // result. Never pin a transient auth/network/server failure as the
+            // permanent no-campaign decision for this topic in this session.
+            sponsorResultsByTopicId.current.set(topic.id, result);
+            if (result.campaigns.length > 0 && result.sessionId) {
+              sponsorCardsByTopicId.current.set(topic.id, {
+                campaigns: result.campaigns,
+                sessionId: result.sessionId,
+              });
+            } else {
+              sponsorDueByTopicId.current.delete(topic.id);
+            }
+          }
+          return result;
+        })
+        .finally(() => {
+          // An older request can finish after a retry has already replaced it.
+          // Only the promise currently registered for this topic may clear it.
+          if (sponsorRequestsByTopicId.current.get(topic.id) === request) {
+            sponsorRequestsByTopicId.current.delete(topic.id);
+          }
+        });
+
+      sponsorRequestsByTopicId.current.set(topic.id, request);
+      return request;
+    },
+    [loadSponsorCampaigns, userId]
+  );
+
+  const loadMoreTopComments = useCallback(async () => {
+    const offset = topCommentsNextOffsetRef.current;
+    if (offset === null || topCommentsLoadingRef.current) return;
+    topCommentsLoadingRef.current = true;
+
+    try {
+      const endpoint = topCommentsEndpoint ?? '/api/content/top-comments';
+      const separator = endpoint.includes('?') ? '&' : '?';
+      const controller = new AbortController();
+      const timeoutId = window.setTimeout(() => controller.abort(), 8000);
+      let payload: unknown;
+      try {
+        const response = await fetch(`${endpoint}${separator}offset=${offset}&limit=100`, {
+          cache: 'default',
+          credentials: topCommentsEndpoint ? 'omit' : 'same-origin',
+          signal: controller.signal,
+        });
+        if (!response.ok) return;
+        payload = await response.json();
+      } finally {
+        window.clearTimeout(timeoutId);
+      }
+      const comments = parseTopFeedComments(payload);
+      const nextOffset =
+        typeof payload === 'object' && payload !== null && 'next_offset' in payload &&
+        (payload.next_offset === null ||
+          (Number.isSafeInteger(payload.next_offset) && Number(payload.next_offset) > offset))
+          ? payload.next_offset as number | null
+          : null;
+
+      const knownIds = new Set(topCommentsRef.current.map((comment) => comment.comment_id));
+      const additions = comments.filter((comment) => {
+        if (knownIds.has(comment.comment_id)) return false;
+        knownIds.add(comment.comment_id);
+        return true;
+      });
+      const mergedComments = additions.length > 0
+        ? [...topCommentsRef.current, ...additions]
+        : topCommentsRef.current;
+      topCommentsRef.current = mergedComments;
+      topCommentsNextOffsetRef.current = nextOffset;
+      if (additions.length > 0) setTopComments(mergedComments);
+    } catch {
+      // Additional comment inventory is optional and can be retried later.
+    } finally {
+      topCommentsLoadingRef.current = false;
+    }
   }, [topCommentsEndpoint]);
+
+  const prefetchMappedSponsor = useCallback((topicId: string) => {
+    const boundary = feedEntryMapRef.current?.byTopicId.get(topicId);
+    const entry = boundary?.entries.find((item) => item.type === 'sponsor');
+    if (!entry || entry.type !== 'sponsor' || entry.status !== 'pending') return;
+    const topic = feedTopicsRef.current.find((item) => item.id === topicId);
+    if (!topic) return;
+    const requestedUserId = userId;
+
+    void getSponsorCampaignResult(topic).then((result) => {
+      if (
+        result.retryable ||
+        userId !== requestedUserId ||
+        sponsorSessionUserId.current !== requestedUserId
+      ) return;
+      const currentBoundary = feedEntryMapRef.current?.byTopicId.get(topicId);
+      if (!currentBoundary) return;
+      const currentSponsor = currentBoundary.entries.find((item) => item.type === 'sponsor');
+      if (!currentSponsor || currentSponsor.type !== 'sponsor') return;
+      if (result.campaigns.length > 0 && result.sessionId) {
+        currentSponsor.campaigns = result.campaigns;
+        currentSponsor.sessionId = result.sessionId;
+        currentSponsor.status = 'ready';
+      } else {
+        currentBoundary.entries = currentBoundary.entries.filter((item) => item.type !== 'sponsor');
+      }
+      // Publish the resolved placement immutably. The ref is used by the
+      // cursor, while React state drives the visible card renderer.
+      const currentMap = feedEntryMapRef.current;
+      if (currentMap) {
+        const nextMap = {
+          ...currentMap,
+          boundaries: [...currentMap.boundaries],
+          byTopicId: new Map(currentMap.byTopicId),
+        };
+        nextMap.byTopicId.set(topicId, currentBoundary);
+        feedEntryMapRef.current = nextMap;
+        setFeedEntryMap(nextMap);
+      }
+    });
+  }, [getSponsorCampaignResult, userId]);
+
+  // Build the ordered topic/comment/sponsor map ahead of navigation. The
+  // original analytics-ranked topic array remains the source of truth; each
+  // topic boundary owns its interstitial entries in this single map.
+  useEffect(() => {
+    if (feedTopics.length === 0) {
+      feedEntryMapRef.current = null;
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setFeedEntryMap(null);
+      return;
+    }
+
+    const activeTopicId = activeInterstitialTopicIdRef.current;
+    const currentId = currentTopicId.current;
+    const currentIndex = currentId
+      ? feedTopics.findIndex((topic) => topic.id === currentId)
+      : 0;
+    const activeIndex = activeTopicId
+      ? feedTopics.findIndex((topic) => topic.id === activeTopicId)
+      : -1;
+    const startIndex = activeIndex >= 0
+      ? activeIndex + 1
+      : Math.max(0, currentIndex);
+    const previousMap = feedEntryMapRef.current;
+    const commentsById = new Map(
+      topComments.map((comment) => [comment.comment_id, comment] as const)
+    );
+    const prefix = previousMap
+      ? previousMap.boundaries
+          .filter((boundary) => {
+            const index = feedTopics.findIndex((topic) => topic.id === boundary.topicId);
+            return index >= 0 && index < startIndex;
+          })
+          .map((boundary) => ({
+            ...boundary,
+            entries: boundary.entries.flatMap<import('@/lib/feed-entry-map').FeedEntry>((entry) => {
+              if (entry.type !== 'top-comments') return [entry];
+              const currentComments = entry.comments.flatMap((comment) => {
+                const currentComment = commentsById.get(comment.comment_id);
+                return currentComment ? [currentComment] : [];
+              });
+              return currentComments.length > 0
+                ? [{ ...entry, comments: currentComments }]
+                : [];
+            }),
+          }))
+      : [];
+    const reservedCommentIds = collectReservedCommentIds(prefix, seenTopCommentIds.current);
+    const unseenComments = getUnseenTopFeedComments(topComments, reservedCommentIds);
+    if (unseenComments.length <= 10 && topCommentsNextOffsetRef.current !== null) {
+      void loadMoreTopComments();
+    }
+    const planned = buildFeedEntryMap({
+      topics: feedTopics.slice(startIndex),
+      comments: unseenComments,
+      seenCommentIds: reservedCommentIds,
+      userId,
+      commentCadence: topicsSinceTopCommentCardRef.current,
+      sponsorCadence: topicsSinceSponsorCardRef.current,
+      sponsorResults: sponsorResultsByTopicId.current,
+    });
+    const boundaries = [...prefix, ...planned.boundaries];
+    const byTopicId = new Map(boundaries.map((boundary) => [boundary.topicId, boundary] as const));
+    const nextFeedEntryMap: FeedEntryMap = {
+      ...planned,
+      boundaries,
+      byTopicId,
+    };
+    feedEntryMapRef.current = nextFeedEntryMap;
+    setFeedEntryMap(nextFeedEntryMap);
+    for (const boundary of planned.boundaries) {
+      const sponsorEntry = boundary.entries.find((entry) => entry.type === 'sponsor');
+      if (sponsorEntry && sponsorEntry.type === 'sponsor' && sponsorEntry.status !== 'empty') {
+        sponsorDueByTopicId.current.add(boundary.topicId);
+      } else {
+        sponsorDueByTopicId.current.delete(boundary.topicId);
+      }
+    }
+
+    // Resolve only the next sponsor slot. Fetching every future campaign
+    // would consume per-user delivery caps for cards the user may never reach.
+    const firstSponsor = planned.boundaries
+      .flatMap((boundary) => boundary.entries)
+      .find((entry) => entry.type === 'sponsor');
+    if (firstSponsor && firstSponsor.type === 'sponsor' && firstSponsor.status === 'pending') {
+      prefetchMappedSponsor(firstSponsor.topicId);
+    }
+  }, [feedTopics, topComments, userId, getSponsorCampaignResult, prefetchMappedSponsor, loadMoreTopComments]);
+
+  // Keep a cursor for every active feed entry, including ordinary topics.
+  useEffect(() => {
+    if (activeFeedEntryKey && !activeFeedEntryKey.startsWith('topic:')) return;
+    const currentTopic = feedTopics[topicIndex];
+    const nextKey = currentTopic ? `topic:${currentTopic.id}` : null;
+    if (nextKey !== activeFeedEntryKey) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setActiveFeedEntryKey(nextKey);
+    }
+  }, [activeFeedEntryKey, feedTopics, topicIndex, setActiveFeedEntryKey]);
+
+  // If a card disappears during inventory refresh, fall back to its topic anchor.
+  useEffect(() => {
+    if (
+      !activeFeedEntryKey ||
+      activeFeedEntryKey.startsWith('topic:') ||
+      !activeInterstitialTopicIdRef.current
+    ) return;
+    const entries = feedEntryMap ? flattenFeedEntryMap(feedEntryMap) : [];
+    const cursor = reconcileFeedEntryCursor(
+      entries,
+      activeFeedEntryKey,
+      activeInterstitialTopicIdRef.current
+    );
+    if (cursor?.key === activeFeedEntryKey) return;
+    activeFeedEntryKeyRef.current = null;
+    setActiveFeedEntryKeyState(null);
+    if (cursor?.key.startsWith('topic:')) {
+      const topicId = cursor.key.slice('topic:'.length);
+      const index = feedTopics.findIndex((topic) => topic.id === topicId);
+      if (index >= 0) {
+          setTopicIndex(index);
+      }
+    }
+    activeInterstitialTopicIdRef.current = null;
+    setActiveTopCommentIndex(0);
+  }, [activeFeedEntryKey, feedEntryMap, feedTopics, topComments, userId]);
 
   // ----------------------------------
   // Initial Feed
   // ----------------------------------
 
   useEffect(() => {
-    // Signed-out users get the existing shuffled feed; personalized server
-    // ranking is preserved for signed-in users and starts at its top result.
-    const shuffled = personalized ? topics : shuffle(topics);
-    const previousIndex = preservePositionOnUpdate
-      ? shuffled.findIndex((topic) => topic.id === currentTopicId.current)
-      : -1;
+    // Personalised and general-ranked modes preserve server ordering. The
+    // legacy catalogue shuffle remains only for non-ranked fallback feeds.
+    const orderedTopics = personalized || generalRanked ? topics : shuffle(topics);
+    const sourceChanged = previousPersonalizedRef.current !== personalized;
+
+    if (preservePositionOnUpdate && feedInitializedRef.current) {
+      // Native catalogue/background updates must not replace the active
+      // session snapshot or discard pages already visited. Append only new IDs.
+      const nextFeedTopics = appendUniqueFeedTopics(feedTopicsRef.current, orderedTopics);
+      const preservedIndex = nextFeedTopics.findIndex(
+        (topic) => topic.id === currentTopicId.current
+      );
+
+        setFeedTopics(nextFeedTopics);
+      feedTopicsRef.current = nextFeedTopics;
+      if (preservedIndex >= 0) {
+        setTopicIndex(preservedIndex);
+      } else {
+        setTopicIndex((current) => Math.min(current, Math.max(0, nextFeedTopics.length - 1)));
+      }
+
+      if (sourceChanged) {
+        // Recommendation-to-catalogue fallback changes the pagination source,
+        // but not the already displayed session history.
+        generationRef.current += 1;
+        loadingRef.current = false;
+        setNextCursor(initialCursor);
+        setLoadingMore(false);
+        setLoadError('');
+      }
+      previousPersonalizedRef.current = personalized;
+      return;
+    }
+
     generationRef.current += 1;
     loadingRef.current = false;
-
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setFeedTopics(shuffled);
-
-    setTopicIndex(
-      previousIndex >= 0 ? previousIndex : personalized ? 0 : Math.floor(shuffled.length / 2)
-    );
+    setFeedTopics(orderedTopics);
+    feedTopicsRef.current = orderedTopics;
+    setTopicIndex(personalized || generalRanked ? 0 : Math.floor(orderedTopics.length / 2));
     setNextCursor(initialCursor);
     setLoadingMore(false);
     setLoadError('');
-  }, [topics, initialCursor, personalized, preservePositionOnUpdate]);
+    feedInitializedRef.current = true;
+    previousPersonalizedRef.current = personalized;
+  }, [topics, initialCursor, personalized, generalRanked, preservePositionOnUpdate]);
 
   const loadMoreTopics = useCallback(async () => {
     if (!nextCursor || loadingRef.current) return;
@@ -254,12 +662,26 @@ export function TopicFeedCore({
     try {
       const result = await loadPage(nextCursor);
       if (generation !== generationRef.current) return;
-      const newTopics = result.topics;
-      setFeedTopics((previous) => [
-        ...previous,
-        ...(personalized ? newTopics : shuffle(newTopics)),
-      ]);
+      const newTopics = personalized || generalRanked ? result.topics : shuffle(result.topics);
+      const previousLength = feedTopicsRef.current.length;
+      const nextTopics = appendUniqueFeedTopics(feedTopicsRef.current, newTopics);
+      feedTopicsRef.current = nextTopics;
+      setFeedTopics(nextTopics);
       setNextCursor(result.nextCursor);
+
+      // If the user reached the final loaded topic while pagination was in
+      // flight, continue onto the first newly appended topic exactly once.
+      // A reverse gesture clears this intent before the request completes.
+      if (pendingAdvanceAfterPageRef.current) {
+        pendingAdvanceAfterPageRef.current = false;
+        if (nextTopics.length > previousLength) {
+          setTopicIndex(previousLength);
+        } else if (!result.nextCursor) {
+          setTopicIndex(0);
+        } else {
+          setLoadError('No new topics were returned. Retry loading the feed.');
+        }
+      }
     } catch (error) {
       if (generation !== generationRef.current) return;
       console.error('Unable to load the next topic feed page:', error);
@@ -270,7 +692,7 @@ export function TopicFeedCore({
         setLoadingMore(false);
       }
     }
-  }, [nextCursor, personalized, loadPage]);
+  }, [nextCursor, personalized, generalRanked, loadPage]);
 
   // ----------------------------------
   // Navigation
@@ -278,129 +700,30 @@ export function TopicFeedCore({
 
   // Modulo arithmetic wraps the finite catalogue into a circular feed.
   const advanceToNextTopic = () => {
+    setActiveFeedEntryKey(null);
+    activateInterstitialTopic(null);
+    const currentTopicId = feedTopics[topicIndex]?.id;
+    const boundaries = feedEntryMapRef.current?.boundaries ?? [];
+    const currentBoundaryIndex = boundaries.findIndex((boundary) => boundary.topicId === currentTopicId);
+    const nextSponsorBoundary = boundaries
+      .slice(Math.max(0, currentBoundaryIndex + 1))
+      .find((boundary) => boundary.entries.some((entry) => entry.type === 'sponsor'));
+    const nextSponsorEntry = nextSponsorBoundary?.entries.find((entry) => entry.type === 'sponsor');
+    if (nextSponsorBoundary && nextSponsorEntry?.type === 'sponsor' && nextSponsorEntry.status === 'pending') {
+      prefetchMappedSponsor(nextSponsorBoundary.topicId);
+    }
     if (topicIndex >= feedTopics.length - 3 && nextCursor) {
       void loadMoreTopics();
     }
 
     if (topicIndex >= feedTopics.length - 1 && nextCursor) {
-      return;
-    }
-
-    setTopicIndex((prev) => (prev + 1) % feedTopics.length);
-  };
-
-  const nextTopic = () => {
-    // Ignore repeated gestures while the due sponsor inventory request is in flight.
-    if (sponsorLoadingRef.current) return;
-
-    // Never strand the user on an interstitial at the end of a page while the
-    // next topic page is still loading.
-    if (topicIndex >= feedTopics.length - 1 && nextCursor) {
+      pendingAdvanceAfterPageRef.current = true;
       void loadMoreTopics();
       return;
     }
 
-    let currentCommentCadence = topicsSinceTopCommentCard;
-    let currentSponsorCadence = topicsSinceSponsorCard;
-
-    if (seenTopCommentUserId.current !== userId) {
-      seenTopCommentUserId.current = userId;
-      seenTopCommentIds.current.clear();
-      topCommentCardsByTopicId.current.clear();
-      currentCommentCadence = 0;
-    }
-
-    if (topCommentCadenceUserId.current !== userId) {
-      topCommentCadenceUserId.current = userId;
-      currentCommentCadence = 0;
-    }
-
-    if (sponsorSessionUserId.current !== userId) {
-      sponsorSessionUserId.current = userId;
-      setActiveSponsorSessionId(null);
-      sponsorCardsByTopicId.current.clear();
-      currentSponsorCadence = 0;
-    }
-
-    const unseenTopComments = getUnseenTopFeedComments(
-      topComments,
-      seenTopCommentIds.current
-    );
-    const commentDue = shouldInsertTopCommentCard(
-      currentCommentCadence,
-      unseenTopComments.length > 0
-    );
-    const sponsorDue = shouldInsertSponsorCard(currentSponsorCadence, Boolean(userId));
-    const nextCommentCadence = getNextTopCommentCadence(currentCommentCadence);
-    const nextSponsorCadence = getNextSponsorCadence(currentSponsorCadence);
-    // Keep the two cadences independent. If both are due, show the comment
-    // first and then the sponsor placement at the same topic boundary.
-    const chooseSponsor = sponsorDue && !commentDue;
-
-    if (chooseSponsor) {
-      const currentTopic = feedTopics[topicIndex];
-      setTopicsSinceTopCommentCard(commentDue ? currentCommentCadence : nextCommentCadence);
-      sponsorRequestPreviousCadence.current = topicsSinceSponsorCard;
-      setTopicsSinceSponsorCard(0);
-
-      if (!currentTopic || sponsorLoadingRef.current) {
-        advanceToNextTopic();
-        return;
-      }
-
-      sponsorLoadingRef.current = true;
-      const requestedUserId = userId;
-      const requestVersion = ++sponsorRequestVersion.current;
-      void loadSponsorCampaigns(currentTopic).then((result) => {
-        if (sponsorRequestVersion.current !== requestVersion ||
-            sponsorSessionUserId.current !== requestedUserId) return;
-        if (result.campaigns.length > 0 && result.sessionId) {
-          setSponsorCampaigns(result.campaigns);
-          setActiveSponsorSessionId(result.sessionId);
-          sponsorCardsByTopicId.current.set(currentTopic.id, {
-            campaigns: result.campaigns,
-            sessionId: result.sessionId,
-          });
-          setShowTopCommentCard(false);
-          setShowSponsorCard(true);
-          return;
-        }
-
-        if (commentDue && unseenTopComments.length > 0) {
-          setTopicsSinceTopCommentCard(0);
-          setTopCommentCardComments(unseenTopComments);
-          topCommentCardsByTopicId.current.set(currentTopic.id, unseenTopComments);
-          setShowSponsorCard(false);
-          setShowTopCommentCard(true);
-          return;
-        }
-
-        advanceToNextTopic();
-      }).finally(() => {
-        if (sponsorRequestVersion.current === requestVersion) {
-          sponsorLoadingRef.current = false;
-        }
-      });
-      return;
-    }
-
-    setTopicsSinceSponsorCard(sponsorDue ? currentSponsorCadence : nextSponsorCadence);
-
-    if (commentDue) {
-      pendingSponsorAfterComment.current = sponsorDue;
-      setTopicsSinceTopCommentCard(0);
-      const currentTopic = feedTopics[topicIndex];
-      if (currentTopic) {
-        setTopCommentCardComments(unseenTopComments);
-        topCommentCardsByTopicId.current.set(currentTopic.id, unseenTopComments);
-        setShowSponsorCard(false);
-        setShowTopCommentCard(true);
-        return;
-      }
-    }
-
-    setTopicsSinceTopCommentCard(nextCommentCadence);
-    advanceToNextTopic();
+    pendingAdvanceAfterPageRef.current = false;
+    setTopicIndex((prev) => (prev + 1) % feedTopics.length);
   };
 
   const markTopCommentViewed = useCallback(
@@ -409,59 +732,321 @@ export function TopicFeedCore({
         seenTopCommentUserId.current = userId;
         seenTopCommentIds.current.clear();
         topCommentCardsByTopicId.current.clear();
+        topCommentIndexByTopicId.current.clear();
+        setTopCommentIndices({});
+        setActiveTopCommentIndex(0);
+        processedTopicBoundariesByTopicId.current.clear();
+        sponsorDueByTopicId.current.clear();
       }
       seenTopCommentIds.current.add(commentId);
     },
     [userId]
   );
 
+  const activateFeedEntry = async (
+    entry: FeedEntry,
+    direction: FeedEntryDirection,
+    entries: readonly FeedEntry[]
+  ) => {
+    setActiveFeedEntryKey(getFeedEntryKey(entry));
+
+    if (entry.type === 'topic') {
+      activateInterstitialTopic(null);
+      const index = feedTopics.findIndex((topic) => topic.id === entry.topicId);
+      if (index >= 0) setTopicIndex(index);
+      return;
+    }
+
+    activateInterstitialTopic(entry.topicId);
+    if (entry.type === 'top-comments') {
+      setFeedProgress({
+        current: topCommentIndexByTopicId.current.get(entry.topicId) ?? 0,
+        total: entry.comments.length,
+      });
+    } else {
+      setFeedProgress({ current: 0, total: 1 });
+    }
+    const rendererContext = feedCardRendererContextRef.current;
+    if (!rendererContext) return;
+    await invokeRegisteredFeedEntryLifecycle(
+      entry,
+      'enter',
+      direction,
+      entries,
+      feedCardRenderersRef.current,
+      rendererContext
+    );
+  };
+
+  const loadSponsorEntry = async (
+    entry: Extract<FeedEntry, { type: 'sponsor' }>,
+    direction: FeedEntryDirection,
+    entries: readonly FeedEntryLike[]
+  ) => {
+    const sponsorTopic = feedTopics.find((topic) => topic.id === entry.topicId);
+    const entryKey = getFeedEntryKey(entry);
+    const skipEntry = async () => {
+      const adjacent = getAdjacentFeedEntry(entries, entryKey, direction);
+      if (adjacent) {
+        await activateFeedEntry(adjacent.entry as FeedEntry, direction, entries as readonly FeedEntry[]);
+      } else if (direction === 'next') {
+        setActiveFeedEntryKey(null);
+        advanceToNextTopic();
+      } else {
+        setActiveFeedEntryKey(null);
+        const anchorIndex = feedTopics.findIndex((topic) => topic.id === entry.topicId);
+        const previousIndex = anchorIndex >= 0
+          ? (anchorIndex - 1 + feedTopics.length) % feedTopics.length
+          : Math.max(0, feedTopics.length - 1);
+        setTopicIndex(previousIndex);
+        activateInterstitialTopic(null);
+      }
+    };
+
+    if (!sponsorTopic) {
+      await skipEntry();
+      return;
+    }
+
+    sponsorLoadingRef.current = true;
+    sponsorDirectionByTopicId.current.set(entry.topicId, direction);
+    entry.status = 'pending';
+    setSponsorLoading(true);
+    const requestedUserId = userId;
+    const requestVersion = ++sponsorRequestVersion.current;
+    try {
+      let result = await getSponsorCampaignResult(sponsorTopic);
+      if (result.retryable) {
+        // A token refresh/network race must not silently consume the sponsor
+        // slot. Re-attempt once while the loading card remains active.
+        await new Promise((resolve) => window.setTimeout(resolve, 400));
+        result = await getSponsorCampaignResult(sponsorTopic);
+      }
+      if (
+        sponsorRequestVersion.current !== requestVersion ||
+        sponsorSessionUserId.current !== requestedUserId
+      ) return;
+
+      if (result.campaigns.length > 0 && result.sessionId) {
+        entry.campaigns = result.campaigns;
+        entry.sessionId = result.sessionId;
+        entry.status = 'ready';
+        sponsorCardsByTopicId.current.set(entry.topicId, {
+          campaigns: result.campaigns,
+          sessionId: result.sessionId,
+        });
+        sponsorResultsByTopicId.current.set(entry.topicId, result);
+        sponsorDueByTopicId.current.delete(entry.topicId);
+        setSponsorLoading(false);
+        return;
+      }
+
+      if (result.retryable) {
+        // Keep the placement in the feed and expose an explicit retry action.
+        // Only a confirmed empty eligibility result is allowed to remove it.
+        entry.status = 'error';
+        return;
+      }
+
+      entry.status = 'empty';
+      sponsorDueByTopicId.current.delete(entry.topicId);
+      const boundary = feedEntryMapRef.current?.byTopicId.get(entry.topicId);
+      if (boundary) {
+        boundary.entries = boundary.entries.filter((candidate) => candidate.type !== 'sponsor');
+      }
+      await skipEntry();
+    } finally {
+      if (sponsorRequestVersion.current === requestVersion) {
+        sponsorLoadingRef.current = false;
+        setSponsorLoading(false);
+      }
+    }
+  };
+
+  const cancelSponsorRequest = () => {
+    if (!sponsorLoadingRef.current) return;
+    sponsorRequestVersion.current += 1;
+    sponsorLoadingRef.current = false;
+    setSponsorLoading(false);
+  };
+
+  const navigateFeedEntry = async (direction: 'next' | 'previous') => {
+    if (!feedEntryMapRef.current) return;
+    const entries = flattenFeedEntryMap(feedEntryMapRef.current);
+    const currentTopic = feedTopics[topicIndex];
+    const currentKey = activeFeedEntryKeyRef.current ?? (
+      currentTopic
+        ? getFeedEntryKey({ type: 'topic', topicId: currentTopic.id })
+        : ''
+    );
+    if (!currentKey) return;
+
+    const currentEntry = entries.find((entry) => getFeedEntryKey(entry) === currentKey);
+    if (direction === 'next' && currentEntry?.type === 'topic' && currentTopic) {
+      const boundary = feedEntryMapRef.current?.byTopicId.get(currentTopic.id);
+      if (boundary && !processedTopicBoundariesByTopicId.current.has(currentTopic.id)) {
+        processedTopicBoundariesByTopicId.current.add(currentTopic.id);
+        topicsSinceTopCommentCardRef.current = boundary.commentCadenceAfter;
+        topicsSinceSponsorCardRef.current = boundary.sponsorCadenceAfter;
+      }
+    }
+
+    const rendererContext = feedCardRendererContextRef.current;
+    if (currentEntry && currentEntry.type !== 'topic' && rendererContext) {
+      await invokeRegisteredFeedEntryLifecycle(
+        currentEntry,
+        'exit',
+        direction,
+        entries,
+        feedCardRenderersRef.current,
+        rendererContext
+      );
+    }
+
+    const adjacent = getAdjacentFeedEntry(entries, currentKey, direction);
+    if (!adjacent) {
+      if (direction === 'next') {
+        advanceToNextTopic();
+      } else if (feedTopics.length > 0) {
+        const lastIndex = feedTopics.length - 1;
+        const lastTopic = feedTopics[lastIndex];
+        if (lastTopic) setActiveFeedEntryKey(getFeedEntryKey({
+          type: 'topic',
+          topicId: lastTopic.id,
+        }));
+        activateInterstitialTopic(null);
+        setTopicIndex(lastIndex);
+      }
+      return;
+    }
+
+    if (adjacent.entry.type === 'topic') {
+      if (direction === 'next') {
+        advanceToNextTopic();
+      } else {
+        setActiveFeedEntryKey(getFeedEntryKey(adjacent.entry));
+        activateInterstitialTopic(null);
+        const index = feedTopics.findIndex((topic) => topic.id === adjacent.entry.topicId);
+        if (index >= 0) setTopicIndex(index);
+      }
+      return;
+    }
+
+    await activateFeedEntry(adjacent.entry, direction, entries);
+  };
+
+  const nextTopic = () => navigateFeedEntry('next');
+  const previousTopic = () => navigateFeedEntry('previous');
+
   const openTopComment = (comment: TopFeedComment) => {
     onOpenComment(comment);
   };
 
-  const previousTopic = () => {
-    if (sponsorLoadingRef.current) {
-      sponsorRequestVersion.current += 1;
-      sponsorLoadingRef.current = false;
-      setTopicsSinceSponsorCard(sponsorRequestPreviousCadence.current);
-    }
-    pendingSponsorAfterComment.current = false;
-    if (seenTopCommentUserId.current !== userId) {
-      seenTopCommentUserId.current = userId;
-      seenTopCommentIds.current.clear();
-      topCommentCardsByTopicId.current.clear();
-    }
+  const flattenedEntries = feedEntryMap ? flattenFeedEntryMap(feedEntryMap) : [];
+  const activeMappedEntry = activeFeedEntryKey
+    ? flattenedEntries.find((entry) => getFeedEntryKey(entry) === activeFeedEntryKey) ?? null
+    : null;
+  const activeFeedCardEntry: FeedEntry | null =
+    activeMappedEntry && activeMappedEntry.type !== 'topic'
+      ? activeMappedEntry
+      : null;
+  const currentTopicKey = feedTopics[topicIndex]
+    ? `topic:${feedTopics[topicIndex].id}`
+    : '';
+  const currentEntryKey = activeMappedEntry
+    ? getFeedEntryKey(activeMappedEntry)
+    : currentTopicKey;
+  const nextFeedEntry = currentEntryKey
+    ? getAdjacentFeedEntry(flattenedEntries, currentEntryKey, 'next')?.entry ?? null
+    : null;
+  const previousFeedEntry = currentEntryKey
+    ? getAdjacentFeedEntry(flattenedEntries, currentEntryKey, 'previous')?.entry ?? null
+    : null;
 
-    const previousIndex = (topicIndex - 1 + feedTopics.length) % feedTopics.length;
-    const previousTopicId = feedTopics[previousIndex]?.id;
-    const previousSponsorCard = previousTopicId
-      ? sponsorCardsByTopicId.current.get(previousTopicId)
-      : undefined;
-    if (previousSponsorCard?.campaigns.length) {
-      setSponsorCampaigns(previousSponsorCard.campaigns);
-      setActiveSponsorSessionId(previousSponsorCard.sessionId);
-      setShowTopCommentCard(false);
-      setShowSponsorCard(true);
-      return;
-    }
-
-    const previousCard = previousTopicId
-      ? topCommentCardsByTopicId.current.get(previousTopicId)
-      : undefined;
-
-    if (previousCard?.length) {
-      setTopCommentCardComments(previousCard);
-      setShowTopCommentCard(true);
-      return;
-    }
-
-    setTopicIndex(previousIndex);
+  const baseFeedCardContext: FeedCardRendererContext = {
+    userId,
+    sponsorApiBaseUrl: effectiveSponsorApiBaseUrl,
+    getSponsorAccessToken,
+    activeTopCommentIndex,
+    onProgressChange: updateFeedProgress,
+    onTopCommentIndexChange: (topicId: string, index: number) => {
+      setActiveTopCommentIndex(index);
+      setTopCommentIndices((current) => ({ ...current, [topicId]: index }));
+      topCommentIndexByTopicId.current.set(topicId, index);
+    },
+    onCommentViewed: markTopCommentViewed,
+    onOpenComment: openTopComment,
+    navigateNext: () => nextTopic(),
+    navigatePrevious: () => previousTopic(),
+    activateInterstitialTopic,
+    markCommentSeen: (commentId) => seenTopCommentIds.current.add(commentId),
+    cacheCommentGroup: (topicId, comments) => topCommentCardsByTopicId.current.set(topicId, comments),
+    getTopCommentIndex: (topicId) => topCommentIndexByTopicId.current.get(topicId) ?? 0,
+    loadSponsorEntry,
+    retrySponsorEntry: (entry) => {
+      const direction = sponsorDirectionByTopicId.current.get(entry.topicId) ?? 'next';
+      const entries = feedEntryMapRef.current ? flattenFeedEntryMap(feedEntryMapRef.current) : [];
+      void loadSponsorEntry(entry, direction, entries);
+    },
+    cancelSponsorRequest,
   };
 
-  const currentTopCommentIds = new Set(topComments.map((comment) => comment.comment_id));
-  const activeTopCommentCardComments = topCommentCardComments.filter((comment) =>
-    currentTopCommentIds.has(comment.comment_id)
+  const renderFeedEntryPreview = (entry: FeedEntry | null): ReactNode | undefined => {
+    if (!entry) return undefined;
+    if (entry.type === 'topic') {
+      const topic = feedTopics.find((item) => item.id === entry.topicId);
+      return topic
+        ? <TopicCard type="question" title="Question" content={topic.question} />
+        : undefined;
+    }
+
+    const previewContext: FeedCardRendererContext = {
+      ...baseFeedCardContext,
+      previewMode: true,
+      activeTopCommentIndex: entry.type === 'top-comments'
+        ? topCommentIndices[entry.topicId] ?? 0
+        : 0,
+      nextEntryPreview: undefined,
+      previousEntryPreview: undefined,
+    };
+    // The registry stores deferred callbacks; refs are read only when users interact with the preview's active counterpart.
+    const previewRegistry = createFeedCardRegistry(previewContext);
+    return renderRegisteredFeedEntry(entry, previewRegistry, previewContext);
+  };
+
+  const nextEntryPreview = renderFeedEntryPreview(nextFeedEntry); // eslint-disable-line react-hooks/refs
+  const previousEntryPreview = renderFeedEntryPreview(previousFeedEntry); // eslint-disable-line react-hooks/refs
+  const topicCard = (
+    <Viewer
+      topics={feedTopics}
+      topicIndex={topicIndex}
+      initialUserId={userId}
+      active={!activeFeedCardEntry}
+      onNextTopic={nextTopic}
+      onPreviousTopic={previousTopic}
+      onProgressChange={updateFeedProgress}
+      nextEntryPreview={nextEntryPreview}
+      previousEntryPreview={previousEntryPreview}
+    />
   );
+  const feedCardRendererContext: FeedCardRendererContext = {
+    ...baseFeedCardContext,
+    topicCard,
+    previewMode: false,
+    nextEntryPreview,
+    previousEntryPreview,
+  };
+  // The registry stores deferred callbacks; refs are read only when users interact with the rendered card.
+  const feedCardRenderers = createFeedCardRegistry(feedCardRendererContext); // eslint-disable-line react-hooks/refs
+  useLayoutEffect(() => {
+    feedCardRendererContextRef.current = feedCardRendererContext;
+    feedCardRenderersRef.current = feedCardRenderers;
+  });
+
+  // Resolve every active entry—including topics—through the same registry.
+  const renderedActiveEntry = activeMappedEntry
+    ? renderRegisteredFeedEntry(activeMappedEntry, feedCardRenderers, feedCardRendererContext) // eslint-disable-line react-hooks/refs
+    : topicCard;
 
   // ----------------------------------
   // Loading
@@ -472,7 +1057,7 @@ export function TopicFeedCore({
   }
 
   return (
-    <div className="h-full">
+    <>
       {(loadingMore || loadError) && (
         <div className="bg-bg-primary/90 absolute top-20 left-1/2 z-20 -translate-x-1/2 rounded-full px-4 py-2 text-sm shadow">
           {loadError ? (
@@ -484,88 +1069,10 @@ export function TopicFeedCore({
           )}
         </div>
       )}
-      {showSponsorCard && sponsorCampaigns.length > 0 ? (
-        <SponsorFeedCard
-          campaigns={sponsorCampaigns}
-          sessionId={activeSponsorSessionId ?? ''}
-          userId={userId ?? ''}
-          sponsorApiBaseUrl={effectiveSponsorApiBaseUrl}
-          getAccessToken={getSponsorAccessToken ?? (async () => null)}
-          onNextTopic={() => {
-            setShowSponsorCard(false);
-            advanceToNextTopic();
-          }}
-          onPreviousTopic={() => {
-            setShowSponsorCard(false);
-            previousTopic();
-          }}
-        />
-      ) : showTopCommentCard && activeTopCommentCardComments.length > 0 ? (
-        <TopCommentFeedCard
-          key={userId ?? 'anonymous'}
-          comments={activeTopCommentCardComments}
-          onCommentViewed={markTopCommentViewed}
-          onNextTopic={() => {
-            if (sponsorLoadingRef.current) return;
-            if (!pendingSponsorAfterComment.current) {
-              setShowTopCommentCard(false);
-              advanceToNextTopic();
-              return;
-            }
-
-            pendingSponsorAfterComment.current = false;
-            const currentTopic = feedTopics[topicIndex];
-            if (!currentTopic || sponsorLoadingRef.current) {
-              setShowTopCommentCard(false);
-              setTopicsSinceSponsorCard(0);
-              advanceToNextTopic();
-              return;
-            }
-
-            sponsorLoadingRef.current = true;
-            sponsorRequestPreviousCadence.current = topicsSinceSponsorCard;
-            const requestedUserId = userId;
-            const requestVersion = ++sponsorRequestVersion.current;
-            void loadSponsorCampaigns(currentTopic).then((result) => {
-              if (sponsorRequestVersion.current !== requestVersion ||
-                  sponsorSessionUserId.current !== requestedUserId) return;
-              setTopicsSinceSponsorCard(0);
-              if (result.campaigns.length > 0 && result.sessionId) {
-                setSponsorCampaigns(result.campaigns);
-                setActiveSponsorSessionId(result.sessionId);
-                sponsorCardsByTopicId.current.set(currentTopic.id, {
-                  campaigns: result.campaigns,
-                  sessionId: result.sessionId,
-                });
-                setShowTopCommentCard(false);
-                setShowSponsorCard(true);
-                return;
-              }
-
-              setShowTopCommentCard(false);
-              advanceToNextTopic();
-            }).finally(() => {
-              if (sponsorRequestVersion.current === requestVersion) {
-                sponsorLoadingRef.current = false;
-              }
-            });
-          }}
-          onPreviousTopic={() => {
-            pendingSponsorAfterComment.current = false;
-            setShowTopCommentCard(false);
-            previousTopic();
-          }}
-          onOpenComment={openTopComment}
-        />
-      ) : (
-        <Viewer
-          topics={feedTopics}
-          topicIndex={topicIndex}
-          initialUserId={userId}
-          onNextTopic={nextTopic}
-          onPreviousTopic={previousTopic}
-        />
-      )}
-    </div>
+      <FeedRenderer
+        progress={<FeedProgress current={feedProgress.current} total={feedProgress.total} />}
+        entryCard={renderedActiveEntry}
+      />
+    </>
   );
 }

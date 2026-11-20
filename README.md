@@ -37,12 +37,34 @@ Whether you're exploring Catholicism for the first time, returning to the faith,
 - **Progress tracking** - keep track of completed topics and learning streaks.
 - **Community discussion** - comment, reply, like contributions, and engage with other learners.
 - **Public profiles** - view user profiles, progress, activity, and community contributions.
-- **Structured learning** - planned premium learning paths that guide users through key areas of Catholic teaching.
-- **Audio lessons** - planned premium narrated audio versions of topics; written topics remain free.
-- **Quizzes** - planned premium quizzes designed to reinforce learning and understanding.
+- **Structured learning** - planned learning paths that guide users through key areas of Catholic teaching; all learning tools are free.
+- **Audio lessons** - planned narrated audio versions of topics, free to all users.
+- **Quizzes** - planned quizzes designed to reinforce learning and understanding, available free to users.
+- **Sponsorships** - clearly labelled paid placements purchased by businesses; user learning features remain free and sponsor activity never changes organic recommendation ranking.
 - **SEO and discoverability** - sitemap generation, robots rules, metadata, and rich social previews.
 - **RSS feed** - public topic feed available at `/feed.xml`.
 - **Responsive design** - designed to work seamlessly across desktop and mobile devices.
+
+## Feed experience
+
+The topic feed uses a shared analytics-informed general ranking for signed-out visitors and signed-in users who have disabled personalisation. Visitors who explicitly enable personalisation receive the general ranking as a baseline, adjusted by their own permitted activity signals. All modes balance category coverage and limit repetitive runs. Additional pages are appended using the active general or personalised cursor; the loaded session order is preserved during navigation.
+
+- **General ranking:** Signed-out visitors and signed-in users who have not enabled personalisation receive the same non-personalised ranking. It uses the previous 90 days of site-wide topic engagement: viewable impressions, impressions, completions, active reading time and skips, with exponential recency decay. Public likes, bookmarks and top-level comment counts provide additional engagement signals. A logarithmic transform prevents a small number of already-popular topics from dominating, while an exposure-based exploration bonus helps under-seen topics surface. The scheduler selects the best next topic within each category, balances category delivery, and avoids more than two consecutive topics from one category where alternatives exist. It includes completed topics and never reads an individual visitor's account history. See [General feed ranking](docs/general-feed-ranking.md) for the scoring and diversity rules.
+- **Personalised ranking:** Only after explicit opt-in, the existing recommendation RPC uses the account's completed topics, bookmarks, likes, comments and eligible feed telemetry to adjust category weights. The general-ranking path remains separate and is not replaced by personalisation. Native clients must preserve the same consent gate when selecting their feed source.
+- **Top Comments:** Up to five eligible, unseen top-level comments are inserted after every five topic advances when inventory is available. Further 100-comment inventory pages are fetched as the unseen pool runs low, with duplicate IDs removed. The selected group is cached against the topic that introduced it. Returning to that topic replays the same group instead of selecting different comments.
+- **Sponsored placements:** Eligible campaigns are considered after every ten topic advances for signed-in and signed-out visitors. When both card types are due at the same boundary, Top Comments appears first and the sponsor follows it. Each sponsor placement is cached against its topic and keeps its attribution session ID when revisited. Campaign selection uses the existing rolling 30-day weighted fair-queue pacing based on viewable impressions; sponsorship does not affect organic recommendations.
+- **Session mapping:** Topic order, comment groups, sponsor placements, cadence and reserved-comment IDs remain in memory for the active account session. Back/forward navigation and looping reuse those mappings. A full page/app reload or account change starts a new mapping. Background native catalogue updates append previously unseen topic IDs without replacing loaded history or changing the active topic.
+- **Navigation:** Topic, comment and sponsor cards use the existing vertical swipe/navigation callbacks and shared transition components. Moving backwards from a comment returns to its topic; moving backwards from a sponsor returns to the comment first when both were inserted at the same boundary. A cancelled sponsor request remains attached to its topic and is retried when the user moves forward again.
+- **Card surfaces:** The progress-bar region stays on the neutral feed background. The subtle accent tint is applied only to the topic/comment card surface beneath it.
+- **Analytics:** Feed impressions, viewable impressions, active duration, early skips, slide depth, completion and repeat visits continue through the existing analytics pipeline. Visit/completion deduplication survives topic-viewer unmounts when interstitials appear. Signed-in sponsor events use the authenticated reporting pipeline; signed-out sponsor events use a separate hashed-session, aggregate-only pipeline with 30-day raw-event cleanup and bounded in-memory retries on reconnect/visibility changes. Topic/comment analytics for signed-out visitors use daily entity aggregates without visitor IDs. The signed-in topic and Top Comments queues are bounded in memory on the website. On Android and Electron, they also persist in the encrypted private activity database with a 2,000-event per-stream cap, seven-day expiry, server-acknowledgement deletion and account-switch cleanup. The website's anonymous topic/comment queue is held in page memory, while native apps persist a bounded 2,000-event outbox for up to seven days and clear it when the user opts out. Signed-in sponsor reporting uses the encrypted native analytics outbox (2,000 pending events, seven-day expiry and acknowledgement-based deletion) on Android and Electron; the website keeps its existing in-memory queue. Anonymous sponsor retries are held in memory only, so a process exit can lose an unacknowledged event rather than persisting its session token.
+
+Implementation and operational details are maintained in [General feed ranking](docs/general-feed-ranking.md), [Feed experience and analytics](docs/feed-experience-and-analytics.md), [Feed analytics implementation](docs/feed-analytics-implementation.md), [Personalisation and analytics implementation](docs/personalization-analytics-implementation.md), [Sponsor platform](docs/sponsor-platform.md), and [Privacy and legal implementation notes](docs/privacy-and-legal-implementation.md). The public [Privacy Policy](/privacy), [Cookie Policy](/cookies), and [Terms of Service](/terms) describe user-facing data and commercial terms. The temporary logo-free deployment bridge and final cleanup are documented in [sponsor-logo-compatibility.sql](docs/sponsor-logo-compatibility.sql) and [sponsor-logo-removal.sql](docs/sponsor-logo-removal.sql); the narrow upstream dependency exception is documented in [security-dependency-exceptions.md](docs/security-dependency-exceptions.md).
+
+### Account personalisation and shared native UI
+
+Personalisation is optional, off by default, and requires a separate explicit opt-in at signup or later in Account settings. The shared signup view is used by both the website and native app. The shared account view also renders the same personalisation summary and consent control on web and native; the detailed settings route at `/account/personalization` reuses the same settings screen and is supported by the native router. Platform-specific Supabase session storage, navigation and offline behaviour remain in the web/native adapters rather than duplicating the interface. On Android and Electron, the app caches the latest server-ranked general feed pages in the local catalogue database and previously downloaded personalised pages in the encrypted private activity database. Personalised pages are available offline only while the last successful consent check is no more than 12 hours old; no new interest profile is calculated offline. If no server-ranked page has been cached, the app falls back to a shuffled local catalogue page rather than pretending to reproduce server ranking.
+
+The consent choice is written server-side when a new Auth user is created. The recommendation RPC only reads account history and the private interest profile while consent is enabled. When consent is withdrawn, existing recommendation cursors are normalised to neutral category weights and completed-topic suppression is disabled immediately; the derived profile and explicit category choices are deleted. Operational analytics are separate and follow their own retention rules. See [Personalisation and analytics implementation](docs/personalization-analytics-implementation.md) and [Privacy and legal implementation notes](docs/privacy-and-legal-implementation.md).
 
 ## Why CathoScroll?
 
@@ -83,8 +105,8 @@ By combining educational content, planned structured learning, and community dis
 ### Setup
 
 ```bash
-git clone https://github.com/joshuaargent/CathoScroll.git
-cd CathoScroll
+git clone https://github.com/joshuaargent/TS_CathoScroll.git
+cd TS_CathoScroll
 npm install
 cp .env.example .env.local
 npm run dev
@@ -168,13 +190,13 @@ CathoScroll uses two separate GitHub Actions workflows:
 
 ### Triggering a release
 
-Create and push an annotated version tag from the merged `main` commit. For example, for version 2.2.0:
+Create and push an annotated version tag from the merged `main` commit. For example, for the current 2.4.0 package version:
 
 ```bash
 git checkout main
 git pull origin main
-git tag -a v2.2.0 -m "CathoScroll v2.2.0"
-git push origin v2.2.0
+git tag -a v2.4.0 -m "CathoScroll v2.4.0"
+git push origin v2.4.0
 ```
 
 The tag push starts the release workflow. Do not create a separate manual release or upload build files yourself; the workflow creates/updates the GitHub release and publishes it after the platform builds and asset checks succeed. The workflow generates GitHub release notes automatically from the changes since the previous release.
@@ -242,9 +264,12 @@ The current Auth configuration also has leaked-password protection disabled.
 The CathoScroll Supabase organisation is currently on the Free plan; Supabase
 requires Pro or above for leaked-password protection. Upgrade before enabling
 it in Auth settings. Email verification is a separate setting and remains
-disabled. Admin MFA enforcement remains a separate rollout task:
-enrol and verify the owner/admin accounts first, then enable enforcement so
-administrators are not locked out.
+disabled. CathoScroll does not implement MFA or authenticator enrolment; sign-in
+uses the standard email/password flow and admin access is controlled by the
+protected administrator-role records. Supabase's hosted Auth service has its
+own TOTP enrolment/verification settings, which are separate from application
+code and must be disabled in the Supabase dashboard if you want to prevent
+factor enrolment at the provider level as well.
 
 The production database is currently small, so unused-index warnings are not
 evidence that those indexes should be dropped. Keep indexes that support
@@ -264,20 +289,20 @@ Copy `.env.example` to `.env.local` in the project root and fill in the values f
 
 ## Authentication and protected pages
 
-The `/account` and `/bookmarks` pages have two layers of sign-in checks:
+The `/account`, `/account/personalization`, and `/bookmarks` pages have two layers of sign-in checks:
 
 1. The Next.js 16 `src/proxy.ts` layer validates the Supabase session and redirects signed-out requests to `/signin`, preserving the requested local path so sign-in can return the user to it.
-2. The account page repeats the check client-side, and the bookmarks page checks the session on the server before reading user data.
+2. The account and personalisation pages repeat the check client-side, and the bookmarks page checks the session on the server before reading user data.
 
 These redirects improve navigation but do not replace authorization. Supabase Row Level Security policies and server-side checks must continue to protect user data and mutations. The moderation dashboard and moderation API routes independently verify the signed-in user's database-backed admin role; hiding admin UI is never treated as authorization.
 
 ### Supabase write-permission hardening
 
-Supabase schema changes are managed directly against the connected project. The repository intentionally maintains no Supabase migration files; the complete application schema is consolidated in `docs/cathoscroll-database-bootstrap.sql` for fresh-project recovery. That bootstrap is not an incremental upgrade script and must never be run against an existing project.
+Supabase schema changes are managed directly against the connected project. The repository does not maintain a timestamped Supabase migration chain; the complete application schema is consolidated in `docs/cathoscroll-database-bootstrap.sql` for fresh-project recovery. A single, explicit [`docs/personalization-analytics-upgrade.sql`](docs/personalization-analytics-upgrade.sql) transition script is maintained for existing projects that predate the opt-in personalisation and analytics upgrade. Neither SQL file is a substitute for a full data backup.
 
-Comment pinning and moderation use server endpoints and a database-backed `admin_users` role table. The service-role key is used only on the server and must never be exposed in a `NEXT_PUBLIC_*` variable. The canonical bootstrap contains the application tables, constraints, comment-ban insert/edit triggers, atomic moderation functions and report throttling function. Do not maintain or apply a separate chain of SQL migration files.
+Comment pinning and moderation use server endpoints and a database-backed `admin_users` role table. The service-role key is used only on the server and must never be exposed in a `NEXT_PUBLIC_*` variable. The canonical bootstrap contains the application tables, constraints, comment-ban insert/edit triggers, atomic moderation functions, report throttling, sponsor-only commercial schema and consent-gated recommendation functions. Do not maintain a separate chain of ad-hoc SQL patches; update the canonical bootstrap and the one-time upgrade script together when relevant database behaviour changes.
 
-Authenticated users can privately report comments. Admins can review and dismiss reports, resolve them, or hide the reported comment. Comment restrictions prevent new comments, replies, and edits, but do not disable sign-in or other account features; users can still delete their own comments. Admins may optionally hide a user's existing visible comments when applying a restriction, while retaining them in moderation history. Restricted users can submit one pending appeal; admins can review paginated comment history with reply context and lift the restriction. Subscription tiers must only be changed by trusted billing/server-side code.
+Authenticated users can privately report comments. Admins can review and dismiss reports, resolve them, or hide the reported comment. Comment restrictions prevent new comments, replies, and edits, but do not disable sign-in or other account features; users can still delete their own comments. Admins may optionally hide a user's existing visible comments when applying a restriction, while retaining them in moderation history. Restricted users can submit one pending appeal; admins can review paginated comment history with reply context and lift the restriction. Sponsor payment status and campaign eligibility can only be changed through the trusted sponsor-financial workflow.
 
 The notification center is available to signed-in users from the navbar bell. It displays the latest 50 notifications and supports marking one or all as read; the badge shows `1`–`9`, then `9+`, and is hidden when there are no unread notifications. The notification table, owner-only RLS policies, and database notification triggers/functions are included in the canonical bootstrap for fresh-project recovery; do not run that bootstrap against an existing project. Those database-side handlers create welcome, reply, and moderation notifications transactionally; email notifications are not used.
 
@@ -470,17 +495,21 @@ automatically, but applying them requires system authorization through the
 package installer. macOS remains unsigned and uses a manual
 download-and-reinstall update flow.
 
-Signed-in feed recommendations require the `get_my_recommendation_page` RPC and supporting indexes supplied separately for Supabase. It aggregates each user's completed topics (weight 5), bookmarks (4), likes (3), and distinct commented topics (3) across the published catalogue into category preferences. For each category, a weight of `1 + sqrt(preference)` reduces the effect of very large histories while allowing every category to be explored. The RPC takes the next unfinished topic from indexed category streams, selecting the category with the smallest `served / weight` and avoiding three consecutive topics from the same category when alternatives exist. This approximates a globally personalized ranking without loading or sorting the whole catalogue. The per-category cursor and preference snapshot are carried across pages; a refresh picks up changed preferences. Progress is checked as pages load, and content edits or unpublishing can change subsequent results. If every topic is complete, the initial page falls back to completed topics. The cursor is limited to 200 published categories and 64 KiB; the RPC rejects larger catalogues explicitly. Recommendation responses are private and uncached. Signed-out users retain the shuffled feed.
+Signed-in feed recommendations require the `get_my_recommendation_page` RPC and supporting indexes supplied separately for Supabase. It aggregates each user's completed topics (weight 5), bookmarks (4), likes (3), and distinct commented topics (3) across the published catalogue into category preferences. For each category, a weight of `1 + sqrt(preference)` reduces the effect of very large histories while allowing every category to be explored. The RPC takes the next unfinished topic from indexed category streams, selecting the category with the smallest `served / weight` and avoiding three consecutive topics from the same category when alternatives exist. This approximates a globally personalized ranking without loading or sorting the whole catalogue. The per-category cursor and preference snapshot are carried across pages; a refresh picks up changed preferences. Progress is checked as pages load, and content edits or unpublishing can change subsequent results. If every topic is complete, the initial page falls back to completed topics. The cursor is limited to 200 published categories and 64 KiB; the RPC rejects larger catalogues explicitly. Recommendation responses are private and uncached. Signed-out visitors and signed-in users who have not enabled personalisation use the general analytics-ranked feed. That ranking uses site-wide daily topic aggregates from signed-in and signed-out activity, plus public engagement, recency decay, exploration and category balancing; it does not read the current viewer's account history or build an individual profile.
 
 The feed viewer requests exact like and visible-comment counts and the signed-in user's activity for the current topic only. It does not download the full likes, comments, bookmarks, or progress tables. Exact counts still require database work proportional to the matching rows; very popular topics may eventually need maintained aggregate counters. Recommendation quality and query performance should be measured with real usage rather than assumed to match large commercial recommendation systems.
 
 ### Feed analytics and recommendations
 
-The feed records topic impressions, viewable impressions, active reading time, skips, slide depth, completions, and return visits. Events are queued per signed-in account in persistent browser/WebView storage, sent in batches of up to 50, and removed only after the server accepts the batch. The queue is retained while offline and is flushed when connectivity returns, when the analytics transport is installed at app startup, and when the app is backgrounded or closed. Native apps use the same authenticated analytics endpoint and obtain the access token from the native Supabase session. This is a durable local queue across normal app restarts, not a guarantee against app-data deletion, storage eviction, or local storage quota exhaustion.
+Signed-out topic and Top Comments analytics are stored as daily UTC aggregates by entity. They do not store account IDs, raw session IDs, persistent visitor IDs or device fingerprints. Deduplication receipts are deleted after 30 days; no anonymous unique-person or session count is calculated. Anonymous sponsor frequency uses a random in-memory token whose SHA-256 hash is retained for 30 days; raw sponsor event/frequency rows are deleted after that retention threshold by a 15-minute cleanup job that deletes up to 5,000 expired rows per table per run. Signed-in feed and sponsor raw event retention remains 180 days. Campaign-level daily aggregates are used for reporting. Admin Analytics, topic/category analytics, sponsor/comment drill-downs, admin campaign management and the sponsor portal display signed-in and anonymous metrics separately. Native uses the same shared feed cards and sends anonymous events to the configured CathoScroll API origin.
+
+The canonical emergency bootstrap includes the anonymous tables, functions, grants and 30-day anonymous retention schedule, while preserving the existing 180-day signed-in raw-event retention. Database changes are applied directly to Supabase; no standalone SQL migration file is maintained. These technical controls do not constitute legal sign-off: the Article 6 basis for each analytics purpose, PECR, infrastructure logs and provider/transfer reviews remain controller responsibilities.
+
+The feed records topic impressions, viewable impressions, active reading time, skips, slide depth, completions, and return visits. On the website, signed-in events are queued per account in memory, sent in batches of up to 50, and removed only after the server accepts the batch. On Android and Electron, the same events are persisted in the encrypted private activity database until acknowledged. Signed-in sponsor viewability/click events use a separate stream in that same encrypted outbox. Signed-out topic and Top Comments events are sent through a separate rate-limited endpoint and stored as daily entity aggregates without account, visitor or raw session identifiers. The website's signed-in topic/comment analytics queues and anonymous queue are memory-only. Native signed-in topic/comment events use the encrypted private activity SQLite outbox (2,000 per stream, seven-day expiry, acknowledgement-based deletion and account-switch cleanup). Native anonymous topic/comment events use a separate catalogue SQLite outbox capped at 2,000 events and seven days, with acknowledgement-based deletion and a user-facing opt-out that clears pending rows. The separate signed-in activity sync remains durable and account-linked. Native apps use the same shared feed components and API endpoints as the website: signed-in topic and Top Comments events use the authenticated endpoint with a Supabase bearer token, while signed-out topic and Top Comments events use the anonymous endpoint at the canonical CathoScroll API origin. Sponsor campaign analytics also support signed-in and signed-out native sessions.
 
 The recommendation algorithm combines explicit account activity with bounded, decaying feed behaviour signals. Explicit weights are completed topics (5), bookmarks (4), topic likes (3), and distinct commented topics (3). The recommendation RPC also reads the last 90 days of feed telemetry: viewable impressions, active reading duration, swipe depth, completions, and return visits contribute positive evidence; skips contribute negative evidence only after the topic has been skipped in at least two distinct sessions. Telemetry decays with a 30-day half-life, is capped per topic and event family, and the combined topic contribution is bounded before being aggregated into category preferences. Raw impressions alone are not a positive ranking signal. These limits reduce (but do not eliminate) feedback loops and popularity bias; ranking changes should be evaluated against a control cohort before further tuning.
 
-Sponsor served events are recorded by the delivery API. Viewable-impression and click events are queued per account with stable event IDs and their original placement-session IDs. The feed-level sync worker retries them in order at startup, after reconnect, and when the app returns to the foreground—even when no sponsor card is currently visible. The server remains authoritative: it validates campaign/session state and deduplicates accepted events. Events for expired or otherwise permanently ineligible placements are discarded instead of blocking newer events; temporary authentication, network, rate-limit, and server failures remain queued for retry. The sync worker stays mounted at the app shell across route navigation. Sponsor delivery itself remains online-only; cached ads are not shown offline. Local event storage is best-effort if the operating system clears app data or storage is exhausted.
+Signed-in sponsor served events are recorded by the delivery API. Viewable-impression and click events are queued per account with stable event IDs and their original placement-session IDs. Signed-out sponsor placements use a separate session-memory token; only its SHA-256 hash is stored for frequency enforcement, and raw event/frequency rows are pruned after the 30-day retention threshold by a 15-minute cleanup job. Anonymous sponsor viewable/click events use a bounded in-memory retry queue (not local storage, because the session token must remain ephemeral) and are validated against the matching served topic placement. If a visitor signs in before a queued anonymous event retries, the placement key keeps it on the anonymous recorder. The signed-in feed-level sync worker retries account-linked sponsor events in order at startup, after reconnect, and when the app returns to the foreground—even when no sponsor card is currently visible. The server remains authoritative: it validates campaign/session/placement state and deduplicates accepted events. Both signed-in and signed-out campaign selectors derive category targeting from the published topic row and share global daily/lifetime impression caps plus 30-day weighted pacing totals. Signed-in events for expired or otherwise permanently ineligible placements are discarded instead of blocking newer events; temporary authentication, network, rate-limit, and server failures remain queued for retry. The sync worker stays mounted at the app shell across route navigation. New sponsor placements are allocated online only. A placement already allocated in the active feed session may replay when the user navigates backward, preserving the feed mapping; no new sponsor is selected offline and placements are not persisted across sessions. Local event storage is best-effort if the operating system clears app data or storage is exhausted.
 
 
 | Variable                        | Purpose                                                                                                              |
@@ -495,7 +524,7 @@ Never put Supabase service-role keys or other server secrets in `NEXT_PUBLIC_*` 
 
 ## Native page parity and offline behaviour
 
-The website and Android/Electron apps render the same shared
+The website and native Android/iOS/Electron apps render the same shared
 `AccountPageView`, `PublicProfileView`, `CategoriesGrid`,
 `CategoryTopicGrid`, `CategoryBottomNavigation`, `SigninForm`, and
 `SignupFormView` components. These keep the account, public profile,
@@ -505,9 +534,11 @@ calculations and bookmark card/date formatting are shared as well.
 
 The native account adapter reads its profile from Supabase when connected and
 uses the encrypted per-device profile cache for read-only display when
-offline. Membership is always treated as live data; the app does not present
-an old cached tier as current. Profile, email, password, sign-in, and sign-out
-changes require a connection and are never silently queued.
+offline. CathoScroll has no paid user membership, subscription, or user access
+tier: individual learning and community features are free. Sponsor-organisation
+memberships are separate role assignments for sponsor representatives and do
+not change a user's learning access. Profile, email, password, sign-in, and
+sign-out changes require a connection and are never silently queued.
 
 The website and native app also share `NavbarView`. The native app supplies
 its own notification bell, navigation handling, and offline activity data
@@ -685,10 +716,9 @@ not a substitute for these device-level checks.
 
 Planned features include:
 
-- Premium audio versions of topics; written topic content remains free.
-- Structured learning paths.
-- Interactive quizzes.
-- Guided study experiences.
+- Free audio learning, structured learning paths, and interactive quizzes.
+- Improved opt-in personalisation controls and recommendation quality.
+- More sponsor reporting and self-service campaign management.
 
 The focus for now remains on growing the content library and improving the core learning experience.
 
@@ -700,7 +730,7 @@ Before deploying, configure the required environment variables in both Vercel an
 
 ### Supabase database recovery and bootstrap
 
-[`docs/cathoscroll-database-bootstrap.sql`](docs/cathoscroll-database-bootstrap.sql) is the consolidated snapshot of CathoScroll's application-owned PostgreSQL schema. Sponsor organisation access, campaign submissions, invoice records and direct-bank-transfer reconciliation are described in [`docs/sponsor-platform.md`](docs/sponsor-platform.md). It recreates the 40 application tables, constraints, indexes, 89 functions, 33 triggers, RLS configuration and policies, grants, the RLS DDL event trigger, and scheduled retention jobs. It includes the ranked-search setup and current offline-sync protections.
+[`docs/cathoscroll-database-bootstrap.sql`](docs/cathoscroll-database-bootstrap.sql) is the consolidated snapshot of CathoScroll's application-owned PostgreSQL schema. Sponsor organisation access, campaign submissions, invoice records and direct-bank-transfer reconciliation are described in [`docs/sponsor-platform.md`](docs/sponsor-platform.md). It recreates 47 application tables, constraints, 88 explicit indexes (plus constraint indexes), 105 unique functions, 34 application/Auth triggers, 32 RLS policies, grants, the RLS DDL event trigger, and scheduled retention jobs. It includes the 15 categories and 86 topics present at reconciliation time. It includes the ranked-search setup and current offline-sync protections.
 
 Use this file when creating a **fresh Supabase project** to restore the application schema:
 
@@ -710,9 +740,13 @@ Use this file when creating a **fresh Supabase project** to restore the applicat
 4. The bootstrap already seeds the 15 categories and 86 topics present at export time. Restore any additional or newer content and all required user data from a separate data export.
 5. Reconfigure Auth providers and redirect URLs, project secrets, Storage buckets/policies if used, Edge Functions, API settings, and the matching Vercel environment variables.
 
-The bootstrap intentionally refuses to run if CathoScroll application tables already exist. **Do not run it against the existing production project or use it as an upgrade script.** It restores schema and the public category/topic catalogue snapshot, not a full database backup: it does not restore Auth users/passwords, profile records, admin-owner/admin-role assignments, bookmarks, comments, notes, notifications, moderation history, other user-generated rows, Storage objects, Auth settings, API keys, secrets, Edge Functions, or Supabase-managed platform internals. The `profiles` table and its restricted column-level grants are part of the schema bootstrap, but profile rows must be restored separately. This bootstrap is not a substitute for Supabase's managed backups or point-in-time recovery. Use those for full-project recovery where available, and keep a separate, regularly tested backup of database data and project configuration.
+The bootstrap was reconciled against production on 19 November 2026, including the sponsor platform, feed-card analytics, explicit personalisation-consent trigger, neutral recommendations when consent is disabled, removal of user subscription tiers, and current function ACLs. The one-time [`docs/personalization-analytics-upgrade.sql`](docs/personalization-analytics-upgrade.sql) script is for an existing pre-upgrade database; the bootstrap is for a fresh project only. The bootstrap intentionally refuses to run if CathoScroll application tables already exist. **Do not run it against the existing production project or use it as an upgrade script.** It restores schema and the public category/topic catalogue snapshot, not a full database backup: it does not restore Auth users/passwords, profile records, admin-owner/admin-role assignments, bookmarks, comments, notes, notifications, moderation history, other user-generated rows, Storage objects, Auth settings, API keys, secrets, Edge Functions, or Supabase-managed platform internals. The `profiles` table and its restricted column-level grants are part of the schema bootstrap, but profile rows must be restored separately. This bootstrap is not a substitute for Supabase's managed backups or point-in-time recovery. Use those for full-project recovery where available, and keep a separate, regularly tested backup of database data and project configuration.
 
-This is the single canonical SQL source for rebuilding the application database schema. Update it whenever application database objects change, and test it on a disposable Supabase project before relying on it for disaster recovery. Do not maintain a chain of manually applied SQL patches as a substitute for this snapshot.
+This is the single canonical SQL source for rebuilding the application database schema. Update it whenever application database objects change, and test it on a disposable Supabase project before relying on it for disaster recovery. The one-time personalisation/analytics upgrade is the only maintained transition script for databases that predate that rollout; keep it aligned with the bootstrap. Do not maintain a chain of ad-hoc SQL patches as a substitute for the canonical snapshot.
+
+### Personalisation, analytics, and privacy
+
+Personalisation is optional and off by default. Users can explicitly opt in at signup or later from Account settings. The account page contains a compact consent control; the detailed settings screen is available at `/account/personalization`. Web and native use the same account, signup, and personalisation UI components rather than maintaining separate implementations. Read [`docs/personalization-analytics-implementation.md`](docs/personalization-analytics-implementation.md) for the signal model, [`docs/privacy-and-legal-implementation.md`](docs/privacy-and-legal-implementation.md) for the data map and retention, and [`docs/personalization-dpia-screening.md`](docs/personalization-dpia-screening.md) for the draft DPIA screening and unresolved privacy launch gates. Operational analytics is separate from the optional personalisation profile and is used for engagement measurement, reliability and service improvement rather than belief profiling or individual decisions.
 
 ## License
 
@@ -729,3 +763,6 @@ Built by [Joshua Argent](https://joshuaargent.vercel.app)
 CathoScroll • Learn Catholic teaching one swipe at a time
 
 </div>
+
+
+

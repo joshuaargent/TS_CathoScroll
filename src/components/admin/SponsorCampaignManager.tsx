@@ -16,6 +16,9 @@ export interface SponsorCampaignAnalytics {
   viewable_impressions: number;
   clicks: number;
   click_through_rate: number;
+  anonymous_served: number;
+  anonymous_viewable_impressions: number;
+  anonymous_clicks: number;
 }
 
 export interface SponsorCampaignRecord {
@@ -284,11 +287,13 @@ export function SponsorCampaignManager({
 
             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
               <label className="block text-sm font-medium">
-                Max impressions per user / 24h
-                <input name="frequencyCapPerUser24h" type="number" min="1" max="5" step="1" defaultValue="1" required className="border-border bg-bg-primary mt-2 w-full rounded-lg border px-3 py-2.5" />
+                Max impressions per signed-in user / 24h
+                <span className="text-text-muted mt-1 block text-xs">Signed-out app sessions are additionally capped at 2 per 24 hours.</span>
+                <input name="frequencyCapPerUser24h" type="number" min="1" max="25" step="1" defaultValue="1" required className="border-border bg-bg-primary mt-2 w-full rounded-lg border px-3 py-2.5" />
               </label>
               <label className="block text-sm font-medium">
-                Max impressions per user / campaign
+                Max impressions per signed-in user / campaign
+                <span className="text-text-muted mt-1 block text-xs">Signed-out app sessions are additionally capped at 5 per campaign.</span>
                 <input name="frequencyCapPerUserTotal" type="number" min="1" max="50" step="1" defaultValue="3" required className="border-border bg-bg-primary mt-2 w-full rounded-lg border px-3 py-2.5" />
               </label>
               <label className="block text-sm font-medium">
@@ -362,7 +367,7 @@ export function SponsorCampaignManager({
                     <td className="px-4 py-4">
                       <p>Weight: {campaign.placement_weight}</p>
                       <p className="text-text-muted mt-1 text-xs">
-                        {campaign.frequency_cap_per_user_24h} / 24h · {campaign.frequency_cap_per_user_total} total per user
+                        {campaign.frequency_cap_per_user_24h} / 24h · {campaign.frequency_cap_per_user_total} total per signed-in user (anonymous session: max 2 / 5)
                       </p>
                       <p className="text-text-muted mt-1 text-xs">
                         Daily: {campaign.daily_impression_cap ?? 'Unlimited'} · Total: {campaign.total_impression_cap ?? 'Unlimited'}
@@ -373,19 +378,21 @@ export function SponsorCampaignManager({
                         const stats = analytics[campaign.id];
                         return (
                           <>
-                            <p>{(stats?.served ?? 0).toLocaleString('en-GB')} served</p>
+                            <p>{(stats?.served ?? 0).toLocaleString('en-GB')} signed-in served</p>
+                            <p className="text-text-muted mt-1 text-xs">{(stats?.anonymous_served ?? 0).toLocaleString('en-GB')} anonymous served</p>
                             <p className="text-text-muted mt-1 text-xs">
-                              {(stats?.viewable_impressions ?? 0).toLocaleString('en-GB')} viewable
+                              {(stats?.viewable_impressions ?? 0).toLocaleString('en-GB')} signed-in viewable · {(stats?.anonymous_viewable_impressions ?? 0).toLocaleString('en-GB')} anonymous
                             </p>
                             <p className="text-text-muted mt-1 text-xs">
-                              {(stats?.clicks ?? 0).toLocaleString('en-GB')} clicks · {(stats?.click_through_rate ?? 0).toFixed(2)}% CTR
+                              {(stats?.clicks ?? 0).toLocaleString('en-GB')} signed-in clicks · {(stats?.anonymous_clicks ?? 0).toLocaleString('en-GB')} anonymous
                             </p>
+                            <p className="text-text-muted mt-1 text-xs">Combined CTR: {(stats?.click_through_rate ?? 0).toFixed(2)}%</p>
                           </>
                         );
                       })()}
                     </td>
                     <td className="px-4 py-4 tabular-nums">
-                      {campaign.served_count.toLocaleString('en-GB')} served
+                      {campaign.served_count.toLocaleString('en-GB')} lifetime signed-in served
                     </td>
                     <td className="px-4 py-4">
                       <p className="font-semibold">{humanize(campaign.status)}</p>

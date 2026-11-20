@@ -38,6 +38,12 @@ interface CampaignMetric {
   viewable_impressions: number;
   clicks: number;
   click_through_rate: number;
+  anonymous_served: number;
+  anonymous_viewable_impressions: number;
+  anonymous_clicks: number;
+  total_served: number;
+  total_viewable_impressions: number;
+  total_clicks: number;
 }
 
 export interface SponsorAnalytics {
@@ -435,11 +441,14 @@ export function SponsorPortal({
                       </button>
                     )}
                   </div>
-                  <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                    <div><p className="text-text-muted text-xs">Served</p><p className="mt-1 font-semibold tabular-nums">{(metric?.served ?? 0).toLocaleString('en-GB')}</p></div>
-                    <div><p className="text-text-muted text-xs">Viewable</p><p className="mt-1 font-semibold tabular-nums">{(metric?.viewable_impressions ?? 0).toLocaleString('en-GB')}</p></div>
-                    <div><p className="text-text-muted text-xs">Clicks</p><p className="mt-1 font-semibold tabular-nums">{(metric?.clicks ?? 0).toLocaleString('en-GB')}</p></div>
-                    <div><p className="text-text-muted text-xs">CTR</p><p className="mt-1 font-semibold tabular-nums">{(metric?.click_through_rate ?? 0).toFixed(2)}%</p></div>
+                  <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                    <div><p className="text-text-muted text-xs">Signed-in served</p><p className="mt-1 font-semibold tabular-nums">{(metric?.served ?? 0).toLocaleString('en-GB')}</p></div>
+                    <div><p className="text-text-muted text-xs">Anonymous served</p><p className="mt-1 font-semibold tabular-nums">{(metric?.anonymous_served ?? 0).toLocaleString('en-GB')}</p></div>
+                    <div><p className="text-text-muted text-xs">Signed-in viewable</p><p className="mt-1 font-semibold tabular-nums">{(metric?.viewable_impressions ?? 0).toLocaleString('en-GB')}</p></div>
+                    <div><p className="text-text-muted text-xs">Anonymous viewable</p><p className="mt-1 font-semibold tabular-nums">{(metric?.anonymous_viewable_impressions ?? 0).toLocaleString('en-GB')}</p></div>
+                    <div><p className="text-text-muted text-xs">Signed-in clicks</p><p className="mt-1 font-semibold tabular-nums">{(metric?.clicks ?? 0).toLocaleString('en-GB')}</p></div>
+                    <div><p className="text-text-muted text-xs">Anonymous clicks</p><p className="mt-1 font-semibold tabular-nums">{(metric?.anonymous_clicks ?? 0).toLocaleString('en-GB')}</p></div>
+                    <div><p className="text-text-muted text-xs">Combined CTR</p><p className="mt-1 font-semibold tabular-nums">{(metric?.click_through_rate ?? 0).toFixed(2)}%</p></div>
                   </div>
                 </article>
               );

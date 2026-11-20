@@ -1,6 +1,6 @@
 # CathoScroll security hardening reference
 
-**Updated:** 16 November 2026  
+**Updated:** 20 November 2026  
 **Scope:** Website, API, Supabase database, moderation and native administrator access.
 
 This is an operational reference, not an executable SQL script. The repository intentionally contains no Supabase migration files. `docs/cathoscroll-database-bootstrap.sql` is the single canonical SQL source for rebuilding the complete CathoScroll application schema on a fresh Supabase project.
@@ -12,7 +12,7 @@ The live Supabase project has:
 - Row Level Security enabled on every public table.
 - Restricted grants for sensitive profile, comment and like data.
 - No direct anonymous or authenticated SELECT access to comment content.
-- No direct anonymous or authenticated SELECT access to profile subscription-tier fields.
+- No direct anonymous or authenticated SELECT access to private profile fields.
 - Public profile reads restricted to explicitly public fields.
 - Raw comment/topic liker identities restricted; public counts and the current viewer's like state are returned through bounded RPCs.
 - Notification updates restricted to `read_at`; a database trigger prevents content/ownership changes, client-controlled timestamps and marking read notifications unread.
@@ -20,14 +20,12 @@ The live Supabase project has:
 
 Important RPCs include:
 
-- `get_own_subscription_tier`
 - `get_topic_comment_page`
 - `get_topic_like_state`
 - `get_public_profile_metrics`
 - `get_my_recommendation_page`
 - `is_cathoscroll_content_admin` (SECURITY INVOKER wrapper over a private SECURITY DEFINER helper)
-- `admin_user_has_verified_totp`
-- Owner-only administrator role, MFA-enforcement and audit functions.
+- Owner-only administrator role and audit functions.
 
 Private/internal tables intentionally have no direct API policies. Their access is through restricted server-side functions or triggers.
 
@@ -87,18 +85,18 @@ API rate-limit responses include `Retry-After` where applicable.
 - Event IDs are unique per user, making retries idempotent.
 - Each request is limited to 50 events and 16 KiB; database ingestion is limited to 120 submitted events per user per minute. The HTTP route also uses the shared PostgreSQL API rate limiter.
 - Client telemetry is queued per signed-in account and does not share or block the durable offline activity outbox.
-- Raw analytics events are retained for 180 days. A bounded database cleanup job runs every 15 minutes and removes at most 5,000 expired events per run. Admin reporting uses on-demand aggregate queries; no long-term rollup table is implemented.
-- Anonymous tracking is disabled. Analytics events contain no comment text, profile fields, or email addresses.
+- Signed-in raw analytics events are retained for 180 days. A bounded database cleanup job runs every 15 minutes and removes at most 5,000 expired events per run. Signed-in admin reporting uses on-demand aggregate queries; signed-out topic/comment reporting uses a separate long-term daily entity aggregate table with no visitor identifiers.
+- Signed-out topic and Top Comments tracking uses a separate bounded, rate-limited endpoint. It stores UTC daily entity aggregates only; no account ID, raw session ID, persistent visitor ID or device fingerprint is stored in the event aggregates. Event UUID receipts are deleted after 30 days. The bounded client queue is held in module memory only and is not written to localStorage, sessionStorage, IndexedDB or native persistent storage. Failed batches are retried only while the page/app process remains alive; pending events are lost when that process ends.
 - Sponsor and administrator reporting must use server-side aggregate functions; raw events and individual user identities must never be exposed to sponsor accounts.
 
 - `public.get_admin_content_analytics(text,text,timestamptz,timestamptz)` is an on-demand aggregate RPC for topic/category dashboards. It is owned by postgres, uses SECURITY DEFINER with an empty search path, validates entity and date-window inputs (maximum 180 days), and is executable only by service_role. It returns counts and daily buckets only, never user IDs, session IDs or raw event rows.
 - The aggregate function also counts existing likes, bookmarks, visible top-level comments, visible replies and completed-topic records separately from feed telemetry. These historical interaction records are not used to infer impressions or reading time.
-- The admin pages call the existing server-side admin/MFA guard and apply a shared per-admin rate limit before invoking the aggregate RPC. The RPC is not directly executable by anon or authenticated roles.
-- `public.get_top_feed_comments()` is a separate server-only selector. It is SECURITY DEFINER with an empty search path and executable only by service_role. The public endpoint returns an explicit allowlist of public comment/author/topic fields, never user IDs, emails, profile bios, moderation notes or raw events. It excludes deleted/hidden comments, replies as candidates, and comments belonging to unpublished content.
+- The admin pages call the existing server-side administrator-role guard and apply a shared per-admin rate limit before invoking the aggregate RPC. The RPC is not directly executable by anon or authenticated roles.
+- `public.get_top_feed_comments(integer, integer)` is a separate server-only selector. It is SECURITY DEFINER with an empty search path and executable only by service_role. The public endpoint accepts bounded offset/limit pagination (up to 100 rows per page), returns an explicit allowlist of public comment/author/topic fields, and never exposes user IDs, emails, profile bios, moderation notes or raw events. It excludes deleted/hidden comments, replies as candidates, and comments belonging to unpublished content.
 
 ## Recommendation telemetry access
 
-The existing `public.get_my_recommendation_page(jsonb,integer)` remains SECURITY INVOKER and authenticated-only. On a new cursor it calls `catho_private.get_user_feed_preference_signals(uuid)`, a private SECURITY DEFINER helper owned by postgres with an empty search path. The helper rejects null or mismatched account IDs using `auth.uid()`, returns only category-level scores, and is executable by authenticated users only. It does not grant access to the raw analytics table. The partial per-user/time index supports its 90-day scan.
+The existing `public.get_my_recommendation_page(jsonb,integer)` remains SECURITY INVOKER and authenticated-only. On a new cursor it calls `catho_private.get_user_feed_preference_signals(uuid)`, a private SECURITY DEFINER helper owned by postgres with an empty search path. The helper rejects null or mismatched account IDs using `auth.uid()`, returns only category-level scores, and is executable by authenticated users only. The recommendation RPC calls it only when explicit personalisation consent is enabled. Legacy progress, bookmarks, likes, comments and feed telemetry are also gated by that consent; when disabled, category weights are neutral and completed-topic suppression is off. Withdrawing consent normalises active cursors. The helper does not grant access to raw analytics tables. The partial per-user/time index supports its 90-day scan.
 
 ## Comment invariants
 
@@ -126,13 +124,8 @@ The website loads comments in 50-row cursor pages. Like counts and the current v
 
 - Administrator APIs and protected pages use server-side administrator checks.
 - The owner alone can grant or revoke administrator roles.
-- A target account must have a verified TOTP factor before it can be granted administrator access.
 - Moderation, role and security actions are written to an append-only audit table; only the owner can view the paginated audit log.
-- Account Security provides TOTP enrollment, backup-factor setup and enforcement activation.
-- Enforcement checks AAL2 and a TOTP authentication method in API authorization and the database admin RLS helper.
-- Native administrator access has a TOTP challenge gate.
-
-**Current state:** administrator MFA enforcement remains disabled. The current owner must enroll and verify a TOTP factor, securely save the setup secret or add a backup authenticator, then enable enforcement at `/account/security`. The database refuses activation until every current administrator has a verified TOTP factor.
+- CathoScroll does not implement multi-factor authentication, authenticator enrolment or authenticator challenges. Sign-in uses the existing email/password flow. Administrator access is controlled by the protected administrator-role table.
 
 ## API and browser protections
 
@@ -157,7 +150,7 @@ The dependency tree retains a low-severity `deepmerge` advisory in the legacy Wo
 
 ## Top-comment feed selection
 
-The top-comment feed selector is a server-only database function. `public.get_top_feed_comments()` is `SECURITY DEFINER`, owned by `postgres`, pins `search_path = ''`, and schema-qualifies its table and built-in function references. Execution is revoked from `PUBLIC`, `anon`, and `authenticated`; only `service_role` can execute it. Browser and native clients never call this RPC directly.
+The top-comment feed selector is a server-only database function. `public.get_top_feed_comments(integer, integer)` is `SECURITY DEFINER`, owned by `postgres`, pins `search_path = ''`, and schema-qualifies its table and built-in function references. Execution is revoked from `PUBLIC`, `anon`, and `authenticated`; only `service_role` can execute it. Browser and native clients never call this RPC directly.
 
 Clients use `GET /api/content/top-comments`. The route calls the RPC using the server-only service-role client and applies the shared trusted-IP database rate limiter at 120 requests per IP per minute. Native CORS is restricted to the application's allowlisted origins. Native fetches omit cookies and credentials.
 
@@ -165,15 +158,14 @@ The endpoint returns no more than five entries and validates every field before 
 
 The selector excludes deleted/hidden comments, blank comments, replies, comments outside the 90-day window, and comments belonging to unpublished topics or categories. Existing ban moderation hides comments through `is_deleted = true`, which the selector excludes. The endpoint uses a 30-second shared cache and a 30-second stale-while-revalidate window; this bounds database load while limiting the time deleted content can remain in a cached response.
 
-Comment inventory is fetched online but is not written to a persistent local cache or duplicated in the existing offline activity queue. Previously fetched comments can remain available in the current in-memory feed session; if no inventory has been loaded and the endpoint is unreachable, the interstitial is omitted without blocking the feed. Comment-card impression/open analytics and persistent cross-session seen-state are not implemented; any future telemetry must extend the existing validated feed analytics pipeline rather than introduce a second event queue.
+Comment inventory is fetched online but is not written to a persistent local cache or duplicated in the existing offline activity queue. Previously fetched comments can remain available in the current in-memory feed session; if no inventory has been loaded and the endpoint is unreachable, the interstitial is omitted without blocking the feed. Comment-card impression, viewability, active-time, skip/completion and open analytics are implemented through the separate anonymous aggregate endpoint for signed-out visitors and the existing authenticated pipeline for signed-in users. Persistent cross-session seen-state is still not implemented.
 
 ## Validation and limitations
 
-Rollback-only live-database tests exercised 1,001-comment pagination, cursor progression, reply ancestry, moderation/depth checks, notification column restrictions, recommendation limits, TOTP RLS assurance and audit-log immutability. Test fixtures were rolled back; no test comments, notifications or audit rows remain.
+Rollback-only live-database tests exercised 1,001-comment pagination, cursor progression, reply ancestry, moderation/depth checks, notification column restrictions, recommendation limits, administrator-role RLS and audit-log immutability. Test fixtures were rolled back; no test comments, notifications or audit rows remain.
 
 Not yet completed:
 
-- Owner TOTP enrollment and enforcement activation.
 - Supabase Auth dashboard verification for password policy, CAPTCHA and provider rate limits.
 - Leaked-password protection (available on Supabase Pro and above).
 - Browser verification of CSP and deployed headers; two earlier Vercel attempts hit the daily quota, but a later preview deployment is ready and still needs manual verification.
@@ -203,28 +195,36 @@ Sponsor portal reads are server-side and filtered by the authenticated user's ac
 
 Administrators create and issue invoices through `public.admin_create_sponsor_invoice`. Invoice currency must match the sponsor's agreed currency. Bank transfers are made outside CathoScroll; an administrator checks the bank statement and records the actual amount received using `public.admin_record_sponsor_payment`. Partial payments update the outstanding balance, overpayments are rejected, and an optional unique statement transaction key prevents duplicate allocation. Refunds are separate transactions linked to the original payment and cannot exceed its unrefunded amount. `public.admin_record_sponsor_refund` is scoped to a sponsor and original payment. Payment status is recalculated from the agreed amount and all outstanding issued invoices; the previous direct `admin_mark_sponsor_payment_received` override has had execution revoked. Invoice/payment/refund actions are appended to the administrator audit log.
 
-Sponsor financial summaries contain only the organisation's invoices, balances and bank-transfer references. They do not expose the administrator who recorded a transaction or any other sponsor's data. Admin financial APIs require administrator/MFA verification, same-origin/native request validation, bounded JSON and shared rate limits. Sponsor financial APIs require an active authenticated membership. No bank account details, card details, payment-provider credentials or bank integrations are stored in CathoScroll.
+Sponsor financial summaries contain only the organisation's invoices, balances and bank-transfer references. They do not expose the administrator who recorded a transaction or any other sponsor's data. Admin financial APIs require administrator-role verification, same-origin/native request validation, bounded JSON and shared rate limits. Sponsor financial APIs require an active authenticated membership. No bank account details, card details, payment-provider credentials or bank integrations are stored in CathoScroll.
 
 
 ## Feed analytics aggregate storage
 
-The daily analytics tables are in the non-exposed `catho_private` schema, have RLS enabled, and grant no direct access to `anon`, `authenticated` or `service_role`. Only postgres-owned SECURITY DEFINER maintenance and admin aggregate functions access them. The user/day/topic viewer bridge is pruned in bounded batches after 180 days; the daily totals table contains no user/session identifiers and can outlive raw event retention. The rollup maintenance function is restricted to the service role and scheduled through pg_cron; the cron job runs as its database owner. Admin aggregate queries continue to return aggregate-only payloads.
+The account-linked daily analytics tables and viewer bridge remain in the non-exposed `catho_private` schema with RLS enabled and no direct table privileges for `anon`, `authenticated` or `service_role`. Signed-in raw feed/comment events and the user/day/topic viewer bridge are pruned in bounded batches after 180 days. The separate anonymous topic/comment daily table contains only date/entity counts; its UUID deduplication receipt ledger is pruned after 30 days. Anonymous sponsor event and hashed-session-frequency rows are pruned after the 30-day retention threshold by a 15-minute cleanup job, while campaign-level daily sponsor aggregates are retained for reporting. All new private tables also have RLS enabled and no direct API-role table grants. Postgres-owned SECURITY DEFINER functions perform ingestion, selection, reporting and cleanup; public-facing routes call them through the server-only service-role client. Admin aggregate queries return aggregate-only payloads.
 
 
 ## Sponsor campaign security controls
 
-Campaign inventory is protected by RLS with direct access revoked from public, anonymous and authenticated clients. The service role has SELECT-only access for the administrator inventory; INSERT, UPDATE and DELETE are revoked so campaign writes must use audited RPCs. Campaign creation, approval, pausing/resuming and aggregate reporting use postgres-owned SECURITY DEFINER functions with an empty search path and execution restricted to `service_role`. Administrator endpoints independently verify administrator MFA, same-origin/native requests, bounded JSON and per-admin rate limits.
+Campaign inventory is protected by RLS with direct access revoked from public, anonymous and authenticated clients. The service role has SELECT-only access for the administrator inventory; INSERT, UPDATE and DELETE are revoked so campaign writes must use audited RPCs. Campaign creation, approval, pausing/resuming and aggregate reporting use postgres-owned SECURITY DEFINER functions with an empty search path and execution restricted to `service_role`. Administrator endpoints independently verify the administrator role, same-origin/native requests, bounded JSON and per-admin rate limits.
 
-Campaign delivery and event recording are also service-role-only RPCs. Delivery verifies the authenticated user, serializes concurrent selection per user, locks selected campaign rows to enforce global caps, and filters by sponsor payment/status/date windows, campaign dates, targeting and frequency caps. The API returns only approved public creative fields. Each card placement receives its own placement/session UUID; returning to the same card reuses that ID. Event recording requires a matching served event in the same placement session; clicks require a prior viewable impression. Unique partial indexes prevent concurrent duplicate viewable/click events. Raw event rows and per-user frequency rows are retained only as long as required for reporting and caps; aggregate daily metrics contain no user identifiers. The bounded retention job automatically completes expired approved/paused campaigns and removes their frequency rows after the retention window.
+Campaign delivery and event recording are also service-role-only RPCs. Signed-in delivery verifies the authenticated user; signed-out delivery uses a random in-memory session token whose SHA-256 hash is used only for frequency controls. Both paths serialize selection, lock selected campaign rows to enforce global caps, and filter by sponsor payment/status/date windows, campaign dates, targeting and frequency caps. The API returns only approved public creative fields. Anonymous events are tied to the exact topic placement and hashed session; clicks require a prior viewable impression for that placement. Signed-in and anonymous daily campaign metrics are stored separately and combined only for clearly labelled aggregate CTR/reporting. Anonymous raw event and session-frequency rows are deleted once they pass the 30-day retention threshold by a 15-minute cleanup job that deletes up to 5,000 expired rows per table per run; account-linked sponsor events retain their existing retention controls. Sponsors receive aggregate campaign metrics only, never raw user/session events or browsing histories. The bounded retention job automatically completes expired approved/paused campaigns and removes their frequency rows after the retention window.
 
 
 ## Existing Supabase advisor findings
 
 The latest Supabase security advisor run reports several project-wide findings that predate this sponsor work and are not automatically safe to change:
 
-- **RLS enabled without policies:** 27 tables are reported. Most are private/internal tables intentionally protected by having no direct client grants. The sponsor, membership and campaign tables are also RLS-enabled with no client policies; `anon` and `authenticated` have no table privileges. `service_role` has read-only access to `public.sponsor_campaigns` and `public.sponsor_memberships`; campaign and membership writes go through audited RPCs. Invoice, payment, member-audit and campaign-event tables in `catho_private` have no direct service-role table grants.
-- **SECURITY DEFINER RPC warnings:** the advisor reports six anonymous-callable and thirteen authenticated-callable functions. These are existing public/offline/feed RPCs and must be reviewed individually for actor checks, bounded inputs and grants. Do not blanket-revoke them because several are required by public content and offline sync.
+- **RLS enabled without policies:** 38 tables are reported. Most are private/internal tables intentionally protected by having no direct client grants. The sponsor, membership and campaign tables are also RLS-enabled with no client policies; `anon` and `authenticated` have no table privileges. `service_role` has read-only access to `public.sponsor_campaigns` and `public.sponsor_memberships`; campaign and membership writes go through audited RPCs. Invoice, payment, member-audit and campaign-event tables in `catho_private` have no direct service-role table grants.
+- **SECURITY DEFINER RPC warnings:** the advisor reports seven anonymous-callable and eighteen authenticated-callable function grants. These warnings overlap. All 18 unique callable SECURITY DEFINER functions now use an empty search_path. Public RPCs are intentionally required for published content/catalogue reads; authenticated self-service RPCs validate auth.uid() and account ownership. Do not blanket-revoke them because several are required by public content and offline sync.
 - **Leaked-password protection:** Supabase Auth leaked-password protection is currently disabled. The CathoScroll Supabase organisation is on the Free plan; Supabase requires Pro or above for this feature. Upgrade the project plan before enabling it in Auth settings, then validate signup, password reset and recovery. Email verification remains disabled as requested and was not changed.
 - **Unused indexes:** the performance advisor reports 38 indexes that have not yet been used. No unindexed foreign-key warnings remain after adding sponsor platform FK indexes. Several are foreign-key support indexes or belong to tables with zero production rows (including comments and sponsor campaigns). Do not drop them solely from the advisor output; reassess after representative traffic exists.
 
-No new sponsor platform SECURITY DEFINER RPC warning was reported. The current production project has zero comments, comment likes, feed analytics events, sponsors and campaigns, so usage-based index recommendations are not yet representative.
+The anonymous analytics and sponsor-ingestion/reporting functions are not executable by anon or authenticated roles; the public general-ranking RPC is intentionally callable by both because it returns published content ordered by site-wide aggregate signals and reads no visitor-specific history. The current production project has three comments, two comment likes, 1,391 signed-in feed events, four signed-in card events, one sponsor and one campaign. The sponsor campaign has 21 signed-in served placements; no anonymous sponsor delivery has yet been recorded. Usage-based index recommendations remain limited by this small dataset.
+
+## Live database security-advisor review — 20 November 2026
+
+The live Supabase security advisor reported 38 rls_enabled_no_policy informational findings. Inspection confirmed that the catho_private findings are internal tables with no Data API grants to anon, authenticated or service_role; their owner-level grants are for PostgreSQL administration/functions. The flagged public-schema tables have no anon or authenticated table grants; the few service_role grants are server-only. These are intentional private/server-only tables, not missing end-user policies. Do not add permissive RLS policies merely to silence the linter.
+
+The advisor also reported generic SECURITY DEFINER warnings for intentionally callable public-content and self-service RPCs. The public RPCs expose published catalogue/comment/profile metrics or public like state; authenticated self-service RPCs derive the actor from auth.uid() and enforce account ownership. On 20 November 2026, the live project was hardened so the following nine functions use an empty search path: offline_catalogue_changes, offline_catalogue_counts, offline_catalogue_head, offline_activity_changes, offline_activity_head, offline_activity_snapshot, offline_apply_activity_batch, offline_apply_activity_v2, and record_feed_analytics_events. Their table/auth references are schema-qualified. All 18 unique SECURITY DEFINER functions flagged as anon/authenticated-callable now have an empty search path (the seven anon-callable warnings overlap with this set). The warnings remain generic linter warnings about SECURITY DEFINER execution, not proof of an exploitable access path; retain the input validation and role checks and review any new RPC against the same standard.
+
+The advisor reported leaked-password protection disabled. The connected Supabase Free plan does not include leaked-password protection. This is a provider-plan limitation; it has not been changed. Supabase Free also has one-day API/database log retention, 24-hour Auth audit-log access, and no automatic backups/PITR. Maintain an independent encrypted backup and restore test.

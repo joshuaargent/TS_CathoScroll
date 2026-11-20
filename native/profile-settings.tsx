@@ -218,6 +218,15 @@ export function NativeProfileSettings({ userId }: { userId: string }) {
       <Button type="submit" disabled={disabled}>
         {busy ? 'Saving…' : 'Save profile'}
       </Button>
+      <div className="border-border border-t pt-4">
+        <h3 className="font-semibold">Personalisation and privacy</h3>
+        <p className="text-text-secondary mt-1 text-sm">
+          Manage optional private interest profiling and personalised topic recommendations.
+        </p>
+        <Link href="/account/personalization" className="text-accent mt-3 inline-flex text-sm font-semibold underline">
+          Manage personalisation
+        </Link>
+      </div>
     </form>
   );
 }

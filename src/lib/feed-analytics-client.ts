@@ -1,5 +1,7 @@
 'use client';
 
+import type { SignedInAnalyticsOutbox } from './offline/signed-in-analytics-store';
+
 export type FeedAnalyticsEventType =
   | 'impression'
   | 'viewable_impression'
@@ -27,7 +29,8 @@ type QueuedFeedAnalyticsEvent = {
 };
 
 const batchLimit = 50;
-const storagePrefix = 'cathoscroll.feed-analytics.v1.';
+const queueLimit = 200;
+const pendingQueues = new Map<string, QueuedFeedAnalyticsEvent[]>();
 const sessionId = createUuid();
 const flushingUsers = new Set<string>();
 type FeedAnalyticsTransport = {
@@ -36,6 +39,87 @@ type FeedAnalyticsTransport = {
   retired?: boolean;
 };
 const transports = new Map<string, FeedAnalyticsTransport>();
+let persistentOutbox: SignedInAnalyticsOutbox | null = null;
+
+export async function configureFeedAnalyticsOutbox(outbox: SignedInAnalyticsOutbox): Promise<void> {
+  await outbox.initialize();
+  persistentOutbox = outbox;
+  for (const userId of transports.keys()) void flushFeedAnalytics(userId);
+}
+
+export async function clearFeedAnalyticsOutbox(userId: string): Promise<void> {
+  pendingQueues.delete(userId);
+  visitedTopicsByUser.delete(userId);
+  completedTopicsByUser.delete(userId);
+  if (persistentOutbox) await persistentOutbox.clearUser(userId);
+}
+
+async function hasPendingFeedAnalytics(userId: string): Promise<boolean> {
+  if (readQueue(userId).length) return true;
+  if (!persistentOutbox) return false;
+  return (await persistentOutbox.pending(userId, 'topic', 1)).length > 0;
+}
+
+// These session-scoped sets live outside React components so conditional
+// rendering of interstitial cards cannot reset visit/completion attribution.
+const visitedTopicsByUser = new Map<string, Set<string>>();
+const completedTopicsByUser = new Map<string, Set<string>>();
+const maxTrackedTopicsPerUser = 5000;
+const recentTopicVisitAt = new Map<string, number>();
+const duplicateVisitWindowMs = 100;
+
+function rememberTopic(
+  collection: Map<string, Set<string>>,
+  userId: string,
+  topicId: string
+): boolean {
+  let topics = collection.get(userId);
+  if (!topics) {
+    topics = new Set<string>();
+    collection.set(userId, topics);
+  }
+  if (topics.has(topicId)) return false;
+  topics.add(topicId);
+  if (topics.size > maxTrackedTopicsPerUser) {
+    const oldestTopicId = topics.values().next().value;
+    if (oldestTopicId !== undefined) topics.delete(oldestTopicId);
+  }
+  return true;
+}
+
+export function recordFeedTopicVisit(userId: string | null, topicId: string): void {
+  if (!userId || !topicId) return;
+  const now = Date.now();
+  const visitKey = userId + '\u0000' + topicId;
+  const lastVisitAt = recentTopicVisitAt.get(visitKey);
+  if (lastVisitAt !== undefined && now >= lastVisitAt && now - lastVisitAt < duplicateVisitWindowMs) {
+    return;
+  }
+  recentTopicVisitAt.delete(visitKey);
+  recentTopicVisitAt.set(visitKey, now);
+  if (recentTopicVisitAt.size > maxTrackedTopicsPerUser * 10) {
+    const oldestKey = recentTopicVisitAt.keys().next().value;
+    if (oldestKey !== undefined) recentTopicVisitAt.delete(oldestKey);
+  }
+  const isReturnVisit = !rememberTopic(visitedTopicsByUser, userId, topicId);
+  recordFeedAnalyticsEvent(userId, 'impression', topicId, { source: 'feed' });
+  if (isReturnVisit) {
+    recordFeedAnalyticsEvent(userId, 'return_visit', topicId, { source: 'feed' });
+  }
+}
+
+export function recordFeedTopicCompletion(
+  userId: string | null,
+  topicId: string,
+  slideIndex?: number
+): void {
+  if (!userId || !topicId || !rememberTopic(completedTopicsByUser, userId, topicId)) return;
+  recordFeedAnalyticsEvent(userId, 'completion', topicId, {
+    ...(slideIndex !== undefined ? { slide_index: slideIndex } : {}),
+    completion_percent: 100,
+  });
+}
+
 
 function createUuid(): string | null {
   if (typeof crypto === 'undefined') return null;
@@ -55,56 +139,13 @@ function createUuid(): string | null {
   ].join('-');
 }
 
-function storageKey(userId: string): string {
-  return storagePrefix + userId;
-}
-
 function readQueue(userId: string): QueuedFeedAnalyticsEvent[] {
-  try {
-    const raw = window.localStorage.getItem(storageKey(userId));
-    if (!raw) return [];
-    const parsed: unknown = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter(isQueuedEvent);
-  } catch {
-    return [];
-  }
-}
-
-function isQueuedEvent(value: unknown): value is QueuedFeedAnalyticsEvent {
-  if (!value || typeof value !== 'object') return false;
-  const event = value as Record<string, unknown>;
-  return (
-    typeof event.event_id === 'string' &&
-    typeof event.session_id === 'string' &&
-    typeof event.entity_id === 'string' &&
-    event.entity_type === 'topic' &&
-    typeof event.event_type === 'string' &&
-    [
-      'impression',
-      'viewable_impression',
-      'active_duration',
-      'skip',
-      'swipe_depth',
-      'completion',
-      'return_visit',
-    ].includes(event.event_type) &&
-    Boolean(event.metadata) &&
-    typeof event.metadata === 'object' &&
-    !Array.isArray(event.metadata)
-  );
+  return pendingQueues.get(userId) ?? [];
 }
 
 function writeQueue(userId: string, events: QueuedFeedAnalyticsEvent[]): void {
-  try {
-    if (events.length === 0) {
-      window.localStorage.removeItem(storageKey(userId));
-    } else {
-      window.localStorage.setItem(storageKey(userId), JSON.stringify(events));
-    }
-  } catch {
-    // Analytics are best-effort and must never interfere with learning actions.
-  }
+  if (events.length === 0) pendingQueues.delete(userId);
+  else pendingQueues.set(userId, events);
 }
 
 export function recordFeedAnalyticsEvent(
@@ -127,10 +168,25 @@ export function recordFeedAnalyticsEvent(
     metadata,
   };
 
+  if (persistentOutbox) {
+    void persistentOutbox.enqueue(userId, 'topic', event)
+      .then(() => { if (navigator.onLine) void flushFeedAnalytics(userId); })
+      .catch((error: unknown) => {
+        console.error('Unable to persist signed-in topic analytics:', error);
+        const queue = readQueue(userId);
+        queue.push(event);
+        if (queue.length > queueLimit) queue.splice(0, queue.length - queueLimit);
+        writeQueue(userId, queue);
+        if (navigator.onLine) void flushFeedAnalytics(userId);
+      });
+    return;
+  }
+
+  // The web client keeps its existing bounded in-memory queue.
   const queue = readQueue(userId);
   queue.push(event);
+  if (queue.length > queueLimit) queue.splice(0, queue.length - queueLimit);
   writeQueue(userId, queue);
-
   if (navigator.onLine) void flushFeedAnalytics(userId);
 }
 
@@ -140,10 +196,11 @@ export async function flushFeedAnalytics(userId: string, keepalive = false): Pro
   flushingUsers.add(userId);
   try {
     for (;;) {
-      const queue = readQueue(userId);
-      if (queue.length === 0) break;
-
-      const batch = queue.slice(0, batchLimit);
+      const stored = persistentOutbox ? await persistentOutbox.pending(userId, 'topic', batchLimit) : [];
+      const storedIds = new Set(stored.map((event) => event.event_id));
+      const memory = readQueue(userId).filter((event) => !storedIds.has(event.event_id));
+      const batch = [...stored, ...memory].slice(0, batchLimit);
+      if (batch.length === 0) break;
       let response: Response;
       const transport = transports.get(userId);
       const headers = new Headers({ 'Content-Type': 'application/json' });
@@ -175,19 +232,28 @@ export async function flushFeedAnalytics(userId: string, keepalive = false): Pro
       if (!response.ok) break;
 
       const acceptedIds = new Set(batch.map((event) => event.event_id));
-      const latestQueue = readQueue(userId);
-      writeQueue(
-        userId,
-        latestQueue.filter((event) => !acceptedIds.has(event.event_id))
-      );
+      if (persistentOutbox) {
+        await persistentOutbox.acknowledge(userId, 'topic', [...acceptedIds]);
+      }
+      writeQueue(userId, readQueue(userId).filter((event) => !acceptedIds.has(event.event_id)));
 
       if (keepalive) break;
     }
   } finally {
     flushingUsers.delete(userId);
     const transport = transports.get(userId);
-    if (transport?.retired && readQueue(userId).length === 0) {
-      transports.delete(userId);
+    if (transport?.retired) {
+      // React may clean up this listener effect immediately before the topic
+      // duration effect records its final event. Defer transport retirement
+      // until the current cleanup stack has completed so that last event keeps
+      // the native endpoint and bearer-token provider.
+      queueMicrotask(() => {
+        void hasPendingFeedAnalytics(userId).then((pending) => {
+          if (transports.get(userId) === transport && !pending && !flushingUsers.has(userId)) {
+            transports.delete(userId);
+          }
+        }).catch((error: unknown) => console.error('Unable to inspect pending topic analytics:', error));
+      });
     }
   }
 }
@@ -200,8 +266,8 @@ export function installFeedAnalyticsListeners(
 
   const installedTransport: FeedAnalyticsTransport = { ...transport };
   transports.set(userId, installedTransport);
-  // Drain events left by a previous offline session as soon as the authenticated
-  // transport is installed. Native WebViews can restart without an `online` event.
+  // Flush any events queued in this active page as soon as the authenticated
+  // transport is installed.
   const flush = () => void flushFeedAnalytics(userId);
   flush();
   const handleVisibility = () => {
@@ -226,11 +292,10 @@ export function installFeedAnalyticsListeners(
       installedTransport.retired = true;
       Promise.resolve().then(() => {
         if (transports.get(userId) !== installedTransport) return;
-        if (readQueue(userId).length === 0 && !flushingUsers.has(userId)) {
-          transports.delete(userId);
-        } else {
-          void flushFeedAnalytics(userId);
-        }
+        void hasPendingFeedAnalytics(userId).then((pending) => {
+          if (!pending && !flushingUsers.has(userId)) transports.delete(userId);
+          else void flushFeedAnalytics(userId);
+        }).catch((error: unknown) => console.error('Unable to inspect pending topic analytics:', error));
       });
     }
   };

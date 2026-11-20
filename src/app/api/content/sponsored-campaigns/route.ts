@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { readBoundedJson } from '@/lib/http/read-json';
-import { checkApiRateLimit, rateLimitResponseHeaders } from '@/lib/security/api-rate-limit';
+import { checkApiRateLimit, getTrustedClientIp, rateLimitResponseHeaders } from '@/lib/security/api-rate-limit';
 import {
   createServiceRoleClient,
   getAuthenticatedUserFromRequest,
@@ -36,7 +36,6 @@ function isCampaign(value: unknown): value is Record<string, unknown> {
     typeof campaign.sponsor_name === 'string' &&
     campaign.sponsor_name.length > 0 &&
     campaign.sponsor_name.length <= 120 &&
-    (campaign.sponsor_logo_url === null || safeHttpsUrl(campaign.sponsor_logo_url)) &&
     typeof campaign.campaign_name === 'string' &&
     campaign.campaign_name.length > 0 &&
     campaign.campaign_name.length <= 120 &&
@@ -57,7 +56,7 @@ function isCampaign(value: unknown): value is Record<string, unknown> {
 
 export function OPTIONS(request: Request) {
   const headers = nativeApiCorsHeaders(request);
-  if (!headers.has('Access-Control-Allow-Origin') && !headers.has('Vary')) {
+  if (!headers.has('Access-Control-Allow-Origin')) {
     return new NextResponse(null, { status: 403 });
   }
   headers.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -65,7 +64,7 @@ export function OPTIONS(request: Request) {
 }
 
 export async function POST(request: Request) {
-  if (!isSameOriginOrNativeRequest(request)) return respond(request, { error: 'Forbidden' }, 403);
+  if (!isSameOriginOrNativeRequest(request, true)) return respond(request, { error: 'Forbidden' }, 403);
 
   let auth: Awaited<ReturnType<typeof getAuthenticatedUserFromRequest>>;
   try {
@@ -74,11 +73,11 @@ export async function POST(request: Request) {
     console.error('Unable to verify sponsor-feed authentication:', cause);
     return respond(request, { error: 'Authentication is temporarily unavailable.' }, 503);
   }
-  if (!auth.user) return respond(request, { error: 'Authentication required' }, 401);
+  const isAnonymous = !auth.user;
 
   const rateLimit = await checkApiRateLimit({
     scope: 'sponsor-campaigns:serve',
-    identifier: auth.user.id,
+    identifier: auth.user?.id ?? `anonymous:${getTrustedClientIp(request) ?? 'unknown'}`,
     limit: 12,
     windowSeconds: 60,
   });
@@ -104,21 +103,27 @@ export async function POST(request: Request) {
       (typeof parsed.value.categorySlug !== 'string' ||
         !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(parsed.value.categorySlug))) ||
     !('topicId' in parsed.value) ||
-    (parsed.value.topicId !== null &&
-      (typeof parsed.value.topicId !== 'string' ||
-        !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(parsed.value.topicId)))
+    typeof parsed.value.topicId !== 'string' ||
+    !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(parsed.value.topicId)
   ) {
     return respond(request, { error: 'Invalid sponsored-content request.' }, 400);
   }
 
   try {
-    const { data, error } = await createServiceRoleClient().rpc('get_weighted_sponsor_campaigns', {
-      p_user_id: auth.user.id,
-      p_session_id: parsed.value.sessionId,
-      p_category_slug: parsed.value.categorySlug,
-      p_topic_id: parsed.value.topicId,
-      p_limit: 5,
-    });
+    const { data, error } = isAnonymous
+      ? await createServiceRoleClient().rpc('get_anonymous_sponsor_campaigns', {
+          p_session_token: parsed.value.sessionId,
+          p_category_slug: parsed.value.categorySlug,
+          p_topic_id: parsed.value.topicId,
+          p_limit: 1,
+        })
+      : await createServiceRoleClient().rpc('get_weighted_sponsor_campaigns', {
+          p_user_id: auth.user!.id,
+          p_session_id: parsed.value.sessionId,
+          p_category_slug: parsed.value.categorySlug,
+          p_topic_id: parsed.value.topicId,
+          p_limit: 1,
+        });
     if (error) {
       console.error('Unable to select sponsor campaigns:', error.message);
       return respond(request, { error: 'Sponsored content is temporarily unavailable.' }, 503);
@@ -128,7 +133,7 @@ export async function POST(request: Request) {
       data === null ||
       !('campaigns' in data) ||
       !Array.isArray(data.campaigns) ||
-      data.campaigns.length > 5 ||
+      data.campaigns.length > 1 ||
       !('generated_at' in data) ||
       typeof data.generated_at !== 'string' ||
       !Number.isFinite(Date.parse(data.generated_at)) ||

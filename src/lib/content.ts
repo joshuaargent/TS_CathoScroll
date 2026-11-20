@@ -500,3 +500,44 @@ export async function getPublishedTopicsByIds(ids: string[]): Promise<Topic[]> {
   // the cached rows return in database order.
   return loadPublishedTopicsByIds(ids);
 }
+
+
+export interface GeneralFeedCursor {
+  categories: { slug: string; served: number; offset: number }[];
+  last: string | null;
+  streak: number;
+}
+
+export async function getPublicGeneralTopicPage(
+  cursor: GeneralFeedCursor | null = null,
+  limit = 50
+): Promise<{ topics: Topic[]; nextCursor: GeneralFeedCursor | null }> {
+  const safeLimit = Math.min(Math.max(Math.floor(limit), 1), 50);
+  const supabase = createPublicContentClient();
+  const { data, error } = await supabase.rpc('get_public_general_topic_page', {
+    feed_cursor: cursor,
+    page_limit: safeLimit,
+  });
+  if (error) throw new Error(`Unable to load ranked public feed: ${error.message}`);
+  if (!data || typeof data !== 'object' || !('topics' in data) || !Array.isArray(data.topics)) {
+    throw new Error('The public feed service returned an invalid page.');
+  }
+  const rows = data.topics as Array<{
+    id: string; slug: string; category: string; categorySlug: string; question: string; answer: string;
+    explanation: string; catechism?: { paragraphs?: string[]; text?: string };
+    scripture?: { reference?: string; text?: string };
+  }>;
+  const mapped: Topic[] = rows.map((row) => ({
+    id: row.id,
+    slug: row.slug,
+    category: row.category,
+    categorySlug: row.categorySlug,
+    question: row.question,
+    answer: row.answer,
+    explanation: row.explanation,
+    catechism: { paragraphs: row.catechism?.paragraphs ?? [], text: row.catechism?.text ?? '' },
+    scripture: { reference: row.scripture?.reference ?? '', text: row.scripture?.text ?? '' },
+  }));
+  const next = 'nextCursor' in data ? data.nextCursor : null;
+  return { topics: mapped, nextCursor: next && typeof next === 'object' ? next as GeneralFeedCursor : null };
+}

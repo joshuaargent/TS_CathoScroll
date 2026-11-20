@@ -13,7 +13,7 @@ export default function PrivacyPage() {
       <div className="mt-16 mb-16">
         <h1 className="text-5xl font-extrabold md:text-7xl">Privacy Policy</h1>
 
-        <p className="text-text-secondary mt-4 text-lg">Last updated: 31 October 2026</p>
+        <p className="text-text-secondary mt-4 text-lg">Last updated: 20 November 2026</p>
       </div>
 
       <div className="space-y-12">
@@ -35,8 +35,10 @@ export default function PrivacyPage() {
           <h2 className="mb-4 text-3xl font-bold">Who We Are</h2>
 
           <p className="text-text-secondary leading-relaxed">
-            CathoScroll is operated by Joshua Argent and provides educational resources focused on
-            Catholic theology, Scripture, Church history, prayer, apologetics, and related subjects.
+            CathoScroll is operated by Joshua Argent, who is the data controller for the personal data
+            described in this policy. CathoScroll provides educational resources focused on Catholic
+            theology, Scripture, Church history, prayer, apologetics, and related subjects. You can
+            contact the controller using the details at the end of this policy.
           </p>
         </section>
 
@@ -52,7 +54,6 @@ export default function PrivacyPage() {
             <li>Username.</li>
             <li>Display name.</li>
             <li>Profile biography.</li>
-            <li>Subscription status.</li>
             <li>Bookmarks.</li>
             <li>Progress and streak data.</li>
             <li>Private notes.</li>
@@ -60,7 +61,9 @@ export default function PrivacyPage() {
             <li>Likes and interactions.</li>
             <li>Quiz progress and quiz results.</li>
             <li>Learning path progress.</li>
-            <li>Technical and analytics data.</li>
+            <li>Technical, device, security, and analytics data.</li>
+            <li>Optional personalisation consent records, selected category interests, and derived topic-interest scores when you opt in.</li>
+            <li>For sponsor representatives: organisation membership, campaign submissions, invoice details, and payment references.</li>
           </ul>
         </section>
 
@@ -113,9 +116,10 @@ export default function PrivacyPage() {
             <li>Track learning progress.</li>
             <li>Save bookmarks and notes.</li>
             <li>Display comments and profiles.</li>
-            <li>Deliver premium features.</li>
-            <li>Provide audio lessons.</li>
-            <li>Provide quizzes and learning paths.</li>
+            <li>Provide learning paths, quizzes, audio, and other platform features without charging individual users.</li>
+            <li>Personalise topic recommendations only where you have explicitly opted in.</li>
+            <li>Administer paid sponsor campaigns, invoices, and sponsor account access.</li>
+            <li>Measure sponsored campaign delivery and provide sponsors with aggregate campaign reports.</li>
             <li>Improve performance and reliability.</li>
             <li>Monitor abuse, spam, fraud, and security issues.</li>
             <li>Comply with legal obligations.</li>
@@ -123,20 +127,107 @@ export default function PrivacyPage() {
         </section>
 
         <section>
-          <h2 className="mb-4 text-3xl font-bold">Premium Subscriptions</h2>
+          <h2 className="mb-4 text-3xl font-bold">Personalisation and Sensitive Interests</h2>
 
           <p className="text-text-secondary leading-relaxed">
-            If you purchase a premium subscription, payment processing is handled by our payment
-            provider.
+            Personalisation is optional and is off by default. If you explicitly opt in,
+            CathoScroll may use your topic-reading activity (such as viewable reading time,
+            completion, repeat visits, and skips), your likes and bookmarks, relevant
+            community interactions, and category interests you choose to create a private
+            content-interest profile and personalise your topic recommendations.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            CathoScroll does not store complete payment card numbers or payment credentials.
+            Because CathoScroll focuses on Catholic theology, Scripture, and related
+            religious subjects, these interests and activity patterns may reveal or allow
+            inferences about religious or philosophical beliefs. We treat this possibility
+            as sensitive and only use this profile for personalising your own educational
+            recommendations after your explicit opt-in. It is not a declaration of your
+            religious affiliation, is not displayed on your public profile, and is not
+            shared with sponsors or used for advertising targeting.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            We may store information relating to subscription status, billing history, and access
-            permissions in order to manage premium features.
+            You can review the categories and topics influencing your recommendations,
+            change your selected interests, or withdraw consent at any time in
+            <Link href="/account/personalization" className="text-accent mx-1 hover:underline">Account → Personalisation</Link>.
+            Withdrawing consent stops profile-based recommendation weighting and deletes
+            the derived topic-interest scores and selected category interests. It does not
+            erase separate operational analytics records that are retained for their
+            stated operational period.
+          </p>
+        </section>
+
+        <section>
+          <h2 className="mb-4 text-3xl font-bold">Lawful Bases for Processing</h2>
+
+          <p className="text-text-secondary leading-relaxed">
+            Where UK data protection law applies, the lawful basis depends on the purpose:
+          </p>
+
+          <ul className="text-text-secondary mt-4 list-disc space-y-2 pl-6">
+            <li>Contract: to create and operate your account and provide features you request.</li>
+            <li>Legitimate interests: to secure, maintain, troubleshoot, moderate, prevent abuse, and understand and improve service performance, where a documented assessment shows that our interests are not overridden by your rights.</li>
+            <li>Legal obligation: to keep or disclose information where applicable law requires it.</li>
+            <li>Consent: for optional personalisation. Because this processing may reveal religious or philosophical beliefs, we rely on your explicit consent under Article 6(1)(a) UK GDPR and the Article 9(2)(a) exception for the relevant special-category processing.</li>
+          </ul>
+
+          <p className="text-text-secondary mt-4 leading-relaxed">
+            Operational analytics are used for engagement measurement, reliability and
+            service improvement. They do not create belief profiles or make individual
+            decisions. Recommendation personalisation is a separate optional feature and
+            uses its own consent controls.
+          </p>
+
+          <p className="text-text-secondary mt-4 leading-relaxed">
+            You may withdraw personalisation consent at any time using the account
+            controls described above. Withdrawal does not affect processing carried out
+            before withdrawal.
+          </p>
+        </section>
+
+        <section>
+          <h2 className="mb-4 text-3xl font-bold">Automated Recommendations</h2>
+
+          <p className="text-text-secondary leading-relaxed">
+            If you opt in to personalisation, automated ranking uses your private content-interest
+            profile to order educational topics in your own feed. It does not determine access to
+            essential services, prices, employment, credit, insurance, or other decisions with
+            legal or similarly significant effects. You can turn off personalisation and delete
+            the derived profile through Account settings.
+          </p>
+
+          <p className="text-text-secondary mt-4 leading-relaxed">
+            On Android and Electron, previously downloaded server-ranked recommendation pages
+            may be used offline for up to 12 hours after the last successful consent check. These
+            pages are stored in the encrypted private activity database and are cleared when
+            personalisation is withdrawn or the account changes. The app does not calculate a
+            new personal profile or infer new interests while offline.
+          </p>
+        </section>
+
+        <section>
+          <h2 className="mb-4 text-3xl font-bold">Sponsorships and Payments</h2>
+
+          <p className="text-text-secondary leading-relaxed">
+            Individual users do not pay for CathoScroll learning or community features.
+            The only paid offering is sponsorship purchased by businesses or organisations.
+            Sponsor payments are made by direct bank transfer outside the app; CathoScroll
+            does not process user card payments or store card credentials.
+          </p>
+
+          <p className="text-text-secondary mt-4 leading-relaxed">
+            For sponsor organisations and their authorised representatives, we may process
+            business contact details, sponsor membership roles, campaign information,
+            agreed amounts, invoice balances, payment dates, bank references, and
+            transaction identifiers supplied for reconciliation. We do not collect or
+            store sponsor bank login credentials or full payment-card details.
+          </p>
+
+          <p className="text-text-secondary mt-4 leading-relaxed">
+            Sponsors receive aggregate campaign performance reporting. They do not receive
+            user identities, individual reading histories, private notes, personalisation
+            profiles, or raw user-level analytics events.
           </p>
         </section>
 
@@ -144,17 +235,71 @@ export default function PrivacyPage() {
           <h2 className="mb-4 text-3xl font-bold">Analytics</h2>
 
           <p className="text-text-secondary leading-relaxed">
-            CathoScroll uses analytics tools to understand how the platform is used and to improve
-            performance and user experience.
+            CathoScroll uses analytics to measure general site usage, understand feed performance,
+            diagnose reliability issues, protect the service, and improve the user experience.
+            Analytics is separate from optional recommendation personalisation and is not used for
+            sponsor targeting.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            This may include information such as pages visited, browser type, device information,
-            approximate location derived from network information, and usage patterns.
+            For signed-in users, first-party topic-feed and Top Comments analytics are linked to
+            the account that generated them. They measure impressions, viewability, active reading
+            time, skips, completions, slide depth, return visits and discussion opens. Raw events
+            and the restricted daily viewer bridge are retained for up to 180 days; daily totals
+            without account or session identifiers are retained longer. These records are not
+            anonymous while account-linked identifiers are retained and are not used for
+            individual sponsor targeting. Turning off recommendation personalisation does not
+            automatically disable operational analytics. On Android and Electron, unsent signed-in
+            topic, Top Comments and sponsor viewability/click events are also persisted in the
+            encrypted private activity database, capped at 2,000 events per stream and seven days. They are deleted only after
+            server acknowledgement and are cleared when the account signs out or changes. The
+            website keeps its unsent account-linked analytics in memory only.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            CathoScroll currently uses Vercel Analytics for site analytics and performance insights.
+            Signed-out visitors also contribute to CathoScroll's separate first-party anonymous
+            topic and Top Comments measurement. The browser sends event IDs and the relevant topic
+            or comment identifier, but no account ID, persistent visitor ID, raw session ID or
+            cross-visit profile. The server deduplicates events and stores only UTC daily aggregate
+            counts for impressions, viewability, active duration, skips, completions and discussion
+            opens. Event receipts used only for deduplication become eligible for deletion after 30 days; a scheduled cleanup runs every 15 minutes in bounded batches. On the website, unsent anonymous event batches are held in page memory only. Native apps persist the anonymous topic/comment retry queue in app-private SQLite, capped at 2,000 events and seven days, so it survives app termination and uploads after reconnection. The queue contains no account, visitor or session identifier; users can object through the Cookie Policy preference, which clears pending local events. The
+            API also applies abuse-prevention rate limits using a keyed HMAC fingerprint of the
+            trusted request IP; stale rate-limit entries become eligible for cleanup after two
+            days. That fingerprint is not joined to feed event aggregates. Standard hosting and
+            security logs may separately process network metadata under their own controls.
+            The aggregate counts do not support an anonymous unique-person or session count.
+          </p>
+
+          <p className="text-text-secondary mt-4 leading-relaxed">
+            Signed-out sponsor delivery uses a separate campaign pipeline. A random session
+            token exists only in the active page/app memory and its SHA-256 hash is stored briefly
+            to enforce sponsor frequency limits. Raw anonymous sponsor event and frequency rows become eligible for deletion after 30 days; a scheduled cleanup runs every 15 minutes in batches of up to 5,000 rows per table per run. Daily campaign-level served, viewable and click totals are retained for aggregate reporting. Failed sponsor-event sends are retried in memory after reconnect or app visibility changes; the retry queue is not persisted because the session token must not survive an app restart. The token is not used to build a visitor profile or
+            link topic/comment reading activity across visits.
+          </p>
+
+          <p className="text-text-secondary mt-4 leading-relaxed">
+            CathoScroll uses Vercel Web Analytics for aggregate site-level traffic measurement,
+            including visits from people who are not signed in. Vercel states that it does not use
+            third-party cookies and derives a short-lived visitor hash from the incoming request,
+            which is discarded after 24 hours. Its analytics data points may include timestamps,
+            page URLs, referrers, filtered query parameters, approximate geolocation, and device
+            and browser information. CathoScroll preserves ordinary page-level reporting but
+            replaces topic, category and search identifiers with generic route labels, removes
+            query strings and fragments, and applies a strict-origin referrer policy so the browser
+            sends only the referring site's origin. Vercel's own processing and any request-level
+            metadata remain subject to Vercel's privacy documentation and our processor and
+            international-transfer review.
+          </p>
+
+          <p className="text-text-secondary mt-4 leading-relaxed">
+            Vercel Speed Insights is enabled to measure Core Web Vitals and real-world page
+            performance. Its event hook removes query strings and fragments and replaces
+            topic/category/search identifiers with generic route labels before transmission.
+            Speed Insights reports technical performance and is separate from CathoScroll's
+            account-linked product analytics. Vercel describes its Speed Insights data points as
+            anonymous and says they are not designed to identify visitors or reconstruct browsing
+            sessions; its published data fields include route and URL, device, browser, country and
+            web-vital measurements.
           </p>
         </section>
 
@@ -179,13 +324,13 @@ export default function PrivacyPage() {
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            These providers may process information on our behalf.
+            These providers may process information on our behalf under contractual and security controls. CathoScroll does not sell personal data. We do not disclose personal reading histories or private personalisation profiles to sponsors. We may disclose information where required by law or to protect the service, users, or our legal rights.
           </p>
 
           <ul className="text-text-secondary mt-4 list-disc space-y-2 pl-6">
             <li>Supabase for authentication and database services.</li>
-            <li>Vercel for hosting and analytics.</li>
-            <li>Stripe for payment processing and subscription management.</li>
+            <li>Vercel for hosting, deployment, and site analytics.</li>
+            <li>Formspree for contact-form delivery when the optional form integration is configured.</li>
           </ul>
         </section>
 
@@ -193,16 +338,26 @@ export default function PrivacyPage() {
           <h2 className="mb-4 text-3xl font-bold">International Data Processing</h2>
 
           <p className="text-text-secondary leading-relaxed">
-            CathoScroll is available internationally.
+            The primary CathoScroll database and authentication services are hosted by Supabase
+            in AWS Stockholm, Sweden (eu-north-1). The website's server-side functions are
+            currently deployed by Vercel in the United States (US East, iad1). These locations
+            may change as the service develops.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            Information may be transferred to, processed in, and stored in countries outside your
-            own jurisdiction, including locations where our service providers operate.
+            Supabase and Vercel may also process service metadata, support requests, security
+            logs, and other information through their own operations and subprocessors in
+            additional countries, including the United States and Singapore. This means some
+            personal data may be transferred outside the UK and EEA.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            By using CathoScroll, you acknowledge that such transfers may occur.
+            Where a transfer is subject to UK data protection transfer rules, we use an applicable
+            adequacy decision or another lawful transfer safeguard, such as the UK International
+            Data Transfer Addendum or approved Standard Contractual Clauses where applicable.
+            Provider information: <Link href="https://supabase.com/legal/customer-resources/data-processing-addendum" className="text-accent underline">Supabase DPA</Link>,
+            {' '}<Link href="https://supabase.com/legal/privacy-resources/data-residency-and-transfers-faq" className="text-accent underline">Supabase data residency and transfers</Link>,
+            {' '}and <Link href="https://vercel.com/legal/dpa" className="text-accent underline">Vercel DPA</Link>.
           </p>
         </section>
 
@@ -210,8 +365,11 @@ export default function PrivacyPage() {
           <h2 className="mb-4 text-3xl font-bold">Data Retention</h2>
 
           <p className="text-text-secondary leading-relaxed">
-            We retain information for as long as reasonably necessary to operate CathoScroll and
-            fulfil the purposes described in this policy.
+            We retain information only for as long as reasonably necessary for the purpose for which it was collected, subject to legal, security, moderation, and accounting requirements. Raw feed, community-card, and sponsor-campaign analytics events, together with the user/day viewer bridge used for unique-viewer reporting, are retained for up to 180 days. Signed-in sponsor frequency-cap records are removed after campaigns have completed or been rejected and the applicable 180-day cutoff has passed. Anonymous sponsor session-frequency records are removed after 30 days. Daily totals that do not contain user or session identifiers are retained longer.
+          </p>
+
+          <p className="text-text-secondary mt-4 leading-relaxed">
+            While personalisation is enabled, behavioural topic-interest scores use a rolling evidence window of up to 90 days. Explicit account interactions such as likes, bookmarks, progress and comment engagement use a maximum 180-day evidence window. Explicit category choices remain stored while consent remains enabled. When you withdraw consent, the derived profile and explicit category choices are deleted. The separate operational analytics event records are not deleted by withdrawing personalisation consent and remain subject to their own retention period.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
@@ -245,9 +403,11 @@ export default function PrivacyPage() {
           <ul className="text-text-secondary mt-4 list-disc space-y-2 pl-6">
             <li>Access your information.</li>
             <li>Correct inaccurate information.</li>
-            <li>Request deletion of personal information.</li>
+            <li>Request deletion or restriction of personal information.</li>
             <li>Object to certain processing activities.</li>
-            <li>Request a copy of certain information held about you.</li>
+            <li>Request a copy of certain information held about you, including data portability where applicable.</li>
+            <li>Withdraw consent at any time where processing is based on consent.</li>
+            <li>Complain to the <Link href="https://ico.org.uk/make-a-complaint/" className="text-accent underline">UK Information Commissioner's Office (ICO)</Link>, or your local supervisory authority.</li>
           </ul>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
@@ -290,8 +450,7 @@ export default function PrivacyPage() {
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            Continued use of CathoScroll after changes are published constitutes acceptance of the
-            updated policy.
+            We will publish the updated policy and, where required, provide additional notice or obtain fresh consent before carrying out materially changed consent-based processing.
           </p>
         </section>
 

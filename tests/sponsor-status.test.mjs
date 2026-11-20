@@ -11,17 +11,18 @@ const [bootstrap, route, manager] = await Promise.all([
 test('sponsor status changes are administrator-only, audited and constrained', () => {
   const start = bootstrap.lastIndexOf('CREATE OR REPLACE FUNCTION public.admin_set_sponsor_status');
   assert.notEqual(start, -1);
-  const end = bootstrap.indexOf('ALTER FUNCTION ', start);
-  const body = bootstrap.slice(start, end);
+  const end = bootstrap.indexOf('$function$;', start);
+  assert.notEqual(end, -1);
+  const body = bootstrap.slice(start, end + '$function$;'.length);
   assert.match(body, /public\.admin_users/);
   assert.match(body, /draft', 'scheduled', 'active', 'paused', 'completed/);
   assert.match(body, /sponsor\.status_changed/);
   assert.match(bootstrap, /GRANT EXECUTE ON FUNCTION public\.admin_set_sponsor_status\(uuid, uuid, text\) TO service_role/);
 });
 
-test('status API enforces administrator MFA, same-origin and rate limiting', () => {
+test('status API enforces administrator role, same-origin and rate limiting without MFA', () => {
   assert.match(route, /getAdminSessionFromRequest/);
-  assert.match(route, /mfaRequired/);
+  assert.doesNotMatch(route, /mfaRequired|administrator MFA|account\/security/);
   assert.match(route, /isSameOriginOrNativeRequest/);
   assert.match(route, /checkApiRateLimit/);
   assert.match(route, /admin_set_sponsor_status/);

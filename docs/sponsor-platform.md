@@ -1,5 +1,8 @@
 # Sponsor Platform
 
+**Commercial model:** Sponsorship is CathoScroll's only paid offering. Individual users do not pay for learning, community, account, or personalisation features. Sponsor invoices are settled by direct bank transfer outside the app; there are no user subscriptions or in-app card payments.
+
+
 This document describes the current sponsor workflow, permissions, payment controls and feed behaviour. Sponsor payments are direct bank transfers to CathoScroll; the application does not process payments.
 
 ## Feed placement rules
@@ -16,6 +19,8 @@ The two interstitial schedules are independent:
 ## Sponsor organisations and account access
 
 A row in `public.sponsors` represents a business or organisation. It is not a login account.
+
+Sponsor identity is text-only. The feed displays the sponsor name as text; sponsor logos are not stored in the database or rendered. Campaign `image_url` remains separate creative media, not a company logo. The live `sponsors.logo_url` column is absent. Until the logo-free application is deployed, a service-role-only compatibility RPC accepts but ignores the old `p_logo_url` argument, and the campaign selector returns `sponsor_logo_url: null` solely for the currently deployed client's validation. Apply [`sponsor-logo-removal.sql`](sponsor-logo-removal.sql) after deployment to remove that temporary API compatibility surface.
 
 Administrators manage sponsor organisations and access at `/admin/sponsors`. They can pause or reactivate an entire sponsor organisation; a paused/completed sponsor is immediately excluded from delivery even if an individual campaign remains approved. Membership changes are audited, and the database prevents suspending or revoking the last active owner.
 
@@ -73,9 +78,13 @@ The sponsor portal can view its own invoice balances and recorded transactions. 
 
 The current workflow supports administrator-entered invoices, partial/full bank-transfer recording, duplicate transaction protection, outstanding balances and refunds. It does not yet import bank statement CSV files, automatically match bank transactions, generate/send tax-compliant PDF invoices, calculate VAT, or connect to a bank/payment API. Those require CathoScroll's legal issuer details, tax status and accounting requirements to be confirmed before implementation.
 
+## Sponsor card interactions
+
+The feed card exposes a Share action (Web Share API with clipboard fallback) and a Visit action that opens the campaign destination. It does not expose a Save/Bookmark action: the existing bookmark model is topic-specific, so sponsor campaigns must not be written into the topic bookmarks table. A saved-sponsor feature would require its own user-to-sponsor or user-to-campaign relation and corresponding privacy, removal and analytics behaviour.
+
 ## Reporting and privacy
 
-The sponsor portal reports campaign served counts, viewable impressions, clicks and click-through rate from aggregate daily metrics. It does not expose individual users, user IDs, session IDs, reading histories, raw event rows or comment data.
+The sponsor portal reports campaign served counts, viewable impressions, clicks and click-through rate from aggregate daily metrics. Client-side viewable/click events are retained in an account-scoped offline queue capped at 1,000 pending events; acknowledged events are removed and retries reuse stable event IDs. It does not expose individual users, user IDs, session IDs, reading histories, raw event rows or comment data.
 
 Administrators retain the complete sponsor and campaign view. Sponsor members see only their own organisation's campaigns, aggregate performance and invoices. Membership changes, campaign submissions and financial operations are audited.
 
@@ -119,3 +128,14 @@ Financial reconciliation:
 - `public.get_sponsor_financials`
 
 Private tables have RLS enabled and no direct client/service-role table grants where functions provide the required access. Privileged mutations use postgres-owned SECURITY DEFINER functions with an empty search path, explicit administrator or sponsor-membership checks, service-role-only execution and audit records.
+
+
+## Signed-out campaign delivery and analytics
+
+Approved, active and paid campaigns can also be selected for signed-out visitors. The signed-out selector is a separate service-role-only database function and preserves sponsor status/payment checks, campaign dates, category/topic targeting, weighted pacing, daily/total impression caps and frequency limits. Both signed-in and signed-out selectors derive the topic category from the published topic row instead of trusting a client-supplied category. Daily and lifetime campaign impression caps and 30-day weighted pacing combine signed-in and anonymous campaign aggregates, so the two audiences cannot independently exceed the same campaign-wide limits. It returns only the approved public creative fields and an explicit Sponsored disclosure.
+
+A random UUID token is generated in memory for the active web/native app session. The database stores only its SHA-256 hash in the private session-frequency table; the raw token is not written to cookies, local storage or a persistent visitor profile. Anonymous sponsor event rows include the campaign, hashed session and exact topic placement key so a click must follow a viewable impression for that same served placement. Failed sends retry through a bounded in-memory queue on reconnect/visibility changes; it is not persisted because that would retain the session token across app restarts. If a visitor signs in before an already-queued anonymous placement event is retried, the event route recognises its placement key and continues to validate and record it through the anonymous pipeline rather than reclassifying it as account-linked. Raw anonymous event and session-frequency rows are deleted after the 30-day retention threshold by a 15-minute cleanup job that deletes up to 5,000 expired rows per table per run. Daily campaign served/viewable/click aggregates are retained for reporting.
+
+Signed-in and anonymous campaign delivery metrics remain separately labelled in the Admin Analytics hub, admin campaign manager and sponsor portal. Combined CTR uses combined clicks divided by combined viewable impressions; the dashboard does not calculate anonymous unique people or sessions. Sponsors receive campaign-level aggregate counts only, not session hashes, raw event rows or organic topic/comment browsing histories.
+
+The shared SponsorFeedCard and its API calls are used by both web and native feed implementations. Native requests use the configured CathoScroll API origin and allowlisted native CORS origins; anonymous requests do not require a signed-in access token. Physical Android/Electron acceptance tests remain a release gate.

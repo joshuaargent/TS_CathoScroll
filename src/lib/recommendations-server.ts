@@ -11,7 +11,9 @@ export async function getRecommendationPage(
 ): Promise<RecommendationPage> {
   const rpcArgs = {
     ...(cursor == null ? {} : { feed_cursor: cursor }),
-    page_limit: 50,
+    // Keep the blocking first server render light; subsequent cursor pages are
+    // fetched before the user reaches the end of the current feed window.
+    page_limit: cursor == null ? 24 : 50,
   };
   const { data, error } = await supabase.rpc('get_my_recommendation_page', rpcArgs);
 

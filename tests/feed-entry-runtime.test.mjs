@@ -1,0 +1,75 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import ts from 'typescript';
+import { readFile } from 'node:fs/promises';
+
+const [registrySource, cursorSource] = await Promise.all([
+  readFile(new URL('../src/lib/feed-entry-registry.ts', import.meta.url), 'utf8'),
+  readFile(new URL('../src/lib/feed-entry-cursor.ts', import.meta.url), 'utf8'),
+]);
+const options = { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } };
+const compile = (source) => ts.transpileModule(source, options).outputText;
+const cursorUrl = `data:text/javascript;base64,${Buffer.from(compile(cursorSource)).toString('base64')}`;
+const registryJs = compile(registrySource);
+const registryUrl = `data:text/javascript;base64,${Buffer.from(registryJs).toString('base64')}`;
+const { getFeedEntryKey, getAdjacentFeedEntry, reconcileFeedEntryCursor } = await import(cursorUrl);
+const { registerFeedEntry, renderRegisteredFeedEntry, invokeRegisteredFeedEntryAction, invokeRegisteredFeedEntryLifecycle } = await import(registryUrl);
+
+const topic = (id) => ({ type: 'topic', topicId: id, topic: { id } });
+const comments = (id) => ({ type: 'top-comments', topicId: id, comments: [] });
+const sponsor = (id) => ({ type: 'sponsor', topicId: id, status: 'ready', campaigns: [], sessionId: 's' });
+
+test('cursor follows the exact topic, comment, sponsor order in both directions', () => {
+  const entries = [topic('1'), topic('2'), comments('2'), sponsor('2'), topic('3')];
+  const fromTopic = getAdjacentFeedEntry(entries, 'topic:2', 'next');
+  assert.equal(fromTopic?.entry.type, 'top-comments');
+  const fromComment = getAdjacentFeedEntry(entries, getFeedEntryKey(fromTopic.entry), 'next');
+  assert.equal(fromComment?.entry.type, 'sponsor');
+  const backwards = getAdjacentFeedEntry(entries, 'sponsor:2', 'previous');
+  assert.equal(backwards?.entry.type, 'top-comments');
+  assert.equal(getAdjacentFeedEntry(entries, 'topic:1', 'previous'), null);
+});
+
+test('cursor reconciliation retains the active entry across appended pages', () => {
+  const entries = [topic('1'), topic('2'), comments('2'), topic('3'), topic('4')];
+  assert.deepEqual(reconcileFeedEntryCursor(entries, 'top-comments:2', '2'), {
+    key: 'top-comments:2',
+    index: 2,
+  });
+  const appended = [...entries, topic('5')];
+  assert.deepEqual(reconcileFeedEntryCursor(appended, 'top-comments:2', '2'), {
+    key: 'top-comments:2',
+    index: 2,
+  });
+});
+
+test('removed card inventory falls back to its original topic anchor', () => {
+  const entries = [topic('1'), topic('2'), topic('3')];
+  assert.deepEqual(reconcileFeedEntryCursor(entries, 'sponsor:2', '2'), {
+    key: 'topic:2',
+    index: 1,
+  });
+});
+
+test('renderer and action registry dispatches an unregistered-in-core poll type', async () => {
+  const calls = [];
+  const pollRegistration = registerFeedEntry('poll', {
+    render: (entry) => `render:${entry.topicId}`,
+    onNext: (entry) => { calls.push(`next:${entry.topicId}`); },
+    onPrevious: (entry) => { calls.push(`previous:${entry.topicId}`); },
+    onEnter: (entry, direction, entries) => { calls.push(`enter:${direction}:${entry.topicId}:${entries.length}`); },
+    onExit: (entry, direction) => { calls.push(`exit:${direction}:${entry.topicId}`); },
+  });
+  const entry = { type: 'poll', topicId: '42', pollId: 'poll-42' };
+  assert.equal(renderRegisteredFeedEntry(entry, [pollRegistration], {}), 'render:42');
+  await invokeRegisteredFeedEntryAction(entry, 'next', [pollRegistration], {});
+  await invokeRegisteredFeedEntryAction(entry, 'previous', [pollRegistration], {});
+  await invokeRegisteredFeedEntryLifecycle(entry, 'enter', 'next', [entry], [pollRegistration], {});
+  await invokeRegisteredFeedEntryLifecycle(entry, 'exit', 'previous', [entry], [pollRegistration], {});
+  assert.deepEqual(calls, [
+    'next:42',
+    'previous:42',
+    'enter:next:42:1',
+    'exit:previous:42',
+  ]);
+});

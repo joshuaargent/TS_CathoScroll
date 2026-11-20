@@ -31,14 +31,11 @@ export function OPTIONS(request: Request) {
 }
 
 async function requireSponsorAdmin(request: Request) {
-  const { user, isAdmin, error, mfaRequired } = await getAdminSessionFromRequest(request);
+  const { user, isAdmin, error } = await getAdminSessionFromRequest(request);
   if (!user) return { response: respond(request, { error: 'Authentication required.' }, 401) };
   if (error) {
     console.error('Unable to verify sponsor-member management access:', error.message);
     return { response: respond(request, { error: 'Unable to verify administrator access.' }, 500) };
-  }
-  if (mfaRequired) {
-    return { response: respond(request, { error: 'Complete administrator MFA before managing sponsor accounts.' }, 403) };
   }
   if (!isAdmin) return { response: respond(request, { error: 'Forbidden' }, 403) };
   const rateLimit = await checkApiRateLimit({

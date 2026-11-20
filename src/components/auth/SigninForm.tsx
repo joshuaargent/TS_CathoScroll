@@ -46,6 +46,8 @@ export function SigninForm({
         setError('Unable to establish session.');
         return;
       }
+
+
       setPassword('');
       onSignedIn();
     } catch (cause) {
@@ -55,6 +57,7 @@ export function SigninForm({
       setLoading(false);
     }
   }
+
 
   return (
     <div className="container py-12">

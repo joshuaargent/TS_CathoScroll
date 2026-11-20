@@ -83,7 +83,7 @@ test('strips non-public fields before an API response is returned', () => {
   ]);
 });
 
-test('drops invalid entries and never accepts more than five comments', () => {
+test('drops invalid entries and caps each inventory page at 100 comments', () => {
   const comments = Array.from({ length: 7 }, (_, index) =>
     validComment({ comment_id: index + 1 })
   );
@@ -91,8 +91,12 @@ test('drops invalid entries and never accepts more than five comments', () => {
 
   const result = feedComments.parseTopFeedComments({ comments, generated_at: 'now' });
 
-  assert.equal(result.length, 5);
-  assert.deepEqual(result.map((comment) => comment.comment_id), [1, 2, 4, 5, 6]);
+  assert.equal(result.length, 6);
+  assert.deepEqual(result.map((comment) => comment.comment_id), [1, 2, 4, 5, 6, 7]);
+  const largePage = feedComments.parseTopFeedComments({
+    comments: Array.from({ length: 120 }, (_, index) => validComment({ comment_id: index + 1 })),
+  });
+  assert.equal(largePage.length, 100);
   assert.deepEqual(feedComments.parseTopFeedComments({ comments: 'invalid' }), []);
   assert.deepEqual(feedComments.parseTopFeedComments(null), []);
 });
@@ -113,4 +117,19 @@ test('inserts a comment card after five topic advances only when inventory exist
   assert.equal(feedComments.getNextTopCommentCadence(3), 4);
   assert.equal(feedComments.getNextTopCommentCadence(4), 0);
   assert.equal(feedComments.getNextTopCommentCadence(-1), 0);
+});
+
+test('each inserted Top Comments card reserves only five comments and leaves the rest eligible', () => {
+  const comments = Array.from({ length: 7 }, (_, index) =>
+    validComment({ comment_id: index + 1 })
+  );
+  const firstGroup = feedComments.getTopCommentGroup(comments);
+  const remaining = comments.filter((comment) =>
+    !firstGroup.some((selected) => selected.comment_id === comment.comment_id)
+  );
+  const secondGroup = feedComments.getTopCommentGroup(remaining);
+
+  assert.equal(firstGroup.length, 5);
+  assert.deepEqual(firstGroup.map((comment) => comment.comment_id), [1, 2, 3, 4, 5]);
+  assert.deepEqual(secondGroup.map((comment) => comment.comment_id), [6, 7]);
 });

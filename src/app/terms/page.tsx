@@ -16,7 +16,7 @@ export default function TermsPage() {
         </h1>
 
         <p className="text-text-secondary mt-4 text-lg">
-          Last updated: 31 October 2026
+          Last updated: 19 November 2026
         </p>
       </div>
 
@@ -27,8 +27,8 @@ export default function TermsPage() {
           </h2>
 
           <p className="text-text-secondary leading-relaxed">
-            By accessing, browsing, creating an account, purchasing a
-            subscription, or otherwise using CathoScroll, you agree to be bound
+            By accessing, browsing, creating an account, or otherwise using
+            CathoScroll, you agree to be bound
             by these Terms of Service.
           </p>
 
@@ -163,90 +163,63 @@ export default function TermsPage() {
 
         <section>
           <h2 className="mb-4 text-3xl font-bold">
-            Premium Membership
+            Free Access
           </h2>
 
           <p className="text-text-secondary leading-relaxed">
-            CathoScroll may offer premium subscriptions which provide access to
-            enhanced learning features.
-          </p>
-
-          <p className="text-text-secondary mt-4 leading-relaxed">
-            Premium features may include:
-          </p>
-
-          <ul className="text-text-secondary mt-4 list-disc space-y-2 pl-6">
-            <li>Audio versions of topics.</li>
-            <li>Structured learning paths.</li>
-            <li>Interactive quizzes.</li>
-          </ul>
-
-          <p className="text-text-secondary mt-4 leading-relaxed">
-            Premium features may change over time and new premium features may
-            be introduced in the future.
+            CathoScroll does not charge individual users for access to its learning,
+            reading, search, account, progress, or community features. We do not offer
+            paid user memberships, paid content subscriptions, or paywalled learning
+            features. This includes available and future learning paths, quizzes, and
+            audio learning features.
           </p>
         </section>
 
         <section>
           <h2 className="mb-4 text-3xl font-bold">
-            Subscription Billing
+            Sponsorships and Sponsored Content
           </h2>
 
           <p className="text-text-secondary leading-relaxed">
-            Premium subscriptions may be offered on monthly and annual billing
-            cycles.
+            The only paid commercial offering on CathoScroll is sponsorship purchased
+            by businesses or organisations. Sponsors pay CathoScroll for approved
+            campaign placements. Sponsored cards and other paid placements are clearly
+            identified as sponsored and are distinct from organic educational content
+            and community contributions.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            By purchasing a subscription, you authorise the designated payment
-            provider to charge the subscription fee using your chosen payment
-            method.
+            Sponsorship does not purchase editorial control over Catholic teaching,
+            individual topics, community discussion, or organic recommendation rankings.
+            Sponsor payments and campaign delivery are managed separately from user
+            accounts. Sponsor representatives receive aggregate campaign reporting only;
+            they are not given individual users' identities, reading histories, or private
+            personalisation profiles.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            Subscriptions automatically renew unless cancelled prior to renewal.
-          </p>
-
-          <p className="text-text-secondary mt-4 leading-relaxed">
-            Pricing may change in the future. Reasonable notice will be provided
-            where required.
+            Sponsor campaign scope, placement dates, agreed amounts, payment milestones,
+            cancellation arrangements, and any refund terms are set out in the relevant
+            written sponsor agreement or invoice. Sponsor payments are made by direct
+            bank transfer outside the CathoScroll app. CathoScroll does not currently
+            process user or sponsor card payments within the app.
           </p>
         </section>
 
         <section>
           <h2 className="mb-4 text-3xl font-bold">
-            Cancellation
+            Personalised Recommendations
           </h2>
 
           <p className="text-text-secondary leading-relaxed">
-            You may cancel your subscription at any time.
-          </p>
-
-          <p className="text-text-secondary mt-4 leading-relaxed">
-            Cancellation prevents future renewals but does not provide a refund
-            for the current billing period.
-          </p>
-
-          <p className="text-text-secondary mt-4 leading-relaxed">
-            Premium access will remain available until the current subscription
-            period ends.
-          </p>
-        </section>
-
-        <section>
-          <h2 className="mb-4 text-3xl font-bold">
-            Refund Policy
-          </h2>
-
-          <p className="text-text-secondary leading-relaxed">
-            All subscription purchases are final.
-          </p>
-
-          <p className="text-text-secondary mt-4 leading-relaxed">
-            CathoScroll does not provide refunds for subscription fees,
-            partially used billing periods, unused services, accidental
-            purchases, forgotten cancellations, or changes in personal
-            circumstances except where required by applicable law.
+            Personalised recommendations are optional. They remain off unless you
+            explicitly opt in. If you opt in, CathoScroll uses eligible activity and
+            interests you select to build a private content-interest profile and improve
+            topic recommendations. Because the platform covers Catholic and religious
+            subjects, this activity may reveal information about religious or
+            philosophical beliefs. You can withdraw consent and delete the derived
+            profile through Account settings at any time. Further details are in our
+            <Link href="/privacy" className="text-accent ml-1 hover:underline">Privacy Policy</Link>.
           </p>
         </section>
 
@@ -256,7 +229,7 @@ export default function TermsPage() {
           </h2>
 
           <p className="text-text-secondary leading-relaxed">
-            Premium learning paths, quizzes, and audio lessons are provided for
+            Learning paths, quizzes, and audio lessons are provided for
             personal educational use only.
           </p>
 

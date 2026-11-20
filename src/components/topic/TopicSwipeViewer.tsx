@@ -1,15 +1,24 @@
 'use client';
 
-import { animate, motion, useMotionValue } from 'framer-motion';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { flushSync } from 'react-dom';
+import { motion } from 'framer-motion';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Heart } from 'lucide-react';
 import type { Topic } from '@/types';
 import type { TopicActivity } from '@/lib/topic-activity';
 import { getTopicSlides } from '@/lib/topicSlides';
-import { installFeedAnalyticsListeners, recordFeedAnalyticsEvent } from '@/lib/feed-analytics-client';
+import {
+  installFeedAnalyticsListeners,
+  recordFeedAnalyticsEvent,
+  recordFeedTopicCompletion,
+  recordFeedTopicVisit,
+} from '@/lib/feed-analytics-client';
 import { TopicCard } from './TopicCard';
-import { TopicProgress } from './TopicProgress';
+import { recordAnonymousFeedEvent } from '@/lib/anonymous-feed-analytics-client';
+import { FeedSwipeViewport } from './FeedSwipeViewport';
+
+function getActiveElapsed(startedAt: number | null) {
+  return startedAt === null ? 0 : Math.max(0, performance.now() - startedAt);
+}
 
 interface TopicSwipeViewerProps {
   topics: Topic[];
@@ -17,7 +26,7 @@ interface TopicSwipeViewerProps {
   active?: boolean;
   userId: string | null;
   analyticsEndpoint?: string;
-  getAnalyticsAccessToken?: () => Promise<string | null>;
+  getAnalyticsAccessToken?: (expectedUserId?: string) => Promise<string | null>;
   currentActivity:
     | (Omit<TopicActivity, 'likes' | 'comments'> & {
         likes: number | null;
@@ -35,8 +44,11 @@ interface TopicSwipeViewerProps {
   onComments: () => void;
   onShare: () => void;
   onComplete: (topicId: string) => void;
-  onNextTopic?: () => void;
-  onPreviousTopic?: () => void;
+  onNextTopic?: () => void | Promise<void>;
+  onPreviousTopic?: () => void | Promise<void>;
+  nextEntryPreview?: ReactNode;
+  previousEntryPreview?: ReactNode;
+  onProgressChange?: (current: number, total: number) => void;
 }
 
 export function TopicSwipeViewer({
@@ -60,18 +72,14 @@ export function TopicSwipeViewer({
   onComplete,
   onNextTopic,
   onPreviousTopic,
+  nextEntryPreview,
+  previousEntryPreview,
+  onProgressChange,
 }: TopicSwipeViewerProps) {
   const [slideIndex, setSlideIndex] = useState(0);
-  const [axis, setAxis] = useState<'x' | 'y' | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
-  const x = useMotionValue(0);
-  const y = useMotionValue(0);
-  const startRef = useRef({ x: 0, y: 0 });
-  const currentRef = useRef({ x: 0, y: 0 });
-  const lastTapRef = useRef(0);
   const containerRef = useRef<HTMLDivElement>(null);
+
   const [isAnimating, setIsAnimating] = useState(false);
-  const animationLockRef = useRef(false);
   const [showHeart, setShowHeart] = useState(false);
   const currentTopic = topics[topicIndex];
   const currentTopicId = String(currentTopic.id);
@@ -79,33 +87,92 @@ export function TopicSwipeViewer({
   const nextTopic = topics[(topicIndex + 1) % topics.length];
   const slides = useMemo(() => getTopicSlides(currentTopic), [currentTopic]);
   const currentSlide = slides[slideIndex];
+
+  useLayoutEffect(() => {
+    if (active) onProgressChange?.(slideIndex, slides.length);
+  }, [active, currentTopicId, onProgressChange, slideIndex, slides.length]);
+
   const previousSlide = slideIndex > 0 ? slides[slideIndex - 1] : null;
   const nextSlide = slideIndex < slides.length - 1 ? slides[slideIndex + 1] : null;
   const interactionVisible = !isAnimating;
   const topicActiveSinceRef = useRef<number | null>(null);
   const topicActiveDurationRef = useRef(0);
   const topicViewableRef = useRef(false);
-  const viewedTopicsRef = useRef(new Set<string>());
-  const completedTopicsRef = useRef(new Set<string>());
 
   useEffect(() => {
     if (!userId || !active) return;
     return installFeedAnalyticsListeners(userId, {
       endpoint: analyticsEndpoint,
-      getAccessToken: getAnalyticsAccessToken,
+      getAccessToken: () => getAnalyticsAccessToken?.(userId) ?? Promise.resolve(null),
     });
   }, [active, analyticsEndpoint, getAnalyticsAccessToken, userId]);
 
   useEffect(() => {
+    if (userId || !active) return;
+    recordAnonymousFeedEvent('topic', currentTopicId, 'impression');
+    let intersecting = false;
+    let viewable = false;
+    let viewTimer: number | null = null;
+    let durationTimer: number | null = null;
+    let activeSince = 0;
+    topicActiveDurationRef.current = 0;
+    topicActiveSinceRef.current = null;
+    const flushDuration = (resume = true) => {
+      if (activeSince) {
+        const elapsed = Math.max(0, Math.round(performance.now() - activeSince));
+        activeSince = 0;
+        topicActiveSinceRef.current = null;
+        topicActiveDurationRef.current += elapsed;
+        if (elapsed > 0) recordAnonymousFeedEvent('topic', currentTopicId, 'active_duration', elapsed);
+      }
+      if (resume && viewable && intersecting && document.visibilityState === 'visible') {
+        activeSince = performance.now();
+        topicActiveSinceRef.current = activeSince;
+      }
+    };
+    const startDuration = () => {
+      if (!viewable || document.visibilityState !== 'visible' || activeSince) return;
+      activeSince = performance.now();
+      topicActiveSinceRef.current = activeSince;
+      if (durationTimer === null) durationTimer = window.setInterval(() => flushDuration(true), 30000);
+    };
+    const scheduleView = () => {
+      if (!intersecting || viewable || viewTimer !== null || document.visibilityState !== 'visible') return;
+      viewTimer = window.setTimeout(() => {
+        viewTimer = null;
+        if (!intersecting || document.visibilityState !== 'visible') return;
+        viewable = true;
+        recordAnonymousFeedEvent('topic', currentTopicId, 'viewable_impression');
+        startDuration();
+      }, 1000);
+    };
+    const observer = typeof IntersectionObserver !== 'undefined' && containerRef.current
+      ? new IntersectionObserver((entries) => {
+          intersecting = Boolean(entries[0]?.isIntersecting && entries[0].intersectionRatio >= 0.5);
+          if (intersecting) scheduleView();
+          else { if (viewTimer !== null) window.clearTimeout(viewTimer); viewTimer = null; flushDuration(false); }
+        }, { threshold: [0, 0.5, 1] })
+      : null;
+    if (containerRef.current && observer) observer.observe(containerRef.current);
+    else { intersecting = true; scheduleView(); }
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') { if (viewTimer !== null) window.clearTimeout(viewTimer); viewTimer = null; flushDuration(false); }
+      else if (intersecting) { if (viewable) startDuration(); else scheduleView(); }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      flushDuration(false);
+      if (durationTimer !== null) window.clearInterval(durationTimer);
+      if (viewTimer !== null) window.clearTimeout(viewTimer);
+      observer?.disconnect();
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [active, currentTopicId, userId]);
+
+  useEffect(() => {
     if (!userId || !active) return;
 
-    const viewKey = userId + ':' + currentTopicId;
-    const wasViewed = viewedTopicsRef.current.has(viewKey);
-    viewedTopicsRef.current.add(viewKey);
-    recordFeedAnalyticsEvent(userId, 'impression', currentTopicId, { source: 'feed' });
-    if (wasViewed) {
-      recordFeedAnalyticsEvent(userId, 'return_visit', currentTopicId, { source: 'feed' });
-    }
+    recordFeedTopicVisit(userId, currentTopicId);
 
     topicActiveDurationRef.current = 0;
     topicViewableRef.current = false;
@@ -202,21 +269,17 @@ export function TopicSwipeViewer({
   }, [currentTopicId, userId, active]);
 
   useEffect(() => {
+    if (!userId && active && slideIndex === slides.length - 1) recordAnonymousFeedEvent('topic', currentTopicId, 'completion');
     if (!userId || slideIndex <= 0) return;
     recordFeedAnalyticsEvent(userId, 'swipe_depth', currentTopicId, {
       slide_index: slideIndex,
       depth: slideIndex,
     });
 
-    const completionKey = userId + ':' + currentTopicId;
-    if (slideIndex === slides.length - 1 && !completedTopicsRef.current.has(completionKey)) {
-      completedTopicsRef.current.add(completionKey);
-      recordFeedAnalyticsEvent(userId, 'completion', currentTopicId, {
-        slide_index: slideIndex,
-        completion_percent: 100,
-      });
+    if (slideIndex === slides.length - 1) {
+      recordFeedTopicCompletion(userId, currentTopicId, slideIndex);
     }
-  }, [currentTopicId, userId, slideIndex, slides.length]);
+  }, [active, currentTopicId, userId, slideIndex, slides.length]);
 
   const likeTopic = () => {
     if (
@@ -234,61 +297,21 @@ export function TopicSwipeViewer({
     onDoubleTapLike();
   };
 
-  const springHome = () => {
-    animate(x, 0, {
-      type: 'spring',
-      stiffness: 1800,
-      damping: 120,
-    });
-
-    animate(y, 0, {
-      type: 'spring',
-      stiffness: 1800,
-      damping: 120,
-    });
-  };
-
   const moveSlide = async (direction: 'next' | 'previous') => {
-    if (animationLockRef.current) return;
-    animationLockRef.current = true;
-    setIsAnimating(true);
+    const nextIndex = direction === 'next' ? slideIndex + 1 : slideIndex - 1;
+    setSlideIndex(nextIndex);
 
-    try {
-      // Horizontal movement changes a section of the current topic. Completing
-      // its Scripture slide records topic progress before the viewer resets.
-      const width = containerRef.current?.clientWidth ?? window.innerWidth;
-
-      await animate(x, direction === 'next' ? -width : width, {
-        duration: 0.2,
-        ease: 'easeOut',
-      });
-
-      let nextIndex = slideIndex;
-
-      flushSync(() => {
-        nextIndex = direction === 'next' ? slideIndex + 1 : slideIndex - 1;
-
-        setSlideIndex(nextIndex);
-      });
-
-      if (slides[nextIndex]?.type === 'scripture') {
-        onComplete(currentTopicId);
-      }
-
-      x.jump(0);
-    } finally {
-      animationLockRef.current = false;
-      setIsAnimating(false);
+    if (slides[nextIndex]?.type === 'scripture') {
+      onComplete(currentTopicId);
     }
   };
 
-  const moveTopic = async (direction: 'next' | 'previous') => {
-    if (animationLockRef.current) return;
-
+  const moveTopic = (direction: 'next' | 'previous') => {
+    if (direction === 'next' && !userId && topicActiveDurationRef.current + getActiveElapsed(topicActiveSinceRef.current) < 2000) {
+      recordAnonymousFeedEvent('topic', currentTopicId, 'skip');
+    }
     if (direction === 'next' && userId) {
-      const activeElapsed = topicActiveSinceRef.current === null
-        ? 0
-        : Math.max(0, performance.now() - topicActiveSinceRef.current);
+      const activeElapsed = getActiveElapsed(topicActiveSinceRef.current);
       if (topicActiveDurationRef.current + activeElapsed < 2000) {
         recordFeedAnalyticsEvent(userId, 'skip', currentTopicId, {
           slide_index: slideIndex,
@@ -296,239 +319,8 @@ export function TopicSwipeViewer({
       }
     }
 
-    animationLockRef.current = true;
-    setIsAnimating(true);
-
-    try {
-      // Vertical movement changes the topic and always starts the new topic
-      // on its first slide.
-      const height = containerRef.current?.clientHeight ?? window.innerHeight;
-
-      await animate(y, direction === 'next' ? -height : height, {
-        duration: 0.2,
-        ease: 'easeOut',
-      });
-
-      flushSync(() => {
-        setSlideIndex(0);
-
-        if (direction === 'next') {
-          onNextTopic?.();
-        } else {
-          onPreviousTopic?.();
-        }
-      });
-
-      y.jump(0);
-    } finally {
-      animationLockRef.current = false;
-      setIsAnimating(false);
-    }
-  };
-
-  useEffect(() => {
-    const handleKeyDown = async (event: globalThis.KeyboardEvent) => {
-      if (!active) return;
-      if (event.repeat) return;
-      if (isAnimating) return;
-
-      const target = event.target as HTMLElement;
-
-      if (
-        target instanceof HTMLInputElement ||
-        target instanceof HTMLTextAreaElement ||
-        target.isContentEditable
-      ) {
-        return;
-      }
-
-      switch (event.key) {
-        case 'ArrowLeft':
-          event.preventDefault();
-
-          if (previousSlide) {
-            await moveSlide('previous');
-          }
-          break;
-
-        case 'ArrowRight':
-          event.preventDefault();
-
-          if (nextSlide) {
-            await moveSlide('next');
-          }
-          break;
-
-        case 'ArrowUp':
-          event.preventDefault();
-
-          if (previousTopic) {
-            await moveTopic('previous');
-          }
-          break;
-
-        case 'ArrowDown':
-          event.preventDefault();
-          await moveTopic('next');
-          break;
-
-        case ' ':
-          event.preventDefault();
-
-          if (event.shiftKey) {
-            if (previousTopic) {
-              await moveTopic('previous');
-            }
-          } else {
-            await moveTopic('next');
-          }
-          break;
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-
-    return () => window.removeEventListener('keydown', handleKeyDown);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    active,
-    previousSlide,
-    nextSlide,
-    previousTopic,
-    nextTopic,
-    isAnimating,
-    currentActivity,
-    userId,
-    onNextTopic,
-    onPreviousTopic,
-  ]);
-
-  const handlePointerDown = (event: React.PointerEvent) => {
-    setIsDragging(true);
-
-    event.currentTarget.setPointerCapture(event.pointerId);
-
-    setAxis(null);
-
-    currentRef.current = {
-      x: 0,
-      y: 0,
-    };
-
-    startRef.current = {
-      x: event.clientX,
-      y: event.clientY,
-    };
-  };
-
-  const handlePointerMove = (event: React.PointerEvent) => {
-    if (!isDragging) return;
-
-    const deltaX = event.clientX - startRef.current.x;
-
-    const deltaY = event.clientY - startRef.current.y;
-
-    if (!axis) {
-      // Lock the gesture to whichever direction moved farther once the
-      // pointer has moved enough to distinguish a swipe from a tap.
-      if (Math.abs(deltaX) > 2 || Math.abs(deltaY) > 2) {
-        setAxis(Math.abs(deltaX) > Math.abs(deltaY) ? 'x' : 'y');
-      }
-
-      return;
-    }
-
-    if (axis === 'x') {
-      x.set(deltaX);
-
-      y.set(0);
-
-      currentRef.current.x = deltaX;
-    }
-
-    if (axis === 'y') {
-      y.set(deltaY);
-
-      x.set(0);
-
-      currentRef.current.y = deltaY;
-    }
-  };
-
-  const handlePointerUp = async () => {
-    setIsDragging(false);
-
-    const dx = currentRef.current.x;
-
-    const dy = currentRef.current.y;
-
-    const absDx = Math.abs(dx);
-    const absDy = Math.abs(dy);
-
-    const wasTap = absDx < 10 && absDy < 10;
-
-    const velocityX = absDx / 16;
-
-    const velocityY = absDy / 16;
-
-    const width = window.innerWidth;
-
-    const height = window.innerHeight;
-
-    // AQA-style pseudocode:
-    // IF gesture axis is horizontal THEN
-    //   commit ← distance > 7% of width OR estimated velocity > 25
-    //   IF committed and moved left/right with a slide available THEN move slide
-    //   ELSE return the card to its starting position
-    // ELSE IF gesture axis is vertical THEN
-    //   apply the same rule using height and move between topics
-    // IF both distances are under 10 pixels AND taps are under 300 ms apart
-    //   LIKE current topic
-    if (axis === 'x') {
-      const threshold = width * 0.07;
-
-      const commit = absDx > threshold || velocityX > 25;
-
-      if (commit && dx < 0 && nextSlide) {
-        await moveSlide('next');
-      } else if (commit && dx > 0 && previousSlide) {
-        await moveSlide('previous');
-      } else {
-        springHome();
-      }
-    }
-
-    if (axis === 'y') {
-      const threshold = height * 0.07;
-
-      const commit = absDy > threshold || velocityY > 25;
-
-      if (commit && dy < 0) {
-        await moveTopic('next');
-      } else if (commit && dy > 0) {
-        await moveTopic('previous');
-      } else {
-        springHome();
-      }
-    }
-
-    if (wasTap) {
-      // Two taps within 300 ms like the current topic; a single tap does not.
-      const now = Date.now();
-
-      if (now - lastTapRef.current < 300) {
-        void likeTopic();
-      }
-
-      lastTapRef.current = now;
-    }
-
-    currentRef.current = {
-      x: 0,
-      y: 0,
-    };
-
-    setAxis(null);
+    setSlideIndex(0);
+    return direction === 'next' ? onNextTopic?.() : onPreviousTopic?.();
   };
 
   return (
@@ -546,113 +338,84 @@ export function TopicSwipeViewer({
           {actionError && <p>{actionError}</p>}
         </div>
       )}
-      <div className="px-6 pt-4 pb-4">
-        <TopicProgress current={slideIndex} total={slides.length} />
-      </div>
-
-      <div ref={containerRef} className="relative flex-1 overflow-hidden pt-1">
-        <motion.div
-          style={{
-            x,
-            y,
-            width: '100%',
-            height: '100%',
-            touchAction: 'none',
-          }}
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
-          onPointerCancel={handlePointerUp}
-          className="absolute inset-0 transform-gpu will-change-transform select-none"
-        >
-          {/* TOP */}
-
-          {
-            <div className="absolute inset-x-0 top-[-100%] h-full opacity-90">
-              <TopicCard type="question" title="Question" content={previousTopic.question} />
-            </div>
-          }
-
-          {/* LEFT */}
-
-          {previousSlide && (
-            <div className="absolute top-0 left-[-100%] h-full w-full opacity-90">
-              <TopicCard
-                type={previousSlide.type}
-                title={previousSlide.title}
-                content={previousSlide.content}
-                reference={previousSlide.reference}
-              />
-            </div>
+      <FeedSwipeViewport
+        active={active}
+        containerRef={containerRef}
+        containerClassName="relative flex-1 overflow-hidden pt-1"
+        motionClassName="absolute inset-0 transform-gpu will-change-transform select-none"
+        canSwipeHorizontal={(direction) => direction === 'next' ? Boolean(nextSlide) : Boolean(previousSlide)}
+        onSwipeHorizontal={moveSlide}
+        onSwipeVertical={moveTopic}
+        awaitVerticalNavigation={false}
+        onDoubleTap={likeTopic}
+        onTransitionStart={() => setIsAnimating(true)}
+        onTransitionEnd={() => setIsAnimating(false)}
+        topPreview={
+          previousEntryPreview !== null
+            ? previousEntryPreview === undefined
+              ? <TopicCard type="question" title="Question" content={previousTopic.question} />
+              : previousEntryPreview
+            : null
+        }
+        leftPreview={previousSlide ? (
+          <TopicCard
+            type={previousSlide.type}
+            title={previousSlide.title}
+            content={previousSlide.content}
+            reference={previousSlide.reference}
+          />
+        ) : null}
+        rightPreview={nextSlide ? (
+          <TopicCard
+            type={nextSlide.type}
+            title={nextSlide.title}
+            content={nextSlide.content}
+            reference={nextSlide.reference}
+          />
+        ) : null}
+        bottomPreview={
+          nextEntryPreview !== null
+            ? nextEntryPreview === undefined
+              ? <TopicCard type="question" title="Question" content={nextTopic.question} />
+              : nextEntryPreview
+            : null
+        }
+      >
+        <div className="absolute inset-0">
+          {showHeart && (
+            <motion.div
+              initial={{ scale: 0.6, opacity: 0 }}
+              animate={{ scale: [0.6, 1.2, 1], opacity: [0, 1, 0] }}
+              transition={{ duration: 0.8 }}
+              className="pointer-events-none absolute inset-0 z-50 flex items-center justify-center"
+            >
+              <div className="bg-accent/10 rounded-full p-8">
+                <Heart className="text-accent h-40 w-40 fill-current drop-shadow-lg" />
+              </div>
+            </motion.div>
           )}
 
-          {/* CENTER */}
-
-          <div className="absolute inset-0">
-            {showHeart && (
-              <motion.div
-                initial={{
-                  scale: 0.6,
-                  opacity: 0,
-                }}
-                animate={{
-                  scale: [0.6, 1.2, 1],
-                  opacity: [0, 1, 0],
-                }}
-                transition={{
-                  duration: 0.8,
-                }}
-                className="pointer-events-none absolute inset-0 z-50 flex items-center justify-center"
-              >
-                <div className="bg-accent/10 rounded-full p-8">
-                  <Heart className="text-accent h-40 w-40 fill-current drop-shadow-lg" />
-                </div>
-              </motion.div>
-            )}
-
-            <TopicCard
-              type={currentSlide.type}
-              title={currentSlide.title}
-              content={currentSlide.content}
-              reference={currentSlide.reference}
-              isLiked={interactionVisible && Boolean(currentActivity?.liked)}
-              likes={currentActivity?.likes ?? displayCounts?.likes ?? null}
-              comments={currentActivity?.comments ?? displayCounts?.comments ?? null}
-              onComments={onComments}
-              onLike={onLike}
-              isBookmarked={interactionVisible && Boolean(currentActivity?.bookmarked)}
-              onBookmark={onBookmark}
-              onShare={onShare}
-              interactionsDisabled={
-                (Boolean(userId) && !currentActivity) ||
-                pendingActions.has(`like:${currentTopicId}`) ||
-                pendingActions.has(`bookmark:${currentTopicId}`)
-              }
-            />
-          </div>
-
-          {/* RIGHT */}
-
-          {nextSlide && (
-            <div className="absolute top-0 left-[100%] h-full w-full opacity-90">
-              <TopicCard
-                type={nextSlide.type}
-                title={nextSlide.title}
-                content={nextSlide.content}
-                reference={nextSlide.reference}
-              />
-            </div>
-          )}
-
-          {/* BOTTOM */}
-
-          {
-            <div className="absolute inset-x-0 top-[100%] h-full opacity-90">
-              <TopicCard type="question" title="Question" content={nextTopic.question} />
-            </div>
-          }
-        </motion.div>
-      </div>
+          <TopicCard
+            type={currentSlide.type}
+            title={currentSlide.title}
+            content={currentSlide.content}
+            reference={currentSlide.reference}
+            isLiked={interactionVisible && Boolean(currentActivity?.liked)}
+            likes={currentActivity?.likes ?? displayCounts?.likes ?? null}
+            comments={currentActivity?.comments ?? displayCounts?.comments ?? null}
+            onComments={onComments}
+            onLike={onLike}
+            isBookmarked={interactionVisible && Boolean(currentActivity?.bookmarked)}
+            onBookmark={onBookmark}
+            onShare={onShare}
+            interactionsDisabled={
+              (Boolean(userId) && !currentActivity) ||
+              pendingActions.has(`like:${currentTopicId}`) ||
+              pendingActions.has(`bookmark:${currentTopicId}`)
+            }
+          />
+        </div>
+      </FeedSwipeViewport>
     </div>
   );
 }

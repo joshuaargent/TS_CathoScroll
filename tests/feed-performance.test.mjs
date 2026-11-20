@@ -78,11 +78,48 @@ test('reconnect retries once when it overlaps a failed in-flight refresh', async
   coordinator.dispose();
 });
 
-test('Top Comments refresh uses the tested coordinator and reconnect bypass', () => {
+test('Top Comments inventory refreshes safely without replacing unrelated cached groups', () => {
   assert.ok(feed.includes("import { createFeedRefreshCoordinator } from '@/lib/feed-refresh-coordinator'"));
-  assert.ok(feed.includes('const refresh = createFeedRefreshCoordinator(async () => {'));
+  assert.ok(feed.includes('const refreshWhenVisible = () =>'));
   assert.ok(feed.includes('const refreshWhenOnline = () => void refresh.reconnect()'));
   assert.ok(feed.includes('void refresh.request()'));
+  assert.ok(feed.includes('const commentsById = new Map('));
+  assert.ok(feed.includes('const reconcileComments = (items: TopFeedComment[])'));
+  assert.ok(feed.includes('topCommentCardsByTopicId.current.set(topicId, remainingComments)'));
+  assert.ok(feed.includes('topCommentCardsByTopicId.current.delete(topicId)'));
+  assert.ok(feed.includes('if (comments.length === 0)'));
+});
+
+test('feed analytics in-memory queue is bounded to the most recent 200 events per account', async () => {
+  const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
+  const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+  const originalFetch = globalThis.fetch;
+  const requests = [];
+  globalThis.window = {};
+  globalThis.fetch = async (_url, init) => {
+    requests.push(JSON.parse(init.body).events);
+    return new Response(JSON.stringify({ accepted: 50 }), { status: 200 });
+  };
+  Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { onLine: false } });
+  try {
+    const userId = 'bounded-feed-analytics-test';
+    for (let index = 0; index < 250; index += 1) {
+      analyticsModule.recordFeedAnalyticsEvent(userId, 'impression', 'topic-' + index);
+    }
+    Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { onLine: true } });
+    await analyticsModule.flushFeedAnalytics(userId);
+    const queued = requests.flat();
+    assert.equal(queued.length, 200);
+    assert.equal(new Set(queued.map((event) => event.event_id)).size, 200);
+    assert.equal(queued[0].entity_id, 'topic-50');
+    assert.equal(queued.at(-1).entity_id, 'topic-249');
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalWindow) Object.defineProperty(globalThis, 'window', originalWindow);
+    else delete globalThis.window;
+    if (originalNavigator) Object.defineProperty(globalThis, 'navigator', originalNavigator);
+    else delete globalThis.navigator;
+  }
 });
 
 test('final native reading-time events retain the authenticated transport through unmount cleanup', async () => {
@@ -90,17 +127,11 @@ test('final native reading-time events retain the authenticated transport throug
   const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
   const originalDocument = Object.getOwnPropertyDescriptor(globalThis, 'document');
   const originalFetch = globalThis.fetch;
-  const values = new Map();
   const requests = [];
 
   Object.defineProperty(globalThis, 'window', {
     configurable: true,
     value: {
-      localStorage: {
-        getItem: (key) => values.get(key) ?? null,
-        setItem: (key, value) => values.set(key, value),
-        removeItem: (key) => values.delete(key),
-      },
       addEventListener() {},
       removeEventListener() {},
     },
@@ -140,7 +171,6 @@ test('final native reading-time events retain the authenticated transport throug
     assert.equal(requests.length, 1);
     assert.equal(requests[0].url, 'https://cathoscroll.example/api/analytics/feed-events');
     assert.equal(requests[0].authorization, 'Bearer native-session-token');
-    assert.equal(values.has('cathoscroll.feed-analytics.v1.' + userId), false);
   } finally {
     globalThis.fetch = originalFetch;
     if (originalWindow) Object.defineProperty(globalThis, 'window', originalWindow);
@@ -149,5 +179,41 @@ test('final native reading-time events retain the authenticated transport throug
     else delete globalThis.navigator;
     if (originalDocument) Object.defineProperty(globalThis, 'document', originalDocument);
     else delete globalThis.document;
+  }
+});
+
+
+test('feed topic visit attribution ignores StrictMode effect replays', async () => {
+  const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
+  const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+  const originalFetch = globalThis.fetch;
+  const originalNow = Date.now;
+  const requests = [];
+  let now = 1000;
+  globalThis.window = {};
+  Date.now = () => now;
+  globalThis.fetch = async (_url, init) => {
+    requests.push(JSON.parse(init.body).events);
+    return new Response(JSON.stringify({ accepted: 50 }), { status: 200 });
+  };
+  Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { onLine: false } });
+  try {
+    const userId = 'strict-mode-feed-visit-test';
+    analyticsModule.recordFeedTopicVisit(userId, 'topic-repeat');
+    analyticsModule.recordFeedTopicVisit(userId, 'topic-repeat');
+    now += 101;
+    analyticsModule.recordFeedTopicVisit(userId, 'topic-repeat');
+    Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { onLine: true } });
+    await analyticsModule.flushFeedAnalytics(userId);
+    const queued = requests.flat();
+    assert.equal(queued.filter((event) => event.event_type === 'impression').length, 2);
+    assert.equal(queued.filter((event) => event.event_type === 'return_visit').length, 1);
+  } finally {
+    Date.now = originalNow;
+    globalThis.fetch = originalFetch;
+    if (originalWindow) Object.defineProperty(globalThis, 'window', originalWindow);
+    else delete globalThis.window;
+    if (originalNavigator) Object.defineProperty(globalThis, 'navigator', originalNavigator);
+    else delete globalThis.navigator;
   }
 });

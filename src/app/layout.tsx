@@ -7,8 +7,8 @@ import { ThemeProvider } from '@/components/providers/ThemeProvider';
 import { AuthProvider } from '@/components/providers/AuthProvider';
 import { SignInPromptProvider } from '@/components/providers/SignInPromptProvider';
 import { SponsorAnalyticsSync } from '@/components/providers/SponsorAnalyticsSync';
-import { Analytics } from '@vercel/analytics/react';
-import { SpeedInsights } from '@vercel/speed-insights/next';
+import { PrivacySafeAnalytics } from '@/components/providers/PrivacySafeAnalytics';
+import { PrivacySafeSpeedInsights } from '@/components/providers/PrivacySafeSpeedInsights';
 import './globals.css';
 
 // ============================================
@@ -105,6 +105,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       suppressHydrationWarning
     >
       <head>
+        <meta name="referrer" content="strict-origin" />
         <meta name="theme-color" content="#FAFAF9" media="(prefers-color-scheme: light)" />
         <meta name="theme-color" content="#0C0A09" media="(prefers-color-scheme: dark)" />
         <script
@@ -147,8 +148,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <Navbar />
               <main className="flex-1">{children}</main>
               <ConditionalFooter />
-              <Analytics />
-              <SpeedInsights />
+              <PrivacySafeAnalytics />
+              <PrivacySafeSpeedInsights />
             </SignInPromptProvider>
           </AuthProvider>
         </ThemeProvider>

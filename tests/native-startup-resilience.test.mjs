@@ -57,3 +57,31 @@ test('native feed navigation is injected and does not require the Next.js App Ro
   assert.ok(feedCore.includes('    onOpenComment(comment);'));
   assert.ok(nativeMain.includes('onOpenComment={(comment: TopFeedComment) =>'));
 });
+
+
+test('native background catalogue sync does not replace the active feed snapshot', () => {
+  const refreshStart = nativeMain.indexOf('const service = catalogueRefresh;');
+  const refreshEnd = nativeMain.indexOf('}, [catalogueRefresh, catalogue]);', refreshStart);
+  assert.ok(refreshStart >= 0 && refreshEnd > refreshStart);
+  const refreshEffect = nativeMain.slice(refreshStart, refreshEnd);
+  assert.doesNotMatch(refreshEffect, /setFirstPage/);
+  assert.match(refreshEffect, /setCatalogueVersion/);
+});
+
+test('native network changes do not reload the first feed page and account changes get a fresh feed', () => {
+  const loadFeedStart = nativeMain.indexOf('async function loadFeed()');
+  const loadFeedEnd = nativeMain.indexOf('useEffect(() => {', loadFeedStart);
+  assert.ok(loadFeedStart >= 0 && loadFeedEnd > loadFeedStart);
+  const loadFeedEffect = nativeMain.slice(loadFeedStart, loadFeedEnd);
+  assert.doesNotMatch(loadFeedEffect, /window\.addEventListener\('online', reconnect\)/);
+  assert.doesNotMatch(loadFeedEffect, /window\.addEventListener\('offline', reconnect\)/);
+  assert.match(nativeMain, /key=\{user\?\.id \?\? 'signed-out'\}/);
+  assert.match(nativeMain, /if \(feedUserIdRef\.current !== nextFeedUserId\)[\s\S]*?setFirstPage\(null\)/);
+  assert.match(nativeMain, /feedSnapshotUserId === \(user\?\.id \?\? null\)/);
+  assert.equal(nativeMain.split('preservePositionOnUpdate').length - 1, 1);
+  assert.match(nativeMain, /\[catalogue, user\]/);
+  assert.match(feedCore, /feedInitializedRef/);
+  assert.match(feedCore, /function appendUniqueFeedTopics\(existing: Topic\[\], incoming: Topic\[\]\)/);
+  assert.match(feedCore, /appendUniqueFeedTopics\(feedTopicsRef\.current, orderedTopics\)/);
+  assert.match(feedCore, /if \(sourceChanged\)/);
+});

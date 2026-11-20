@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { useSignInPrompt } from '@/components/providers/SignInPromptProvider';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
 import { Topic } from '@/types';
 import { loadTopicActivity, type TopicActivity } from '@/lib/topic-activity';
@@ -16,17 +16,25 @@ interface TopicViewerProps {
   topics: Topic[];
   topicIndex: number;
   initialUserId: string | null;
+  active?: boolean;
 
-  onNextTopic?: () => void;
-  onPreviousTopic?: () => void;
+  onNextTopic?: () => void | Promise<void>;
+  onPreviousTopic?: () => void | Promise<void>;
+  nextEntryPreview?: ReactNode;
+  previousEntryPreview?: ReactNode;
+  onProgressChange: (current: number, total: number) => void;
 }
 
 export function TopicViewer({
   topics,
   topicIndex,
   initialUserId,
+  active = true,
   onNextTopic,
   onPreviousTopic,
+  nextEntryPreview,
+  previousEntryPreview,
+  onProgressChange,
 }: TopicViewerProps) {
   const router = useRouter();
   const requestSignIn = useSignInPrompt();
@@ -62,7 +70,8 @@ export function TopicViewer({
   }, [supabase]);
 
   useEffect(() => {
-    let active = true;
+    if (!active) return;
+    let requestActive = true;
 
     // Actions only use activity for the currently selected topic and account.
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -71,13 +80,13 @@ export function TopicViewer({
     async function loadActivity() {
       try {
         const result = await loadTopicActivity(supabase, currentTopicId, userId);
-        if (active) {
+        if (requestActive) {
           setActivity(result);
           setActivityError(null);
         }
       } catch (error) {
         console.error('Unable to load topic activity:', error);
-        if (active) {
+        if (requestActive) {
           setActivity(null);
           setActivityError({ topicId: currentTopicId, userId });
         }
@@ -86,9 +95,9 @@ export function TopicViewer({
 
     void loadActivity();
     return () => {
-      active = false;
+      requestActive = false;
     };
-  }, [supabase, currentTopicId, userId, refreshVersion]);
+  }, [active, supabase, currentTopicId, userId, refreshVersion]);
 
   async function mutateActivity(
     action: 'like' | 'bookmark' | 'progress',
@@ -201,6 +210,7 @@ export function TopicViewer({
     <TopicSwipeViewer
       topics={topics}
       topicIndex={topicIndex}
+      active={active}
       userId={userId}
       currentActivity={currentActivity}
       displayCounts={currentActivityError ? null : activity}
@@ -216,6 +226,9 @@ export function TopicViewer({
       onComplete={(topicId) => void markCompleted(topicId)}
       onNextTopic={onNextTopic}
       onPreviousTopic={onPreviousTopic}
+      nextEntryPreview={nextEntryPreview}
+      previousEntryPreview={previousEntryPreview}
+      onProgressChange={onProgressChange}
     />
   );
 }

@@ -4,18 +4,18 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import type { TopFeedComment } from '@/lib/feed-comments';
-import type { TopicPageCursor } from '@/lib/content';
+import type { GeneralFeedCursor, TopicPageCursor } from '@/lib/content';
 import type { RecommendationCursor } from '@/lib/recommendations';
 import type { Topic } from '@/types';
 import { TopicFeedCore } from './TopicFeedCore';
 import { TopicViewer } from './TopicViewer';
 
 type TopicFeedProps = { topics: Topic[]; userId: string | null } & (
-  | { nextCursor: TopicPageCursor | null; personalized?: false }
-  | { nextCursor: RecommendationCursor | null; personalized: true }
+  | { nextCursor: GeneralFeedCursor | TopicPageCursor | null; personalized?: false; generalRanked?: boolean }
+  | { nextCursor: RecommendationCursor | null; personalized: true; generalRanked?: false }
 );
 
-export function TopicFeed({ topics, nextCursor, personalized = false, userId }: TopicFeedProps) {
+export function TopicFeed({ topics, nextCursor, personalized = false, generalRanked = false, userId }: TopicFeedProps) {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
   const [activeUserId, setActiveUserId] = useState(userId);
@@ -39,12 +39,19 @@ export function TopicFeed({ topics, nextCursor, personalized = false, userId }: 
   );
 
   const loadPage = useCallback(
-    async (cursor: TopicPageCursor | RecommendationCursor) => {
+    async (cursor: GeneralFeedCursor | TopicPageCursor | RecommendationCursor) => {
       let response: Response;
-      if (personalized && 'categories' in cursor) {
+      if (personalized && 'categories' in cursor && 'userId' in cursor) {
         response = await fetch('/api/content/recommendations', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ cursor }),
+        });
+      } else if (!personalized && 'categories' in cursor) {
+        response = await fetch('/api/content/general-feed', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          cache: 'no-store',
           body: JSON.stringify({ cursor }),
         });
       } else if (!personalized && 'orderIndex' in cursor) {
@@ -59,7 +66,7 @@ export function TopicFeed({ topics, nextCursor, personalized = false, userId }: 
       }
       const result = (await response.json()) as {
         topics?: Topic[];
-        nextCursor?: TopicPageCursor | RecommendationCursor | null;
+        nextCursor?: GeneralFeedCursor | TopicPageCursor | RecommendationCursor | null;
         error?: string;
       };
       if (!response.ok) throw new Error(result.error ?? 'Unable to load more topics.');
@@ -72,9 +79,12 @@ export function TopicFeed({ topics, nextCursor, personalized = false, userId }: 
   );
   return (
     <TopicFeedCore
+      key={activeUserId ?? 'signed-out'}
       topics={topics}
       nextCursor={nextCursor}
       personalized={personalized}
+      generalRanked={generalRanked}
+      preservePositionOnUpdate
       loadPage={loadPage}
       userId={activeUserId}
       getSponsorAccessToken={getSponsorAccessToken}

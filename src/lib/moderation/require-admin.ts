@@ -9,7 +9,7 @@ export async function requireAdminPage(nextPath = '/admin') {
     nextPath.startsWith('/') && !nextPath.startsWith('//') && !nextPath.includes('\\')
       ? nextPath
       : '/admin';
-  const { user, isAdmin, error, mfaRequired } = await getAdminSession();
+  const { user, isAdmin, error } = await getAdminSession();
 
   if (!user) {
     redirect(`/signin?next=${encodeURIComponent(safeNextPath)}`);
@@ -20,9 +20,6 @@ export async function requireAdminPage(nextPath = '/admin') {
     throw new Error('Unable to verify admin access.');
   }
 
-  if (mfaRequired) {
-    redirect(`/account/security?next=${encodeURIComponent(safeNextPath)}`);
-  }
 
   if (!isAdmin) {
     notFound();
