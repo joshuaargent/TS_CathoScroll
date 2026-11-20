@@ -1,6 +1,7 @@
 'use client';
 
-import { useSyncExternalStore } from 'react';
+import { useCallback, useSyncExternalStore } from 'react';
+import { useAuth } from '@/components/providers/AuthProvider';
 import { Analytics, type BeforeSendEvent } from '@vercel/analytics/react';
 import { analyticsConsentChangeEvent, hasAnalyticsConsent } from '@/lib/analytics-consent';
 
@@ -32,11 +33,12 @@ function subscribe(onChange: () => void) {
   return () => window.removeEventListener(analyticsConsentChangeEvent, onChange);
 }
 
-function getSnapshot() {
-  return hasAnalyticsConsent('serviceImprovement');
-}
-
 export function PrivacySafeAnalytics() {
+  const { user } = useAuth();
+  const getSnapshot = useCallback(
+    () => hasAnalyticsConsent('serviceImprovement', user?.id ?? null),
+    [user?.id]
+  );
   const enabled = useSyncExternalStore(subscribe, getSnapshot, () => false);
   if (!enabled) return null;
   return <Analytics beforeSend={redactAnalyticsEvent} />;
