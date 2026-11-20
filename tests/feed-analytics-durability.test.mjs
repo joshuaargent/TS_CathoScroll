@@ -69,8 +69,8 @@ test('anonymous analytics receipts and sponsor session records use 30-day retent
 });
 
 test('signed-in feed and sponsor raw-event retention remains 180 days', () => {
-  assert.match(bootstrap, /prune_feed_analytics_events\\(statement_timestamp\\(\\) - interval ''180 days''/);
-  assert.match(bootstrap, /prune_sponsor_campaign_events\\(statement_timestamp\\(\\) - interval ''180 days''/);
+  assert.match(bootstrap, /prune_feed_analytics_events\(statement_timestamp\(\) - interval ''180 days''/);
+  assert.match(bootstrap, /prune_sponsor_campaign_events\(statement_timestamp\(\) - interval ''180 days''/);
 });
 
 test('feed analytics retains queued events until server acknowledgement and drains on startup', () => {
