@@ -7,7 +7,7 @@
 -- bootstrap and existing-database upgrade paths have been tested on disposable
 -- PostgreSQL databases.
 
--- Consented, private recommendation personalisation (model 2026-11-19-v2).
+-- Consented, private recommendation personalisation (model 2026-11-20-v4).
 CREATE TABLE IF NOT EXISTS catho_private.user_personalization_consents (
   user_id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   enabled boolean NOT NULL DEFAULT false,
@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS catho_private.user_topic_interest_scores (
   positive_score numeric(8,4) NOT NULL DEFAULT 0,
   negative_score numeric(8,4) NOT NULL DEFAULT 0,
   evidence_count integer NOT NULL DEFAULT 0,
-  model_version text NOT NULL DEFAULT '2026-11-19-v1',
+  model_version text NOT NULL DEFAULT '2026-11-20-v4',
   updated_at timestamptz NOT NULL DEFAULT statement_timestamp(),
   short_term_score numeric(8,4) NOT NULL DEFAULT 0,
   long_term_score numeric(8,4) NOT NULL DEFAULT 0,
@@ -238,7 +238,7 @@ BEGIN
     'enabled',coalesce(v_enabled,false),'updated_at',v_updated_at,
     'topic_interests',v_topics,'category_interests',v_categories,
     'selected_categories',v_selected,'category_options',v_options,
-    'top_topic_interests',v_top_topics,'model_version','2026-11-19-v2'
+    'top_topic_interests',v_top_topics,'model_version','2026-11-20-v4'
   );
 END;
 $function$;
@@ -1163,7 +1163,7 @@ $feed_card_analytics_cron$;
 
 
 -- Remove recommendation profiles built from the former analytics-event inputs.
--- The next opted-in feed request rebuilds each profile from explicit account actions only.
+-- The next opted-in feed request rebuilds each profile from eligible account actions and reading signals.
 DELETE FROM catho_private.user_topic_interest_scores;
 
 UPDATE catho_private.user_personalization_consents
