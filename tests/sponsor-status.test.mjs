@@ -20,9 +20,9 @@ test('sponsor status changes are administrator-only, audited and constrained', (
   assert.match(bootstrap, /GRANT EXECUTE ON FUNCTION public\.admin_set_sponsor_status\(uuid, uuid, text\) TO service_role/);
 });
 
-test('status API enforces administrator MFA, same-origin and rate limiting', () => {
+test('status API enforces administrator role, same-origin and rate limiting without MFA', () => {
   assert.match(route, /getAdminSessionFromRequest/);
-  assert.match(route, /mfaRequired/);
+  assert.doesNotMatch(route, /mfaRequired|administrator MFA|account\/security/);
   assert.match(route, /isSameOriginOrNativeRequest/);
   assert.match(route, /checkApiRateLimit/);
   assert.match(route, /admin_set_sponsor_status/);
