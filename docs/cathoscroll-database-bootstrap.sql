@@ -1418,30 +1418,34 @@ BEGIN
     IF personalization_enabled THEN
       -- Read account history only inside this consented branch.
       WITH signals AS (
-      SELECT p.topic_id, 5::numeric AS weight
-      FROM public.progress p
-      WHERE p.user_id = current_user_id
+       SELECT p.topic_id, 5::numeric AS weight
+       FROM public.progress p
+       WHERE p.user_id = current_user_id
+         AND p.completed_at >= (SELECT granted_at FROM catho_private.user_personalization_consents WHERE user_id=current_user_id AND enabled=true)
 
-      UNION ALL
+       UNION ALL
 
-      SELECT b.topic_id, 4::numeric
-      FROM public.bookmarks b
-      WHERE b.user_id = current_user_id
+       SELECT b.topic_id, 4::numeric
+       FROM public.bookmarks b
+       WHERE b.user_id = current_user_id
+         AND b.created_at >= (SELECT granted_at FROM catho_private.user_personalization_consents WHERE user_id=current_user_id AND enabled=true)
 
-      UNION ALL
+       UNION ALL
 
-      SELECT l.topic_id, 3::numeric
-      FROM public.topic_likes l
-      WHERE l.user_id = current_user_id
+       SELECT l.topic_id, 3::numeric
+       FROM public.topic_likes l
+       WHERE l.user_id = current_user_id
+         AND l.created_at >= (SELECT granted_at FROM catho_private.user_personalization_consents WHERE user_id=current_user_id AND enabled=true)
 
-      UNION ALL
+       UNION ALL
 
-      SELECT DISTINCT c.topic_id, 3::numeric
-      FROM public.comments c
-      WHERE c.user_id = current_user_id
-        AND c.is_deleted = false
-    ),
-    legacy_preferences AS (
+       SELECT DISTINCT c.topic_id, 3::numeric
+       FROM public.comments c
+       WHERE c.user_id = current_user_id
+         AND c.is_deleted = false
+         AND c.created_at >= (SELECT granted_at FROM catho_private.user_personalization_consents WHERE user_id=current_user_id AND enabled=true)
+     ),
+     legacy_preferences AS (
       SELECT t.category_slug, sum(s.weight) AS weight
       FROM signals s
       JOIN public.topics t
