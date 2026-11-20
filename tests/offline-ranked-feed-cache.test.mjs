@@ -25,7 +25,7 @@ test('offline personalisation only reuses encrypted cached server pages with fre
   assert.match(cache, /async hasFreshConsent/);
   assert.match(cache, /async clearUser/);
   const consentDenialWrite = cache.indexOf('VALUES (?, 0, ?)');
-  const personalisedPageDelete = cache.indexOf("DELETE FROM offline_ranked_feed_pages WHERE mode = ? AND owner_id = ?");
+  const personalisedPageDelete = cache.indexOf("DELETE FROM offline_ranked_feed_pages WHERE mode = ? AND owner_id = ?", consentDenialWrite);
   assert.ok(consentDenialWrite >= 0 && personalisedPageDelete > consentDenialWrite);
   assert.match(native, /personalizedFeedCacheRef\.current\.hasFreshConsent\(user\.id\)/);
   assert.match(native, /personalizedFeedCacheRef\.current\?\.setConsent\(user\.id, status\.enabled\)/);
