@@ -77,6 +77,8 @@ test('signed-in and anonymous selectors derive category from the published topic
     assert.match(selector, /v_topic_category_slug = ANY\(campaign\.target_category_slugs\)|v_topic_category_slug=ANY\(campaign\.target_category_slugs\)/);
     assert.match(selector, /public\.topics/);
     assert.match(selector, /is_published/);
+    assert.match(selector, /p_topic_id IS NULL/);
+    assert.doesNotMatch(selector, /p_category_slug\s*(?:=|=ANY)/);
     assert.match(selector, /anonymous_sponsor_campaign_daily/);
   }
   assert.match(signedIn, /campaign\.served_count \+ coalesce/);
