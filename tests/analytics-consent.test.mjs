@@ -44,6 +44,7 @@ test('signed-in consent is synchronized and enforced by authenticated ingestion 
   assert.ok(sql.includes('user_analytics_consent_history'));
   assert.ok(sql.includes("consent.service_improvement = true"));
   assert.ok(sql.includes("consent.sponsor_measurement = true"));
+  assert.ok(sql.includes('FOR SHARE'));
 });
 
 test('withdrawing consent clears the matching durable native analytics streams', async () => {
@@ -58,6 +59,11 @@ test('withdrawing consent clears the matching durable native analytics streams',
   assert.ok(manager.includes('clearFeedAnalyticsOutbox(userId)'));
   assert.ok(manager.includes('clearFeedCardAnalyticsOutbox(userId)'));
   assert.ok(manager.includes('clearSponsorAnalyticsOutbox(userId)'));
+  assert.ok(manager.includes('const interim ='));
+  assert.ok(manager.includes('saveAnalyticsConsent(interim, userId)'));
+  assert.ok(feed.includes('createConsentBoundAbortSignal'));
+  assert.ok(comments.includes('createConsentBoundAbortSignal'));
+  assert.ok(sponsor.includes('createConsentBoundAbortSignal'));
   assert.ok(feed.includes("clearStream(userId, 'topic')"));
   assert.ok(comments.includes("clearStream(userId, 'comment')"));
   assert.ok(sponsor.includes("clearStream(userId, 'sponsor')"));
