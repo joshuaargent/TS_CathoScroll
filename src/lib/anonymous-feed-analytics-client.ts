@@ -46,7 +46,7 @@ function getEndpoint(): string {
 function isAnonymousEvent(value: unknown): value is AnonymousEvent {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   const event = value as Record<string, unknown>;
-  if (typeof event.eventId !== 'string' || !/^[0-9a-f-]{36}$/i.test(event.eventId)) return false;
+  if (typeof event.eventId !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(event.eventId)) return false;
   if (event.entityType !== 'topic' && event.entityType !== 'comment') return false;
   if (typeof event.entityId !== 'string' || event.entityId.length < 1 || event.entityId.length > 160) return false;
   if (!['impression', 'viewable_impression', 'active_duration', 'skip', 'completion', 'open'].includes(String(event.eventType))) return false;
@@ -103,7 +103,7 @@ function hydrateQueue(): void {
 export async function flushAnonymousFeedAnalyticsQueue(): Promise<void> {
   if (typeof window === 'undefined') return;
   hydrateQueue();
-  if (!navigator.onLine || pendingEvents.length === 0 || flushPromise) return;
+  if (typeof navigator === 'undefined' || !navigator.onLine || pendingEvents.length === 0 || flushPromise) return;
 
   const batch = pendingEvents.slice(0, 40);
   let shouldContinue = false;
@@ -130,7 +130,7 @@ export async function flushAnonymousFeedAnalyticsQueue(): Promise<void> {
     }
   })().finally(() => {
     flushPromise = null;
-    if (shouldContinue && pendingEvents.length > 0 && navigator.onLine) {
+    if (shouldContinue && pendingEvents.length > 0 && typeof navigator !== 'undefined' && navigator.onLine) {
       void flushAnonymousFeedAnalyticsQueue();
     }
   });
@@ -146,10 +146,9 @@ export function installAnonymousFeedAnalyticsSync(): () => void {
     window.addEventListener('online', () => void flushAnonymousFeedAnalyticsQueue());
     window.addEventListener('pageshow', () => void flushAnonymousFeedAnalyticsQueue());
     window.addEventListener('pagehide', () => void flushAnonymousFeedAnalyticsQueue());
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') void flushAnonymousFeedAnalyticsQueue();
-      else void flushAnonymousFeedAnalyticsQueue();
-    });
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', () => void flushAnonymousFeedAnalyticsQueue());
+    }
   }
   void flushAnonymousFeedAnalyticsQueue();
   return () => undefined;
