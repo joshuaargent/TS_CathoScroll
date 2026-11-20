@@ -254,7 +254,12 @@ export async function flushAnonymousSponsorCampaignEvents(): Promise<void> {
           keepalive: true,
           signal: consentRequest.signal,
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ...queued.event, sessionId: queued.event.sessionId, placementKey: queued.event.placementKey }),
+          body: JSON.stringify({
+            ...queued.event,
+            sessionId: queued.event.sessionId,
+            placementKey: queued.event.placementKey,
+            sponsorMeasurementConsent: true,
+          }),
         });
       } catch {
         break;
