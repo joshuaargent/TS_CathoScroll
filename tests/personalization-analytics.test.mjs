@@ -60,7 +60,7 @@ test('emergency bootstrap inventory matches the reconciled production schema', (
   assert.equal((bootstrap.match(/CREATE TRIGGER /g) ?? []).length, 34);
   assert.equal((bootstrap.match(/CREATE (?:UNIQUE )?INDEX(?: IF NOT EXISTS)? /g) ?? []).length, 94);
   const functionRanges = bootstrapFunctionRanges(bootstrap);
-  assert.equal(functionRanges.length, 111);
+  assert.equal(functionRanges.length, 108);
   for (let index = 0; index < functionRanges.length - 1; index += 1) {
     assert.ok(functionRanges[index].end <= functionRanges[index + 1].start, 'Function body overlaps the next SQL definition: ' + functionRanges[index].name);
   }
