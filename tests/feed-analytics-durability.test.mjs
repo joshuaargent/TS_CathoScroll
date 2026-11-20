@@ -16,7 +16,7 @@ async function importTypeScript(relativePath, instance = '') {
   return import('data:text/javascript;base64,' + encoded + (instance ? '#' + instance : ''));
 }
 
-const [analytics, sponsor, sponsorAnalytics, topicFeed, cardRegistry, readme, sponsorClient, sync, layout, nativeMain, bootstrap, anonymousAnalytics, sponsorSync] = await Promise.all([
+const [analytics, sponsor, sponsorAnalytics, topicFeed, cardRegistry, readme, sponsorClient, sync, layout, nativeMain, bootstrap, anonymousAnalytics, sponsorSync, cardAnalytics] = await Promise.all([
   readFile(new URL('../src/lib/feed-analytics-client.ts', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/SponsorFeedCard.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/lib/sponsor-analytics-client.ts', import.meta.url), 'utf8'),
@@ -30,6 +30,7 @@ const [analytics, sponsor, sponsorAnalytics, topicFeed, cardRegistry, readme, sp
   readFile(new URL('../docs/cathoscroll-database-bootstrap.sql', import.meta.url), 'utf8'),
   readFile(new URL('../src/lib/anonymous-feed-analytics-client.ts', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/providers/SponsorAnalyticsSync.tsx', import.meta.url), 'utf8'),
+  readFile(new URL('../src/lib/feed-card-analytics-client.ts', import.meta.url), 'utf8'),
 ]);
 
 
@@ -71,7 +72,7 @@ test('signed-in feed and sponsor raw-event retention remains 180 days', () => {
   assert.match(bootstrap, /prune_sponsor_campaign_events\(statement_timestamp\(\) - interval ''180 days''/);
 });
 
-test('feed analytics retains queued events until server acknowledgement and drains on startup', () => {
+test('feed analytics retains active-page events until server acknowledgement and retries on reconnect', () => {
   assert.ok(analytics.includes('const queueLimit = 200;'));
   assert.ok(analytics.includes('queue.splice(0, queue.length - queueLimit)'));
   assert.ok(analytics.includes('discard the oldest events'));
@@ -89,7 +90,7 @@ test('feed analytics retention cron uses the same statement timestamp as its ret
 test('sponsor analytics queue stays in memory and flushes without a visible sponsor card', () => {
   assert.ok(sponsorAnalytics.includes('const pendingQueues = new Map'));
   assert.doesNotMatch(sponsorAnalytics, /localStorage|sessionStorage|indexedDB/);
-  assert.ok(sponsorAnalytics.includes('latest.filter((queued) => queued.eventId !== eventId)'));
+  assert.ok(sponsorAnalytics.includes('readQueue(userId).filter((queued) => queued.eventId !== eventId)'));
   assert.ok(sponsorAnalytics.includes("window.addEventListener('online', flush)"));
   assert.ok(sponsorAnalytics.includes("window.addEventListener('pageshow', flush)"));
   assert.ok(sponsorAnalytics.includes("document.addEventListener('visibilitychange', onVisibilityChange)"));
