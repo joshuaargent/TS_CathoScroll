@@ -196,6 +196,14 @@ export default function PrivacyPage() {
             legal or similarly significant effects. You can turn off personalisation and delete
             the derived profile through Account settings.
           </p>
+
+          <p className="text-text-secondary mt-4 leading-relaxed">
+            On Android and Electron, previously downloaded server-ranked recommendation pages
+            may be used offline for up to 12 hours after the last successful consent check. These
+            pages are stored in the encrypted private activity database and are cleared when
+            personalisation is withdrawn or the account changes. The app does not calculate a
+            new personal profile or infer new interests while offline.
+          </p>
         </section>
 
         <section>
