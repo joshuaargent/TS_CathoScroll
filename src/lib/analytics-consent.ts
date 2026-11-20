@@ -101,13 +101,17 @@ export function readAnalyticsConsent(userId?: string | null): AnalyticsConsent |
     ) return null;
     const serviceDenied = deniedOverrides.has(overrideKey('serviceImprovement', userId));
     const sponsorDenied = deniedOverrides.has(overrideKey('sponsorMeasurement', userId));
+    const storageWriteFailedForDenial = Boolean(userId) && (
+      (serviceDenied && parsed.serviceImprovement) ||
+      (sponsorDenied && parsed.sponsorMeasurement)
+    );
     return {
       version: analyticsConsentVersion,
       serviceImprovement: parsed.serviceImprovement && !serviceDenied,
       sponsorMeasurement: parsed.sponsorMeasurement && !sponsorDenied,
       updatedAt: parsed.updatedAt,
       syncPending: ('syncPending' in parsed ? parsed.syncPending : false) ||
-        (Boolean(userId) && (serviceDenied || sponsorDenied)),
+        storageWriteFailedForDenial,
     };
   } catch {
     return null;
