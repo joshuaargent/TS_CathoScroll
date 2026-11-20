@@ -1,7 +1,7 @@
 'use client';
 
 import type { SignedInAnalyticsOutbox } from './offline/signed-in-analytics-store';
-import { hasAnalyticsConsent } from './analytics-consent';
+import { createConsentBoundAbortSignal, hasAnalyticsConsent } from './analytics-consent';
 
 export type FeedAnalyticsEventType =
   | 'impression'
@@ -200,8 +200,14 @@ export async function flushFeedAnalytics(userId: string, keepalive = false): Pro
   if (!navigator.onLine || flushingUsers.has(userId)) return;
 
   flushingUsers.add(userId);
+  const consentRequest = createConsentBoundAbortSignal('serviceImprovement', userId);
   try {
     for (;;) {
+      if (!hasAnalyticsConsent('serviceImprovement', userId)) {
+        writeQueue(userId, []);
+        if (persistentOutbox) await persistentOutbox.clearStream(userId, 'topic');
+        break;
+      }
       const stored = persistentOutbox ? await persistentOutbox.pending(userId, 'topic', batchLimit) : [];
       const storedIds = new Set(stored.map((event) => event.event_id));
       const memory = readQueue(userId).filter((event) => !storedIds.has(event.event_id));
@@ -218,7 +224,7 @@ export async function flushFeedAnalytics(userId: string, keepalive = false): Pro
         } catch {
           break;
         }
-        if (!accessToken) break;
+        if (!accessToken || !hasAnalyticsConsent('serviceImprovement', userId)) break;
         headers.set('Authorization', 'Bearer ' + accessToken);
       }
 
@@ -228,6 +234,7 @@ export async function flushFeedAnalytics(userId: string, keepalive = false): Pro
           credentials: transport?.endpoint ? 'omit' : 'same-origin',
           cache: 'no-store',
           keepalive,
+          signal: consentRequest.signal,
           headers,
           body: JSON.stringify({ events: batch }),
         });
@@ -235,6 +242,11 @@ export async function flushFeedAnalytics(userId: string, keepalive = false): Pro
         break;
       }
 
+      if (!hasAnalyticsConsent('serviceImprovement', userId)) {
+        writeQueue(userId, []);
+        if (persistentOutbox) await persistentOutbox.clearStream(userId, 'topic');
+        break;
+      }
       if (!response.ok) break;
 
       const acceptedIds = new Set(batch.map((event) => event.event_id));
@@ -246,6 +258,7 @@ export async function flushFeedAnalytics(userId: string, keepalive = false): Pro
       if (keepalive) break;
     }
   } finally {
+    consentRequest.dispose();
     flushingUsers.delete(userId);
     const transport = transports.get(userId);
     if (transport?.retired) {
