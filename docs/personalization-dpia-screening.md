@@ -13,7 +13,7 @@ A UK privacy professional must review and complete this assessment before broad 
 
 Users may separately opt in at signup or later in Account settings. The checkbox is unticked by default and is not required to use CathoScroll. The recorded consent version is `2026-11-19-v3`.
 
-When enabled, the system uses only explicit account actions recorded after personalisation consent:
+When enabled, the **PR26 target** system uses only explicit account actions recorded after personalisation consent:
 - progress and completed topics;
 - bookmarks and topic likes;
 - comments written, comment likes and replies written;
@@ -21,6 +21,8 @@ When enabled, the system uses only explicit account actions recorded after perso
 - derived topic/category interest scores based on those actions.
 
 Operational analytics measurements (impressions, active duration, swipe depth, skips, return visits and Top Comments exposure) are not inputs to the recommendation profile.
+
+**Current production caveat:** the deployed recommendation-profile refresher still reads operational analytics event tables when personalisation is enabled. PR26 changes the target profile to explicit account actions only; this separation is not live until the production SQL upgrade is applied.
 
 The profile is private, is not displayed on public profiles, and is not provided to sponsors. It is not used for user-level sponsor targeting. Sponsors may select contextual category/topic placement criteria, but those criteria are not derived from the user's private profile.
 
