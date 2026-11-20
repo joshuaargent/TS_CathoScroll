@@ -533,7 +533,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
             ? 'Choose optional analytics. Service improvement analytics is required while personalisation is enabled; sponsor measurement remains separate.'
             : effectivePersonalizationEnabled
               ? 'Personalisation is on, so Service improvement analytics is required. Turn off personalisation before disabling it.'
-              : 'Optional analytics help improve CathoScroll. Personalisation uses reading signals; sponsor measurement is separate. Signed-out topic/comment activity is counted in daily aggregates, with no visitor IDs and a separate opt-out.'}
+              : 'Accept all enables account-linked reading measurement and sponsor view, click, frequency and placement measurement. Catholic-content activity may reveal religious or philosophical beliefs. Enabling personalisation also enables Service improvement analytics and reading-signal recommendations. Signed-out visits are counted in daily aggregates by default, with a separate opt-out.'}
         </p>
 
         {!managing ? (
