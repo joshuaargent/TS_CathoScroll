@@ -48,7 +48,8 @@ The profile is private: it is not exposed through public profiles and is not use
 - `catho_private.user_personalization_consents`: per-account opt-in, version and withdrawal timestamps.
 - `catho_private.user_topic_interest_scores`: private per-topic score, explicit and inferred evidence, short-/long-term values, model version and refresh time.
 - `catho_private.user_explicit_category_interests`: categories directly selected by the account owner.
-- `public.set_my_personalization_consent(boolean)`: authenticated owner-only consent change; withdrawal deletes derived profile and explicit category selections.
+- `public.set_my_personalization_consent(boolean, text)`: authenticated owner-only v4 consent change; new grants require the current disclosure version and withdrawal deletes derived profile and explicit category selections.
+- `public.set_my_personalization_consent(boolean)`: legacy withdrawal-only wrapper; attempts to grant consent from older clients are rejected.
 - `public.get_my_personalization_status()`: authenticated owner-only status and available category options.
 - `public.set_my_personalization_interests(text[])`: validates and replaces the current user's selected categories.
 - `catho_private.refresh_user_interest_profile(uuid)`: private recomputation from eligible account actions and consented reading signals; not executable by app roles.
