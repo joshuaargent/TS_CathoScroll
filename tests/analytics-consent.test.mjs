@@ -27,10 +27,10 @@ test('optional analytics consent is explicit, purpose-specific and off by defaul
   assert.ok(manager.includes('I explicitly agree to Service improvement analytics'));
   assert.ok(manager.includes('Sponsor measurement'));
   assert.ok(manager.includes('I explicitly agree to Sponsor measurement'));
-  assert.ok(manager.includes('They are not used for recommendation personalisation or to infer religious beliefs'));
-  assert.ok(manager.includes('Accept all consents to both; Decline optional declines both; Manage choices lets you choose separately'));
-  assert.ok(manager.includes('Accept all consents to both; Decline optional declines both; Manage choices lets you choose separately.'));
-  assert.ok(manager.includes('Topic activity and sponsor placements may reveal religious or philosophical interests.'));
+  assert.ok(manager.includes('They are not used for recommendations or to infer religious beliefs'));
+  assert.ok(manager.includes('Service improvement analytics help improve CathoScroll. They are not used for recommendations or to infer religious beliefs.'));
+  assert.ok(manager.includes('Sponsor measurement is separate. Accept all, decline optional, or manage choices.'));
+  assert.ok(manager.includes('Topic and comment activity may reveal religious or philosophical interests.'));
   assert.ok(manager.includes('topic placement where a sponsor appeared'));
   assert.ok(manager.includes('may involve special-category data under UK GDPR'));
   assert.ok(manager.includes('Recommendation personalisation remains controlled separately'));
@@ -232,5 +232,8 @@ test('privacy assessment distinguishes special-category risk and keeps personali
   assert.ok(assessment.includes('religious or philosophical beliefs'));
   assert.ok(assessment.includes('not a legal opinion'));
   assert.ok(manager.includes('Recommendation personalisation remains controlled separately'));
-  assert.ok(account.includes('personalization'));
+  assert.ok(account.includes('Analytics choices'));
+  assert.ok(account.includes('Service improvement analytics'));
+  assert.ok(account.includes('Sponsor measurement'));
+  assert.ok(account.includes('AnalyticsConsentSettingsButton'));
 });
