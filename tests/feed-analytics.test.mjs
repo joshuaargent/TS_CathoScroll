@@ -3,6 +3,8 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import ts from 'typescript';
 
+const source = await readFile(new URL('../src/lib/feed-analytics-client.ts', import.meta.url), 'utf8');
+
 async function transpiledDataUrl(relativePath) {
   const source = await readFile(new URL(relativePath, import.meta.url), 'utf8');
   let output = ts.transpileModule(source, {
