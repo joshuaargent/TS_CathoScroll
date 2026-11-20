@@ -529,9 +529,9 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
                 className="accent-accent mt-1 h-4 w-4 shrink-0"
               />
               <span className="min-w-0">
-                <span className="text-text-primary block font-semibold">Sponsor measurement</span>
+                <span className="text-text-primary block font-semibold">I explicitly agree to Sponsor measurement</span>
                 <span className="text-text-secondary mt-1 block text-sm leading-relaxed">
-                  Measures sponsor viewability, clicks and frequency. If you decline, sponsor placements still appear. We retain campaign/day served totals for campaign delivery and pacing, but do not create visitor/session frequency records or viewability/click events for your visit.
+                  Measures sponsor viewability, clicks and frequency. When enabled, signed-in events are account-linked; signed-out frequency uses a random in-memory session token whose hash is stored for up to 30 days. Anonymous event attribution can include the topic placement where a sponsor appeared. In a Catholic-content service, that context may reveal religious or philosophical interests and may involve special-category data under UK GDPR. If you decline, sponsor placements still appear and we retain only campaign/day served totals, without visitor/session frequency records or viewability/click events for your visit.
                 </span>
               </span>
             </label>
