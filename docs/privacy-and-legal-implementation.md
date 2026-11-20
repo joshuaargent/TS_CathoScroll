@@ -33,8 +33,8 @@ CathoScroll's subject matter includes Catholic theology and other religious topi
 
 | Data | Source | Use | Consent state |
 |---|---|---|---|
-| Topic viewability, active duration, completion, repeat visit, skip | Feed analytics | Topic/category interest evidence | Read for recommendation weighting only when enabled |
-| Likes, bookmarks, progress/completions, comments | Existing account activity | Explicit engagement evidence | Read for recommendation weighting only when enabled |
+| Impressions, active duration, swipe depth, skips, return visits, Top Comments exposure | Operational analytics tables | Service measurement only; never recommendation input | Collected only under Service improvement analytics consent |
+| Progress/completions, bookmarks, topic likes, comments, comment likes, replies | Existing account activity | Explicit topic-interest evidence | Read for recommendation weighting only when separate personalisation consent is enabled |
 | Selected categories | Account settings | Strong user-declared interest signal | Stored only while enabled |
 | Derived topic/category scores | Private profile tables | Rank the user's own recommendations | Created/refreshed only while enabled |
 | Consent version and timestamps | Signup trigger / account settings RPC | Demonstrate opt-in and withdrawal | Stored as a private audit record |
@@ -51,7 +51,7 @@ The profile is not displayed on public profiles, is not provided to sponsors, an
 - The shared AccountPageView and PersonalizationSettingsPage are used by web and native; platform-specific authentication/session storage remains in the web/native adapters.
 - Withdrawal records the choice, deletes derived topic scores and explicit category choices, and prevents further account-history recommendation weighting.
 - Existing cursors are neutralised on the next recommendation RPC call after withdrawal; category weights become equal and completed-topic suppression is disabled. A new sign-in or page reload is not required for this server-side check to take effect.
-- Operational analytics records are separate. Withdrawal does not erase those records; they remain under their stated operational retention policy.
+- Operational analytics records are separate and are never used for recommendation weighting. Personalisation withdrawal does not erase those records; they remain under their separately stated operational retention policy.
 
 Consent version currently recorded by signup and the account RPC: `2026-11-19-v3`.
 
@@ -66,7 +66,7 @@ When consent is disabled:
 - Completed-topic history is not used to suppress topics.
 - The normal catalogue ordering, pagination, diversity and safety rules remain in place.
 
-When consent is enabled, the existing bounded scoring model applies. Behavioural evidence has a maximum 90-day window; explicit account interactions have a maximum 180-day window. Profile refreshes are cached for five minutes. Sponsor delivery signals are never recommendation inputs.
+When consent is enabled, the bounded scoring model uses explicit account actions recorded after consent only, with a maximum 180-day evidence window. It maintains 14-day and 90-day decay horizons and refreshes at most every five minutes. Operational analytics events—including impressions, reading duration, swipe depth, skips, return visits and Top Comments exposure—are never recommendation inputs. Sponsor delivery signals are also never recommendation inputs.
 
 ## Analytics and retention
 
