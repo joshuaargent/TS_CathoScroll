@@ -206,7 +206,9 @@ export function installAnonymousFeedAnalyticsSync(): () => void {
     if (typeof document !== 'undefined') {
       document.addEventListener('visibilitychange', () => void flushAnonymousFeedAnalyticsQueue());
     }
-    window.addEventListener(anonymousAnalyticsPreferenceChangeEvent, () => void flushAnonymousFeedAnalyticsQueue());
+    window.addEventListener(anonymousAnalyticsPreferenceChangeEvent, () => {
+      if (anonymousAnalyticsEnabled()) void flushAnonymousFeedAnalyticsQueue();
+    });
   }
   if (!persistentOutbox) void flushAnonymousFeedAnalyticsQueue();
   return () => undefined;
