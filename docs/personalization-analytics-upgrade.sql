@@ -1108,3 +1108,34 @@ UPDATE catho_private.user_personalization_consents
 SET profile_refreshed_at = NULL,
     updated_at = statement_timestamp()
 WHERE enabled = true;
+
+
+-- The new consent wording also enables Service improvement analytics while
+-- personalisation is active. Existing v3 opt-ins did not disclose that link,
+-- so they must be re-confirmed before the activity-signal model is used.
+DO $personalization_consent_regrant$
+DECLARE
+  v_affected_user_ids uuid[];
+  v_now timestamptz := statement_timestamp();
+BEGIN
+  SELECT coalesce(array_agg(user_id), ARRAY[]::uuid[])
+  INTO v_affected_user_ids
+  FROM catho_private.user_personalization_consents
+  WHERE enabled = true
+    AND consent_version IS DISTINCT FROM '2026-11-20-v4';
+
+  UPDATE catho_private.user_personalization_consents
+  SET enabled = false,
+      consent_version = NULL,
+      granted_at = NULL,
+      withdrawn_at = v_now,
+      profile_refreshed_at = NULL,
+      updated_at = v_now
+  WHERE user_id = ANY(v_affected_user_ids);
+
+  DELETE FROM catho_private.user_topic_interest_scores
+  WHERE user_id = ANY(v_affected_user_ids);
+  DELETE FROM catho_private.user_explicit_category_interests
+  WHERE user_id = ANY(v_affected_user_ids);
+END;
+$personalization_consent_regrant$;
