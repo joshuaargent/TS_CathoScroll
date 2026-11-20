@@ -83,7 +83,7 @@ test('personalisation consent is opt-in and versioned', () => {
   assert.match(bootstrap, /user_personalization_consents[\s\S]*enabled boolean NOT NULL DEFAULT false/);
   assert.match(bootstrap, /consent_version/);
   assert.match(settings, /This is optional and off until you enable it/);
-  assert.match(settings, /activity recorded after you opt in/);
+  assert.match(settings, /account actions recorded after you opt in/);
   assert.match(bootstrap, /capture_signup_personalization_consent/);
   assert.match(bootstrap, /NEW\.raw_user_meta_data ->> 'personalization_consent' = 'true'/);
   assert.match(bootstrap, /AFTER INSERT ON auth\.users/);
