@@ -50,7 +50,7 @@
 
 The ICO's final guidance dated 29 April 2026 allows a narrow statistical-purposes exception for an ISS provider's exclusive service-improvement statistics, where the result is anonymous aggregate data, individual-level inputs are not retained longer than needed, individuals are clearly informed and have a simple/free objection method. It is not available for identifying/tracking individual visitors, retaining browsing histories, profiling individuals/groups, or measuring individual advertising views/clicks. CathoScroll must not rely on it for account-linked event streams or sponsor ad-performance metrics.
 
-The current code's memory-only approach reduces the PECR device-storage risk. The controller should document whether any actual deployed SDK accesses terminal equipment, and if so, which exception applies. Do not assume that "no cookies" alone resolves all PECR or UK GDPR obligations.
+The current code's memory-only approach avoids persistent browser storage and reduces the amount of device-resident data, but it does not conclusively resolve PECR: the statutory test covers storage/access technologies on terminal equipment, and the legal treatment of transient JavaScript memory/SDK access needs to be documented against the ICO's current definition. Inspect deployed SDK behaviour and obtain a controller/legal determination before claiming PECR clearance. Do not assume that "no cookies" alone resolves PECR or UK GDPR obligations.
 
 ## UK GDPR analytics position
 
