@@ -139,6 +139,8 @@ test('native signed-out analytics is durably queued without visitor or account i
   assert.match(store, /INSERT OR IGNORE/);
   assert.match(store, /ORDER BY rowid ASC LIMIT/);
   assert.match(store, /DELETE FROM offline_anonymous_analytics_outbox/);
+  assert.match(store, /async clear\(\)/);
+  assert.match(client, /setAnonymousFeedAnalyticsEnabled/);
   assert.doesNotMatch(store, /user_id|session_id|visitor_id|account_id/i);
   assert.match(native, /new NativeAnonymousAnalyticsOutbox\(databases\.catalogue\)/);
   assert.match(native, /configureAnonymousFeedAnalyticsOutbox/);

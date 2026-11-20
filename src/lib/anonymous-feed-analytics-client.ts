@@ -67,6 +67,11 @@ function getEndpoint(): string {
 
 export async function setAnonymousFeedAnalyticsEnabled(enabled: boolean): Promise<void> {
   if (typeof window === 'undefined') throw new Error('Analytics preferences are unavailable.');
+  const wasEnabled = anonymousAnalyticsEnabled();
+  if (enabled && !wasEnabled && persistentOutbox) {
+    await outboxReady;
+    await persistentOutbox.clear();
+  }
   window.localStorage.setItem(anonymousAnalyticsPreferenceKey, enabled ? 'true' : 'false');
   if (!enabled) {
     pendingEvents.splice(0, pendingEvents.length);
