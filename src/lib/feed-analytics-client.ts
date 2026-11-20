@@ -228,6 +228,8 @@ export async function flushFeedAnalytics(userId: string, keepalive = false): Pro
         headers.set('Authorization', 'Bearer ' + accessToken);
       }
 
+      if (consentRequest.signal.aborted || !hasAnalyticsConsent('serviceImprovement', userId)) break;
+
       try {
         response = await fetch(transport?.endpoint ?? '/api/analytics/feed-events', {
           method: 'POST',
