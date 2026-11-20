@@ -60,6 +60,13 @@ test('account consent sync is identity-bound, retryable and enforced server-side
 
   assert.ok(manager.includes("window.addEventListener('online', syncServerConsent)"));
   assert.ok(manager.includes('local.syncPending || !remote.exists'));
+  assert.ok(manager.includes('pendingChoices'));
+  assert.ok(manager.includes('serviceImprovement: remote.personalizationEnabled ? true : local.serviceImprovement'));
+  assert.ok(manager.includes('sponsorMeasurement: local.sponsorMeasurement'));
+  assert.ok(manager.includes('if (!managingRef.current)'));
+  assert.ok(manager.includes('managingRef.current = true'));
+  assert.ok(manager.includes('personalizationStatusKnown, saving, syncServerConsent'));
+  assert.ok(manager.includes('clearAnalyticsConsentQueues(userId, previous, next)'));
   assert.ok(manager.includes('getAccessToken(expectedUserId)'));
   assert.ok(manager.includes('}, [loading, userId]);'));
   assert.ok(manager.includes('activeUserIdRef.current === expectedUserId'));
@@ -78,6 +85,9 @@ test('account consent sync is identity-bound, retryable and enforced server-side
   assert.ok(security.includes('new URL(referer).origin === requestOrigin'));
   assert.ok(serverConsent.includes('get_user_analytics_consent'));
   assert.ok(serverConsent.includes('personalizationEnabled'));
+  assert.ok(manager.includes('remote.personalizationEnabled'));
+  assert.ok(manager.includes('p_service_improvement IS NOT TRUE'));
+  assert.ok(manager.includes('clearAnalyticsConsentQueues'));
   assert.ok(topicRoute.includes('getStoredAnalyticsConsent(user.id)'));
   assert.ok(commentRoute.includes('getStoredAnalyticsConsent(user.id)'));
   assert.ok(sponsorRoute.includes('getStoredAnalyticsConsent(auth.user.id)'));
@@ -237,4 +247,8 @@ test('privacy assessment distinguishes special-category risk and keeps personali
   assert.ok(assessment.includes('not a legal opinion'));
   assert.ok(manager.includes('Personalisation requires Service improvement analytics; Sponsor measurement remains independent.'));
   assert.ok(account.includes('personalization'));
+  assert.ok(account.includes('I explicitly agree to Service improvement analytics'));
+  assert.ok(account.includes('I explicitly agree to Sponsor measurement'));
+  assert.ok(account.includes('potentially involving special-category data under UK GDPR'));
+  assert.ok(account.includes('may involve special-category data under UK GDPR'));
 });
