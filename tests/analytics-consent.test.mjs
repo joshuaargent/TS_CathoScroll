@@ -254,8 +254,7 @@ test('privacy assessment distinguishes special-category risk and keeps personali
   assert.ok(assessment.includes('not a legal opinion'));
   assert.ok(manager.includes('Personalisation requires Service improvement analytics; Sponsor measurement remains independent.'));
   assert.ok(account.includes('personalization'));
-  assert.ok(account.includes('I explicitly agree to Service improvement analytics'));
-  assert.ok(account.includes('I explicitly agree to Sponsor measurement'));
-  assert.ok(account.includes('potentially involving special-category data under UK GDPR'));
-  assert.ok(account.includes('may involve special-category data under UK GDPR'));
+  assert.ok(account.includes('I explicitly consent to CathoScroll using my account actions, selected interests and reading analytics'));
+  assert.ok(account.includes('Service improvement analytics is required while personalisation is enabled'));
+  assert.ok(account.includes('AnalyticsConsentSettingsButton'));
 });
