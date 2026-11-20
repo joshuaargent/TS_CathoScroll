@@ -15,6 +15,7 @@ export interface RankedFeedPage {
 const maximumPagesPerOwner = 30;
 const maximumPageAgeMs = 14 * 24 * 60 * 60 * 1000;
 const consentFreshnessMs = 12 * 60 * 60 * 1000;
+const personalizedModelVersion = 'explicit-actions-v3';
 
 function assertOwner(mode: RankedFeedMode, userId: string | null): string {
   if (mode === 'general') return 'public';
@@ -60,6 +61,26 @@ export class OfflineRankedFeedCache {
         ON offline_ranked_feed_pages(mode, owner_id, updated_at)
       `);
       if (this.allowPersonalizedCache) {
+        await db.execute(`
+          CREATE TABLE IF NOT EXISTS offline_ranked_feed_cache_meta (
+            cache_key TEXT PRIMARY KEY NOT NULL,
+            cache_value TEXT NOT NULL
+          )
+        `);
+        const modelRows = await db.query(
+          'SELECT cache_value FROM offline_ranked_feed_cache_meta WHERE cache_key = ?',
+          ['personalized_model_version']
+        );
+        if (modelRows.length !== 1 || modelRows[0].cache_value !== personalizedModelVersion) {
+          await db.execute(
+            'DELETE FROM offline_ranked_feed_pages WHERE mode = ?',
+            ['personalized']
+          );
+          await db.execute(
+            'INSERT OR REPLACE INTO offline_ranked_feed_cache_meta (cache_key, cache_value) VALUES (?, ?)',
+            ['personalized_model_version', personalizedModelVersion]
+          );
+        }
         await db.execute(`
           CREATE TABLE IF NOT EXISTS offline_personalization_consent_cache (
             user_id TEXT PRIMARY KEY NOT NULL,
