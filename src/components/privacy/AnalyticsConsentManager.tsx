@@ -11,7 +11,6 @@ import {
   saveAnalyticsConsent,
   type AnalyticsConsent,
 } from '@/lib/analytics-consent';
-import { setAnonymousFeedAnalyticsEnabled } from '@/lib/anonymous-feed-analytics-client';
 import {
   clearAnonymousSponsorAnalyticsQueue,
   clearSponsorAnalyticsOutbox,
@@ -440,7 +439,6 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
           tasks.push(clearFeedAnalyticsOutbox(userId));
           tasks.push(clearFeedCardAnalyticsOutbox(userId));
         }
-        else tasks.push(setAnonymousFeedAnalyticsEnabled(false));
       }
       if (!existing.sponsorMeasurement) {
         if (userId) tasks.push(clearSponsorAnalyticsOutbox(userId));
@@ -514,10 +512,10 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
         </h2>
         <p id="analytics-consent-description" className="text-text-secondary mt-3 text-sm leading-relaxed">
           {managing
-            ? 'Choose which analytics CathoScroll may collect. Service improvement analytics is required while personalisation is enabled; sponsor measurement remains optional.'
+            ? 'Choose optional analytics. Service improvement analytics is required while personalisation is enabled; sponsor measurement remains separate.'
             : personalizationEnabled
-              ? 'Personalisation is enabled, so Service improvement analytics is required for your reading signals and cannot be disabled until you turn personalisation off. Sponsor measurement remains optional.'
-              : 'Service improvement analytics helps improve CathoScroll and may support recommendations if you enable personalisation. Sponsor measurement is separate. Topic activity and sponsor placements may reveal religious or philosophical interests. Accept all enables both analytics choices; Decline optional declines both; Manage choices lets you choose separately.'}
+              ? 'Personalisation is on, so Service improvement analytics is required. Turn off personalisation before disabling it.'
+              : 'Optional analytics help improve CathoScroll. Personalisation also uses your reading activity; sponsor measurement is separate. Signed-out topic and comment activity is counted only in daily totals, without visitor profiles.'}
         </p>
 
         {!managing ? (
