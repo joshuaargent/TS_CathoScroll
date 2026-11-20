@@ -150,7 +150,7 @@ The controller must complete and sign off these decisions; engineering cannot ma
 
 No code change, checkbox or this draft assessment should be represented as a guarantee of legal compliance until the controller has completed the decisions above and verified the deployed behaviour.
 
-## Implementation status: draft PR #25
+## Implementation status: consolidated PR #25
 
 The consent controls are represented in consolidated PR #25. The three database migrations are live in production; the matching app code is not deployed until merge/release:
 
@@ -162,6 +162,6 @@ The consent controls are represented in consolidated PR #25. The three database 
 - Sponsor delivery continues after measurement refusal, with campaign/day served totals only and no visitor/session frequency or viewability/click records.
 - Vercel Web Analytics and Speed Insights are gated behind Service improvement analytics. Recommendation personalisation remains separate.
 
-The consent upgrade has not been executed against a disposable PostgreSQL database or production. The live database still has the earlier non-null sponsor session-token requirement. The controls are not active in production. Do not rely on this draft as evidence that production processing has already changed.
+The initial consent migration was executed in a transaction against the existing production schema and rolled back before permanent application; consent and sponsor-selector smoke tests were also run in a separate rolled-back transaction. The three migrations are now recorded in production, and the live database has the consent tables and null-session sponsor selector behaviour. No separately billed disposable Supabase branch was created, so a separate clean-install PostgreSQL test remains outstanding. The matching app code is not active in production until PR #25 is merged and deployed. Do not rely on this draft as evidence of legal compliance; controller approvals and deployed-behaviour verification remain outstanding.
 
 Before release, the controller must approve the Article 6 basis for each analytics purpose and determine whether account-linked topic/comment activity is special-category data in the actual processing. If it is, the controller must document and validate the Article 9 condition; explicit consent must be specific, informed, freely given, unambiguous and withdrawable. The consent interface is a technical control, not legal approval.
