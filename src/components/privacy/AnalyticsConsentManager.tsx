@@ -36,7 +36,7 @@ export async function clearAnalyticsConsentQueues(
       tasks.push(clearFeedAnalyticsOutbox(userId));
       tasks.push(clearFeedCardAnalyticsOutbox(userId));
     } else {
-      tasks.push(setAnonymousFeedAnalyticsEnabled(false));
+      setAnonymousFeedAnalyticsEnabled(false);
     }
   }
   if (clearSponsor) {
