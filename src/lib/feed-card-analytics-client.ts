@@ -105,7 +105,7 @@ export function recordFeedCardAnalyticsEvent(
 }
 
 export async function flushFeedCardAnalytics(userId: string, keepalive = false) {
-  if (typeof window === 'undefined' || !hasAnalyticsConsent('serviceImprovement')) {
+  if (typeof window === 'undefined' || !hasAnalyticsConsent('serviceImprovement', userId)) {
     writeQueue(userId, []);
     if (persistentOutbox) await persistentOutbox.clearStream(userId, 'comment');
     return;
