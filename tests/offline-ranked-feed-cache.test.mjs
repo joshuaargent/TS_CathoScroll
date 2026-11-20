@@ -78,3 +78,9 @@ test('local withdrawal replaces the active personalised feed and retries the ser
   assert.match(native, /setFeedPersonalized\(detail\.enabled\)/);
   assert.match(native, /setFeedAttempt\(\(attempt\) => attempt \+ 1\)/);
 });
+
+
+test('withdrawal clears the stale personalised page before the replacement feed is published', () => {
+  assert.match(native, /setFirstPage\(null\)/);
+  assert.doesNotMatch(native, /setFeedPersonalized\(detail\.enabled\)/);
+});
