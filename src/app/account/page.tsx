@@ -222,6 +222,7 @@ export default function AccountPage() {
     <main>
     <AccountPageView
       loading={loading}
+      bottomPadding={false}
       displayName={displayName}
       username={username}
       bio={bio}
