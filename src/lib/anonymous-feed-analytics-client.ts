@@ -23,7 +23,7 @@ export const anonymousAnalyticsPreferenceKey = 'cathoscroll.anonymous-analytics.
 export const anonymousAnalyticsPreferenceChangeEvent = 'cathoscroll:anonymous-analytics-preference-change';
 
 function anonymousAnalyticsEnabled(): boolean {
-  if (typeof window === 'undefined') return false;
+  if (typeof window === 'undefined' || anonymousPreferenceTransition) return false;
   try {
     return window.localStorage.getItem(anonymousAnalyticsPreferenceKey) !== 'false';
   } catch {
@@ -41,6 +41,10 @@ let flushPromise: Promise<void> | null = null;
 let listenersInstalled = false;
 let persistentOutbox: AnonymousFeedAnalyticsOutbox | null = null;
 let outboxReady: Promise<void> | null = null;
+let anonymousPreferenceGeneration = 0;
+let anonymousPreferenceTransition = false;
+let anonymousFlushAbortController: AbortController | null = null;
+const pendingOutboxWrites = new Set<Promise<void>>();
 
 function uuid(): string | null {
   try {
@@ -73,45 +77,78 @@ function getEndpoint(): string {
 
 export async function setAnonymousFeedAnalyticsEnabled(enabled: boolean): Promise<void> {
   if (typeof window === 'undefined') throw new Error('Analytics preferences are unavailable.');
+  anonymousPreferenceTransition = true;
+  let failure: unknown = null;
   try {
-    if (enabled) window.localStorage.removeItem(anonymousAnalyticsPreferenceKey);
-    else window.localStorage.setItem(anonymousAnalyticsPreferenceKey, 'false');
-  } catch {
-    if (!enabled) throw new Error('Unable to save the anonymous analytics objection.');
-  }
-  window.dispatchEvent(new Event(anonymousAnalyticsPreferenceChangeEvent));
-  if (!enabled) {
+    if (!enabled) window.localStorage.setItem(anonymousAnalyticsPreferenceKey, 'false');
+    anonymousPreferenceGeneration += 1;
+    const activeFlush = flushPromise;
+    anonymousFlushAbortController?.abort();
+    if (activeFlush) await activeFlush;
+    if (outboxReady) await outboxReady;
+    await Promise.allSettled([...pendingOutboxWrites]);
     pendingEvents.splice(0, pendingEvents.length);
     volatileEventIds.clear();
-    if (persistentOutbox) {
-      await outboxReady;
-      await persistentOutbox.clear();
-    }
+    if (persistentOutbox) await persistentOutbox.clear();
+    if (enabled) window.localStorage.removeItem(anonymousAnalyticsPreferenceKey);
+  } catch (cause) {
+    failure = cause;
+  } finally {
+    anonymousPreferenceTransition = false;
+    window.dispatchEvent(new Event(anonymousAnalyticsPreferenceChangeEvent));
   }
+  if (failure) {
+    if (!enabled) throw new Error('Unable to save the anonymous analytics objection.');
+    throw failure;
+  }
+  if (enabled) void flushAnonymousFeedAnalyticsQueue();
 }
 
 export async function configureAnonymousFeedAnalyticsOutbox(
   outbox: AnonymousFeedAnalyticsOutbox
 ): Promise<void> {
-  await outbox.initialize();
-  persistentOutbox = outbox;
-  outboxReady = Promise.resolve();
-  if (!anonymousAnalyticsEnabled()) {
-    pendingEvents.splice(0, pendingEvents.length);
-    volatileEventIds.clear();
-    await outbox.clear();
-    return;
-  }
-  for (const event of pendingEvents.slice()) {
-    try {
-      await outbox.enqueue(event);
-      removePendingEvents([event.eventId]);
-    } catch {
-      volatileEventIds.add(event.eventId);
+  const preferenceGeneration = anonymousPreferenceGeneration;
+  const configurePromise = (async () => {
+    await outbox.initialize();
+    persistentOutbox = outbox;
+    if (!anonymousAnalyticsEnabled() || preferenceGeneration !== anonymousPreferenceGeneration) {
+      pendingEvents.splice(0, pendingEvents.length);
+      volatileEventIds.clear();
+      await outbox.clear();
+      return;
     }
-  }
-  installAnonymousFeedAnalyticsSync();
-  void flushAnonymousFeedAnalyticsQueue();
+    for (const event of pendingEvents.slice()) {
+      if (!anonymousAnalyticsEnabled() || preferenceGeneration !== anonymousPreferenceGeneration) {
+        pendingEvents.splice(0, pendingEvents.length);
+        volatileEventIds.clear();
+        await outbox.clear();
+        return;
+      }
+      const write = outbox.enqueue(event);
+      pendingOutboxWrites.add(write);
+      try {
+        await write;
+        if (!anonymousAnalyticsEnabled() || preferenceGeneration !== anonymousPreferenceGeneration) {
+          await outbox.acknowledge([event.eventId]);
+          removePendingEvents([event.eventId]);
+          return;
+        }
+        removePendingEvents([event.eventId]);
+      } catch {
+        if (!anonymousAnalyticsEnabled() || preferenceGeneration !== anonymousPreferenceGeneration) {
+          removePendingEvents([event.eventId]);
+          return;
+        }
+        volatileEventIds.add(event.eventId);
+      } finally {
+        pendingOutboxWrites.delete(write);
+      }
+    }
+    installAnonymousFeedAnalyticsSync();
+    void flushAnonymousFeedAnalyticsQueue();
+  })();
+  outboxReady = configurePromise;
+  await configurePromise;
 }
 
 export async function flushAnonymousFeedAnalyticsQueue(): Promise<void> {
@@ -127,7 +164,10 @@ export async function flushAnonymousFeedAnalyticsQueue(): Promise<void> {
   if (typeof navigator === 'undefined' || !navigator.onLine || flushPromise) return;
   if (!persistentOutbox && pendingEvents.length === 0) return;
 
+  const preferenceGeneration = anonymousPreferenceGeneration;
   let shouldContinue = false;
+  const controller = new AbortController();
+  anonymousFlushAbortController = controller;
   flushPromise = (async () => {
     let batch: AnonymousFeedAnalyticsEvent[] = [];
     try {
@@ -145,10 +185,17 @@ export async function flushAnonymousFeedAnalyticsQueue(): Promise<void> {
       batch = pendingEvents.filter((event) => volatileEventIds.has(event.eventId)).slice(0, 40);
     }
     if (batch.length === 0) return;
-    if (!anonymousAnalyticsEnabled()) {
-      pendingEvents.splice(0, pendingEvents.length);
-      volatileEventIds.clear();
-      if (persistentOutbox) await persistentOutbox.clear();
+    const batchIds = batch.map((event) => event.eventId);
+    if (!anonymousAnalyticsEnabled() || preferenceGeneration !== anonymousPreferenceGeneration) {
+      if (persistentOutbox) {
+        if (anonymousAnalyticsEnabled()) await persistentOutbox.acknowledge(batchIds);
+        else await persistentOutbox.clear();
+      }
+      removePendingEvents(batchIds);
+      if (!anonymousAnalyticsEnabled()) {
+        pendingEvents.splice(0, pendingEvents.length);
+        volatileEventIds.clear();
+      }
       return;
     }
 
@@ -160,32 +207,43 @@ export async function flushAnonymousFeedAnalyticsQueue(): Promise<void> {
         keepalive: true,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ events: batch }),
+        signal: controller.signal,
       });
-      if (!anonymousAnalyticsEnabled()) {
-        pendingEvents.splice(0, pendingEvents.length);
-        volatileEventIds.clear();
-        if (persistentOutbox) await persistentOutbox.clear();
+      if (!anonymousAnalyticsEnabled() || preferenceGeneration !== anonymousPreferenceGeneration) {
+        if (persistentOutbox) {
+          if (anonymousAnalyticsEnabled()) await persistentOutbox.acknowledge(batchIds);
+          else await persistentOutbox.clear();
+        }
+        removePendingEvents(batchIds);
+        if (!anonymousAnalyticsEnabled()) {
+          pendingEvents.splice(0, pendingEvents.length);
+          volatileEventIds.clear();
+        }
         return;
       }
       if (response.ok || (response.status >= 400 && response.status < 500 && response.status !== 429)) {
         shouldContinue = true;
-        const completed = batch.map((event) => event.eventId);
         if (persistentOutbox) {
-          const durableIds = completed.filter((eventId) => !volatileEventIds.has(eventId));
+          const durableIds = batchIds.filter((eventId) => !volatileEventIds.has(eventId));
           try {
             await persistentOutbox.acknowledge(durableIds);
           } catch {
             return;
           }
         }
-        removePendingEvents(completed);
+        removePendingEvents(batchIds);
       }
     } catch {
-      // Keep failed batches for retry after reconnect or app restart.
+      if (!anonymousAnalyticsEnabled() || preferenceGeneration !== anonymousPreferenceGeneration) {
+        if (persistentOutbox && anonymousAnalyticsEnabled()) await persistentOutbox.acknowledge(batchIds);
+        removePendingEvents(batchIds);
+      }
+      // Keep same-generation failed batches for retry after reconnect or app restart.
     }
   })().finally(() => {
+    if (anonymousFlushAbortController === controller) anonymousFlushAbortController = null;
     flushPromise = null;
-    if (shouldContinue && (
+    if (shouldContinue && anonymousAnalyticsEnabled() && preferenceGeneration === anonymousPreferenceGeneration && (
       pendingEvents.length > 0 ||
       (persistentOutbox !== null && typeof navigator !== 'undefined' && navigator.onLine)
     )) {
@@ -220,7 +278,8 @@ export function recordAnonymousFeedEvent(
   eventType: AnonymousEventType,
   durationMs = 0,
 ): void {
-  if (typeof window === 'undefined') return;
+  if (typeof window === 'undefined' || !anonymousAnalyticsEnabled()) return;
+  const preferenceGeneration = anonymousPreferenceGeneration;
   const eventId = uuid();
   const id = String(entityId);
   if (!eventId || !id || id.length > 160) return;
@@ -255,16 +314,42 @@ export function recordAnonymousFeedEvent(
   installAnonymousFeedAnalyticsSync();
 
   if (persistentOutbox) {
-    void (async () => {
+    const writePromise = (async () => {
       try {
-        await outboxReady;
-        await persistentOutbox?.enqueue(event);
+        if (outboxReady) await outboxReady;
+        if (!anonymousAnalyticsEnabled() || preferenceGeneration !== anonymousPreferenceGeneration) {
+          removePendingEvents([event.eventId]);
+          return;
+        }
+        if (!pendingEvents.some((pending) => pending.eventId === event.eventId)) return;
+        const outbox = persistentOutbox;
+        if (!outbox) return;
+        const enqueuePromise = outbox.enqueue(event);
+        pendingOutboxWrites.add(enqueuePromise);
+        try {
+          await enqueuePromise;
+        } finally {
+          pendingOutboxWrites.delete(enqueuePromise);
+        }
+        if (!anonymousAnalyticsEnabled() || preferenceGeneration !== anonymousPreferenceGeneration) {
+          await outbox.acknowledge([event.eventId]);
+          removePendingEvents([event.eventId]);
+          return;
+        }
         removePendingEvents([event.eventId]);
       } catch {
+        if (!anonymousAnalyticsEnabled() || preferenceGeneration !== anonymousPreferenceGeneration) {
+          removePendingEvents([event.eventId]);
+          return;
+        }
         volatileEventIds.add(event.eventId);
       }
-      await flushAnonymousFeedAnalyticsQueue();
+      if (anonymousAnalyticsEnabled() && preferenceGeneration === anonymousPreferenceGeneration) {
+        await flushAnonymousFeedAnalyticsQueue();
+      }
     })();
+    pendingOutboxWrites.add(writePromise);
+    void writePromise.finally(() => pendingOutboxWrites.delete(writePromise));
   } else {
     void flushAnonymousFeedAnalyticsQueue();
   }
