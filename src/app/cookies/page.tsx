@@ -13,7 +13,7 @@ export default function CookiesPage() {
       <div className="mt-16 mb-16">
         <h1 className="text-5xl font-extrabold md:text-7xl">Cookie Policy</h1>
 
-        <p className="text-text-secondary mt-4 text-lg">Last updated: 19 November 2026</p>
+        <p className="text-text-secondary mt-4 text-lg">Last updated: 20 November 2026</p>
       </div>
 
       <div className="space-y-12">
