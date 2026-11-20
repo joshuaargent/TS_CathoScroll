@@ -304,7 +304,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
           updatedAt: remoteUpdatedAt,
           syncPending: false,
         });
-        requestGeneration = consentMutationRef.current;
+        markOwnChoiceWrite();
         hydrate({
           version: 1,
           ...next,
