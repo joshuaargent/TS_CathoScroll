@@ -250,6 +250,14 @@ test('web and native account/settings screens reuse the same components', () => 
 });
 
 
+test('existing v3 personalisation consent is withdrawn and requires v4 re-consent', () => {
+  assert.match(upgrade, /consent_version IS DISTINCT FROM '2026-11-20-v4'/);
+  assert.match(upgrade, /SET enabled = false,[\s\S]*withdrawn_at = v_now/);
+  assert.match(upgrade, /DELETE FROM catho_private\.user_topic_interest_scores[\s\S]*v_affected_user_ids/);
+  assert.match(upgrade, /DELETE FROM catho_private\.user_explicit_category_interests[\s\S]*v_affected_user_ids/);
+  assert.match(documentation, /must explicitly opt in again/);
+});
+
 test('personalisation explicitly enables service analytics and prevents disabling it until withdrawal', () => {
   const personalisationSetter = functionBody('public.set_my_personalization_consent');
   const analyticsSetter = functionBody('public.set_user_analytics_consent');
