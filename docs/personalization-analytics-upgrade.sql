@@ -1,3 +1,12 @@
+-- EXISTING DATABASE UPGRADE ONLY.
+-- This script upgrades an older CathoScroll database with feed-card analytics.
+-- It does not install the new optional analytics consent ledger or sponsor
+-- measurement opt-out. For those changes, use
+-- docs/analytics-consent-and-sponsor-opt-out-upgrade.sql after this schema is
+-- current. Do not run either script against production until both the clean
+-- bootstrap and existing-database upgrade paths have been tested on disposable
+-- PostgreSQL databases.
+
 -- Consented, private recommendation personalisation (model 2026-11-19-v2).
 CREATE TABLE IF NOT EXISTS catho_private.user_personalization_consents (
   user_id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
