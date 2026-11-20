@@ -35,7 +35,6 @@ export async function clearAnalyticsConsentQueues(
       tasks.push(clearFeedAnalyticsOutbox(userId));
       tasks.push(clearFeedCardAnalyticsOutbox(userId));
     } else {
-      tasks.push(setAnonymousFeedAnalyticsEnabled(false));
     }
   }
   if (clearSponsor) {
@@ -59,6 +58,9 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
   const [sponsorMeasurement, setSponsorMeasurement] = useState(false);
   const [personalizationEnabled, setPersonalizationEnabled] = useState(false);
   const [personalizationStatusKnown, setPersonalizationStatusKnown] = useState(!userId);
+  const [personalizationStateUserId, setPersonalizationStateUserId] = useState<string | null>(userId);
+  const effectivePersonalizationEnabled = personalizationStateUserId === userId ? personalizationEnabled : false;
+  const effectivePersonalizationStatusKnown = personalizationStateUserId === userId ? personalizationStatusKnown : !userId;
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const activeUserIdRef = useRef<string | null>(userId);
@@ -240,6 +242,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
 
       setPersonalizationEnabled(remote.personalizationEnabled);
       setPersonalizationStatusKnown(true);
+      setPersonalizationStateUserId(expectedUserId);
       const local = readAnalyticsConsent(expectedUserId);
       if (local && (local.syncPending || !remote.exists)) {
         // Personalisation requires Service improvement analytics, but a pending
@@ -288,6 +291,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
         ) return;
         setPersonalizationEnabled(saved.personalizationEnabled);
         setPersonalizationStatusKnown(true);
+        setPersonalizationStateUserId(expectedUserId);
         const next = {
           serviceImprovement: saved.serviceImprovement,
           sponsorMeasurement: saved.sponsorMeasurement,
@@ -375,8 +379,8 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
     next: Pick<AnalyticsConsent, 'serviceImprovement' | 'sponsorMeasurement'>
   ) => {
     if (saving) return;
-    if (!next.serviceImprovement && (!personalizationStatusKnown || personalizationEnabled)) {
-      setError(personalizationEnabled
+    if (!next.serviceImprovement && (!effectivePersonalizationStatusKnown || effectivePersonalizationEnabled)) {
+      setError(effectivePersonalizationEnabled
         ? 'Turn off personalisation before disabling Service improvement analytics.'
         : 'Checking your personalisation settings. Try again in a moment.');
       return;
@@ -418,7 +422,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
     } finally {
       setSaving(false);
     }
-  }, [clearWithdrawnQueues, personalizationEnabled, personalizationStatusKnown, saving, syncServerConsent, userId]);
+  }, [clearWithdrawnQueues, effectivePersonalizationEnabled, effectivePersonalizationStatusKnown, saving, syncServerConsent, userId]);
 
   useEffect(() => {
     if (loading) return;
@@ -513,7 +517,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
         <p id="analytics-consent-description" className="text-text-secondary mt-3 text-sm leading-relaxed">
           {managing
             ? 'Choose optional analytics. Service improvement analytics is required while personalisation is enabled; sponsor measurement remains separate.'
-            : personalizationEnabled
+            : effectivePersonalizationEnabled
               ? 'Personalisation is on, so Service improvement analytics is required. Turn off personalisation before disabling it.'
               : 'Optional analytics help improve CathoScroll. Personalisation also uses your reading activity; sponsor measurement is separate. Signed-out topic and comment activity is counted only in daily totals, without visitor profiles.'}
         </p>
@@ -531,7 +535,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
             <div className="grid grid-cols-2 gap-3">
               <button
                 type="button"
-                disabled={saving || personalizationEnabled || !personalizationStatusKnown}
+                disabled={saving || effectivePersonalizationEnabled || !effectivePersonalizationStatusKnown}
                 onClick={() => void save({ serviceImprovement: false, sponsorMeasurement: false })}
                 className="border-border text-text-primary hover:bg-bg-secondary rounded-xl border px-4 py-3 text-sm font-semibold disabled:opacity-50"
               >
@@ -553,7 +557,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
               <input
                 type="checkbox"
                 checked={serviceImprovement}
-                disabled={saving || personalizationEnabled || !personalizationStatusKnown}
+                disabled={saving || effectivePersonalizationEnabled || !effectivePersonalizationStatusKnown}
                 onChange={(event) => setServiceImprovement(event.target.checked)}
                 className="accent-accent mt-1 h-4 w-4 shrink-0"
               />
@@ -562,7 +566,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
                 <span className="text-text-secondary mt-1 block text-sm leading-relaxed">
                   Measures topic and Top Comments engagement, signed-out aggregate activity, and Vercel site/performance analytics. When signed in, topic/comment activity is linked to your account and may reveal religious or philosophical beliefs. If personalisation is enabled, these reading signals also inform your private recommendations. Enabling personalisation automatically enables this choice; turn off personalisation before disabling it.
                 </span>
-                {personalizationEnabled && <span className="text-accent mt-2 block text-xs font-semibold">Required while personalisation is enabled — Turn off personalisation first to disable this choice.</span>}
+                {effectivePersonalizationEnabled && <span className="text-accent mt-2 block text-xs font-semibold">Required while personalisation is enabled — Turn off personalisation first to disable this choice.</span>}
               </span>
             </label>
             <label className="border-border flex cursor-pointer items-start gap-3 rounded-xl border p-4">
