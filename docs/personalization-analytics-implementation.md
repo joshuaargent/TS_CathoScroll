@@ -4,7 +4,7 @@
 
 This upgrade adds an optional, account-controlled recommendation-interest profile and extends the administrator analytics hub with feed quality, session, recommendation-outcome, category-discovery and cohort-retention reporting.
 
-The existing measurement streams remain separate:
+The measurement streams remain technically separate. Eligible feed and Top Comments events serve operational reporting and, only under the linked personalisation/Service improvement opt-in, the user's private recommendation profile:
 
 - Topic feed telemetry stays in `catho_private.feed_analytics_events` and its daily aggregates.
 - Top Comments exposure stays in `catho_private.feed_card_analytics_events` and its daily aggregates.
