@@ -38,8 +38,6 @@ export async function POST(request: Request) {
     console.error('Unable to verify sponsor-event authentication:', cause);
     return respond(request, { error: 'Authentication is temporarily unavailable.' }, 503);
   }
-  const isAnonymous = !auth.user;
-
   const rateLimit = await checkApiRateLimit({
     scope: 'sponsor-campaign-events:write',
     identifier: auth.user?.id ?? `anonymous:${getTrustedClientIp(request) ?? 'unknown'}`,
@@ -70,6 +68,9 @@ export async function POST(request: Request) {
   const sessionId = eventPayload.sessionId;
   const eventType = eventPayload.eventType;
   const placementKey = eventPayload.placementKey;
+  // Keep a queued anonymous placement anonymous even if the visitor signs in
+  // before its in-memory retry queue is flushed.
+  const isAnonymous = !auth.user || typeof placementKey === 'string';
 
   if (
     !isValidUuid(campaignId) ||
