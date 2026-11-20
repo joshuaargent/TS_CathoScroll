@@ -1,6 +1,6 @@
 # Native offline capability audit
 
-Audit baseline: PR #22 head 3989c239 (20 November 2026).
+Audit baseline: PR #22, native 2.4.0 release preparation (20 November 2026).
 
 This audit distinguishes offline browsing, offline reads, local mutation queues and server synchronisation. A cached screen is not evidence that its underlying operation is synchronised.
 
@@ -57,19 +57,17 @@ No offline note-editing queue is proposed. The existing design caches only serve
 - Complete the existing feed visual/navigation and sponsor acceptance matrix before making the PR ready for review.
 
 
-## Implementation status
+## Implementation and release status
 
-- Persistent native anonymous analytics outbox implementation is committed on PR #22. The client persists before uploading, batches 40 events, retries after connectivity/foreground events, acknowledges only server-accepted IDs, and uses volatile memory fallback only if local persistence itself fails.
-- Exact branch head at audit update: 3d96d10532f145ac353a759431a3095deae82c07.
-- Automated validation for this exact head and native force-close/reconnect testing are pending. The implementation must not be treated as release-verified until those checks pass.
+The PR now contains:
+- Durable anonymous topic/comment analytics outbox in app-private catalogue SQLite.
+- Durable signed-in topic/comment analytics outbox in the encrypted private activity database on Android and Electron.
+- Server-ranked general-feed page caching and encrypted, consent-bound caching of previously downloaded personalised pages.
+- Updated privacy and Cookie Policy disclosures, PECR assessment notes, regression tests and 2.4.0 release notes.
+- Root, Electron and Android version metadata aligned to 2.4.0. The Android release workflow derives a monotonic version code from the semantic version.
 
-
-Implementation and privacy documentation were updated through commit f7c18d97a01c3f239158bf6b4644825074ff9b15. The native analytics preference is stored as a local setting only; it is not an analytics identifier. The controller must record the PECR Schedule A1 assessment before release. Automated checks and device-level outbox acceptance remain pending.
-
+The release is not yet verified. Exact-head CI, Android/Electron force-close/reconnect testing, offline page-cache acceptance, and controller PECR sign-off remain required.
 
 ## Important sync distinction
 
-The signed-in *activity* outbox for likes, bookmarks and completion is durable on supported encrypted-storage platforms. The signed-in *analytics exposure* queues for topics and Top Comments now use a separate encrypted SQLite outbox on Android and Electron, with account-scoped cleanup. This is distinct from the revision-aware activity sync and does not replace it. The website retains in-memory analytics queues. iOS is outside this release scope.
-
-
-The native outbox installs reconnect and foreground listeners during native startup, not only after a new feed event. This ensures a queue left by a previous app process can upload after connectivity returns even if the user has not yet opened a feed card.
+The signed-in *activity* outbox for likes, bookmarks and completion remains the revision-aware, account-linked synchronisation system. The signed-in *analytics* outbox for topic and Top Comments exposure is a separate encrypted, account-scoped queue on Android and Electron. It has a 2,000-event per-stream cap, seven-day expiry, server-acknowledgement deletion and sign-out/account-switch cleanup. It does not use activity revisions or cross-device reconciliation. The website retains bounded in-memory analytics queues. Signed-out analytics remain separate and contain no account, visitor or session identifiers. Sponsor analytics remain separate from both analytics outboxes.
