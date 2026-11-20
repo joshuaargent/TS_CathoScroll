@@ -246,6 +246,12 @@ test('web and native account/settings screens reuse the same components', () => 
   assert.match(accountSection, /Analytics choices/);
   assert.match(accountSection, /requestAnalyticsConsentSync/);
   assert.match(accountSection, /readAnalyticsChoices/);
+  assert.match(accountSection, /apiBaseUrl/);
+  assert.match(accountSection, /saveAnalyticsConsent\(interimChoices, accountUserId/);
+  assert.match(accountSection, /clearAnalyticsConsentQueues\(accountUserId, previousChoices, confirmedChoices\)/);
+  assert.match(accountSection, /denyAnalyticsConsentInMemory/);
+  assert.match(accountView, /apiBaseUrl\?: string/);
+  assert.match(nativeAccount, /apiBaseUrl=\{siteConfig\.url\}/);
   assert.match(accountSection, /updateAnalyticsChoice/);
   assert.match(accountSection, /Sponsor measurement/);
   assert.match(accountSection, /disabled=\{loading \|\| saving \|\| analyticsSaving \|\| !analyticsChoices \|\| status\.enabled\}/);
