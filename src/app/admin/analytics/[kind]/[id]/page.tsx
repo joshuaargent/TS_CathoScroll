@@ -89,7 +89,7 @@ export default async function AdminAnalyticsEntityPage({ params, searchParams }:
     if (sponsorError || error || anonymousError) throw new Error('Unable to load sponsor analytics.');
     if (!sponsor) notFound();
     title = sponsor.sponsor_name;
-    description = 'Sponsored campaign delivery, viewability and click-through performance.';
+    description = 'Served totals include all eligible placements. Viewability and clicks include only visits where Sponsor measurement was enabled.';
     const payload = data as { totals?: Record<string, unknown>; series?: Record<string, unknown>[]; campaigns?: { id: string; name: string; status: string }[] } | null;
     totals = payload?.totals ?? {};
     const anonymousPayload = anonymousData as { totals?: Record<string, unknown>; series?: Record<string, unknown>[] } | null;
@@ -143,9 +143,9 @@ export default async function AdminAnalyticsEntityPage({ params, searchParams }:
     <div className="mt-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
       {kind === 'sponsors' ? <>
         <Metric label="Campaign deliveries" value={fmt(totals.served)} signedOutValue={Number(anonymousTotals.sponsor_served ?? 0) > 0 ? fmt(anonymousTotals.sponsor_served) : undefined} detail="Signed-in served sponsor placements" />
-        <Metric label="Anonymous deliveries" value={fmt(anonymousTotals.sponsor_served)} detail="Signed-out served sponsor placements" />
-        <Metric label="Signed-in viewable / clicks" value={fmt(totals.viewable_impressions) + ' / ' + fmt(totals.clicks)} detail="Authenticated delivery events" />
-        <Metric label="Anonymous viewable / clicks" value={fmt(anonymousTotals.sponsor_viewable_impressions) + ' / ' + fmt(anonymousTotals.sponsor_clicks)} detail="Anonymous aggregate delivery events" />
+        <Metric label="Anonymous deliveries" value={fmt(anonymousTotals.sponsor_served)} detail="Signed-out served placements, including visitors who declined Sponsor measurement" />
+        <Metric label="Signed-in viewable / clicks" value={fmt(totals.viewable_impressions) + ' / ' + fmt(totals.clicks)} detail="Authenticated events recorded only where Sponsor measurement was enabled" />
+        <Metric label="Anonymous viewable / clicks" value={fmt(anonymousTotals.sponsor_viewable_impressions) + ' / ' + fmt(anonymousTotals.sponsor_clicks)} detail="Measured signed-out events only; excludes visitors who declined Sponsor measurement" />
         <Metric label="Active campaigns" value={fmt(totals.active_campaigns)} detail="Campaigns with signed-in delivery in this period" />
       </> : <>
         <Metric label="Signed-in card impressions" value={fmt(totals.impressions)} signedOutValue={Number(anonymousTotals.comment_card_impressions ?? 0) > 0 ? fmt(anonymousTotals.comment_card_impressions) : undefined} detail="Top Comments cards displayed to signed-in users" />
