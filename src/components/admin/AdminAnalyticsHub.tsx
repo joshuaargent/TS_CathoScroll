@@ -48,6 +48,7 @@ function Metric({ label, value, detail, icon: Icon, signedOutValue }: { label: s
   return <Card padding="md"><div className="flex items-start justify-between gap-3"><div className="min-w-0">
     <p className="text-text-secondary text-sm font-medium">{label}</p>
     <p className="text-text-primary mt-2 text-3xl font-bold tabular-nums">{value}</p>
+    {signedOutValue !== undefined && <p className="text-text-muted mt-1 text-xs tabular-nums">+ {signedOutValue} signed out</p>}
     <p className="text-text-muted mt-2 text-xs">{detail}</p>
   </div><span className="bg-accent-light text-accent rounded-xl p-2.5"><Icon className="h-5 w-5" aria-hidden="true" /></span></div></Card>;
 }
