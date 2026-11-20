@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 
 const bootstrap = readFileSync(new URL('../docs/cathoscroll-database-bootstrap.sql', import.meta.url), 'utf8');
 const upgrade = readFileSync(new URL('../docs/personalization-analytics-upgrade.sql', import.meta.url), 'utf8');
+const separationMigration = readFileSync(new URL('../supabase/migrations/20261120195000_separate_personalization_from_analytics.sql', import.meta.url), 'utf8');
 const documentation = readFileSync(new URL('../docs/personalization-analytics-implementation.md', import.meta.url), 'utf8');
 const settings = readFileSync(new URL('../src/components/account/PersonalizationAccountSection.tsx', import.meta.url), 'utf8');
 const deepDive = readFileSync(new URL('../src/components/admin/AnalyticsDeepDivePanel.tsx', import.meta.url), 'utf8');
@@ -124,6 +125,13 @@ test('recommendation profiles use explicit account actions and never read operat
   const upgradeEnd = upgrade.indexOf('$function$;', upgradeStart);
   assert.ok(upgradeStart >= 0 && upgradeEnd > upgradeStart);
   assert.doesNotMatch(upgrade.slice(upgradeStart, upgradeEnd), /feed_analytics_events|feed_card_analytics_events/);
+});
+
+test('personalisation separation migration clears analytics-derived profiles and preserves explicit consent', () => {
+  assert.doesNotMatch(separationMigration, /feed_analytics_events|feed_card_analytics_events/);
+  assert.match(separationMigration, /DELETE FROM catho_private\.user_topic_interest_scores/);
+  assert.match(separationMigration, /profile_refreshed_at = NULL/);
+  assert.match(separationMigration, /REVOKE ALL ON FUNCTION catho_private\.refresh_user_interest_profile/);
 });
 
 test('admin deep dive returns aggregate reports and correctly censors immature cohorts', () => {
