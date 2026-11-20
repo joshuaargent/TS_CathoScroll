@@ -64,7 +64,6 @@ export default async function AdminSponsorCampaignsPage() {
   return (
     <main className="container py-12">
       <div className="mt-8">
-        <p className="text-accent text-sm font-semibold tracking-wider uppercase">Administration</p>
         <h1 className="mt-2 text-4xl font-extrabold md:text-5xl">Sponsor campaigns</h1>
         <p className="text-text-secondary mt-4 max-w-3xl">
           Create campaigns, set targeting and paid delivery weight, configure frequency and
