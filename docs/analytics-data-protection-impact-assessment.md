@@ -9,13 +9,13 @@
 
 This assessment covers first-party account-linked analytics for signed-in topic-feed and Top Comments activity; separate signed-out topic/comment daily aggregates; authenticated and anonymous sponsor delivery analytics; Vercel Web Analytics and Speed Insights; and recommendation personalisation as a separate purpose controlled by the account setting.
 
-Signed-in topic/comment events remain account-linked. Signed-out topic/comment events are stored only as daily aggregates without account IDs, raw session IDs or persistent visitor IDs. Sponsor frequency protection uses a random token held in page memory and stores only its SHA-256 hash for a short period. The personalisation checkbox controls recommendation profiling only; it is not blanket consent for operational analytics.
+Signed-in topic/comment events remain account-linked. Signed-out topic/comment events are stored only as daily aggregates without account IDs, raw session IDs or persistent visitor IDs. Sponsor frequency protection uses a random token held in page memory and stores only its SHA-256 hash for a short period. The v4 personalisation opt-in expressly enables Service improvement analytics while personalisation is active because eligible reading signals support both operational measurement and private recommendation ranking. It does not enable Sponsor measurement or every possible analytics purpose.
 
 ## 2. Purposes and necessity
 
 First-party feed and comment analytics measure content and community-card engagement and support product improvement. When personalisation is enabled, eligible reading signals also inform that account's private recommendation profile. The updated consent model makes this explicit: personalisation enables Service improvement analytics, which remains locked until personalisation is withdrawn; the profile refresher checks both consent records. Sponsor measurement remains separate. Existing v3 personalisation opt-ins must be renewed under the new disclosure.
 
-Vercel Web Analytics provides broader site traffic reporting, including signed-out visits. Vercel Speed Insights measures real-world performance and Core Web Vitals. Neither provider stream is merged into CathoScroll's account-linked topic-event tables.
+When Service improvement analytics is enabled, Vercel Web Analytics provides broader site traffic reporting, including signed-out visits. Vercel Speed Insights measures real-world performance and Core Web Vitals. Neither provider stream is merged into CathoScroll's account-linked topic-event tables.
 
 ## 3. Data flows and categories
 
