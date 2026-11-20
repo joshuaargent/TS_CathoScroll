@@ -61,7 +61,9 @@ export default function PrivacyPage() {
             <li>Likes and interactions.</li>
             <li>Quiz progress and quiz results.</li>
             <li>Learning path progress.</li>
-            <li>Technical, device, security, and analytics data.</li>
+            <li>Technical, device, and security data.</li>
+            <li>Optional analytics events and aggregates only where you have enabled the relevant analytics choice.</li>
+            <li>Optional analytics consent choices and timestamps for signed-in accounts.</li>
             <li>Optional personalisation consent records, selected category interests, and derived topic-interest scores when you opt in.</li>
             <li>For sponsor representatives: organisation membership, campaign submissions, invoice details, and payment references.</li>
           </ul>
@@ -121,6 +123,8 @@ export default function PrivacyPage() {
             <li>Administer paid sponsor campaigns, invoices, and sponsor account access.</li>
             <li>Measure sponsored campaign delivery and provide sponsors with aggregate campaign reports.</li>
             <li>Improve performance and reliability.</li>
+            <li>Measure topic and Top Comments engagement only where Service improvement analytics is enabled.</li>
+            <li>Measure sponsor viewability, clicks and frequency only where Sponsor measurement is enabled.</li>
             <li>Monitor abuse, spam, fraud, and security issues.</li>
             <li>Comply with legal obligations.</li>
           </ul>
@@ -167,22 +171,19 @@ export default function PrivacyPage() {
 
           <ul className="text-text-secondary mt-4 list-disc space-y-2 pl-6">
             <li>Contract: to create and operate your account and provide features you request.</li>
-            <li>Legitimate interests: to secure, maintain, troubleshoot, moderate, prevent abuse, and understand and improve service performance, where a documented assessment shows that our interests are not overridden by your rights.</li>
+            <li>Legitimate interests: to secure, maintain, troubleshoot, moderate and prevent abuse, where a documented assessment shows that our interests are not overridden by your rights.</li>
+            <li>Consent: for optional Service improvement analytics and Sponsor measurement, including account-linked topic/comment analytics when signed in.</li>
+            <li>Explicit consent under Article 6(1)(a) and, where topic/comment engagement reveals special-category beliefs, Article 9(2)(a): for that limited service-improvement processing. The consent choice is separate from recommendation personalisation.</li>
             <li>Legal obligation: to keep or disclose information where applicable law requires it.</li>
             <li>Consent: for optional personalisation. Because this processing may reveal religious or philosophical beliefs, we rely on your explicit consent under Article 6(1)(a) UK GDPR and the Article 9(2)(a) exception for the relevant special-category processing.</li>
           </ul>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            Operational analytics are used for engagement measurement, reliability and
-            service improvement. They do not create belief profiles or make individual
-            decisions. Recommendation personalisation is a separate optional feature and
-            uses its own consent controls.
+            Service improvement analytics and sponsor measurement are optional and off by default. They are collected only after you enable the relevant choice in the analytics settings. Topic and comment engagement in a Catholic-content service may reveal religious or philosophical beliefs; the Service improvement analytics choice explains this and is separate from recommendation personalisation. We do not create a religious-affiliation label or make decisions about users from these analytics.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            You may withdraw personalisation consent at any time using the account
-            controls described above. Withdrawal does not affect processing carried out
-            before withdrawal.
+            You may withdraw personalisation consent in Account settings and analytics consent using Manage analytics choices on the Cookie Policy page. Withdrawal stops future optional collection, clears pending local analytics queues and synchronises signed-in consent changes when the device reconnects. It does not affect processing carried out before withdrawal or essential account and synchronisation features.
           </p>
         </section>
 
@@ -235,25 +236,26 @@ export default function PrivacyPage() {
           <h2 className="mb-4 text-3xl font-bold">Analytics</h2>
 
           <p className="text-text-secondary leading-relaxed">
-            CathoScroll uses analytics to measure general site usage, understand feed performance,
-            diagnose reliability issues, protect the service, and improve the user experience.
-            Analytics is separate from optional recommendation personalisation and is not used for
-            sponsor targeting.
+            CathoScroll offers two separate optional analytics purposes: Service improvement
+            analytics and Sponsor measurement. Both are off by default and can be changed at any
+            time using Manage analytics choices on the Cookie Policy page. They are separate from
+            recommendation personalisation and are not used to build sponsor targeting profiles.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            For signed-in users, first-party topic-feed and Top Comments analytics are linked to
-            the account that generated them. They measure impressions, viewability, active reading
-            time, skips, completions, slide depth, return visits and discussion opens. Raw events
-            and the restricted daily viewer bridge are retained for up to 180 days; daily totals
-            without account or session identifiers are retained longer. These records are not
-            anonymous while account-linked identifiers are retained and are not used for
-            individual sponsor targeting. Turning off recommendation personalisation does not
-            automatically disable operational analytics. On Android and Electron, unsent signed-in
-            topic, Top Comments and sponsor viewability/click events are also persisted in the
-            encrypted private activity database, capped at 2,000 events per stream and seven days. They are deleted only after
-            server acknowledgement and are cleared when the account signs out or changes. The
-            website keeps its unsent account-linked analytics in memory only.
+            When Service improvement analytics is enabled, signed-in topic-feed and Top Comments
+            events are linked to the account that generated them. They measure impressions,
+            viewability, active reading time, skips, completions, slide depth, return visits and
+            discussion opens. Raw events and the restricted daily viewer bridge are retained for up
+            to 180 days; daily totals without account or session identifiers are retained longer.
+            Signed-out topic/comment analytics use a separate daily aggregate pipeline without
+            account, visitor or session identifiers. No anonymous unique-person metric is created.
+            Turning off recommendation personalisation does not itself change analytics consent.
+            On Android and Electron, unsent signed-in topic and Top Comments events are persisted in
+            the encrypted private activity database, capped at 2,000 events per stream and seven
+            days. Pending events are cleared when Service improvement analytics is withdrawn. The
+            website keeps unsent account-linked analytics in memory only. Vercel Web Analytics and
+            Speed Insights are loaded only while Service improvement analytics is enabled.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
