@@ -11,7 +11,7 @@
 3. CathoScroll is intended to sell sponsorships. Do not activate commercial sponsor advertising while hosted on Vercel Hobby. Either keep the deployment strictly non-commercial and sponsor delivery disabled, upgrade to a plan with appropriate terms/DPA, or migrate to a host whose commercial-use terms and processor agreement fit the service.
 4. The current source holds signed-out analytics retry batches and sponsor frequency tokens in memory only. It does not intentionally persist these analytics identifiers in cookies, localStorage, sessionStorage or IndexedDB. Deployed web/native storage and SDK behaviour still require manual verification.
 5. The PECR statistical-purposes exception is not a general permission for account-level tracking or ad measurement. It requires anonymous aggregate statistical output, no individual monitoring/decisions, prompt aggregation/deletion of individual inputs, clear notice and a simple/free objection route. It does not cover individual ad view/click measurement. CathoScroll should not rely on it for account-linked analytics or sponsor performance tracking.
-6. Account-linked topic/comment analytics remain a separate UK GDPR Article 6/Article 9 question. Recommendation consent does not cover unrelated operational analytics.
+6. Account-linked topic/comment analytics are used for internal engagement measurement and service improvement, not belief profiling or individual decisions. Record the applicable Article 6 basis for each operational purpose; recommendation consent remains separate.
 
 ## Verified configuration
 
@@ -55,9 +55,9 @@ The current code's memory-only approach avoids persistent browser storage and re
 ## UK GDPR analytics position
 
 - Recommendation personalisation has its own explicit opt-in and withdrawal controls. This consent is purpose-specific.
-- Signed-in topic-feed and Top Comments raw events remain linked to an account for up to 180 days, with a restricted viewer bridge. Their topic/comment identifiers and surrounding context may reveal or permit inferences about religious/philosophical beliefs. ICO guidance distinguishes mere theoretical inferability from processing that intentionally draws or uses a belief inference or treats someone differently because of it; the controller must assess the actual data and purposes rather than assume either that Article 9 always applies or that it never applies.
+- Signed-in topic-feed and Top Comments raw events remain linked to an account for up to 180 days, with a restricted viewer bridge. They record engagement measurements for internal service analytics; the analytics pipeline does not create belief labels/profiles or use events to make individual decisions.
 - Article 6(1)(f) legitimate interests is a possible basis for proportionate internal service measurement, but the controller must complete and approve a purpose/necessity/balancing test. The necessity test must compare account-linked metrics with less intrusive anonymous aggregates.
-- If the account-linked records constitute special-category data, a separate Article 9 condition is required. The existing recommendation checkbox does not provide consent for operational analytics. The practical routes are a separate optional explicit-analytics consent with ingestion gating, or redesigning operational analytics to aggregate-only/no-account linkage. Do not claim that legitimate interests alone resolves Article 9.
+- Record the applicable Article 6 basis for operational analytics and complete a purpose/necessity/balancing assessment where legitimate interests is selected. Keep operational measurement separate from the optional recommendation-personalisation profile.
 - Signed-out daily aggregates do not include visitor/session/account identifiers, but small topic/day cells and surrounding request logs still require context-based identifiability review and suppression.
 
 ## Outstanding controller and operational actions
@@ -67,7 +67,6 @@ The current code's memory-only approach avoids persistent browser storage and re
 3. Confirm Vercel's and Supabase's contractual processor/controller roles for each data stream and record the applicable DPAs.
 4. Set a backup/export policy for Supabase Free, store encrypted backups outside the project, and test a restore. The provider's Free plan does not supply automatic backups/PITR.
 5. Record a purpose-specific Article 6 basis for each analytics stream and approve a legitimate-interests assessment where Article 6(1)(f) is selected.
-6. Decide whether account-linked topic/comment and topic-linked sponsor events constitute special-category processing. If so, add a separate optional explicit consent and enforce it server-side, or remove account linkage from operational analytics. Recommendation consent must remain separate.
 7. Verify deployed browser/native network requests, SDK storage behaviour, request metadata, CDN/WAF/function logs and retention settings.
 8. Keep the temporary sponsor-logo compatibility bridge until the logo-free application is deployed. Then run docs/sponsor-logo-removal.sql and verify the old RPC signature and null logo payload are gone.
 9. Disable Supabase TOTP enrolment and verification in hosted Auth settings and remove the existing unverified factor through the Supabase Auth Admin API. Do not delete managed auth schema rows with SQL.
