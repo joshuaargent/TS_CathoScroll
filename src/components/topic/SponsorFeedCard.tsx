@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { DoorOpen, Share2 } from 'lucide-react';
 
 import type { SponsorFeedCampaign } from '@/lib/sponsor-campaigns';
-import { recordSponsorCampaignEvent } from '@/lib/sponsor-analytics-client';
+import { recordAnonymousSponsorCampaignEvent, recordSponsorCampaignEvent } from '@/lib/sponsor-analytics-client';
 import { FeedInterstitialMotion } from './FeedInterstitialMotion';
 import { BaseFeedCard } from './BaseFeedCard';
 
@@ -82,16 +82,7 @@ export function SponsorFeedCard({
       if (previewMode) return false;
       const event = { campaignId: targetCampaignId, eventId: createEventId(), sessionId, eventType };
       if (!userId) {
-        try {
-          const endpoint = sponsorApiBaseUrl
-            ? new URL('/api/content/sponsor-campaign-events', sponsorApiBaseUrl).toString()
-            : '/api/content/sponsor-campaign-events';
-          const response = await fetch(endpoint, {
-            method: 'POST', credentials: 'same-origin', keepalive: true,
-            headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...event, placementKey }),
-          });
-          return response.ok;
-        } catch { return false; }
+        return recordAnonymousSponsorCampaignEvent({ ...event, placementKey }, sponsorApiBaseUrl);
       }
       return recordSponsorCampaignEvent(userId, event, getAccessToken, sponsorApiBaseUrl);
     },
