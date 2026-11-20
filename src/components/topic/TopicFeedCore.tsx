@@ -411,10 +411,8 @@ export function TopicFeedCore({
       // Remove any token created before withdrawal from both the feed cache and
       // the currently mounted card. Campaign delivery remains in the queue.
       ephemeralSponsorSessionId = null;
-      sponsorRequestVersion.current += 1;
       sponsorResultsByTopicId.current.clear();
       sponsorCardsByTopicId.current.clear();
-      sponsorRequestsByTopicId.current.clear();
 
       const currentMap = feedEntryMapRef.current;
       if (!currentMap) return;
