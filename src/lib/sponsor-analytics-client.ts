@@ -17,48 +17,19 @@ function eventEndpoint(apiBaseUrl?: string): string {
     : '/api/content/sponsor-campaign-events';
 }
 
-const storagePrefix = 'cathoscroll.sponsor-events.v1.';
+const pendingQueues = new Map<string, QueuedSponsorCampaignEvent[]>();
 const queueLimit = 1000;
 const flushingUsers = new Set<string>();
 
-function storageKey(userId: string): string {
-  return storagePrefix + userId;
+function readQueue(userId: string): QueuedSponsorCampaignEvent[] {
+  return pendingQueues.get(userId) ?? [];
 }
 
 function acknowledgeEvent(userId: string, eventId: string): boolean {
-  if (typeof window === 'undefined') return false;
-  const latest = readQueue(userId);
-  const remaining = latest.filter((queued) => queued.eventId !== eventId);
-  try {
-    if (remaining.length === 0) {
-      window.localStorage.removeItem(storageKey(userId));
-    } else {
-      window.localStorage.setItem(storageKey(userId), JSON.stringify(remaining));
-    }
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function readQueue(userId: string): QueuedSponsorCampaignEvent[] {
-  if (typeof window === 'undefined') return [];
-  try {
-    const raw = window.localStorage.getItem(storageKey(userId));
-    if (!raw) return [];
-    const parsed: unknown = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter((event): event is QueuedSponsorCampaignEvent =>
-      Boolean(event) &&
-      typeof event === 'object' &&
-      typeof event.campaignId === 'string' &&
-      typeof event.eventId === 'string' &&
-      typeof event.sessionId === 'string' &&
-      (event.eventType === 'viewable_impression' || event.eventType === 'click')
-    );
-  } catch {
-    return [];
-  }
+  const remaining = readQueue(userId).filter((queued) => queued.eventId !== eventId);
+  if (remaining.length === 0) pendingQueues.delete(userId);
+  else pendingQueues.set(userId, remaining);
+  return true;
 }
 
 export function recordSponsorCampaignEvent(
@@ -76,14 +47,10 @@ export function recordSponsorCampaignEvent(
       queued.eventType === event.eventType
   );
   if (!alreadyQueued) {
-    // Preserve older unacknowledged sponsor events and bound offline storage.
+    // Preserve older unacknowledged events in this active page and bound memory.
     if (queue.length >= queueLimit) return false;
     queue.push(event);
-    try {
-      window.localStorage.setItem(storageKey(userId), JSON.stringify(queue));
-    } catch {
-      return false;
-    }
+    pendingQueues.set(userId, queue);
   }
   void flushSponsorCampaignEvents(userId, getAccessToken, apiBaseUrl);
   return true;
