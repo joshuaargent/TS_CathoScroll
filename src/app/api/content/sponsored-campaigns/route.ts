@@ -97,7 +97,7 @@ export async function POST(request: Request) {
     parsed.value === null ||
     Array.isArray(parsed.value) ||
     !('sessionId' in parsed.value) ||
-    !isValidUuid(parsed.value.sessionId) ||
+    (parsed.value.sessionId !== null && !isValidUuid(parsed.value.sessionId)) ||
     !('categorySlug' in parsed.value) ||
     (parsed.value.categorySlug !== null &&
       (typeof parsed.value.categorySlug !== 'string' ||
