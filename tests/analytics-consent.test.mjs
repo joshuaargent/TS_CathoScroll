@@ -69,12 +69,19 @@ test('account consent sync is identity-bound, retryable and enforced server-side
   assert.ok(migration.includes('user_analytics_consent_history'));
   const setter = lockOrderMigration.slice(lockOrderMigration.indexOf('CREATE OR REPLACE FUNCTION public.set_user_analytics_consent'));
   assert.ok(setter.indexOf('FROM auth.users AS account WHERE account.id = p_user_id FOR UPDATE') < setter.indexOf('FROM catho_private.user_analytics_consents'));
-  for (const name of ['public.record_feed_analytics_events', 'public.record_feed_card_analytics_events', 'public.record_sponsor_campaign_event', 'public.get_weighted_sponsor_campaigns']) {
-    const start = lockOrderMigration.indexOf('CREATE OR REPLACE FUNCTION ' + name);
-    const end = lockOrderMigration.indexOf('$function$;', start);
-    const body = lockOrderMigration.slice(start, end);
-    assert.ok(body.toLowerCase().includes('for key share'));
-    assert.ok(body.toLowerCase().indexOf('for key share') < body.toLowerCase().indexOf('for share'));
+  for (const sql of [lockOrderMigration, bootstrap]) {
+    for (const name of ['public.record_feed_analytics_events', 'public.record_feed_card_analytics_events', 'public.record_sponsor_campaign_event', 'public.get_weighted_sponsor_campaigns']) {
+      const start = sql.indexOf('CREATE OR REPLACE FUNCTION ' + name);
+      const end = sql.indexOf('$function$;', start);
+      assert.ok(start >= 0 && end > start, name + ' must be present as a complete function in both install paths');
+      const body = sql.slice(start, end);
+      assert.ok(body.toLowerCase().includes('for key share'));
+      assert.ok(body.toLowerCase().indexOf('for key share') < body.toLowerCase().indexOf('for share'));
+    }
+    const setterStart = sql.indexOf('CREATE OR REPLACE FUNCTION public.set_user_analytics_consent');
+    const setterEnd = sql.indexOf('$function$;', setterStart);
+    const setter = sql.slice(setterStart, setterEnd);
+    assert.ok(setter.indexOf('FOR UPDATE') < setter.indexOf('FROM catho_private.user_analytics_consents'));
   }
   assert.ok(migration.includes('SELECT consent.service_improvement INTO v_service_consent'));
   assert.ok(migration.includes('SELECT consent.sponsor_measurement INTO v_sponsor_consent'));
