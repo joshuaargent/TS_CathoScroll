@@ -66,3 +66,15 @@ test('native feed retries queued consent withdrawal automatically on reconnect',
   assert.match(native, /addEventListener\('online', retryPendingConsentSync\)/);
   assert.match(native, /removeEventListener\('online', retryPendingConsentSync\)/);
 });
+
+
+test('withdrawal writes local denial using cached identity before network-dependent getUser', async () => {
+  const account = await readFile(new URL('../src/components/account/PersonalizationAccountSection.tsx', import.meta.url), 'utf8');
+  const update = account.slice(account.indexOf('async function updateConsent'), account.indexOf('function refreshStatus'));
+  assert.ok(update.indexOf('syncNativeConsent(accountUserId, false, true)') < update.indexOf('client.auth.getUser()'));
+});
+
+test('local withdrawal replaces the active personalised feed and retries the server state', () => {
+  assert.match(native, /setFeedPersonalized\(detail\.enabled\)/);
+  assert.match(native, /setFeedAttempt\(\(attempt\) => attempt \+ 1\)/);
+});
