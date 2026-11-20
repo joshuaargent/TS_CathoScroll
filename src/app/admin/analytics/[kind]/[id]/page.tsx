@@ -13,8 +13,8 @@ import { isValidUuid } from '@/lib/supabase/admin';
 export const metadata: Metadata = { title: 'Entity Analytics', robots: { index: false, follow: false } };
 interface Props { params: Promise<{ kind: string; id: string }>; searchParams?: Promise<{ period?: string }> }
 
-function Metric({ label, value, detail }: { label: string; value: string; detail: string }) {
-  return <Card padding="md"><p className="text-text-secondary text-sm font-medium">{label}</p><p className="text-text-primary mt-2 text-3xl font-bold tabular-nums">{value}</p><p className="text-text-muted mt-2 text-xs">{detail}</p></Card>;
+function Metric({ label, value, detail, signedOutValue }: { label: string; value: string; detail: string; signedOutValue?: string }) {
+  return <Card padding="md"><p className="text-text-secondary text-sm font-medium">{label}</p><p className="text-text-primary mt-2 text-3xl font-bold tabular-nums">{value}</p>{signedOutValue !== undefined && <p className="text-text-muted mt-1 text-xs tabular-nums">+ {signedOutValue} signed out</p>}<p className="text-text-muted mt-2 text-xs">{detail}</p></Card>;
 }
 const fmt = (value: unknown) => new Intl.NumberFormat('en-GB').format(typeof value === 'number' && Number.isFinite(value) ? value : 0);
 
@@ -142,15 +142,15 @@ export default async function AdminAnalyticsEntityPage({ params, searchParams }:
       <Link key={value} href={`/admin/analytics/${kind}/${id}?period=${value}`} className={`rounded-lg border px-4 py-2 text-sm ${period === value ? 'border-accent bg-accent-light text-accent font-semibold' : 'border-border text-text-secondary'}`}>{value}</Link>)}</div>
     <div className="mt-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
       {kind === 'sponsors' ? <>
-        <Metric label="Campaign deliveries" value={fmt(totals.served)} detail="Signed-in served sponsor placements" />
+        <Metric label="Campaign deliveries" value={fmt(totals.served)} signedOutValue={Number(anonymousTotals.sponsor_served ?? 0) > 0 ? fmt(anonymousTotals.sponsor_served) : undefined} detail="Signed-in served sponsor placements" />
         <Metric label="Anonymous deliveries" value={fmt(anonymousTotals.sponsor_served)} detail="Signed-out served sponsor placements" />
         <Metric label="Signed-in viewable / clicks" value={fmt(totals.viewable_impressions) + ' / ' + fmt(totals.clicks)} detail="Authenticated delivery events" />
         <Metric label="Anonymous viewable / clicks" value={fmt(anonymousTotals.sponsor_viewable_impressions) + ' / ' + fmt(anonymousTotals.sponsor_clicks)} detail="Anonymous aggregate delivery events" />
         <Metric label="Active campaigns" value={fmt(totals.active_campaigns)} detail="Campaigns with signed-in delivery in this period" />
       </> : <>
-        <Metric label="Signed-in card impressions" value={fmt(totals.impressions)} detail="Top Comments cards displayed to signed-in users" />
+        <Metric label="Signed-in card impressions" value={fmt(totals.impressions)} signedOutValue={Number(anonymousTotals.comment_card_impressions ?? 0) > 0 ? fmt(anonymousTotals.comment_card_impressions) : undefined} detail="Top Comments cards displayed to signed-in users" />
         <Metric label="Anonymous card impressions" value={fmt(anonymousTotals.comment_card_impressions)} detail="Top Comments cards displayed to signed-out visitors" />
-        <Metric label="Signed-in viewable" value={fmt(totals.viewable_impressions)} detail="At least 50% visible for one second" />
+        <Metric label="Signed-in viewable" value={fmt(totals.viewable_impressions)} signedOutValue={Number(anonymousTotals.comment_card_viewable_impressions ?? 0) > 0 ? fmt(anonymousTotals.comment_card_viewable_impressions) : undefined} detail="At least 50% visible for one second" />
         <Metric label="Anonymous viewable" value={fmt(anonymousTotals.comment_card_viewable_impressions)} detail="At least 50% visible for one second" />
         <Metric label="Signed-in active time" value={Math.round(Number(totals.active_duration_ms ?? 0) / 1000) + ' sec'} detail="Time while visible and active" />
         <Metric label="Anonymous active time" value={Math.round(Number(anonymousTotals.comment_card_active_duration_ms ?? 0) / 1000) + ' sec'} detail="Aggregate signed-out visible time" />
