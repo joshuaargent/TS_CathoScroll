@@ -1,6 +1,5 @@
 'use client';
 import { siteConfig } from '@/lib/constants';
-import { createConsentBoundAbortSignal, hasAnalyticsConsent } from './analytics-consent';
 
 export type AnonymousEntityType = 'topic' | 'comment';
 export type AnonymousEventType = 'impression' | 'viewable_impression' | 'active_duration' | 'skip' | 'completion' | 'open';
@@ -24,11 +23,7 @@ export const anonymousAnalyticsPreferenceKey = 'cathoscroll.anonymous-analytics.
 export const anonymousAnalyticsPreferenceChangeEvent = 'cathoscroll:anonymous-analytics-preference-change';
 
 function anonymousAnalyticsEnabled(): boolean {
-  try {
-    return typeof window !== 'undefined' && hasAnalyticsConsent('serviceImprovement', null);
-  } catch {
-    return false;
-  }
+  return typeof window !== 'undefined';
 }
 const recentEventKeys = new Map<string, number>();
 const pendingEvents: AnonymousFeedAnalyticsEvent[] = [];
@@ -120,7 +115,6 @@ export async function flushAnonymousFeedAnalyticsQueue(): Promise<void> {
   if (!persistentOutbox && pendingEvents.length === 0) return;
 
   let shouldContinue = false;
-  const consentRequest = createConsentBoundAbortSignal('serviceImprovement', null);
   flushPromise = (async () => {
     let batch: AnonymousFeedAnalyticsEvent[] = [];
     try {
@@ -151,9 +145,8 @@ export async function flushAnonymousFeedAnalyticsQueue(): Promise<void> {
         credentials: 'same-origin',
         cache: 'no-store',
         keepalive: true,
-        signal: consentRequest.signal,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ serviceImprovementConsent: true, events: batch }),
+        body: JSON.stringify({ events: batch }),
       });
       if (!anonymousAnalyticsEnabled()) {
         pendingEvents.splice(0, pendingEvents.length);
@@ -178,7 +171,6 @@ export async function flushAnonymousFeedAnalyticsQueue(): Promise<void> {
       // Keep failed batches for retry after reconnect or app restart.
     }
   })().finally(() => {
-    consentRequest.dispose();
     flushPromise = null;
     if (shouldContinue && (
       pendingEvents.length > 0 ||
@@ -212,7 +204,7 @@ export function recordAnonymousFeedEvent(
   eventType: AnonymousEventType,
   durationMs = 0,
 ): void {
-  if (typeof window === 'undefined' || !anonymousAnalyticsEnabled()) return;
+  if (typeof window === 'undefined') return;
   const eventId = uuid();
   const id = String(entityId);
   if (!eventId || !id || id.length > 160) return;
