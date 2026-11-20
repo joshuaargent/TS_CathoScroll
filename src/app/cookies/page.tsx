@@ -138,8 +138,11 @@ export default function CookiesPage() {
           <p className="text-text-secondary leading-relaxed">
             CathoScroll uses browser local storage, IndexedDB, and app-private device storage for
             essential functions such as session support, offline topic and account data, and pending
-            user-requested activity synchronisation. First-party analytics retry queues are held in
-            memory only and are not written to these storage technologies. These technologies store
+            user-requested activity synchronisation. The native app also stores a bounded queue of
+            anonymous topic/comment analytics events in app-private SQLite for up to seven days so
+            events can upload after reconnection. This queue contains no account, visitor or session
+            identifier and can be disabled using the analytics preference above. The website keeps
+            its unsent topic/comment events in memory only. These technologies store
             information on your device but are not browser cookies. Clearing them may remove offline
             data or require you to sign in again; pending unsynchronised activity may be lost.
           </p>
