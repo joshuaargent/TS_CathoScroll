@@ -83,3 +83,12 @@ The native outbox is app-private SQLite storage on mobile/desktop terminal equip
 - [Vercel: Fair Use Guidelines](https://vercel.com/docs/limits/fair-use-guidelines)
 - [Vercel: Data Processing Addendum](https://vercel.com/legal/dpa)
 - [Vercel: Web Analytics privacy](https://vercel.com/docs/analytics/privacy-policy)
+
+
+## 20 November 2026 — UK GDPR analytics assessment update
+
+The detailed controller draft is in [docs/uk-gdpr-analytics-assessment.md](./uk-gdpr-analytics-assessment.md). It separates account-linked service analytics, signed-out aggregate topic/comment statistics, sponsor measurement, sponsor delivery accounting, Vercel telemetry and recommendation personalisation. It recommends a separate explicit service-analytics choice for account-linked topic/comment events and a separate sponsor-measurement choice. Recommendation personalisation remains on signup and Account settings only.
+
+For visitors who decline sponsor measurement, the proposed least-intrusive fallback is a server-side campaign/day served-placement aggregate only. Do not create client viewability/click events, session tokens, hashed session-frequency rows or per-person frequency records for those visitors. Campaign-wide caps and pacing remain available. This preserves delivery accounting without claiming unique reach, viewability, clicks or CTR for opted-out visitors.
+
+The assessment does not approve PECR compliance. The controller must still document whether the signed-out aggregate topic/comment pipeline and native app-private SQLite outbox meet the statutory statistical-purposes exception or require prior consent. Verify the actual deployed browser/native behaviour and all provider logs before sign-off.
