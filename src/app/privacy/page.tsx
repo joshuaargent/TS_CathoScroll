@@ -173,10 +173,12 @@ export default function PrivacyPage() {
           </ul>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            Where analytics involves information that reveals or permits inferences about
-            religious or philosophical beliefs, we also identify and document an applicable
-            Article 9 condition in addition to the Article 6 lawful basis. The operational
-            analytics review is recorded in our provisional analytics impact assessment.
+            We are assessing whether account-linked topic and comment analytics reveal or
+            permit inferences about religious or philosophical beliefs and therefore require
+            an additional Article 9 condition. The separate personalisation checkbox applies
+            only to recommendation personalisation; it is not blanket consent for operational
+            analytics. Our analytics impact assessment records this as an open controller
+            decision and is not a legal sign-off.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
