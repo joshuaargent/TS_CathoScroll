@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   analyticsConsentManageEvent,
+  denyAnalyticsConsentInMemory,
   readAnalyticsConsent,
   saveAnalyticsConsent,
   type AnalyticsConsent,
