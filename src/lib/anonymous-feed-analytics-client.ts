@@ -13,13 +13,9 @@ type AnonymousEvent = {
   durationMs?: number;
 };
 
-const queueStorageKey = 'cathoscroll.anonymous-feed-events.v1';
 const queueLimit = 2000;
 const recentEventKeys = new Map<string, number>();
-type QueuedAnonymousEvent = { event: AnonymousEvent; queuedAt: number };
-const pendingEvents: QueuedAnonymousEvent[] = [];
-const queueMaxAgeMs = 29 * 24 * 60 * 60 * 1000;
-let hydrated = false;
+const pendingEvents: AnonymousEvent[] = [];
 let flushPromise: Promise<void> | null = null;
 let listenersInstalled = false;
 
@@ -57,52 +53,8 @@ function isAnonymousEvent(value: unknown): value is AnonymousEvent {
   return event.durationMs === undefined;
 }
 
-function persistQueue(): void {
-  if (typeof window === 'undefined') return;
-  try {
-    if (pendingEvents.length === 0) {
-      window.localStorage.removeItem(queueStorageKey);
-    } else {
-      window.localStorage.setItem(queueStorageKey, JSON.stringify(pendingEvents.slice(-queueLimit)));
-    }
-  } catch {
-    // Storage can be unavailable or full; the in-memory queue remains usable for this process.
-  }
-}
-
-function hydrateQueue(): void {
-  if (hydrated || typeof window === 'undefined') return;
-  hydrated = true;
-  try {
-    const stored = window.localStorage.getItem(queueStorageKey);
-    if (!stored) return;
-    const parsed: unknown = JSON.parse(stored);
-    if (!Array.isArray(parsed)) {
-      window.localStorage.removeItem(queueStorageKey);
-      return;
-    }
-    const now = Date.now();
-    for (const value of parsed.slice(-queueLimit)) {
-      if (!value || typeof value !== 'object' || Array.isArray(value)) continue;
-      const queued = value as Record<string, unknown>;
-      if (isAnonymousEvent(queued.event) && typeof queued.queuedAt === 'number' &&
-          Number.isFinite(queued.queuedAt) && queued.queuedAt <= now && now - queued.queuedAt <= queueMaxAgeMs) {
-        pendingEvents.push({ event: queued.event, queuedAt: queued.queuedAt });
-      }
-    }
-    persistQueue();
-  } catch {
-    try {
-      window.localStorage.removeItem(queueStorageKey);
-    } catch {
-      // Ignore inaccessible or malformed local storage.
-    }
-  }
-}
-
 export async function flushAnonymousFeedAnalyticsQueue(): Promise<void> {
   if (typeof window === 'undefined') return;
-  hydrateQueue();
   if (typeof navigator === 'undefined' || !navigator.onLine || pendingEvents.length === 0 || flushPromise) return;
 
   const batch = pendingEvents.slice(0, 40);
@@ -115,15 +67,14 @@ export async function flushAnonymousFeedAnalyticsQueue(): Promise<void> {
         cache: 'no-store',
         keepalive: true,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ events: batch.map((queued) => queued.event) }),
+        body: JSON.stringify({ events: batch }),
       });
       if (response.ok || (response.status >= 400 && response.status < 500 && response.status !== 429)) {
         shouldContinue = true;
-        const completed = new Set(batch.map((queued) => queued.event.eventId));
+        const completed = new Set(batch.map((event) => event.eventId));
         for (let index = pendingEvents.length - 1; index >= 0; index -= 1) {
-          if (completed.has(pendingEvents[index].event.eventId)) pendingEvents.splice(index, 1);
+          if (completed.has(pendingEvents[index].eventId)) pendingEvents.splice(index, 1);
         }
-        persistQueue();
       }
     } catch {
       // Keep the batch on disk for retry after reconnect or the next app launch.
@@ -188,9 +139,8 @@ export function recordAnonymousFeedEvent(
       ? { durationMs: Math.max(0, Math.min(60000, Math.round(durationMs))) }
       : {}),
   };
-  pendingEvents.push({ event, queuedAt: now });
+  pendingEvents.push(event);
   if (pendingEvents.length > queueLimit) pendingEvents.splice(0, pendingEvents.length - queueLimit);
-  persistQueue();
   installAnonymousFeedAnalyticsSync();
   void flushAnonymousFeedAnalyticsQueue();
 }
