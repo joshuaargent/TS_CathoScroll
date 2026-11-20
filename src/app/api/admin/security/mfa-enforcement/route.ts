@@ -64,7 +64,7 @@ export async function POST(request: Request) {
   if (!isSameOriginOrNativeRequest(request)) return respond(request, { error: 'Forbidden' }, 403);
 
   try {
-    const { supabase, user } = await getAuthenticatedUserFromRequest(request);
+    const { supabase, user, accessToken } = await getAuthenticatedUserFromRequest(request);
     if (!user) return respond(request, { error: 'Authentication required' }, 401);
 
     const rateLimit = await checkApiRateLimit({
@@ -88,7 +88,8 @@ export async function POST(request: Request) {
       return respond(request, { error: 'Unable to verify authenticator status.' }, 503);
     }
     const accessToken = sessionData.session?.access_token;
-    if (!accessToken || !hasTotpAssuranceInAccessToken(accessToken)) {
+    const verifiedToken = accessToken ?? sessionData.session?.access_token;
+    if (!verifiedToken || !hasTotpAssuranceInAccessToken(verifiedToken)) {
       return respond(request, { error: 'Verify a TOTP authenticator code before enabling enforcement.' }, 403);
     }
 
