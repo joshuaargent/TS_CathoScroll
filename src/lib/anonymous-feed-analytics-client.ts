@@ -16,7 +16,9 @@ type AnonymousEvent = {
 const queueStorageKey = 'cathoscroll.anonymous-feed-events.v1';
 const queueLimit = 2000;
 const recentEventKeys = new Map<string, number>();
-const pendingEvents: AnonymousEvent[] = [];
+type QueuedAnonymousEvent = { event: AnonymousEvent; queuedAt: number };
+const pendingEvents: QueuedAnonymousEvent[] = [];
+const queueMaxAgeMs = 29 * 24 * 60 * 60 * 1000;
 let hydrated = false;
 let flushPromise: Promise<void> | null = null;
 let listenersInstalled = false;
@@ -79,8 +81,14 @@ function hydrateQueue(): void {
       window.localStorage.removeItem(queueStorageKey);
       return;
     }
+    const now = Date.now();
     for (const value of parsed.slice(-queueLimit)) {
-      if (isAnonymousEvent(value)) pendingEvents.push(value);
+      if (!value || typeof value !== 'object' || Array.isArray(value)) continue;
+      const queued = value as Record<string, unknown>;
+      if (isAnonymousEvent(queued.event) && typeof queued.queuedAt === 'number' &&
+          Number.isFinite(queued.queuedAt) && queued.queuedAt <= now && now - queued.queuedAt <= queueMaxAgeMs) {
+        pendingEvents.push({ event: queued.event, queuedAt: queued.queuedAt });
+      }
     }
     persistQueue();
   } catch {
@@ -107,13 +115,13 @@ export async function flushAnonymousFeedAnalyticsQueue(): Promise<void> {
         cache: 'no-store',
         keepalive: true,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ events: batch }),
+        body: JSON.stringify({ events: batch.map((queued) => queued.event) }),
       });
       if (response.ok || (response.status >= 400 && response.status < 500 && response.status !== 429)) {
         shouldContinue = true;
-        const completed = new Set(batch.map((event) => event.eventId));
+        const completed = new Set(batch.map((queued) => queued.event.eventId));
         for (let index = pendingEvents.length - 1; index >= 0; index -= 1) {
-          if (completed.has(pendingEvents[index].eventId)) pendingEvents.splice(index, 1);
+          if (completed.has(pendingEvents[index].event.eventId)) pendingEvents.splice(index, 1);
         }
         persistQueue();
       }
@@ -181,7 +189,7 @@ export function recordAnonymousFeedEvent(
       ? { durationMs: Math.max(0, Math.min(60000, Math.round(durationMs))) }
       : {}),
   };
-  pendingEvents.push(event);
+  pendingEvents.push({ event, queuedAt: now });
   if (pendingEvents.length > queueLimit) pendingEvents.splice(0, pendingEvents.length - queueLimit);
   persistQueue();
   installAnonymousFeedAnalyticsSync();
