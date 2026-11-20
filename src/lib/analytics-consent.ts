@@ -20,6 +20,55 @@ export type AnalyticsConsent = {
 
 export type AnalyticsConsentChoice = 'serviceImprovement' | 'sponsorMeasurement';
 
+const deniedOverrides = new Set<string>();
+let consentChannel: BroadcastChannel | null = null;
+
+function overrideKey(choice: AnalyticsConsentChoice, userId?: string | null): string {
+  return storageKeyForUser(userId) + ':' + choice;
+}
+
+function getConsentChannel(): BroadcastChannel | null {
+  if (typeof window === 'undefined' || typeof BroadcastChannel === 'undefined') return null;
+  if (consentChannel) return consentChannel;
+  try {
+    consentChannel = new BroadcastChannel('cathoscroll:analytics-consent');
+    consentChannel.addEventListener('message', (event: MessageEvent<{
+      type?: 'deny' | 'allow';
+      choice?: AnalyticsConsentChoice;
+      userId?: string | null;
+    }>) => {
+      const message = event.data;
+      if (!message?.choice || !['serviceImprovement', 'sponsorMeasurement'].includes(message.choice)) return;
+      const key = overrideKey(message.choice, message.userId ?? null);
+      if (message.type === 'deny') deniedOverrides.add(key);
+      else if (message.type === 'allow') deniedOverrides.delete(key);
+      window.dispatchEvent(new CustomEvent(analyticsConsentChangeEvent, {
+        detail: { userId: message.userId ?? null },
+      }));
+    });
+    return consentChannel;
+  } catch {
+    consentChannel = null;
+    return null;
+  }
+}
+
+export function denyAnalyticsConsentInMemory(
+  choice: AnalyticsConsentChoice,
+  userId?: string | null
+): void {
+  const expectedUserId = userId ?? null;
+  deniedOverrides.add(overrideKey(choice, expectedUserId));
+  window.dispatchEvent(new CustomEvent(analyticsConsentChangeEvent, {
+    detail: { userId: expectedUserId },
+  }));
+  getConsentChannel()?.postMessage({
+    type: 'deny',
+    choice,
+    userId: expectedUserId,
+  });
+}
+
 function emptyConsent(): AnalyticsConsent {
   return {
     version: analyticsConsentVersion,
@@ -63,6 +112,7 @@ export function getAnalyticsConsent(userId?: string | null): AnalyticsConsent {
 }
 
 export function hasAnalyticsConsent(choice: AnalyticsConsentChoice, userId?: string | null): boolean {
+  if (deniedOverrides.has(overrideKey(choice, userId))) return false;
   return getAnalyticsConsent(userId)[choice] === true;
 }
 
@@ -78,6 +128,16 @@ export function saveAnalyticsConsent(
     updatedAt: new Date().toISOString(),
   };
   window.localStorage.setItem(storageKeyForUser(userId), JSON.stringify(next));
+  for (const choice of ['serviceImprovement', 'sponsorMeasurement'] as const) {
+    const key = overrideKey(choice, userId);
+    if (next[choice]) {
+      deniedOverrides.delete(key);
+      getConsentChannel()?.postMessage({ type: 'allow', choice, userId: userId ?? null });
+    } else {
+      deniedOverrides.add(key);
+      getConsentChannel()?.postMessage({ type: 'deny', choice, userId: userId ?? null });
+    }
+  }
   window.dispatchEvent(new CustomEvent(analyticsConsentChangeEvent, { detail: { userId: userId ?? null, consent: next } }));
   return next;
 }
