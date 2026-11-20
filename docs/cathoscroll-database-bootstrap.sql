@@ -6857,7 +6857,10 @@ $function$;
 
 
 
-CREATE OR REPLACE FUNCTION public.set_my_personalization_consent(p_enabled boolean)
+CREATE OR REPLACE FUNCTION public.set_my_personalization_consent(
+  p_enabled boolean,
+  p_consent_version text
+)
  RETURNS jsonb
  LANGUAGE plpgsql
  SECURITY DEFINER
@@ -6871,6 +6874,9 @@ DECLARE
 BEGIN
   IF v_user_id IS NULL THEN RAISE EXCEPTION 'Authentication required' USING ERRCODE='42501'; END IF;
   IF p_enabled IS NULL THEN RAISE EXCEPTION 'A consent choice is required' USING ERRCODE='22023'; END IF;
+  IF p_enabled IS TRUE AND p_consent_version IS DISTINCT FROM '2026-11-20-v4' THEN
+    RAISE EXCEPTION 'Update CathoScroll and review the current personalisation notice before enabling recommendations' USING ERRCODE='42501';
+  END IF;
   PERFORM 1 FROM auth.users WHERE id = v_user_id FOR UPDATE;
   IF p_enabled THEN
     INSERT INTO catho_private.user_personalization_consents
@@ -6927,6 +6933,20 @@ BEGIN
 END;
 $function$;
 
+CREATE OR REPLACE FUNCTION public.set_my_personalization_consent(p_enabled boolean)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+BEGIN
+  IF p_enabled IS TRUE THEN
+    RAISE EXCEPTION 'Update CathoScroll and review the current personalisation notice before enabling recommendations' USING ERRCODE='42501';
+  END IF;
+  RETURN public.set_my_personalization_consent(false, '2026-11-20-v4');
+END;
+$function$;
+
 
 CREATE OR REPLACE FUNCTION public.set_my_personalization_interests(p_category_slugs text[])
  RETURNS jsonb
@@ -6975,7 +6995,8 @@ AS $function$
 DECLARE
   v_now timestamptz := statement_timestamp();
 BEGIN
-  IF NEW.raw_user_meta_data ->> 'personalization_consent' = 'true' THEN
+  IF NEW.raw_user_meta_data ->> 'personalization_consent' = 'true'
+     AND NEW.raw_user_meta_data ->> 'personalization_consent_version' = '2026-11-20-v4' THEN
     INSERT INTO catho_private.user_personalization_consents
       (user_id,enabled,consent_version,granted_at,withdrawn_at,updated_at)
     VALUES
@@ -7409,6 +7430,8 @@ GRANT EXECUTE ON FUNCTION public.set_content_updated_at() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.set_content_updated_at() TO service_role;
 REVOKE ALL ON FUNCTION public.set_my_personalization_consent(boolean) FROM PUBLIC, anon, authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.set_my_personalization_consent(boolean) TO authenticated;
+REVOKE ALL ON FUNCTION public.set_my_personalization_consent(boolean, text) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.set_my_personalization_consent(boolean, text) TO authenticated;
 REVOKE ALL ON FUNCTION public.set_my_personalization_interests(text[]) FROM PUBLIC, anon, authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.set_my_personalization_interests(text[]) TO authenticated;
 REVOKE ALL ON FUNCTION public.sponsor_create_campaign(uuid, uuid, text, text, text, text, text, text, date, date, text[], text[], integer, integer, integer, bigint, bigint) FROM PUBLIC, anon, authenticated, service_role;
