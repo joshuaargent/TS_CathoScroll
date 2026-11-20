@@ -88,7 +88,7 @@ test('signed-in and anonymous selectors derive category from the published topic
   assert.match(signedIn, /FROM catho_private\.anonymous_sponsor_campaign_daily AS daily[\s\S]*?placement_weight::numeric ASC/);
   assert.match(anonymous, /FROM catho_private\.sponsor_campaign_daily d[\s\S]*?campaign\.daily_impression_cap/);
   assert.match(anonymous, /IF p_session_token IS NOT NULL THEN[\s\S]*?INSERT INTO catho_private\.anonymous_sponsor_events/);
-  assert.match(anonymous, /IF p_session_token IS NULL THEN true ELSE/);
+  assert.match(anonymous, /CASE WHEN p_session_token IS NULL THEN true ELSE/);
   assert.match(anonymous, /INSERT INTO catho_private\.anonymous_sponsor_campaign_daily/);
   assert.match(anonymous, /FROM catho_private\.sponsor_campaign_daily d[\s\S]*?placement_weight/);
   assert.match(signedIn, /placement_weight::numeric ASC/);
