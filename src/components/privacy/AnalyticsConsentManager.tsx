@@ -67,7 +67,10 @@ function ConsentManager({ userId = null, apiBaseUrl, getAccessToken }: Analytics
       let credentials: RequestCredentials = 'same-origin';
       if (getAccessToken) {
         const accessToken = await getAccessToken();
-        if (!accessToken) return;
+        if (!accessToken) {
+          if (!readAnalyticsConsent(userId)) setVisible(true);
+          return;
+        }
         headers.set('Authorization', 'Bearer ' + accessToken);
         credentials = 'omit';
       }
@@ -80,7 +83,10 @@ function ConsentManager({ userId = null, apiBaseUrl, getAccessToken }: Analytics
         cache: 'no-store',
         headers,
       });
-      if (!response.ok) return;
+      if (!response.ok) {
+        if (!readAnalyticsConsent(userId)) setVisible(true);
+        return;
+      }
       const payload: unknown = await response.json();
       if (typeof payload !== 'object' || payload === null || !('consent' in payload)) return;
       const remote = payload.consent as {
@@ -99,6 +105,7 @@ function ConsentManager({ userId = null, apiBaseUrl, getAccessToken }: Analytics
       ) return;
 
       const local = readAnalyticsConsent(userId);
+      if (!remote.exists && !local) setVisible(true);
       const remoteIsNewer = remote.exists && typeof remote.updatedAt === 'string' &&
         (!local || Date.parse(remote.updatedAt) > Date.parse(local.updatedAt));
       if (remoteIsNewer || (!local && remote.exists)) {
@@ -139,6 +146,7 @@ function ConsentManager({ userId = null, apiBaseUrl, getAccessToken }: Analytics
       }
     } catch (cause) {
       console.warn('Analytics consent sync is deferred until connectivity is available:', cause);
+      if (!readAnalyticsConsent(userId)) setVisible(true);
     }
   }, [apiBaseUrl, clearWithdrawnQueues, getAccessToken, hydrate, userId]);
 
@@ -176,7 +184,7 @@ function ConsentManager({ userId = null, apiBaseUrl, getAccessToken }: Analytics
     const existing = readAnalyticsConsent(userId);
     hydrate(existing);
     if (!existing) {
-      setVisible(true);
+      if (!userId) setVisible(true);
       // Existing pre-consent queues must not be uploaded after this update.
       void clearWithdrawnQueues(null, { serviceImprovement: false, sponsorMeasurement: false });
     } else {
