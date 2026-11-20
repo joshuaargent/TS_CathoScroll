@@ -35,11 +35,17 @@ function bootstrapFunctionRanges(source) {
     assert.ok(asMatch, 'Missing function body delimiter: ' + match[1]);
     const tag = asMatch[1];
     const bodyStart = cursor + asMatch.index + asMatch[0].length;
-    const closingTag = source.indexOf(tag, bodyStart);
+    const escapedTag = tag.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\    const closingTag = source.indexOf(tag, bodyStart);
     assert.notEqual(closingTag, -1, 'Missing function terminator: ' + match[1]);
     const end = closingTag + tag.length;
     assert.equal(source[end], ';', 'Missing SQL statement terminator: ' + match[1]);
-    return { name: match[1], start: match.index, end: end + 1 };
+    return { name: match[1], start: match.index, end: end + 1 };');
+    const closingPattern = new RegExp(escapedTag + '\\s*;', 'g');
+    closingPattern.lastIndex = bodyStart;
+    const terminator = closingPattern.exec(source);
+    assert.ok(terminator, 'Missing function terminator: ' + match[1]);
+    const end = terminator.index + terminator[0].length;
+    return { name: match[1], start: match.index, end };
   });
 }
 
