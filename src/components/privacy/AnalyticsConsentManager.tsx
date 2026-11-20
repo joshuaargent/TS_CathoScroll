@@ -149,9 +149,27 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
     syncAbortRef.current?.abort();
     const controller = new AbortController();
     syncAbortRef.current = controller;
+    const readLocalChoiceSnapshot = () => {
+      const current = readAnalyticsConsent(expectedUserId);
+      return current
+        ? JSON.stringify([
+            current.version,
+            current.serviceImprovement,
+            current.sponsorMeasurement,
+            current.updatedAt,
+            current.syncPending,
+          ])
+        : null;
+    };
+    let localChoiceSnapshot = readLocalChoiceSnapshot();
+    const markOwnChoiceWrite = () => {
+      requestGeneration = consentMutationRef.current;
+      localChoiceSnapshot = readLocalChoiceSnapshot();
+    };
     const isCurrentAccount = () =>
       activeUserIdRef.current === expectedUserId &&
       consentMutationRef.current === requestGeneration &&
+      readLocalChoiceSnapshot() === localChoiceSnapshot &&
       !controller.signal.aborted;
 
     try {
@@ -247,7 +265,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
           updatedAt: saved.updatedAt,
           syncPending: false,
         });
-        requestGeneration = consentMutationRef.current;
+        markOwnChoiceWrite();
         hydrate({
           version: 1,
           ...next,
@@ -275,7 +293,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
           if (!interim.serviceImprovement) denyAnalyticsConsentInMemory('serviceImprovement', expectedUserId);
           if (!interim.sponsorMeasurement) denyAnalyticsConsentInMemory('sponsorMeasurement', expectedUserId);
           saveAnalyticsConsent(interim, expectedUserId, { syncPending: false });
-          requestGeneration = consentMutationRef.current;
+          markOwnChoiceWrite();
           await clearWithdrawnQueues(local, next);
           if (!isCurrentAccount()) return;
         }
