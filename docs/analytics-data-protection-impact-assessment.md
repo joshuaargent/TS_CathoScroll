@@ -59,7 +59,7 @@ This review is an outstanding governance action; it does not change the current 
 
 ## 5. PECR and device storage/access
 
-The Vercel Web Analytics integration is documented by Vercel as not using third-party cookies. The URL-redaction hooks do not themselves create browser storage. First-party topic/comment queues are account-scoped and used for authenticated analytics delivery. The controller should verify the deployed SDK behaviour and assess any device-storage/access requirements under PECR, including whether any analytics-related local storage is strictly necessary or requires consent. Essential authentication and preference storage must not be repurposed as an analytics identifier.
+First-party topic, Top Comments and sponsor analytics retry queues are held in page/app memory only. They are not written to browser local storage, session storage or IndexedDB and are discarded when the page or app process ends. The Vercel Web Analytics integration is documented by Vercel as not using third-party cookies; the URL-redaction hooks do not themselves create browser storage. The controller must still verify deployed SDK behaviour and assess any other device storage/access technologies under PECR. Essential authentication, offline learning data and user preferences must remain purpose-limited and must not be repurposed as analytics identifiers.
 
 ## 6. Safeguards and proportionality
 
