@@ -510,9 +510,11 @@ BEGIN
   IF p_user_id IS NULL OR NOT EXISTS (SELECT 1 FROM auth.users AS account WHERE account.id = p_user_id) THEN
     RAISE EXCEPTION 'Invalid account for analytics consent lookup' USING ERRCODE = '22023';
   END IF;
-  SELECT coalesce(pc.enabled, false) INTO v_personalization_enabled
-  FROM (SELECT p_user_id AS user_id) AS actor
-  LEFT JOIN catho_private.user_personalization_consents AS pc ON pc.user_id = actor.user_id;
+  IF pg_catalog.to_regclass('catho_private.user_personalization_consents') IS NOT NULL THEN
+    SELECT coalesce(pc.enabled, false) INTO v_personalization_enabled
+    FROM (SELECT p_user_id AS user_id) AS actor
+    LEFT JOIN catho_private.user_personalization_consents AS pc ON pc.user_id = actor.user_id;
+  END IF;
   SELECT * INTO v_consent
   FROM catho_private.user_analytics_consents AS consent
   WHERE consent.user_id = p_user_id;
@@ -564,10 +566,12 @@ BEGIN
   END IF;
   PERFORM 1 FROM auth.users AS account WHERE account.id = p_user_id FOR UPDATE;
 
-  IF p_service_improvement IS NOT TRUE AND EXISTS (
-    SELECT 1 FROM catho_private.user_personalization_consents AS pc
-    WHERE pc.user_id = p_user_id AND pc.enabled = true
-  ) THEN
+  IF p_service_improvement IS NOT TRUE
+     AND pg_catalog.to_regclass('catho_private.user_personalization_consents') IS NOT NULL
+     AND EXISTS (
+       SELECT 1 FROM catho_private.user_personalization_consents AS pc
+       WHERE pc.user_id = p_user_id AND pc.enabled = true
+     ) THEN
     RAISE EXCEPTION 'Turn off personalisation before disabling Service improvement analytics' USING ERRCODE = '42501';
   END IF;
 
