@@ -153,3 +153,18 @@ A separate purpose-by-purpose UK GDPR assessment has been added at [docs/uk-gdpr
 For sponsor-measurement opt-outs, the proposed fallback is campaign/day served-placement aggregates only, without client viewability/click events, visitor/session tokens, or per-person frequency records. Campaign-wide pacing and caps remain. Account access, account synchronisation, bookmarks, likes, progress, notes and general feed ranking remain unaffected by optional analytics choices.
 
 **Status:** this is an engineering assessment and proposed design. Controller approval of Article 6 and Article 9 positions, PECR Regulation 6 treatment, the DPIA residual risk, children/age safeguards, provider contracts and international transfers remains outstanding. Do not describe CathoScroll as legally cleared solely because the assessment or consent UI exists.
+
+## Optional analytics consent (separate from recommendation personalisation)
+
+Draft PR #25 introduces a separate, optional consent manager for two purposes:
+
+- **Service improvement analytics:** topic and Top Comments engagement, signed-in account-linked event collection, signed-out daily aggregate collection, and Vercel Web Analytics/Speed Insights. The notice expressly explains that engagement with Catholic content may reveal or permit inferences about religious or philosophical beliefs. The service choice is explicit, independent and off by default.
+- **Sponsor measurement:** sponsor viewability, clicks and visitor/session frequency. This is separate from sponsor delivery. Declining it does not remove sponsor cards or stop campaign/day served totals.
+
+The first-visit interface offers Accept all, Decline optional and Manage choices. Under Manage choices, the two purposes have separate unchecked-by-default controls. Essential operation, sign-in, account synchronisation, bookmarks, likes, progress, notes and general feed ranking are not optional analytics. Recommendation personalisation remains separately controlled by the signup and Account settings consent.
+
+Signed-in consent is stored in catho_private.user_analytics_consents, with a private history table and server-side gates on signed-in analytics ingestion. Signed-out consent is device-local and separate from account consent; the signed-out aggregate event pipeline does not add a visitor/session identifier. On withdrawal, local collection stops immediately and pending purpose-specific native/web queues are cleared. Signed-in changes retry server synchronisation when connectivity returns.
+
+When Sponsor measurement is declined, sponsor selection receives a null session token/ID. The database still increments campaign/day served totals but does not write anonymous session events, signed-in served-session events, or per-session/per-user frequency rows. The viewability/click event endpoints are gated. Sponsor delivery and campaign-wide caps continue.
+
+**Deployment status:** these controls and the migration are in draft PR #25. They are not live in production. The production database has not received the consent upgrade; do not describe the current production experience as having these controls until the migration has been validated and deployed.
