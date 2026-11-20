@@ -256,7 +256,7 @@ export default function AccountPage() {
           <div>
             <h2 className="font-bold">Account security</h2>
             <p className="text-text-secondary mt-1 text-sm">
-              Set up an authenticator app and manage administrator sign-in verification.
+              Add an authenticator app for extra sign-in protection.
             </p>
           </div>
           <Link
