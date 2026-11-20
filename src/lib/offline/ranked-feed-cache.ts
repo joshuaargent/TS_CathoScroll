@@ -84,7 +84,7 @@ export class OfflineRankedFeedCache {
     );
     if (this.allowPersonalizedCache) {
       await db.execute(
-        'DELETE FROM offline_personalization_consent_cache WHERE checked_at < ?',
+        'DELETE FROM offline_personalization_consent_cache WHERE checked_at < ? AND pending_sync = 0',
         [new Date(Date.now() - consentFreshnessMs).toISOString()]
       );
     }
@@ -197,7 +197,7 @@ export class OfflineRankedFeedCache {
     if (!this.allowPersonalizedCache) throw new Error('Personalised pages require encrypted private storage.');
     await this.database.transaction(async (db) => {
       await db.execute('DELETE FROM offline_ranked_feed_pages WHERE mode = ? AND owner_id = ?', ['personalized', userId]);
-      await db.execute('DELETE FROM offline_personalization_consent_cache WHERE user_id = ?', [userId]);
+      await db.execute('DELETE FROM offline_personalization_consent_cache WHERE user_id = ? AND pending_sync = 0', [userId]);
     });
   }
 }
