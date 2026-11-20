@@ -278,6 +278,8 @@ test('native signed-in topic and comment analytics use the encrypted private dat
   assert.match(signedInOutbox, /offline_signed_in_analytics_outbox/);
   assert.match(signedInOutbox, /maximumEventsPerStream = 2000/);
   assert.match(signedInOutbox, /maximumAgeMs = 7 \* 24 \* 60 \* 60 \* 1000/);
+  assert.match(signedInOutbox, /stream IN \('topic', 'comment', 'sponsor'\)/);
+  assert.match(signedInOutbox, /ALTER TABLE offline_signed_in_analytics_outbox RENAME TO offline_signed_in_analytics_outbox_v1/);
   assert.match(signedInOutbox, /PRIMARY KEY \(user_id, stream, event_id\)/);
   assert.match(signedInOutbox, /INSERT OR IGNORE/);
   assert.match(signedInOutbox, /acknowledge\(/);
@@ -289,6 +291,9 @@ test('native signed-in topic and comment analytics use the encrypted private dat
   assert.match(nativeMain, /clearFeedAnalyticsOutbox\(previousUserId\)/);
   assert.match(nativeMain, /clearFeedCardAnalyticsOutbox\(previousUserId\)/);
   assert.match(nativeMain, /clearSponsorAnalyticsOutbox\(previousUserId\)/);
+  assert.match(sponsorAnalytics, /persistentOutbox\.enqueue\(userId, 'sponsor'/);
+  assert.match(sponsorAnalytics, /persistentOutbox\.pending\(userId, 'sponsor', 1\)/);
+  assert.match(sponsorAnalytics, /persistentOutbox\.acknowledge\(userId, 'sponsor', \[event\.eventId\]\)/);
   assert.match(sponsorAnalytics, /persistentOutbox\.pending\(userId, 'sponsor', 1\)/);
   assert.match(sponsorAnalytics, /persistentOutbox\.acknowledge\(userId, 'sponsor', \[event\.eventId\]\)/);
   assert.match(analytics, /persistentOutbox\.pending\(userId, 'topic', batchLimit\)/);
