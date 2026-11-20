@@ -532,7 +532,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
             ? 'Choose optional analytics. Service improvement analytics is required while personalisation is enabled; sponsor measurement remains separate.'
             : effectivePersonalizationEnabled
               ? 'Personalisation is on, so Service improvement analytics is required. Turn off personalisation before disabling it.'
-              : 'Optional analytics help improve CathoScroll. Personalisation also uses your reading activity; sponsor measurement is separate. Signed-out topic and comment activity is counted only in daily totals, without visitor profiles.'}
+              : 'Optional analytics help improve CathoScroll. Personalisation also uses your reading activity; sponsor measurement is separate. Signed-out topic and comment activity is counted only in daily totals, without account, visitor or session identifiers.'}
         </p>
 
         {!managing ? (
@@ -605,7 +605,12 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
               <button
                 type="button"
                 disabled={saving}
-                onClick={() => void setAnonymousFeedAnalyticsEnabled(!anonymousAggregateEnabled)}
+                onClick={() => {
+                  const next = !anonymousAggregateEnabled;
+                  void setAnonymousFeedAnalyticsEnabled(next).then(() => setAnonymousAggregateEnabled(next)).catch(() => {
+                    setError('Your anonymous aggregate measurement preference could not be saved.');
+                  });
+                }}
                 className="text-accent mt-2 text-sm font-semibold underline underline-offset-2 disabled:opacity-50"
               >
                 {anonymousAggregateEnabled ? 'Turn off anonymous aggregate measurement' : 'Turn on anonymous aggregate measurement'}
