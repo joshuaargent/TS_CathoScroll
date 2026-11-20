@@ -1,7 +1,7 @@
 'use client';
 
 import type { SignedInAnalyticsOutbox } from './offline/signed-in-analytics-store';
-import { hasAnalyticsConsent } from './analytics-consent';
+import { createConsentBoundAbortSignal, hasAnalyticsConsent } from './analytics-consent';
 
 type FeedCardEventType = 'impression' | 'viewable_impression' | 'active_duration' | 'skip' | 'completion' | 'open';
 type QueuedEvent = {
@@ -112,8 +112,14 @@ export async function flushFeedCardAnalytics(userId: string, keepalive = false) 
   }
   if (!navigator.onLine || flushingUsers.has(userId)) return;
   flushingUsers.add(userId);
+  const consentRequest = createConsentBoundAbortSignal('serviceImprovement', userId);
   try {
     for (;;) {
+      if (!hasAnalyticsConsent('serviceImprovement', userId)) {
+        writeQueue(userId, []);
+        if (persistentOutbox) await persistentOutbox.clearStream(userId, 'comment');
+        break;
+      }
       const stored = persistentOutbox ? await persistentOutbox.pending(userId, 'comment', 50) : [];
       const storedIds = new Set(stored.map((event) => event.event_id));
       const memory = readQueue(userId).filter((event) => !storedIds.has(event.event_id));
@@ -124,7 +130,7 @@ export async function flushFeedCardAnalytics(userId: string, keepalive = false) 
       if (transport?.getAccessToken) {
         let accessToken: string | null;
         try { accessToken = await transport.getAccessToken(); } catch { break; }
-        if (!accessToken) break;
+        if (!accessToken || !hasAnalyticsConsent('serviceImprovement', userId)) break;
         headers.set('Authorization', 'Bearer ' + accessToken);
       }
       let response: Response;
@@ -134,10 +140,16 @@ export async function flushFeedCardAnalytics(userId: string, keepalive = false) 
           credentials: transport?.endpoint ? 'omit' : 'same-origin',
           cache: 'no-store',
           keepalive,
+          signal: consentRequest.signal,
           headers,
           body: JSON.stringify({ events: batch }),
         });
       } catch { break; }
+      if (!hasAnalyticsConsent('serviceImprovement', userId)) {
+        writeQueue(userId, []);
+        if (persistentOutbox) await persistentOutbox.clearStream(userId, 'comment');
+        break;
+      }
       if (!response.ok) break;
       const accepted = new Set(batch.map((event) => event.event_id));
       if (persistentOutbox) await persistentOutbox.acknowledge(userId, 'comment', [...accepted]);
@@ -145,6 +157,7 @@ export async function flushFeedCardAnalytics(userId: string, keepalive = false) 
       if (keepalive) break;
     }
   } finally {
+    consentRequest.dispose();
     flushingUsers.delete(userId);
     const transport = transports.get(userId);
     if (transport?.retired) {
