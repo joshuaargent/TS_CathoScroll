@@ -60,3 +60,9 @@ test('pending offline withdrawal tombstones survive cache expiry and account cac
   assert.match(cache, /checked_at < \? AND pending_sync = 0/);
   assert.match(cache, /DELETE FROM offline_personalization_consent_cache WHERE user_id = \? AND pending_sync = 0/);
 });
+
+
+test('native feed retries queued consent withdrawal automatically on reconnect', () => {
+  assert.match(native, /addEventListener\('online', retryPendingConsentSync\)/);
+  assert.match(native, /removeEventListener\('online', retryPendingConsentSync\)/);
+});
