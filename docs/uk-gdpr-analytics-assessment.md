@@ -128,7 +128,7 @@ The controller must complete and sign off these decisions; engineering cannot ma
 4. Approve the separate sponsor-measurement purpose and Article 6 basis; confirm that opt-out campaign/day served totals are sufficient for non-consenting visitors.
 5. Confirm whether under-18 users may use analytics/personalisation and what age-appropriate consent and safeguards are required.
 6. Approve the residual DPIA risks and retention periods, including sponsor accounting records and request/security logs.
-7. Confirm processor/controller roles, DPAs, subprocessors and international transfer safeguards for Supabase and Vercel. The current Vercel Hobby plan is documented as unsuitable for commercial sponsorship; do not activate paid sponsor advertising until the commercial-plan/processor-contract issue is resolved.
+7. Confirm processor/controller roles, DPAs, subprocessors and international transfer safeguards for Supabase and Vercel. No paid sponsor campaigns are currently active; the owner intends to move to an appropriate commercial hosting plan before accepting paid sponsorship revenue. This is a future commercial-readiness action, not a blocker to the current pre-revenue service.
 8. Confirm PECR treatment of browser consent-preference storage and native app preference/outbox storage, and approve the deployed implementation after web and physical Android/Electron verification.
 
 ## 9. Legal and technical sources
