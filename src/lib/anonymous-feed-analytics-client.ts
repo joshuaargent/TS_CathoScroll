@@ -23,7 +23,16 @@ export const anonymousAnalyticsPreferenceKey = 'cathoscroll.anonymous-analytics.
 export const anonymousAnalyticsPreferenceChangeEvent = 'cathoscroll:anonymous-analytics-preference-change';
 
 function anonymousAnalyticsEnabled(): boolean {
-  return typeof window !== 'undefined';
+  if (typeof window === 'undefined') return false;
+  try {
+    return window.localStorage.getItem(anonymousAnalyticsPreferenceKey) !== 'false';
+  } catch {
+    return true;
+  }
+}
+
+export function isAnonymousFeedAnalyticsEnabled(): boolean {
+  return anonymousAnalyticsEnabled();
 }
 const recentEventKeys = new Map<string, number>();
 const pendingEvents: AnonymousFeedAnalyticsEvent[] = [];
@@ -64,8 +73,12 @@ function getEndpoint(): string {
 
 export async function setAnonymousFeedAnalyticsEnabled(enabled: boolean): Promise<void> {
   if (typeof window === 'undefined') throw new Error('Analytics preferences are unavailable.');
-  // The versioned consent record is the sole permission source. This legacy
-  // function remains as a queue-clearing compatibility API for older callers.
+  try {
+    if (enabled) window.localStorage.removeItem(anonymousAnalyticsPreferenceKey);
+    else window.localStorage.setItem(anonymousAnalyticsPreferenceKey, 'false');
+  } catch {
+    if (!enabled) throw new Error('Unable to save the anonymous analytics objection.');
+  }
   window.dispatchEvent(new Event(anonymousAnalyticsPreferenceChangeEvent));
   if (!enabled) {
     pendingEvents.splice(0, pendingEvents.length);
@@ -193,6 +206,7 @@ export function installAnonymousFeedAnalyticsSync(): () => void {
     if (typeof document !== 'undefined') {
       document.addEventListener('visibilitychange', () => void flushAnonymousFeedAnalyticsQueue());
     }
+    window.addEventListener(anonymousAnalyticsPreferenceChangeEvent, () => void flushAnonymousFeedAnalyticsQueue());
   }
   if (!persistentOutbox) void flushAnonymousFeedAnalyticsQueue();
   return () => undefined;
