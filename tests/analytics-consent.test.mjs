@@ -48,6 +48,7 @@ test('account consent sync is identity-bound, retryable and enforced server-side
   assert.ok(manager.includes("window.addEventListener('online', syncServerConsent)"));
   assert.ok(manager.includes('local.syncPending || !remote.exists'));
   assert.ok(manager.includes('getAccessToken(expectedUserId)'));
+  assert.ok(manager.includes('}, [loading, userId]);'));
   assert.ok(manager.includes('activeUserIdRef.current === expectedUserId'));
   assert.ok(manager.includes('syncAbortRef.current?.abort()'));
   assert.ok(route.includes("request.headers.get('X-Catho-Expected-User-Id')"));
