@@ -149,3 +149,19 @@ The controller must complete and sign off these decisions; engineering cannot ma
 **Date approved:** Pending.
 
 No code change, checkbox or this draft assessment should be represented as a guarantee of legal compliance until the controller has completed the decisions above and verified the deployed behaviour.
+
+## Implementation status: draft PR #25
+
+The proposed consent controls are now represented in code in draft PR #25, but are not deployed:
+
+- Separate default-off Service improvement analytics and Sponsor measurement choices, with Accept all, Decline optional and Manage choices.
+- Explicit service-improvement wording describing the risk that signed-in topic/comment engagement may reveal religious or philosophical beliefs.
+- Account-scoped signed-in consent storage/history and server-side gates for signed-in topic, comment and sponsor measurement events.
+- Device-local signed-out consent kept separate from account consent; signed-out aggregate events continue to omit account/session/visitor identifiers.
+- Immediate local withdrawal, purpose-specific offline queue clearing, and retryable signed-in consent synchronisation.
+- Sponsor delivery continues after measurement refusal, with campaign/day served totals only and no visitor/session frequency or viewability/click records.
+- Vercel Web Analytics and Speed Insights are gated behind Service improvement analytics. Recommendation personalisation remains separate.
+
+The consent upgrade has not been executed against a disposable PostgreSQL database or production. The live database still has the earlier non-null sponsor session-token requirement. The controls are not active in production. Do not rely on this draft as evidence that production processing has already changed.
+
+Before release, the controller must approve the Article 6 basis for each analytics purpose and determine whether account-linked topic/comment activity is special-category data in the actual processing. If it is, the controller must document and validate the Article 9 condition; explicit consent must be specific, informed, freely given, unambiguous and withdrawable. The consent interface is a technical control, not legal approval.
