@@ -433,7 +433,7 @@ BEGIN
   WHERE user_id=p_user_id AND enabled=true;
   RETURN v_count;
 END;
-$function$
+$function$;
 
 
 
