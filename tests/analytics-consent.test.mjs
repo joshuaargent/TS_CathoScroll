@@ -28,6 +28,7 @@ test('optional analytics consent is explicit, purpose-specific and off by defaul
   assert.ok(manager.includes('Sponsor measurement'));
   assert.ok(manager.includes('I explicitly agree to Sponsor measurement'));
   assert.ok(manager.includes('We do not use these analytics for recommendation personalisation or to infer religious beliefs'));
+  assert.ok(manager.includes('Accept all consents to both; Reject all declines both; Manage choices lets you choose separately'));
   assert.ok(manager.includes('recommendations have a separate, optional opt-in.'));
   assert.ok(manager.includes('topic activity and sponsor placements may still reveal religious or philosophical interests.'));
   assert.ok(manager.includes('topic placement where a sponsor appeared'));
