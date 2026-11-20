@@ -90,38 +90,29 @@ test('Top Comments inventory refreshes safely without replacing unrelated cached
   assert.ok(feed.includes('if (comments.length === 0)'));
 });
 
-test('feed analytics local queue is bounded to the most recent 200 events per account', () => {
-  const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
+test('feed analytics in-memory queue is bounded to the most recent 200 events per account', async () => {
   const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
-  const values = new Map();
-  Object.defineProperty(globalThis, 'window', {
-    configurable: true,
-    value: {
-      localStorage: {
-        getItem: (key) => values.get(key) ?? null,
-        setItem: (key, value) => values.set(key, value),
-        removeItem: (key) => values.delete(key),
-      },
-    },
-  });
-  Object.defineProperty(globalThis, 'navigator', {
-    configurable: true,
-    value: { onLine: false },
-  });
-
+  const originalFetch = globalThis.fetch;
+  const requests = [];
+  globalThis.fetch = async (_url, init) => {
+    requests.push(JSON.parse(init.body).events);
+    return new Response(JSON.stringify({ accepted: 50 }), { status: 200 });
+  };
+  Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { onLine: false } });
   try {
     const userId = 'bounded-feed-analytics-test';
     for (let index = 0; index < 250; index += 1) {
       analyticsModule.recordFeedAnalyticsEvent(userId, 'impression', 'topic-' + index);
     }
-    const queued = JSON.parse(values.get('cathoscroll.feed-analytics.v1.' + userId));
+    Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { onLine: true } });
+    await analyticsModule.flushFeedAnalytics(userId);
+    const queued = requests.flat();
     assert.equal(queued.length, 200);
     assert.equal(new Set(queued.map((event) => event.event_id)).size, 200);
     assert.equal(queued[0].entity_id, 'topic-50');
     assert.equal(queued.at(-1).entity_id, 'topic-249');
   } finally {
-    if (originalWindow) Object.defineProperty(globalThis, 'window', originalWindow);
-    else delete globalThis.window;
+    globalThis.fetch = originalFetch;
     if (originalNavigator) Object.defineProperty(globalThis, 'navigator', originalNavigator);
     else delete globalThis.navigator;
   }
@@ -132,17 +123,11 @@ test('final native reading-time events retain the authenticated transport throug
   const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
   const originalDocument = Object.getOwnPropertyDescriptor(globalThis, 'document');
   const originalFetch = globalThis.fetch;
-  const values = new Map();
   const requests = [];
 
   Object.defineProperty(globalThis, 'window', {
     configurable: true,
     value: {
-      localStorage: {
-        getItem: (key) => values.get(key) ?? null,
-        setItem: (key, value) => values.set(key, value),
-        removeItem: (key) => values.delete(key),
-      },
       addEventListener() {},
       removeEventListener() {},
     },
@@ -182,7 +167,6 @@ test('final native reading-time events retain the authenticated transport throug
     assert.equal(requests.length, 1);
     assert.equal(requests[0].url, 'https://cathoscroll.example/api/analytics/feed-events');
     assert.equal(requests[0].authorization, 'Bearer native-session-token');
-    assert.equal(values.has('cathoscroll.feed-analytics.v1.' + userId), false);
   } finally {
     globalThis.fetch = originalFetch;
     if (originalWindow) Object.defineProperty(globalThis, 'window', originalWindow);
@@ -195,45 +179,32 @@ test('final native reading-time events retain the authenticated transport throug
 });
 
 
-test('feed topic visit attribution ignores StrictMode effect replays', () => {
-  const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
+test('feed topic visit attribution ignores StrictMode effect replays', async () => {
   const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+  const originalFetch = globalThis.fetch;
   const originalNow = Date.now;
-  const values = new Map();
+  const requests = [];
   let now = 1000;
   Date.now = () => now;
-  Object.defineProperty(globalThis, 'window', {
-    configurable: true,
-    value: {
-      localStorage: {
-        getItem: (key) => values.get(key) ?? null,
-        setItem: (key, value) => values.set(key, value),
-        removeItem: (key) => values.delete(key),
-      },
-    },
-  });
-  Object.defineProperty(globalThis, 'navigator', {
-    configurable: true,
-    value: { onLine: false },
-  });
-
+  globalThis.fetch = async (_url, init) => {
+    requests.push(JSON.parse(init.body).events);
+    return new Response(JSON.stringify({ accepted: 50 }), { status: 200 });
+  };
+  Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { onLine: false } });
   try {
     const userId = 'strict-mode-feed-visit-test';
     analyticsModule.recordFeedTopicVisit(userId, 'topic-repeat');
     analyticsModule.recordFeedTopicVisit(userId, 'topic-repeat');
-    let queued = JSON.parse(values.get('cathoscroll.feed-analytics.v1.' + userId));
-    assert.equal(queued.filter((event) => event.event_type === 'impression').length, 1);
-    assert.equal(queued.filter((event) => event.event_type === 'return_visit').length, 0);
-
     now += 101;
     analyticsModule.recordFeedTopicVisit(userId, 'topic-repeat');
-    queued = JSON.parse(values.get('cathoscroll.feed-analytics.v1.' + userId));
+    Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { onLine: true } });
+    await analyticsModule.flushFeedAnalytics(userId);
+    const queued = requests.flat();
     assert.equal(queued.filter((event) => event.event_type === 'impression').length, 2);
     assert.equal(queued.filter((event) => event.event_type === 'return_visit').length, 1);
   } finally {
     Date.now = originalNow;
-    if (originalWindow) Object.defineProperty(globalThis, 'window', originalWindow);
-    else delete globalThis.window;
+    globalThis.fetch = originalFetch;
     if (originalNavigator) Object.defineProperty(globalThis, 'navigator', originalNavigator);
     else delete globalThis.navigator;
   }
