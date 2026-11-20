@@ -42,8 +42,8 @@ test('account consent sync is identity-bound, retryable and enforced server-side
     read('../src/app/api/analytics/feed-events/route.ts'),
     read('../src/app/api/analytics/feed-card-events/route.ts'),
     read('../src/app/api/content/sponsor-campaign-events/route.ts'),
-    read('../supabase/migrations/20261120180000_analytics_consent_and_sponsor_opt_out.sql'),
-    read('../supabase/migrations/20261120200000_fix_analytics_consent_lock_order_v2.sql'),
+    read('../supabase/migrations/20261120173544_analytics_consent_and_sponsor_opt_out.sql'),
+    read('../supabase/migrations/20261120175931_fix_analytics_consent_lock_order_v2.sql'),
   ]);
 
   assert.ok(manager.includes("window.addEventListener('online', syncServerConsent)"));
