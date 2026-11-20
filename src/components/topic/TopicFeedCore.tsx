@@ -541,9 +541,20 @@ export function TopicFeedCore({
       if (comments.length === 0) return boundary;
       nextCommentIndex += comments.length;
       for (const comment of comments) reservedCommentIdsForMap.add(comment.comment_id);
+      const commentEntry: FeedEntry = {
+        type: 'top-comments',
+        topicId: boundary.topicId,
+        comments,
+      };
+      const sponsorIndex = boundary.entries.findIndex((entry) => entry.type === 'sponsor');
+      const insertIndex = sponsorIndex >= 0 ? sponsorIndex : boundary.entries.length;
       return {
         ...boundary,
-        entries: [...boundary.entries, { type: 'top-comments' as const, topicId: boundary.topicId, comments }],
+        entries: [
+          ...boundary.entries.slice(0, insertIndex),
+          commentEntry,
+          ...boundary.entries.slice(insertIndex),
+        ],
       };
     });
     const remainingComments = unseenComments.slice(nextCommentIndex);
