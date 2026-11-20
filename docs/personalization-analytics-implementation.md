@@ -13,6 +13,8 @@ The existing measurement streams remain separate:
 
 Sponsor delivery signals are never added to organic topic recommendation weights.
 
+**Production rollout status:** the currently deployed production profile refresher still reads `feed_analytics_events` and `feed_card_analytics_events` when recommendation personalisation is enabled. PR26 replaces that dependency with explicit-action-only profile inputs and versioned cursor rebasing. Until the SQL upgrade is applied to production, do not describe the two data flows as fully separated.
+
 ## Personalisation privacy model
 
 Personalisation is **off by default**. The account owner must explicitly opt in using the separate signup checkbox or Account → Personalisation. The consent record is versioned and belongs to the authenticated account. Signup consent is captured by an `auth.users` insert trigger from the one-time signup metadata value; subsequent user-metadata edits do not re-enable it. The browser cannot read or write the private profile tables directly.
@@ -47,6 +49,7 @@ The profile is private: it is not exposed through public profiles and is not use
 - `public.set_my_personalization_interests(text[])`: validates and replaces the current user's selected categories.
 - `catho_private.refresh_user_interest_profile(uuid)`: private recomputation from explicit account actions only; not executable by app roles.
 - `catho_private.get_user_feed_preference_signals(uuid)`: owner-checked recommendation helper; returns explicit-action and selected-category signals only while opted in.
+- `catho_private.get_user_recommendation_category_weights(uuid)`: private, consent-checked helper shared by first-page ranking and active-cursor rebasing; explicit account actions only.
 - `public.get_admin_analytics_deep_dive(uuid,timestamptz,timestamptz)`: admin-verified aggregate-only reporting function, callable only by the service role.
 
 All profile tables are in the private schema, have RLS enabled, and have no direct client grants. Public RPCs derive identity from `auth.uid()`; callers cannot pass another account ID.
@@ -60,7 +63,7 @@ The unified `/admin/analytics` page now adds:
 - Recommendation outcomes: actual feed-origin topic entries followed by viewability, active time, completion, skip and return behaviour.
 - Cohort retention: first-observed feed cohorts with 7-day and 30-day return rates, counting a return only when it occurs in a distinct feed session. A rate remains unavailable until the cohort has a complete observation window; it is never shown as a false zero.
 - Category discovery: published topic coverage, impressions, viewability and completions by category.
-- Period comparison: the same-length immediately preceding period for topic, sponsor, comment-card and combined placement volume.
+- Current-period overview: daily trend graph plus five navigation cards; duplicate previous-period comparison cards and duplicate entity-count rows are intentionally omitted while detailed category/topic/sponsor/comment sections remain.
 
 All report payloads are aggregated. They do not return user IDs, session IDs, raw comment text or individual activity histories. The current recommendation report measures outcomes for topics users actually entered. It is not a randomized A/B experiment and does not claim to measure unshown candidate topics. Period-over-period changes are descriptive comparisons, not statistical-significance claims.
 
@@ -81,4 +84,4 @@ The live deep-dive RPC was smoke-tested for a 30-day administrator reporting win
 
 The Supabase security and performance advisors were rerun after the schema changes. New profile tables are private and direct client grants are revoked. The advisors continue to report existing project-wide private-schema RLS-without-policy notices and existing authenticated SECURITY DEFINER RPC notices; these need to be assessed against their intended function contracts rather than broadly suppressing the findings. The new profile foreign-key indexes were added after the performance advisor identified missing coverage.
 
-The versioned database upgrade is [personalization-analytics-upgrade.sql](personalization-analytics-upgrade.sql). The canonical fresh-project SQL bootstrap includes the same personalisation tables, functions, indexes and grants. The live project was updated through the corresponding database migrations.
+The versioned database upgrade is [personalization-analytics-upgrade.sql](personalization-analytics-upgrade.sql). The canonical fresh-project SQL bootstrap includes the same personalisation tables, functions, indexes and grants. The live project still has the previous analytics-coupled profile refresher. PR26 updates the canonical bootstrap and existing upgrade SQL; the production SQL change is applied directly after merge.
