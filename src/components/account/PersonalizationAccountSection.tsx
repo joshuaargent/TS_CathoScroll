@@ -5,8 +5,12 @@ import { ShieldCheck, Sparkles } from 'lucide-react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { Button } from '@/components/ui/Button';
-import { AnalyticsConsentSettingsButton } from '@/components/privacy/AnalyticsConsentManager';
 import { requestAnalyticsConsentSync } from '@/lib/analytics-consent';
+
+type AnalyticsChoices = {
+  serviceImprovement: boolean;
+  sponsorMeasurement: boolean;
+};
 
 type PersonalizationStatus = {
   enabled: boolean;
@@ -64,8 +68,34 @@ function readTopicInterests(value: unknown): PersonalizationStatus['top_topic_in
   );
 }
 
+async function readAnalyticsChoices(client: SupabaseClient, userId: string): Promise<AnalyticsChoices> {
+  const { data: sessionData, error: sessionError } = await client.auth.getSession();
+  if (sessionError || !sessionData.session?.access_token) throw sessionError ?? new Error('Authentication required.');
+  const response = await fetch('/api/privacy/analytics-consent', {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${sessionData.session.access_token}`,
+      'X-Catho-Expected-User-Id': userId,
+    },
+    cache: 'no-store',
+  });
+  const payload: unknown = await response.json().catch(() => null);
+  if (!response.ok || !isRecord(payload) || !isRecord(payload.consent)) {
+    throw new Error(isRecord(payload) && typeof payload.error === 'string' ? payload.error : 'Unable to read analytics choices.');
+  }
+  if (typeof payload.consent.serviceImprovement !== 'boolean' || typeof payload.consent.sponsorMeasurement !== 'boolean') {
+    throw new Error('Invalid analytics choices response.');
+  }
+  return {
+    serviceImprovement: payload.consent.serviceImprovement,
+    sponsorMeasurement: payload.consent.sponsorMeasurement,
+  };
+}
+
 export function PersonalizationAccountSection({ client }: { client: SupabaseClient }) {
   const [status, setStatus] = useState<PersonalizationStatus>(emptyStatus);
+  const [analyticsChoices, setAnalyticsChoices] = useState<AnalyticsChoices | null>(null);
+  const [analyticsSaving, setAnalyticsSaving] = useState(false);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -103,6 +133,12 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
       };
       setStatus(nextStatus);
       setSelectedCategories(nextStatus.selected_categories);
+      try {
+        const nextAnalyticsChoices = await readAnalyticsChoices(client, authData.user.id);
+        if (request === requestVersion.current) setAnalyticsChoices(nextAnalyticsChoices);
+      } catch {
+        if (request === requestVersion.current) setAnalyticsChoices(null);
+      }
       return true;
     } catch (cause) {
       if (request !== requestVersion.current) return false;
@@ -130,6 +166,49 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
       requestVersion.current += 1;
     };
   }, [load]);
+
+  async function updateAnalyticsChoice(key: keyof AnalyticsChoices, value: boolean) {
+    if (!analyticsChoices || analyticsSaving || loading || saving) return;
+    if (key === 'serviceImprovement' && status.enabled && !value) {
+      setError('Turn off personalisation before disabling Service improvement analytics.');
+      return;
+    }
+    const next = { ...analyticsChoices, [key]: value };
+    setAnalyticsSaving(true);
+    setError('');
+    setMessage('');
+    try {
+      const { data: sessionData, error: sessionError } = await client.auth.getSession();
+      if (sessionError || !sessionData.session?.access_token) throw sessionError ?? new Error('Authentication required.');
+      const response = await fetch('/api/privacy/analytics-consent', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${sessionData.session.access_token}`,
+          'X-Catho-Expected-User-Id': accountUserId ?? '',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ ...next, version: 1 }),
+      });
+      const payload: unknown = await response.json().catch(() => null);
+      if (!response.ok || !isRecord(payload) || !isRecord(payload.consent)) {
+        throw new Error(isRecord(payload) && typeof payload.error === 'string' ? payload.error : 'Unable to save analytics choices.');
+      }
+      if (typeof payload.consent.serviceImprovement !== 'boolean' || typeof payload.consent.sponsorMeasurement !== 'boolean') {
+        throw new Error('Invalid analytics choices response.');
+      }
+      setAnalyticsChoices({
+        serviceImprovement: payload.consent.serviceImprovement,
+        sponsorMeasurement: payload.consent.sponsorMeasurement,
+      });
+      requestAnalyticsConsentSync();
+      setMessage('Analytics choices saved.');
+    } catch (cause) {
+      console.error('Unable to update analytics choices:', cause);
+      setError(cause instanceof Error ? cause.message : 'Unable to save analytics choices. Try again.');
+    } finally {
+      setAnalyticsSaving(false);
+    }
+  }
 
   async function updateConsent(enabled: boolean) {
     if (saving || savingInterests || loading || enabled === status.enabled) return;
@@ -293,7 +372,34 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
           <p className="text-text-muted mt-1 text-sm leading-relaxed">
             Service improvement analytics is automatically enabled while personalisation is enabled and cannot be switched off independently. Turn off personalisation first, then manage service improvement analytics and Sponsor measurement separately.
           </p>
-          <div className="mt-3"><AnalyticsConsentSettingsButton /></div>
+          <div className="mt-3 grid gap-3">
+            <label className="border-border flex cursor-pointer items-start gap-3 rounded-xl border p-4">
+              <input
+                type="checkbox"
+                checked={status.enabled || analyticsChoices?.serviceImprovement === true}
+                disabled={loading || saving || analyticsSaving || !analyticsChoices || status.enabled}
+                onChange={(event) => void updateAnalyticsChoice('serviceImprovement', event.target.checked)}
+                className="mt-1 h-4 w-4 accent-current"
+              />
+              <span className="min-w-0">
+                <span className="text-text-primary block font-semibold">Service improvement analytics{status.enabled ? ' — required for personalisation' : ''}</span>
+                <span className="text-text-muted mt-1 block text-sm">Measures topic and comment engagement to improve CathoScroll. While personalisation is on, eligible reading signals also improve your recommendations and this switch is locked on.</span>
+              </span>
+            </label>
+            <label className="border-border flex cursor-pointer items-start gap-3 rounded-xl border p-4">
+              <input
+                type="checkbox"
+                checked={analyticsChoices?.sponsorMeasurement === true}
+                disabled={loading || saving || analyticsSaving || !analyticsChoices}
+                onChange={(event) => void updateAnalyticsChoice('sponsorMeasurement', event.target.checked)}
+                className="mt-1 h-4 w-4 accent-current"
+              />
+              <span className="min-w-0">
+                <span className="text-text-primary block font-semibold">Sponsor measurement</span>
+                <span className="text-text-muted mt-1 block text-sm">Measures sponsor viewability, clicks and frequency. It is optional and is never used to personalise recommendations or target you using your private interest profile.</span>
+              </span>
+            </label>
+          </div>
         </div>
 
         <div className="border-border mt-6 border-t pt-5">
