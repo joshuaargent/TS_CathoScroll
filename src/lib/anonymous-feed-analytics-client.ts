@@ -226,7 +226,7 @@ export async function flushAnonymousFeedAnalyticsQueue(): Promise<void> {
     try {
       const response = await fetch(getEndpoint(), {
         method: 'POST',
-        credentials: 'same-origin',
+        credentials: 'omit',
         cache: 'no-store',
         keepalive: true,
         headers: { 'Content-Type': 'application/json' },
