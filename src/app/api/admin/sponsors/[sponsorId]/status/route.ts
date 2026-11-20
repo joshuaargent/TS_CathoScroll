@@ -34,10 +34,9 @@ export function OPTIONS(request: Request) {
 
 export async function PATCH(request: Request, { params }: RouteContext) {
   if (!isSameOriginOrNativeRequest(request)) return respond(request, { error: 'Forbidden' }, 403);
-  const { user, isAdmin, error, mfaRequired } = await getAdminSessionFromRequest(request);
+  const { user, isAdmin, error } = await getAdminSessionFromRequest(request);
   if (!user) return respond(request, { error: 'Authentication required.' }, 401);
   if (error) return respond(request, { error: 'Unable to verify administrator access.' }, 500);
-  if (mfaRequired) return respond(request, { error: 'Complete administrator MFA before changing sponsor status.' }, 403);
   if (!isAdmin) return respond(request, { error: 'Forbidden' }, 403);
 
   const limit = await checkApiRateLimit({
