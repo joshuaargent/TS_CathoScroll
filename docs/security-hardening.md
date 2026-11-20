@@ -25,8 +25,7 @@ Important RPCs include:
 - `get_public_profile_metrics`
 - `get_my_recommendation_page`
 - `is_cathoscroll_content_admin` (SECURITY INVOKER wrapper over a private SECURITY DEFINER helper)
-- `admin_user_has_verified_totp`
-- Owner-only administrator role, MFA-enforcement and audit functions.
+- Owner-only administrator role and audit functions.
 
 Private/internal tables intentionally have no direct API policies. Their access is through restricted server-side functions or triggers.
 
@@ -92,7 +91,7 @@ API rate-limit responses include `Retry-After` where applicable.
 
 - `public.get_admin_content_analytics(text,text,timestamptz,timestamptz)` is an on-demand aggregate RPC for topic/category dashboards. It is owned by postgres, uses SECURITY DEFINER with an empty search path, validates entity and date-window inputs (maximum 180 days), and is executable only by service_role. It returns counts and daily buckets only, never user IDs, session IDs or raw event rows.
 - The aggregate function also counts existing likes, bookmarks, visible top-level comments, visible replies and completed-topic records separately from feed telemetry. These historical interaction records are not used to infer impressions or reading time.
-- The admin pages call the existing server-side admin/MFA guard and apply a shared per-admin rate limit before invoking the aggregate RPC. The RPC is not directly executable by anon or authenticated roles.
+- The admin pages call the existing server-side administrator-role guard and apply a shared per-admin rate limit before invoking the aggregate RPC. The RPC is not directly executable by anon or authenticated roles.
 - `public.get_top_feed_comments(integer, integer)` is a separate server-only selector. It is SECURITY DEFINER with an empty search path and executable only by service_role. The public endpoint accepts bounded offset/limit pagination (up to 100 rows per page), returns an explicit allowlist of public comment/author/topic fields, and never exposes user IDs, emails, profile bios, moderation notes or raw events. It excludes deleted/hidden comments, replies as candidates, and comments belonging to unpublished content.
 
 ## Recommendation telemetry access
@@ -127,11 +126,10 @@ The website loads comments in 50-row cursor pages. Like counts and the current v
 - The owner alone can grant or revoke administrator roles.
 - A target account must have a verified TOTP factor before it can be granted administrator access.
 - Moderation, role and security actions are written to an append-only audit table; only the owner can view the paginated audit log.
-- Account Security provides TOTP enrollment, backup-factor setup and enforcement activation.
-- Enforcement checks AAL2 and a TOTP authentication method in API authorization and the database admin RLS helper.
-- Native administrator access has a TOTP challenge gate.
+- Account Security provides optional per-account TOTP enrollment, verification and backup-factor setup. This uses Supabase Auth MFA factors and does not impose an organisation-wide administrator MFA policy.
+- Supabase organisation-wide MFA enforcement is not used by CathoScroll. Administrator access is based on the protected administrator-role table; each account may independently enable TOTP, which will then be challenged at sign-in by Supabase Auth.
 
-**Current state:** administrator MFA enforcement remains disabled. The current owner must enroll and verify a TOTP factor, securely save the setup secret or add a backup authenticator, then enable enforcement at `/account/security`. The database refuses activation until every current administrator has a verified TOTP factor.
+**Current state:** custom administrator MFA enforcement, its database control table/functions and the native blocking gate have been removed. TOTP enrollment remains optional per account.
 
 ## API and browser protections
 
@@ -202,7 +200,7 @@ Sponsor portal reads are server-side and filtered by the authenticated user's ac
 
 Administrators create and issue invoices through `public.admin_create_sponsor_invoice`. Invoice currency must match the sponsor's agreed currency. Bank transfers are made outside CathoScroll; an administrator checks the bank statement and records the actual amount received using `public.admin_record_sponsor_payment`. Partial payments update the outstanding balance, overpayments are rejected, and an optional unique statement transaction key prevents duplicate allocation. Refunds are separate transactions linked to the original payment and cannot exceed its unrefunded amount. `public.admin_record_sponsor_refund` is scoped to a sponsor and original payment. Payment status is recalculated from the agreed amount and all outstanding issued invoices; the previous direct `admin_mark_sponsor_payment_received` override has had execution revoked. Invoice/payment/refund actions are appended to the administrator audit log.
 
-Sponsor financial summaries contain only the organisation's invoices, balances and bank-transfer references. They do not expose the administrator who recorded a transaction or any other sponsor's data. Admin financial APIs require administrator/MFA verification, same-origin/native request validation, bounded JSON and shared rate limits. Sponsor financial APIs require an active authenticated membership. No bank account details, card details, payment-provider credentials or bank integrations are stored in CathoScroll.
+Sponsor financial summaries contain only the organisation's invoices, balances and bank-transfer references. They do not expose the administrator who recorded a transaction or any other sponsor's data. Admin financial APIs require administrator-role verification, same-origin/native request validation, bounded JSON and shared rate limits. Sponsor financial APIs require an active authenticated membership. No bank account details, card details, payment-provider credentials or bank integrations are stored in CathoScroll.
 
 
 ## Feed analytics aggregate storage
@@ -212,7 +210,7 @@ The account-linked daily analytics tables and viewer bridge remain in the non-ex
 
 ## Sponsor campaign security controls
 
-Campaign inventory is protected by RLS with direct access revoked from public, anonymous and authenticated clients. The service role has SELECT-only access for the administrator inventory; INSERT, UPDATE and DELETE are revoked so campaign writes must use audited RPCs. Campaign creation, approval, pausing/resuming and aggregate reporting use postgres-owned SECURITY DEFINER functions with an empty search path and execution restricted to `service_role`. Administrator endpoints independently verify administrator MFA, same-origin/native requests, bounded JSON and per-admin rate limits.
+Campaign inventory is protected by RLS with direct access revoked from public, anonymous and authenticated clients. The service role has SELECT-only access for the administrator inventory; INSERT, UPDATE and DELETE are revoked so campaign writes must use audited RPCs. Campaign creation, approval, pausing/resuming and aggregate reporting use postgres-owned SECURITY DEFINER functions with an empty search path and execution restricted to `service_role`. Administrator endpoints independently verify the administrator role, same-origin/native requests, bounded JSON and per-admin rate limits.
 
 Campaign delivery and event recording are also service-role-only RPCs. Signed-in delivery verifies the authenticated user; signed-out delivery uses a random in-memory session token whose SHA-256 hash is used only for frequency controls. Both paths serialize selection, lock selected campaign rows to enforce global caps, and filter by sponsor payment/status/date windows, campaign dates, targeting and frequency caps. The API returns only approved public creative fields. Anonymous events are tied to the exact topic placement and hashed session; clicks require a prior viewable impression for that placement. Signed-in and anonymous daily campaign metrics are stored separately and combined only for clearly labelled aggregate CTR/reporting. Anonymous raw event and session-frequency rows are deleted once they pass the 30-day retention threshold by a 15-minute cleanup job that deletes up to 5,000 expired rows per table per run; account-linked sponsor events retain their existing retention controls. Sponsors receive aggregate campaign metrics only, never raw user/session events or browsing histories. The bounded retention job automatically completes expired approved/paused campaigns and removes their frequency rows after the retention window.
 
