@@ -285,8 +285,12 @@ test('native signed-in topic and comment analytics use the encrypted private dat
   assert.match(nativeMain, /new NativeSignedInAnalyticsOutbox\(cacheDatabase\)/);
   assert.match(nativeMain, /configureFeedAnalyticsOutbox/);
   assert.match(nativeMain, /configureFeedCardAnalyticsOutbox/);
+  assert.match(nativeMain, /configureSponsorAnalyticsOutbox/);
   assert.match(nativeMain, /clearFeedAnalyticsOutbox\(previousUserId\)/);
   assert.match(nativeMain, /clearFeedCardAnalyticsOutbox\(previousUserId\)/);
+  assert.match(nativeMain, /clearSponsorAnalyticsOutbox\(previousUserId\)/);
+  assert.match(sponsorAnalytics, /persistentOutbox\.pending\(userId, 'sponsor', 1\)/);
+  assert.match(sponsorAnalytics, /persistentOutbox\.acknowledge\(userId, 'sponsor', \[event\.eventId\]\)/);
   assert.match(analytics, /persistentOutbox\.pending\(userId, 'topic', batchLimit\)/);
   assert.match(cardAnalytics, /persistentOutbox\.pending\(userId, 'comment', 50\)/);
 });
