@@ -4,7 +4,7 @@ import test from 'node:test';
 
 const read = (path) => readFile(new URL(path, import.meta.url), 'utf8');
 
-test('signed-in and signed-out analytics require the matching optional consent', async () => {
+test('signed-in analytics requires consent while signed-out aggregates use a separate objection', async () => {
   const [topicViewer, commentViewer, topicRoute, commentRoute, topicClient, commentClient, anonymousClient] = await Promise.all([
     read('../src/components/topic/TopicSwipeViewer.tsx'),
     read('../src/components/topic/TopCommentFeedCard.tsx'),
@@ -23,7 +23,11 @@ test('signed-in and signed-out analytics require the matching optional consent',
   assert.ok(commentRoute.includes('if (!consent.serviceImprovement) return respond(request, { accepted: 0 });'));
   assert.ok(topicClient.includes("hasAnalyticsConsent('serviceImprovement', userId)"));
   assert.ok(commentClient.includes("hasAnalyticsConsent('serviceImprovement', userId)"));
-  assert.ok(anonymousClient.includes("hasAnalyticsConsent('serviceImprovement', null)"));
+  assert.ok(anonymousClient.includes("localStorage.getItem(anonymousAnalyticsPreferenceKey) !== 'false'"));
+  assert.ok(anonymousClient.includes('isAnonymousFeedAnalyticsEnabled'));
+  assert.ok(!anonymousClient.includes('hasAnalyticsConsent'));
+  assert.ok(anonymousClient.includes('setAnonymousFeedAnalyticsEnabled'));
+
   assert.ok(!anonymousClient.includes('userId'));
 });
 
