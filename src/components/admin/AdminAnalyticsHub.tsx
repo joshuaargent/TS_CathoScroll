@@ -168,7 +168,7 @@ export function AdminAnalyticsHub({ overview, period, section = 'overview', seri
     </section>
     <section className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
       <Metric label="Anonymous topic activity" value={number(t.anonymous_topic_impressions)} detail={number(t.anonymous_topic_viewable_impressions) + ' viewable · ' + duration(t.anonymous_topic_active_duration_ms) + ' active time'} icon={BookOpen} />
-      <Metric label="Anonymous sponsor delivery" value={number(t.anonymous_sponsor_served)} detail={number(t.anonymous_sponsor_viewable_impressions) + ' viewable · ' + number(t.anonymous_sponsor_clicks) + ' clicks'} icon={Megaphone} />
+      <Metric label="Anonymous sponsor delivery" value={number(t.anonymous_sponsor_served)} detail={number(t.anonymous_sponsor_viewable_impressions) + ' measured viewable · ' + number(t.anonymous_sponsor_clicks) + ' clicks; opted-out deliveries excluded'} icon={Megaphone} />
       <Metric label="Anonymous Top Comments" value={number(t.anonymous_comment_card_impressions)} detail={number(t.anonymous_comment_card_viewable_impressions) + ' viewable · ' + number(t.anonymous_comment_card_opens) + ' discussion opens'} icon={MessageCircle} />
     </section>
     <section className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -181,7 +181,7 @@ export function AdminAnalyticsHub({ overview, period, section = 'overview', seri
     <section className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       <Metric label="Topic viewability" value={t.topic_impressions + t.anonymous_topic_impressions ? (((t.topic_viewable_impressions + t.anonymous_topic_viewable_impressions) / (t.topic_impressions + t.anonymous_topic_impressions)) * 100).toFixed(1) + '%' : '—'} detail="Signed-in and anonymous viewable impressions ÷ impressions" icon={Activity} />
       <Metric label="Topic completion rate" value={t.topic_impressions + t.anonymous_topic_impressions ? (((t.topic_completions + t.anonymous_topic_completions) / (t.topic_impressions + t.anonymous_topic_impressions)) * 100).toFixed(1) + '%' : '—'} detail="Signed-in and anonymous completions ÷ impressions" icon={BookOpen} />
-      <Metric label="Sponsor click-through" value={t.sponsor_viewable_impressions + t.anonymous_sponsor_viewable_impressions ? (((t.sponsor_clicks + t.anonymous_sponsor_clicks) / (t.sponsor_viewable_impressions + t.anonymous_sponsor_viewable_impressions)) * 100).toFixed(2) + '%' : '—'} detail="Combined clicks ÷ combined viewable impressions" icon={Megaphone} />
+      <Metric label="Sponsor click-through" value={t.sponsor_viewable_impressions + t.anonymous_sponsor_viewable_impressions ? (((t.sponsor_clicks + t.anonymous_sponsor_clicks) / (t.sponsor_viewable_impressions + t.anonymous_sponsor_viewable_impressions)) * 100).toFixed(2) + '%' : '—'} detail="Clicks ÷ measured viewable impressions; excludes visits that declined Sponsor measurement" icon={Megaphone} />
       <Metric label="Comment-card viewability" value={t.comment_card_impressions + t.anonymous_comment_card_impressions ? (((t.comment_card_viewable_impressions + t.anonymous_comment_card_viewable_impressions) / (t.comment_card_impressions + t.anonymous_comment_card_impressions)) * 100).toFixed(1) + '%' : '—'} detail="Signed-in and anonymous viewable impressions ÷ impressions" icon={MessageCircle} />
     </section>
     <DailyOverviewChart series={series} />
