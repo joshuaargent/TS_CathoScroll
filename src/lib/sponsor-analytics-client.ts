@@ -1,7 +1,7 @@
 'use client';
 
 import type { SignedInAnalyticsOutbox } from './offline/signed-in-analytics-store';
-import { hasAnalyticsConsent } from './analytics-consent';
+import { createConsentBoundAbortSignal, hasAnalyticsConsent } from './analytics-consent';
 
 export type SponsorCampaignEventType = 'viewable_impression' | 'click';
 
@@ -117,8 +117,14 @@ export async function flushSponsorCampaignEvents(
   if (typeof navigator === 'undefined' || !navigator.onLine || flushingUsers.has(userId)) return;
 
   flushingUsers.add(userId);
+  const consentRequest = createConsentBoundAbortSignal('sponsorMeasurement', userId);
   try {
     for (;;) {
+      if (!hasAnalyticsConsent('sponsorMeasurement', userId)) {
+        pendingQueues.delete(userId);
+        if (persistentOutbox) await persistentOutbox.clearStream(userId, 'sponsor');
+        break;
+      }
       const stored = persistentOutbox ? await persistentOutbox.pending(userId, 'sponsor', 1) : [];
       const persistedEvent = stored[0];
       const event = persistedEvent ? sponsorEventFromPayload(persistedEvent) : readQueue(userId)[0];
@@ -130,7 +136,7 @@ export async function flushSponsorCampaignEvents(
       } catch {
         break;
       }
-      if (!accessToken) break;
+      if (!accessToken || !hasAnalyticsConsent('sponsorMeasurement', userId)) break;
 
       let response: Response;
       try {
@@ -138,6 +144,7 @@ export async function flushSponsorCampaignEvents(
           method: 'POST',
           credentials: 'same-origin',
           keepalive: true,
+          signal: consentRequest.signal,
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${accessToken}`,
@@ -145,6 +152,11 @@ export async function flushSponsorCampaignEvents(
           body: JSON.stringify(event),
         });
       } catch {
+        break;
+      }
+      if (!hasAnalyticsConsent('sponsorMeasurement', userId)) {
+        pendingQueues.delete(userId);
+        if (persistentOutbox) await persistentOutbox.clearStream(userId, 'sponsor');
         break;
       }
       if (!response.ok) {
@@ -168,6 +180,7 @@ export async function flushSponsorCampaignEvents(
       else if (!acknowledgeEvent(userId, event.eventId)) break;
     }
   } finally {
+    consentRequest.dispose();
     flushingUsers.delete(userId);
   }
 }
@@ -221,8 +234,13 @@ export async function flushAnonymousSponsorCampaignEvents(): Promise<void> {
   }
   if (typeof navigator === 'undefined' || !navigator.onLine || anonymousFlushInProgress) return;
   anonymousFlushInProgress = true;
+  const consentRequest = createConsentBoundAbortSignal('sponsorMeasurement', null);
   try {
     while (anonymousQueue.length > 0 && navigator.onLine) {
+      if (!hasAnalyticsConsent('sponsorMeasurement', null)) {
+        anonymousQueue.splice(0, anonymousQueue.length);
+        break;
+      }
       const queued = anonymousQueue[0];
       let response: Response;
       try {
@@ -230,16 +248,22 @@ export async function flushAnonymousSponsorCampaignEvents(): Promise<void> {
           method: 'POST',
           credentials: 'same-origin',
           keepalive: true,
+          signal: consentRequest.signal,
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ ...queued.event, sessionId: queued.event.sessionId, placementKey: queued.event.placementKey }),
         });
       } catch {
         break;
       }
+      if (!hasAnalyticsConsent('sponsorMeasurement', null)) {
+        anonymousQueue.splice(0, anonymousQueue.length);
+        break;
+      }
       if (!response.ok && response.status !== 400 && response.status !== 403) break;
       anonymousQueue.shift();
     }
   } finally {
+    consentRequest.dispose();
     anonymousFlushInProgress = false;
   }
 }
