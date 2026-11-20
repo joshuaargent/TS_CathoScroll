@@ -9,7 +9,7 @@ This audit distinguishes offline browsing, offline reads, local mutation queues 
 | Capability | Current implementation | Offline status | Notes |
 |---|---|---|---|
 | Topic catalogue | Packaged SQLite catalogue, incremental catalogue refresh | Available | Native app can browse its packaged/cached catalogue without a network connection. |
-| General feed | Server-ranked when online; latest downloaded server-ranked pages cached in catalogue SQLite | Ranked offline where cached | Cache preserves the last server-computed ordering; it does not recalculate global scores offline. If no cached page exists, fall back to catalogue order. |
+| General feed | Server-ranked when online; latest downloaded server-ranked pages cached in catalogue SQLite | Ranked offline where cached | Cache preserves the last server-computed ordering; it does not recalculate global scores offline. If no cached page exists, fall back to a shuffled local catalogue page. |
 | Personalised feed | Server-ranked pages cached by cursor in the encrypted private database; last successful consent check cached for 12 hours | Previously downloaded ranked pages available offline on Android/Electron | This reuses server-computed page order; it does not recompute or infer a new profile offline. Expired consent cache, withdrawal, account switch or missing page falls back to general ranking. |
 | Likes, bookmarks, completion | Private activity SQLite store, durable outbox, revision/cursor reconciliation | Available on supported encrypted-storage platforms | Activity sync is account-linked and separate from analytics. |
 | Signed-in topic/comment exposure analytics | Encrypted private SQLite outbox (2,000 events per stream/account, seven-day expiry, server acknowledgement) on Android and Electron; memory-only on web | Durable on Android/Electron; best effort on web | Separate from activity sync. Account-scoped rows are cleared on sign-out/account switch. |
@@ -39,7 +39,7 @@ The native app now caches only server-ranked personalised pages, keyed by accoun
 
 Do not persist a derived religious-interest profile in the public catalogue database. Do not treat a stale cached consent flag as current consent after an offline account switch or withdrawal on another device. For this Android/Electron release, personalised feed pages are stored only in the encrypted private database, scoped to the account, with a 12-hour consent freshness limit and deletion on local withdrawal/account switch. iOS is out of scope for this release.
 
-Offline personalisation is limited to previously downloaded pages while the local consent check remains fresh. After 12 hours, on withdrawal, account change, or when the next page was not downloaded, the app falls back to the cached server-ranked general feed, then catalogue order.
+Offline personalisation is limited to previously downloaded pages while the local consent check remains fresh. After 12 hours, on withdrawal, account change, or when the next page was not downloaded, the app falls back to the cached server-ranked general feed, then a shuffled local catalogue page.
 
 ## Notes decision
 
