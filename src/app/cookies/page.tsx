@@ -111,7 +111,10 @@ export default function CookiesPage() {
             cross-site tracking. On Android and Electron, previously downloaded server-ranked
             personalised pages may be cached in encrypted private storage for up to 12 hours after
             the last successful consent check. You can turn personalisation off and delete the derived profile
-            in Account settings.
+            in Account settings. Recommendation profiles use explicit account actions recorded
+            after consent (progress/completions, bookmarks, topic likes, comments, comment likes
+            and replies); they do not read operational analytics events such as impressions,
+            reading duration, swipes, skips or Top Comments exposure.
           </p>
         </section>
 
