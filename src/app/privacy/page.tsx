@@ -261,9 +261,7 @@ export default function PrivacyPage() {
           <p className="text-text-secondary mt-4 leading-relaxed">
             Signed-out sponsor delivery uses a separate campaign pipeline. A random session
             token exists only in the active page/app memory and its SHA-256 hash is stored briefly
-            to enforce sponsor frequency limits. Raw anonymous sponsor event and frequency rows
-            are deleted once they pass the 48-hour retention threshold by a 15-minute cleanup job; daily campaign-level served, viewable and click totals are
-            retained for aggregate reporting. The token is not used to build a visitor profile or
+            to enforce sponsor frequency limits. Raw anonymous sponsor event and frequency rows are deleted once they pass the 30-day retention threshold by a 15-minute cleanup job; daily campaign-level served, viewable and click totals are retained for aggregate reporting. Failed sponsor-event sends are retried in memory after reconnect or app visibility changes; the retry queue is not persisted because the session token must not survive an app restart. The token is not used to build a visitor profile or
             link topic/comment reading activity across visits.
           </p>
 
