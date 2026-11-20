@@ -92,3 +92,11 @@ The detailed controller draft is in [docs/uk-gdpr-analytics-assessment.md](./uk-
 For visitors who decline sponsor measurement, the proposed least-intrusive fallback is a server-side campaign/day served-placement aggregate only. Do not create client viewability/click events, session tokens, hashed session-frequency rows or per-person frequency records for those visitors. Campaign-wide caps and pacing remain available. This preserves delivery accounting without claiming unique reach, viewability, clicks or CTR for opted-out visitors.
 
 The assessment does not approve PECR compliance. The controller must still document whether the signed-out aggregate topic/comment pipeline and native app-private SQLite outbox meet the statutory statistical-purposes exception or require prior consent. Verify the actual deployed browser/native behaviour and all provider logs before sign-off.
+
+## Consent implementation status (draft PR #25)
+
+The central optional analytics consent manager is being implemented in draft PR #25. It replaces the legacy single signed-out analytics toggle with two independent, default-off choices: Service improvement analytics and Sponsor measurement. Signed-in choices are account-scoped and synchronised through a private consent ledger; signed-out choices remain device-local and do not create a persistent visitor identifier. Vercel Web Analytics and Speed Insights are gated by Service improvement analytics.
+
+For sponsor measurement refusal, the intended technical design is: sponsor cards remain eligible for delivery; campaign/day served totals continue for delivery and pacing; no visitor/session token or hash is created; no per-user/per-session frequency row or sponsor served-event receipt is written; and no client viewability/click event is collected. This is distinct from the currently deployed implementation.
+
+The new consent upgrade and matching bootstrap changes are not yet applied to production. The production database still has the earlier sponsor selector signatures/validation that require a non-null session token/ID. Do not claim the new opt-out behaviour is active until clean-install and existing-schema PostgreSQL tests pass and the migration is deployed.
