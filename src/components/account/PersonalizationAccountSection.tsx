@@ -213,7 +213,7 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
               </span>
             </div>
             <p className="text-text-secondary mt-2 text-sm leading-relaxed">
-              Build a private interest profile to tailor your topic recommendations. Off by default; only activity after you opt in is used.
+              Build a private interest profile to tailor your topic recommendations. This is optional and off until you enable it; only activity recorded after you opt in is used.
             </p>
           </div>
         </div>
@@ -324,7 +324,7 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
         <div className="border-border mt-6 flex items-start gap-3 border-t pt-5">
           <ShieldCheck className="text-text-muted mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
           <p className="text-text-muted text-sm leading-relaxed">
-            Your profile is private, is not shown publicly, and is never used for sponsor targeting. Turning this off deletes the profile and stops recommendation weighting; operational analytics follow a separate retention policy.
+            Your profile is private and is not shown on your public profile or used for sponsor targeting. Turning this off deletes the profile and stops recommendation weighting; operational analytics follow a separate retention policy.
           </p>
         </div>
 
