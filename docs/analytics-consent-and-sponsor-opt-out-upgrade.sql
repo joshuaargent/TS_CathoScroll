@@ -555,12 +555,13 @@ BEGIN
      OR NOT EXISTS (SELECT 1 FROM auth.users AS account WHERE account.id = p_user_id) THEN
     RAISE EXCEPTION 'Invalid analytics consent update' USING ERRCODE = '22023';
   END IF;
-  PERFORM 1 FROM auth.users AS account WHERE account.id = p_user_id FOR UPDATE;
+  -- Match analytics writers' lock order: consent row first, then auth.users.
   SELECT service_improvement, sponsor_measurement
   INTO v_previous_service, v_previous_sponsor
   FROM catho_private.user_analytics_consents
   WHERE user_id = p_user_id
   FOR UPDATE;
+  PERFORM 1 FROM auth.users AS account WHERE account.id = p_user_id FOR UPDATE;
 
   IF v_previous_service IS NOT NULL
      AND v_previous_service = p_service_improvement
