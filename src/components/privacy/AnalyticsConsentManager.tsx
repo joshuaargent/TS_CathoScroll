@@ -106,7 +106,10 @@ function ConsentManager({ userId = null, apiBaseUrl, getAccessToken }: Analytics
           serviceImprovement: remote.serviceImprovement,
           sponsorMeasurement: remote.sponsorMeasurement,
         };
-        await clearWithdrawnQueues(local, next);
+        const choicesChanged = !local ||
+          local.serviceImprovement !== next.serviceImprovement ||
+          local.sponsorMeasurement !== next.sponsorMeasurement;
+        if (choicesChanged) await clearWithdrawnQueues(local, next);
         saveAnalyticsConsent(next);
         hydrate({
           version: 1,
@@ -114,7 +117,7 @@ function ConsentManager({ userId = null, apiBaseUrl, getAccessToken }: Analytics
           updatedAt: remote.updatedAt as string,
         });
         if (next.serviceImprovement) await setAnonymousFeedAnalyticsEnabled(true);
-        else await setAnonymousFeedAnalyticsEnabled(false);
+        else if (choicesChanged) await setAnonymousFeedAnalyticsEnabled(false);
         setVisible(false);
         setManaging(false);
         return;
