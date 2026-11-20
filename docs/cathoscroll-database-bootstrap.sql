@@ -43,6 +43,37 @@ CREATE EXTENSION IF NOT EXISTS pg_cron WITH SCHEMA pg_catalog;
 GRANT USAGE ON SCHEMA cron TO postgres;
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA cron TO postgres;
 CREATE SCHEMA IF NOT EXISTS catho_private;
+-- Purpose-specific optional analytics consent. Defaults are deliberately off.
+CREATE TABLE IF NOT EXISTS catho_private.user_analytics_consents (
+  user_id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  service_improvement boolean NOT NULL DEFAULT false,
+  sponsor_measurement boolean NOT NULL DEFAULT false,
+  consent_version integer NOT NULL DEFAULT 1 CHECK (consent_version >= 1),
+  service_improvement_updated_at timestamptz,
+  sponsor_measurement_updated_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT statement_timestamp(),
+  updated_at timestamptz NOT NULL DEFAULT statement_timestamp()
+);
+
+CREATE TABLE IF NOT EXISTS catho_private.user_analytics_consent_history (
+  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  previous_service_improvement boolean,
+  previous_sponsor_measurement boolean,
+  service_improvement boolean NOT NULL,
+  sponsor_measurement boolean NOT NULL,
+  consent_version integer NOT NULL CHECK (consent_version >= 1),
+  recorded_at timestamptz NOT NULL DEFAULT statement_timestamp()
+);
+
+CREATE INDEX IF NOT EXISTS user_analytics_consent_history_user_recorded_idx
+  ON catho_private.user_analytics_consent_history(user_id, recorded_at DESC);
+
+ALTER TABLE catho_private.user_analytics_consents ENABLE ROW LEVEL SECURITY;
+ALTER TABLE catho_private.user_analytics_consent_history ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON catho_private.user_analytics_consents, catho_private.user_analytics_consent_history
+  FROM PUBLIC, anon, authenticated, service_role;
+
 
 CREATE TABLE catho_private.activity_devices (
   user_id uuid NOT NULL,
@@ -7938,37 +7969,6 @@ ALTER FUNCTION public.offline_activity_snapshot(uuid,text) SET search_path = '';
 ALTER FUNCTION public.offline_apply_activity_batch(uuid,jsonb) SET search_path = '';
 ALTER FUNCTION public.offline_apply_activity_v2(uuid,uuid,uuid,text,text,text,text,boolean,timestamptz) SET search_path = '';
 ALTER FUNCTION public.record_feed_analytics_events(jsonb) SET search_path = '';
-
--- Purpose-specific optional analytics consent. Defaults are deliberately off.
-CREATE TABLE IF NOT EXISTS catho_private.user_analytics_consents (
-  user_id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  service_improvement boolean NOT NULL DEFAULT false,
-  sponsor_measurement boolean NOT NULL DEFAULT false,
-  consent_version integer NOT NULL DEFAULT 1 CHECK (consent_version >= 1),
-  service_improvement_updated_at timestamptz,
-  sponsor_measurement_updated_at timestamptz,
-  created_at timestamptz NOT NULL DEFAULT statement_timestamp(),
-  updated_at timestamptz NOT NULL DEFAULT statement_timestamp()
-);
-
-CREATE TABLE IF NOT EXISTS catho_private.user_analytics_consent_history (
-  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  previous_service_improvement boolean,
-  previous_sponsor_measurement boolean,
-  service_improvement boolean NOT NULL,
-  sponsor_measurement boolean NOT NULL,
-  consent_version integer NOT NULL CHECK (consent_version >= 1),
-  recorded_at timestamptz NOT NULL DEFAULT statement_timestamp()
-);
-
-CREATE INDEX IF NOT EXISTS user_analytics_consent_history_user_recorded_idx
-  ON catho_private.user_analytics_consent_history(user_id, recorded_at DESC);
-
-ALTER TABLE catho_private.user_analytics_consents ENABLE ROW LEVEL SECURITY;
-ALTER TABLE catho_private.user_analytics_consent_history ENABLE ROW LEVEL SECURITY;
-REVOKE ALL ON catho_private.user_analytics_consents, catho_private.user_analytics_consent_history
-  FROM PUBLIC, anon, authenticated, service_role;
 
 CREATE OR REPLACE FUNCTION public.get_user_analytics_consent(p_user_id uuid)
 RETURNS jsonb
