@@ -408,8 +408,8 @@ export function PersonalizationAccountSection({ client, apiBaseUrl }: { client: 
                 className="mt-1 h-4 w-4 accent-current"
               />
               <span className="min-w-0">
-                <span className="text-text-primary block font-semibold">Service improvement analytics{status.enabled ? ' — required for personalisation' : ''}</span>
-                <span className="text-text-muted mt-1 block text-sm">Measures topic and comment engagement to improve CathoScroll. While personalisation is on, eligible reading signals also improve your recommendations and this switch is locked on.</span>
+                <span className="text-text-primary block font-semibold">I explicitly agree to Service improvement analytics{status.enabled ? ' — required for personalisation' : ''}</span>
+                <span className="text-text-muted mt-1 block text-sm leading-relaxed">Measures topic and Top Comments engagement, signed-out aggregate activity, and Vercel site/performance analytics. When signed in, topic/comment activity is linked to your account and may reveal religious or philosophical beliefs. If personalisation is enabled, these reading signals also inform your private recommendations. Enabling personalisation automatically enables this choice; turn off personalisation before disabling it.</span>
               </span>
             </label>
             <label className="border-border flex cursor-pointer items-start gap-3 rounded-xl border p-4">
@@ -421,8 +421,8 @@ export function PersonalizationAccountSection({ client, apiBaseUrl }: { client: 
                 className="mt-1 h-4 w-4 accent-current"
               />
               <span className="min-w-0">
-                <span className="text-text-primary block font-semibold">Sponsor measurement</span>
-                <span className="text-text-muted mt-1 block text-sm">Measures sponsor viewability, clicks and frequency. It is optional and is never used to personalise recommendations or target you using your private interest profile.</span>
+                <span className="text-text-primary block font-semibold">I explicitly agree to Sponsor measurement</span>
+                <span className="text-text-muted mt-1 block text-sm leading-relaxed">Measures sponsor viewability, clicks and frequency. When enabled, signed-in events are account-linked; signed-out frequency uses a random in-memory session token whose hash is stored for up to 30 days. Anonymous event attribution can include the topic placement where a sponsor appeared. In a Catholic-content service, that context may reveal religious or philosophical interests and may involve special-category data under UK GDPR. If you decline, sponsor placements still appear and we retain only campaign/day served totals, without visitor/session frequency records or viewability/click events for your visit.</span>
               </span>
             </label>
           </div>
