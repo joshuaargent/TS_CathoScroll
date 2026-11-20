@@ -1,5 +1,6 @@
 'use client';
 import { siteConfig } from '@/lib/constants';
+import { createConsentBoundAbortSignal, hasAnalyticsConsent } from './analytics-consent';
 
 export type AnonymousEntityType = 'topic' | 'comment';
 export type AnonymousEventType = 'impression' | 'viewable_impression' | 'active_duration' | 'skip' | 'completion' | 'open';
@@ -24,7 +25,7 @@ export const anonymousAnalyticsPreferenceChangeEvent = 'cathoscroll:anonymous-an
 
 function anonymousAnalyticsEnabled(): boolean {
   try {
-    return typeof window !== 'undefined' && window.localStorage.getItem(anonymousAnalyticsPreferenceKey) !== 'false';
+    return typeof window !== 'undefined' && hasAnalyticsConsent('serviceImprovement', null);
   } catch {
     return false;
   }
@@ -68,12 +69,8 @@ function getEndpoint(): string {
 
 export async function setAnonymousFeedAnalyticsEnabled(enabled: boolean): Promise<void> {
   if (typeof window === 'undefined') throw new Error('Analytics preferences are unavailable.');
-  const wasEnabled = anonymousAnalyticsEnabled();
-  if (enabled && !wasEnabled && persistentOutbox) {
-    await outboxReady;
-    await persistentOutbox.clear();
-  }
-  window.localStorage.setItem(anonymousAnalyticsPreferenceKey, enabled ? 'true' : 'false');
+  // The versioned consent record is the sole permission source. This legacy
+  // function remains as a queue-clearing compatibility API for older callers.
   window.dispatchEvent(new Event(anonymousAnalyticsPreferenceChangeEvent));
   if (!enabled) {
     pendingEvents.splice(0, pendingEvents.length);
@@ -123,6 +120,7 @@ export async function flushAnonymousFeedAnalyticsQueue(): Promise<void> {
   if (!persistentOutbox && pendingEvents.length === 0) return;
 
   let shouldContinue = false;
+  const consentRequest = createConsentBoundAbortSignal('serviceImprovement', null);
   flushPromise = (async () => {
     let batch: AnonymousFeedAnalyticsEvent[] = [];
     try {
@@ -140,6 +138,12 @@ export async function flushAnonymousFeedAnalyticsQueue(): Promise<void> {
       batch = pendingEvents.filter((event) => volatileEventIds.has(event.eventId)).slice(0, 40);
     }
     if (batch.length === 0) return;
+    if (!anonymousAnalyticsEnabled()) {
+      pendingEvents.splice(0, pendingEvents.length);
+      volatileEventIds.clear();
+      if (persistentOutbox) await persistentOutbox.clear();
+      return;
+    }
 
     try {
       const response = await fetch(getEndpoint(), {
@@ -147,9 +151,16 @@ export async function flushAnonymousFeedAnalyticsQueue(): Promise<void> {
         credentials: 'same-origin',
         cache: 'no-store',
         keepalive: true,
+        signal: consentRequest.signal,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ events: batch }),
+        body: JSON.stringify({ serviceImprovementConsent: true, events: batch }),
       });
+      if (!anonymousAnalyticsEnabled()) {
+        pendingEvents.splice(0, pendingEvents.length);
+        volatileEventIds.clear();
+        if (persistentOutbox) await persistentOutbox.clear();
+        return;
+      }
       if (response.ok || (response.status >= 400 && response.status < 500 && response.status !== 429)) {
         shouldContinue = true;
         const completed = batch.map((event) => event.eventId);
@@ -167,6 +178,7 @@ export async function flushAnonymousFeedAnalyticsQueue(): Promise<void> {
       // Keep failed batches for retry after reconnect or app restart.
     }
   })().finally(() => {
+    consentRequest.dispose();
     flushPromise = null;
     if (shouldContinue && (
       pendingEvents.length > 0 ||

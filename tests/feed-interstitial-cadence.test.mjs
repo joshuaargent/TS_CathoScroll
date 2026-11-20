@@ -49,9 +49,9 @@ test('Top Comments is due every five topic advances and sponsors every ten', () 
   assert.deepEqual(sponsorDueAt, [10, 20, 30]);
 });
 
-test('missing inventory suppresses only its own card schedule', () => {
+test('sponsor placement cadence is independent of sign-in while comment inventory remains user-aware', () => {
   assert.equal(comments.shouldInsertTopCommentCard(4, false), false);
-  assert.equal(sponsors.shouldInsertSponsorCard(9, false), false);
+  assert.equal(sponsors.shouldInsertSponsorCard(9, false), true);
   assert.equal(comments.shouldInsertTopCommentCard(4, true), true);
   assert.equal(sponsors.shouldInsertSponsorCard(9, true), true);
 });
@@ -153,7 +153,7 @@ test('topic, comment and sponsor cards use the same shared base card', () => {
   assert.match(feedCore, /activeFeedEntryKey/);
   assert.match(cardRegistry, /<SponsorLoadingCard/);
   assert.match(cardRegistry, /invokeRegisteredFeedEntryAction\(entry, 'previous', registrations, context\)/);
-  assert.match(feedCore, /const firstSponsor = planned\.boundaries/);
+  assert.match(feedCore, /const firstSponsor = boundaries/);
   assert.match(feedCore, /prefetchMappedSponsor\(firstSponsor\.topicId\)/);
   assert.match(feedCore, /const nextSponsorBoundary = boundaries/);
   assert.match(feedCore, /const activateFeedEntry = async/);

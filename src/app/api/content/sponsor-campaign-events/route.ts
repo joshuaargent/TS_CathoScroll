@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { readBoundedJson } from '@/lib/http/read-json';
+import { getStoredAnalyticsConsent } from '@/lib/analytics-consent-server';
 import { checkApiRateLimit, getTrustedClientIp, rateLimitResponseHeaders } from '@/lib/security/api-rate-limit';
 import {
   createServiceRoleClient,
@@ -71,6 +72,18 @@ export async function POST(request: Request) {
   // Keep a queued anonymous placement anonymous even if the visitor signs in
   // before its in-memory retry queue is flushed.
   const isAnonymous = !auth.user || typeof placementKey === 'string';
+  if (isAnonymous && eventPayload.sponsorMeasurementConsent !== true) {
+    return respond(request, { recorded: false });
+  }
+  if (auth.user && !isAnonymous) {
+    try {
+      const consent = await getStoredAnalyticsConsent(auth.user.id);
+      if (!consent.sponsorMeasurement) return respond(request, { recorded: false });
+    } catch (cause) {
+      console.error('Unable to verify sponsor measurement consent:', cause);
+      return respond(request, { error: 'Sponsor measurement preferences are temporarily unavailable.' }, 503);
+    }
+  }
 
   if (
     !isValidUuid(campaignId) ||

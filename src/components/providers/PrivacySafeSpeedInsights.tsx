@@ -1,7 +1,9 @@
 'use client';
 
 import { SpeedInsights } from '@vercel/speed-insights/next';
-import type { ComponentProps } from 'react';
+import { useCallback, useSyncExternalStore, type ComponentProps } from 'react';
+import { useAuth } from '@/components/providers/AuthProvider';
+import { analyticsConsentChangeEvent, hasAnalyticsConsent } from '@/lib/analytics-consent';
 
 type SpeedInsightsEvent = Parameters<NonNullable<ComponentProps<typeof SpeedInsights>['beforeSend']>>[0];
 
@@ -24,6 +26,26 @@ function sanitiseSpeedInsightsEvent(data: SpeedInsightsEvent) {
   return { ...data, url: url.toString() };
 }
 
+function subscribe(onChange: () => void) {
+  window.addEventListener(analyticsConsentChangeEvent, onChange);
+  window.addEventListener('storage', onChange);
+  return () => {
+    window.removeEventListener(analyticsConsentChangeEvent, onChange);
+    window.removeEventListener('storage', onChange);
+  };
+}
+
 export function PrivacySafeSpeedInsights() {
-  return <SpeedInsights beforeSend={sanitiseSpeedInsightsEvent} />;
+  const { user, loading } = useAuth();
+  const getSnapshot = useCallback(
+    () => hasAnalyticsConsent('serviceImprovement', user?.id ?? null),
+    [user?.id]
+  );
+  const enabled = useSyncExternalStore(subscribe, getSnapshot, () => false);
+  const beforeSend = useCallback((event: SpeedInsightsEvent) => {
+    if (loading || !hasAnalyticsConsent('serviceImprovement', user?.id ?? null)) return null;
+    return sanitiseSpeedInsightsEvent(event);
+  }, [loading, user?.id]);
+  if (loading || !enabled) return null;
+  return <SpeedInsights beforeSend={beforeSend} />;
 }

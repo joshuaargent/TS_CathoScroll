@@ -56,11 +56,13 @@ function MetricCard({
   value,
   detail,
   icon: Icon,
+  signedOutValue,
 }: {
   label: string;
   value: string;
   detail: string;
   icon: typeof BarChart3;
+  signedOutValue?: string;
 }) {
   return (
     <Card padding="md">
@@ -68,6 +70,7 @@ function MetricCard({
         <div className="min-w-0">
           <p className="text-text-secondary text-sm font-medium">{label}</p>
           <p className="text-text-primary mt-2 text-3xl font-bold tabular-nums">{value}</p>
+          {signedOutValue !== undefined && <p className="text-text-muted mt-1 text-xs tabular-nums">+ {signedOutValue} signed out</p>}
           <p className="text-text-muted mt-2 text-xs">{detail}</p>
         </div>
         <span className="bg-accent-light text-accent rounded-xl p-2.5">
@@ -270,12 +273,14 @@ export function ContentAnalyticsDashboard({
     {
       label: 'Signed-in impressions',
       value: hasTelemetry ? formatNumber(events.impressions) : '—',
+      signedOutValue: anonymous.topic_impressions > 0 ? formatNumber(anonymous.topic_impressions) : undefined,
       detail: 'Topic feed cards displayed',
       icon: BarChart3,
     },
     {
       label: 'Signed-in viewable impressions',
       value: hasTelemetry ? formatNumber(events.viewable_impressions) : '—',
+      signedOutValue: anonymous.topic_viewable_impressions > 0 ? formatNumber(anonymous.topic_viewable_impressions) : undefined,
       detail: 'At least 50% visible for one second',
       icon: Users,
     },

@@ -8,10 +8,10 @@
 
 1. Supabase's primary project region is Stockholm. The Free plan provides one day of API/database log retention and 24-hour Auth audit-log access. It does not include automatic database backups or point-in-time recovery. Supabase offers a DPA, but the controller's acceptance of it has not been verified.
 2. Vercel's connected team is on Hobby. Vercel's current Terms restrict Hobby to personal/non-commercial use; its Fair Use Guidelines say commercial advertising requires Pro or Enterprise. The Vercel DPA applies to Pro and Enterprise, not Hobby. The 19 October 2026 Hobby Terms also permit use of Hobby-plan customer content for model training and sharing with third parties for model development/improvement.
-3. CathoScroll is intended to sell sponsorships. Do not activate commercial sponsor advertising while hosted on Vercel Hobby. Either keep the deployment strictly non-commercial and sponsor delivery disabled, upgrade to a plan with appropriate terms/DPA, or migrate to a host whose commercial-use terms and processor agreement fit the service.
-4. The website holds signed-out topic/comment retry batches in memory only. Native apps now persist a bounded, seven-day queue of anonymous topic/comment event payloads in app-private SQLite so it can survive app termination. The schema contains event UUIDs and public topic/comment IDs only, with no account, visitor or session identifier. A free opt-out control is provided in the Cookie Policy and clears pending local events. Sponsor frequency tokens remain memory-only.
+3. No paid sponsor campaigns are currently active. The owner intends to move to an appropriate commercial hosting plan before accepting paid sponsorship revenue. This is a future commercial-readiness action, not a blocker to the current pre-revenue service. Continue the separate review of Vercel's processor terms, DPA, subprocessors and international-transfer safeguards.
+4. The website holds signed-out topic/comment retry batches in memory only. Native apps now persist a bounded, seven-day queue of anonymous topic/comment event payloads in app-private SQLite so it can survive app termination. The schema contains event UUIDs and public topic/comment IDs only, with no account, visitor or session identifier. The global consent manager provides separate default-off Service improvement analytics and Sponsor measurement choices. Withdrawal clears the matching pending web/native queues and prevents future uploads. Signed-out consent is device-local; signed-in consent is account-scoped and synchronised when online. Sponsor frequency tokens are created only when Sponsor measurement is enabled.
 5. The PECR statistical-purposes exception is not a general permission for account-level tracking or ad measurement. It requires anonymous aggregate statistical output, no individual monitoring/decisions, prompt aggregation/deletion of individual inputs, clear notice and a simple/free objection route. It does not cover individual ad view/click measurement. CathoScroll should not rely on it for account-linked analytics or sponsor performance tracking.
-6. Account-linked topic/comment analytics are used for internal engagement measurement and service improvement, not belief profiling or individual decisions. Record the applicable Article 6 basis for each operational purpose; recommendation consent remains separate.
+6. Account-linked topic/comment analytics are used for internal engagement measurement and service improvement, not to create religious-affiliation labels, belief profiles or individual decisions. Topic interactions may nevertheless reveal or permit inferences about religious or philosophical beliefs; document the Article 6 basis and Article 9 condition where applicable. Recommendation consent remains separate.
 
 ## Verified configuration
 
@@ -63,13 +63,13 @@ The native outbox is app-private SQLite storage on mobile/desktop terminal equip
 ## Outstanding controller and operational actions
 
 1. Accept and retain the Supabase DPA; review the current subprocessor list, data residency details, transfer impact assessment and transfer mechanism.
-2. Resolve the Vercel Hobby commercial-use issue before any paid sponsor campaign or public advertising. If remaining on Hobby, keep sponsor ads disabled; otherwise upgrade or migrate.
+2. Before accepting paid sponsorship revenue, complete the planned move to an appropriate commercial hosting plan. No hosting-plan change is required for the current pre-revenue service.
 3. Confirm Vercel's and Supabase's contractual processor/controller roles for each data stream and record the applicable DPAs.
 4. Set a backup/export policy for Supabase Free, store encrypted backups outside the project, and test a restore. The provider's Free plan does not supply automatic backups/PITR.
 5. Record a purpose-specific Article 6 basis for each analytics stream and approve a legitimate-interests assessment where Article 6(1)(f) is selected.
-7. Verify deployed browser/native network requests, SDK storage behaviour, request metadata, CDN/WAF/function logs and retention settings.
-8. Keep the temporary sponsor-logo compatibility bridge until the logo-free application is deployed. Then run docs/sponsor-logo-removal.sql and verify the old RPC signature and null logo payload are gone.
-9. Disable Supabase TOTP enrolment and verification in hosted Auth settings and remove the existing unverified factor through the Supabase Auth Admin API. Do not delete managed auth schema rows with SQL.
+6. Verify deployed browser/native network requests, SDK storage behaviour, request metadata, CDN/WAF/function logs and retention settings.
+7. Keep the temporary sponsor-logo compatibility bridge until the logo-free application is deployed. Then run docs/sponsor-logo-removal.sql and verify the old RPC signature and null logo payload are gone.
+8. Disable Supabase TOTP enrolment and verification in hosted Auth settings and remove the existing unverified factor through the Supabase Auth Admin API. Do not delete managed auth schema rows with SQL.
 
 ## Sources
 
@@ -83,3 +83,20 @@ The native outbox is app-private SQLite storage on mobile/desktop terminal equip
 - [Vercel: Fair Use Guidelines](https://vercel.com/docs/limits/fair-use-guidelines)
 - [Vercel: Data Processing Addendum](https://vercel.com/legal/dpa)
 - [Vercel: Web Analytics privacy](https://vercel.com/docs/analytics/privacy-policy)
+
+
+## 20 November 2026 — UK GDPR analytics assessment update
+
+The detailed controller draft is in [docs/uk-gdpr-analytics-assessment.md](./uk-gdpr-analytics-assessment.md). It separates account-linked service analytics, signed-out aggregate topic/comment statistics, sponsor measurement, sponsor delivery accounting, Vercel telemetry and recommendation personalisation. It recommends a separate explicit service-analytics choice for account-linked topic/comment events and a separate sponsor-measurement choice. Recommendation personalisation remains on signup and Account settings only.
+
+For visitors who decline sponsor measurement, the proposed least-intrusive fallback is a server-side campaign/day served-placement aggregate only. Do not create client viewability/click events, session tokens, hashed session-frequency rows or per-person frequency records for those visitors. Campaign-wide caps and pacing remain available. This preserves delivery accounting without claiming unique reach, viewability, clicks or CTR for opted-out visitors.
+
+The assessment does not approve PECR compliance. The controller must still document whether the signed-out aggregate topic/comment pipeline and native app-private SQLite outbox meet the statutory statistical-purposes exception or require prior consent. Verify the actual deployed browser/native behaviour and all provider logs before sign-off.
+
+## Consent implementation status (consolidated PR #25)
+
+The central optional analytics consent manager and matching API/client gates are implemented in consolidated PR #25. The three consent and lock-order migrations are applied to the production database; the application code is not active until PR #25 is merged and deployed. The manager replaces the legacy single signed-out analytics toggle with two independent, default-off choices: Service improvement analytics and Sponsor measurement. Signed-in choices are account-scoped and synchronised through a private consent ledger; signed-out choices remain device-local and do not create a persistent visitor identifier. Vercel Web Analytics and Speed Insights are gated by Service improvement analytics.
+
+When Sponsor measurement is declined, sponsor cards remain eligible for delivery; campaign/day served totals continue for delivery and pacing; no visitor/session token or hash is created; no per-user/per-session frequency row or sponsor served-event receipt is written; and no client viewability/click event is collected. The database now accepts null session IDs/tokens for this path. This behaviour becomes active in the production app only after the matching PR #25 code is deployed.
+
+The initial consent migration was executed transactionally against the existing production schema and rolled back before permanent application, followed by rolled-back consent/sponsor-selector smoke tests. No separately billed disposable Supabase branch was created, so a separate clean-install PostgreSQL run remains outstanding. GitHub CI validates the SQL copies and application tests. Do not describe the new consent UI or client-side enforcement as live until merge and deployment.

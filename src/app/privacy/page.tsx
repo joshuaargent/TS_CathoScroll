@@ -61,7 +61,9 @@ export default function PrivacyPage() {
             <li>Likes and interactions.</li>
             <li>Quiz progress and quiz results.</li>
             <li>Learning path progress.</li>
-            <li>Technical, device, security, and analytics data.</li>
+            <li>Technical, device, and security data.</li>
+            <li>Optional analytics events and aggregates only where you have enabled the relevant analytics choice.</li>
+            <li>Optional analytics consent choices and timestamps for signed-in accounts.</li>
             <li>Optional personalisation consent records, selected category interests, and derived topic-interest scores when you opt in.</li>
             <li>For sponsor representatives: organisation membership, campaign submissions, invoice details, and payment references.</li>
           </ul>
@@ -121,6 +123,8 @@ export default function PrivacyPage() {
             <li>Administer paid sponsor campaigns, invoices, and sponsor account access.</li>
             <li>Measure sponsored campaign delivery and provide sponsors with aggregate campaign reports.</li>
             <li>Improve performance and reliability.</li>
+            <li>Measure topic and Top Comments engagement only where Service improvement analytics is enabled.</li>
+            <li>Measure sponsor viewability, clicks and frequency only where Sponsor measurement is enabled.</li>
             <li>Monitor abuse, spam, fraud, and security issues.</li>
             <li>Comply with legal obligations.</li>
           </ul>
@@ -167,22 +171,19 @@ export default function PrivacyPage() {
 
           <ul className="text-text-secondary mt-4 list-disc space-y-2 pl-6">
             <li>Contract: to create and operate your account and provide features you request.</li>
-            <li>Legitimate interests: to secure, maintain, troubleshoot, moderate, prevent abuse, and understand and improve service performance, where a documented assessment shows that our interests are not overridden by your rights.</li>
+            <li>Legitimate interests: to secure, maintain, troubleshoot, moderate and prevent abuse, where a documented assessment shows that our interests are not overridden by your rights.</li>
+            <li>Consent: for optional Service improvement analytics and Sponsor measurement, including account-linked topic/comment analytics when signed in.</li>
+            <li>Explicit consent under Article 6(1)(a) and, where topic/comment engagement or sponsor-placement context reveals special-category beliefs, Article 9(2)(a): for the relevant optional analytics processing. Service improvement analytics and Sponsor measurement are separate choices from each other and from recommendation personalisation.</li>
             <li>Legal obligation: to keep or disclose information where applicable law requires it.</li>
             <li>Consent: for optional personalisation. Because this processing may reveal religious or philosophical beliefs, we rely on your explicit consent under Article 6(1)(a) UK GDPR and the Article 9(2)(a) exception for the relevant special-category processing.</li>
           </ul>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            Operational analytics are used for engagement measurement, reliability and
-            service improvement. They do not create belief profiles or make individual
-            decisions. Recommendation personalisation is a separate optional feature and
-            uses its own consent controls.
+            Service improvement analytics and sponsor measurement are optional and off by default. They are collected only after you enable the relevant choice in the analytics settings. Topic and comment engagement in a Catholic-content service may reveal religious or philosophical beliefs. Sponsor-measurement events can also be associated with the topic placement where a sponsor appeared. The relevant consent choices explain this possibility and are separate from recommendation personalisation. We do not create a religious-affiliation label or make decisions about users from these analytics.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            You may withdraw personalisation consent at any time using the account
-            controls described above. Withdrawal does not affect processing carried out
-            before withdrawal.
+            You may withdraw personalisation consent in Account settings and analytics consent using Manage analytics choices on the Cookie Policy page. Withdrawal stops future optional collection, clears pending local analytics queues and synchronises signed-in consent changes when the device reconnects. It does not affect processing carried out before withdrawal or essential account and synchronisation features.
           </p>
         </section>
 
@@ -225,9 +226,11 @@ export default function PrivacyPage() {
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            Sponsors receive aggregate campaign performance reporting. They do not receive
-            user identities, individual reading histories, private notes, personalisation
-            profiles, or raw user-level analytics events.
+            Sponsors receive aggregate campaign performance reporting. Campaign/day served totals include
+            all eligible deliveries, while viewability, click and click-through measurements include
+            only visits where Sponsor measurement was enabled. They do not receive user identities,
+            individual reading histories, private notes, personalisation profiles, or raw user-level
+            analytics events.
           </p>
         </section>
 
@@ -235,34 +238,35 @@ export default function PrivacyPage() {
           <h2 className="mb-4 text-3xl font-bold">Analytics</h2>
 
           <p className="text-text-secondary leading-relaxed">
-            CathoScroll uses analytics to measure general site usage, understand feed performance,
-            diagnose reliability issues, protect the service, and improve the user experience.
-            Analytics is separate from optional recommendation personalisation and is not used for
-            sponsor targeting.
+            CathoScroll offers two separate optional analytics purposes: Service improvement
+            analytics and Sponsor measurement. Both are off by default and can be changed at any
+            time using Manage analytics choices on the Cookie Policy page. They are separate from
+            recommendation personalisation and are not used to build sponsor targeting profiles.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            For signed-in users, first-party topic-feed and Top Comments analytics are linked to
-            the account that generated them. They measure impressions, viewability, active reading
-            time, skips, completions, slide depth, return visits and discussion opens. Raw events
-            and the restricted daily viewer bridge are retained for up to 180 days; daily totals
-            without account or session identifiers are retained longer. These records are not
-            anonymous while account-linked identifiers are retained and are not used for
-            individual sponsor targeting. Turning off recommendation personalisation does not
-            automatically disable operational analytics. On Android and Electron, unsent signed-in
-            topic, Top Comments and sponsor viewability/click events are also persisted in the
-            encrypted private activity database, capped at 2,000 events per stream and seven days. They are deleted only after
-            server acknowledgement and are cleared when the account signs out or changes. The
-            website keeps its unsent account-linked analytics in memory only.
+            When Service improvement analytics is enabled, signed-in topic-feed and Top Comments
+            events are linked to the account that generated them. They measure impressions,
+            viewability, active reading time, skips, completions, slide depth, return visits and
+            discussion opens. Raw events and the restricted daily viewer bridge are retained for up
+            to 180 days; daily totals without account or session identifiers are retained longer.
+            Signed-out topic/comment analytics use a separate daily aggregate pipeline without
+            account, visitor or session identifiers. No anonymous unique-person metric is created.
+            Turning off recommendation personalisation does not itself change analytics consent.
+            On Android and Electron, unsent signed-in topic and Top Comments events are persisted in
+            the encrypted private activity database, capped at 2,000 events per stream and seven
+            days. Pending events are cleared when Service improvement analytics is withdrawn. The
+            website keeps unsent account-linked analytics in memory only. Vercel Web Analytics and
+            Speed Insights are loaded only while Service improvement analytics is enabled.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            Signed-out visitors also contribute to CathoScroll's separate first-party anonymous
-            topic and Top Comments measurement. The browser sends event IDs and the relevant topic
+            When Service improvement analytics is enabled, signed-out visitors contribute to CathoScroll's
+            separate first-party anonymous topic and Top Comments measurement. The browser sends event IDs and the relevant topic
             or comment identifier, but no account ID, persistent visitor ID, raw session ID or
             cross-visit profile. The server deduplicates events and stores only UTC daily aggregate
             counts for impressions, viewability, active duration, skips, completions and discussion
-            opens. Event receipts used only for deduplication become eligible for deletion after 30 days; a scheduled cleanup runs every 15 minutes in bounded batches. On the website, unsent anonymous event batches are held in page memory only. Native apps persist the anonymous topic/comment retry queue in app-private SQLite, capped at 2,000 events and seven days, so it survives app termination and uploads after reconnection. The queue contains no account, visitor or session identifier; users can object through the Cookie Policy preference, which clears pending local events. The
+            opens. Event receipts used only for deduplication become eligible for deletion after 30 days; a scheduled cleanup runs every 15 minutes in bounded batches. On the website, unsent anonymous event batches are held in page memory only. Native apps persist the anonymous topic/comment retry queue in app-private SQLite, capped at 2,000 events and seven days, so it survives app termination and uploads after reconnection. The queue contains no account, visitor or session identifier; users can decline or withdraw Service improvement analytics through Manage analytics choices on the Cookie Policy page, which clears pending local events. The
             API also applies abuse-prevention rate limits using a keyed HMAC fingerprint of the
             trusted request IP; stale rate-limit entries become eligible for cleanup after two
             days. That fingerprint is not joined to feed event aggregates. Standard hosting and
@@ -271,15 +275,23 @@ export default function PrivacyPage() {
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            Signed-out sponsor delivery uses a separate campaign pipeline. A random session
-            token exists only in the active page/app memory and its SHA-256 hash is stored briefly
-            to enforce sponsor frequency limits. Raw anonymous sponsor event and frequency rows become eligible for deletion after 30 days; a scheduled cleanup runs every 15 minutes in batches of up to 5,000 rows per table per run. Daily campaign-level served, viewable and click totals are retained for aggregate reporting. Failed sponsor-event sends are retried in memory after reconnect or app visibility changes; the retry queue is not persisted because the session token must not survive an app restart. The token is not used to build a visitor profile or
-            link topic/comment reading activity across visits.
+            Sponsor delivery is separate from Sponsor measurement. Sponsored cards may be shown
+            whether or not you enable Sponsor measurement. If you enable it, a random session token
+            exists only in active page/app memory and its SHA-256 hash is stored for frequency
+            controls; raw sponsor event and frequency rows become eligible for deletion after 30
+            days. If you decline Sponsor measurement, no visitor/session token or hash is created,
+            no per-session frequency record is written, and no viewability/click event is collected.
+            In that case CathoScroll retains only campaign/day served totals needed for delivery and
+            pacing. Campaign-level caps continue to apply. The measured viewability and click rates
+            therefore describe only placements for which Sponsor measurement was enabled, not all
+            people who saw a sponsor card. Failed opted-in sponsor-event sends are retried in memory;
+            the retry queue is not persisted because the session token must not survive an app
+            restart.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            CathoScroll uses Vercel Web Analytics for aggregate site-level traffic measurement,
-            including visits from people who are not signed in. Vercel states that it does not use
+            When Service improvement analytics is enabled, CathoScroll loads Vercel Web Analytics for
+            aggregate site-level traffic measurement, including visits from people who are not signed in. Vercel states that it does not use
             third-party cookies and derives a short-lived visitor hash from the incoming request,
             which is discarded after 24 hours. Its analytics data points may include timestamps,
             page URLs, referrers, filtered query parameters, approximate geolocation, and device
@@ -292,8 +304,8 @@ export default function PrivacyPage() {
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            Vercel Speed Insights is enabled to measure Core Web Vitals and real-world page
-            performance. Its event hook removes query strings and fragments and replaces
+            When Service improvement analytics is enabled, Vercel Speed Insights measures Core Web Vitals
+            and real-world page performance. Its event hook removes query strings and fragments and replaces
             topic/category/search identifiers with generic route labels before transmission.
             Speed Insights reports technical performance and is separate from CathoScroll's
             account-linked product analytics. Vercel describes its Speed Insights data points as
@@ -365,7 +377,7 @@ export default function PrivacyPage() {
           <h2 className="mb-4 text-3xl font-bold">Data Retention</h2>
 
           <p className="text-text-secondary leading-relaxed">
-            We retain information only for as long as reasonably necessary for the purpose for which it was collected, subject to legal, security, moderation, and accounting requirements. Raw feed, community-card, and sponsor-campaign analytics events, together with the user/day viewer bridge used for unique-viewer reporting, are retained for up to 180 days. Signed-in sponsor frequency-cap records are removed after campaigns have completed or been rejected and the applicable 180-day cutoff has passed. Anonymous sponsor session-frequency records are removed after 30 days. Daily totals that do not contain user or session identifiers are retained longer.
+            We retain information only for as long as reasonably necessary for the purpose for which it was collected, subject to legal, security, moderation, and accounting requirements. Raw feed, community-card, and sponsor-campaign analytics events, together with the user/day viewer bridge used for unique-viewer reporting, are retained for up to 180 days. Signed-in sponsor frequency-cap records are removed after campaigns have completed or been rejected and the applicable 180-day cutoff has passed. Anonymous sponsor session-frequency and event records are created only when Sponsor measurement is enabled and are removed after 30 days. When Sponsor measurement is declined, no such session records are created; campaign/day served totals without visitor/session identifiers are retained longer. Signed-in analytics consent choices and their change history are retained for as long as needed to demonstrate and administer your choice, subject to account deletion and applicable legal requirements.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">

@@ -67,7 +67,6 @@ export function buildFeedEntryMap({
   topics,
   comments,
   seenCommentIds,
-  userId,
   commentCadence = 0,
   sponsorCadence = 0,
   commentInterval = 5,
@@ -83,7 +82,6 @@ export function buildFeedEntryMap({
   const cardRules = createFeedCardPlacementRules({
     comments,
     reservedCommentIds,
-    userId,
     commentInterval,
     sponsorInterval,
     commentGroupSize,
@@ -118,6 +116,37 @@ export function buildFeedEntryMap({
 }
 
 /** Flatten the boundary map into the exact sequence consumed by the viewer. */
+
+/** Reconcile an existing topic boundary without changing its assigned position. */
+export function reconcileFeedBoundary(
+  boundary: FeedBoundary,
+  topic: Topic,
+  commentsById: ReadonlyMap<number, TopFeedComment>,
+  sponsorInventory?: { campaigns: SponsorFeedCampaign[]; sessionId: string | null }
+): FeedBoundary {
+  const entries = boundary.entries.flatMap<FeedEntry>((entry) => {
+    if (entry.type === 'topic') return [{ ...entry, topic }];
+    if (entry.type === 'top-comments') {
+      const currentComments = entry.comments.flatMap((comment) => {
+        const currentComment = commentsById.get(comment.comment_id);
+        return currentComment ? [currentComment] : [];
+      });
+      return currentComments.length > 0 ? [{ ...entry, comments: currentComments }] : [];
+    }
+    if (entry.type === 'sponsor' && sponsorInventory) {
+      if (sponsorInventory.campaigns.length === 0) return [];
+      return [{
+        ...entry,
+        status: 'ready' as const,
+        campaigns: sponsorInventory.campaigns,
+        sessionId: sponsorInventory.sessionId ?? '',
+      }];
+    }
+    return [entry];
+  });
+  return { ...boundary, entries };
+}
+
 export function flattenFeedEntryMap(map: FeedEntryMap): FeedEntry[] {
   return map.boundaries.flatMap((boundary) => boundary.entries);
 }

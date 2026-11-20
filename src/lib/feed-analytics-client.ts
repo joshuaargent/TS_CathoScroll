@@ -1,6 +1,7 @@
 'use client';
 
 import type { SignedInAnalyticsOutbox } from './offline/signed-in-analytics-store';
+import { createConsentBoundAbortSignal, hasAnalyticsConsent } from './analytics-consent';
 
 export type FeedAnalyticsEventType =
   | 'impression'
@@ -51,7 +52,7 @@ export async function clearFeedAnalyticsOutbox(userId: string): Promise<void> {
   pendingQueues.delete(userId);
   visitedTopicsByUser.delete(userId);
   completedTopicsByUser.delete(userId);
-  if (persistentOutbox) await persistentOutbox.clearUser(userId);
+  if (persistentOutbox) await persistentOutbox.clearStream(userId, 'topic');
 }
 
 async function hasPendingFeedAnalytics(userId: string): Promise<boolean> {
@@ -88,7 +89,7 @@ function rememberTopic(
 }
 
 export function recordFeedTopicVisit(userId: string | null, topicId: string): void {
-  if (!userId || !topicId) return;
+  if (!userId || !topicId || !hasAnalyticsConsent('serviceImprovement', userId)) return;
   const now = Date.now();
   const visitKey = userId + '\u0000' + topicId;
   const lastVisitAt = recentTopicVisitAt.get(visitKey);
@@ -154,7 +155,7 @@ export function recordFeedAnalyticsEvent(
   topicId: string,
   metadata: FeedAnalyticsMetadata = {}
 ): void {
-  if (!userId || !sessionId || typeof window === 'undefined' || !topicId || topicId.length > 100) return;
+  if (!userId || !sessionId || typeof window === 'undefined' || !topicId || topicId.length > 100 || !hasAnalyticsConsent('serviceImprovement', userId)) return;
 
   const eventId = createUuid();
   if (!eventId) return;
@@ -191,11 +192,22 @@ export function recordFeedAnalyticsEvent(
 }
 
 export async function flushFeedAnalytics(userId: string, keepalive = false): Promise<void> {
-  if (typeof window === 'undefined' || !navigator.onLine || flushingUsers.has(userId)) return;
+  if (typeof window === 'undefined' || !hasAnalyticsConsent('serviceImprovement', userId)) {
+    writeQueue(userId, []);
+    if (persistentOutbox) await persistentOutbox.clearStream(userId, 'topic');
+    return;
+  }
+  if (!navigator.onLine || flushingUsers.has(userId)) return;
 
   flushingUsers.add(userId);
+  const consentRequest = createConsentBoundAbortSignal('serviceImprovement', userId);
   try {
     for (;;) {
+      if (!hasAnalyticsConsent('serviceImprovement', userId)) {
+        writeQueue(userId, []);
+        if (persistentOutbox) await persistentOutbox.clearStream(userId, 'topic');
+        break;
+      }
       const stored = persistentOutbox ? await persistentOutbox.pending(userId, 'topic', batchLimit) : [];
       const storedIds = new Set(stored.map((event) => event.event_id));
       const memory = readQueue(userId).filter((event) => !storedIds.has(event.event_id));
@@ -212,9 +224,11 @@ export async function flushFeedAnalytics(userId: string, keepalive = false): Pro
         } catch {
           break;
         }
-        if (!accessToken) break;
+        if (!accessToken || !hasAnalyticsConsent('serviceImprovement', userId)) break;
         headers.set('Authorization', 'Bearer ' + accessToken);
       }
+
+      if (consentRequest.signal.aborted || !hasAnalyticsConsent('serviceImprovement', userId)) break;
 
       try {
         response = await fetch(transport?.endpoint ?? '/api/analytics/feed-events', {
@@ -222,6 +236,7 @@ export async function flushFeedAnalytics(userId: string, keepalive = false): Pro
           credentials: transport?.endpoint ? 'omit' : 'same-origin',
           cache: 'no-store',
           keepalive,
+          signal: consentRequest.signal,
           headers,
           body: JSON.stringify({ events: batch }),
         });
@@ -229,6 +244,11 @@ export async function flushFeedAnalytics(userId: string, keepalive = false): Pro
         break;
       }
 
+      if (!hasAnalyticsConsent('serviceImprovement', userId)) {
+        writeQueue(userId, []);
+        if (persistentOutbox) await persistentOutbox.clearStream(userId, 'topic');
+        break;
+      }
       if (!response.ok) break;
 
       const acceptedIds = new Set(batch.map((event) => event.event_id));
@@ -240,6 +260,7 @@ export async function flushFeedAnalytics(userId: string, keepalive = false): Pro
       if (keepalive) break;
     }
   } finally {
+    consentRequest.dispose();
     flushingUsers.delete(userId);
     const transport = transports.get(userId);
     if (transport?.retired) {

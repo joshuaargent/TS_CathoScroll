@@ -4,28 +4,29 @@ import test from 'node:test';
 
 const read = (path) => readFile(new URL(path, import.meta.url), 'utf8');
 
-test('signed-in topic and comment telemetry remains enabled and signed-out users are excluded', async () => {
-  const [topicViewer, commentViewer, topicRoute, commentRoute, topicClient, commentClient] = await Promise.all([
+test('signed-in and signed-out analytics require the matching optional consent', async () => {
+  const [topicViewer, commentViewer, topicRoute, commentRoute, topicClient, commentClient, anonymousClient] = await Promise.all([
     read('../src/components/topic/TopicSwipeViewer.tsx'),
     read('../src/components/topic/TopCommentFeedCard.tsx'),
     read('../src/app/api/analytics/feed-events/route.ts'),
     read('../src/app/api/analytics/feed-card-events/route.ts'),
     read('../src/lib/feed-analytics-client.ts'),
     read('../src/lib/feed-card-analytics-client.ts'),
+    read('../src/lib/anonymous-feed-analytics-client.ts'),
   ]);
 
-  assert.ok(topicViewer.includes('if (!userId || !active) return;'));
-  assert.ok(commentViewer.includes('if (!active || !userId || previewMode) return;'));
-  assert.ok(topicRoute.includes('if (!user) return respond(request, { error: \'Authentication required.\' }, 401);'));
-  assert.ok(commentRoute.includes('if (!user) return respond(request, { error: \'Authentication required.\' }, 401);'));
-  assert.ok(topicClient.includes('if (!userId || !sessionId'));
-  assert.ok(commentClient.includes('if (!userId || !Number.isSafeInteger(commentId)'));
-  for (const source of [topicViewer, commentViewer, topicRoute, commentRoute]) {
-    assert.ok(!source.includes('ACCOUNT_LINKED_FEED_ANALYTICS_ENABLED'));
-    assert.ok(!source.includes('NEXT_PUBLIC_ACCOUNT_LINKED_FEED_ANALYTICS'));
-    assert.ok(!source.includes('temporarily disabled'));
-  }
+  assert.ok(topicViewer.includes('recordAnonymousFeedEvent'));
+  assert.ok(commentViewer.includes('recordAnonymousFeedEvent'));
+  assert.ok(topicRoute.includes('getStoredAnalyticsConsent(user.id)'));
+  assert.ok(commentRoute.includes('getStoredAnalyticsConsent(user.id)'));
+  assert.ok(topicRoute.includes('if (!consent.serviceImprovement) return respond(request, { accepted: 0 });'));
+  assert.ok(commentRoute.includes('if (!consent.serviceImprovement) return respond(request, { accepted: 0 });'));
+  assert.ok(topicClient.includes("hasAnalyticsConsent('serviceImprovement', userId)"));
+  assert.ok(commentClient.includes("hasAnalyticsConsent('serviceImprovement', userId)"));
+  assert.ok(anonymousClient.includes("hasAnalyticsConsent('serviceImprovement', null)"));
+  assert.ok(!anonymousClient.includes('userId'));
 });
+
 
 test('Vercel analytics preserves safe page routes and redacts sensitive content identifiers', async () => {
   const layout = await read('../src/app/layout.tsx');
@@ -33,11 +34,18 @@ test('Vercel analytics preserves safe page routes and redacts sensitive content 
   const speed = await read('../src/components/providers/PrivacySafeSpeedInsights.tsx');
   assert.ok(layout.includes('<PrivacySafeAnalytics />'));
   assert.ok(layout.includes('<PrivacySafeSpeedInsights />'));
-  assert.ok(analytics.includes('beforeSend={redactAnalyticsEvent}'));
+  assert.ok(analytics.includes('beforeSend={beforeSend}'));
+  assert.ok(analytics.includes("hasAnalyticsConsent('serviceImprovement', user?.id ?? null)"));
+  assert.ok(analytics.includes('if (loading || !enabled) return null;'));
+  assert.ok(analytics.includes('return null;'));
+  assert.ok(analytics.includes('redactAnalyticsEvent(event)'));
   assert.ok(analytics.includes('url.search = \'\''));
   assert.ok(analytics.includes('url.hash = \'\''));
   assert.ok(analytics.includes('topic|topics'));
-  assert.ok(speed.includes('<SpeedInsights beforeSend={sanitiseSpeedInsightsEvent} />'));
+  assert.ok(speed.includes('<SpeedInsights beforeSend={beforeSend} />'));
+  assert.ok(speed.includes("hasAnalyticsConsent('serviceImprovement', user?.id ?? null)"));
+  assert.ok(speed.includes('if (loading || !enabled) return null;'));
+  assert.ok(speed.includes('sanitiseSpeedInsightsEvent(event)'));
   assert.ok(speed.includes('url.search = \'\''));
   assert.ok(speed.includes('topic|topics'));
   assert.ok(layout.includes('<meta name="referrer" content="strict-origin" />'));
@@ -49,6 +57,6 @@ test('analytics DPIA documents active signed-in analytics, signed-out aggregates
   assert.ok(assessment.includes('signed-out'));
   assert.ok(assessment.includes('Article 6'));
   assert.ok(assessment.includes('does not generate religious or philosophical belief labels, scores or classifications'));
-  assert.ok(!assessment.includes('Article 9'));
+  assert.ok(assessment.includes('Article 9'));
   assert.ok(assessment.includes('not a legal opinion'));
 });

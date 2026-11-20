@@ -14,7 +14,8 @@ import {
 } from '@/lib/sponsor-campaigns';
 import { createFeedRefreshCoordinator } from '@/lib/feed-refresh-coordinator';
 import { siteConfig } from '@/lib/constants';
-import { buildFeedEntryMap, collectReservedCommentIds, flattenFeedEntryMap, type FeedEntry, type FeedEntryMap } from '@/lib/feed-entry-map';
+import { analyticsConsentChangeEvent, hasAnalyticsConsent } from '@/lib/analytics-consent';
+import { buildFeedEntryMap, collectReservedCommentIds, flattenFeedEntryMap, reconcileFeedBoundary, type FeedEntry, type FeedEntryMap } from '@/lib/feed-entry-map';
 import {
   invokeRegisteredFeedEntryLifecycle,
   renderRegisteredFeedEntry,
@@ -46,11 +47,16 @@ function appendUniqueFeedTopics(existing: Topic[], incoming: Topic[]): Topic[] {
 }
 
 let ephemeralSponsorSessionId: string | null = null;
-function createSponsorSessionId(): string | null {
-  if (ephemeralSponsorSessionId) return ephemeralSponsorSessionId;
-  ephemeralSponsorSessionId = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+
+function createSponsorPlacementId(): string | null {
+  return typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
     ? crypto.randomUUID()
     : null;
+}
+
+function createSponsorSessionId(): string | null {
+  if (ephemeralSponsorSessionId) return ephemeralSponsorSessionId;
+  ephemeralSponsorSessionId = createSponsorPlacementId();
   return ephemeralSponsorSessionId;
 }
 type ViewerProps = {
@@ -199,9 +205,13 @@ export function TopicFeedCore({
   const loadSponsorCampaigns = useCallback(
     async (topic: Topic): Promise<{ campaigns: SponsorFeedCampaign[]; sessionId: string | null; retryable?: boolean }> => {
 
-      // Reuse one in-memory token for this active app session so anonymous frequency caps span placements.
-      const sessionId = createSponsorSessionId();
-      if (!sessionId) return { campaigns: [], sessionId: null, retryable: true };
+      // Anonymous placements share an in-memory session token for frequency caps;
+      // signed-in placements get unique IDs so separate card views are not deduplicated.
+      const measurementEnabled = hasAnalyticsConsent('sponsorMeasurement', userId);
+      const sessionId = measurementEnabled
+        ? (userId ? createSponsorPlacementId() : createSponsorSessionId())
+        : null;
+      if (measurementEnabled && !sessionId) return { campaigns: [], sessionId: null, retryable: true };
 
       try {
         let accessToken = userId && getSponsorAccessToken ? await getSponsorAccessToken() : null;
@@ -231,6 +241,7 @@ export function TopicFeedCore({
             signal: controller.signal,
             body: JSON.stringify({
               sessionId,
+              sponsorMeasurementConsent: measurementEnabled,
               categorySlug: topic.categorySlug ?? null,
               topicId: topic.id,
             }),
@@ -351,8 +362,15 @@ export function TopicFeedCore({
       if (inFlight) return inFlight;
 
       const requestedUserId = userId;
+      const requestedMeasurementEnabled = hasAnalyticsConsent('sponsorMeasurement', requestedUserId);
       const request = loadSponsorCampaigns(topic)
         .then((result) => {
+          // A consent change while the request is in flight invalidates its
+          // visitor/session token. Keep the sponsor placement, but never cache
+          // or expose the token after the user withdraws measurement.
+          if (hasAnalyticsConsent('sponsorMeasurement', requestedUserId) !== requestedMeasurementEnabled) {
+            return { ...result, sessionId: null };
+          }
           // Cache both successful and empty results. A missing placement is a
           // stable decision for this topic during the current feed session.
           if (sponsorSessionUserId.current === requestedUserId && !result.retryable) {
@@ -360,10 +378,10 @@ export function TopicFeedCore({
             // result. Never pin a transient auth/network/server failure as the
             // permanent no-campaign decision for this topic in this session.
             sponsorResultsByTopicId.current.set(topic.id, result);
-            if (result.campaigns.length > 0 && result.sessionId) {
+            if (result.campaigns.length > 0) {
               sponsorCardsByTopicId.current.set(topic.id, {
                 campaigns: result.campaigns,
-                sessionId: result.sessionId,
+                sessionId: result.sessionId ?? '',
               });
             } else {
               sponsorDueByTopicId.current.delete(topic.id);
@@ -384,6 +402,35 @@ export function TopicFeedCore({
     },
     [loadSponsorCampaigns, userId]
   );
+
+  useEffect(() => {
+    const handleConsentChange = (event: Event) => {
+      const detail = (event as CustomEvent<{ userId?: string | null }>).detail;
+      if ((detail?.userId ?? null) !== (userId ?? null)) return;
+      if (hasAnalyticsConsent('sponsorMeasurement', userId)) return;
+
+      // Remove any token created before withdrawal from both the feed cache and
+      // the currently mounted card. Campaign delivery remains in the queue.
+      ephemeralSponsorSessionId = null;
+      sponsorResultsByTopicId.current.clear();
+      sponsorCardsByTopicId.current.clear();
+
+      const currentMap = feedEntryMapRef.current;
+      if (!currentMap) return;
+      const boundaries = currentMap.boundaries.map((boundary) => ({
+        ...boundary,
+        entries: boundary.entries.map((entry) =>
+          entry.type === 'sponsor' ? { ...entry, sessionId: '' } : entry
+        ),
+      }));
+      const byTopicId = new Map(boundaries.map((boundary) => [boundary.topicId, boundary] as const));
+      const nextMap = { ...currentMap, boundaries, byTopicId };
+      feedEntryMapRef.current = nextMap;
+      setFeedEntryMap(nextMap);
+    };
+    window.addEventListener(analyticsConsentChangeEvent, handleConsentChange);
+    return () => window.removeEventListener(analyticsConsentChangeEvent, handleConsentChange);
+  }, [setFeedEntryMap, userId]);
 
   const loadMoreTopComments = useCallback(async () => {
     const offset = topCommentsNextOffsetRef.current;
@@ -452,9 +499,9 @@ export function TopicFeedCore({
       if (!currentBoundary) return;
       const currentSponsor = currentBoundary.entries.find((item) => item.type === 'sponsor');
       if (!currentSponsor || currentSponsor.type !== 'sponsor') return;
-      if (result.campaigns.length > 0 && result.sessionId) {
+      if (result.campaigns.length > 0) {
         currentSponsor.campaigns = result.campaigns;
-        currentSponsor.sessionId = result.sessionId;
+        currentSponsor.sessionId = result.sessionId ?? '';
         currentSponsor.status = 'ready';
       } else {
         currentBoundary.entries = currentBoundary.entries.filter((item) => item.type !== 'sponsor');
@@ -486,65 +533,97 @@ export function TopicFeedCore({
       return;
     }
 
-    const activeTopicId = activeInterstitialTopicIdRef.current;
-    const currentId = currentTopicId.current;
-    const currentIndex = currentId
-      ? feedTopics.findIndex((topic) => topic.id === currentId)
-      : 0;
-    const activeIndex = activeTopicId
-      ? feedTopics.findIndex((topic) => topic.id === activeTopicId)
-      : -1;
-    const startIndex = activeIndex >= 0
-      ? activeIndex + 1
-      : Math.max(0, currentIndex);
     const previousMap = feedEntryMapRef.current;
     const commentsById = new Map(
       topComments.map((comment) => [comment.comment_id, comment] as const)
     );
-    const prefix = previousMap
-      ? previousMap.boundaries
-          .filter((boundary) => {
-            const index = feedTopics.findIndex((topic) => topic.id === boundary.topicId);
-            return index >= 0 && index < startIndex;
-          })
-          .map((boundary) => ({
-            ...boundary,
-            entries: boundary.entries.flatMap<import('@/lib/feed-entry-map').FeedEntry>((entry) => {
-              if (entry.type !== 'top-comments') return [entry];
-              const currentComments = entry.comments.flatMap((comment) => {
-                const currentComment = commentsById.get(comment.comment_id);
-                return currentComment ? [currentComment] : [];
-              });
-              return currentComments.length > 0
-                ? [{ ...entry, comments: currentComments }]
-                : [];
-            }),
-          }))
+    const topicsById = new Map(feedTopics.map((topic) => [topic.id, topic] as const));
+
+    // Keep every already-assigned boundary for the lifetime of this feed
+    // session. Refreshes may update comment content or remove deleted comments,
+    // but they must not move a returning comment/sponsor card to another topic.
+    const preservedBoundaries = previousMap
+      ? previousMap.boundaries.flatMap((boundary) => {
+          const currentTopic = topicsById.get(boundary.topicId);
+          if (!currentTopic) return [];
+          return [reconcileFeedBoundary(
+            boundary,
+            currentTopic,
+            commentsById,
+            sponsorResultsByTopicId.current.get(boundary.topicId)
+          )];
+        })
       : [];
-    const reservedCommentIds = collectReservedCommentIds(prefix, seenTopCommentIds.current);
+    const preservedTopicIds = new Set(preservedBoundaries.map((boundary) => boundary.topicId));
+    const reservedCommentIds = collectReservedCommentIds(
+      preservedBoundaries,
+      seenTopCommentIds.current
+    );
     const unseenComments = getUnseenTopFeedComments(topComments, reservedCommentIds);
+    const reservedCommentIdsForMap = new Set(reservedCommentIds);
     if (unseenComments.length <= 10 && topCommentsNextOffsetRef.current !== null) {
       void loadMoreTopComments();
     }
+
+    // If comments arrive after the first topic map was built, fill only due
+    // boundaries the reader has not reached yet. Existing comment assignments
+    // are never moved and already-passed boundaries are left untouched.
+    const currentTopicPosition = feedTopics.findIndex((topic) => topic.id === currentTopicId.current);
+    let nextCommentIndex = 0;
+    const hydratedBoundaries = preservedBoundaries.map((boundary) => {
+      const hasCommentCard = boundary.entries.some((entry) => entry.type === 'top-comments');
+      const boundaryPosition = feedTopics.findIndex((topic) => topic.id === boundary.topicId);
+      if (
+        hasCommentCard ||
+        boundaryPosition <= currentTopicPosition ||
+        boundary.commentCadenceAfter !== 0 ||
+        nextCommentIndex >= unseenComments.length
+      ) return boundary;
+      const comments = unseenComments.slice(nextCommentIndex, nextCommentIndex + 5);
+      if (comments.length === 0) return boundary;
+      nextCommentIndex += comments.length;
+      for (const comment of comments) reservedCommentIdsForMap.add(comment.comment_id);
+      const commentEntry: FeedEntry = {
+        type: 'top-comments',
+        topicId: boundary.topicId,
+        comments,
+      };
+      const sponsorIndex = boundary.entries.findIndex((entry) => entry.type === 'sponsor');
+      const insertIndex = sponsorIndex >= 0 ? sponsorIndex : boundary.entries.length;
+      return {
+        ...boundary,
+        entries: [
+          ...boundary.entries.slice(0, insertIndex),
+          commentEntry,
+          ...boundary.entries.slice(insertIndex),
+        ],
+      };
+    });
+    const remainingComments = unseenComments.slice(nextCommentIndex);
+
+    // Only topics appended since the last map build receive new placements.
+    // Existing boundaries and their cadence snapshots remain immutable.
+    const newTopics = feedTopics.filter((topic) => !preservedTopicIds.has(topic.id));
     const planned = buildFeedEntryMap({
-      topics: feedTopics.slice(startIndex),
-      comments: unseenComments,
-      seenCommentIds: reservedCommentIds,
+      topics: newTopics,
+      comments: remainingComments,
+      seenCommentIds: reservedCommentIdsForMap,
       userId,
-      commentCadence: topicsSinceTopCommentCardRef.current,
-      sponsorCadence: topicsSinceSponsorCardRef.current,
+      commentCadence: previousMap?.commentCadence ?? topicsSinceTopCommentCardRef.current,
+      sponsorCadence: previousMap?.sponsorCadence ?? topicsSinceSponsorCardRef.current,
       sponsorResults: sponsorResultsByTopicId.current,
     });
-    const boundaries = [...prefix, ...planned.boundaries];
+    const boundaries = [...hydratedBoundaries, ...planned.boundaries];
     const byTopicId = new Map(boundaries.map((boundary) => [boundary.topicId, boundary] as const));
     const nextFeedEntryMap: FeedEntryMap = {
       ...planned,
       boundaries,
       byTopicId,
+      reservedCommentIds: planned.reservedCommentIds,
     };
     feedEntryMapRef.current = nextFeedEntryMap;
     setFeedEntryMap(nextFeedEntryMap);
-    for (const boundary of planned.boundaries) {
+    for (const boundary of boundaries) {
       const sponsorEntry = boundary.entries.find((entry) => entry.type === 'sponsor');
       if (sponsorEntry && sponsorEntry.type === 'sponsor' && sponsorEntry.status !== 'empty') {
         sponsorDueByTopicId.current.add(boundary.topicId);
@@ -555,7 +634,7 @@ export function TopicFeedCore({
 
     // Resolve only the next sponsor slot. Fetching every future campaign
     // would consume per-user delivery caps for cards the user may never reach.
-    const firstSponsor = planned.boundaries
+    const firstSponsor = boundaries
       .flatMap((boundary) => boundary.entries)
       .find((entry) => entry.type === 'sponsor');
     if (firstSponsor && firstSponsor.type === 'sponsor' && firstSponsor.status === 'pending') {
@@ -827,13 +906,13 @@ export function TopicFeedCore({
         sponsorSessionUserId.current !== requestedUserId
       ) return;
 
-      if (result.campaigns.length > 0 && result.sessionId) {
+      if (result.campaigns.length > 0) {
         entry.campaigns = result.campaigns;
-        entry.sessionId = result.sessionId;
+        entry.sessionId = result.sessionId ?? '';
         entry.status = 'ready';
         sponsorCardsByTopicId.current.set(entry.topicId, {
           campaigns: result.campaigns,
-          sessionId: result.sessionId,
+          sessionId: result.sessionId ?? '',
         });
         sponsorResultsByTopicId.current.set(entry.topicId, result);
         sponsorDueByTopicId.current.delete(entry.topicId);

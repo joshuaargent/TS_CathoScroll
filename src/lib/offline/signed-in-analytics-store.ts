@@ -14,6 +14,7 @@ export interface SignedInAnalyticsOutbox {
   pending(userId: string, stream: SignedInAnalyticsStream, limit: number): Promise<SignedInAnalyticsPayload[]>;
   acknowledge(userId: string, stream: SignedInAnalyticsStream, eventIds: string[]): Promise<void>;
   clearUser(userId: string): Promise<void>;
+  clearStream(userId: string, stream: SignedInAnalyticsStream): Promise<void>;
 }
 
 const maximumEventsPerStream = 2000;
@@ -163,6 +164,15 @@ export class NativeSignedInAnalyticsOutbox implements SignedInAnalyticsOutbox {
     await this.database.transaction((db) => db.execute(
       'DELETE FROM offline_signed_in_analytics_outbox WHERE user_id = ?',
       [userId]
+    ));
+  }
+
+  async clearStream(userId: string, stream: SignedInAnalyticsStream): Promise<void> {
+    assertUserId(userId);
+    assertStream(stream);
+    await this.database.transaction((db) => db.execute(
+      'DELETE FROM offline_signed_in_analytics_outbox WHERE user_id = ? AND stream = ?',
+      [userId, stream]
     ));
   }
 }

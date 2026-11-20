@@ -48,7 +48,7 @@ test('feed gracefully omits missing comment and sponsor inventory without blank 
   assert.match(cardRegistry, /cacheCommentGroup\(entry\.topicId, entry\.comments\)/);
   assert.match(feedCore, /result\.campaigns\.length > 0/);
   assert.match(feedCore, /const skipEntry = async/);
-  assert.match(feedCore, /comments: unseenComments/);
+  assert.match(feedCore, /comments: remainingComments/);
   assert.match(sponsorCard, /Sponsored/);
   assert.match(sponsorCard, /target="_blank"/);
   assert.match(sponsorManager, /No sponsors recorded/);

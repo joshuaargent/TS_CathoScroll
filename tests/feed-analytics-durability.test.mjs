@@ -4,17 +4,47 @@ import test from 'node:test';
 import ts from 'typescript';
 
 
-async function importTypeScript(relativePath, instance = '') {
+async function transpiledDataUrl(relativePath) {
   const source = await readFile(new URL(relativePath, import.meta.url), 'utf8');
-  const output = ts.transpileModule(source, {
+  let output = ts.transpileModule(source, {
     compilerOptions: {
       module: ts.ModuleKind.ESNext,
       target: ts.ScriptTarget.ES2022,
     },
   }).outputText;
-  const encoded = Buffer.from(output).toString('base64');
-  return import('data:text/javascript;base64,' + encoded + (instance ? '#' + instance : ''));
+  if (output.includes("from './analytics-consent'")) {
+    const consentUrl = await transpiledDataUrl('../src/lib/analytics-consent.ts');
+    output = output.replaceAll("from './analytics-consent'", `from '${consentUrl}'`);
+  }
+  return 'data:text/javascript;base64,' + Buffer.from(output).toString('base64');
 }
+
+async function importTypeScript(relativePath, instance = '') {
+  const url = await transpiledDataUrl(relativePath);
+  return import(url + (instance ? '#' + instance : ''));
+}
+
+function createTestWindow() {
+  return {
+    addEventListener() {},
+    removeEventListener() {},
+    localStorage: {
+      getItem(key) {
+        if (key.includes('.account.')) {
+          return JSON.stringify({
+            version: 1,
+            serviceImprovement: true,
+            sponsorMeasurement: true,
+            updatedAt: '2026-11-20T12:00:00.000Z',
+          });
+        }
+        return null;
+      },
+      setItem() {},
+    },
+  };
+}
+
 
 const [analytics, sponsor, sponsorAnalytics, topicFeed, cardRegistry, readme, sponsorClient, sync, layout, nativeMain, bootstrap, anonymousAnalytics, sponsorSync, cardAnalytics, anonymousOutbox, signedInOutbox] = await Promise.all([
   readFile(new URL('../src/lib/feed-analytics-client.ts', import.meta.url), 'utf8'),
@@ -135,7 +165,7 @@ test('sponsor analytics bounds the in-memory queue and sends the retained events
   const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
   const originalFetch = globalThis.fetch;
   const sent = [];
-  Object.defineProperty(globalThis, 'window', { configurable: true, value: { addEventListener() {}, removeEventListener() {} } });
+  Object.defineProperty(globalThis, 'window', { configurable: true, value: createTestWindow() });
   Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { onLine: false } });
   globalThis.fetch = async (_url, init) => {
     sent.push(JSON.parse(init.body).eventId);
@@ -171,7 +201,7 @@ test('sponsor events remain retryable after a failed send within the active proc
   const originalDocument = Object.getOwnPropertyDescriptor(globalThis, 'document');
   const originalFetch = globalThis.fetch;
   const requests = [];
-  Object.defineProperty(globalThis, 'window', { configurable: true, value: { addEventListener() {}, removeEventListener() {} } });
+  Object.defineProperty(globalThis, 'window', { configurable: true, value: createTestWindow() });
   Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { onLine: false } });
   Object.defineProperty(globalThis, 'document', { configurable: true, value: { visibilityState: 'visible', addEventListener() {}, removeEventListener() {} } });
   globalThis.fetch = async (_url, init) => {
@@ -210,10 +240,7 @@ test('expired sponsor placements are discarded without blocking later queued eve
 
   Object.defineProperty(globalThis, 'window', {
     configurable: true,
-    value: {
-      addEventListener() {},
-      removeEventListener() {},
-    },
+    value: createTestWindow(),
   });
   Object.defineProperty(globalThis, 'navigator', {
     configurable: true,

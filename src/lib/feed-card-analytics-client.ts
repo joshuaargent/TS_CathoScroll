@@ -1,6 +1,7 @@
 'use client';
 
 import type { SignedInAnalyticsOutbox } from './offline/signed-in-analytics-store';
+import { createConsentBoundAbortSignal, hasAnalyticsConsent } from './analytics-consent';
 
 type FeedCardEventType = 'impression' | 'viewable_impression' | 'active_duration' | 'skip' | 'completion' | 'open';
 type QueuedEvent = {
@@ -30,6 +31,7 @@ export async function configureFeedCardAnalyticsOutbox(outbox: SignedInAnalytics
 export async function clearFeedCardAnalyticsOutbox(userId: string): Promise<void> {
   pendingQueues.delete(userId);
   sessionIds.delete(userId);
+  if (persistentOutbox) await persistentOutbox.clearStream(userId, 'comment');
 }
 
 async function hasPendingFeedCardAnalytics(userId: string): Promise<boolean> {
@@ -69,7 +71,7 @@ export function recordFeedCardAnalyticsEvent(
   commentId: number,
   durationMs = 0
 ) {
-  if (!userId || !Number.isSafeInteger(commentId) || commentId < 1 || typeof window === 'undefined') return;
+  if (!userId || !Number.isSafeInteger(commentId) || commentId < 1 || typeof window === 'undefined' || !hasAnalyticsConsent('serviceImprovement', userId)) return;
   const eventId = uuid();
   const currentSessionId = getSessionId(userId);
   if (!eventId || !currentSessionId) return;
@@ -103,10 +105,21 @@ export function recordFeedCardAnalyticsEvent(
 }
 
 export async function flushFeedCardAnalytics(userId: string, keepalive = false) {
-  if (typeof window === 'undefined' || !navigator.onLine || flushingUsers.has(userId)) return;
+  if (typeof window === 'undefined' || !hasAnalyticsConsent('serviceImprovement', userId)) {
+    writeQueue(userId, []);
+    if (persistentOutbox) await persistentOutbox.clearStream(userId, 'comment');
+    return;
+  }
+  if (!navigator.onLine || flushingUsers.has(userId)) return;
   flushingUsers.add(userId);
+  const consentRequest = createConsentBoundAbortSignal('serviceImprovement', userId);
   try {
     for (;;) {
+      if (!hasAnalyticsConsent('serviceImprovement', userId)) {
+        writeQueue(userId, []);
+        if (persistentOutbox) await persistentOutbox.clearStream(userId, 'comment');
+        break;
+      }
       const stored = persistentOutbox ? await persistentOutbox.pending(userId, 'comment', 50) : [];
       const storedIds = new Set(stored.map((event) => event.event_id));
       const memory = readQueue(userId).filter((event) => !storedIds.has(event.event_id));
@@ -117,9 +130,10 @@ export async function flushFeedCardAnalytics(userId: string, keepalive = false) 
       if (transport?.getAccessToken) {
         let accessToken: string | null;
         try { accessToken = await transport.getAccessToken(); } catch { break; }
-        if (!accessToken) break;
+        if (!accessToken || !hasAnalyticsConsent('serviceImprovement', userId)) break;
         headers.set('Authorization', 'Bearer ' + accessToken);
       }
+      if (consentRequest.signal.aborted || !hasAnalyticsConsent('serviceImprovement', userId)) break;
       let response: Response;
       try {
         response = await fetch(transport?.endpoint ?? '/api/analytics/feed-card-events', {
@@ -127,10 +141,16 @@ export async function flushFeedCardAnalytics(userId: string, keepalive = false) 
           credentials: transport?.endpoint ? 'omit' : 'same-origin',
           cache: 'no-store',
           keepalive,
+          signal: consentRequest.signal,
           headers,
           body: JSON.stringify({ events: batch }),
         });
       } catch { break; }
+      if (!hasAnalyticsConsent('serviceImprovement', userId)) {
+        writeQueue(userId, []);
+        if (persistentOutbox) await persistentOutbox.clearStream(userId, 'comment');
+        break;
+      }
       if (!response.ok) break;
       const accepted = new Set(batch.map((event) => event.event_id));
       if (persistentOutbox) await persistentOutbox.acknowledge(userId, 'comment', [...accepted]);
@@ -138,6 +158,7 @@ export async function flushFeedCardAnalytics(userId: string, keepalive = false) 
       if (keepalive) break;
     }
   } finally {
+    consentRequest.dispose();
     flushingUsers.delete(userId);
     const transport = transports.get(userId);
     if (transport?.retired) {

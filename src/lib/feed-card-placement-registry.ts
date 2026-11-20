@@ -12,9 +12,7 @@ export const DEFAULT_FEED_CARD_RULES = {
 
 export type FeedCardPlacementContext = Pick<
   BuildFeedEntryMapOptions,
-  | 'comments'
-  | 'userId'
-  | 'commentInterval'
+  | 'comments'  | 'commentInterval'
   | 'sponsorInterval'
   | 'commentGroupSize'
   | 'sponsorResults'
@@ -29,7 +27,6 @@ export type FeedCardPlacementContext = Pick<
 export function createFeedCardPlacementRules({
   comments,
   reservedCommentIds,
-  userId,
   commentInterval = 5,
   sponsorInterval = 10,
   commentGroupSize = 5,
@@ -56,10 +53,9 @@ export function createFeedCardPlacementRules({
       interval: sponsorInterval,
       priority: DEFAULT_FEED_CARD_RULES.sponsor.priority,
       createEntry: (topic) => {
-        if (!userId) return null;
         const result = sponsorResults.get(topic.id);
         // Confirmed empty inventory consumes cadence but creates no slot.
-        if (result && (result.campaigns.length === 0 || !result.sessionId)) return null;
+        if (result && result.campaigns.length === 0) return null;
         return {
           type: 'sponsor',
           topicId: topic.id,

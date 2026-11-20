@@ -24,7 +24,7 @@ test('offline personalisation only reuses encrypted cached server pages with fre
   assert.match(cache, /consentFreshnessMs = 12 \* 60 \* 60 \* 1000/);
   assert.match(cache, /async hasFreshConsent/);
   assert.match(cache, /async clearUser/);
-  const consentDenialWrite = cache.indexOf('VALUES (?, 0, ?)');
+  const consentDenialWrite = cache.indexOf('VALUES (?, 0, ?, ?)');
   const personalisedPageDelete = cache.indexOf("DELETE FROM offline_ranked_feed_pages WHERE mode = ? AND owner_id = ?", consentDenialWrite);
   assert.ok(consentDenialWrite >= 0 && personalisedPageDelete > consentDenialWrite);
   assert.match(native, /personalizedFeedCacheRef\.current\.hasFreshConsent\(user\.id\)/);
@@ -41,4 +41,46 @@ test('personalised page cache is initialised only after the encrypted private da
   assert.match(native, /new OfflineRankedFeedCache\(databases\.catalogue, localCatalogue\)/);
   assert.match(native, /new OfflineRankedFeedCache\(cacheDatabase, localCatalogue, true\)/);
   assert.match(native, /if \(privateDatabaseReady\)[\s\S]*?new OfflineRankedFeedCache\(cacheDatabase, localCatalogue, true\)/);
+});
+
+
+test('offline personalisation withdrawal persists a deny tombstone until server sync succeeds', () => {
+  assert.match(cache, /pending_sync INTEGER NOT NULL DEFAULT 0/);
+  assert.match(cache, /async getPendingConsent/);
+  assert.match(cache, /async setConsent\(userId: string, enabled: boolean, pendingSync = false\)/);
+  assert.match(cache, /VALUES \(\?, 0, \?, \?\)/);
+  assert.match(native, /getPendingConsent\(user\.id\)/);
+  assert.match(native, /pendingConsent !== false/);
+  assert.match(native, /set_my_personalization_consent', \{ p_enabled: false \}/);
+  assert.match(native, /cathoscroll:personalization-consent-changed/);
+});
+
+
+test('pending offline withdrawal tombstones survive cache expiry and account cache cleanup', () => {
+  assert.match(cache, /checked_at < \? AND pending_sync = 0/);
+  assert.match(cache, /DELETE FROM offline_personalization_consent_cache WHERE user_id = \? AND pending_sync = 0/);
+});
+
+
+test('native feed retries queued consent withdrawal automatically on reconnect', () => {
+  assert.match(native, /addEventListener\('online', retryPendingConsentSync\)/);
+  assert.match(native, /removeEventListener\('online', retryPendingConsentSync\)/);
+});
+
+
+test('withdrawal writes local denial using cached identity before network-dependent getUser', async () => {
+  const account = await readFile(new URL('../src/components/account/PersonalizationAccountSection.tsx', import.meta.url), 'utf8');
+  const update = account.slice(account.indexOf('async function updateConsent'), account.indexOf('function refreshStatus'));
+  assert.ok(update.indexOf('syncNativeConsent(accountUserId, false, true)') < update.indexOf('client.auth.getUser()'));
+});
+
+test('local withdrawal replaces the active personalised feed and retries the server state', () => {
+  assert.match(native, /setFirstPage\(null\)/);
+  assert.match(native, /setFeedAttempt\(\(attempt\) => attempt \+ 1\)/);
+});
+
+
+test('withdrawal clears the stale personalised page before the replacement feed is published', () => {
+  assert.match(native, /setFirstPage\(null\)/);
+  assert.doesNotMatch(native, /setFeedPersonalized\(detail\.enabled\)/);
 });

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { readBoundedJson } from '@/lib/http/read-json';
+import { getStoredAnalyticsConsent } from '@/lib/analytics-consent-server';
 import { checkApiRateLimit, getTrustedClientIp, rateLimitResponseHeaders } from '@/lib/security/api-rate-limit';
 import {
   createServiceRoleClient,
@@ -97,7 +98,7 @@ export async function POST(request: Request) {
     parsed.value === null ||
     Array.isArray(parsed.value) ||
     !('sessionId' in parsed.value) ||
-    !isValidUuid(parsed.value.sessionId) ||
+    (parsed.value.sessionId !== null && !isValidUuid(parsed.value.sessionId)) ||
     !('categorySlug' in parsed.value) ||
     (parsed.value.categorySlug !== null &&
       (typeof parsed.value.categorySlug !== 'string' ||
@@ -110,16 +111,36 @@ export async function POST(request: Request) {
   }
 
   try {
+    const sponsorMeasurementConsent = (parsed.value as Record<string, unknown>).sponsorMeasurementConsent === true;
+    // Anonymous measurement is opt-in per browser. Older clients that do not
+    // send the explicit flag fail closed while sponsor delivery remains enabled.
+    let sponsorMeasurementEnabled = isAnonymous
+      ? sponsorMeasurementConsent && parsed.value.sessionId !== null
+      : parsed.value.sessionId !== null;
+    if (auth.user) {
+      try {
+        const consent = await getStoredAnalyticsConsent(auth.user.id);
+        sponsorMeasurementEnabled = consent.sponsorMeasurement && parsed.value.sessionId !== null;
+      } catch (cause) {
+        // Fail closed for measurement, but never suppress an otherwise eligible
+        // sponsor placement because the optional consent service is unavailable.
+        console.error('Unable to verify sponsor measurement consent; serving without measurement:', cause);
+        sponsorMeasurementEnabled = false;
+      }
+    }
+    const measurementSessionId: string | null = sponsorMeasurementEnabled && typeof parsed.value.sessionId === 'string'
+      ? parsed.value.sessionId
+      : null;
     const { data, error } = isAnonymous
       ? await createServiceRoleClient().rpc('get_anonymous_sponsor_campaigns', {
-          p_session_token: parsed.value.sessionId,
+          p_session_token: measurementSessionId,
           p_category_slug: parsed.value.categorySlug,
           p_topic_id: parsed.value.topicId,
           p_limit: 1,
         })
       : await createServiceRoleClient().rpc('get_weighted_sponsor_campaigns', {
           p_user_id: auth.user!.id,
-          p_session_id: parsed.value.sessionId,
+          p_session_id: measurementSessionId,
           p_category_slug: parsed.value.categorySlug,
           p_topic_id: parsed.value.topicId,
           p_limit: 1,

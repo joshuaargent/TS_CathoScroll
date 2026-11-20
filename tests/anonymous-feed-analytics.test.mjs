@@ -6,12 +6,15 @@ const read = (path) => readFileSync(new URL(path, import.meta.url), 'utf8');
 
 test('anonymous feed ingestion is bounded, rate-limited and service-role mediated', () => {
   const route = read('../src/app/api/analytics/anonymous-events/route.ts');
+  const client = read('../src/lib/anonymous-feed-analytics-client.ts');
   const sql = read('../docs/cathoscroll-database-bootstrap.sql');
   assert.match(route, /readBoundedJson/);
   assert.match(route, /checkApiRateLimit/);
   assert.match(route, /getTrustedClientIp/);
   assert.match(route, /isSameOriginOrNativeRequest\(request, true\)/);
   assert.match(route, /record_anonymous_feed_analytics/);
+  assert.match(route, /serviceImprovementConsent !== true/);
+  assert.match(client, /serviceImprovementConsent: true/);
   assert.match(sql, /REVOKE ALL ON FUNCTION public\.record_anonymous_feed_analytics\(jsonb\) FROM PUBLIC,anon,authenticated/);
   assert.match(sql, /GRANT EXECUTE ON FUNCTION public\.record_anonymous_feed_analytics\(jsonb\) TO service_role/);
 });

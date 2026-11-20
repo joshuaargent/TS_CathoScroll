@@ -9,6 +9,7 @@ import { SignInPromptProvider } from '@/components/providers/SignInPromptProvide
 import { SponsorAnalyticsSync } from '@/components/providers/SponsorAnalyticsSync';
 import { PrivacySafeAnalytics } from '@/components/providers/PrivacySafeAnalytics';
 import { PrivacySafeSpeedInsights } from '@/components/providers/PrivacySafeSpeedInsights';
+import { WebAnalyticsConsentManager } from '@/components/privacy/WebAnalyticsConsentManager';
 import './globals.css';
 
 // ============================================
@@ -144,6 +145,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ThemeProvider>
           <SponsorAnalyticsSync />
           <AuthProvider>
+            <WebAnalyticsConsentManager />
             <SignInPromptProvider>
               <Navbar />
               <main className="flex-1">{children}</main>

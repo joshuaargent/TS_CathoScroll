@@ -1,3 +1,12 @@
+-- EXISTING DATABASE UPGRADE ONLY.
+-- This script upgrades an older CathoScroll database with feed-card analytics.
+-- It does not install the new optional analytics consent ledger or sponsor
+-- measurement opt-out. For those changes, use
+-- docs/analytics-consent-and-sponsor-opt-out-upgrade.sql after this schema is
+-- current. Do not run either script against production until both the clean
+-- bootstrap and existing-database upgrade paths have been tested on disposable
+-- PostgreSQL databases.
+
 -- Consented, private recommendation personalisation (model 2026-11-19-v2).
 CREATE TABLE IF NOT EXISTS catho_private.user_personalization_consents (
   user_id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -533,10 +542,195 @@ AFTER INSERT ON auth.users
 FOR EACH ROW EXECUTE FUNCTION catho_private.capture_signup_personalization_consent();
 
 
+CREATE TABLE IF NOT EXISTS catho_private.feed_card_analytics_events (
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  event_id uuid NOT NULL,
+  event_type text NOT NULL CHECK (event_type IN ('impression','viewable_impression','active_duration','skip','completion','open')),
+  card_type text NOT NULL CHECK (card_type IN ('top-comment')),
+  card_id text NOT NULL CHECK (length(card_id) BETWEEN 1 AND 64),
+  session_id uuid NOT NULL,
+  duration_ms integer NOT NULL DEFAULT 0 CHECK (duration_ms BETWEEN 0 AND 300000),
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb CHECK (jsonb_typeof(metadata)='object' AND octet_length(metadata::text)<=512),
+  received_at timestamptz NOT NULL DEFAULT statement_timestamp(),
+  PRIMARY KEY(user_id,event_id)
+);
+CREATE INDEX IF NOT EXISTS feed_card_analytics_events_received_idx ON catho_private.feed_card_analytics_events(received_at);
+CREATE INDEX IF NOT EXISTS feed_card_analytics_events_card_received_idx ON catho_private.feed_card_analytics_events(card_type,card_id,received_at DESC);
+CREATE TABLE IF NOT EXISTS catho_private.feed_card_analytics_event_limits (
+  user_id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  window_started_at timestamptz NOT NULL,
+  event_count integer NOT NULL CHECK (event_count BETWEEN 0 AND 120)
+);
+CREATE TABLE IF NOT EXISTS catho_private.feed_card_analytics_daily (
+  event_date date NOT NULL, card_type text NOT NULL, card_id text NOT NULL,
+  impressions bigint NOT NULL DEFAULT 0, viewable_impressions bigint NOT NULL DEFAULT 0,
+  active_duration_ms bigint NOT NULL DEFAULT 0, skips bigint NOT NULL DEFAULT 0,
+  completions bigint NOT NULL DEFAULT 0, opens bigint NOT NULL DEFAULT 0,
+  unique_viewers bigint NOT NULL DEFAULT 0, refreshed_at timestamptz NOT NULL DEFAULT statement_timestamp(),
+  PRIMARY KEY(event_date,card_type,card_id)
+);
+CREATE TABLE IF NOT EXISTS catho_private.feed_card_analytics_daily_viewers (
+  event_date date NOT NULL, card_type text NOT NULL, card_id text NOT NULL,
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  PRIMARY KEY(event_date,card_type,card_id,user_id)
+);
+CREATE INDEX IF NOT EXISTS feed_card_analytics_daily_card_date_idx ON catho_private.feed_card_analytics_daily(card_type,event_date DESC);
+CREATE INDEX IF NOT EXISTS feed_card_analytics_daily_viewers_user_idx ON catho_private.feed_card_analytics_daily_viewers(user_id);
+ALTER TABLE catho_private.feed_card_analytics_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE catho_private.feed_card_analytics_event_limits ENABLE ROW LEVEL SECURITY;
+ALTER TABLE catho_private.feed_card_analytics_daily ENABLE ROW LEVEL SECURITY;
+ALTER TABLE catho_private.feed_card_analytics_daily_viewers ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON catho_private.feed_card_analytics_events,catho_private.feed_card_analytics_event_limits,
+  catho_private.feed_card_analytics_daily,catho_private.feed_card_analytics_daily_viewers
+  FROM PUBLIC,anon,authenticated,service_role;
+
+CREATE OR REPLACE FUNCTION public.record_feed_card_analytics_events(p_events jsonb)
+ RETURNS integer
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare
+  v_user_id uuid := auth.uid();
+  v_event jsonb;
+  v_count integer := 0;
+  v_event_id uuid;
+  v_event_type text;
+  v_card_type text;
+  v_card_id text;
+  v_session_id uuid;
+  v_duration integer;
+  v_window timestamptz;
+  v_used integer;
+  v_event_id_text text;
+  v_session_id_text text;
+  v_duration_text text;
+begin
+  if v_user_id is null then raise exception 'authentication required' using errcode='42501'; end if;
+  if jsonb_typeof(p_events) <> 'array' or jsonb_array_length(p_events) < 1 or jsonb_array_length(p_events) > 50 then
+    raise exception 'invalid event batch' using errcode='22023';
+  end if;
+  insert into catho_private.feed_card_analytics_event_limits(user_id,window_started_at,event_count)
+  values(v_user_id,statement_timestamp(),0) on conflict(user_id) do nothing;
+  select window_started_at,event_count into v_window,v_used
+  from catho_private.feed_card_analytics_event_limits where user_id=v_user_id for update;
+  if v_window <= statement_timestamp()-interval '1 minute' then v_window:=statement_timestamp(); v_used:=0; end if;
+  if v_used + jsonb_array_length(p_events) > 120 then return -1; end if;
+  update catho_private.feed_card_analytics_event_limits
+  set window_started_at=v_window,event_count=v_used+jsonb_array_length(p_events) where user_id=v_user_id;
+
+  for v_event in select value from jsonb_array_elements(p_events) loop
+    if jsonb_typeof(v_event)<>'object' or (select count(*) from jsonb_object_keys(v_event))>7 then
+      raise exception 'invalid event' using errcode='22023';
+    end if;
+    v_event_id_text:=v_event->>'event_id';
+    v_session_id_text:=v_event->>'session_id';
+    v_duration_text:=coalesce(v_event->>'duration_ms','0');
+    if v_event_id_text is null or v_event_id_text !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+      or v_session_id_text is null or v_session_id_text !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+      or v_duration_text !~ '^[0-9]{1,6}$' then
+      raise exception 'invalid event identifiers or duration' using errcode='22023';
+    end if;
+    v_event_id:=v_event_id_text::uuid;
+    v_session_id:=v_session_id_text::uuid;
+    v_duration:=v_duration_text::integer;
+    v_event_type:=v_event->>'event_type';
+    v_card_type:=v_event->>'card_type';
+    v_card_id:=v_event->>'card_id';
+    if v_event_type is null or v_event_type not in ('impression','viewable_impression','active_duration','skip','completion','open')
+      or v_card_type is null or v_card_type<>'top-comment'
+      or v_card_id is null or length(v_card_id) not between 1 and 64
+      or v_duration not between 0 and 300000
+      or (v_event ? 'metadata' and jsonb_typeof(v_event->'metadata')<>'object')
+      or octet_length(coalesce(v_event->'metadata','{}'::jsonb)::text)>512 then
+      raise exception 'invalid event fields' using errcode='22023';
+    end if;
+    insert into catho_private.feed_card_analytics_events(user_id,event_id,event_type,card_type,card_id,session_id,duration_ms,metadata)
+    values(v_user_id,v_event_id,v_event_type,v_card_type,v_card_id,v_session_id,v_duration,coalesce(v_event->'metadata','{}'::jsonb))
+    on conflict(user_id,event_id) do nothing;
+    if found then v_count:=v_count+1; end if;
+  end loop;
+  return v_count;
+end;
+$function$;
+ALTER FUNCTION public.record_feed_card_analytics_events(jsonb) OWNER TO postgres;
+CREATE OR REPLACE FUNCTION catho_private.refresh_feed_card_analytics_daily()
+ RETURNS integer
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare v_rows integer;
+begin
+  insert into catho_private.feed_card_analytics_daily_viewers(event_date,card_type,card_id,user_id)
+  select distinct (received_at at time zone 'UTC')::date,card_type,card_id,user_id
+  from catho_private.feed_card_analytics_events
+  where received_at >= statement_timestamp()-interval '2 days'
+    and event_type in ('impression','viewable_impression')
+  on conflict do nothing;
+  with event_totals as (
+    select (received_at at time zone 'UTC')::date event_date,card_type,card_id,
+      count(*) filter(where event_type='impression') impressions,
+      count(*) filter(where event_type='viewable_impression') viewable_impressions,
+      coalesce(sum(duration_ms) filter(where event_type='active_duration'),0) active_duration_ms,
+      count(*) filter(where event_type='skip') skips,
+      count(*) filter(where event_type='completion') completions,
+      count(*) filter(where event_type='open') opens
+    from catho_private.feed_card_analytics_events
+    where received_at >= statement_timestamp()-interval '2 days'
+    group by 1,2,3
+  ), viewer_totals as (
+    select event_date,card_type,card_id,count(*) unique_viewers
+    from catho_private.feed_card_analytics_daily_viewers
+    where event_date >= (statement_timestamp()-interval '2 days')::date
+    group by 1,2,3
+  )
+  insert into catho_private.feed_card_analytics_daily(event_date,card_type,card_id,impressions,viewable_impressions,active_duration_ms,skips,completions,opens,unique_viewers,refreshed_at)
+  select e.event_date,e.card_type,e.card_id,e.impressions,e.viewable_impressions,e.active_duration_ms,e.skips,e.completions,e.opens,coalesce(v.unique_viewers,0),statement_timestamp()
+  from event_totals e left join viewer_totals v using(event_date,card_type,card_id)
+  on conflict(event_date,card_type,card_id) do update set
+    impressions=excluded.impressions,viewable_impressions=excluded.viewable_impressions,
+    active_duration_ms=excluded.active_duration_ms,skips=excluded.skips,
+    completions=excluded.completions,opens=excluded.opens,unique_viewers=excluded.unique_viewers,
+    refreshed_at=excluded.refreshed_at;
+  get diagnostics v_rows = row_count;
+  return v_rows;
+end;
+$function$;
+ALTER FUNCTION catho_private.refresh_feed_card_analytics_daily() OWNER TO postgres;
+CREATE OR REPLACE FUNCTION catho_private.prune_feed_card_analytics_events(p_before timestamp with time zone, p_batch_size integer DEFAULT 5000)
+ RETURNS integer
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare v_deleted integer; v_viewers_deleted integer;
+begin
+  if p_before>statement_timestamp()-interval '180 days' or p_batch_size not between 1 and 5000 then
+    raise exception 'invalid retention boundary or batch size' using errcode='22023';
+  end if;
+  with doomed as (
+    select ctid from catho_private.feed_card_analytics_daily_viewers
+    where event_date<p_before::date order by event_date limit p_batch_size
+  )
+  delete from catho_private.feed_card_analytics_daily_viewers v using doomed d where v.ctid=d.ctid;
+  get diagnostics v_viewers_deleted=row_count;
+  with doomed as (
+    select ctid from catho_private.feed_card_analytics_events
+    where received_at<p_before order by received_at limit p_batch_size
+  )
+  delete from catho_private.feed_card_analytics_events e using doomed d where e.ctid=d.ctid;
+  get diagnostics v_deleted=row_count;
+  return v_deleted+v_viewers_deleted;
+end;
+$function$;
+ALTER FUNCTION catho_private.prune_feed_card_analytics_events(timestamptz,integer) OWNER TO postgres;
+
 -- Recommendation RPC: all account-history weighting is consent-gated.
 CREATE OR REPLACE FUNCTION public.get_my_recommendation_page(feed_cursor jsonb DEFAULT NULL::jsonb, page_limit integer DEFAULT 50)
  RETURNS jsonb
  LANGUAGE plpgsql
+ SECURITY DEFINER
  SET search_path TO ''
 AS $function$
 DECLARE
@@ -573,30 +767,34 @@ BEGIN
     IF personalization_enabled THEN
       -- Read account history only inside this consented branch.
       WITH signals AS (
-      SELECT p.topic_id, 5::numeric AS weight
-      FROM public.progress p
-      WHERE p.user_id = current_user_id
+       SELECT p.topic_id, 5::numeric AS weight
+       FROM public.progress p
+       WHERE p.user_id = current_user_id
+         AND p.completed_at >= (SELECT granted_at FROM catho_private.user_personalization_consents WHERE user_id=current_user_id AND enabled=true)
 
-      UNION ALL
+       UNION ALL
 
-      SELECT b.topic_id, 4::numeric
-      FROM public.bookmarks b
-      WHERE b.user_id = current_user_id
+       SELECT b.topic_id, 4::numeric
+       FROM public.bookmarks b
+       WHERE b.user_id = current_user_id
+         AND b.created_at >= (SELECT granted_at FROM catho_private.user_personalization_consents WHERE user_id=current_user_id AND enabled=true)
 
-      UNION ALL
+       UNION ALL
 
-      SELECT l.topic_id, 3::numeric
-      FROM public.topic_likes l
-      WHERE l.user_id = current_user_id
+       SELECT l.topic_id, 3::numeric
+       FROM public.topic_likes l
+       WHERE l.user_id = current_user_id
+         AND l.created_at >= (SELECT granted_at FROM catho_private.user_personalization_consents WHERE user_id=current_user_id AND enabled=true)
 
-      UNION ALL
+       UNION ALL
 
-      SELECT DISTINCT c.topic_id, 3::numeric
-      FROM public.comments c
-      WHERE c.user_id = current_user_id
-        AND c.is_deleted = false
-    ),
-    legacy_preferences AS (
+       SELECT DISTINCT c.topic_id, 3::numeric
+       FROM public.comments c
+       WHERE c.user_id = current_user_id
+         AND c.is_deleted = false
+         AND c.created_at >= (SELECT granted_at FROM catho_private.user_personalization_consents WHERE user_id=current_user_id AND enabled=true)
+     ),
+     legacy_preferences AS (
       SELECT t.category_slug, sum(s.weight) AS weight
       FROM signals s
       JOIN public.topics t
@@ -836,3 +1034,36 @@ $function$;
 -- Remove the retired user-membership tier; sponsorship is the only paid offering.
 DROP FUNCTION IF EXISTS public.get_own_subscription_tier();
 ALTER TABLE public.profiles DROP COLUMN IF EXISTS subscription_tier;
+
+
+-- Match the canonical bootstrap's ownership and least-privilege RPC ACLs.
+ALTER FUNCTION public.get_my_recommendation_page(jsonb, integer) OWNER TO postgres;
+REVOKE ALL ON FUNCTION public.get_my_recommendation_page(jsonb, integer) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.get_my_recommendation_page(jsonb, integer) TO authenticated, service_role;
+ALTER FUNCTION public.record_feed_card_analytics_events(jsonb) OWNER TO postgres;
+REVOKE ALL ON FUNCTION public.record_feed_card_analytics_events(jsonb) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.record_feed_card_analytics_events(jsonb) TO authenticated;
+REVOKE ALL ON FUNCTION catho_private.refresh_feed_card_analytics_daily() FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION catho_private.prune_feed_card_analytics_events(timestamptz, integer) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION catho_private.refresh_feed_card_analytics_daily() TO service_role;
+GRANT EXECUTE ON FUNCTION catho_private.prune_feed_card_analytics_events(timestamptz, integer) TO service_role;
+
+
+DO $feed_card_analytics_cron$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM cron.job WHERE jobname='cathoscroll-rollup-feed-card-analytics') THEN
+    PERFORM cron.schedule(
+      'cathoscroll-rollup-feed-card-analytics',
+      '*/5 * * * *',
+      'SELECT catho_private.refresh_feed_card_analytics_daily();'
+    );
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM cron.job WHERE jobname='cathoscroll-prune-feed-card-analytics') THEN
+    PERFORM cron.schedule(
+      'cathoscroll-prune-feed-card-analytics',
+      '*/15 * * * *',
+      'SELECT catho_private.prune_feed_card_analytics_events(statement_timestamp() - interval ''180 days'', 5000);'
+    );
+  END IF;
+END;
+$feed_card_analytics_cron$;

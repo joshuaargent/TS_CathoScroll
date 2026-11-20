@@ -3,17 +3,47 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import ts from 'typescript';
 
-async function importTypeScript(relativePath) {
+async function transpiledDataUrl(relativePath) {
   const source = await readFile(new URL(relativePath, import.meta.url), 'utf8');
-  const output = ts.transpileModule(source, {
+  let output = ts.transpileModule(source, {
     compilerOptions: {
       module: ts.ModuleKind.ESNext,
       target: ts.ScriptTarget.ES2022,
     },
   }).outputText;
-  const encoded = Buffer.from(output).toString('base64');
-  return import('data:text/javascript;base64,' + encoded);
+  if (output.includes("from './analytics-consent'")) {
+    const consentUrl = await transpiledDataUrl('../src/lib/analytics-consent.ts');
+    output = output.replaceAll("from './analytics-consent'", `from '${consentUrl}'`);
+  }
+  return 'data:text/javascript;base64,' + Buffer.from(output).toString('base64');
 }
+
+async function importTypeScript(relativePath, instance = '') {
+  const url = await transpiledDataUrl(relativePath);
+  return import(url + (instance ? '#' + instance : ''));
+}
+
+function createTestWindow() {
+  return {
+    addEventListener() {},
+    removeEventListener() {},
+    localStorage: {
+      getItem(key) {
+        if (key.includes('.account.')) {
+          return JSON.stringify({
+            version: 1,
+            serviceImprovement: true,
+            sponsorMeasurement: true,
+            updatedAt: '2026-11-20T12:00:00.000Z',
+          });
+        }
+        return null;
+      },
+      setItem() {},
+    },
+  };
+}
+
 
 const [viewer, feed, coordinatorModule, analyticsModule] = await Promise.all([
   readFile(new URL('../src/components/topic/TopicSwipeViewer.tsx', import.meta.url), 'utf8'),
@@ -95,7 +125,7 @@ test('feed analytics in-memory queue is bounded to the most recent 200 events pe
   const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
   const originalFetch = globalThis.fetch;
   const requests = [];
-  globalThis.window = {};
+  globalThis.window = createTestWindow();
   globalThis.fetch = async (_url, init) => {
     requests.push(JSON.parse(init.body).events);
     return new Response(JSON.stringify({ accepted: 50 }), { status: 200 });
@@ -131,10 +161,7 @@ test('final native reading-time events retain the authenticated transport throug
 
   Object.defineProperty(globalThis, 'window', {
     configurable: true,
-    value: {
-      addEventListener() {},
-      removeEventListener() {},
-    },
+    value: createTestWindow(),
   });
   Object.defineProperty(globalThis, 'navigator', {
     configurable: true,
@@ -190,7 +217,7 @@ test('feed topic visit attribution ignores StrictMode effect replays', async () 
   const originalNow = Date.now;
   const requests = [];
   let now = 1000;
-  globalThis.window = {};
+  globalThis.window = createTestWindow();
   Date.now = () => now;
   globalThis.fetch = async (_url, init) => {
     requests.push(JSON.parse(init.body).events);

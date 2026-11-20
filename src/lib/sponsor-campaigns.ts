@@ -57,9 +57,13 @@ export function parseSponsorFeedCampaigns(value: unknown): SponsorFeedCampaign[]
   return value.campaigns.filter(isSponsorFeedCampaign).slice(0, 5);
 }
 
-export function shouldInsertSponsorCard(topicsSinceLastCard: number, hasUser: boolean): boolean {
+/**
+ * Sponsor inventory is public and can be delivered to signed-out visitors.
+ * Measurement consent controls tracking, not whether the card is eligible.
+ * The optional legacy argument is intentionally ignored for compatibility.
+ */
+export function shouldInsertSponsorCard(topicsSinceLastCard: number, _hasUser?: boolean): boolean {
   return (
-    hasUser &&
     Number.isSafeInteger(topicsSinceLastCard) &&
     topicsSinceLastCard >= 0 &&
     topicsSinceLastCard + 1 >= SPONSOR_CARD_CADENCE
