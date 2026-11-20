@@ -19,9 +19,9 @@ This audit distinguishes offline browsing, offline reads, local mutation queues 
 | Comments | Public comment cache in local SQLite | Cached read | Comment creation/replies/likes require live server actions; cached comments are snapshots and can be stale. |
 | Topic counts | Local cache refreshed online | Cached read | Counts are explicitly freshness-aware. |
 | Profile details | Private profile cache and online refresh | Cached read where private DB works | Profile/account mutations require connectivity. |
-| Personalisation settings | Read/write via authenticated RPC | Online only | Consent and explicit category interests are not locally cached for offline recommendation. |
+| Personalisation settings | Consent is verified online; the last successful consent check is cached in the encrypted private database for 12 hours | Settings changes remain online; cached previously ranked pages can be read offline while consent is fresh | Explicit category settings and derived interest scores are not copied into local storage. |
 | Sponsor placements | Server-selected placements and server-side delivery attribution | Online only | Do not manufacture served/viewable/click receipts offline. |
-| Anonymous feed analytics | Previously in-memory retry queue | Best effort only at audit baseline | This follow-up adds a persistent native outbox. |
+| Anonymous feed analytics | Separate anonymous native SQLite outbox (2,000 events, seven-day expiry, opt-out and acknowledgement deletion); website remains in memory | Durable native retry | Contains no account, visitor or session identifier and is not stored in the encrypted account database. |
 | Sponsor analytics | Separate sponsor event client and anonymous session frequency handling | Separate transport | Do not merge with topic/comment analytics or account activity sync. |
 | Admin/moderation/security | Server-authorised mutations | Online only | This is intentional; privileged state changes must not be replayed blindly from an offline queue. |
 
