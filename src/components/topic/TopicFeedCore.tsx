@@ -14,6 +14,7 @@ import {
 } from '@/lib/sponsor-campaigns';
 import { createFeedRefreshCoordinator } from '@/lib/feed-refresh-coordinator';
 import { siteConfig } from '@/lib/constants';
+import { hasAnalyticsConsent } from '@/lib/analytics-consent';
 import { buildFeedEntryMap, collectReservedCommentIds, flattenFeedEntryMap, reconcileFeedBoundary, type FeedEntry, type FeedEntryMap } from '@/lib/feed-entry-map';
 import {
   invokeRegisteredFeedEntryLifecycle,
@@ -206,8 +207,11 @@ export function TopicFeedCore({
 
       // Anonymous placements share an in-memory session token for frequency caps;
       // signed-in placements get unique IDs so separate card views are not deduplicated.
-      const sessionId = userId ? createSponsorPlacementId() : createSponsorSessionId();
-      if (!sessionId) return { campaigns: [], sessionId: null, retryable: true };
+      const measurementEnabled = hasAnalyticsConsent('sponsorMeasurement');
+      const sessionId = measurementEnabled
+        ? (userId ? createSponsorPlacementId() : createSponsorSessionId())
+        : null;
+      if (measurementEnabled && !sessionId) return { campaigns: [], sessionId: null, retryable: true };
 
       try {
         let accessToken = userId && getSponsorAccessToken ? await getSponsorAccessToken() : null;
@@ -366,10 +370,10 @@ export function TopicFeedCore({
             // result. Never pin a transient auth/network/server failure as the
             // permanent no-campaign decision for this topic in this session.
             sponsorResultsByTopicId.current.set(topic.id, result);
-            if (result.campaigns.length > 0 && result.sessionId) {
+            if (result.campaigns.length > 0) {
               sponsorCardsByTopicId.current.set(topic.id, {
                 campaigns: result.campaigns,
-                sessionId: result.sessionId,
+                sessionId: result.sessionId ?? '',
               });
             } else {
               sponsorDueByTopicId.current.delete(topic.id);
@@ -865,13 +869,13 @@ export function TopicFeedCore({
         sponsorSessionUserId.current !== requestedUserId
       ) return;
 
-      if (result.campaigns.length > 0 && result.sessionId) {
+      if (result.campaigns.length > 0) {
         entry.campaigns = result.campaigns;
-        entry.sessionId = result.sessionId;
+        entry.sessionId = result.sessionId ?? '';
         entry.status = 'ready';
         sponsorCardsByTopicId.current.set(entry.topicId, {
           campaigns: result.campaigns,
-          sessionId: result.sessionId,
+          sessionId: result.sessionId ?? '',
         });
         sponsorResultsByTopicId.current.set(entry.topicId, result);
         sponsorDueByTopicId.current.delete(entry.topicId);
