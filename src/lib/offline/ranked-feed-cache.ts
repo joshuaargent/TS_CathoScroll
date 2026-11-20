@@ -64,9 +64,14 @@ export class OfflineRankedFeedCache {
           CREATE TABLE IF NOT EXISTS offline_personalization_consent_cache (
             user_id TEXT PRIMARY KEY NOT NULL,
             enabled INTEGER NOT NULL CHECK (enabled IN (0, 1)),
-            checked_at TEXT NOT NULL
+            checked_at TEXT NOT NULL,
+            pending_sync INTEGER NOT NULL DEFAULT 0 CHECK (pending_sync IN (0, 1))
           )
         `);
+        const columns = await db.query('PRAGMA table_info(offline_personalization_consent_cache)');
+        if (!columns.some((column) => column.name === 'pending_sync')) {
+          await db.execute('ALTER TABLE offline_personalization_consent_cache ADD COLUMN pending_sync INTEGER NOT NULL DEFAULT 0 CHECK (pending_sync IN (0, 1))');
+        }
       }
       await this.prune(db);
     });
@@ -136,7 +141,7 @@ export class OfflineRankedFeedCache {
     return { topics, nextCursor: nextCursor as RankedFeedCursor | null };
   }
 
-  async setConsent(userId: string, enabled: boolean): Promise<void> {
+  async setConsent(userId: string, enabled: boolean, pendingSync = false): Promise<void> {
     assertOwner('personalized', userId);
     if (!this.allowPersonalizedCache) throw new Error('Personalisation consent must use encrypted private storage.');
     if (!enabled) {
@@ -144,8 +149,8 @@ export class OfflineRankedFeedCache {
       // storage error, the offline reader still fails closed on the disabled
       // consent row rather than serving a stale personalised ranking.
       await this.database.transaction((db) => db.execute(
-        'INSERT OR REPLACE INTO offline_personalization_consent_cache (user_id, enabled, checked_at) VALUES (?, 0, ?)',
-        [userId, new Date().toISOString()]
+        'INSERT OR REPLACE INTO offline_personalization_consent_cache (user_id, enabled, checked_at, pending_sync) VALUES (?, 0, ?, ?)',
+        [userId, new Date().toISOString(), pendingSync ? 1 : 0]
       ));
       await this.database.transaction((db) => db.execute(
         'DELETE FROM offline_ranked_feed_pages WHERE mode = ? AND owner_id = ?',
@@ -154,8 +159,8 @@ export class OfflineRankedFeedCache {
       return;
     }
     await this.database.transaction((db) => db.execute(
-      'INSERT OR REPLACE INTO offline_personalization_consent_cache (user_id, enabled, checked_at) VALUES (?, 1, ?)',
-      [userId, new Date().toISOString()]
+      'INSERT OR REPLACE INTO offline_personalization_consent_cache (user_id, enabled, checked_at, pending_sync) VALUES (?, 1, ?, ?)',
+      [userId, new Date().toISOString(), pendingSync ? 1 : 0]
     ));
   }
 
@@ -171,6 +176,19 @@ export class OfflineRankedFeedCache {
       if (rows.length !== 1 || rows[0].enabled !== 1 || typeof rows[0].checked_at !== 'string') return false;
       const checkedAt = Date.parse(rows[0].checked_at);
       return Number.isFinite(checkedAt) && checkedAt <= Date.now() && Date.now() - checkedAt <= consentFreshnessMs;
+    });
+  }
+
+  async getPendingConsent(userId: string): Promise<boolean | null> {
+    assertOwner('personalized', userId);
+    if (!this.allowPersonalizedCache) throw new Error('Personalisation consent must use encrypted private storage.');
+    return this.database.transaction(async (db) => {
+      const rows = await db.query(
+        'SELECT enabled, pending_sync FROM offline_personalization_consent_cache WHERE user_id = ?',
+        [userId]
+      );
+      if (rows.length !== 1 || rows[0].pending_sync !== 1 || (rows[0].enabled !== 0 && rows[0].enabled !== 1)) return null;
+      return rows[0].enabled === 1;
     });
   }
 
