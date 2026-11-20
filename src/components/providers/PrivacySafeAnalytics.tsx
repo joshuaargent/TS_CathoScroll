@@ -30,16 +30,24 @@ function redactAnalyticsEvent(event: BeforeSendEvent): BeforeSendEvent {
 
 function subscribe(onChange: () => void) {
   window.addEventListener(analyticsConsentChangeEvent, onChange);
-  return () => window.removeEventListener(analyticsConsentChangeEvent, onChange);
+  window.addEventListener('storage', onChange);
+  return () => {
+    window.removeEventListener(analyticsConsentChangeEvent, onChange);
+    window.removeEventListener('storage', onChange);
+  };
 }
 
 export function PrivacySafeAnalytics() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const getSnapshot = useCallback(
     () => hasAnalyticsConsent('serviceImprovement', user?.id ?? null),
     [user?.id]
   );
   const enabled = useSyncExternalStore(subscribe, getSnapshot, () => false);
-  if (!enabled) return null;
-  return <Analytics beforeSend={redactAnalyticsEvent} />;
+  const beforeSend = useCallback((event: BeforeSendEvent) => {
+    if (loading || !hasAnalyticsConsent('serviceImprovement', user?.id ?? null)) return null;
+    return redactAnalyticsEvent(event);
+  }, [loading, user?.id]);
+  if (loading || !enabled) return null;
+  return <Analytics beforeSend={beforeSend} />;
 }
