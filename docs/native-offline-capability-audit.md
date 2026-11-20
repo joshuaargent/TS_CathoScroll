@@ -12,6 +12,8 @@ This audit distinguishes offline browsing, offline reads, local mutation queues 
 | General feed | Server-ranked when online; local catalogue order when offline | Available with fallback | Offline fallback is not the same ranking as the online general feed. |
 | Personalised feed | Consent status and recommendation pages fetched from Supabase RPC | Not implemented offline | Offline startup currently uses the local catalogue and explicitly disables personalised-feed status. No local recommendation profile or native equivalent of the server ranking is present. |
 | Likes, bookmarks, completion | Private activity SQLite store, durable outbox, revision/cursor reconciliation | Available on supported encrypted-storage platforms | Activity sync is account-linked and separate from analytics. |
+| Signed-in topic/comment exposure analytics | Bounded in-memory queues (200 topic events/account; 200 comment-card events/account) | Best effort only | Retries while the process is alive; unsent events can be lost on app termination. This is not the durable signed-in activity sync. |
+| Signed-in sponsor event analytics | Separate bounded account-scoped queue | Best effort only | Sponsor delivery/viewability/click reporting is separate from topic/comment analytics and offline activity sync. |
 | Activity encryption | SQLCipher-backed private DB on Android; desktop private DB on Electron | Platform-limited | iOS currently has no equivalent encrypted private database/keychain-backed implementation in this path. The app must not silently move account activity or recommendation profiles into the unencrypted catalogue DB. |
 | Notes | Encrypted note cache; fetched from server online; edits require a verified online load and a live connection | Offline read where secure cache is supported; editing online-only | No offline edit queue is needed. Notes use AES-GCM with a key in native secure storage and account/topic-bound HMAC indexes. |
 | Comments | Public comment cache in local SQLite | Cached read | Comment creation/replies/likes require live server actions; cached comments are snapshots and can be stale. |
@@ -63,3 +65,8 @@ No offline note-editing queue is proposed. The existing design caches only serve
 
 
 Implementation and privacy documentation were updated through commit f7c18d97a01c3f239158bf6b4644825074ff9b15. The native analytics preference is stored as a local setting only; it is not an analytics identifier. The controller must record the PECR Schedule A1 assessment before release. Automated checks and device-level outbox acceptance remain pending.
+
+
+## Important sync distinction
+
+The signed-in *activity* outbox for likes, bookmarks and completion is durable on supported encrypted-storage platforms. The signed-in *analytics exposure* queues for topics and Top Comments are currently in-memory and can lose pending events when the app process exits. The new persistent outbox in this PR is for signed-out topic/comment analytics only. Do not describe it as extending or replacing signed-in analytics sync. Making account-linked analytics durable would require a separate encrypted queue, account-scoped cleanup semantics and iOS secure-storage parity; it is not included in this change.
