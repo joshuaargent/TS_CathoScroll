@@ -7,6 +7,7 @@ import {
 } from '@/lib/supabase/admin';
 import { readBoundedJson } from '@/lib/http/read-json';
 import { checkApiRateLimit, rateLimitResponseHeaders } from '@/lib/security/api-rate-limit';
+import { getStoredAnalyticsConsent } from '@/lib/analytics-consent-server';
 
 export const runtime = 'nodejs';
 
@@ -31,6 +32,13 @@ export async function POST(request: Request) {
 
   const { supabase, user } = await getAuthenticatedUserFromRequest(request);
   if (!user) return respond(request, { error: 'Authentication required.' }, 401);
+  try {
+    const consent = await getStoredAnalyticsConsent(user.id);
+    if (!consent.serviceImprovement) return respond(request, { accepted: 0 });
+  } catch (cause) {
+    console.error('Unable to verify feed analytics consent:', cause);
+    return respond(request, { error: 'Analytics preferences are temporarily unavailable.' }, 503);
+  }
 
   const parsed = await readBoundedJson(request, 16384);
   if (!parsed.ok) return respond(request, { error: parsed.error }, parsed.status);
