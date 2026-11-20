@@ -1,5 +1,6 @@
 'use client';
 import { siteConfig } from '@/lib/constants';
+import { hasAnalyticsConsent } from './analytics-consent';
 
 export type AnonymousEntityType = 'topic' | 'comment';
 export type AnonymousEventType = 'impression' | 'viewable_impression' | 'active_duration' | 'skip' | 'completion' | 'open';
@@ -24,7 +25,7 @@ export const anonymousAnalyticsPreferenceChangeEvent = 'cathoscroll:anonymous-an
 
 function anonymousAnalyticsEnabled(): boolean {
   try {
-    return typeof window !== 'undefined' && window.localStorage.getItem(anonymousAnalyticsPreferenceKey) !== 'false';
+    return typeof window !== 'undefined' && hasAnalyticsConsent('serviceImprovement') && window.localStorage.getItem(anonymousAnalyticsPreferenceKey) !== 'false';
   } catch {
     return false;
   }
