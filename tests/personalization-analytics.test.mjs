@@ -126,19 +126,46 @@ test('recommendation profiles use explicit account actions and never read operat
   assert.doesNotMatch(upgrade.slice(upgradeStart, upgradeEnd), /feed_analytics_events|feed_card_analytics_events/);
 });
 
-test('authoritative bootstrap and existing personalization upgrade use the same explicit-only profile function', () => {
-  const name = 'CREATE OR REPLACE FUNCTION catho_private.refresh_user_interest_profile';
-  const bootstrapStart = bootstrap.lastIndexOf(name);
-  const upgradeStart = upgrade.lastIndexOf(name);
-  const bootstrapEnd = bootstrap.indexOf('$function$;', bootstrapStart) + '$function$;'.length;
-  const upgradeEnd = upgrade.indexOf('$function$;', upgradeStart) + '$function$;'.length;
-  assert.ok(bootstrapStart >= 0 && upgradeStart >= 0);
-  const bootstrapFunction = bootstrap.slice(bootstrapStart, bootstrapEnd);
-  const upgradeFunction = upgrade.slice(upgradeStart, upgradeEnd);
-  assert.equal(bootstrapFunction, upgradeFunction);
-  assert.doesNotMatch(bootstrapFunction, /feed_analytics_events|feed_card_analytics_events/);
+test('authoritative bootstrap and existing personalization upgrade keep profile and cursor functions in sync', () => {
+  const names = [
+    'catho_private.refresh_user_interest_profile',
+    'catho_private.get_user_recommendation_category_weights',
+    'public.get_my_recommendation_page',
+  ];
+  for (const name of names) {
+    const bootstrapFunction = functionBody(name);
+    const upgradeStart = upgrade.lastIndexOf('CREATE OR REPLACE FUNCTION ' + name);
+    const upgradeEnd = upgrade.indexOf('$function$;', upgradeStart);
+    assert.ok(upgradeStart >= 0 && upgradeEnd > upgradeStart);
+    assert.equal(bootstrapFunction, upgrade.slice(upgradeStart, upgradeEnd + '$function$;'.length));
+  }
+  assert.doesNotMatch(functionBody('catho_private.refresh_user_interest_profile'), /feed_analytics_events|feed_card_analytics_events/);
+  assert.doesNotMatch(functionBody('catho_private.get_user_recommendation_category_weights'), /feed_analytics_events|feed_card_analytics_events/);
   assert.match(upgrade, /DELETE FROM catho_private\.user_topic_interest_scores/);
   assert.match(upgrade, /profile_refreshed_at = NULL/);
+});
+
+test('recommendation category helper is account-scoped, consent-gated and bounded', () => {
+  const body = functionBody('catho_private.get_user_recommendation_category_weights');
+  assert.match(body, /auth\.uid\(\)/);
+  assert.match(body, /v_current_user_id IS DISTINCT FROM p_user_id/);
+  assert.match(body, /c\.enabled = true/);
+  assert.match(body, /greatest\(v_now - interval '180 days', v_consent_at\)/);
+  assert.match(body, /get_user_feed_preference_signals/);
+  assert.doesNotMatch(body, /feed_analytics_events|feed_card_analytics_events/);
+});
+
+test('active recommendation cursors rebase model weights without losing pagination positions', () => {
+  const body = functionBody('public.get_my_recommendation_page');
+  assert.match(body, /personalization_model_version constant text := 'explicit-actions-v3'/);
+  assert.match(body, /state->>'personalizationModelVersion' IS DISTINCT FROM personalization_model_version/);
+  assert.match(body, /get_user_recommendation_category_weights\(current_user_id\)/);
+  assert.match(body, /coalesce\(\(existing\.entry->>'served'\)::integer, 0\)/);
+  assert.match(body, /existing\.entry->'order'/);
+  assert.match(body, /existing\.entry->'id'/);
+  assert.match(body, /'last', last_category/);
+  assert.match(body, /'streak', streak/);
+  assert.match(body, /'personalizationModelVersion'/);
 });
 
 test('admin deep dive returns aggregate reports and correctly censors immature cohorts', () => {
