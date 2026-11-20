@@ -216,7 +216,7 @@ test('personalisation settings disclose the profile purpose and sponsor isolatio
 test('signup collects separate, unchecked explicit consent on web and native', () => {
   assert.match(signupForm, /name="personalizationConsent"/);
   assert.match(signupForm, /type="checkbox"/);
-  assert.match(signupForm, /I explicitly consent to CathoScroll using my reading activity, reading analytics and chosen interests/);
+  assert.match(signupForm, /I explicitly consent to CathoScroll using my account actions, chosen interests and reading analytics (views, reading time, swipes, skips and completions)/);
   assert.match(signupForm, /This also enables Service improvement analytics while personalisation is on/);
   assert.doesNotMatch(signupForm, /name="personalizationConsent"[\s\S]{0,180}checked/);
   assert.match(webSignup, /personalization_consent: personalizationConsent/);
