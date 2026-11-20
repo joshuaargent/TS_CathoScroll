@@ -4,7 +4,7 @@
 **Scope:** First-party topic-feed, Top Comments, sponsor delivery/performance, signed-out aggregate analytics, Vercel Web Analytics and Speed Insights. Recommendation personalisation is considered only to confirm separation; its consent flow remains on signup and Account settings.  
 **Status:** Engineering assessment and proposed control design. **Not controller approval, legal advice, or a completed/signed DPIA.**
 
-**Current production data-flow caveat:** the deployed recommendation-profile refresher still reads operational feed and Top Comments analytics events when recommendation personalisation is enabled. PR26 replaces this with explicit account actions only and active-cursor rebasing; until its SQL upgrade is applied, the analytics and personalisation purposes are not fully data-separated.
+**Production database verification (20 November 2026):** the recommendation-profile refresher now uses explicit account actions only, and the recommendation RPC calls the private explicit-action category helper. Neither function reads operational feed or Top Comments analytics events. Existing derived scores were cleared and rebuilt from explicit account actions; the application deployment containing the consent and admin UI fixes is still pending.
 
 ## 1. Executive conclusion
 
