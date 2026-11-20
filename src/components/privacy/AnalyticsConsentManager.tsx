@@ -22,11 +22,12 @@ import {
 
 type AnalyticsConsentManagerProps = {
   userId?: string | null;
+  loading?: boolean;
   apiBaseUrl?: string;
   getAccessToken?: (expectedUserId?: string) => Promise<string | null>;
 };
 
-export function AnalyticsConsentManager({ userId = null, apiBaseUrl, getAccessToken }: AnalyticsConsentManagerProps = {}) {
+export function AnalyticsConsentManager({ userId = null, loading = false, apiBaseUrl, getAccessToken }: AnalyticsConsentManagerProps = {}) {
   const [visible, setVisible] = useState(false);
   const [managing, setManaging] = useState(false);
   const [serviceImprovement, setServiceImprovement] = useState(false);
@@ -139,7 +140,7 @@ export function AnalyticsConsentManager({ userId = null, apiBaseUrl, getAccessTo
   }, [userId]);
 
   const syncServerConsent = useCallback(async () => {
-    if (!userId || typeof window === 'undefined') return;
+    if (loading || !userId || typeof window === 'undefined') return;
     const expectedUserId = userId;
     syncAbortRef.current?.abort();
     const controller = new AbortController();
@@ -296,7 +297,7 @@ export function AnalyticsConsentManager({ userId = null, apiBaseUrl, getAccessTo
     } finally {
       if (syncAbortRef.current === controller) syncAbortRef.current = null;
     }
-  }, [apiBaseUrl, clearWithdrawnQueues, getAccessToken, hydrate, userId]);
+  }, [apiBaseUrl, clearWithdrawnQueues, getAccessToken, hydrate, loading, userId]);
 
   useEffect(() => {
     syncAbortRef.current?.abort();
@@ -348,6 +349,7 @@ export function AnalyticsConsentManager({ userId = null, apiBaseUrl, getAccessTo
   }, [clearWithdrawnQueues, saving, syncServerConsent, userId]);
 
   useEffect(() => {
+    if (loading) return;
     const existing = readAnalyticsConsent(userId);
     hydrate(existing);
     if (!existing) {
@@ -380,15 +382,16 @@ export function AnalyticsConsentManager({ userId = null, apiBaseUrl, getAccessTo
     };
     window.addEventListener(analyticsConsentManageEvent, manage);
     return () => window.removeEventListener(analyticsConsentManageEvent, manage);
-  }, [clearWithdrawnQueues, hydrate, userId]);
+  }, [clearWithdrawnQueues, hydrate, loading, userId]);
 
   useEffect(() => {
+    if (loading) return;
     void syncServerConsent();
     window.addEventListener('online', syncServerConsent);
     return () => window.removeEventListener('online', syncServerConsent);
-  }, [syncServerConsent]);
+  }, [loading, syncServerConsent]);
 
-  if (!visible) return null;
+  if (loading || !visible) return null;
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 px-4 py-6" role="presentation">
