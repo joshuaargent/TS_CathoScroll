@@ -259,12 +259,12 @@ export default function PrivacyPage() {
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            Signed-out visitors also contribute to CathoScroll's separate first-party anonymous
-            topic and Top Comments measurement. The browser sends event IDs and the relevant topic
+            When Service improvement analytics is enabled, signed-out visitors contribute to CathoScroll's
+            separate first-party anonymous topic and Top Comments measurement. The browser sends event IDs and the relevant topic
             or comment identifier, but no account ID, persistent visitor ID, raw session ID or
             cross-visit profile. The server deduplicates events and stores only UTC daily aggregate
             counts for impressions, viewability, active duration, skips, completions and discussion
-            opens. Event receipts used only for deduplication become eligible for deletion after 30 days; a scheduled cleanup runs every 15 minutes in bounded batches. On the website, unsent anonymous event batches are held in page memory only. Native apps persist the anonymous topic/comment retry queue in app-private SQLite, capped at 2,000 events and seven days, so it survives app termination and uploads after reconnection. The queue contains no account, visitor or session identifier; users can object through the Cookie Policy preference, which clears pending local events. The
+            opens. Event receipts used only for deduplication become eligible for deletion after 30 days; a scheduled cleanup runs every 15 minutes in bounded batches. On the website, unsent anonymous event batches are held in page memory only. Native apps persist the anonymous topic/comment retry queue in app-private SQLite, capped at 2,000 events and seven days, so it survives app termination and uploads after reconnection. The queue contains no account, visitor or session identifier; users can decline or withdraw Service improvement analytics through Manage analytics choices on the Cookie Policy page, which clears pending local events. The
             API also applies abuse-prevention rate limits using a keyed HMAC fingerprint of the
             trusted request IP; stale rate-limit entries become eligible for cleanup after two
             days. That fingerprint is not joined to feed event aggregates. Standard hosting and
@@ -273,15 +273,23 @@ export default function PrivacyPage() {
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            Signed-out sponsor delivery uses a separate campaign pipeline. A random session
-            token exists only in the active page/app memory and its SHA-256 hash is stored briefly
-            to enforce sponsor frequency limits. Raw anonymous sponsor event and frequency rows become eligible for deletion after 30 days; a scheduled cleanup runs every 15 minutes in batches of up to 5,000 rows per table per run. Daily campaign-level served, viewable and click totals are retained for aggregate reporting. Failed sponsor-event sends are retried in memory after reconnect or app visibility changes; the retry queue is not persisted because the session token must not survive an app restart. The token is not used to build a visitor profile or
-            link topic/comment reading activity across visits.
+            Sponsor delivery is separate from Sponsor measurement. Sponsored cards may be shown
+            whether or not you enable Sponsor measurement. If you enable it, a random session token
+            exists only in active page/app memory and its SHA-256 hash is stored for frequency
+            controls; raw sponsor event and frequency rows become eligible for deletion after 30
+            days. If you decline Sponsor measurement, no visitor/session token or hash is created,
+            no per-session frequency record is written, and no viewability/click event is collected.
+            In that case CathoScroll retains only campaign/day served totals needed for delivery and
+            pacing. Campaign-level caps continue to apply. The measured viewability and click rates
+            therefore describe only placements for which Sponsor measurement was enabled, not all
+            people who saw a sponsor card. Failed opted-in sponsor-event sends are retried in memory;
+            the retry queue is not persisted because the session token must not survive an app
+            restart.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            CathoScroll uses Vercel Web Analytics for aggregate site-level traffic measurement,
-            including visits from people who are not signed in. Vercel states that it does not use
+            When Service improvement analytics is enabled, CathoScroll loads Vercel Web Analytics for
+            aggregate site-level traffic measurement, including visits from people who are not signed in. Vercel states that it does not use
             third-party cookies and derives a short-lived visitor hash from the incoming request,
             which is discarded after 24 hours. Its analytics data points may include timestamps,
             page URLs, referrers, filtered query parameters, approximate geolocation, and device
@@ -294,8 +302,8 @@ export default function PrivacyPage() {
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            Vercel Speed Insights is enabled to measure Core Web Vitals and real-world page
-            performance. Its event hook removes query strings and fragments and replaces
+            When Service improvement analytics is enabled, Vercel Speed Insights measures Core Web Vitals
+            and real-world page performance. Its event hook removes query strings and fragments and replaces
             topic/category/search identifiers with generic route labels before transmission.
             Speed Insights reports technical performance and is separate from CathoScroll's
             account-linked product analytics. Vercel describes its Speed Insights data points as
