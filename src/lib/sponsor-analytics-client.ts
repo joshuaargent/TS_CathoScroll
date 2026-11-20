@@ -136,7 +136,7 @@ export async function flushSponsorCampaignEvents(
       } catch {
         break;
       }
-      if (!accessToken || !hasAnalyticsConsent('sponsorMeasurement', userId)) break;
+      if (!accessToken || consentRequest.signal.aborted || !hasAnalyticsConsent('sponsorMeasurement', userId)) break;
 
       let response: Response;
       try {
