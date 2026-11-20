@@ -152,14 +152,14 @@ A separate purpose-by-purpose UK GDPR assessment has been added at [docs/uk-gdpr
 
 For sponsor-measurement opt-outs, the proposed fallback is campaign/day served-placement aggregates only, without client viewability/click events, visitor/session tokens, or per-person frequency records. Campaign-wide pacing and caps remain. Account access, account synchronisation, bookmarks, likes, progress, notes and general feed ranking remain unaffected by optional analytics choices.
 
-**Status:** this is an engineering assessment and proposed design. Controller approval of Article 6 and Article 9 positions, PECR Regulation 6 treatment, the DPIA residual risk, children/age safeguards, provider contracts and international transfers remains outstanding. Do not describe CathoScroll as legally cleared solely because the assessment or consent UI exists.
+**Status:** the consent implementation is in consolidated PR #25. The three database migrations are live in production; matching app code is not deployed until PR #25 is merged and released. Controller approval of Article 6 and Article 9 positions, PECR Regulation 6 treatment, the DPIA residual risk, children/age safeguards, provider contracts and international transfers remains outstanding. Do not describe CathoScroll as legally cleared solely because the assessment or consent UI exists.
 
 ## Optional analytics consent (separate from recommendation personalisation)
 
 Draft PR #25 introduces a separate, optional consent manager for two purposes:
 
 - **Service improvement analytics:** topic and Top Comments engagement, signed-in account-linked event collection, signed-out daily aggregate collection, and Vercel Web Analytics/Speed Insights. The notice expressly explains that engagement with Catholic content may reveal or permit inferences about religious or philosophical beliefs. The service choice is explicit, independent and off by default.
-- **Sponsor measurement:** sponsor viewability, clicks and visitor/session frequency. This is separate from sponsor delivery. Declining it does not remove sponsor cards or stop campaign/day served totals.
+- **Sponsor measurement:** sponsor viewability, clicks and visitor/session frequency. Anonymous event attribution includes the topic placement where the sponsor appeared, which may reveal religious/philosophical interests. The separate control therefore expressly identifies this context and requires explicit consent under Article 9(2)(a) where the revealing test is met, alongside Article 6(1)(a). This is separate from sponsor delivery. Declining it does not remove sponsor cards or stop campaign/day served totals.
 
 The first-visit interface offers Accept all, Decline optional and Manage choices. Under Manage choices, the two purposes have separate unchecked-by-default controls. Essential operation, sign-in, account synchronisation, bookmarks, likes, progress, notes and general feed ranking are not optional analytics. Recommendation personalisation remains separately controlled by the signup and Account settings consent.
 
