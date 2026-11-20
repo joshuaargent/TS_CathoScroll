@@ -241,7 +241,11 @@ export default function PrivacyPage() {
             without account or session identifiers are retained longer. These records are not
             anonymous while account-linked identifiers are retained and are not used for
             individual sponsor targeting. Turning off recommendation personalisation does not
-            automatically disable operational analytics.
+            automatically disable operational analytics. On Android and Electron, unsent signed-in
+            topic and Top Comments events are also persisted in the encrypted private activity
+            database, capped at 2,000 events per stream and seven days. They are deleted only after
+            server acknowledgement and are cleared when the account signs out or changes. The
+            website keeps its unsent account-linked analytics in memory only.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
