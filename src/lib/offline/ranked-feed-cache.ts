@@ -139,17 +139,24 @@ export class OfflineRankedFeedCache {
   async setConsent(userId: string, enabled: boolean): Promise<void> {
     assertOwner('personalized', userId);
     if (!this.allowPersonalizedCache) throw new Error('Personalisation consent must use encrypted private storage.');
-    await this.database.transaction(async (db) => {
-      if (!enabled) {
-        await db.execute('DELETE FROM offline_ranked_feed_pages WHERE mode = ? AND owner_id = ?', ['personalized', userId]);
-        await db.execute('DELETE FROM offline_personalization_consent_cache WHERE user_id = ?', [userId]);
-        return;
-      }
-      await db.execute(
-        'INSERT INTO offline_personalization_consent_cache (user_id, enabled, checked_at) VALUES (?, 1, ?) ON CONFLICT(user_id) DO UPDATE SET enabled = 1, checked_at = excluded.checked_at',
+    if (!enabled) {
+      // Persist the denial first. If page deletion encounters a transient
+      // storage error, the offline reader still fails closed on the disabled
+      // consent row rather than serving a stale personalised ranking.
+      await this.database.transaction((db) => db.execute(
+        'INSERT INTO offline_personalization_consent_cache (user_id, enabled, checked_at) VALUES (?, 0, ?) ON CONFLICT(user_id) DO UPDATE SET enabled = 0, checked_at = excluded.checked_at',
         [userId, new Date().toISOString()]
-      );
-    });
+      ));
+      await this.database.transaction((db) => db.execute(
+        'DELETE FROM offline_ranked_feed_pages WHERE mode = ? AND owner_id = ?',
+        ['personalized', userId]
+      ));
+      return;
+    }
+    await this.database.transaction((db) => db.execute(
+      'INSERT INTO offline_personalization_consent_cache (user_id, enabled, checked_at) VALUES (?, 1, ?) ON CONFLICT(user_id) DO UPDATE SET enabled = 1, checked_at = excluded.checked_at',
+      [userId, new Date().toISOString()]
+    ));
   }
 
   async hasFreshConsent(userId: string): Promise<boolean> {
