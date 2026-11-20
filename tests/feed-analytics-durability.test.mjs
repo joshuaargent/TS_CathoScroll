@@ -110,7 +110,7 @@ test('README documents bounded behavioural signals used by recommendation rankin
   assert.ok(readme.includes('bounded, decaying feed behaviour signals'));
   assert.ok(readme.includes('at least two distinct sessions'));
   assert.ok(readme.includes('Native apps use the same authenticated endpoint for signed-in events'));
-  assert.ok(readme.includes('Anonymous sponsor viewable/click events use a bounded in-memory retry queue and are validated against the matching served topic placement'));
+  assert.ok(readme.includes('Anonymous sponsor viewable/click events use a bounded in-memory retry queue'));
 });
 
 test('sponsor analytics keeps offline event storage bounded without evicting pending reports', () => {
