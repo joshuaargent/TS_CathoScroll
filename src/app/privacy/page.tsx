@@ -173,12 +173,10 @@ export default function PrivacyPage() {
           </ul>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            We are assessing whether account-linked topic and comment analytics reveal or
-            permit inferences about religious or philosophical beliefs and therefore require
-            an additional Article 9 condition. The separate personalisation checkbox applies
-            only to recommendation personalisation; it is not blanket consent for operational
-            analytics. Our analytics impact assessment records this as an open controller
-            decision and is not a legal sign-off.
+            Operational analytics are used for engagement measurement, reliability and
+            service improvement. They do not create belief profiles or make individual
+            decisions. Recommendation personalisation is a separate optional feature and
+            uses its own consent controls.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
