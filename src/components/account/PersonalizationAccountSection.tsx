@@ -191,7 +191,7 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
   }
 
   return (
-    <section id="personalization" className="container mt-10 scroll-mt-8">
+    <section id="personalization" className="mt-10 w-full scroll-mt-8">
       <div className="border-border bg-bg-card rounded-2xl border p-5 shadow-sm sm:p-6">
         <div className="flex items-start gap-3">
           <span className="bg-accent-light text-accent rounded-xl p-3">
@@ -212,9 +212,8 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
                 {loading ? 'Loading status…' : status.enabled ? 'Enabled' : error ? 'Unavailable' : 'Disabled'}
               </span>
             </div>
-            <p className="text-text-secondary mt-3 text-sm leading-relaxed">
-              Control whether CathoScroll may build a private interest profile from your activity to improve your topic recommendations.
-              This is optional and off until you enable it. Only activity recorded after you opt in is used to build this profile.
+            <p className="text-text-secondary mt-2 text-sm leading-relaxed">
+              Build a private interest profile to tailor your topic recommendations. Off by default; only activity after you opt in is used.
             </p>
           </div>
         </div>
@@ -325,7 +324,7 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
         <div className="border-border mt-6 flex items-start gap-3 border-t pt-5">
           <ShieldCheck className="text-text-muted mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
           <p className="text-text-muted text-sm leading-relaxed">
-            Your interest profile is private and is not shown on your public profile or used for sponsor targeting. Turning personalisation off deletes the derived topic-interest profile and stops using reading telemetry for recommendation weighting. Existing operational analytics events remain subject to their separate retention policy. This setting is not a declaration of religious affiliation.
+            Your profile is private, is not shown publicly, and is never used for sponsor targeting. Turning this off deletes the profile and stops recommendation weighting; operational analytics follow a separate retention policy.
           </p>
         </div>
 
