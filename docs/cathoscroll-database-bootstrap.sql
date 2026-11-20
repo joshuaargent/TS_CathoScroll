@@ -7516,8 +7516,8 @@ GRANT EXECUTE ON FUNCTION public.get_public_general_topic_page(jsonb,integer) TO
  
 -- ANONYMOUS ANALYTICS ROLLOUT
 -- Signed-out topic/comment analytics are stored only as daily entity aggregates.
--- Sponsor frequency uses a short-lived SHA-256 session hash; raw session event
--- records are pruned after 48 hours.
+-- Sponsor frequency uses an in-memory session token hashed before storage.
+-- Anonymous sponsor raw events, frequency rows and analytics receipts are pruned after 30 days.
 CREATE TABLE catho_private.anonymous_feed_analytics_daily (
   event_date date NOT NULL,
   entity_type text NOT NULL CHECK (entity_type IN ('topic','comment')),
@@ -7817,7 +7817,19 @@ CREATE OR REPLACE FUNCTION catho_private.prune_anonymous_analytics()
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO ''
-AS $function$ DECLARE v_deleted integer:=0; BEGIN DELETE FROM catho_private.anonymous_sponsor_events WHERE received_at < statement_timestamp()-interval '48 hours'; GET DIAGNOSTICS v_deleted = ROW_COUNT; DELETE FROM catho_private.anonymous_sponsor_session_frequency WHERE last_served_at < statement_timestamp()-interval '48 hours'; DELETE FROM catho_private.anonymous_feed_event_receipts WHERE received_at < statement_timestamp()-interval '7 days'; RETURN v_deleted; END; $function$;
+AS $function$
+DECLARE v_deleted integer:=0;
+BEGIN
+ DELETE FROM catho_private.anonymous_sponsor_events
+ WHERE received_at < statement_timestamp()-interval '30 days';
+ GET DIAGNOSTICS v_deleted = ROW_COUNT;
+ DELETE FROM catho_private.anonymous_sponsor_session_frequency
+ WHERE last_served_at < statement_timestamp()-interval '30 days';
+ DELETE FROM catho_private.anonymous_feed_event_receipts
+ WHERE received_at < statement_timestamp()-interval '30 days';
+ RETURN v_deleted;
+END;
+$function$;
 
 CREATE OR REPLACE FUNCTION public.record_anonymous_feed_analytics(p_events jsonb)
  RETURNS integer
