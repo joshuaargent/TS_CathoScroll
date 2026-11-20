@@ -85,6 +85,8 @@ test('declining sponsor measurement preserves sponsor delivery without session f
   assert.ok(feed.includes("hasAnalyticsConsent('sponsorMeasurement', userId)"));
   assert.ok(feed.includes('const sessionId = measurementEnabled'));
   assert.ok(feed.includes('if (result.campaigns.length > 0)'));
+  assert.ok(feed.includes('handleConsentChange'));
+  assert.ok(feed.includes("entry.type === 'sponsor' ? { ...entry, sessionId: '' } : entry"));
   assert.ok(entryMap.includes('if (sponsorInventory.campaigns.length === 0) return []'));
   assert.ok(entryMap.includes("sessionId: sponsorInventory.sessionId ?? ''"));
   assert.ok(placementRules.includes('if (result && result.campaigns.length === 0) return null;'));
