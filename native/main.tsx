@@ -195,6 +195,7 @@ function parseRoute(href: string): Route | null {
     if (pathname === '/categories') return { kind: 'categories', pathname };
     if (pathname === '/signin' || pathname === '/account') return { kind: 'account', pathname };
     if (pathname === '/account/personalization') return { kind: 'account', pathname: '/account' };
+    if (pathname === '/account/security') return { kind: 'account', pathname: '/account' };
     if (pathname === '/signup') return { kind: 'signup', pathname };
     if (pathname === '/bookmarks') return { kind: 'bookmarks', pathname };
     if (pathname === '/appeal') return { kind: 'appeal', pathname };
