@@ -112,6 +112,14 @@ async function loadNativeGeneralFeedPage(cursor: GeneralFeedCursor | null = null
   return { topics: result.topics, nextCursor: result.nextCursor };
 }
 
+function isRecommendationCursor(cursor: CatalogueCursor | GeneralFeedCursor | RecommendationCursor): cursor is RecommendationCursor {
+  return 'userId' in cursor && typeof cursor.userId === 'string';
+}
+
+function isGeneralFeedCursor(cursor: CatalogueCursor | GeneralFeedCursor | RecommendationCursor): cursor is GeneralFeedCursor {
+  return 'categories' in cursor && !('userId' in cursor);
+}
+
 async function loadNativeLiveTopicPage(cursor?: CatalogueCursor) {
   let query = createClient()
     .from('topics')
@@ -1383,7 +1391,7 @@ function App() {
   const loadPage = useCallback(
     async (cursor: CatalogueCursor | GeneralFeedCursor | RecommendationCursor) => {
       if (!catalogue) throw new Error('The offline catalogue is not ready.');
-      if ('categories' in cursor && 'userId' in cursor) {
+      if (isRecommendationCursor(cursor)) {
         // Recommendation cursors are server-owned. If the connection drops or
         // the RPC fails, switch subsequent pagination to the local catalogue.
         // TopicFeedCore preserves the current session history and anchor while
@@ -1413,7 +1421,7 @@ function App() {
           return page;
         }
       }
-      if ('categories' in cursor && !('userId' in cursor)) {
+      if (isGeneralFeedCursor(cursor)) {
         try {
           if (!navigator.onLine) throw new Error('The device is offline.');
           const page = await loadNativeGeneralFeedPage(cursor);
