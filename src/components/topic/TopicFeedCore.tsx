@@ -207,7 +207,7 @@ export function TopicFeedCore({
 
       // Anonymous placements share an in-memory session token for frequency caps;
       // signed-in placements get unique IDs so separate card views are not deduplicated.
-      const measurementEnabled = hasAnalyticsConsent('sponsorMeasurement');
+      const measurementEnabled = hasAnalyticsConsent('sponsorMeasurement', userId);
       const sessionId = measurementEnabled
         ? (userId ? createSponsorPlacementId() : createSponsorSessionId())
         : null;
