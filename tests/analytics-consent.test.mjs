@@ -97,6 +97,27 @@ test('declining sponsor measurement preserves sponsor delivery without session f
   assert.ok(selectRoute.includes('p_session_id: measurementSessionId'));
   for (const sql of [bootstrap, migration]) {
     assert.ok(sql.includes('p_session_token IS NOT NULL AND'));
+    assert.ok(sql.includes("p_session_token !~* '^[0-9a-f-]{36}
+    assert.ok(sql.includes('IF p_session_token IS NOT NULL THEN'));
+    assert.ok(sql.includes('v_session_id := CASE WHEN coalesce(v_sponsor_measurement, false) THEN p_session_id ELSE NULL END'));
+    assert.ok(sql.includes('IF v_session_id IS NOT NULL THEN'));
+    assert.ok(sql.includes('INSERT INTO catho_private.anonymous_sponsor_campaign_daily(event_date,campaign_id,served_count)'));
+    assert.ok(sql.includes('INSERT INTO catho_private.sponsor_campaign_daily'));
+  }
+});
+
+test('recommendation personalisation remains separate from analytics consent', async () => {
+  const [manager, signup, account] = await Promise.all([
+    read('../src/components/privacy/AnalyticsConsentManager.tsx'),
+    read('../src/components/account/SignupForm.tsx').catch(() => ''),
+    read('../src/components/account/PersonalizationAccountSection.tsx'),
+  ]);
+  assert.ok(manager.includes('Recommendation personalisation remains controlled separately'));
+  assert.ok(account.includes('personalization'));
+  assert.ok(!manager.includes('set_my_personalization_consent'));
+  if (signup) assert.ok(signup.includes('personal'));
+});
+"));
     assert.ok(sql.includes('IF p_session_token IS NOT NULL THEN'));
     assert.ok(sql.includes('v_session_id := CASE WHEN coalesce(v_sponsor_measurement, false) THEN p_session_id ELSE NULL END'));
     assert.ok(sql.includes('IF v_session_id IS NOT NULL THEN'));
