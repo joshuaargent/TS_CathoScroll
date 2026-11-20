@@ -38,7 +38,7 @@ export type AccountPageViewProps = {
 
 export function AccountPageSkeleton() {
   return (
-    <div className="container py-12">
+    <div className="container pt-12 pb-0">
       <div className="mt-8 mb-10">
         <Skeleton className="h-16 w-64" />
         <Skeleton className="mt-4 h-6 w-96" />
