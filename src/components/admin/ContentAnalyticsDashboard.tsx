@@ -100,6 +100,7 @@ function LineChart({ series, anonymousSeries }: { series: DailyContentAnalytics[
     return `${x.toFixed(1)},${y.toFixed(1)}`;
   };
   const dates = [...new Set([...series.map((item) => item.date), ...anonymousSeries.map((item) => item.date)])].sort();
+  const dateIndexByDate = new Map(dates.map((date, index) => [date, index]));
   const signedByDate = new Map(series.map((item) => [item.date, item]));
   const anonymousByDate = new Map(anonymousSeries.map((item) => [item.date, item]));
   const impressions = dates.map((date,index) => pointFor(signedByDate.get(date)?.impressions ?? 0,index)).join(' ');
@@ -151,8 +152,9 @@ function LineChart({ series, anonymousSeries }: { series: DailyContentAnalytics[
             </text>
           </g>
         ))}
-        {series.map((item, index) => {
-          const [x, y] = pointFor(item.impressions, index).split(',');
+        {series.map((item) => {
+          const dateIndex = dateIndexByDate.get(item.date) ?? 0;
+          const [x, y] = pointFor(item.impressions, dateIndex).split(',');
           return (
             <circle
               key={item.date + '-impressions'}
@@ -163,8 +165,9 @@ function LineChart({ series, anonymousSeries }: { series: DailyContentAnalytics[
             />
           );
         })}
-        {series.map((item, index) => {
-          const [x, y] = pointFor(item.viewable_impressions, index).split(',');
+        {series.map((item) => {
+          const dateIndex = dateIndexByDate.get(item.date) ?? 0;
+          const [x, y] = pointFor(item.viewable_impressions, dateIndex).split(',');
           return (
             <circle
               key={item.date + '-viewable'}
