@@ -23,7 +23,7 @@ test('signed-in analytics requires consent while signed-out aggregates use a sep
   assert.ok(commentRoute.includes('if (!consent.serviceImprovement) return respond(request, { accepted: 0 });'));
   assert.ok(topicClient.includes("hasAnalyticsConsent('serviceImprovement', userId)"));
   assert.ok(commentClient.includes("hasAnalyticsConsent('serviceImprovement', userId)"));
-  assert.ok(anonymousClient.includes("localStorage.getItem(anonymousAnalyticsPreferenceKey) !== 'false'"));
+  assert.ok(anonymousClient.includes("localStorage.getItem(anonymousAnalyticsPreferenceKey) === 'false'"));
   assert.ok(anonymousClient.includes('isAnonymousFeedAnalyticsEnabled'));
   assert.ok(!anonymousClient.includes('hasAnalyticsConsent'));
   assert.ok(anonymousClient.includes('setAnonymousFeedAnalyticsEnabled'));
