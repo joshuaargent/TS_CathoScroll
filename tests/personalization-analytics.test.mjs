@@ -244,6 +244,10 @@ test('web and native account/settings screens reuse the same components', () => 
   assert.match(accountSection, /I explicitly consent to CathoScroll using my topic-reading activity, reading analytics and selected interests/);
   assert.match(accountSection, /Analytics choices/);
   assert.match(accountSection, /requestAnalyticsConsentSync/);
+  assert.match(accountSection, /readAnalyticsChoices/);
+  assert.match(accountSection, /updateAnalyticsChoice/);
+  assert.match(accountSection, /Sponsor measurement/);
+  assert.match(accountSection, /disabled=\{loading \|\| saving \|\| analyticsSaving \|\| !analyticsChoices \|\| status\.enabled\}/);
   assert.match(nativeMain, /pathname === '\/account\/personalization'.*kind: 'account'/);
   assert.match(nativeAccount, /AccountPageView/);
   assert.match(accountView, /PersonalizationAccountSection/);
