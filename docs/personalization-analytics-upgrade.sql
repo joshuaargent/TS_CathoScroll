@@ -533,10 +533,1107 @@ AFTER INSERT ON auth.users
 FOR EACH ROW EXECUTE FUNCTION catho_private.capture_signup_personalization_consent();
 
 
+CREATE TABLE IF NOT EXISTS catho_private.feed_card_analytics_events (
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  event_id uuid NOT NULL,
+  event_type text NOT NULL CHECK (event_type IN ('impression','viewable_impression','active_duration','skip','completion','open')),
+  card_type text NOT NULL CHECK (card_type IN ('top-comment')),
+  card_id text NOT NULL CHECK (length(card_id) BETWEEN 1 AND 64),
+  session_id uuid NOT NULL,
+  duration_ms integer NOT NULL DEFAULT 0 CHECK (duration_ms BETWEEN 0 AND 300000),
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb CHECK (jsonb_typeof(metadata)='object' AND octet_length(metadata::text)<=512),
+  received_at timestamptz NOT NULL DEFAULT statement_timestamp(),
+  PRIMARY KEY(user_id,event_id)
+);
+CREATE INDEX IF NOT EXISTS feed_card_analytics_events_received_idx ON catho_private.feed_card_analytics_events(received_at);
+CREATE INDEX IF NOT EXISTS feed_card_analytics_events_card_received_idx ON catho_private.feed_card_analytics_events(card_type,card_id,received_at DESC);
+CREATE TABLE IF NOT EXISTS catho_private.feed_card_analytics_event_limits (
+  user_id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  window_started_at timestamptz NOT NULL,
+  event_count integer NOT NULL CHECK (event_count BETWEEN 0 AND 120)
+);
+CREATE TABLE IF NOT EXISTS catho_private.feed_card_analytics_daily (
+  event_date date NOT NULL, card_type text NOT NULL, card_id text NOT NULL,
+  impressions bigint NOT NULL DEFAULT 0, viewable_impressions bigint NOT NULL DEFAULT 0,
+  active_duration_ms bigint NOT NULL DEFAULT 0, skips bigint NOT NULL DEFAULT 0,
+  completions bigint NOT NULL DEFAULT 0, opens bigint NOT NULL DEFAULT 0,
+  unique_viewers bigint NOT NULL DEFAULT 0, refreshed_at timestamptz NOT NULL DEFAULT statement_timestamp(),
+  PRIMARY KEY(event_date,card_type,card_id)
+);
+CREATE TABLE IF NOT EXISTS catho_private.feed_card_analytics_daily_viewers (
+  event_date date NOT NULL, card_type text NOT NULL, card_id text NOT NULL,
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  PRIMARY KEY(event_date,card_type,card_id,user_id)
+);
+CREATE INDEX IF NOT EXISTS feed_card_analytics_daily_card_date_idx ON catho_private.feed_card_analytics_daily(card_type,event_date DESC);
+CREATE INDEX IF NOT EXISTS feed_card_analytics_daily_viewers_user_idx ON catho_private.feed_card_analytics_daily_viewers(user_id);
+ALTER TABLE catho_private.feed_card_analytics_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE catho_private.feed_card_analytics_event_limits ENABLE ROW LEVEL SECURITY;
+ALTER TABLE catho_private.feed_card_analytics_daily ENABLE ROW LEVEL SECURITY;
+ALTER TABLE catho_private.feed_card_analytics_daily_viewers ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON catho_private.feed_card_analytics_events,catho_private.feed_card_analytics_event_limits,
+  catho_private.feed_card_analytics_daily,catho_private.feed_card_analytics_daily_viewers
+  FROM PUBLIC,anon,authenticated,service_role;
+
+CREATE OR REPLACE FUNCTION public.record_feed_card_analytics_events(p_events jsonb)
+ RETURNS integer
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare
+  v_user_id uuid := auth.uid();
+  v_event jsonb;
+  v_count integer := 0;
+  v_event_id uuid;
+  v_event_type text;
+  v_card_type text;
+  v_card_id text;
+  v_session_id uuid;
+  v_duration integer;
+  v_window timestamptz;
+  v_used integer;
+  v_event_id_text text;
+  v_session_id_text text;
+  v_duration_text text;
+begin
+  if v_user_id is null then raise exception 'authentication required' using errcode='42501'; end if;
+  if jsonb_typeof(p_events) <> 'array' or jsonb_array_length(p_events) < 1 or jsonb_array_length(p_events) > 50 then
+    raise exception 'invalid event batch' using errcode='22023';
+  end if;
+  insert into catho_private.feed_card_analytics_event_limits(user_id,window_started_at,event_count)
+  values(v_user_id,statement_timestamp(),0) on conflict(user_id) do nothing;
+  select window_started_at,event_count into v_window,v_used
+  from catho_private.feed_card_analytics_event_limits where user_id=v_user_id for update;
+  if v_window <= statement_timestamp()-interval '1 minute' then v_window:=statement_timestamp(); v_used:=0; end if;
+  if v_used + jsonb_array_length(p_events) > 120 then return -1; end if;
+  update catho_private.feed_card_analytics_event_limits
+  set window_started_at=v_window,event_count=v_used+jsonb_array_length(p_events) where user_id=v_user_id;
+
+  for v_event in select value from jsonb_array_elements(p_events) loop
+    if jsonb_typeof(v_event)<>'object' or (select count(*) from jsonb_object_keys(v_event))>7 then
+      raise exception 'invalid event' using errcode='22023';
+    end if;
+    v_event_id_text:=v_event->>'event_id';
+    v_session_id_text:=v_event->>'session_id';
+    v_duration_text:=coalesce(v_event->>'duration_ms','0');
+    if v_event_id_text is null or v_event_id_text !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}
+CREATE OR REPLACE FUNCTION public.get_my_recommendation_page(feed_cursor jsonb DEFAULT NULL::jsonb, page_limit integer DEFAULT 50)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+  current_user_id uuid := auth.uid();
+  state jsonb;
+  categories jsonb;
+  chosen record;
+  items jsonb := '[]'::jsonb;
+  last_category text;
+  streak integer;
+  include_completed boolean;
+  personalization_enabled boolean := false;
+  initial_page boolean := feed_cursor IS NULL OR feed_cursor = 'null'::jsonb;
+  item_count integer := 0;
+BEGIN
+  IF current_user_id IS NULL THEN
+    RAISE EXCEPTION 'Authentication required' USING ERRCODE = '28000';
+  END IF;
+
+  IF NOT catho_private.consume_recommendation_rate_limit(current_user_id) THEN
+    RAISE EXCEPTION 'Recommendation rate limit exceeded' USING ERRCODE = 'P0001';
+  END IF;
+
+  IF page_limit IS NULL OR page_limit < 1 OR page_limit > 50 THEN
+    RAISE EXCEPTION 'Invalid page limit' USING ERRCODE = '22023';
+  END IF;
+
+  SELECT coalesce(enabled,false) INTO personalization_enabled
+  FROM catho_private.user_personalization_consents
+  WHERE user_id=current_user_id;
+
+  IF initial_page THEN
+    include_completed := NOT personalization_enabled;
+    IF personalization_enabled THEN
+      -- Read account history only inside this consented branch.
+      WITH signals AS (
+      SELECT p.topic_id, 5::numeric AS weight
+      FROM public.progress p
+      WHERE p.user_id = current_user_id
+
+      UNION ALL
+
+      SELECT b.topic_id, 4::numeric
+      FROM public.bookmarks b
+      WHERE b.user_id = current_user_id
+
+      UNION ALL
+
+      SELECT l.topic_id, 3::numeric
+      FROM public.topic_likes l
+      WHERE l.user_id = current_user_id
+
+      UNION ALL
+
+      SELECT DISTINCT c.topic_id, 3::numeric
+      FROM public.comments c
+      WHERE c.user_id = current_user_id
+        AND c.is_deleted = false
+    ),
+    legacy_preferences AS (
+      SELECT t.category_slug, sum(s.weight) AS weight
+      FROM signals s
+      JOIN public.topics t
+        ON t.id = s.topic_id AND t.is_published
+      JOIN public.categories c
+        ON c.slug = t.category_slug AND c.is_published
+      GROUP BY t.category_slug
+    ),
+    feed_preferences AS (
+      SELECT feed_signals.category_slug, sum(feed_signals.weight) AS weight
+      FROM catho_private.get_user_feed_preference_signals(current_user_id) AS feed_signals
+      GROUP BY feed_signals.category_slug
+    ),
+    preferences AS (
+      SELECT category_slug, weight FROM legacy_preferences
+      UNION ALL
+      SELECT category_slug, weight FROM feed_preferences
+    )
+    SELECT coalesce(
+      jsonb_agg(
+        jsonb_build_object(
+          'slug', c.slug,
+          'weight', round(1 + sqrt(greatest(coalesce(p.weight, 0), 0)::numeric), 6),
+          'served', 0,
+          'order', NULL,
+          'id', NULL
+        ) ORDER BY c.slug
+      ),
+      '[]'::jsonb
+    )
+    INTO categories
+    FROM public.categories c
+    LEFT JOIN (
+      SELECT category_slug, sum(weight) AS weight
+      FROM preferences
+      GROUP BY category_slug
+    ) p ON p.category_slug = c.slug
+    WHERE c.is_published;
+    ELSE
+      SELECT coalesce(
+        jsonb_agg(
+          jsonb_build_object(
+            'slug', c.slug,
+            'weight', 1,
+            'served', 0,
+            'order', NULL,
+            'id', NULL
+          ) ORDER BY c.slug
+        ),
+        '[]'::jsonb
+      )
+      INTO categories
+      FROM public.categories c
+      WHERE c.is_published;
+    END IF;
+
+    state := jsonb_build_object(
+      'userId', current_user_id,
+      'categories', categories,
+      'last', NULL,
+      'streak', 0,
+      'includeCompleted', include_completed
+    );
+  ELSE
+    state := feed_cursor;
+  END IF;
+
+  IF jsonb_typeof(state) IS DISTINCT FROM 'object'
+     OR NOT (state ?& ARRAY['userId', 'categories', 'last', 'streak', 'includeCompleted'])
+     OR octet_length(state::text) > 65536
+     OR state->>'userId' IS DISTINCT FROM current_user_id::text
+     OR jsonb_typeof(state->'categories') IS DISTINCT FROM 'array'
+     OR jsonb_array_length(state->'categories') > 200
+     OR jsonb_typeof(state->'streak') IS DISTINCT FROM 'number'
+     OR coalesce(state->>'streak', '') !~ '^[0-2]$'
+     OR jsonb_typeof(state->'includeCompleted') IS DISTINCT FROM 'boolean'
+     OR (
+       state->'last' <> 'null'::jsonb AND (
+         jsonb_typeof(state->'last') IS DISTINCT FROM 'string'
+         OR state->>'last' !~ '^[a-z0-9]+(-[a-z0-9]+)*$'
+         OR length(state->>'last') > 100
+       )
+     ) THEN
+    RAISE EXCEPTION 'Invalid recommendation cursor' USING ERRCODE = '22023';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM jsonb_array_elements(state->'categories') a(entry)
+    WHERE jsonb_typeof(entry) IS DISTINCT FROM 'object'
+       OR NOT (entry ?& ARRAY['slug', 'weight', 'served', 'order', 'id'])
+       OR jsonb_typeof(entry->'slug') IS DISTINCT FROM 'string'
+       OR entry->>'slug' !~ '^[a-z0-9]+(-[a-z0-9]+)*$'
+       OR length(entry->>'slug') > 100
+       OR jsonb_typeof(entry->'weight') IS DISTINCT FROM 'number'
+       OR length(entry->>'weight') > 40
+       OR jsonb_typeof(entry->'served') IS DISTINCT FROM 'number'
+       OR coalesce(entry->>'served', '') !~ '^[0-9]{1,9}$'
+       OR (entry->'order' = 'null'::jsonb)
+          IS DISTINCT FROM (entry->'id' = 'null'::jsonb)
+       OR (
+         entry->'order' <> 'null'::jsonb AND (
+           jsonb_typeof(entry->'order') IS DISTINCT FROM 'number'
+           OR coalesce(entry->>'order', '') !~ '^-?[0-9]{1,10}$'
+           OR jsonb_typeof(entry->'id') IS DISTINCT FROM 'string'
+           OR coalesce(entry->>'id', '') !~ '^[a-zA-Z0-9-]{1,100}$'
+         )
+       )
+  ) OR EXISTS (
+    SELECT 1
+    FROM jsonb_array_elements(state->'categories') a(entry)
+    GROUP BY entry->>'slug'
+    HAVING count(*) > 1
+  ) OR EXISTS (
+    SELECT 1
+    FROM jsonb_array_elements(state->'categories') a(entry)
+    WHERE (entry->>'weight')::numeric < 1
+       OR (entry->>'weight')::numeric > 1000000
+       OR (entry->>'order')::numeric < -2147483648
+       OR (entry->>'order')::numeric > 2147483647
+  ) THEN
+    RAISE EXCEPTION 'Invalid recommendation cursor' USING ERRCODE = '22023';
+  END IF;
+
+  categories := state->'categories';
+  last_category := state->>'last';
+  streak := (state->>'streak')::integer;
+  include_completed := (state->>'includeCompleted')::boolean;
+
+  IF NOT personalization_enabled THEN
+    SELECT coalesce(jsonb_agg(a.entry || jsonb_build_object('weight',1) ORDER BY a.ordinality),'[]'::jsonb)
+      INTO categories
+    FROM jsonb_array_elements(categories) WITH ORDINALITY AS a(entry,ordinality);
+    include_completed := true;
+  END IF;
+
+  -- Select the category with the smallest served / weight.
+  -- Avoid a third consecutive topic from one category where possible.
+  -- Advance only the selected category's indexed keyset.
+  WHILE item_count < page_limit LOOP
+    SELECT
+      a.ordinality::integer - 1 AS position,
+      a.entry,
+      t.*,
+      c.name AS category_name
+    INTO chosen
+    FROM jsonb_array_elements(categories) WITH ORDINALITY AS a(entry, ordinality)
+    JOIN public.categories c
+      ON c.slug = a.entry->>'slug' AND c.is_published
+    CROSS JOIN LATERAL (
+      SELECT t.*
+      FROM public.topics t
+      WHERE t.category_slug = c.slug
+        AND t.is_published
+        AND (t.order_index, t.id) >
+            (
+              coalesce((a.entry->>'order')::integer, -2147483648),
+              coalesce(a.entry->>'id', '')
+            )
+        AND (
+          include_completed OR NOT EXISTS (
+            SELECT 1
+            FROM public.progress p
+            WHERE p.user_id = current_user_id AND p.topic_id = t.id
+          )
+        )
+      ORDER BY t.order_index, t.id
+      LIMIT 1
+    ) t
+    ORDER BY
+      CASE WHEN streak >= 2 AND c.slug = last_category THEN 1 ELSE 0 END,
+      (a.entry->>'served')::numeric / (a.entry->>'weight')::numeric,
+      c.slug
+    LIMIT 1;
+
+    IF NOT FOUND THEN
+      IF initial_page AND item_count = 0 AND NOT include_completed THEN
+        include_completed := true;
+        CONTINUE;
+      END IF;
+      EXIT;
+    END IF;
+
+    items := items || jsonb_build_array(jsonb_build_object(
+      'id', chosen.id,
+      'slug', chosen.slug,
+      'category', chosen.category_name,
+      'question', chosen.question,
+      'answer', chosen.answer,
+      'explanation', chosen.explanation,
+      'catechism', jsonb_build_object(
+        'paragraphs', coalesce(chosen.catechism_paragraphs, ARRAY[]::text[]),
+        'text', chosen.catechism_text
+      ),
+      'scripture', jsonb_build_object(
+        'reference', chosen.scripture_reference,
+        'text', chosen.scripture_text
+      )
+    ));
+
+    categories := jsonb_set(
+      categories,
+      ARRAY[chosen.position::text],
+      chosen.entry || jsonb_build_object(
+        'served', (chosen.entry->>'served')::integer + 1,
+        'order', chosen.order_index,
+        'id', chosen.id
+      )
+    );
+
+    IF chosen.category_slug = last_category THEN
+      streak := least(streak + 1, 2);
+    ELSE
+      last_category := chosen.category_slug;
+      streak := 1;
+    END IF;
+
+    item_count := item_count + 1;
+  END LOOP;
+
+  RETURN jsonb_build_object(
+    'topics', items,
+    'nextCursor', CASE WHEN item_count = page_limit THEN
+      jsonb_build_object(
+        'userId', current_user_id,
+        'categories', categories,
+        'last', last_category,
+        'streak', streak,
+        'includeCompleted', include_completed
+      )
+      ELSE NULL END
+  );
+END;
+$function$;
+
+
+-- Remove the retired user-membership tier; sponsorship is the only paid offering.
+DROP FUNCTION IF EXISTS public.get_own_subscription_tier();
+ALTER TABLE public.profiles DROP COLUMN IF EXISTS subscription_tier;
+
+      or v_session_id_text is null or v_session_id_text !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}
+CREATE OR REPLACE FUNCTION public.get_my_recommendation_page(feed_cursor jsonb DEFAULT NULL::jsonb, page_limit integer DEFAULT 50)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+  current_user_id uuid := auth.uid();
+  state jsonb;
+  categories jsonb;
+  chosen record;
+  items jsonb := '[]'::jsonb;
+  last_category text;
+  streak integer;
+  include_completed boolean;
+  personalization_enabled boolean := false;
+  initial_page boolean := feed_cursor IS NULL OR feed_cursor = 'null'::jsonb;
+  item_count integer := 0;
+BEGIN
+  IF current_user_id IS NULL THEN
+    RAISE EXCEPTION 'Authentication required' USING ERRCODE = '28000';
+  END IF;
+
+  IF NOT catho_private.consume_recommendation_rate_limit(current_user_id) THEN
+    RAISE EXCEPTION 'Recommendation rate limit exceeded' USING ERRCODE = 'P0001';
+  END IF;
+
+  IF page_limit IS NULL OR page_limit < 1 OR page_limit > 50 THEN
+    RAISE EXCEPTION 'Invalid page limit' USING ERRCODE = '22023';
+  END IF;
+
+  SELECT coalesce(enabled,false) INTO personalization_enabled
+  FROM catho_private.user_personalization_consents
+  WHERE user_id=current_user_id;
+
+  IF initial_page THEN
+    include_completed := NOT personalization_enabled;
+    IF personalization_enabled THEN
+      -- Read account history only inside this consented branch.
+      WITH signals AS (
+      SELECT p.topic_id, 5::numeric AS weight
+      FROM public.progress p
+      WHERE p.user_id = current_user_id
+
+      UNION ALL
+
+      SELECT b.topic_id, 4::numeric
+      FROM public.bookmarks b
+      WHERE b.user_id = current_user_id
+
+      UNION ALL
+
+      SELECT l.topic_id, 3::numeric
+      FROM public.topic_likes l
+      WHERE l.user_id = current_user_id
+
+      UNION ALL
+
+      SELECT DISTINCT c.topic_id, 3::numeric
+      FROM public.comments c
+      WHERE c.user_id = current_user_id
+        AND c.is_deleted = false
+    ),
+    legacy_preferences AS (
+      SELECT t.category_slug, sum(s.weight) AS weight
+      FROM signals s
+      JOIN public.topics t
+        ON t.id = s.topic_id AND t.is_published
+      JOIN public.categories c
+        ON c.slug = t.category_slug AND c.is_published
+      GROUP BY t.category_slug
+    ),
+    feed_preferences AS (
+      SELECT feed_signals.category_slug, sum(feed_signals.weight) AS weight
+      FROM catho_private.get_user_feed_preference_signals(current_user_id) AS feed_signals
+      GROUP BY feed_signals.category_slug
+    ),
+    preferences AS (
+      SELECT category_slug, weight FROM legacy_preferences
+      UNION ALL
+      SELECT category_slug, weight FROM feed_preferences
+    )
+    SELECT coalesce(
+      jsonb_agg(
+        jsonb_build_object(
+          'slug', c.slug,
+          'weight', round(1 + sqrt(greatest(coalesce(p.weight, 0), 0)::numeric), 6),
+          'served', 0,
+          'order', NULL,
+          'id', NULL
+        ) ORDER BY c.slug
+      ),
+      '[]'::jsonb
+    )
+    INTO categories
+    FROM public.categories c
+    LEFT JOIN (
+      SELECT category_slug, sum(weight) AS weight
+      FROM preferences
+      GROUP BY category_slug
+    ) p ON p.category_slug = c.slug
+    WHERE c.is_published;
+    ELSE
+      SELECT coalesce(
+        jsonb_agg(
+          jsonb_build_object(
+            'slug', c.slug,
+            'weight', 1,
+            'served', 0,
+            'order', NULL,
+            'id', NULL
+          ) ORDER BY c.slug
+        ),
+        '[]'::jsonb
+      )
+      INTO categories
+      FROM public.categories c
+      WHERE c.is_published;
+    END IF;
+
+    state := jsonb_build_object(
+      'userId', current_user_id,
+      'categories', categories,
+      'last', NULL,
+      'streak', 0,
+      'includeCompleted', include_completed
+    );
+  ELSE
+    state := feed_cursor;
+  END IF;
+
+  IF jsonb_typeof(state) IS DISTINCT FROM 'object'
+     OR NOT (state ?& ARRAY['userId', 'categories', 'last', 'streak', 'includeCompleted'])
+     OR octet_length(state::text) > 65536
+     OR state->>'userId' IS DISTINCT FROM current_user_id::text
+     OR jsonb_typeof(state->'categories') IS DISTINCT FROM 'array'
+     OR jsonb_array_length(state->'categories') > 200
+     OR jsonb_typeof(state->'streak') IS DISTINCT FROM 'number'
+     OR coalesce(state->>'streak', '') !~ '^[0-2]$'
+     OR jsonb_typeof(state->'includeCompleted') IS DISTINCT FROM 'boolean'
+     OR (
+       state->'last' <> 'null'::jsonb AND (
+         jsonb_typeof(state->'last') IS DISTINCT FROM 'string'
+         OR state->>'last' !~ '^[a-z0-9]+(-[a-z0-9]+)*$'
+         OR length(state->>'last') > 100
+       )
+     ) THEN
+    RAISE EXCEPTION 'Invalid recommendation cursor' USING ERRCODE = '22023';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM jsonb_array_elements(state->'categories') a(entry)
+    WHERE jsonb_typeof(entry) IS DISTINCT FROM 'object'
+       OR NOT (entry ?& ARRAY['slug', 'weight', 'served', 'order', 'id'])
+       OR jsonb_typeof(entry->'slug') IS DISTINCT FROM 'string'
+       OR entry->>'slug' !~ '^[a-z0-9]+(-[a-z0-9]+)*$'
+       OR length(entry->>'slug') > 100
+       OR jsonb_typeof(entry->'weight') IS DISTINCT FROM 'number'
+       OR length(entry->>'weight') > 40
+       OR jsonb_typeof(entry->'served') IS DISTINCT FROM 'number'
+       OR coalesce(entry->>'served', '') !~ '^[0-9]{1,9}$'
+       OR (entry->'order' = 'null'::jsonb)
+          IS DISTINCT FROM (entry->'id' = 'null'::jsonb)
+       OR (
+         entry->'order' <> 'null'::jsonb AND (
+           jsonb_typeof(entry->'order') IS DISTINCT FROM 'number'
+           OR coalesce(entry->>'order', '') !~ '^-?[0-9]{1,10}$'
+           OR jsonb_typeof(entry->'id') IS DISTINCT FROM 'string'
+           OR coalesce(entry->>'id', '') !~ '^[a-zA-Z0-9-]{1,100}$'
+         )
+       )
+  ) OR EXISTS (
+    SELECT 1
+    FROM jsonb_array_elements(state->'categories') a(entry)
+    GROUP BY entry->>'slug'
+    HAVING count(*) > 1
+  ) OR EXISTS (
+    SELECT 1
+    FROM jsonb_array_elements(state->'categories') a(entry)
+    WHERE (entry->>'weight')::numeric < 1
+       OR (entry->>'weight')::numeric > 1000000
+       OR (entry->>'order')::numeric < -2147483648
+       OR (entry->>'order')::numeric > 2147483647
+  ) THEN
+    RAISE EXCEPTION 'Invalid recommendation cursor' USING ERRCODE = '22023';
+  END IF;
+
+  categories := state->'categories';
+  last_category := state->>'last';
+  streak := (state->>'streak')::integer;
+  include_completed := (state->>'includeCompleted')::boolean;
+
+  IF NOT personalization_enabled THEN
+    SELECT coalesce(jsonb_agg(a.entry || jsonb_build_object('weight',1) ORDER BY a.ordinality),'[]'::jsonb)
+      INTO categories
+    FROM jsonb_array_elements(categories) WITH ORDINALITY AS a(entry,ordinality);
+    include_completed := true;
+  END IF;
+
+  -- Select the category with the smallest served / weight.
+  -- Avoid a third consecutive topic from one category where possible.
+  -- Advance only the selected category's indexed keyset.
+  WHILE item_count < page_limit LOOP
+    SELECT
+      a.ordinality::integer - 1 AS position,
+      a.entry,
+      t.*,
+      c.name AS category_name
+    INTO chosen
+    FROM jsonb_array_elements(categories) WITH ORDINALITY AS a(entry, ordinality)
+    JOIN public.categories c
+      ON c.slug = a.entry->>'slug' AND c.is_published
+    CROSS JOIN LATERAL (
+      SELECT t.*
+      FROM public.topics t
+      WHERE t.category_slug = c.slug
+        AND t.is_published
+        AND (t.order_index, t.id) >
+            (
+              coalesce((a.entry->>'order')::integer, -2147483648),
+              coalesce(a.entry->>'id', '')
+            )
+        AND (
+          include_completed OR NOT EXISTS (
+            SELECT 1
+            FROM public.progress p
+            WHERE p.user_id = current_user_id AND p.topic_id = t.id
+          )
+        )
+      ORDER BY t.order_index, t.id
+      LIMIT 1
+    ) t
+    ORDER BY
+      CASE WHEN streak >= 2 AND c.slug = last_category THEN 1 ELSE 0 END,
+      (a.entry->>'served')::numeric / (a.entry->>'weight')::numeric,
+      c.slug
+    LIMIT 1;
+
+    IF NOT FOUND THEN
+      IF initial_page AND item_count = 0 AND NOT include_completed THEN
+        include_completed := true;
+        CONTINUE;
+      END IF;
+      EXIT;
+    END IF;
+
+    items := items || jsonb_build_array(jsonb_build_object(
+      'id', chosen.id,
+      'slug', chosen.slug,
+      'category', chosen.category_name,
+      'question', chosen.question,
+      'answer', chosen.answer,
+      'explanation', chosen.explanation,
+      'catechism', jsonb_build_object(
+        'paragraphs', coalesce(chosen.catechism_paragraphs, ARRAY[]::text[]),
+        'text', chosen.catechism_text
+      ),
+      'scripture', jsonb_build_object(
+        'reference', chosen.scripture_reference,
+        'text', chosen.scripture_text
+      )
+    ));
+
+    categories := jsonb_set(
+      categories,
+      ARRAY[chosen.position::text],
+      chosen.entry || jsonb_build_object(
+        'served', (chosen.entry->>'served')::integer + 1,
+        'order', chosen.order_index,
+        'id', chosen.id
+      )
+    );
+
+    IF chosen.category_slug = last_category THEN
+      streak := least(streak + 1, 2);
+    ELSE
+      last_category := chosen.category_slug;
+      streak := 1;
+    END IF;
+
+    item_count := item_count + 1;
+  END LOOP;
+
+  RETURN jsonb_build_object(
+    'topics', items,
+    'nextCursor', CASE WHEN item_count = page_limit THEN
+      jsonb_build_object(
+        'userId', current_user_id,
+        'categories', categories,
+        'last', last_category,
+        'streak', streak,
+        'includeCompleted', include_completed
+      )
+      ELSE NULL END
+  );
+END;
+$function$;
+
+
+-- Remove the retired user-membership tier; sponsorship is the only paid offering.
+DROP FUNCTION IF EXISTS public.get_own_subscription_tier();
+ALTER TABLE public.profiles DROP COLUMN IF EXISTS subscription_tier;
+
+      or v_duration_text !~ '^[0-9]{1,6}
+CREATE OR REPLACE FUNCTION public.get_my_recommendation_page(feed_cursor jsonb DEFAULT NULL::jsonb, page_limit integer DEFAULT 50)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+  current_user_id uuid := auth.uid();
+  state jsonb;
+  categories jsonb;
+  chosen record;
+  items jsonb := '[]'::jsonb;
+  last_category text;
+  streak integer;
+  include_completed boolean;
+  personalization_enabled boolean := false;
+  initial_page boolean := feed_cursor IS NULL OR feed_cursor = 'null'::jsonb;
+  item_count integer := 0;
+BEGIN
+  IF current_user_id IS NULL THEN
+    RAISE EXCEPTION 'Authentication required' USING ERRCODE = '28000';
+  END IF;
+
+  IF NOT catho_private.consume_recommendation_rate_limit(current_user_id) THEN
+    RAISE EXCEPTION 'Recommendation rate limit exceeded' USING ERRCODE = 'P0001';
+  END IF;
+
+  IF page_limit IS NULL OR page_limit < 1 OR page_limit > 50 THEN
+    RAISE EXCEPTION 'Invalid page limit' USING ERRCODE = '22023';
+  END IF;
+
+  SELECT coalesce(enabled,false) INTO personalization_enabled
+  FROM catho_private.user_personalization_consents
+  WHERE user_id=current_user_id;
+
+  IF initial_page THEN
+    include_completed := NOT personalization_enabled;
+    IF personalization_enabled THEN
+      -- Read account history only inside this consented branch.
+      WITH signals AS (
+      SELECT p.topic_id, 5::numeric AS weight
+      FROM public.progress p
+      WHERE p.user_id = current_user_id
+
+      UNION ALL
+
+      SELECT b.topic_id, 4::numeric
+      FROM public.bookmarks b
+      WHERE b.user_id = current_user_id
+
+      UNION ALL
+
+      SELECT l.topic_id, 3::numeric
+      FROM public.topic_likes l
+      WHERE l.user_id = current_user_id
+
+      UNION ALL
+
+      SELECT DISTINCT c.topic_id, 3::numeric
+      FROM public.comments c
+      WHERE c.user_id = current_user_id
+        AND c.is_deleted = false
+    ),
+    legacy_preferences AS (
+      SELECT t.category_slug, sum(s.weight) AS weight
+      FROM signals s
+      JOIN public.topics t
+        ON t.id = s.topic_id AND t.is_published
+      JOIN public.categories c
+        ON c.slug = t.category_slug AND c.is_published
+      GROUP BY t.category_slug
+    ),
+    feed_preferences AS (
+      SELECT feed_signals.category_slug, sum(feed_signals.weight) AS weight
+      FROM catho_private.get_user_feed_preference_signals(current_user_id) AS feed_signals
+      GROUP BY feed_signals.category_slug
+    ),
+    preferences AS (
+      SELECT category_slug, weight FROM legacy_preferences
+      UNION ALL
+      SELECT category_slug, weight FROM feed_preferences
+    )
+    SELECT coalesce(
+      jsonb_agg(
+        jsonb_build_object(
+          'slug', c.slug,
+          'weight', round(1 + sqrt(greatest(coalesce(p.weight, 0), 0)::numeric), 6),
+          'served', 0,
+          'order', NULL,
+          'id', NULL
+        ) ORDER BY c.slug
+      ),
+      '[]'::jsonb
+    )
+    INTO categories
+    FROM public.categories c
+    LEFT JOIN (
+      SELECT category_slug, sum(weight) AS weight
+      FROM preferences
+      GROUP BY category_slug
+    ) p ON p.category_slug = c.slug
+    WHERE c.is_published;
+    ELSE
+      SELECT coalesce(
+        jsonb_agg(
+          jsonb_build_object(
+            'slug', c.slug,
+            'weight', 1,
+            'served', 0,
+            'order', NULL,
+            'id', NULL
+          ) ORDER BY c.slug
+        ),
+        '[]'::jsonb
+      )
+      INTO categories
+      FROM public.categories c
+      WHERE c.is_published;
+    END IF;
+
+    state := jsonb_build_object(
+      'userId', current_user_id,
+      'categories', categories,
+      'last', NULL,
+      'streak', 0,
+      'includeCompleted', include_completed
+    );
+  ELSE
+    state := feed_cursor;
+  END IF;
+
+  IF jsonb_typeof(state) IS DISTINCT FROM 'object'
+     OR NOT (state ?& ARRAY['userId', 'categories', 'last', 'streak', 'includeCompleted'])
+     OR octet_length(state::text) > 65536
+     OR state->>'userId' IS DISTINCT FROM current_user_id::text
+     OR jsonb_typeof(state->'categories') IS DISTINCT FROM 'array'
+     OR jsonb_array_length(state->'categories') > 200
+     OR jsonb_typeof(state->'streak') IS DISTINCT FROM 'number'
+     OR coalesce(state->>'streak', '') !~ '^[0-2]$'
+     OR jsonb_typeof(state->'includeCompleted') IS DISTINCT FROM 'boolean'
+     OR (
+       state->'last' <> 'null'::jsonb AND (
+         jsonb_typeof(state->'last') IS DISTINCT FROM 'string'
+         OR state->>'last' !~ '^[a-z0-9]+(-[a-z0-9]+)*$'
+         OR length(state->>'last') > 100
+       )
+     ) THEN
+    RAISE EXCEPTION 'Invalid recommendation cursor' USING ERRCODE = '22023';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM jsonb_array_elements(state->'categories') a(entry)
+    WHERE jsonb_typeof(entry) IS DISTINCT FROM 'object'
+       OR NOT (entry ?& ARRAY['slug', 'weight', 'served', 'order', 'id'])
+       OR jsonb_typeof(entry->'slug') IS DISTINCT FROM 'string'
+       OR entry->>'slug' !~ '^[a-z0-9]+(-[a-z0-9]+)*$'
+       OR length(entry->>'slug') > 100
+       OR jsonb_typeof(entry->'weight') IS DISTINCT FROM 'number'
+       OR length(entry->>'weight') > 40
+       OR jsonb_typeof(entry->'served') IS DISTINCT FROM 'number'
+       OR coalesce(entry->>'served', '') !~ '^[0-9]{1,9}$'
+       OR (entry->'order' = 'null'::jsonb)
+          IS DISTINCT FROM (entry->'id' = 'null'::jsonb)
+       OR (
+         entry->'order' <> 'null'::jsonb AND (
+           jsonb_typeof(entry->'order') IS DISTINCT FROM 'number'
+           OR coalesce(entry->>'order', '') !~ '^-?[0-9]{1,10}$'
+           OR jsonb_typeof(entry->'id') IS DISTINCT FROM 'string'
+           OR coalesce(entry->>'id', '') !~ '^[a-zA-Z0-9-]{1,100}$'
+         )
+       )
+  ) OR EXISTS (
+    SELECT 1
+    FROM jsonb_array_elements(state->'categories') a(entry)
+    GROUP BY entry->>'slug'
+    HAVING count(*) > 1
+  ) OR EXISTS (
+    SELECT 1
+    FROM jsonb_array_elements(state->'categories') a(entry)
+    WHERE (entry->>'weight')::numeric < 1
+       OR (entry->>'weight')::numeric > 1000000
+       OR (entry->>'order')::numeric < -2147483648
+       OR (entry->>'order')::numeric > 2147483647
+  ) THEN
+    RAISE EXCEPTION 'Invalid recommendation cursor' USING ERRCODE = '22023';
+  END IF;
+
+  categories := state->'categories';
+  last_category := state->>'last';
+  streak := (state->>'streak')::integer;
+  include_completed := (state->>'includeCompleted')::boolean;
+
+  IF NOT personalization_enabled THEN
+    SELECT coalesce(jsonb_agg(a.entry || jsonb_build_object('weight',1) ORDER BY a.ordinality),'[]'::jsonb)
+      INTO categories
+    FROM jsonb_array_elements(categories) WITH ORDINALITY AS a(entry,ordinality);
+    include_completed := true;
+  END IF;
+
+  -- Select the category with the smallest served / weight.
+  -- Avoid a third consecutive topic from one category where possible.
+  -- Advance only the selected category's indexed keyset.
+  WHILE item_count < page_limit LOOP
+    SELECT
+      a.ordinality::integer - 1 AS position,
+      a.entry,
+      t.*,
+      c.name AS category_name
+    INTO chosen
+    FROM jsonb_array_elements(categories) WITH ORDINALITY AS a(entry, ordinality)
+    JOIN public.categories c
+      ON c.slug = a.entry->>'slug' AND c.is_published
+    CROSS JOIN LATERAL (
+      SELECT t.*
+      FROM public.topics t
+      WHERE t.category_slug = c.slug
+        AND t.is_published
+        AND (t.order_index, t.id) >
+            (
+              coalesce((a.entry->>'order')::integer, -2147483648),
+              coalesce(a.entry->>'id', '')
+            )
+        AND (
+          include_completed OR NOT EXISTS (
+            SELECT 1
+            FROM public.progress p
+            WHERE p.user_id = current_user_id AND p.topic_id = t.id
+          )
+        )
+      ORDER BY t.order_index, t.id
+      LIMIT 1
+    ) t
+    ORDER BY
+      CASE WHEN streak >= 2 AND c.slug = last_category THEN 1 ELSE 0 END,
+      (a.entry->>'served')::numeric / (a.entry->>'weight')::numeric,
+      c.slug
+    LIMIT 1;
+
+    IF NOT FOUND THEN
+      IF initial_page AND item_count = 0 AND NOT include_completed THEN
+        include_completed := true;
+        CONTINUE;
+      END IF;
+      EXIT;
+    END IF;
+
+    items := items || jsonb_build_array(jsonb_build_object(
+      'id', chosen.id,
+      'slug', chosen.slug,
+      'category', chosen.category_name,
+      'question', chosen.question,
+      'answer', chosen.answer,
+      'explanation', chosen.explanation,
+      'catechism', jsonb_build_object(
+        'paragraphs', coalesce(chosen.catechism_paragraphs, ARRAY[]::text[]),
+        'text', chosen.catechism_text
+      ),
+      'scripture', jsonb_build_object(
+        'reference', chosen.scripture_reference,
+        'text', chosen.scripture_text
+      )
+    ));
+
+    categories := jsonb_set(
+      categories,
+      ARRAY[chosen.position::text],
+      chosen.entry || jsonb_build_object(
+        'served', (chosen.entry->>'served')::integer + 1,
+        'order', chosen.order_index,
+        'id', chosen.id
+      )
+    );
+
+    IF chosen.category_slug = last_category THEN
+      streak := least(streak + 1, 2);
+    ELSE
+      last_category := chosen.category_slug;
+      streak := 1;
+    END IF;
+
+    item_count := item_count + 1;
+  END LOOP;
+
+  RETURN jsonb_build_object(
+    'topics', items,
+    'nextCursor', CASE WHEN item_count = page_limit THEN
+      jsonb_build_object(
+        'userId', current_user_id,
+        'categories', categories,
+        'last', last_category,
+        'streak', streak,
+        'includeCompleted', include_completed
+      )
+      ELSE NULL END
+  );
+END;
+$function$;
+
+
+-- Remove the retired user-membership tier; sponsorship is the only paid offering.
+DROP FUNCTION IF EXISTS public.get_own_subscription_tier();
+ALTER TABLE public.profiles DROP COLUMN IF EXISTS subscription_tier;
+ then
+      raise exception 'invalid event identifiers or duration' using errcode='22023';
+    end if;
+    v_event_id:=v_event_id_text::uuid;
+    v_session_id:=v_session_id_text::uuid;
+    v_duration:=v_duration_text::integer;
+    v_event_type:=v_event->>'event_type';
+    v_card_type:=v_event->>'card_type';
+    v_card_id:=v_event->>'card_id';
+    if v_event_type is null or v_event_type not in ('impression','viewable_impression','active_duration','skip','completion','open')
+      or v_card_type is null or v_card_type<>'top-comment'
+      or v_card_id is null or length(v_card_id) not between 1 and 64
+      or v_duration not between 0 and 300000
+      or (v_event ? 'metadata' and jsonb_typeof(v_event->'metadata')<>'object')
+      or octet_length(coalesce(v_event->'metadata','{}'::jsonb)::text)>512 then
+      raise exception 'invalid event fields' using errcode='22023';
+    end if;
+    insert into catho_private.feed_card_analytics_events(user_id,event_id,event_type,card_type,card_id,session_id,duration_ms,metadata)
+    values(v_user_id,v_event_id,v_event_type,v_card_type,v_card_id,v_session_id,v_duration,coalesce(v_event->'metadata','{}'::jsonb))
+    on conflict(user_id,event_id) do nothing;
+    if found then v_count:=v_count+1; end if;
+  end loop;
+  return v_count;
+end;
+$function$;
+ALTER FUNCTION public.record_feed_card_analytics_events(jsonb) OWNER TO postgres;
+CREATE OR REPLACE FUNCTION catho_private.refresh_feed_card_analytics_daily()
+ RETURNS integer
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare v_rows integer;
+begin
+  insert into catho_private.feed_card_analytics_daily_viewers(event_date,card_type,card_id,user_id)
+  select distinct (received_at at time zone 'UTC')::date,card_type,card_id,user_id
+  from catho_private.feed_card_analytics_events
+  where received_at >= statement_timestamp()-interval '2 days'
+    and event_type in ('impression','viewable_impression')
+  on conflict do nothing;
+  with event_totals as (
+    select (received_at at time zone 'UTC')::date event_date,card_type,card_id,
+      count(*) filter(where event_type='impression') impressions,
+      count(*) filter(where event_type='viewable_impression') viewable_impressions,
+      coalesce(sum(duration_ms) filter(where event_type='active_duration'),0) active_duration_ms,
+      count(*) filter(where event_type='skip') skips,
+      count(*) filter(where event_type='completion') completions,
+      count(*) filter(where event_type='open') opens
+    from catho_private.feed_card_analytics_events
+    where received_at >= statement_timestamp()-interval '2 days'
+    group by 1,2,3
+  ), viewer_totals as (
+    select event_date,card_type,card_id,count(*) unique_viewers
+    from catho_private.feed_card_analytics_daily_viewers
+    where event_date >= (statement_timestamp()-interval '2 days')::date
+    group by 1,2,3
+  )
+  insert into catho_private.feed_card_analytics_daily(event_date,card_type,card_id,impressions,viewable_impressions,active_duration_ms,skips,completions,opens,unique_viewers,refreshed_at)
+  select e.event_date,e.card_type,e.card_id,e.impressions,e.viewable_impressions,e.active_duration_ms,e.skips,e.completions,e.opens,coalesce(v.unique_viewers,0),statement_timestamp()
+  from event_totals e left join viewer_totals v using(event_date,card_type,card_id)
+  on conflict(event_date,card_type,card_id) do update set
+    impressions=excluded.impressions,viewable_impressions=excluded.viewable_impressions,
+    active_duration_ms=excluded.active_duration_ms,skips=excluded.skips,
+    completions=excluded.completions,opens=excluded.opens,unique_viewers=excluded.unique_viewers,
+    refreshed_at=excluded.refreshed_at;
+  get diagnostics v_rows = row_count;
+  return v_rows;
+end;
+$function$;
+ALTER FUNCTION catho_private.refresh_feed_card_analytics_daily() OWNER TO postgres;
+CREATE OR REPLACE FUNCTION catho_private.prune_feed_card_analytics_events(p_before timestamp with time zone, p_batch_size integer DEFAULT 5000)
+ RETURNS integer
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare v_deleted integer; v_viewers_deleted integer;
+begin
+  if p_before>statement_timestamp()-interval '180 days' or p_batch_size not between 1 and 5000 then
+    raise exception 'invalid retention boundary or batch size' using errcode='22023';
+  end if;
+  with doomed as (
+    select ctid from catho_private.feed_card_analytics_daily_viewers
+    where event_date<p_before::date order by event_date limit p_batch_size
+  )
+  delete from catho_private.feed_card_analytics_daily_viewers v using doomed d where v.ctid=d.ctid;
+  get diagnostics v_viewers_deleted=row_count;
+  with doomed as (
+    select ctid from catho_private.feed_card_analytics_events
+    where received_at<p_before order by received_at limit p_batch_size
+  )
+  delete from catho_private.feed_card_analytics_events e using doomed d where e.ctid=d.ctid;
+  get diagnostics v_deleted=row_count;
+  return v_deleted+v_viewers_deleted;
+end;
+$function$;
+ALTER FUNCTION catho_private.prune_feed_card_analytics_events(timestamptz,integer) OWNER TO postgres;
+
 -- Recommendation RPC: all account-history weighting is consent-gated.
 CREATE OR REPLACE FUNCTION public.get_my_recommendation_page(feed_cursor jsonb DEFAULT NULL::jsonb, page_limit integer DEFAULT 50)
  RETURNS jsonb
  LANGUAGE plpgsql
+ SECURITY DEFINER
  SET search_path TO ''
 AS $function$
 DECLARE
