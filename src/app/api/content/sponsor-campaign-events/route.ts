@@ -60,21 +60,27 @@ export async function POST(request: Request) {
   if (
     typeof parsed.value !== 'object' ||
     parsed.value === null ||
-    Array.isArray(parsed.value) ||
-    !('campaignId' in parsed.value) ||
-    !isValidUuid(parsed.value.campaignId) ||
-    !('eventId' in parsed.value) ||
-    !isValidUuid(parsed.value.eventId) ||
-    !('sessionId' in parsed.value) ||
-    !isValidUuid(parsed.value.sessionId) ||
-    !('eventType' in parsed.value) ||
-    typeof parsed.value.eventType !== 'string' ||
-    !eventTypes.includes(parsed.value.eventType as (typeof eventTypes)[number]) ||
+    Array.isArray(parsed.value)
+  ) {
+    return respond(request, { error: 'Invalid sponsor event.' }, 400);
+  }
+  const eventPayload = parsed.value as Record<string, unknown>;
+  const campaignId = eventPayload.campaignId;
+  const eventId = eventPayload.eventId;
+  const sessionId = eventPayload.sessionId;
+  const eventType = eventPayload.eventType;
+  const placementKey = eventPayload.placementKey;
+
+  if (
+    !isValidUuid(campaignId) ||
+    !isValidUuid(eventId) ||
+    !isValidUuid(sessionId) ||
+    typeof eventType !== 'string' ||
+    !eventTypes.includes(eventType as (typeof eventTypes)[number]) ||
     (isAnonymous && (
-      !('placementKey' in parsed.value) ||
-      typeof parsed.value.placementKey !== 'string' ||
-      parsed.value.placementKey.length < 1 ||
-      parsed.value.placementKey.length > 160
+      typeof placementKey !== 'string' ||
+      placementKey.length < 1 ||
+      placementKey.length > 160
     ))
   ) {
     return respond(request, { error: 'Invalid sponsor event.' }, 400);
@@ -83,18 +89,18 @@ export async function POST(request: Request) {
   try {
     const { data, error } = isAnonymous
       ? await createServiceRoleClient().rpc('record_anonymous_sponsor_campaign_event', {
-          p_session_token: parsed.value.sessionId,
-          p_campaign_id: parsed.value.campaignId,
-          p_placement_id: parsed.value.placementKey,
-          p_event_id: parsed.value.eventId,
-          p_event_type: parsed.value.eventType,
+          p_session_token: sessionId,
+          p_campaign_id: campaignId,
+          p_placement_id: placementKey as string,
+          p_event_id: eventId,
+          p_event_type: eventType,
         })
       : await createServiceRoleClient().rpc('record_sponsor_campaign_event', {
           p_user_id: auth.user!.id,
-          p_campaign_id: parsed.value.campaignId,
-          p_event_id: parsed.value.eventId,
-          p_session_id: parsed.value.sessionId,
-          p_event_type: parsed.value.eventType,
+          p_campaign_id: campaignId,
+          p_event_id: eventId,
+          p_session_id: sessionId,
+          p_event_type: eventType,
         });
     if (error) {
       if (error.code === '42501') return respond(request, { error: 'Sponsor placement was not eligible.' }, 403);
