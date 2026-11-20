@@ -157,8 +157,13 @@ export function AnalyticsConsentManager({ userId = null, apiBaseUrl, getAccessTo
     setError('');
     try {
       const previous = readAnalyticsConsent(userId);
-      // Clear old events before granting again. A fresh opt-in must never
-      // revive events queued before the user made the new choice.
+      // Apply every withdrawal immediately and keep every newly granted purpose
+      // disabled until its pre-consent queue has been cleared.
+      const interim = {
+        serviceImprovement: previous?.serviceImprovement === true && next.serviceImprovement,
+        sponsorMeasurement: previous?.sponsorMeasurement === true && next.sponsorMeasurement,
+      };
+      saveAnalyticsConsent(interim, userId);
       await clearWithdrawnQueues(previous, next);
       saveAnalyticsConsent(next, userId);
       void syncServerConsent();
