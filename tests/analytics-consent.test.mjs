@@ -28,10 +28,10 @@ test('optional analytics consent is explicit, purpose-specific and off by defaul
   assert.ok(manager.includes('Sponsor measurement'));
   assert.ok(manager.includes('I explicitly agree to Sponsor measurement'));
   assert.ok(manager.includes('They are not used for recommendations or to infer religious beliefs'));
-  assert.ok(manager.includes('Service improvement analytics help improve CathoScroll. They are not used for recommendations or to infer religious beliefs.'));
-  assert.ok(manager.includes('Sponsor measurement separately records views, clicks, frequency and topic placement.'));
+  assert.ok(manager.includes('Optional service improvement analytics help improve CathoScroll. They are not used for recommendations or to infer religious beliefs.'));
+  assert.ok(manager.includes('Optional sponsor measurement records views, clicks, frequency and topic placement.'));
   assert.ok(manager.includes('Either context may reveal religious or philosophical interests.'));
-  assert.ok(manager.includes('Accept all enables both; Decline optional declines both; Manage choices lets you choose separately.'));
+  assert.ok(manager.includes('Accept all gives explicit consent to both; Decline optional declines both; Manage choices lets you choose separately.'));
   assert.ok(manager.includes('Either context may reveal religious or philosophical interests.'));
   assert.ok(manager.includes('Topic placement may reveal religious or philosophical interests'));
   assert.ok(manager.includes('special-category data under UK GDPR'));
