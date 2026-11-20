@@ -70,3 +70,6 @@ Implementation and privacy documentation were updated through commit f7c18d97a01
 ## Important sync distinction
 
 The signed-in *activity* outbox for likes, bookmarks and completion is durable on supported encrypted-storage platforms. The signed-in *analytics exposure* queues for topics and Top Comments are currently in-memory and can lose pending events when the app process exits. The new persistent outbox in this PR is for signed-out topic/comment analytics only. Do not describe it as extending or replacing signed-in analytics sync. Making account-linked analytics durable would require a separate encrypted queue, account-scoped cleanup semantics and iOS secure-storage parity; it is not included in this change.
+
+
+The native outbox installs reconnect and foreground listeners during native startup, not only after a new feed event. This ensures a queue left by a previous app process can upload after connectivity returns even if the user has not yet opened a feed card.
