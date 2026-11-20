@@ -33,7 +33,7 @@ globalThis.window = {
     },
   },
 };
-globalThis.window = { addEventListener() {}, removeEventListener() {} };
+
 globalThis.document = { addEventListener() {}, removeEventListener() {}, visibilityState: 'visible' };
 Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { onLine: false } });
 const analytics = await import(analyticsUrl);
