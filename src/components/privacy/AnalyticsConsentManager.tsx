@@ -120,6 +120,8 @@ export function AnalyticsConsentManager({ userId = null, apiBaseUrl, getAccessTo
             serviceImprovement: local?.serviceImprovement === true && next.serviceImprovement,
             sponsorMeasurement: local?.sponsorMeasurement === true && next.sponsorMeasurement,
           };
+          if (!interim.serviceImprovement) denyAnalyticsConsentInMemory('serviceImprovement', userId);
+          if (!interim.sponsorMeasurement) denyAnalyticsConsentInMemory('sponsorMeasurement', userId);
           saveAnalyticsConsent(interim, userId);
           await clearWithdrawnQueues(local, next);
         }
@@ -170,6 +172,8 @@ export function AnalyticsConsentManager({ userId = null, apiBaseUrl, getAccessTo
         serviceImprovement: previous?.serviceImprovement === true && next.serviceImprovement,
         sponsorMeasurement: previous?.sponsorMeasurement === true && next.sponsorMeasurement,
       };
+      if (!interim.serviceImprovement) denyAnalyticsConsentInMemory('serviceImprovement', userId);
+      if (!interim.sponsorMeasurement) denyAnalyticsConsentInMemory('sponsorMeasurement', userId);
       saveAnalyticsConsent(interim, userId);
       await clearWithdrawnQueues(previous, next);
       saveAnalyticsConsent(next, userId);
@@ -180,7 +184,9 @@ export function AnalyticsConsentManager({ userId = null, apiBaseUrl, getAccessTo
       console.error('Unable to apply analytics preferences:', cause);
       setError('Your preference could not be fully saved or pending events could not be cleared. Optional analytics remain disabled until you retry.');
       try {
-        saveAnalyticsConsent({ serviceImprovement: false, sponsorMeasurement: false }, userId);
+        denyAnalyticsConsentInMemory('serviceImprovement', userId);
+      denyAnalyticsConsentInMemory('sponsorMeasurement', userId);
+      saveAnalyticsConsent({ serviceImprovement: false, sponsorMeasurement: false }, userId);
       } catch {
         // Keep the modal open and fail closed in memory.
       }
