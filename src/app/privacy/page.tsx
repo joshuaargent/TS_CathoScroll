@@ -250,7 +250,7 @@ export default function PrivacyPage() {
             or comment identifier, but no account ID, persistent visitor ID, raw session ID or
             cross-visit profile. The server deduplicates events and stores only UTC daily aggregate
             counts for impressions, viewability, active duration, skips, completions and discussion
-            opens. Event receipts used only for deduplication are deleted after 30 days. Pending anonymous event batches are temporarily stored in local browser/native app storage so they can be retried after a restart; this queue contains event IDs and topic/comment event data, not a persistent visitor or session identifier. The
+            opens. Event receipts used only for deduplication become eligible for deletion after 30 days; a scheduled cleanup runs every 15 minutes in bounded batches. Pending anonymous event batches are temporarily stored in local browser/native app storage so they can be retried after a restart; this queue contains event IDs and topic/comment event data, not a persistent visitor or session identifier. The
             API also applies abuse-prevention rate limits using a keyed HMAC fingerprint of the
             trusted request IP; stale rate-limit entries become eligible for cleanup after two
             days. That fingerprint is not joined to feed event aggregates. Standard hosting and
@@ -261,7 +261,7 @@ export default function PrivacyPage() {
           <p className="text-text-secondary mt-4 leading-relaxed">
             Signed-out sponsor delivery uses a separate campaign pipeline. A random session
             token exists only in the active page/app memory and its SHA-256 hash is stored briefly
-            to enforce sponsor frequency limits. Raw anonymous sponsor event and frequency rows are deleted once they pass the 30-day retention threshold by a 15-minute cleanup job; daily campaign-level served, viewable and click totals are retained for aggregate reporting. Failed sponsor-event sends are retried in memory after reconnect or app visibility changes; the retry queue is not persisted because the session token must not survive an app restart. The token is not used to build a visitor profile or
+            to enforce sponsor frequency limits. Raw anonymous sponsor event and frequency rows become eligible for deletion after 30 days; a scheduled cleanup runs every 15 minutes in batches of up to 5,000 rows per table per run. daily campaign-level served, viewable and click totals are retained for aggregate reporting. Failed sponsor-event sends are retried in memory after reconnect or app visibility changes; the retry queue is not persisted because the session token must not survive an app restart. The token is not used to build a visitor profile or
             link topic/comment reading activity across visits.
           </p>
 
