@@ -74,16 +74,6 @@ export class NativeSignedInAnalyticsOutbox implements SignedInAnalyticsOutbox {
       'DELETE FROM offline_signed_in_analytics_outbox WHERE created_at < ?',
       [new Date(Date.now() - maximumAgeMs).toISOString()]
     );
-    await db.execute(`
-      DELETE FROM offline_signed_in_analytics_outbox
-      WHERE rowid NOT IN (
-        SELECT rowid FROM offline_signed_in_analytics_outbox
-        WHERE user_id = offline_signed_in_analytics_outbox.user_id
-          AND stream = offline_signed_in_analytics_outbox.stream
-        ORDER BY created_at DESC, event_id DESC
-        LIMIT ?
-      )
-    `, [maximumEventsPerStream]);
   }
 
   async enqueue(userId: string, stream: SignedInAnalyticsStream, payload: SignedInAnalyticsPayload): Promise<void> {
