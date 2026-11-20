@@ -5014,7 +5014,7 @@ BEGIN
 
   RETURN pg_catalog.jsonb_build_object('campaigns',v_campaigns,'generated_at',pg_catalog.statement_timestamp());
 END;
-$function$
+$function$;
 ;
 
 ALTER FUNCTION public.get_weighted_sponsor_campaigns(uuid, uuid, text, text, integer) OWNER TO postgres;
@@ -7829,7 +7829,7 @@ BEGIN
    'destination_url',v_campaign.destination_url,'cta_label',v_campaign.cta_label,'disclosure','Sponsored'));
  END LOOP;
  RETURN pg_catalog.jsonb_build_object('campaigns',v_campaigns,'generated_at',statement_timestamp());
-END; $function$
+END; $function$;
 ;
 
 
