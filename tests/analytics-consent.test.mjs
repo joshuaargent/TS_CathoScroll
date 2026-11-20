@@ -100,10 +100,11 @@ test('withdrawal immediately blocks and clears the matching web and native analy
 });
 
 test('declining sponsor measurement preserves delivery and campaign-day totals without visitor tracking', async () => {
-  const [feed, selectRoute, eventRoute, bootstrap, migration, entryMap, placementRules] = await Promise.all([
+  const [feed, selectRoute, eventRoute, sponsorClient, bootstrap, migration, entryMap, placementRules] = await Promise.all([
     read('../src/components/topic/TopicFeedCore.tsx'),
     read('../src/app/api/content/sponsored-campaigns/route.ts'),
     read('../src/app/api/content/sponsor-campaign-events/route.ts'),
+    read('../src/lib/sponsor-analytics-client.ts'),
     read('../docs/cathoscroll-database-bootstrap.sql'),
     read('../supabase/migrations/20261120180000_analytics_consent_and_sponsor_opt_out.sql'),
     read('../src/lib/feed-entry-map.ts'),
@@ -112,6 +113,8 @@ test('declining sponsor measurement preserves delivery and campaign-day totals w
 
   assert.ok(feed.includes("hasAnalyticsConsent('sponsorMeasurement', userId)"));
   assert.ok(feed.includes('const sessionId = measurementEnabled'));
+  assert.ok(feed.includes('sponsorMeasurementConsent: measurementEnabled'));
+  assert.ok(sponsorClient.includes('sponsorMeasurementConsent: true'));
   assert.ok(feed.includes('if (result.campaigns.length > 0)'));
   assert.ok(feed.includes('handleConsentChange'));
   assert.ok(feed.includes("entry.type === 'sponsor' ? { ...entry, sessionId: '' } : entry"));
