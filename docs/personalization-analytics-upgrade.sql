@@ -733,9 +733,11 @@ BEGIN
     GROUP BY feed_signals.category_slug
   ),
   preferences AS (
-    SELECT category_slug, weight FROM legacy_preferences
+    SELECT legacy_preferences.category_slug, legacy_preferences.weight
+    FROM legacy_preferences
     UNION ALL
-    SELECT category_slug, weight FROM feed_preferences
+    SELECT feed_preferences.category_slug, feed_preferences.weight
+    FROM feed_preferences
   )
   SELECT p.category_slug, sum(p.weight)::numeric
   FROM preferences p
