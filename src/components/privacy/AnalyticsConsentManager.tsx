@@ -231,7 +231,7 @@ function ConsentManager({ userId = null, apiBaseUrl, getAccessToken }: Analytics
         <p id="analytics-consent-description" className="text-text-secondary mt-3 text-sm leading-relaxed">
           {managing
             ? 'Choose which optional analytics CathoScroll may collect. Both choices are optional and start off unless you have already enabled them.'
-            : 'You can allow optional analytics to improve CathoScroll and measure sponsor performance. I explicitly agree to Service improvement analytics may involve engagement with Catholic topics and comments, which can reveal religious or philosophical interests. You can reject both or manage each choice separately.'}
+            : 'You can allow optional analytics to improve CathoScroll and measure sponsor performance. Service improvement analytics may involve engagement with Catholic topics and comments, which can reveal religious or philosophical interests. You can reject both or manage each choice separately.'}
         </p>
 
         {!managing ? (
@@ -274,7 +274,7 @@ function ConsentManager({ userId = null, apiBaseUrl, getAccessToken }: Analytics
                 className="accent-accent mt-1 h-4 w-4 shrink-0"
               />
               <span className="min-w-0">
-                <span className="text-text-primary block font-semibold">Service improvement analytics</span>
+                <span className="text-text-primary block font-semibold">I explicitly agree to Service improvement analytics</span>
                 <span className="text-text-secondary mt-1 block text-sm leading-relaxed">
                   Measures topic and Top Comments engagement, signed-out aggregate activity, and Vercel site/performance analytics. When signed in, topic/comment activity is linked to your account and may reveal religious or philosophical beliefs; enabling this choice is your explicit consent to that limited service-improvement processing, which may involve special-category data under UK GDPR. It is not used for recommendation personalisation.
                 </span>
