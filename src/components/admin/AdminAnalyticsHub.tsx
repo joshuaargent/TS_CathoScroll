@@ -109,7 +109,7 @@ function DailyOverviewChart({ series }: { series: AnalyticsDay[] }) {
   </Card>;
 }
 
-export function AdminAnalyticsHub({ overview, period, section = 'overview', series, deepDive, comparison }: { overview: Overview; period: AnalyticsPeriod; section?: string; series: AnalyticsDay[]; deepDive: AnalyticsDeepDiveData }) {
+export function AdminAnalyticsHub({ overview, period, section = 'overview', series, deepDive }: { overview: Overview; period: AnalyticsPeriod; section?: string; series: AnalyticsDay[]; deepDive: AnalyticsDeepDiveData }) {
   const t = overview.totals;
   const totalExposures = t.topic_impressions + t.sponsor_served + t.comment_card_impressions + t.anonymous_topic_impressions + t.anonymous_sponsor_served + t.anonymous_comment_card_impressions;
   const sectionHref = (value: string) => `/admin/analytics?period=${period}&section=${value}`;
