@@ -72,6 +72,9 @@ export async function POST(request: Request) {
   // Keep a queued anonymous placement anonymous even if the visitor signs in
   // before its in-memory retry queue is flushed.
   const isAnonymous = !auth.user || typeof placementKey === 'string';
+  if (isAnonymous && eventPayload.sponsorMeasurementConsent !== true) {
+    return respond(request, { recorded: false });
+  }
   if (auth.user && !isAnonymous) {
     try {
       const consent = await getStoredAnalyticsConsent(auth.user.id);
