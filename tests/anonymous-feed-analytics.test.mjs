@@ -114,6 +114,12 @@ test('all analytics surfaces report anonymous counts separately', () => {
   }
   assert.match(hub, /Unique signed-in viewers/);
   assert.match(hub, /no anonymous unique-person count/i);
+  const chartStart = contentPage.indexOf('function LineChart');
+  const chartEnd = contentPage.indexOf('function InteractionCard', chartStart);
+  const chartSource = contentPage.slice(chartStart, chartEnd);
+  assert.match(chartSource, /dates\\.length <= 1/);
+  assert.match(chartSource, /index \/ \\(dates\\.length - 1\\)/);
+  assert.doesNotMatch(chartSource, /series\\.length <= 1/);
   assert.match(sponsorPortal, /Anonymous served/);
   assert.match(campaignManager, /anonymous served/);
 });
