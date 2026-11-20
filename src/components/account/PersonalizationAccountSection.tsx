@@ -344,7 +344,7 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
             I explicitly consent to CathoScroll using my topic-reading activity, reading analytics and selected interests, which may reveal religious or philosophical beliefs, to personalise my recommendations. This also enables Service improvement analytics while personalisation is on.
           </p>
           <p className="text-text-muted mt-2 text-sm leading-relaxed">
-            Reading signals include views, reading duration, swipe depth, skips, completions and return visits. They are used to improve your recommendations and the service, not for sponsor targeting. Service improvement analytics cannot be disabled while personalisation is on; turn off personalisation first. Sponsor measurement is a separate choice.
+            Reading signals include viewable impressions, reading duration, swipe depth, skips, completions, return visits and eligible Top Comments exposure. They improve your recommendations and the service, not sponsor targeting. Service improvement analytics cannot be disabled while personalisation is on; turn off personalisation first. Sponsor measurement is a separate choice.
           </p>
           <div className="mt-4 flex flex-wrap gap-3">
             <Button
