@@ -105,11 +105,11 @@ Sponsor campaign delivery, viewability, click analytics and frequency controls a
 ## 11. Controller action list
 
 1. Record an Article 6 basis for each analytics purpose and complete a legitimate-interests assessment where Article 6(1)(f) is selected.
-3. Review Vercel's applicable processor terms, DPA, subprocessors, transfer safeguards, retention and project settings. No paid sponsor campaigns are currently active; the owner intends to move to an appropriate commercial plan before accepting paid sponsorship revenue. This is a future commercial-readiness action, not a blocker to the current pre-revenue service.
-4. Verify deployed Web Analytics and Speed Insights network events, route redaction and SDK versions.
-5. Review CDN, WAF, hosting and function logs, including IP, URL, referrer and user-agent retention.
-6. Confirm aggregate dashboard suppression for low-volume data and keep sponsor access aggregate-only.
-7. Revisit this assessment after material changes and at least annually.
+2. Review Vercel's applicable processor terms, DPA, subprocessors, transfer safeguards, retention and project settings. No paid sponsor campaigns are currently active; the owner intends to move to an appropriate commercial plan before accepting paid sponsorship revenue. This is a future commercial-readiness action, not a blocker to the current pre-revenue service.
+3. Verify deployed Web Analytics and Speed Insights network events, route redaction and SDK versions.
+4. Review CDN, WAF, hosting and function logs, including IP, URL, referrer and user-agent retention.
+5. Confirm aggregate dashboard suppression for low-volume data and keep sponsor access aggregate-only.
+6. Revisit this assessment after material changes and at least annually.
 
 **Approval record:** This is a provisional internal assessment. The controller should record the reviewer, date, selected lawful bases, provider/transfer checks and any accepted residual risks before treating the review as complete.
 
