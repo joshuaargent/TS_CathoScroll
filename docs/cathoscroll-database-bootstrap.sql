@@ -8219,11 +8219,18 @@ BEGIN
      OR NOT EXISTS (SELECT 1 FROM auth.users AS account WHERE account.id = p_user_id) THEN
     RAISE EXCEPTION 'Invalid analytics consent update' USING ERRCODE = '22023';
   END IF;
+  PERFORM 1 FROM auth.users AS account WHERE account.id = p_user_id FOR UPDATE;
   SELECT service_improvement, sponsor_measurement
   INTO v_previous_service, v_previous_sponsor
   FROM catho_private.user_analytics_consents
   WHERE user_id = p_user_id
   FOR UPDATE;
+
+  IF v_previous_service IS NOT NULL
+     AND v_previous_service = p_service_improvement
+     AND v_previous_sponsor = p_sponsor_measurement THEN
+    RETURN public.get_user_analytics_consent(p_user_id);
+  END IF;
 
   INSERT INTO catho_private.user_analytics_consents (
     user_id, service_improvement, sponsor_measurement, consent_version,
