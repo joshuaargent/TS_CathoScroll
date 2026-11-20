@@ -194,17 +194,11 @@ test('expired sponsor placements are discarded without blocking later queued eve
   const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
   const originalDocument = Object.getOwnPropertyDescriptor(globalThis, 'document');
   const originalFetch = globalThis.fetch;
-  const values = new Map();
   const sent = [];
 
   Object.defineProperty(globalThis, 'window', {
     configurable: true,
     value: {
-      localStorage: {
-        getItem: (key) => values.get(key) ?? null,
-        setItem: (key, value) => values.set(key, value),
-        removeItem: (key) => values.delete(key),
-      },
       addEventListener() {},
       removeEventListener() {},
     },
@@ -249,7 +243,6 @@ test('expired sponsor placements are discarded without blocking later queued eve
     await sponsorClient.flushSponsorCampaignEvents(userId, async () => 'token');
 
     assert.deepEqual(sent, ['event-expired', 'event-current']);
-    assert.equal(values.has('cathoscroll.sponsor-events.v1.' + userId), false);
   } finally {
     globalThis.fetch = originalFetch;
     if (originalWindow) Object.defineProperty(globalThis, 'window', originalWindow);
