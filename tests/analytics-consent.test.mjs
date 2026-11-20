@@ -21,6 +21,9 @@ test('optional analytics consent is explicit, purpose-specific and off by defaul
   assert.ok(manager.includes('Accept all'));
   assert.ok(manager.includes('Decline optional'));
   assert.ok(manager.includes('Manage choices'));
+  assert.ok(manager.includes("document.addEventListener('keydown', handleKeyDown, true)"));
+  assert.ok(manager.includes('element.inert = true'));
+  assert.ok(manager.includes('previousFocus.focus()'));
   assert.ok(manager.includes('I explicitly agree to Service improvement analytics'));
   assert.ok(manager.includes('I explicitly agree to Sponsor measurement'));
   assert.ok(manager.includes('Recommendation personalisation remains controlled separately'));
@@ -80,9 +83,12 @@ test('withdrawal immediately blocks and clears the matching web and native analy
   assert.ok(manager.includes('clearAnonymousSponsorAnalyticsQueue()'));
   assert.ok(store.includes('clearStream(userId: string, stream: SignedInAnalyticsStream)'));
   assert.ok(feed.includes('createConsentBoundAbortSignal'));
+  assert.ok(feed.includes("consentRequest.signal.aborted || !hasAnalyticsConsent('serviceImprovement', userId)"));
   assert.ok(comments.includes('createConsentBoundAbortSignal'));
+  assert.ok(comments.includes("consentRequest.signal.aborted || !hasAnalyticsConsent('serviceImprovement', userId)"));
   assert.ok(anonymous.includes('createConsentBoundAbortSignal'));
   assert.ok(sponsor.includes('createConsentBoundAbortSignal'));
+  assert.ok(sponsor.includes("!accessToken || consentRequest.signal.aborted || !hasAnalyticsConsent('sponsorMeasurement', userId)"));
   assert.ok(feed.includes("hasAnalyticsConsent('serviceImprovement', userId)"));
   assert.ok(comments.includes("hasAnalyticsConsent('serviceImprovement', userId)"));
   assert.ok(anonymous.includes("hasAnalyticsConsent('serviceImprovement', null)"));
