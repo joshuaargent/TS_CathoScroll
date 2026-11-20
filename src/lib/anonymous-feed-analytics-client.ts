@@ -1,6 +1,6 @@
 'use client';
 import { siteConfig } from '@/lib/constants';
-import { hasAnalyticsConsent } from './analytics-consent';
+import { createConsentBoundAbortSignal, hasAnalyticsConsent } from './analytics-consent';
 
 export type AnonymousEntityType = 'topic' | 'comment';
 export type AnonymousEventType = 'impression' | 'viewable_impression' | 'active_duration' | 'skip' | 'completion' | 'open';
@@ -120,6 +120,7 @@ export async function flushAnonymousFeedAnalyticsQueue(): Promise<void> {
   if (!persistentOutbox && pendingEvents.length === 0) return;
 
   let shouldContinue = false;
+  const consentRequest = createConsentBoundAbortSignal('serviceImprovement', null);
   flushPromise = (async () => {
     let batch: AnonymousFeedAnalyticsEvent[] = [];
     try {
@@ -137,6 +138,12 @@ export async function flushAnonymousFeedAnalyticsQueue(): Promise<void> {
       batch = pendingEvents.filter((event) => volatileEventIds.has(event.eventId)).slice(0, 40);
     }
     if (batch.length === 0) return;
+    if (!anonymousAnalyticsEnabled()) {
+      pendingEvents.splice(0, pendingEvents.length);
+      volatileEventIds.clear();
+      if (persistentOutbox) await persistentOutbox.clear();
+      return;
+    }
 
     try {
       const response = await fetch(getEndpoint(), {
@@ -144,9 +151,16 @@ export async function flushAnonymousFeedAnalyticsQueue(): Promise<void> {
         credentials: 'same-origin',
         cache: 'no-store',
         keepalive: true,
+        signal: consentRequest.signal,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ events: batch }),
       });
+      if (!anonymousAnalyticsEnabled()) {
+        pendingEvents.splice(0, pendingEvents.length);
+        volatileEventIds.clear();
+        if (persistentOutbox) await persistentOutbox.clear();
+        return;
+      }
       if (response.ok || (response.status >= 400 && response.status < 500 && response.status !== 429)) {
         shouldContinue = true;
         const completed = batch.map((event) => event.eventId);
@@ -164,6 +178,7 @@ export async function flushAnonymousFeedAnalyticsQueue(): Promise<void> {
       // Keep failed batches for retry after reconnect or app restart.
     }
   })().finally(() => {
+    consentRequest.dispose();
     flushPromise = null;
     if (shouldContinue && (
       pendingEvents.length > 0 ||
