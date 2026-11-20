@@ -71,6 +71,7 @@ test('anonymous sponsor selection and event recording are separate from account-
   const selectRoute = read('../src/app/api/content/sponsored-campaigns/route.ts');
   const eventRoute = read('../src/app/api/content/sponsor-campaign-events/route.ts');
   const card = read('../src/components/topic/SponsorFeedCard.tsx');
+  const feedCore = read('../src/components/topic/TopicFeedCore.tsx');
   const sql = read('../docs/cathoscroll-database-bootstrap.sql');
   assert.match(selectRoute, /get_anonymous_sponsor_campaigns/);
   assert.match(selectRoute, /isSameOriginOrNativeRequest\(request, true\)/);
@@ -78,6 +79,8 @@ test('anonymous sponsor selection and event recording are separate from account-
   assert.match(eventRoute, /p_placement_id: parsed\.value\.placementKey/);
   assert.match(eventRoute, /placementKey/);
   assert.match(card, /recordAnonymousSponsorCampaignEvent/);
+  assert.match(feedCore, /ephemeralSponsorSessionId = null/);
+  assert.match(feedCore, /Never reuse an anonymous sponsor session token across sign-in\/account changes/);
   assert.match(eventRoute, /isSameOriginOrNativeRequest\(request, true\)/);
   assert.match(card, /userId: string \| null/);
   assert.match(sql, /CREATE TABLE catho_private\.anonymous_sponsor_session_frequency/);
