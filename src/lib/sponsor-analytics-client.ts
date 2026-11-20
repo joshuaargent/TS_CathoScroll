@@ -1,5 +1,7 @@
 'use client';
 
+import type { SignedInAnalyticsOutbox } from './offline/signed-in-analytics-store';
+
 export type SponsorCampaignEventType = 'viewable_impression' | 'click';
 
 export interface QueuedSponsorCampaignEvent {
@@ -20,6 +22,25 @@ function eventEndpoint(apiBaseUrl?: string): string {
 const pendingQueues = new Map<string, QueuedSponsorCampaignEvent[]>();
 const queueLimit = 1000;
 const flushingUsers = new Set<string>();
+let persistentOutbox: SignedInAnalyticsOutbox | null = null;
+
+export async function configureSponsorAnalyticsOutbox(outbox: SignedInAnalyticsOutbox): Promise<void> {
+  await outbox.initialize();
+  persistentOutbox = outbox;
+}
+
+export async function clearSponsorAnalyticsOutbox(userId: string): Promise<void> {
+  pendingQueues.delete(userId);
+  if (persistentOutbox) await persistentOutbox.clearUser(userId);
+}
+
+function sponsorEventFromPayload(payload: { event_id: string; session_id: string; event_type: string; campaign_id?: unknown }): QueuedSponsorCampaignEvent {
+  if (typeof payload.campaign_id !== 'string' || !payload.campaign_id ||
+      (payload.event_type !== 'viewable_impression' && payload.event_type !== 'click')) {
+    throw new Error('Invalid persisted sponsor analytics event.');
+  }
+  return { campaignId: payload.campaign_id, eventId: payload.event_id, sessionId: payload.session_id, eventType: payload.event_type };
+}
 
 function readQueue(userId: string): QueuedSponsorCampaignEvent[] {
   return pendingQueues.get(userId) ?? [];
@@ -46,12 +67,30 @@ export function recordSponsorCampaignEvent(
       queued.sessionId === event.sessionId &&
       queued.eventType === event.eventType
   );
-  if (!alreadyQueued) {
-    // Preserve older unacknowledged events in this active page and bound memory.
-    if (queue.length >= queueLimit) return false;
-    queue.push(event);
-    pendingQueues.set(userId, queue);
+  if (alreadyQueued) {
+    void flushSponsorCampaignEvents(userId, getAccessToken, apiBaseUrl);
+    return true;
   }
+  if (persistentOutbox) {
+    void persistentOutbox.enqueue(userId, 'sponsor', {
+      event_id: event.eventId,
+      session_id: event.sessionId,
+      event_type: event.eventType,
+      campaign_id: event.campaignId,
+    }).then(() => flushSponsorCampaignEvents(userId, getAccessToken, apiBaseUrl)).catch((error: unknown) => {
+      console.error('Unable to persist signed-in sponsor analytics:', error);
+      if (queue.length < queueLimit) {
+        queue.push(event);
+        pendingQueues.set(userId, queue);
+      }
+      void flushSponsorCampaignEvents(userId, getAccessToken, apiBaseUrl);
+    });
+    return true;
+  }
+  // Preserve older unacknowledged events in this active page and bound memory.
+  if (queue.length >= queueLimit) return false;
+  queue.push(event);
+  pendingQueues.set(userId, queue);
   void flushSponsorCampaignEvents(userId, getAccessToken, apiBaseUrl);
   return true;
 }
@@ -71,7 +110,9 @@ export async function flushSponsorCampaignEvents(
   flushingUsers.add(userId);
   try {
     for (;;) {
-      const event = readQueue(userId)[0];
+      const stored = persistentOutbox ? await persistentOutbox.pending(userId, 'sponsor', 1) : [];
+      const persistedEvent = stored[0];
+      const event = persistedEvent ? sponsorEventFromPayload(persistedEvent) : readQueue(userId)[0];
       if (!event) break;
 
       let accessToken: string | null;
@@ -103,15 +144,19 @@ export async function flushSponsorCampaignEvents(
         // every newer sponsor event behind it. Transient auth/rate/server
         // failures remain queued for a later retry.
         if (
-          (response.status === 400 || response.status === 403) &&
-          acknowledgeEvent(userId, event.eventId)
-        ) continue;
+          (response.status === 400 || response.status === 403)
+        ) {
+          if (persistedEvent && persistentOutbox) await persistentOutbox.acknowledge(userId, 'sponsor', [event.eventId]);
+          else acknowledgeEvent(userId, event.eventId);
+          continue;
+        }
         break;
       }
 
       // Stable IDs make replay safe if the server accepted the event but the
       // local acknowledgement write failed or the app closed mid-flight.
-      if (!acknowledgeEvent(userId, event.eventId)) break;
+      if (persistedEvent && persistentOutbox) await persistentOutbox.acknowledge(userId, 'sponsor', [event.eventId]);
+      else if (!acknowledgeEvent(userId, event.eventId)) break;
     }
   } finally {
     flushingUsers.delete(userId);

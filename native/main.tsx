@@ -53,6 +53,7 @@ import { siteConfig } from '@/lib/constants';
 import { configureAnonymousFeedAnalyticsOutbox } from '@/lib/anonymous-feed-analytics-client';
 import { configureFeedAnalyticsOutbox, clearFeedAnalyticsOutbox } from '@/lib/feed-analytics-client';
 import { configureFeedCardAnalyticsOutbox, clearFeedCardAnalyticsOutbox } from '@/lib/feed-card-analytics-client';
+import { configureSponsorAnalyticsOutbox, clearSponsorAnalyticsOutbox } from '@/lib/sponsor-analytics-client';
 import { NativeSignedInAnalyticsOutbox } from '@/lib/offline/signed-in-analytics-store';
 import { NativeAnonymousAnalyticsOutbox } from '@/lib/offline/anonymous-analytics-store';
 import { OfflineRankedFeedCache } from '@/lib/offline/ranked-feed-cache';
@@ -926,6 +927,7 @@ function App() {
             await Promise.all([
               configureFeedAnalyticsOutbox(signedInOutbox),
               configureFeedCardAnalyticsOutbox(signedInOutbox),
+              configureSponsorAnalyticsOutbox(signedInOutbox),
             ]);
             clearNativeStatusNotice('signed-in-analytics-outbox');
           } catch (cause) {
@@ -1019,6 +1021,7 @@ function App() {
               void Promise.all([
                 clearFeedAnalyticsOutbox(previousUserId),
                 clearFeedCardAnalyticsOutbox(previousUserId),
+                clearSponsorAnalyticsOutbox(previousUserId),
                 personalizedFeedCacheRef.current?.clearUser(previousUserId),
               ]).catch((cause: unknown) => {
                 console.error('Unable to clear the previous account analytics queue:', cause);

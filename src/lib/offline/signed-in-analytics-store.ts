@@ -1,6 +1,6 @@
 import type { OfflineDatabase, OfflineTransaction } from './activity-store';
 
-export type SignedInAnalyticsStream = 'topic' | 'comment';
+export type SignedInAnalyticsStream = 'topic' | 'comment' | 'sponsor';
 export type SignedInAnalyticsPayload = object & {
   event_id: string;
   session_id: string;
@@ -26,7 +26,7 @@ function assertUserId(userId: string): void {
 }
 
 function assertStream(stream: SignedInAnalyticsStream): void {
-  if (stream !== 'topic' && stream !== 'comment') throw new Error('Invalid signed-in analytics stream.');
+  if (stream !== 'topic' && stream !== 'comment' && stream !== 'sponsor') throw new Error('Invalid signed-in analytics stream.');
 }
 
 function validatePayload(payload: SignedInAnalyticsPayload): void {
