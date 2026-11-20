@@ -95,7 +95,7 @@ export default function CookiesPage() {
         <section>
           <h2 className="mb-4 text-3xl font-bold">Manage optional analytics</h2>
           <p className="text-text-secondary mb-4 leading-relaxed">
-            Service improvement analytics starts off and can be managed independently when personalisation is off. Enabling personalisation also enables Service improvement analytics and locks it on until personalisation is disabled. Sponsor measurement is always a separate optional choice. Declining optional analytics does not affect sign-in, account synchronisation, bookmarks, likes, progress, notes, sponsor delivery or general feed ranking.
+            Service improvement analytics is optional when personalisation is off and is automatically enabled and locked on while personalisation is enabled. Sponsor measurement is a separate optional choice. Signed-out topic/comment daily aggregates run by default under the statistical-purposes approach and are not controlled by the optional analytics choices; a simple free objection is available in Manage choices. Declining optional analytics does not affect sign-in, account synchronisation, bookmarks, likes, progress, notes, sponsor delivery or general feed ranking.
           </p>
           <AnalyticsConsentSettingsButton />
         </section>
