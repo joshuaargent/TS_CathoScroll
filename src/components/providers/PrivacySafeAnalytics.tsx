@@ -1,6 +1,7 @@
 'use client';
 
 import { Analytics, type BeforeSendEvent } from '@vercel/analytics/react';
+import { hasAnalyticsConsent } from '@/lib/analytics-consent';
 
 function sanitisePageUrl(rawUrl: string): string {
   const url = new URL(rawUrl);
@@ -26,5 +27,6 @@ function redactAnalyticsEvent(event: BeforeSendEvent): BeforeSendEvent {
 }
 
 export function PrivacySafeAnalytics() {
+  if (!hasAnalyticsConsent('serviceImprovement')) return null;
   return <Analytics beforeSend={redactAnalyticsEvent} />;
 }
