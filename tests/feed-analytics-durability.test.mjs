@@ -155,7 +155,7 @@ test('sponsor analytics queue stays in memory and flushes without a visible spon
 
 test('README distinguishes site-wide analytics ranking from explicit-action personalisation', () => {
   assert.ok(readme.includes('site-wide, account-free engagement aggregates'));
-  assert.ok(readme.includes('only their own explicit account actions and selected categories'));
+  assert.ok(readme.includes('adjusted only by their own explicit account actions and selected categories'));
   assert.ok(readme.includes('Operational analytics are never used to personalise an individual\'s feed'));
   assert.ok(readme.includes('Operational feed and Top Comments analytics'));
   assert.doesNotMatch(readme, /recommendation RPC also reads the last 90 days of feed telemetry/);
