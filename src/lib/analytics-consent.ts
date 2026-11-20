@@ -85,3 +85,26 @@ export function saveAnalyticsConsent(
 export function openAnalyticsConsentManager(): void {
   if (typeof window !== 'undefined') window.dispatchEvent(new Event(analyticsConsentManageEvent));
 }
+
+
+export function createConsentBoundAbortSignal(
+  choice: AnalyticsConsentChoice,
+  userId?: string | null
+): { signal: AbortSignal; dispose: () => void } {
+  const controller = new AbortController();
+  if (typeof window === 'undefined') {
+    return { signal: controller.signal, dispose: () => undefined };
+  }
+  const expectedUserId = userId ?? null;
+  const onConsentChange = (event: Event) => {
+    const detail = (event as CustomEvent<{ userId?: string | null }>).detail;
+    if ((detail?.userId ?? null) === expectedUserId && !hasAnalyticsConsent(choice, userId)) {
+      controller.abort();
+    }
+  };
+  window.addEventListener(analyticsConsentChangeEvent, onConsentChange);
+  return {
+    signal: controller.signal,
+    dispose: () => window.removeEventListener(analyticsConsentChangeEvent, onConsentChange),
+  };
+}
