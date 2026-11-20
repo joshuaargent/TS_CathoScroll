@@ -1933,3 +1933,16 @@ $function$;
 -- Remove the retired user-membership tier; sponsorship is the only paid offering.
 DROP FUNCTION IF EXISTS public.get_own_subscription_tier();
 ALTER TABLE public.profiles DROP COLUMN IF EXISTS subscription_tier;
+
+
+-- Match the canonical bootstrap's ownership and least-privilege RPC ACLs.
+ALTER FUNCTION public.get_my_recommendation_page(jsonb, integer) OWNER TO postgres;
+REVOKE ALL ON FUNCTION public.get_my_recommendation_page(jsonb, integer) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.get_my_recommendation_page(jsonb, integer) TO authenticated, service_role;
+ALTER FUNCTION public.record_feed_card_analytics_events(jsonb) OWNER TO postgres;
+REVOKE ALL ON FUNCTION public.record_feed_card_analytics_events(jsonb) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.record_feed_card_analytics_events(jsonb) TO authenticated;
+REVOKE ALL ON FUNCTION catho_private.refresh_feed_card_analytics_daily() FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION catho_private.prune_feed_card_analytics_events(timestamptz, integer) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION catho_private.refresh_feed_card_analytics_daily() TO service_role;
+GRANT EXECUTE ON FUNCTION catho_private.prune_feed_card_analytics_events(timestamptz, integer) TO service_role;
