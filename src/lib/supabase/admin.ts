@@ -102,9 +102,20 @@ export function isValidUuid(value: unknown): value is string {
 }
 
 export function isSameOrigin(request: Request) {
+  const requestOrigin = new URL(request.url).origin;
   const origin = request.headers.get('origin');
 
-  return origin !== null && origin === new URL(request.url).origin;
+  if (origin !== null) return origin === requestOrigin;
+  if (request.headers.get('sec-fetch-site') === 'same-origin') return true;
+
+  const referer = request.headers.get('referer');
+  if (!referer) return false;
+
+  try {
+    return new URL(referer).origin === requestOrigin;
+  } catch {
+    return false;
+  }
 }
 
 export async function getAuthenticatedUser() {

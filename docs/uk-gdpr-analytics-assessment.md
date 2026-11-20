@@ -4,6 +4,8 @@
 **Scope:** First-party topic-feed, Top Comments, sponsor delivery/performance, signed-out aggregate analytics, Vercel Web Analytics and Speed Insights. Recommendation personalisation is considered only to confirm separation; its consent flow remains on signup and Account settings.  
 **Status:** Engineering assessment and proposed control design. **Not controller approval, legal advice, or a completed/signed DPIA.**
 
+**Current production data-flow caveat:** the deployed recommendation-profile refresher still reads operational feed and Top Comments analytics events when recommendation personalisation is enabled. PR26 replaces this with explicit account actions only and active-cursor rebasing; until its SQL upgrade is applied, the analytics and personalisation purposes are not fully data-separated.
+
 ## 1. Executive conclusion
 
 CathoScroll can retain most of its existing analytics. The proportionate approach is to separate the purposes and collection levels rather than switch all measurement off:
@@ -152,7 +154,7 @@ No code change, checkbox or this draft assessment should be represented as a gua
 
 ## Implementation status: consolidated PR #25
 
-The consent controls are represented in consolidated PR #25. The three database migrations are live in production; the matching app code is not deployed until merge/release:
+The consent controls were merged in PR #25 and deployed to production in commit `e0da259` on 20 November 2026. The three database migrations are recorded as applied in production. Browser/native end-to-end verification and controller approval remain separate outstanding checks:
 
 - Separate default-off Service improvement analytics and Sponsor measurement choices, with Accept all, Decline optional and Manage choices.
 - Explicit service-improvement wording describing the risk that signed-in topic/comment engagement may reveal religious or philosophical beliefs.

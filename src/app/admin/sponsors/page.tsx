@@ -70,7 +70,6 @@ export default async function AdminSponsorsPage() {
   return (
     <main className="container py-12">
       <div className="mt-8">
-        <p className="text-accent text-sm font-semibold tracking-wider uppercase">Administration</p>
         <h1 className="mt-2 text-4xl font-extrabold md:text-5xl">Sponsor management</h1>
         <p className="text-text-secondary mt-4 max-w-3xl">
           Manage sponsor organisations and access, issue invoices and reconcile direct bank transfers.

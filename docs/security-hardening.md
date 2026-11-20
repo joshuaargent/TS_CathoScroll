@@ -168,7 +168,7 @@ Not yet completed:
 
 - Supabase Auth dashboard verification for password policy, CAPTCHA and provider rate limits.
 - Leaked-password protection (available on Supabase Pro and above).
-- Browser verification of CSP and deployed headers; two earlier Vercel attempts hit the daily quota, but a later preview deployment is ready and still needs manual verification.
+- Browser verification of CSP and deployed response headers against the current production deployment remains outstanding.
 - Physical Android and Electron device regression tests.
 - Disposable Supabase integration suite and independent penetration testing.
 - Admin content-editor pagination; it currently loads catalogue data in batches.

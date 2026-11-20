@@ -33,8 +33,8 @@ CathoScroll's subject matter includes Catholic theology and other religious topi
 
 | Data | Source | Use | Consent state |
 |---|---|---|---|
-| Topic viewability, active duration, completion, repeat visit, skip | Feed analytics | Topic/category interest evidence | Read for recommendation weighting only when enabled |
-| Likes, bookmarks, progress/completions, comments | Existing account activity | Explicit engagement evidence | Read for recommendation weighting only when enabled |
+| Impressions, active duration, swipe depth, skips, return visits, Top Comments exposure | Operational analytics tables | Current production also reads these tables for recommendation weighting when personalisation is enabled; PR26 removes that dependency. After upgrade: service measurement only. | Collected only under Service improvement analytics consent |
+| Progress/completions, bookmarks, topic likes, comments, comment likes, replies | Existing account activity | Explicit topic-interest evidence | Read for recommendation weighting only when separate personalisation consent is enabled |
 | Selected categories | Account settings | Strong user-declared interest signal | Stored only while enabled |
 | Derived topic/category scores | Private profile tables | Rank the user's own recommendations | Created/refreshed only while enabled |
 | Consent version and timestamps | Signup trigger / account settings RPC | Demonstrate opt-in and withdrawal | Stored as a private audit record |
@@ -51,13 +51,13 @@ The profile is not displayed on public profiles, is not provided to sponsors, an
 - The shared AccountPageView and PersonalizationSettingsPage are used by web and native; platform-specific authentication/session storage remains in the web/native adapters.
 - Withdrawal records the choice, deletes derived topic scores and explicit category choices, and prevents further account-history recommendation weighting.
 - Existing cursors are neutralised on the next recommendation RPC call after withdrawal; category weights become equal and completed-topic suppression is disabled. A new sign-in or page reload is not required for this server-side check to take effect.
-- Operational analytics records are separate. Withdrawal does not erase those records; they remain under their stated operational retention policy.
+- Current production still reads operational analytics events in the recommendation-profile refresher when personalisation is enabled. PR26 replaces this with explicit account actions only and active-cursor rebasing; until the production SQL upgrade is applied, the two purposes are not fully data-separated. Personalisation withdrawal does not erase operational analytics records; they remain under their separately stated retention policy.
 
 Consent version currently recorded by signup and the account RPC: `2026-11-19-v3`.
 
 ### Recommendation behaviour
 
-All account-history recommendation weighting is behind the explicit consent flag. This includes the legacy activity inputs (progress, bookmarks, topic likes and comments), derived interest scores, selected categories and feed telemetry.
+All account-history recommendation weighting is behind the explicit consent flag. Current production also includes feed telemetry in the recommendation profile. PR26 target inputs are explicit account actions (progress, bookmarks, topic likes, comments, comment likes and replies), derived explicit-action scores and selected categories; feed telemetry is excluded after the SQL upgrade.
 
 When consent is disabled:
 
@@ -66,7 +66,7 @@ When consent is disabled:
 - Completed-topic history is not used to suppress topics.
 - The normal catalogue ordering, pagination, diversity and safety rules remain in place.
 
-When consent is enabled, the existing bounded scoring model applies. Behavioural evidence has a maximum 90-day window; explicit account interactions have a maximum 180-day window. Profile refreshes are cached for five minutes. Sponsor delivery signals are never recommendation inputs.
+When consent is enabled, the bounded scoring model uses explicit account actions recorded after consent only, with a maximum 180-day evidence window. It maintains 14-day and 90-day decay horizons and refreshes at most every five minutes. Operational analytics events—including impressions, reading duration, swipe depth, skips, return visits and Top Comments exposure—are never recommendation inputs. Sponsor delivery signals are also never recommendation inputs.
 
 ## Analytics and retention
 
@@ -139,7 +139,7 @@ Operational analytics are used for engagement measurement, reliability and produ
 
 ## 20 November 2026 — operational analytics and provider review
 
-Account-linked topic/comment analytics are retained independently of recommendation consent and are used for internal engagement measurement, reliability and product improvement. The analytics pipeline does not calculate belief labels or profiles, make individual decisions, or use events for sponsor targeting. Article 6(1)(f) legitimate interests may be considered for proportionate internal service measurement, subject to a written purpose/necessity/balancing test. Recommendation personalisation remains a separate opt-in feature.
+Account-linked topic/comment analytics are collected under Service improvement analytics consent and retained independently of recommendation consent. The current recommendation-profile refresher also reads topic-feed and Top Comments analytics events when recommendation personalisation is separately enabled, deriving topic-interest scores used to rank that account's feed. It does not create an explicit religious-belief label or feed sponsor targeting, but the same event stream therefore serves both service-improvement measurement and recommendation personalisation when both consents are enabled. Do not describe the streams as wholly separate until this coupling is removed or a separate personalisation-only event stream is implemented. Article 6(1)(f) legitimate interests may be considered for proportionate internal service measurement, subject to a written purpose/necessity/balancing test. Recommendation personalisation remains a separate opt-in feature.
 
 The ICO finalised its updated PECR storage/access guidance on 29 April 2026. Website topic/comment retry queues are held in JavaScript memory only. Android and Electron persist signed-in topic/comment/sponsor events in the encrypted private activity database and anonymous topic/comment events in a separate app-private SQLite outbox. The anonymous queue contains no account, visitor or session identifier and can be disabled through the Cookie Policy preference, which clears pending rows. The signed-out sponsor token remains memory-only; only its hash is retained server-side. The native queue is still storage on terminal equipment and requires a recorded PECR Schedule A1 assessment before release. The statistical-purposes exception is narrow and cannot be used for account-level visitor tracking or measuring individual ad views/clicks; do not rely on it for the account-linked or sponsor event streams.
 
@@ -154,7 +154,7 @@ A separate purpose-by-purpose UK GDPR assessment has been added at [docs/uk-gdpr
 
 For sponsor-measurement opt-outs, the proposed fallback is campaign/day served-placement aggregates only, without client viewability/click events, visitor/session tokens, or per-person frequency records. Campaign-wide pacing and caps remain. Account access, account synchronisation, bookmarks, likes, progress, notes and general feed ranking remain unaffected by optional analytics choices.
 
-**Status:** the consent implementation is in consolidated PR #25. The three database migrations are live in production; matching app code is not deployed until PR #25 is merged and released. Controller approval of Article 6 and Article 9 positions, PECR Regulation 6 treatment, the DPIA residual risk, children/age safeguards, provider contracts and international transfers remains outstanding. Do not describe CathoScroll as legally cleared solely because the assessment or consent UI exists.
+**Status:** PR #25 was merged and its application code deployed to production in commit `e0da259` on 20 November 2026. The three consent migrations are recorded as applied in production. Controller approval of Article 6 and Article 9 positions, PECR Regulation 6 treatment, DPIA residual risk, children/age safeguards, provider contracts and international transfers remains outstanding. The deployed technical controls do not constitute legal clearance.
 
 ## Optional analytics consent (separate from recommendation personalisation)
 
@@ -169,4 +169,4 @@ Signed-in consent is stored in catho_private.user_analytics_consents, with a pri
 
 When Sponsor measurement is declined, sponsor selection receives a null session token/ID. The database still increments campaign/day served totals but does not write anonymous session events, signed-in served-session events, or per-session/per-user frequency rows. The viewability/click event endpoints are gated. Sponsor delivery and campaign-wide caps continue.
 
-**Deployment status:** the three consent and lock-order migrations are applied to the production database. The matching consent UI, client gates and API changes are in consolidated PR #25 and are not active in the production app until that PR is merged and deployed. The database is prepared for the new consent model, but do not describe the current production client as showing or enforcing the new consent choices before release.
+**Deployment status:** PR #25 was merged and its consent UI, client gates and API changes were deployed to production in commit `e0da259` on 20 November 2026. The three consent and lock-order migrations are recorded as applied. The same-origin GET fix, analytics/chart corrections, admin cleanup and explicit-action-only recommendation-profile migration are in PR #26 and are not yet active in production. Browser/native end-to-end verification and controller/legal approval remain outstanding.

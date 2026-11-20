@@ -27,7 +27,10 @@ test('optional analytics consent is explicit, purpose-specific and off by defaul
   assert.ok(manager.includes('I explicitly agree to Service improvement analytics'));
   assert.ok(manager.includes('Sponsor measurement'));
   assert.ok(manager.includes('I explicitly agree to Sponsor measurement'));
-  assert.ok(manager.includes('either context may reveal religious or philosophical interests'));
+  assert.ok(manager.includes('They are not used for recommendation personalisation or to infer religious beliefs'));
+  assert.ok(manager.includes('Accept all consents to both; Decline optional declines both; Manage choices lets you choose separately'));
+  assert.ok(manager.includes('Accept all consents to both; Decline optional declines both; Manage choices lets you choose separately.'));
+  assert.ok(manager.includes('Topic activity and sponsor placements may reveal religious or philosophical interests.'));
   assert.ok(manager.includes('topic placement where a sponsor appeared'));
   assert.ok(manager.includes('may involve special-category data under UK GDPR'));
   assert.ok(manager.includes('Recommendation personalisation remains controlled separately'));
@@ -39,7 +42,7 @@ test('optional analytics consent is explicit, purpose-specific and off by defaul
 });
 
 test('account consent sync is identity-bound, retryable and enforced server-side', async () => {
-  const [manager, route, serverConsent, topicRoute, commentRoute, sponsorRoute, migration, lockOrderMigration, bootstrap] = await Promise.all([
+  const [manager, route, serverConsent, topicRoute, commentRoute, sponsorRoute, migration, lockOrderMigration, bootstrap, security] = await Promise.all([
     read('../src/components/privacy/AnalyticsConsentManager.tsx'),
     read('../src/app/api/privacy/analytics-consent/route.ts'),
     read('../src/lib/analytics-consent-server.ts'),
@@ -49,6 +52,7 @@ test('account consent sync is identity-bound, retryable and enforced server-side
     read('../supabase/migrations/20261120173544_analytics_consent_and_sponsor_opt_out.sql'),
     read('../supabase/migrations/20261120175931_fix_analytics_consent_lock_order_v2.sql'),
     read('../docs/cathoscroll-database-bootstrap.sql'),
+    read('../src/lib/supabase/admin.ts'),
   ]);
 
   assert.ok(manager.includes("window.addEventListener('online', syncServerConsent)"));
@@ -66,6 +70,9 @@ test('account consent sync is identity-bound, retryable and enforced server-side
   assert.ok(route.includes('Account changed during consent synchronisation.'));
   assert.ok(route.includes('X-Catho-Expected-User-Id'));
   assert.ok(route.includes('set_user_analytics_consent'));
+  assert.ok(security.includes('if (origin !== null) return origin === requestOrigin;'));
+  assert.ok(security.includes("request.headers.get('sec-fetch-site') === 'same-origin'"));
+  assert.ok(security.includes('new URL(referer).origin === requestOrigin'));
   assert.ok(serverConsent.includes('get_user_analytics_consent'));
   assert.ok(topicRoute.includes('getStoredAnalyticsConsent(user.id)'));
   assert.ok(commentRoute.includes('getStoredAnalyticsConsent(user.id)'));

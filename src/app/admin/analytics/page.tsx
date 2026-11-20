@@ -16,18 +16,14 @@ export default async function AdminAnalyticsPage({ searchParams }: Props) {
   if (!rateLimit.allowed) throw new Error(rateLimit.unavailable ? 'Analytics are temporarily unavailable. Please try again.' : 'Too many analytics requests. Please wait before refreshing.');
   const period: AnalyticsPeriod = isAnalyticsPeriod(query.period) ? query.period : '30d';
   const { from, to } = getAnalyticsRange(period);
-  const previousDuration = to.getTime() - from.getTime();
-  const previousFrom = new Date(from.getTime() - previousDuration);
-  const [{ data, error }, { data: seriesData, error: seriesError }, { data: deepDiveData, error: deepDiveError }, { data: comparisonData, error: comparisonError }, { data: anonymousData, error: anonymousError }, { data: previousAnonymousData, error: previousAnonymousError }] = await Promise.all([
+  const [{ data, error }, { data: seriesData, error: seriesError }, { data: deepDiveData, error: deepDiveError }, { data: anonymousData, error: anonymousError }] = await Promise.all([
     adminClient.rpc('get_admin_analytics_overview', { p_actor_user_id: user.id, p_from: from.toISOString(), p_to: to.toISOString() }),
     adminClient.rpc('get_admin_analytics_series', { p_actor_user_id: user.id, p_from: from.toISOString(), p_to: to.toISOString() }),
     adminClient.rpc('get_admin_analytics_deep_dive', { p_actor_user_id: user.id, p_from: from.toISOString(), p_to: to.toISOString() }),
-    adminClient.rpc('get_admin_analytics_overview', { p_actor_user_id: user.id, p_from: previousFrom.toISOString(), p_to: from.toISOString() }),
     adminClient.rpc('get_admin_anonymous_analytics', { p_actor_user_id: user.id, p_from: from.toISOString(), p_to: to.toISOString(), p_entity_type: 'all', p_entity_id: null }),
-    adminClient.rpc('get_admin_anonymous_analytics', { p_actor_user_id: user.id, p_from: previousFrom.toISOString(), p_to: from.toISOString(), p_entity_type: 'all', p_entity_id: null }),
   ]);
-  if (error || seriesError || deepDiveError || comparisonError || anonymousError || previousAnonymousError || !anonymousData || !previousAnonymousData || !data || typeof data !== 'object' || !Array.isArray(seriesData) || !deepDiveData || typeof deepDiveData !== 'object' || !comparisonData || typeof comparisonData !== 'object') {
-    console.error('Unable to load admin analytics overview:', error?.message, seriesError?.message, deepDiveError?.message, comparisonError?.message, anonymousError?.message, previousAnonymousError?.message);
+  if (error || seriesError || deepDiveError || anonymousError || !anonymousData || !data || typeof data !== 'object' || !Array.isArray(seriesData) || !deepDiveData || typeof deepDiveData !== 'object') {
+    console.error('Unable to load admin analytics overview:', error?.message, seriesError?.message, deepDiveError?.message, anonymousError?.message);
     throw new Error('Unable to load analytics.');
   }
 
@@ -39,7 +35,6 @@ export default async function AdminAnalyticsPage({ searchParams }: Props) {
     sponsors: { id: string; served: number; viewable_impressions: number; clicks: number }[];
     comments: { id: string; impressions: number; viewable_impressions: number; active_duration_ms: number; skips: number; opens: number }[];
   };
-  const previousAnonymous = previousAnonymousData as { totals: Record<string, number> };
   const mergeEntities = (
     signedIn: Record<string, unknown>[],
     anonymousRows: Record<string, unknown>[],
@@ -131,20 +126,8 @@ export default async function AdminAnalyticsPage({ searchParams }: Props) {
     anonymous_comment_card_opens: anonymous.totals.comment_card_opens ?? 0,
   };
   const mergedCurrent = { ...mergedOverview, totals: mergedTotals };
-  const previousTotals = (comparisonData as { totals: Record<string, number> }).totals;
-  const mergedPrevious = {
-    ...(comparisonData as Record<string, unknown>),
-    totals: {
-      ...previousTotals,
-      anonymous_topic_impressions: previousAnonymous.totals.topic_impressions ?? 0,
-      anonymous_sponsor_served: previousAnonymous.totals.sponsor_served ?? 0,
-      anonymous_comment_card_impressions: previousAnonymous.totals.comment_card_impressions ?? 0,
-    },
-  };
-
   return <AdminAnalyticsHub overview={mergedCurrent as unknown as Parameters<typeof AdminAnalyticsHub>[0]['overview']}
     series={mergedSeries as Parameters<typeof AdminAnalyticsHub>[0]['series']} period={period}
     section={query.section && ['overview','categories','topics','sponsors','comments'].includes(query.section) ? query.section : 'overview'}
-    deepDive={deepDiveData as Parameters<typeof AdminAnalyticsHub>[0]['deepDive']}
-    comparison={mergedPrevious as unknown as Parameters<typeof AdminAnalyticsHub>[0]['overview']} />;
+    deepDive={deepDiveData as Parameters<typeof AdminAnalyticsHub>[0]['deepDive']} />;
 }

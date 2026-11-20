@@ -179,7 +179,7 @@ export default function PrivacyPage() {
           </ul>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            Service improvement analytics and sponsor measurement are optional and off by default. They are collected only after you enable the relevant choice in the analytics settings. Topic and comment engagement in a Catholic-content service may reveal religious or philosophical beliefs. Sponsor-measurement events can also be associated with the topic placement where a sponsor appeared. The relevant consent choices explain this possibility and are separate from recommendation personalisation. We do not create a religious-affiliation label or make decisions about users from these analytics.
+            Service improvement analytics and sponsor measurement are optional and off by default. They are collected only after you enable the relevant choice in the analytics settings. Topic and comment engagement in a Catholic-content service may reveal religious or philosophical beliefs. Sponsor-measurement events can also be associated with the topic placement where a sponsor appeared. The relevant consent choices explain this possibility and are separate from recommendation personalisation. Operational analytics are not used to personalise recommendations or infer religious beliefs. Recommendation personalisation uses explicit account actions only after its own opt-in; it does not read these analytics events. We do not create a religious-affiliation label or make decisions about users from operational analytics.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
@@ -191,8 +191,10 @@ export default function PrivacyPage() {
           <h2 className="mb-4 text-3xl font-bold">Automated Recommendations</h2>
 
           <p className="text-text-secondary leading-relaxed">
-            If you opt in to personalisation, automated ranking uses your private content-interest
-            profile to order educational topics in your own feed. It does not determine access to
+            If you opt in to personalisation, automated ranking uses a private profile derived only from
+            explicit account actions recorded after consent (progress, bookmarks, topic likes,
+            comments, comment likes and replies) and your selected categories. It does not read
+            operational analytics events. It orders educational topics in your own feed and does not determine access to
             essential services, prices, employment, credit, insurance, or other decisions with
             legal or similarly significant effects. You can turn off personalisation and delete
             the derived profile through Account settings.
@@ -241,7 +243,8 @@ export default function PrivacyPage() {
             CathoScroll offers two separate optional analytics purposes: Service improvement
             analytics and Sponsor measurement. Both are off by default and can be changed at any
             time using Manage analytics choices on the Cookie Policy page. They are separate from
-            recommendation personalisation and are not used to build sponsor targeting profiles.
+            recommendation personalisation, are not used for recommendation ranking or belief
+            inference, and are not used to build sponsor targeting profiles.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
@@ -381,7 +384,7 @@ export default function PrivacyPage() {
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            While personalisation is enabled, behavioural topic-interest scores use a rolling evidence window of up to 90 days. Explicit account interactions such as likes, bookmarks, progress and comment engagement use a maximum 180-day evidence window. Explicit category choices remain stored while consent remains enabled. When you withdraw consent, the derived profile and explicit category choices are deleted. The separate operational analytics event records are not deleted by withdrawing personalisation consent and remain subject to their own retention period.
+            While personalisation is enabled, topic-interest scores are derived only from explicit account actions recorded after consent, with a maximum 180-day evidence window and 14-day and 90-day decay horizons. These actions include progress/completions, bookmarks, topic likes, comments, comment likes and replies. Passive operational analytics measurements such as impressions, reading duration, swipe depth, skips, return visits and Top Comments exposure are never used for recommendation personalisation. Explicit category choices remain stored while consent remains enabled. When you withdraw consent, the derived profile and explicit category choices are deleted. Separate operational analytics event records remain subject to their own retention period and are not used for recommendation ranking.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
