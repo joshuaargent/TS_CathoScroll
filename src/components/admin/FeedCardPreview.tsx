@@ -89,6 +89,7 @@ export function FeedCardPreview({ userId }: { userId: string }) {
           <SponsorFeedCard
             campaigns={[previewSponsor]}
             sessionId="00000000-0000-4000-8000-000000000002"
+            placementKey="preview-sponsor-placement"
             userId={userId}
             previewMode
             getAccessToken={async () => null}
