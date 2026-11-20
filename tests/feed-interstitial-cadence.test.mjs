@@ -153,7 +153,7 @@ test('topic, comment and sponsor cards use the same shared base card', () => {
   assert.match(feedCore, /activeFeedEntryKey/);
   assert.match(cardRegistry, /<SponsorLoadingCard/);
   assert.match(cardRegistry, /invokeRegisteredFeedEntryAction\(entry, 'previous', registrations, context\)/);
-  assert.match(feedCore, /const firstSponsor = planned\.boundaries/);
+  assert.match(feedCore, /const firstSponsor = boundaries/);
   assert.match(feedCore, /prefetchMappedSponsor\(firstSponsor\.topicId\)/);
   assert.match(feedCore, /const nextSponsorBoundary = boundaries/);
   assert.match(feedCore, /const activateFeedEntry = async/);
