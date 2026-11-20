@@ -162,9 +162,9 @@ export function AdminAnalyticsHub({ overview, period, section = 'overview', seri
     </section>
     <section className="mt-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       <Metric label="Total feed placements" value={number(totalExposures)} detail="Signed-in and anonymous placements; stream metrics remain separate below" icon={Activity} />
-      <Metric label="Topic impressions" value={number(t.topic_impressions)} signedOutValue={number(t.anonymous_topic_impressions)} detail={number(t.topic_viewable_impressions) + ' viewable · ' + duration(t.topic_active_duration_ms) + ' active time'} icon={BookOpen} />
-      <Metric label="Sponsored delivery" value={number(t.sponsor_served)} signedOutValue={number(t.anonymous_sponsor_served)} detail={number(t.sponsor_viewable_impressions) + ' viewable · ' + number(t.sponsor_clicks) + ' clicks'} icon={Megaphone} />
-      <Metric label="Top Comments exposure" value={number(t.comment_card_impressions)} signedOutValue={number(t.anonymous_comment_card_impressions)} detail={number(t.comment_card_viewable_impressions) + ' viewable · ' + number(t.comment_card_opens) + ' discussion opens'} icon={MessageCircle} />
+      <Metric label="Topic impressions" value={number(t.topic_impressions)} signedOutValue={t.anonymous_topic_impressions > 0 ? number(t.anonymous_topic_impressions) : undefined} detail={number(t.topic_viewable_impressions) + ' viewable · ' + duration(t.topic_active_duration_ms) + ' active time'} icon={BookOpen} />
+      <Metric label="Sponsored delivery" value={number(t.sponsor_served)} signedOutValue={t.anonymous_sponsor_served > 0 ? number(t.anonymous_sponsor_served) : undefined} detail={number(t.sponsor_viewable_impressions) + ' viewable · ' + number(t.sponsor_clicks) + ' clicks'} icon={Megaphone} />
+      <Metric label="Top Comments exposure" value={number(t.comment_card_impressions)} signedOutValue={t.anonymous_comment_card_impressions > 0 ? number(t.anonymous_comment_card_impressions) : undefined} detail={number(t.comment_card_viewable_impressions) + ' viewable · ' + number(t.comment_card_opens) + ' discussion opens'} icon={MessageCircle} />
     </section>
     <section className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
       <Metric label="Anonymous topic activity" value={number(t.anonymous_topic_impressions)} detail={number(t.anonymous_topic_viewable_impressions) + ' viewable · ' + duration(t.anonymous_topic_active_duration_ms) + ' active time'} icon={BookOpen} />
