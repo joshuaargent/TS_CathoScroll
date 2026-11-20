@@ -6457,7 +6457,7 @@ NOTIFY pgrst, 'reload schema';
 -- End of CathoScroll application-schema and catalogue bootstrap.
 
 
--- Consented, private recommendation personalisation (model 2026-11-19-v2).
+-- Consented, private recommendation personalisation (model 2026-11-20-v4).
 CREATE TABLE IF NOT EXISTS catho_private.user_personalization_consents (
   user_id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   enabled boolean NOT NULL DEFAULT false,
@@ -6480,7 +6480,7 @@ CREATE TABLE IF NOT EXISTS catho_private.user_topic_interest_scores (
   positive_score numeric(8,4) NOT NULL DEFAULT 0,
   negative_score numeric(8,4) NOT NULL DEFAULT 0,
   evidence_count integer NOT NULL DEFAULT 0,
-  model_version text NOT NULL DEFAULT '2026-11-19-v1',
+  model_version text NOT NULL DEFAULT '2026-11-20-v4',
   updated_at timestamptz NOT NULL DEFAULT statement_timestamp(),
   short_term_score numeric(8,4) NOT NULL DEFAULT 0,
   long_term_score numeric(8,4) NOT NULL DEFAULT 0,
@@ -6688,7 +6688,7 @@ BEGIN
     'enabled',coalesce(v_enabled,false),'updated_at',v_updated_at,
     'topic_interests',v_topics,'category_interests',v_categories,
     'selected_categories',v_selected,'category_options',v_options,
-    'top_topic_interests',v_top_topics,'model_version','2026-11-19-v2'
+    'top_topic_interests',v_top_topics,'model_version','2026-11-20-v4'
   );
 END;
 $function$;
