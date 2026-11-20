@@ -148,8 +148,9 @@ export default function CookiesPage() {
             events can upload after reconnection. This queue contains no account, visitor or session
             identifier and can be disabled using the analytics preference above. The website keeps
             its unsent topic/comment events in memory only. Previously downloaded personalised
-            feed page ordering is stored in encrypted private storage for up to 12 hours after
-            the last successful consent check; cached general-ranked pages are stored separately.
+            feed page ordering is stored in encrypted private storage. It may be used offline for
+            up to 12 hours after the last successful consent check and is pruned after 14 days;
+            cached general-ranked pages are stored separately.
             These technologies store
             information on your device but are not browser cookies. Clearing them may remove offline
             data or require you to sign in again; pending unsynchronised activity may be lost.
