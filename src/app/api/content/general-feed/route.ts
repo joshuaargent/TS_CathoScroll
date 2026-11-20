@@ -1,10 +1,25 @@
 import { NextResponse } from 'next/server';
+import { nativeApiCorsHeaders } from '@/lib/supabase/admin';
 
 import { getPublicGeneralTopicPage, type GeneralFeedCursor } from '@/lib/content';
 import { readBoundedJson } from '@/lib/http/read-json';
 import { checkTrustedIpRateLimit, rateLimitResponseHeaders } from '@/lib/security/api-rate-limit';
 
 export const runtime = 'nodejs';
+
+function respond(request: Request, body: unknown, status = 200, extraHeaders?: HeadersInit) {
+  const headers = nativeApiCorsHeaders(request);
+  new Headers(extraHeaders).forEach((value, key) => headers.set(key, value));
+  return respond(request, body, { status, headers });
+}
+
+export function OPTIONS(request: Request) {
+  const headers = nativeApiCorsHeaders(request);
+  if (!headers.has('Access-Control-Allow-Origin')) return new NextResponse(null, { status: 403 });
+  headers.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  headers.set('Access-Control-Allow-Headers', 'Authorization, Content-Type');
+  return new NextResponse(null, { status: 204, headers });
+}
 
 export async function POST(request: Request) {
   const rateLimit = await checkTrustedIpRateLimit(request, 'general-feed:ip', 120, 60);
