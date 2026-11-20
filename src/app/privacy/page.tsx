@@ -123,7 +123,8 @@ export default function PrivacyPage() {
             <li>Administer paid sponsor campaigns, invoices, and sponsor account access.</li>
             <li>Measure sponsored campaign delivery and provide sponsors with aggregate campaign reports.</li>
             <li>Improve performance and reliability.</li>
-            <li>Measure topic and Top Comments engagement where Service improvement analytics is enabled; when personalisation is enabled, eligible reading signals also inform that user's recommendations.</li>
+            <li>Measure account-linked topic and Top Comments engagement where Service improvement analytics is enabled; when personalisation is enabled, eligible reading signals also inform that user's recommendations.</li>
+            <li>Collect signed-out topic/comment daily aggregate statistics by default, with a simple free objection and no visitor-level profile.</li>
             <li>Measure sponsor viewability, clicks and frequency only where Sponsor measurement is enabled.</li>
             <li>Monitor abuse, spam, fraud, and security issues.</li>
             <li>Comply with legal obligations.</li>
@@ -174,8 +175,9 @@ export default function PrivacyPage() {
           <ul className="text-text-secondary mt-4 list-disc space-y-2 pl-6">
             <li>Contract: to create and operate your account and provide features you request.</li>
             <li>Legitimate interests: to secure, maintain, troubleshoot, moderate and prevent abuse, where a documented assessment shows that our interests are not overridden by your rights.</li>
-            <li>Consent: for optional Service improvement analytics and Sponsor measurement, including account-linked topic/comment analytics when signed in.</li>
+            <li>Consent: for optional account-linked Service improvement analytics when personalisation is off, Vercel site/performance measurement, and Sponsor measurement.</li>
             <li>Explicit consent under Article 6(1)(a) and, where processing reveals religious or philosophical beliefs, Article 9(2)(a): for personalisation and its linked Service improvement analytics, and separately for Sponsor measurement.</li>
+            <li>PECR Schedule A1 statistical-purposes exception: for signed-out daily topic/comment aggregates, only if all statutory conditions are met, including clear notice and a simple free objection. Any personal data in request/security logs is assessed separately.</li>
             <li>Legal obligation: to keep or disclose information where applicable law requires it.</li>
             <li>Consent: for optional personalisation and the reading analytics it requires. Because this processing may reveal religious or philosophical beliefs, we rely on your explicit consent under Article 6(1)(a) UK GDPR and the Article 9(2)(a) exception for the relevant special-category processing.</li>
           </ul>
@@ -244,13 +246,7 @@ export default function PrivacyPage() {
           <h2 className="mb-4 text-3xl font-bold">Analytics</h2>
 
           <p className="text-text-secondary leading-relaxed">
-            Service improvement analytics measures topic and Top Comments engagement and helps
-            improve CathoScroll. When enabled, signed-in events are linked to your account and may
-            reveal religious or philosophical interests; this can involve special-category data.
-            Raw events and the restricted daily viewer bridge are retained for up to 180 days,
-            then non-identifying daily totals remain. Signed-out events are stored only as daily
-            aggregates without account, visitor or session identifiers; deduplication receipts
-            become eligible for deletion after 30 days.
+            Service improvement analytics measures account-linked topic and Top Comments engagement and helps improve CathoScroll. When enabled, signed-in events are linked to your account and may reveal religious or philosophical interests; this can involve special-category data. Raw events and the restricted daily viewer bridge are retained for up to 180 days, then non-identifying daily totals remain. Separately, signed-out topic/comment activity is counted by default as daily aggregates without account, visitor or session identifiers. Declining optional analytics does not disable those aggregates. You can object at any time through Manage choices; this stops new events and clears pending anonymous events. Deduplication receipts become eligible for deletion after 30 days.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
@@ -263,10 +259,7 @@ export default function PrivacyPage() {
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            On Android and Electron, pending signed-in analytics are stored in encrypted private
-            storage and pending signed-out events in app-private SQLite, each capped at 2,000
-            events and seven days. Website queues remain in memory. Withdrawal clears the relevant
-            pending events. Vercel Web Analytics and Speed Insights load only while Service
+            On Android and Electron, pending signed-in analytics are stored in encrypted private storage and pending signed-out aggregate events in app-private SQLite, each capped at 2,000 events and seven days. Website queues remain in memory. Withdrawing optional analytics clears the matching signed-in queue; objecting to anonymous aggregate measurement clears the separate signed-out queue. Vercel Web Analytics and Speed Insights load only while Service
             improvement analytics is enabled. CathoScroll removes query strings and fragments and
             replaces topic, category and search identifiers with generic route labels before
             sending performance data; Vercel may separately process route, device, browser,
