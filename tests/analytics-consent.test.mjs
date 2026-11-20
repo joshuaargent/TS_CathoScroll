@@ -52,6 +52,8 @@ test('account consent sync is identity-bound, retryable and enforced server-side
   assert.ok(manager.includes('}, [loading, userId]);'));
   assert.ok(manager.includes('activeUserIdRef.current === expectedUserId'));
   assert.ok(manager.includes('consentMutationRef.current === requestGeneration'));
+  assert.ok(manager.includes('readLocalChoiceSnapshot() === localChoiceSnapshot'));
+  assert.ok(manager.includes('markOwnChoiceWrite();'));
   assert.ok(manager.includes('window.addEventListener(analyticsConsentChangeEvent, onConsentChange)'));
   assert.ok(manager.includes('event.key === storageKey'));
   assert.ok(manager.includes('syncAbortRef.current?.abort()'));
