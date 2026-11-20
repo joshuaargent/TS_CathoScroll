@@ -124,7 +124,7 @@ test('declining sponsor measurement preserves delivery and campaign-day totals w
     read('../src/app/api/content/sponsor-campaign-events/route.ts'),
     read('../src/lib/sponsor-analytics-client.ts'),
     read('../docs/cathoscroll-database-bootstrap.sql'),
-    read('../supabase/migrations/20261120180000_analytics_consent_and_sponsor_opt_out.sql'),
+    read('../supabase/migrations/20261120173544_analytics_consent_and_sponsor_opt_out.sql'),
     read('../src/lib/feed-entry-map.ts'),
     read('../src/lib/feed-card-placement-registry.ts'),
   ]);
