@@ -95,7 +95,7 @@ function LineChart({ series, anonymousSeries }: { series: DailyContentAnalytics[
   const pointFor = (value: number, index: number) => {
     const x =
       padding.left +
-      (series.length <= 1 ? chartWidth / 2 : (index / (series.length - 1)) * chartWidth);
+      (dates.length <= 1 ? chartWidth / 2 : (index / (dates.length - 1)) * chartWidth);
     const y = padding.top + chartHeight - (value / maxValue) * chartHeight;
     return `${x.toFixed(1)},${y.toFixed(1)}`;
   };
