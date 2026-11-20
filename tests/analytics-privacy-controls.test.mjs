@@ -56,7 +56,7 @@ test('analytics DPIA documents active signed-in analytics, signed-out aggregates
   assert.ok(assessment.includes('signed-in'));
   assert.ok(assessment.includes('signed-out'));
   assert.ok(assessment.includes('Article 6'));
-  assert.ok(assessment.includes('does not generate religious or philosophical belief labels, scores or classifications'));
+  assert.ok(assessment.includes('Those scores are not religious-affiliation labels or classifications, but may reveal interests in sensitive topics'));
   assert.ok(assessment.includes('Article 9'));
   assert.ok(assessment.includes('not a legal opinion'));
 });
