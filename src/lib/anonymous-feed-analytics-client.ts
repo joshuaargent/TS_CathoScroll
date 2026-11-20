@@ -103,6 +103,7 @@ export async function configureAnonymousFeedAnalyticsOutbox(
       volatileEventIds.add(event.eventId);
     }
   }
+  installAnonymousFeedAnalyticsSync();
   void flushAnonymousFeedAnalyticsQueue();
 }
 

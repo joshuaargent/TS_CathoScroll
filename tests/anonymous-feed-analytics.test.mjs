@@ -131,6 +131,7 @@ test('native signed-out analytics is durably queued without visitor or account i
   const store = read('../src/lib/offline/anonymous-analytics-store.ts');
   const native = read('../native/main.tsx');
   assert.match(client, /configureAnonymousFeedAnalyticsOutbox/);
+  assert.match(client, /installAnonymousFeedAnalyticsSync\(\)/);
   assert.match(client, /persistentOutbox\.pending\(40\)/);
   assert.match(client, /persistentOutbox\.acknowledge/);
   assert.match(store, /offline_anonymous_analytics_outbox/);
