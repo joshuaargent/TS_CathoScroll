@@ -733,6 +733,7 @@ function App() {
           const { data: status, error: statusError } =
             await createClient().rpc('get_my_personalization_status');
           personalizedEnabled =
+            pendingConsent !== false &&
             !statusError &&
             typeof status === 'object' &&
             status !== null &&
