@@ -87,8 +87,8 @@ export default function CookiesPage() {
             counts; no persistent anonymous visitor identifier or analytics cookie is created.
             A short-lived random token is held in memory while a signed-out session is active for
             sponsor frequency controls; only its hash is stored, and raw sponsor session/event
-            records are deleted once they pass the 48-hour retention threshold by a 15-minute cleanup job. The token is not written to cookies or local
-            storage. Event deduplication receipts are deleted after seven days. Vercel Web
+            records are deleted once they pass the 30-day retention threshold by a 15-minute cleanup job. The token is not written to cookies or local
+            storage. Event deduplication receipts are deleted after 30 days. A bounded local queue also temporarily stores unsent anonymous topic/comment analytics event IDs and event payloads so they can be retried after an app restart. It does not store a visitor/session identifier; the controller must assess this analytics-related storage under PECR. Vercel Web
             Analytics and Speed Insights provide separate site-traffic and technical-performance
             measurement for signed-in and signed-out visitors.
           </p>
