@@ -884,8 +884,9 @@ function App() {
         ? cache.setConsent(detail.userId, detail.enabled, detail.pendingSync === true).then(() => {
             // Immediately replace the personalised feed after local withdrawal;
             // the next feed load also retries any pending server withdrawal.
-            setFeedPersonalized(detail.enabled);
-            setFeedGeneralRanked(!detail.enabled);
+            // Unmount the stale page immediately, but let loadFeed publish
+            // the replacement page and ranking mode together to keep cursors aligned.
+            setFirstPage(null);
             setFeedAttempt((attempt) => attempt + 1);
           })
         : Promise.reject(new Error('Encrypted personalised feed cache is unavailable.'));
