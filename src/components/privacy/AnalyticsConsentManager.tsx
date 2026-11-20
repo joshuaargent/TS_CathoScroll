@@ -160,7 +160,7 @@ export function AnalyticsConsentManager({ userId = null, apiBaseUrl, getAccessTo
       // Clear old events before granting again. A fresh opt-in must never
       // revive events queued before the user made the new choice.
       await clearWithdrawnQueues(previous, next);
-      saveAnalyticsConsent(next, userId)
+      saveAnalyticsConsent(next, userId);
       void syncServerConsent();
       setVisible(false);
       setManaging(false);
