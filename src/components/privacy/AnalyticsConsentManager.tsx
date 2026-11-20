@@ -542,7 +542,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
               <button
                 type="button"
                 disabled={saving}
-                onClick={() => setManaging(true)}
+                onClick={() => { managingRef.current = true; setManaging(true); }}
                 className="border-border text-text-primary hover:bg-bg-secondary rounded-xl border px-4 py-3 text-sm font-semibold disabled:opacity-50"
               >
                 Manage choices
