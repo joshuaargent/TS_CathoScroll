@@ -14,6 +14,8 @@ const accountView = readFileSync(new URL('../src/components/account/AccountPageV
 const accountSection = readFileSync(new URL('../src/components/account/PersonalizationAccountSection.tsx', import.meta.url), 'utf8');
 const nativeMain = readFileSync(new URL('../native/main.tsx', import.meta.url), 'utf8');
 const nativeAccount = readFileSync(new URL('../native/account.tsx', import.meta.url), 'utf8');
+const privacyPolicy = readFileSync(new URL('../src/app/privacy/page.tsx', import.meta.url), 'utf8');
+const cookiePolicy = readFileSync(new URL('../src/app/cookies/page.tsx', import.meta.url), 'utf8');
 
 
 function bootstrapFunctionRanges(source) {
@@ -200,6 +202,17 @@ test('personalisation settings disclose the profile purpose and sponsor isolatio
   assert.match(settings, /not shown on your public profile or used for sponsor targeting/);
   assert.match(settings, /Turn off and delete profile/);
   assert.match(settings, /may reveal religious or philosophical beliefs/);
+});
+
+test('public privacy and cookie policies keep operational analytics separate from personalisation', () => {
+  const personalisationStart = privacyPolicy.indexOf('<h2 className="mb-4 text-3xl font-bold">Personalisation and Sensitive Interests</h2>');
+  const lawfulBasesStart = privacyPolicy.indexOf('<h2 className="mb-4 text-3xl font-bold">Lawful Bases for Processing</h2>');
+  assert.ok(personalisationStart >= 0 && lawfulBasesStart > personalisationStart);
+  const personalisationSection = privacyPolicy.slice(personalisationStart, lawfulBasesStart);
+  assert.match(personalisationSection, /explicit account actions recorded after consent/);
+  assert.match(personalisationSection, /Operational analytics such as impressions,[\s\S]*never used for recommendation ranking/);
+  assert.doesNotMatch(personalisationSection, /viewable reading time,[\s\S]*repeat visits,[\s\S]*skips/);
+  assert.match(cookiePolicy, /they do not read operational analytics events such as impressions/);
 });
 
 test('signup collects separate, unchecked explicit consent on web and native', () => {
