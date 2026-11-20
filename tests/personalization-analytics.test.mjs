@@ -280,15 +280,23 @@ test('analytics and personalisation SQL upgrades are order-safe and use the new 
 });
 
 test('personalisation explicitly enables service analytics and prevents disabling it until withdrawal', () => {
-  const personalisationSetter = functionBody('public.set_my_personalization_consent');
+  const personalisationSetter = functionBody('public.set_my_personalization_consent(\n  p_enabled boolean,\n  p_consent_version text\n)');
+  const legacySetter = functionBody('public.set_my_personalization_consent(p_enabled boolean)');
   const analyticsSetter = functionBody('public.set_user_analytics_consent');
   const signupTrigger = functionBody('catho_private.capture_signup_personalization_consent');
   assert.match(personalisationSetter, /INSERT INTO catho_private\.user_analytics_consents/);
+  assert.match(personalisationSetter, /p_consent_version IS DISTINCT FROM '2026-11-20-v4'/);
+  assert.match(legacySetter, /IF p_enabled IS TRUE THEN[\s\S]*RAISE EXCEPTION/);
+  assert.match(legacySetter, /set_my_personalization_consent\(false, '2026-11-20-v4'\)/);
   assert.match(personalisationSetter, /FROM auth\.users WHERE id = v_user_id FOR UPDATE/);
   assert.match(personalisationSetter, /service_improvement = true/);
   assert.match(personalisationSetter, /user_analytics_consent_history/);
   assert.match(analyticsSetter, /Turn off personalisation before disabling Service improvement analytics/);
   assert.match(signupTrigger, /INSERT INTO catho_private\.user_analytics_consents/);
+  assert.match(signupTrigger, /personalization_consent_version/);
+  assert.match(webSignup, /personalization_consent_version: personalizationConsent \? '2026-11-20-v4' : null/);
+  assert.match(nativeSignup, /personalization_consent_version: personalizationConsent \? '2026-11-20-v4' : null/);
+  assert.match(accountSection, /p_consent_version: '2026-11-20-v4'/);
   assert.match(signupTrigger, /service_improvement/);
   const manager = readFileSync(new URL('../src/components/privacy/AnalyticsConsentManager.tsx', import.meta.url), 'utf8');
   assert.match(manager, /disabled=\{saving \|\| personalizationEnabled \|\| !personalizationStatusKnown\}/);
