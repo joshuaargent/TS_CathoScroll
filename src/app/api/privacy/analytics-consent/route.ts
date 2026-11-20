@@ -88,6 +88,9 @@ export async function POST(request: Request) {
     p_consent_version: 1,
   });
   if (error) {
+    if (error.message.includes('Turn off personalisation before disabling Service improvement analytics')) {
+      return respond(request, { error: 'Turn off personalisation before disabling Service improvement analytics.' }, 409);
+    }
     console.error('Unable to save analytics consent:', error.message);
     return respond(request, { error: 'Analytics preferences are temporarily unavailable.' }, 503);
   }
