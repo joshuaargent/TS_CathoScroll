@@ -103,7 +103,7 @@ export function TopicSwipeViewer({
     if (!userId || !active) return;
     return installFeedAnalyticsListeners(userId, {
       endpoint: analyticsEndpoint,
-      getAccessToken: () => getAnalyticsAccessToken?.(userId) ?? Promise.resolve(null),
+      ...(getAnalyticsAccessToken ? { getAccessToken: () => getAnalyticsAccessToken(userId) } : {}),
     });
   }, [active, analyticsEndpoint, getAnalyticsAccessToken, userId]);
 
