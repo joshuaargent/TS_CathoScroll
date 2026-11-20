@@ -16,7 +16,7 @@
 --   * pg_cron and permission to create the ensure_rls event trigger are required.
 --
 -- Production inventory (2026-11-19): 52 tables, 107 unique functions,
--- 34 application/Auth triggers, 32 policies, 92 explicit indexes,
+-- 34 application/Auth triggers, 32 policies, 94 explicit indexes,
 -- 15 categories and 86 topics. Constraint-backed indexes are additional.
 --
 DO $bootstrap_guard$
