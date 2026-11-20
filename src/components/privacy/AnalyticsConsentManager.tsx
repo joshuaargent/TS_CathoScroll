@@ -531,7 +531,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
               <span className="min-w-0">
                 <span className="text-text-primary block font-semibold">I explicitly agree to Sponsor measurement</span>
                 <span className="text-text-secondary mt-1 block text-sm leading-relaxed">
-                  Measures sponsor viewability, clicks and frequency. When enabled, signed-in events are account-linked; signed-out frequency uses an in-memory session token hash retained for up to 30 days. Topic placement may reveal religious or philosophical interests (special-category data under UK GDPR). If declined, sponsor placements still appear; only campaign/day served totals remain, with no visit-level view, click or frequency records.
+                  Measures sponsor viewability, clicks and frequency. When enabled, signed-in events are account-linked; signed-out frequency uses an in-memory session token hash retained for up to 30 days. Topic placement may reveal religious or philosophical interests (special-category data under UK GDPR). Data is used only for campaign reporting and frequency controls, never for recommendations or individual belief profiling. If declined, sponsor placements still appear; only campaign/day served totals remain, with no visit-level view, click or frequency records.
                 </span>
               </span>
             </label>
