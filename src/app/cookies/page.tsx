@@ -83,8 +83,7 @@ export default function CookiesPage() {
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            Vercel Web Analytics and Speed Insights load only when Service improvement analytics
-            is enabled. CathoScroll removes query strings and fragments and replaces topic,
+            Vercel Web Analytics and Speed Insights load only when you enable Service improvement analytics. CathoScroll removes query strings and fragments and replaces topic,
             category and search identifiers with generic route labels before sending performance
             data. Vercel may separately process timestamps, page routes, referrers, approximate
             location, device/browser information and web-vital measurements under its privacy
@@ -136,8 +135,9 @@ export default function CookiesPage() {
           <p className="text-text-secondary leading-relaxed">
             CathoScroll uses browser local storage, IndexedDB and app-private storage for sign-in,
             offline content and pending synchronisation. Native apps keep a bounded, identifier-free
-            analytics retry queue for up to seven days while Service improvement analytics is enabled;
-            the website keeps unsent events in memory. Personalised feed pages are cached in encrypted
+            signed-out aggregate analytics retry queue for up to seven days by default; the website
+            keeps unsent anonymous events in memory. This queue is separate from the optional
+            account-linked Service improvement analytics choice and is cleared if you object. Personalised feed pages are cached in encrypted
             private storage for up to 12 hours after the last consent check and pruned after 14 days;
             general feed pages use a separate cache. These are device-storage technologies, not
             browser cookies. Clearing them may remove offline data, require sign-in again or lose
