@@ -63,33 +63,32 @@ export default function CookiesPage() {
           <h2 className="mb-4 text-3xl font-bold">Analytics and Performance Measurement</h2>
 
           <p className="text-text-secondary leading-relaxed">
-            When Service improvement analytics is enabled, CathoScroll loads Vercel Web Analytics for aggregate site-level traffic measurement.
-            Vercel states that it does not use third-party cookies and derives a short-lived visitor
-            hash from the incoming request, discarded after 24 hours. Its data points may include
-            timestamps, page URLs, referrers, filtered query parameters, approximate geolocation,
-            and device and browser information.
+            Service improvement analytics measures topic and Top Comments engagement. Signed-in
+            events are linked to your account; signed-out events are stored only as daily topic or
+            comment totals, without account, visitor or session identifiers. Deduplication
+            receipts are deleted after 30 days. Website retry batches stay in memory; Android and
+            Electron store pending events in app-private storage for up to seven days, capped at
+            2,000 per stream. Withdrawal clears pending events.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            CathoScroll preserves ordinary page-level reporting but replaces topic, category
-            and search identifiers with generic route labels, removes query strings and fragments,
-            and applies a strict-origin referrer policy so only the referring site's origin is
-            exposed by the browser. Vercel's processing of request-derived information remains
-            subject to its own privacy documentation and our processor and international-transfer
-            review.
+            Enabling personalisation also enables Service improvement analytics because eligible
+            reading signals inform your private recommendations. This analytics choice is locked
+            on until personalisation is turned off. Sponsor measurement is separate: if enabled,
+            a random token exists only in active memory and its hash supports frequency controls;
+            raw event/frequency records are deleted after 30 days. If declined, no token, hash,
+            per-session frequency, viewability or click record is created; campaign/day served
+            totals still support delivery and pacing. Sponsor placement context may reveal
+            religious or philosophical interests, so measurement requires explicit consent.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            When Service improvement analytics is enabled, first-party topic and Top Comments analytics are collected through separate authenticated and signed-out pipelines. Signed-in events are linked to the account.
-            On Android and Electron, unsent signed-in topic, Top Comments and sponsor viewability/click
-            events are persisted in the encrypted private activity database, capped at 2,000 events
-            per stream and seven days, then removed after server acknowledgement or account sign-out/change.
-            Signed-out events are sent only after you enable Service improvement analytics and are stored only as daily aggregate counts; no persistent anonymous visitor identifier or analytics cookie is created.
-            If you enable Sponsor measurement, a short-lived random token is held in memory while a signed-out session is active for sponsor frequency controls; only its hash is stored, and raw sponsor session/event records become eligible for deletion after 30 days. Sponsor event attribution can include the topic placement where the sponsor appeared; in a Catholic-content service this context may reveal religious or philosophical interests and may involve special-category data under UK GDPR, which is why this is a separate explicit-consent choice. If you decline Sponsor measurement, no token or hash is created and no visitor/session frequency, viewability or click records are collected. Sponsor placements still appear and campaign/day served totals continue for delivery and pacing. The token is not written to cookies or local storage. Event deduplication receipts are deleted after 30 days. On native apps, unsent
-            topic/comment batches are held in app-private SQLite storage until upload, capped at
-            2,000 events and deleted after seven days. The queue contains no account, visitor or
-            session identifier. On the website, unsent batches remain in page memory only. You can change or withdraw either analytics choice using Manage analytics choices below; withdrawing a choice clears its pending local events.
-            Vercel Web Analytics and Speed Insights load only when Service improvement analytics is enabled.
+            Vercel Web Analytics and Speed Insights load only when Service improvement analytics
+            is enabled. CathoScroll removes query strings and fragments and replaces topic,
+            category and search identifiers with generic route labels before sending performance
+            data. Vercel may separately process timestamps, page routes, referrers, approximate
+            location, device/browser information and web-vital measurements under its privacy
+            terms.
           </p>
         </section>
 
@@ -135,16 +134,14 @@ export default function CookiesPage() {
           <h2 className="mb-4 text-3xl font-bold">Local Storage and Offline Apps</h2>
 
           <p className="text-text-secondary leading-relaxed">
-            CathoScroll uses browser local storage, IndexedDB, and app-private device storage for
-            essential functions such as session support, offline topic and account data, and pending
-            user-requested activity synchronisation. The native app also stores a bounded queue of anonymous topic/comment analytics events in app-private SQLite for up to seven days only while Service improvement analytics is enabled, so events can upload after reconnection. This queue contains no account, visitor or session identifier and is cleared when Service improvement analytics is disabled. The website keeps
-            its unsent topic/comment events in memory only. Previously downloaded personalised
-            feed page ordering is stored in encrypted private storage. It may be used offline for
-            up to 12 hours after the last successful consent check and is pruned after 14 days;
-            cached general-ranked pages are stored separately.
-            These technologies store
-            information on your device but are not browser cookies. Clearing them may remove offline
-            data or require you to sign in again; pending unsynchronised activity may be lost.
+            CathoScroll uses browser local storage, IndexedDB and app-private storage for sign-in,
+            offline content and pending synchronisation. Native apps keep a bounded, identifier-free
+            analytics retry queue for up to seven days while Service improvement analytics is enabled;
+            the website keeps unsent events in memory. Personalised feed pages are cached in encrypted
+            private storage for up to 12 hours after the last consent check and pruned after 14 days;
+            general feed pages use a separate cache. These are device-storage technologies, not
+            browser cookies. Clearing them may remove offline data, require sign-in again or lose
+            pending activity.
           </p>
         </section>
 
