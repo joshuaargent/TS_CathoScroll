@@ -71,8 +71,8 @@ test('account consent sync is identity-bound, retryable and enforced server-side
     const start = lockOrderMigration.indexOf('CREATE OR REPLACE FUNCTION ' + name);
     const end = lockOrderMigration.indexOf('$function$;', start);
     const body = lockOrderMigration.slice(start, end);
-    assert.ok(body.includes('FOR KEY SHARE'));
-    assert.ok(body.indexOf('FOR KEY SHARE') < body.indexOf('FOR SHARE'));
+    assert.ok(body.toLowerCase().includes('for key share'));
+    assert.ok(body.toLowerCase().indexOf('for key share') < body.toLowerCase().indexOf('for share'));
   }
   assert.ok(migration.includes('SELECT consent.service_improvement INTO v_service_consent'));
   assert.ok(migration.includes('SELECT consent.sponsor_measurement INTO v_sponsor_consent'));
