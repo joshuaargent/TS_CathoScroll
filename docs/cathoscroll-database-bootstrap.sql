@@ -4891,7 +4891,7 @@ BEGIN
     FROM public.sponsor_campaigns AS campaign
     JOIN public.sponsors AS sponsor ON sponsor.id = campaign.sponsor_id
     LEFT JOIN catho_private.sponsor_campaign_user_frequency AS frequency
-      ON frequency.campaign_id = campaign.id AND frequency.user_id = p_user_id
+      ON frequency.campaign_id = campaign.id AND frequency.user_id = p_user_id AND v_session_id IS NOT NULL
     WHERE campaign.status = 'approved'
       AND sponsor.status IN ('active', 'scheduled')
       AND (sponsor.starts_on IS NULL OR sponsor.starts_on <= v_today)
@@ -4912,14 +4912,14 @@ BEGIN
         SELECT pg_catalog.sum(daily.served_count) FROM catho_private.anonymous_sponsor_campaign_daily AS daily
         WHERE daily.campaign_id = campaign.id
       ), 0) < campaign.total_impression_cap)
-      AND (v_session_id IS NULL OR (
+      AND CASE WHEN v_session_id IS NULL THEN true ELSE (
         coalesce(frequency.served_count, 0) < campaign.frequency_cap_per_user_total
         AND (SELECT pg_catalog.count(*) FROM catho_private.sponsor_campaign_events AS recent_viewable
           WHERE recent_viewable.user_id = p_user_id AND recent_viewable.campaign_id = campaign.id
             AND recent_viewable.event_type = 'viewable_impression'
             AND recent_viewable.received_at >= pg_catalog.statement_timestamp() - interval '24 hours')
           < campaign.frequency_cap_per_user_24h
-      ))
+      ) END
       AND NOT (campaign.id = ANY(v_campaign_ids))
     ORDER BY
       (coalesce((SELECT pg_catalog.sum(daily.viewable_impressions)::numeric
@@ -7743,7 +7743,7 @@ BEGIN
   SELECT campaign.id,sponsor.sponsor_name,campaign.headline,campaign.body,campaign.image_url,campaign.destination_url,campaign.cta_label,campaign.campaign_name
   INTO v_campaign
   FROM public.sponsor_campaigns campaign JOIN public.sponsors sponsor ON sponsor.id=campaign.sponsor_id
-  LEFT JOIN catho_private.anonymous_sponsor_session_frequency frequency ON frequency.campaign_id=campaign.id AND frequency.session_hash=v_hash
+  LEFT JOIN catho_private.anonymous_sponsor_session_frequency frequency ON frequency.campaign_id=campaign.id AND frequency.session_hash=v_hash AND p_session_token IS NOT NULL
   WHERE campaign.status='approved' AND sponsor.status IN ('active','scheduled')
     AND (sponsor.starts_on IS NULL OR sponsor.starts_on<=v_today) AND (sponsor.ends_on IS NULL OR sponsor.ends_on>=v_today)
     AND sponsor.payment_status IN ('received','not_required')
@@ -7753,10 +7753,10 @@ BEGIN
     AND (campaign.daily_impression_cap IS NULL OR coalesce((SELECT d.served_count FROM catho_private.sponsor_campaign_daily d WHERE d.campaign_id=campaign.id AND d.event_date=v_today),0)
       + coalesce((SELECT d.served_count FROM catho_private.anonymous_sponsor_campaign_daily d WHERE d.campaign_id=campaign.id AND d.event_date=v_today),0) < campaign.daily_impression_cap)
     AND (campaign.total_impression_cap IS NULL OR campaign.served_count + coalesce((SELECT sum(d.served_count) FROM catho_private.anonymous_sponsor_campaign_daily d WHERE d.campaign_id=campaign.id),0) < campaign.total_impression_cap)
-    AND (p_session_token IS NULL OR (
+    AND CASE WHEN p_session_token IS NULL THEN true ELSE (
       coalesce(frequency.served_count,0)<least(campaign.frequency_cap_per_user_total,5)
       AND (SELECT count(*) FROM catho_private.anonymous_sponsor_events e WHERE e.campaign_id=campaign.id AND e.session_hash=v_hash AND e.event_type='viewable_impression' AND e.received_at>=statement_timestamp()-interval '24 hours') < least(campaign.frequency_cap_per_user_24h,2)
-    ))
+    ) END
     AND NOT campaign.id=ANY(v_campaign_ids)
   ORDER BY (coalesce((SELECT sum(d.viewable_impressions) FROM catho_private.sponsor_campaign_daily d WHERE d.campaign_id=campaign.id AND d.event_date>=v_today-29),0)
       + coalesce((SELECT sum(d.viewable_impressions) FROM catho_private.anonymous_sponsor_campaign_daily d WHERE d.campaign_id=campaign.id AND d.event_date>=v_today-29),0))::numeric/campaign.placement_weight ASC,
