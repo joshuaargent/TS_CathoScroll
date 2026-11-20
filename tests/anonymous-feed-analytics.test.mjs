@@ -15,7 +15,7 @@ test('anonymous feed ingestion is bounded, rate-limited and service-role mediate
   assert.match(route, /record_anonymous_feed_analytics/);
   assert.doesNotMatch(route, /serviceImprovementConsent/);
   assert.doesNotMatch(client, /serviceImprovementConsent/);
-  assert.match(client, /localStorage.getItem\(anonymousAnalyticsPreferenceKey\) !== 'false'/);
+  assert.match(client, /localStorage.getItem\(anonymousAnalyticsPreferenceKey\) === 'false'/);
   assert.match(client, /isAnonymousFeedAnalyticsEnabled/);
   const recordStart = client.indexOf('export function recordAnonymousFeedEvent(');
   const recordBody = client.slice(recordStart);
