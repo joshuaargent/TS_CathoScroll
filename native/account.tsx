@@ -5,6 +5,7 @@ import { secureAuthStorage } from './secure-auth-storage';
 import type { CachedIdentity } from './cached-identity';
 import type { NativeActivity } from './activity';
 import { createClient } from './supabase';
+import { siteConfig } from '@/lib/constants';
 import { useNativeNotifications } from './notifications';
 import { notifyNativeStatus, clearNativeStatusNotice } from './offline-indicator';
 import { openPrivateActivityDatabase } from '@/lib/offline/native-database';
@@ -302,6 +303,7 @@ export function NativeAccount({
       newPassword={newPassword}
       confirmPassword={confirmPassword}
       personalizationClient={personalizationClient}
+      apiBaseUrl={siteConfig.url}
       saving={busy}
       signingOut={signingOut}
       saveDisabled={!canSave}
