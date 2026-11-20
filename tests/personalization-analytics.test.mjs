@@ -53,9 +53,9 @@ function functionBody(name) {
 
 test('emergency bootstrap inventory matches the reconciled production schema', () => {
   const functionStarts = [...bootstrap.matchAll(/CREATE(?: OR REPLACE)? FUNCTION\s+([a-z0-9_]+\.[a-z0-9_]+)\s*\(/gi)];
-  assert.equal(functionStarts.length, 111);
-  assert.equal(new Set(functionStarts.map((match) => match[1].toLowerCase())).size, 107);
-  assert.equal((bootstrap.match(/CREATE TABLE(?: IF NOT EXISTS)?\s+[a-z0-9_]+\.[a-z0-9_]+\s*\(/gi) ?? []).length, 52);
+  assert.equal(functionStarts.length, 108);
+  assert.equal(new Set(functionStarts.map((match) => match[1].toLowerCase())).size, 104);
+  assert.equal((bootstrap.match(/CREATE TABLE(?: IF NOT EXISTS)?\s+[a-z0-9_]+\.[a-z0-9_]+\s*\(/gi) ?? []).length, 51);
   assert.equal((bootstrap.match(/CREATE POLICY /g) ?? []).length, 32);
   assert.equal((bootstrap.match(/CREATE TRIGGER /g) ?? []).length, 34);
   assert.equal((bootstrap.match(/CREATE (?:UNIQUE )?INDEX(?: IF NOT EXISTS)? /g) ?? []).length, 94);
