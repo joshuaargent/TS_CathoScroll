@@ -46,11 +46,16 @@ function appendUniqueFeedTopics(existing: Topic[], incoming: Topic[]): Topic[] {
 }
 
 let ephemeralSponsorSessionId: string | null = null;
-function createSponsorSessionId(): string | null {
-  if (ephemeralSponsorSessionId) return ephemeralSponsorSessionId;
-  ephemeralSponsorSessionId = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+
+function createSponsorPlacementId(): string | null {
+  return typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
     ? crypto.randomUUID()
     : null;
+}
+
+function createSponsorSessionId(): string | null {
+  if (ephemeralSponsorSessionId) return ephemeralSponsorSessionId;
+  ephemeralSponsorSessionId = createSponsorPlacementId();
   return ephemeralSponsorSessionId;
 }
 type ViewerProps = {
@@ -200,7 +205,7 @@ export function TopicFeedCore({
     async (topic: Topic): Promise<{ campaigns: SponsorFeedCampaign[]; sessionId: string | null; retryable?: boolean }> => {
 
       // Reuse one in-memory token for this active app session so anonymous frequency caps span placements.
-      const sessionId = createSponsorSessionId();
+      const sessionId = userId ? createSponsorPlacementId() : createSponsorSessionId();
       if (!sessionId) return { campaigns: [], sessionId: null, retryable: true };
 
       try {
