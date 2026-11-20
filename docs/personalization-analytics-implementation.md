@@ -17,7 +17,7 @@ Sponsor delivery signals are never added to organic topic recommendation weights
 
 Personalisation is **off by default**. The account owner must explicitly opt in using the separate signup checkbox or Account → Personalisation. The consent record is versioned and belongs to the authenticated account. Signup consent is captured by an `auth.users` insert trigger from the one-time signup metadata value; subsequent user-metadata edits do not re-enable it. The browser cannot read or write the private profile tables directly.
 
-When enabled, the private topic-interest profile is recomputed from bounded, decaying evidence:
+When enabled, the private topic-interest profile is recomputed from bounded, decaying evidence. **Current data-flow distinction:** the profile refresher reads the same `feed_analytics_events` and `feed_card_analytics_events` tables used for Service improvement analytics. Collection is gated by Service improvement consent; profile processing is gated by the separate recommendation-personalisation consent. This is a shared event stream with two purpose gates, not a fully separate personalisation-only stream. If the product requirement is that analytics must never feed recommendations, this implementation must be decoupled before making that claim.
 
 | Signal | Treatment |
 | --- | --- |
