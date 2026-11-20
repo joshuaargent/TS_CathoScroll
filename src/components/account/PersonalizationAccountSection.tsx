@@ -270,10 +270,6 @@ export function PersonalizationAccountSection({ client, apiBaseUrl }: { client: 
       });
       const payload: unknown = await response.json().catch(() => null);
       if (!response.ok) {
-        if (response.status >= 500) {
-          await saveOffline();
-          return;
-        }
         throw new Error(isRecord(payload) && typeof payload.error === 'string' ? payload.error : 'Unable to save analytics choices.');
       }
       if (!isRecord(payload) || !isRecord(payload.consent)) {
