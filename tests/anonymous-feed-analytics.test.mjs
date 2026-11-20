@@ -23,7 +23,7 @@ test('anonymous analytics stores daily entity aggregates without visitor identif
   assert.match(sql, /event_date date NOT NULL/);
   assert.match(sql, /entity_type text NOT NULL CHECK \(entity_type IN \('topic','comment'\)\)/);
   assert.match(sql, /anonymous_feed_event_receipts_received_at_idx/);
-  assert.match(sql, /INTERVAL '7 days'/i);
+  assert.match(sql, /INTERVAL '30 days'/i);
   const tableStart = sql.lastIndexOf('CREATE TABLE catho_private.anonymous_feed_analytics_daily');
   const tableEnd = sql.indexOf('CREATE TABLE catho_private.anonymous_feed_event_receipts', tableStart);
   assert.doesNotMatch(sql.slice(tableStart, tableEnd), /user_id|session_id|visitor_id/i);
@@ -45,7 +45,11 @@ test('signed-out topic and Top Comments cards emit aggregate events', () => {
   assert.match(client, /recentEventKeys/);
   assert.match(client, /pendingEvents/);
   assert.match(client, /addEventListener\('online'/);
-  assert.doesNotMatch(client, /localStorage|sessionStorage|indexedDB/);
+  assert.match(client, /localStorage/);
+  assert.match(client, /queueStorageKey/);
+  assert.match(client, /installAnonymousFeedAnalyticsSync/);
+  assert.match(client, /flushAnonymousFeedAnalyticsQueue/);
+  assert.doesNotMatch(client, /sessionStorage|indexedDB/);
 });
 
 test('native anonymous analytics uses the configured server origin and trusted CORS path', () => {
