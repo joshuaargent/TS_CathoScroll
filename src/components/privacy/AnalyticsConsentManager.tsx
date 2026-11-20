@@ -115,7 +115,14 @@ export function AnalyticsConsentManager({ userId = null, apiBaseUrl, getAccessTo
         const choicesChanged = !local ||
           local.serviceImprovement !== next.serviceImprovement ||
           local.sponsorMeasurement !== next.sponsorMeasurement;
-        if (choicesChanged) await clearWithdrawnQueues(local, next);
+        if (choicesChanged) {
+          const interim = {
+            serviceImprovement: local?.serviceImprovement === true && next.serviceImprovement,
+            sponsorMeasurement: local?.sponsorMeasurement === true && next.sponsorMeasurement,
+          };
+          saveAnalyticsConsent(interim, userId);
+          await clearWithdrawnQueues(local, next);
+        }
         saveAnalyticsConsent(next, userId);
         hydrate({
           version: 1,
