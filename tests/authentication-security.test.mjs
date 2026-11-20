@@ -29,6 +29,8 @@ test('administrator authorisation is role-based with no MFA requirement', async 
   const docs = await read('docs/security-hardening.md');
   assert.match(helper, /from\('admin_users'\)/);
   assert.doesNotMatch(helper, /mfaRequired|\.auth\.mfa|aal2|TOTP/);
+  const adminGuard = await read('src/lib/moderation/require-admin.ts');
+  assert.doesNotMatch(adminGuard, /mfaRequired|account\/security|aal2/);
   assert.doesNotMatch(bootstrap, /security_controls|admin_mfa|enable_admin_mfa|verified_totp|aal2|TOTP/);
   assert.match(docs, /does not implement multi-factor authentication/i);
 });
