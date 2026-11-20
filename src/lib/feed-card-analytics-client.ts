@@ -11,7 +11,7 @@ type QueuedEvent = {
   metadata: Record<string, never>;
 };
 
-const queuePrefix = 'cathoscroll:feed-card-analytics:v1:';
+const pendingQueues = new Map<string, QueuedEvent[]>();
 const queueLimit = 200;
 type FeedCardAnalyticsTransport = { endpoint?: string; getAccessToken?: () => Promise<string | null>; retired?: boolean };
 const transports = new Map<string, FeedCardAnalyticsTransport>();
@@ -35,26 +35,12 @@ function getSessionId(userId: string): string | null {
 }
 
 function readQueue(userId: string): QueuedEvent[] {
-  try {
-    const raw = localStorage.getItem(queuePrefix + userId);
-    if (!raw) return [];
-    const parsed: unknown = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter((event): event is QueuedEvent =>
-      Boolean(event) && typeof event === 'object' &&
-      typeof event.event_id === 'string' && typeof event.session_id === 'string' &&
-      event.card_type === 'top-comment' && typeof event.card_id === 'string' &&
-      ['impression','viewable_impression','active_duration','skip','completion','open'].includes(event.event_type) &&
-      Number.isSafeInteger(event.duration_ms) && event.duration_ms >= 0 && event.duration_ms <= 300000
-    );
-  } catch { return []; }
+  return pendingQueues.get(userId) ?? [];
 }
 
 function writeQueue(userId: string, events: QueuedEvent[]) {
-  try {
-    if (events.length) localStorage.setItem(queuePrefix + userId, JSON.stringify(events));
-    else localStorage.removeItem(queuePrefix + userId);
-  } catch { /* Analytics must never block the feed. */ }
+  if (events.length) pendingQueues.set(userId, events);
+  else pendingQueues.delete(userId);
 }
 
 export function recordFeedCardAnalyticsEvent(
