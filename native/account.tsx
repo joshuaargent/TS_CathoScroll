@@ -18,6 +18,7 @@ import {
   updateNativeProfile,
 } from './profile';
 import { usernameError } from '@/lib/username';
+import { NativeAccountMfaSecurity } from './account-mfa-security';
 
 export function NativeAccount({
   user,
@@ -293,6 +294,7 @@ export function NativeAccount({
   const currentProfile = profileUserId === user.id ? profile : null;
   const canSave = online && verified && Boolean(currentProfile) && !busy;
   return (
+    <>
     <AccountPageView
       displayName={currentProfile?.displayName ?? ''}
       username={currentProfile?.username ?? ''}
@@ -328,5 +330,7 @@ export function NativeAccount({
       onSave={(event) => void saveChanges(event)}
       onSignOut={() => void signOut()}
     />
+    <NativeAccountMfaSecurity userId={user.id} />
+    </>
   );
 }
