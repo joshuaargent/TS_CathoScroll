@@ -32,6 +32,8 @@ test('signed-in consent is synchronized and enforced by authenticated ingestion 
     read('../src/app/api/analytics/feed-card-events/route.ts'),
     read('../src/app/api/content/sponsor-campaign-events/route.ts'),
     read('../docs/analytics-consent-and-sponsor-opt-out-upgrade.sql'),
+    read('../src/lib/feed-entry-map.ts'),
+    read('../src/lib/feed-card-placement-registry.ts'),
   ]);
   assert.ok(manager.includes('analytics-consent'));
   assert.ok(manager.includes("window.addEventListener('online', syncServerConsent)"));
@@ -74,7 +76,7 @@ test('withdrawing consent clears the matching durable native analytics streams',
 });
 
 test('declining sponsor measurement preserves sponsor delivery without session frequency tracking', async () => {
-  const [feed, selectRoute, bootstrap, migration] = await Promise.all([
+  const [feed, selectRoute, bootstrap, migration, entryMap, placementRules] = await Promise.all([
     read('../src/components/topic/TopicFeedCore.tsx'),
     read('../src/app/api/content/sponsored-campaigns/route.ts'),
     read('../docs/cathoscroll-database-bootstrap.sql'),
@@ -82,6 +84,12 @@ test('declining sponsor measurement preserves sponsor delivery without session f
   ]);
   assert.ok(feed.includes("hasAnalyticsConsent('sponsorMeasurement', userId)"));
   assert.ok(feed.includes('const sessionId = measurementEnabled'));
+  assert.ok(feed.includes('if (result.campaigns.length > 0)'));
+  assert.ok(entryMap.includes('if (sponsorInventory.campaigns.length === 0) return []'));
+  assert.ok(entryMap.includes("sessionId: sponsorInventory.sessionId ?? ''"));
+  assert.ok(placementRules.includes('if (result && result.campaigns.length === 0) return null;'));
+  assert.ok(!placementRules.includes('!result.sessionId'));
+
   assert.ok(selectRoute.includes('const measurementSessionId: string | null'));
   assert.ok(selectRoute.includes('p_session_token: measurementSessionId'));
   assert.ok(selectRoute.includes('p_session_id: measurementSessionId'));
