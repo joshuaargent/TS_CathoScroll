@@ -13,7 +13,7 @@ This audit distinguishes offline browsing, offline reads, local mutation queues 
 | Personalised feed | Server-ranked pages cached by cursor in the encrypted private database; last successful consent check cached for 12 hours | Previously downloaded ranked pages available offline on Android/Electron | This reuses server-computed page order; it does not recompute or infer a new profile offline. Expired consent cache, withdrawal, account switch or missing page falls back to general ranking. |
 | Likes, bookmarks, completion | Private activity SQLite store, durable outbox, revision/cursor reconciliation | Available on supported encrypted-storage platforms | Activity sync is account-linked and separate from analytics. |
 | Signed-in topic/comment exposure analytics | Encrypted private SQLite outbox (2,000 events per stream/account, seven-day expiry, server acknowledgement) on Android and Electron; memory-only on web | Durable on Android/Electron; best effort on web | Separate from activity sync. Account-scoped rows are cleared on sign-out/account switch. |
-| Signed-in sponsor event analytics | Separate bounded account-scoped queue | Best effort only | Sponsor delivery/viewability/click reporting is separate from topic/comment analytics and offline activity sync. |
+| Signed-in sponsor event analytics | Encrypted private SQLite outbox (2,000 events per account, seven-day expiry, server acknowledgement) on Android and Electron | Durable on Android/Electron; best effort on web | Separate stream in the same encrypted outbox; account-scoped rows are cleared on sign-out/account switch. Anonymous sponsor frequency/session tokens remain memory-only. |
 | Activity encryption | SQLCipher-backed private DB on Android; desktop private DB on Electron | Available for this release on Android and Electron | iOS is not part of this release. Private account data must never fall back to the unencrypted catalogue DB. |
 | Notes | Encrypted note cache; fetched from server online; edits require a verified online load and a live connection | Offline read where secure cache is supported; editing online-only | No offline edit queue is needed. Notes use AES-GCM with a key in native secure storage and account/topic-bound HMAC indexes. |
 | Comments | Public comment cache in local SQLite | Cached read | Comment creation/replies/likes require live server actions; cached comments are snapshots and can be stale. |
@@ -61,7 +61,7 @@ No offline note-editing queue is proposed. The existing design caches only serve
 
 The PR now contains:
 - Durable anonymous topic/comment analytics outbox in app-private catalogue SQLite.
-- Durable signed-in topic/comment analytics outbox in the encrypted private activity database on Android and Electron.
+- Durable signed-in topic/comment/sponsor analytics outbox in the encrypted private activity database on Android and Electron.
 - Server-ranked general-feed page caching and encrypted, consent-bound caching of previously downloaded personalised pages.
 - Updated privacy and Cookie Policy disclosures, PECR assessment notes, regression tests and 2.4.0 release notes.
 - Root, Electron and Android version metadata aligned to 2.4.0. The Android release workflow derives a monotonic version code from the semantic version.
@@ -70,4 +70,4 @@ The release is not yet verified. Exact-head CI, Android/Electron force-close/rec
 
 ## Important sync distinction
 
-The signed-in *activity* outbox for likes, bookmarks and completion remains the revision-aware, account-linked synchronisation system. The signed-in *analytics* outbox for topic and Top Comments exposure is a separate encrypted, account-scoped queue on Android and Electron. It has a 2,000-event per-stream cap, seven-day expiry, server-acknowledgement deletion and sign-out/account-switch cleanup. It does not use activity revisions or cross-device reconciliation. The website retains bounded in-memory analytics queues. Signed-out analytics remain separate and contain no account, visitor or session identifiers. Sponsor analytics remain separate from both analytics outboxes.
+The signed-in *activity* outbox for likes, bookmarks and completion remains the revision-aware, account-linked synchronisation system. The signed-in *analytics* outbox for topic, Top Comments and sponsor events is a separate encrypted, account-scoped queue on Android and Electron. It has a 2,000-event per-stream cap, seven-day expiry, server-acknowledgement deletion and sign-out/account-switch cleanup. It does not use activity revisions or cross-device reconciliation. The website retains bounded in-memory analytics queues. Signed-out analytics remain separate and contain no account, visitor or session identifiers. Sponsor analytics remain separate from both analytics outboxes.
