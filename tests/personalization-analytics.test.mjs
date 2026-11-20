@@ -263,6 +263,7 @@ test('personalisation explicitly enables service analytics and prevents disablin
   const analyticsSetter = functionBody('public.set_user_analytics_consent');
   const signupTrigger = functionBody('catho_private.capture_signup_personalization_consent');
   assert.match(personalisationSetter, /INSERT INTO catho_private\.user_analytics_consents/);
+  assert.match(personalisationSetter, /FROM auth\.users WHERE id = v_user_id FOR UPDATE/);
   assert.match(personalisationSetter, /service_improvement = true/);
   assert.match(personalisationSetter, /user_analytics_consent_history/);
   assert.match(analyticsSetter, /Turn off personalisation before disabling Service improvement analytics/);
