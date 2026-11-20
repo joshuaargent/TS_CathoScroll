@@ -28,7 +28,7 @@ type QueuedFeedAnalyticsEvent = {
 
 const batchLimit = 50;
 const queueLimit = 200;
-const storagePrefix = 'cathoscroll.feed-analytics.v1.';
+const pendingQueues = new Map<string, QueuedFeedAnalyticsEvent[]>();
 const sessionId = createUuid();
 const flushingUsers = new Set<string>();
 type FeedAnalyticsTransport = {
@@ -117,56 +117,13 @@ function createUuid(): string | null {
   ].join('-');
 }
 
-function storageKey(userId: string): string {
-  return storagePrefix + userId;
-}
-
 function readQueue(userId: string): QueuedFeedAnalyticsEvent[] {
-  try {
-    const raw = window.localStorage.getItem(storageKey(userId));
-    if (!raw) return [];
-    const parsed: unknown = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter(isQueuedEvent);
-  } catch {
-    return [];
-  }
-}
-
-function isQueuedEvent(value: unknown): value is QueuedFeedAnalyticsEvent {
-  if (!value || typeof value !== 'object') return false;
-  const event = value as Record<string, unknown>;
-  return (
-    typeof event.event_id === 'string' &&
-    typeof event.session_id === 'string' &&
-    typeof event.entity_id === 'string' &&
-    event.entity_type === 'topic' &&
-    typeof event.event_type === 'string' &&
-    [
-      'impression',
-      'viewable_impression',
-      'active_duration',
-      'skip',
-      'swipe_depth',
-      'completion',
-      'return_visit',
-    ].includes(event.event_type) &&
-    Boolean(event.metadata) &&
-    typeof event.metadata === 'object' &&
-    !Array.isArray(event.metadata)
-  );
+  return pendingQueues.get(userId) ?? [];
 }
 
 function writeQueue(userId: string, events: QueuedFeedAnalyticsEvent[]): void {
-  try {
-    if (events.length === 0) {
-      window.localStorage.removeItem(storageKey(userId));
-    } else {
-      window.localStorage.setItem(storageKey(userId), JSON.stringify(events));
-    }
-  } catch {
-    // Analytics are best-effort and must never interfere with learning actions.
-  }
+  if (events.length === 0) pendingQueues.delete(userId);
+  else pendingQueues.set(userId, events);
 }
 
 export function recordFeedAnalyticsEvent(
@@ -189,9 +146,9 @@ export function recordFeedAnalyticsEvent(
     metadata,
   };
 
-  // Keep offline storage bounded while continuing to capture recent activity.
-  // If the queue fills, discard the oldest events rather than silently
-  // stopping all new telemetry for the rest of a long offline session.
+  // Keep the active-page queue bounded. Analytics are not written to browser
+  // storage; unsent events are discarded when the page or app process ends.
+  // If the queue fills, discard the oldest events rather than stopping capture.
   const queue = readQueue(userId);
   queue.push(event);
   if (queue.length > queueLimit) {
@@ -268,8 +225,8 @@ export function installFeedAnalyticsListeners(
 
   const installedTransport: FeedAnalyticsTransport = { ...transport };
   transports.set(userId, installedTransport);
-  // Drain events left by a previous offline session as soon as the authenticated
-  // transport is installed. Native WebViews can restart without an `online` event.
+  // Flush any events queued in this active page as soon as the authenticated
+  // transport is installed.
   const flush = () => void flushFeedAnalytics(userId);
   flush();
   const handleVisibility = () => {
