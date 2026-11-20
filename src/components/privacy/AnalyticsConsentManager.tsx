@@ -37,11 +37,14 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const activeUserIdRef = useRef<string | null>(userId);
-  activeUserIdRef.current = userId;
   const syncAbortRef = useRef<AbortController | null>(null);
   const consentMutationRef = useRef(0);
   const dialogRef = useRef<HTMLElement | null>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    activeUserIdRef.current = userId;
+  }, [userId]);
 
   useEffect(() => {
     if (!visible || typeof document === 'undefined') return;
@@ -381,9 +384,11 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
   useEffect(() => {
     if (loading) return;
     const existing = readAnalyticsConsent(userId);
-    hydrate(existing);
+    const hydrationTimer = window.setTimeout(() => {
+      hydrate(existing);
+      if (!existing && !userId) setVisible(true);
+    }, 0);
     if (!existing) {
-      if (!userId) setVisible(true);
       // Existing pre-consent queues must not be uploaded after this update.
       void clearWithdrawnQueues(null, { serviceImprovement: false, sponsorMeasurement: false });
     } else {
@@ -411,7 +416,10 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
       setVisible(true);
     };
     window.addEventListener(analyticsConsentManageEvent, manage);
-    return () => window.removeEventListener(analyticsConsentManageEvent, manage);
+    return () => {
+      window.clearTimeout(hydrationTimer);
+      window.removeEventListener(analyticsConsentManageEvent, manage);
+    };
   }, [clearWithdrawnQueues, hydrate, loading, userId]);
 
   useEffect(() => {
@@ -433,9 +441,14 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
 
   useEffect(() => {
     if (loading) return;
-    void syncServerConsent();
+    const syncTimer = window.setTimeout(() => {
+      void syncServerConsent();
+    }, 0);
     window.addEventListener('online', syncServerConsent);
-    return () => window.removeEventListener('online', syncServerConsent);
+    return () => {
+      window.clearTimeout(syncTimer);
+      window.removeEventListener('online', syncServerConsent);
+    };
   }, [loading, syncServerConsent]);
 
   if (loading || !visible) return null;
