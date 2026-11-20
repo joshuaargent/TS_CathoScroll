@@ -356,8 +356,10 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
     next: Pick<AnalyticsConsent, 'serviceImprovement' | 'sponsorMeasurement'>
   ) => {
     if (saving) return;
-    if (personalizationEnabled && !next.serviceImprovement) {
-      setError('Turn off personalisation before disabling Service improvement analytics.');
+    if (!next.serviceImprovement && (!personalizationStatusKnown || personalizationEnabled)) {
+      setError(personalizationEnabled
+        ? 'Turn off personalisation before disabling Service improvement analytics.'
+        : 'Checking your personalisation settings. Try again in a moment.');
       return;
     }
     consentMutationRef.current += 1;
@@ -491,7 +493,9 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
         <p id="analytics-consent-description" className="text-text-secondary mt-3 text-sm leading-relaxed">
           {managing
             ? 'Choose which analytics CathoScroll may collect. Service improvement analytics is required while personalisation is enabled; sponsor measurement remains optional.'
-            : 'Service improvement analytics help improve CathoScroll and support recommendations when personalisation is enabled. Sponsor measurement is separate. Topic activity and sponsor placements may reveal religious or philosophical interests. Accept all enables both analytics choices; Decline optional declines both; Manage choices lets you choose separately.'}
+            : personalizationEnabled
+              ? 'Personalisation is enabled, so Service improvement analytics is required for your reading signals and cannot be disabled until you turn personalisation off. Sponsor measurement remains optional.'
+              : 'Service improvement analytics helps improve CathoScroll and may support recommendations if you enable personalisation. Sponsor measurement is separate. Topic activity and sponsor placements may reveal religious or philosophical interests. Accept all enables both analytics choices; Decline optional declines both; Manage choices lets you choose separately.'}
         </p>
 
         {!managing ? (
@@ -507,7 +511,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
             <div className="grid grid-cols-2 gap-3">
               <button
                 type="button"
-                disabled={saving || personalizationEnabled}
+                disabled={saving || personalizationEnabled || !personalizationStatusKnown}
                 onClick={() => void save({ serviceImprovement: false, sponsorMeasurement: false })}
                 className="border-border text-text-primary hover:bg-bg-secondary rounded-xl border px-4 py-3 text-sm font-semibold disabled:opacity-50"
               >
