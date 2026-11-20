@@ -1008,3 +1008,13 @@ BEGIN
   END IF;
 END;
 $feed_card_analytics_cron$;
+
+
+-- Remove recommendation profiles built from the former analytics-event inputs.
+-- The next opted-in feed request rebuilds each profile from explicit account actions only.
+DELETE FROM catho_private.user_topic_interest_scores;
+
+UPDATE catho_private.user_personalization_consents
+SET profile_refreshed_at = NULL,
+    updated_at = statement_timestamp()
+WHERE enabled = true;
