@@ -217,7 +217,7 @@ test('feed topic visit attribution ignores StrictMode effect replays', async () 
   const originalNow = Date.now;
   const requests = [];
   let now = 1000;
-  globalThis.window = {};
+  globalThis.window = createTestWindow();
   Date.now = () => now;
   globalThis.fetch = async (_url, init) => {
     requests.push(JSON.parse(init.body).events);
