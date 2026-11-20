@@ -16,7 +16,7 @@ async function importTypeScript(relativePath, instance = '') {
   return import('data:text/javascript;base64,' + encoded + (instance ? '#' + instance : ''));
 }
 
-const [analytics, sponsor, sponsorAnalytics, topicFeed, cardRegistry, readme, sponsorClient, sync, layout, nativeMain, bootstrap, anonymousAnalytics, sponsorSync, cardAnalytics, anonymousOutbox] = await Promise.all([
+const [analytics, sponsor, sponsorAnalytics, topicFeed, cardRegistry, readme, sponsorClient, sync, layout, nativeMain, bootstrap, anonymousAnalytics, sponsorSync, cardAnalytics, anonymousOutbox, signedInOutbox] = await Promise.all([
   readFile(new URL('../src/lib/feed-analytics-client.ts', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/SponsorFeedCard.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/lib/sponsor-analytics-client.ts', import.meta.url), 'utf8'),
@@ -32,6 +32,7 @@ const [analytics, sponsor, sponsorAnalytics, topicFeed, cardRegistry, readme, sp
   readFile(new URL('../src/components/providers/SponsorAnalyticsSync.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/lib/feed-card-analytics-client.ts', import.meta.url), 'utf8'),
   readFile(new URL('../src/lib/offline/anonymous-analytics-store.ts', import.meta.url), 'utf8'),
+  readFile(new URL('../src/lib/offline/signed-in-analytics-store.ts', import.meta.url), 'utf8'),
 ]);
 
 
@@ -52,6 +53,7 @@ test('signed-out topic/comment analytics uses a durable native outbox and a boun
   assert.doesNotMatch(anonymousOutbox, /user_id|session_id|visitor_id|account_id/i);
   assert.ok(analytics.includes('const pendingQueues = new Map'));
   assert.ok(cardAnalytics.includes('const pendingQueues = new Map'));
+  assert.ok(signedInOutbox.includes('offline_signed_in_analytics_outbox'));
   assert.ok(sponsorAnalytics.includes('const pendingQueues = new Map'));
   assert.doesNotMatch(analytics + cardAnalytics + sponsorAnalytics, /localStorage|sessionStorage|indexedDB/);
   assert.ok(sponsorSync.includes('installAnonymousFeedAnalyticsSync();'));
@@ -85,11 +87,11 @@ test('signed-in feed and sponsor raw-event retention remains 180 days', () => {
 test('feed analytics retains active-page events until server acknowledgement and retries on reconnect', () => {
   assert.ok(analytics.includes('const queueLimit = 200;'));
   assert.ok(analytics.includes('queue.splice(0, queue.length - queueLimit)'));
-  assert.ok(analytics.includes('discard the oldest events'));
+  assert.ok(analytics.includes("persistentOutbox.enqueue(userId, 'topic', event)"));
   assert.ok(analytics.includes('flush();'));
   assert.ok(analytics.includes("window.addEventListener('online', flush)"));
   assert.ok(analytics.includes('if (!response.ok) break'));
-  assert.ok(analytics.includes('latestQueue.filter((event) => !acceptedIds.has(event.event_id))'));
+  assert.ok(analytics.includes("persistentOutbox.acknowledge(userId, 'topic', [...acceptedIds])"));
 });
 
 test('feed analytics retention cron uses the same statement timestamp as its retention validator', () => {
@@ -269,4 +271,22 @@ test('Top Comments refresh uses the tested coordinator with an explicit reconnec
   assert.ok(topicFeed.includes('const refresh = createFeedRefreshCoordinator(async () => {'));
   assert.ok(topicFeed.includes('const refreshWhenOnline = () => void refresh.reconnect()'));
   assert.ok(topicFeed.includes('void refresh.request()'));
+});
+
+
+test('native signed-in topic and comment analytics use the encrypted private database outbox', () => {
+  assert.match(signedInOutbox, /offline_signed_in_analytics_outbox/);
+  assert.match(signedInOutbox, /maximumEventsPerStream = 2000/);
+  assert.match(signedInOutbox, /maximumAgeMs = 7 \* 24 \* 60 \* 60 \* 1000/);
+  assert.match(signedInOutbox, /PRIMARY KEY \(user_id, stream, event_id\)/);
+  assert.match(signedInOutbox, /INSERT OR IGNORE/);
+  assert.match(signedInOutbox, /acknowledge\(/);
+  assert.match(signedInOutbox, /clearUser\(/);
+  assert.match(nativeMain, /new NativeSignedInAnalyticsOutbox\(cacheDatabase\)/);
+  assert.match(nativeMain, /configureFeedAnalyticsOutbox/);
+  assert.match(nativeMain, /configureFeedCardAnalyticsOutbox/);
+  assert.match(nativeMain, /clearFeedAnalyticsOutbox\(previousUserId\)/);
+  assert.match(nativeMain, /clearFeedCardAnalyticsOutbox\(previousUserId\)/);
+  assert.match(analytics, /persistentOutbox\.pending\(userId, 'topic', batchLimit\)/);
+  assert.match(cardAnalytics, /persistentOutbox\.pending\(userId, 'comment', 50\)/);
 });
