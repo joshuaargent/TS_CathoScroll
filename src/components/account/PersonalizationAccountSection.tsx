@@ -6,6 +6,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { Button } from '@/components/ui/Button';
 import {
+  analyticsConsentChangeEvent,
   denyAnalyticsConsentInMemory,
   readAnalyticsConsent,
   requestAnalyticsConsentSync,
@@ -186,6 +187,23 @@ export function PersonalizationAccountSection({ client, apiBaseUrl }: { client: 
       requestVersion.current += 1;
     };
   }, [load]);
+
+  useEffect(() => {
+    if (!accountUserId) return;
+    const onAnalyticsConsentChange = (event: Event) => {
+      const detail = (event as CustomEvent<{ userId?: string | null }>).detail;
+      if ((detail?.userId ?? null) !== accountUserId) return;
+      const local = readAnalyticsConsent(accountUserId);
+      if (local) {
+        setAnalyticsChoices({
+          serviceImprovement: local.serviceImprovement,
+          sponsorMeasurement: local.sponsorMeasurement,
+        });
+      }
+    };
+    window.addEventListener(analyticsConsentChangeEvent, onAnalyticsConsentChange);
+    return () => window.removeEventListener(analyticsConsentChangeEvent, onAnalyticsConsentChange);
+  }, [accountUserId]);
 
   async function updateAnalyticsChoice(key: keyof AnalyticsChoices, value: boolean) {
     if (!analyticsChoices || analyticsSaving || loading || saving) return;
