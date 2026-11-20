@@ -76,7 +76,7 @@ test('anonymous sponsor selection and event recording are separate from account-
   assert.match(selectRoute, /get_anonymous_sponsor_campaigns/);
   assert.match(selectRoute, /isSameOriginOrNativeRequest\(request, true\)/);
   assert.match(eventRoute, /record_anonymous_sponsor_campaign_event/);
-  assert.match(eventRoute, /p_placement_id: parsed\.value\.placementKey/);
+  assert.match(eventRoute, /p_placement_id: placementKey/);
   assert.match(eventRoute, /placementKey/);
   assert.match(card, /recordAnonymousSponsorCampaignEvent/);
   assert.match(feedCore, /ephemeralSponsorSessionId = null/);
