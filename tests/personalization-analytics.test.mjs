@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const bootstrap = readFileSync(new URL('../docs/cathoscroll-database-bootstrap.sql', import.meta.url), 'utf8');
+const upgrade = readFileSync(new URL('../docs/personalization-analytics-upgrade.sql', import.meta.url), 'utf8');
 const documentation = readFileSync(new URL('../docs/personalization-analytics-implementation.md', import.meta.url), 'utf8');
 const settings = readFileSync(new URL('../src/components/account/PersonalizationAccountSection.tsx', import.meta.url), 'utf8');
 const deepDive = readFileSync(new URL('../src/components/admin/AnalyticsDeepDivePanel.tsx', import.meta.url), 'utf8');
@@ -290,4 +291,38 @@ test('web and native account/settings screens reuse the same components', () => 
 
 test('retired user subscription tier is absent from the bootstrap', () => {
   assert.doesNotMatch(bootstrap, /subscription_tier|get_own_subscription_tier/);
+});
+
+
+test('existing-database upgrade contains feed-card analytics schema and secure ingestion RPC', () => {
+  assert.match(upgrade, /CREATE TABLE IF NOT EXISTS catho_private\.feed_card_analytics_events/);
+  assert.match(upgrade, /CREATE TABLE IF NOT EXISTS catho_private\.feed_card_analytics_event_limits/);
+  assert.match(upgrade, /CREATE TABLE IF NOT EXISTS catho_private\.feed_card_analytics_daily/);
+  assert.match(upgrade, /CREATE TABLE IF NOT EXISTS catho_private\.feed_card_analytics_daily_viewers/);
+  const rpcStart = upgrade.indexOf('CREATE OR REPLACE FUNCTION public.record_feed_card_analytics_events');
+  const rpcEnd = upgrade.indexOf('$function$;', rpcStart);
+  assert.ok(rpcStart >= 0 && rpcEnd > rpcStart);
+  assert.match(upgrade.slice(rpcStart, rpcEnd), /SECURITY DEFINER/);
+  assert.match(upgrade, /GRANT EXECUTE ON FUNCTION public\.record_feed_card_analytics_events\(jsonb\) TO authenticated/);
+});
+
+test('recommendation upgrade reads only activity created after explicit consent and has secure RPC ACLs', () => {
+  const start = upgrade.indexOf('CREATE OR REPLACE FUNCTION public.get_my_recommendation_page');
+  const end = upgrade.indexOf('$function$;', start);
+  assert.ok(start >= 0 && end > start);
+  const body = upgrade.slice(start, end);
+  assert.match(body, /SECURITY DEFINER/);
+  assert.match(body, /p\.completed_at >= \(SELECT granted_at/);
+  assert.match(body, /b\.created_at >= \(SELECT granted_at/);
+  assert.match(body, /l\.created_at >= \(SELECT granted_at/);
+  assert.match(body, /c\.created_at >= \(SELECT granted_at/);
+  assert.match(upgrade, /REVOKE ALL ON FUNCTION public\.get_my_recommendation_page\(jsonb, integer\) FROM PUBLIC, anon, authenticated, service_role/);
+  assert.match(upgrade, /GRANT EXECUTE ON FUNCTION public\.get_my_recommendation_page\(jsonb, integer\) TO authenticated, service_role/);
+  const bootstrapStart = bootstrap.indexOf('CREATE OR REPLACE FUNCTION public.get_my_recommendation_page');
+  const bootstrapEnd = bootstrap.indexOf('$function$;', bootstrapStart);
+  const bootstrapBody = bootstrap.slice(bootstrapStart, bootstrapEnd);
+  assert.match(bootstrapBody, /p\.completed_at >= \(SELECT granted_at/);
+  assert.match(bootstrapBody, /b\.created_at >= \(SELECT granted_at/);
+  assert.match(bootstrapBody, /l\.created_at >= \(SELECT granted_at/);
+  assert.match(bootstrapBody, /c\.created_at >= \(SELECT granted_at/);
 });
