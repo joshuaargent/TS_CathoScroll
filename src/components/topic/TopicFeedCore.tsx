@@ -529,23 +529,49 @@ export function TopicFeedCore({
       seenTopCommentIds.current
     );
     const unseenComments = getUnseenTopFeedComments(topComments, reservedCommentIds);
+    const reservedCommentIdsForMap = new Set(reservedCommentIds);
     if (unseenComments.length <= 10 && topCommentsNextOffsetRef.current !== null) {
       void loadMoreTopComments();
     }
+
+    // If comments arrive after the first topic map was built, fill only due
+    // boundaries the reader has not reached yet. Existing comment assignments
+    // are never moved and already-passed boundaries are left untouched.
+    const currentTopicPosition = feedTopics.findIndex((topic) => topic.id === currentTopicId.current);
+    let nextCommentIndex = 0;
+    const hydratedBoundaries = preservedBoundaries.map((boundary) => {
+      const hasCommentCard = boundary.entries.some((entry) => entry.type === 'top-comments');
+      const boundaryPosition = feedTopics.findIndex((topic) => topic.id === boundary.topicId);
+      if (
+        hasCommentCard ||
+        boundaryPosition <= currentTopicPosition ||
+        boundary.commentCadenceAfter !== 0 ||
+        nextCommentIndex >= unseenComments.length
+      ) return boundary;
+      const comments = unseenComments.slice(nextCommentIndex, nextCommentIndex + 5);
+      if (comments.length === 0) return boundary;
+      nextCommentIndex += comments.length;
+      for (const comment of comments) reservedCommentIdsForMap.add(comment.comment_id);
+      return {
+        ...boundary,
+        entries: [...boundary.entries, { type: 'top-comments' as const, topicId: boundary.topicId, comments }],
+      };
+    });
+    const remainingComments = unseenComments.slice(nextCommentIndex);
 
     // Only topics appended since the last map build receive new placements.
     // Existing boundaries and their cadence snapshots remain immutable.
     const newTopics = feedTopics.filter((topic) => !preservedTopicIds.has(topic.id));
     const planned = buildFeedEntryMap({
       topics: newTopics,
-      comments: unseenComments,
-      seenCommentIds: reservedCommentIds,
+      comments: remainingComments,
+      seenCommentIds: reservedCommentIdsForMap,
       userId,
       commentCadence: previousMap?.commentCadence ?? topicsSinceTopCommentCardRef.current,
       sponsorCadence: previousMap?.sponsorCadence ?? topicsSinceSponsorCardRef.current,
       sponsorResults: sponsorResultsByTopicId.current,
     });
-    const boundaries = [...preservedBoundaries, ...planned.boundaries];
+    const boundaries = [...hydratedBoundaries, ...planned.boundaries];
     const byTopicId = new Map(boundaries.map((boundary) => [boundary.topicId, boundary] as const));
     const nextFeedEntryMap: FeedEntryMap = {
       ...planned,
