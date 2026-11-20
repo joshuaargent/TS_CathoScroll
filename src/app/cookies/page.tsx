@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { createPageMetadata } from '@/lib/seo';
-import { AnonymousAnalyticsPreference } from '@/components/privacy/AnonymousAnalyticsPreference';
+import { AnalyticsConsentSettingsButton } from '@/components/privacy/AnalyticsConsentManager';
 
 export const metadata = createPageMetadata({
   title: "Cookies",
@@ -97,18 +97,16 @@ export default function CookiesPage() {
             2,000 events and deleted after seven days. The queue contains no account, visitor or
             session identifier. On the website, unsent batches remain in page memory only. You can
             turn off anonymous topic/comment analytics below; doing so clears pending local events.
-            Vercel Web
-            Analytics and Speed Insights provide separate site-traffic and technical-performance
-            measurement for signed-in and signed-out visitors.
+            Vercel Web Analytics and Speed Insights load only when Service improvement analytics is enabled.
           </p>
         </section>
 
         <section>
-          <h2 className="mb-4 text-3xl font-bold">Anonymous topic and comment analytics preference</h2>
+          <h2 className="mb-4 text-3xl font-bold">Manage optional analytics</h2>
           <p className="text-text-secondary mb-4 leading-relaxed">
-            This optional control applies to signed-out topic and Top Comments measurement used only to understand and improve CathoScroll. It does not control account-linked analytics, sponsor delivery measurement, or Vercel site/performance analytics.
+            Service improvement analytics and sponsor measurement are separate optional choices. You can change either choice at any time. Declining them does not affect sign-in, account synchronisation, bookmarks, likes, progress, notes, sponsor delivery or general feed ranking. Recommendation personalisation remains a separate account setting.
           </p>
-          <AnonymousAnalyticsPreference />
+          <AnalyticsConsentSettingsButton />
         </section>
 
         <section>
@@ -146,7 +144,7 @@ export default function CookiesPage() {
             user-requested activity synchronisation. The native app also stores a bounded queue of
             anonymous topic/comment analytics events in app-private SQLite for up to seven days so
             events can upload after reconnection. This queue contains no account, visitor or session
-            identifier and can be disabled using the analytics preference above. The website keeps
+            identifier and are cleared when Service improvement analytics is disabled. The website keeps
             its unsent topic/comment events in memory only. Previously downloaded personalised
             feed page ordering is stored in encrypted private storage. It may be used offline for
             up to 12 hours after the last successful consent check and is pruned after 14 days;
