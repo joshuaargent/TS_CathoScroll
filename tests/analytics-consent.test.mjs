@@ -28,8 +28,8 @@ test('optional analytics consent is explicit, purpose-specific and off by defaul
   assert.ok(manager.includes('Sponsor measurement'));
   assert.ok(manager.includes('I explicitly agree to Sponsor measurement'));
   assert.ok(manager.includes('While personalisation is enabled, reading signals also inform your private recommendations.'));
-  assert.ok(manager.includes('Optional analytics help improve CathoScroll.'));
-  assert.ok(manager.includes('Signed-out topic/comment activity is counted in daily aggregates'));
+  assert.ok(manager.includes('Accept all enables account-linked topic/comment reading measurement'));
+  assert.ok(manager.includes('Signed-out activity is counted in daily aggregates by default'));
   assert.ok(manager.includes('Turn off anonymous aggregate measurement'));
   assert.ok(manager.includes('max-h-[min(75vh,420px)] max-w-md p-4 sm:p-5'));
 
