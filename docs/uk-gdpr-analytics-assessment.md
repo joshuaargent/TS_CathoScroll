@@ -63,7 +63,7 @@ The proposed first-visit centred modal should be styled with CathoScroll's exist
 Optional choices start off for new visitors. Provide equally clear **Accept all**, **Reject optional**, and **Save choices** actions, with individual controls:
 
 - **Service improvement analytics (optional):** first-party topic and Top Comments engagement measurement, including account-linked activity when signed in, anonymous aggregate topic/comment statistics, and Vercel Web Analytics/Speed Insights. The explanation must say that topic activity on a Catholic-content service may reveal or permit inferences about religious/philosophical beliefs. This choice is separate from personalisation.
-- **Sponsor measurement (optional):** client-side sponsor viewability, clicks, CTR and per-session/per-account frequency measurement. If off, retain only server-side campaign/day served totals without visitor/session tracking.
+- **Sponsor measurement (optional):** client-side sponsor viewability, clicks, CTR and per-session/per-account frequency measurement. Anonymous attribution includes the topic placement where the sponsor appeared; where that context reveals religious/philosophical beliefs, explicit consent under Article 9(2)(a) is required alongside Article 6(1)(a). The consent wording discloses this. If off, retain only server-side campaign/day served totals without visitor/session tracking.
 - **Essential operation (always on):** authentication, account security, requested account/data synchronisation, consent preference storage, abuse prevention and other genuinely necessary operations. Do not place optional analytics inside this category.
 
 Do not pre-tick optional controls, treat inactivity as agreement, make Reject harder to use, or make service access conditional on analytics consent. Store a versioned record of each affirmative choice and withdrawal. The preference mechanism itself may store the minimum state needed to remember the user's decision; document that strictly necessary purpose and use no advertising identifier for it.
@@ -152,7 +152,7 @@ No code change, checkbox or this draft assessment should be represented as a gua
 
 ## Implementation status: draft PR #25
 
-The proposed consent controls are now represented in code in draft PR #25, but are not deployed:
+The consent controls are represented in consolidated PR #25. The three database migrations are live in production; the matching app code is not deployed until merge/release:
 
 - Separate default-off Service improvement analytics and Sponsor measurement choices, with Accept all, Decline optional and Manage choices.
 - Explicit service-improvement wording describing the risk that signed-in topic/comment engagement may reveal religious or philosophical beliefs.
