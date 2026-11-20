@@ -35,6 +35,7 @@ test('optional analytics consent is explicit, purpose-specific and off by defaul
   assert.ok(manager.includes('Either context may reveal religious or philosophical interests.'));
   assert.ok(manager.includes('Topic placement may reveal religious or philosophical interests'));
   assert.ok(manager.includes('special-category data under UK GDPR'));
+  assert.ok(manager.includes('never for recommendations or individual belief profiling'));
   assert.ok(manager.includes('Recommendation personalisation remains controlled separately'));
   assert.ok(layout.includes('<WebAnalyticsConsentManager />'));
   assert.ok(native.includes('<AnalyticsConsentManager'));
