@@ -12,9 +12,7 @@ export const DEFAULT_FEED_CARD_RULES = {
 
 export type FeedCardPlacementContext = Pick<
   BuildFeedEntryMapOptions,
-  | 'comments'
-  | 'userId'
-  | 'commentInterval'
+  | 'comments'  | 'commentInterval'
   | 'sponsorInterval'
   | 'commentGroupSize'
   | 'sponsorResults'
@@ -29,7 +27,6 @@ export type FeedCardPlacementContext = Pick<
 export function createFeedCardPlacementRules({
   comments,
   reservedCommentIds,
-  userId,
   commentInterval = 5,
   sponsorInterval = 10,
   commentGroupSize = 5,
