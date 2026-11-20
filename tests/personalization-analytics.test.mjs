@@ -37,7 +37,6 @@ function bootstrapFunctionRanges(source) {
     const bodyStart = cursor + asMatch.index + asMatch[0].length;
     const escapedTag = tag.replaceAll('$', '\\$');
     const closingPattern = new RegExp(escapedTag + '\\s*;', 'g');
-    const closingPattern = new RegExp(escapedTag + '\\s*;', 'g');
     closingPattern.lastIndex = bodyStart;
     const terminator = closingPattern.exec(source);
     assert.ok(terminator, 'Missing function terminator: ' + match[1]);
