@@ -5,6 +5,12 @@ export const analyticsConsentChangeEvent = 'cathoscroll:analytics-consent-change
 export const analyticsConsentManageEvent = 'cathoscroll:analytics-consent-manage';
 export const analyticsConsentVersion = 1 as const;
 
+function storageKeyForUser(userId?: string | null): string {
+  return userId
+    ? analyticsConsentStorageKey + '.account.' + encodeURIComponent(userId)
+    : analyticsConsentStorageKey + '.anonymous';
+}
+
 export type AnalyticsConsent = {
   version: typeof analyticsConsentVersion;
   serviceImprovement: boolean;
@@ -23,10 +29,10 @@ function emptyConsent(): AnalyticsConsent {
   };
 }
 
-export function readAnalyticsConsent(): AnalyticsConsent | null {
+export function readAnalyticsConsent(userId?: string | null): AnalyticsConsent | null {
   if (typeof window === 'undefined') return null;
   try {
-    const raw = window.localStorage.getItem(analyticsConsentStorageKey);
+    const raw = window.localStorage.getItem(storageKeyForUser(userId));
     if (!raw) return null;
     const parsed: unknown = JSON.parse(raw);
     if (
@@ -52,16 +58,17 @@ export function readAnalyticsConsent(): AnalyticsConsent | null {
   }
 }
 
-export function getAnalyticsConsent(): AnalyticsConsent {
-  return readAnalyticsConsent() ?? emptyConsent();
+export function getAnalyticsConsent(userId?: string | null): AnalyticsConsent {
+  return readAnalyticsConsent(userId) ?? emptyConsent();
 }
 
-export function hasAnalyticsConsent(choice: AnalyticsConsentChoice): boolean {
-  return getAnalyticsConsent()[choice] === true;
+export function hasAnalyticsConsent(choice: AnalyticsConsentChoice, userId?: string | null): boolean {
+  return getAnalyticsConsent(userId)[choice] === true;
 }
 
 export function saveAnalyticsConsent(
-  choices: Pick<AnalyticsConsent, 'serviceImprovement' | 'sponsorMeasurement'>
+  choices: Pick<AnalyticsConsent, 'serviceImprovement' | 'sponsorMeasurement'>,
+  userId?: string | null
 ): AnalyticsConsent {
   if (typeof window === 'undefined') throw new Error('Analytics preferences are unavailable.');
   const next: AnalyticsConsent = {
@@ -70,8 +77,8 @@ export function saveAnalyticsConsent(
     sponsorMeasurement: choices.sponsorMeasurement === true,
     updatedAt: new Date().toISOString(),
   };
-  window.localStorage.setItem(analyticsConsentStorageKey, JSON.stringify(next));
-  window.dispatchEvent(new CustomEvent(analyticsConsentChangeEvent, { detail: next }));
+  window.localStorage.setItem(storageKeyForUser(userId), JSON.stringify(next));
+  window.dispatchEvent(new CustomEvent(analyticsConsentChangeEvent, { detail: { userId: userId ?? null, consent: next } }));
   return next;
 }
 
