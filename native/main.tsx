@@ -685,6 +685,12 @@ function App() {
   );
 
   useEffect(() => {
+    const retryPendingConsentSync = () => setFeedAttempt((attempt) => attempt + 1);
+    window.addEventListener('online', retryPendingConsentSync);
+    return () => window.removeEventListener('online', retryPendingConsentSync);
+  }, []);
+
+  useEffect(() => {
     if (!catalogue || authStatus !== 'ready') return;
     const nextFeedUserId = user?.id ?? null;
     if (feedUserIdRef.current !== nextFeedUserId) {
