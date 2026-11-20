@@ -244,6 +244,7 @@ test('web and native account/settings screens reuse the same components', () => 
   assert.match(accountSection, /set_my_personalization_consent/);
   assert.match(accountSection, /I explicitly consent to CathoScroll using my account actions, selected interests and reading analytics/);
   assert.match(accountSection, /p_consent_version: '2026-11-20-v4'/);
+  assert.match(accountSection, /analyticsConsentSyncEvent/);
   assert.match(accountSection, /Analytics choices/);
   assert.match(accountSection, /Service improvement analytics is required while personalisation is enabled/);
   assert.match(accountSection, /AnalyticsConsentSettingsButton/);
