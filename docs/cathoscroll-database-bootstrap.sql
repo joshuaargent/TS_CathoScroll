@@ -4918,11 +4918,16 @@ DECLARE
   v_campaigns jsonb := '[]'::jsonb;
   v_slot integer;
   v_today date := (pg_catalog.timezone('UTC', pg_catalog.statement_timestamp()))::date;
+  v_topic_category_slug text;
 BEGIN
   IF p_user_id IS NULL OR p_session_id IS NULL OR p_limit IS NULL OR p_limit < 1 OR p_limit > 1
      OR NOT EXISTS (SELECT 1 FROM auth.users AS account WHERE account.id = p_user_id) THEN
     RAISE EXCEPTION 'Invalid sponsor campaign request' USING ERRCODE = '22023';
   END IF;
+  IF p_topic_id IS NULL THEN RAISE EXCEPTION 'Sponsor placement topic is required' USING ERRCODE = '22023'; END IF;
+  SELECT topic.category_slug INTO v_topic_category_slug
+  FROM public.topics AS topic WHERE topic.id = p_topic_id AND topic.is_published;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Sponsor placement topic is unavailable' USING ERRCODE = '22023'; END IF;
   PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(p_user_id::text, 9173));
 
   FOR v_slot IN 1..p_limit LOOP
@@ -4941,14 +4946,19 @@ BEGIN
       AND sponsor.payment_status IN ('received', 'not_required')
       AND campaign.starts_on <= v_today AND campaign.ends_on >= v_today
       AND (cardinality(campaign.target_category_slugs) = 0
-        OR (p_category_slug IS NOT NULL AND p_category_slug = ANY(campaign.target_category_slugs)))
+        OR v_topic_category_slug = ANY(campaign.target_category_slugs))
       AND (cardinality(campaign.target_topic_ids) = 0
         OR (p_topic_id IS NOT NULL AND p_topic_id = ANY(campaign.target_topic_ids)))
-      AND (campaign.daily_impression_cap IS NULL OR coalesce((
-        SELECT daily.served_count FROM catho_private.sponsor_campaign_daily AS daily
-        WHERE daily.campaign_id = campaign.id AND daily.event_date = v_today
-      ), 0) < campaign.daily_impression_cap)
-      AND (campaign.total_impression_cap IS NULL OR campaign.served_count < campaign.total_impression_cap)
+      AND (campaign.daily_impression_cap IS NULL OR
+        coalesce((SELECT daily.served_count FROM catho_private.sponsor_campaign_daily AS daily
+          WHERE daily.campaign_id = campaign.id AND daily.event_date = v_today), 0)
+        + coalesce((SELECT daily.served_count FROM catho_private.anonymous_sponsor_campaign_daily AS daily
+          WHERE daily.campaign_id = campaign.id AND daily.event_date = v_today), 0)
+        < campaign.daily_impression_cap)
+      AND (campaign.total_impression_cap IS NULL OR campaign.served_count + coalesce((
+        SELECT pg_catalog.sum(daily.served_count) FROM catho_private.anonymous_sponsor_campaign_daily AS daily
+        WHERE daily.campaign_id = campaign.id
+      ), 0) < campaign.total_impression_cap)
       AND coalesce(frequency.served_count, 0) < campaign.frequency_cap_per_user_total
       AND (SELECT pg_catalog.count(*) FROM catho_private.sponsor_campaign_events AS recent_viewable
         WHERE recent_viewable.user_id = p_user_id AND recent_viewable.campaign_id = campaign.id
@@ -4957,10 +4967,14 @@ BEGIN
         < campaign.frequency_cap_per_user_24h
       AND NOT (campaign.id = ANY(v_campaign_ids))
     ORDER BY
-      coalesce((SELECT pg_catalog.sum(daily.viewable_impressions)::numeric
-        FROM catho_private.sponsor_campaign_daily AS daily
-        WHERE daily.campaign_id = campaign.id
-          AND daily.event_date >= v_today - 29 AND daily.event_date <= v_today), 0)
+      (coalesce((SELECT pg_catalog.sum(daily.viewable_impressions)::numeric
+          FROM catho_private.sponsor_campaign_daily AS daily
+          WHERE daily.campaign_id = campaign.id
+            AND daily.event_date >= v_today - 29 AND daily.event_date <= v_today), 0)
+        + coalesce((SELECT pg_catalog.sum(daily.viewable_impressions)::numeric
+          FROM catho_private.anonymous_sponsor_campaign_daily AS daily
+          WHERE daily.campaign_id = campaign.id
+            AND daily.event_date >= v_today - 29 AND daily.event_date <= v_today), 0))
         / campaign.placement_weight::numeric ASC,
       pg_catalog.random(), campaign.id
     LIMIT 1 FOR UPDATE OF campaign SKIP LOCKED;
@@ -5000,7 +5014,8 @@ BEGIN
 
   RETURN pg_catalog.jsonb_build_object('campaigns',v_campaigns,'generated_at',pg_catalog.statement_timestamp());
 END;
-$function$;
+$function$
+
 ALTER FUNCTION public.get_weighted_sponsor_campaigns(uuid, uuid, text, text, integer) OWNER TO postgres;
 CREATE OR REPLACE FUNCTION public.record_sponsor_campaign_event(p_user_id uuid, p_campaign_id uuid, p_event_id uuid, p_session_id uuid, p_event_type text)
  RETURNS boolean
@@ -7763,7 +7778,7 @@ CREATE OR REPLACE FUNCTION public.get_anonymous_sponsor_campaigns(p_session_toke
 AS $function$
 DECLARE v_campaign record; v_campaign_ids uuid[]:=ARRAY[]::uuid[]; v_campaigns jsonb:='[]'::jsonb;
  v_slot integer; v_today date:=(pg_catalog.timezone('UTC',statement_timestamp()))::date;
- v_hash text;
+ v_hash text; v_topic_category_slug text;
 BEGIN
  IF p_session_token IS NULL OR length(p_session_token)>100 OR p_session_token !~* '^[0-9a-f-]{36}$'
    OR p_limit IS NULL OR p_limit<1 OR p_limit>1
@@ -7773,7 +7788,7 @@ BEGIN
  END IF;
  IF p_topic_id IS NULL THEN RAISE EXCEPTION 'Sponsor placement topic is required' USING ERRCODE='22023'; END IF;
  v_hash:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p_session_token,'UTF8')),'hex');
- PERFORM 1 FROM public.topics t WHERE t.id=p_topic_id AND t.is_published;
+ SELECT t.category_slug INTO v_topic_category_slug FROM public.topics t WHERE t.id=p_topic_id AND t.is_published;
  IF NOT FOUND THEN RAISE EXCEPTION 'Sponsor placement topic is unavailable' USING ERRCODE='22023'; END IF;
  PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(v_hash,9173));
  FOR v_slot IN 1..p_limit LOOP
@@ -7785,7 +7800,7 @@ BEGIN
     AND (sponsor.starts_on IS NULL OR sponsor.starts_on<=v_today) AND (sponsor.ends_on IS NULL OR sponsor.ends_on>=v_today)
     AND sponsor.payment_status IN ('received','not_required')
     AND campaign.starts_on<=v_today AND campaign.ends_on>=v_today
-    AND (cardinality(campaign.target_category_slugs)=0 OR (p_category_slug IS NOT NULL AND p_category_slug=ANY(campaign.target_category_slugs)))
+    AND (cardinality(campaign.target_category_slugs)=0 OR v_topic_category_slug=ANY(campaign.target_category_slugs))
     AND (cardinality(campaign.target_topic_ids)=0 OR (p_topic_id IS NOT NULL AND p_topic_id=ANY(campaign.target_topic_ids)))
     AND (campaign.daily_impression_cap IS NULL OR coalesce((SELECT d.served_count FROM catho_private.sponsor_campaign_daily d WHERE d.campaign_id=campaign.id AND d.event_date=v_today),0)
       + coalesce((SELECT d.served_count FROM catho_private.anonymous_sponsor_campaign_daily d WHERE d.campaign_id=campaign.id AND d.event_date=v_today),0) < campaign.daily_impression_cap)
@@ -7813,7 +7828,8 @@ BEGIN
    'destination_url',v_campaign.destination_url,'cta_label',v_campaign.cta_label,'disclosure','Sponsored'));
  END LOOP;
  RETURN pg_catalog.jsonb_build_object('campaigns',v_campaigns,'generated_at',statement_timestamp());
-END; $function$;
+END; $function$
+
 
 CREATE OR REPLACE FUNCTION catho_private.prune_anonymous_analytics()
  RETURNS integer
