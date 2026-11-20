@@ -205,7 +205,8 @@ test('personalisation settings disclose the profile purpose and sponsor isolatio
 test('signup collects separate, unchecked explicit consent on web and native', () => {
   assert.match(signupForm, /name="personalizationConsent"/);
   assert.match(signupForm, /type="checkbox"/);
-  assert.match(signupForm, /I explicitly consent to CathoScroll using my reading activity and chosen interests/);
+  assert.match(signupForm, /I explicitly consent to CathoScroll using my account actions \(progress, bookmarks, likes and comments\) and selected interests/);
+  assert.match(signupForm, /Operational analytics are separate and are not used for recommendations/);
   assert.doesNotMatch(signupForm, /name="personalizationConsent"[\s\S]{0,180}checked/);
   assert.match(webSignup, /personalization_consent: personalizationConsent/);
   assert.match(nativeSignup, /personalization_consent: personalizationConsent/);
@@ -230,7 +231,9 @@ test('all recommendation history signals are opt-in and withdrawal neutralises a
 test('web and native account/settings screens reuse the same components', () => {
   assert.match(accountView, /PersonalizationAccountSection/);
   assert.match(accountSection, /set_my_personalization_consent/);
-  assert.match(accountSection, /I explicitly consent to CathoScroll using my topic-reading activity and selected interests/);
+  assert.match(accountSection, /I explicitly consent to CathoScroll using my account actions \(progress, bookmarks, likes and comments\) and selected interests/);
+  assert.match(accountSection, /Operational analytics such as impressions, reading time, swipes and skips are not used for personalisation/);
+  assert.match(accountSection, /AnalyticsConsentSettingsButton/);
   assert.match(nativeMain, /pathname === '\/account\/personalization'.*kind: 'account'/);
   assert.match(nativeAccount, /AccountPageView/);
   assert.match(accountView, /PersonalizationAccountSection/);
