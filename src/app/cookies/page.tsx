@@ -84,6 +84,9 @@ export default function CookiesPage() {
           <p className="text-text-secondary mt-4 leading-relaxed">
             First-party topic and Top Comments analytics are collected through separate
             authenticated and signed-out pipelines. Signed-in events are linked to the account.
+            On Android and Electron, unsent signed-in topic and Top Comments events are persisted
+            in the encrypted private activity database, capped at 2,000 events per stream and
+            seven days, then removed after server acknowledgement or account sign-out/change.
             Signed-out events are sent directly to the service and stored only as daily aggregate
             counts; no persistent anonymous visitor identifier or analytics cookie is created.
             A short-lived random token is held in memory while a signed-out session is active for
@@ -115,7 +118,9 @@ export default function CookiesPage() {
             Optional personalisation is controlled by your account consent setting. Your consent
             record, selected interests, and private topic-interest profile are stored server-side
             in CathoScroll's database; they are not stored in advertising cookies or used for
-            cross-site tracking. You can turn personalisation off and delete the derived profile
+            cross-site tracking. On Android and Electron, previously downloaded server-ranked
+            personalised pages may be cached in encrypted private storage for up to 12 hours after
+            the last successful consent check. You can turn personalisation off and delete the derived profile
             in Account settings.
           </p>
         </section>
@@ -142,7 +147,10 @@ export default function CookiesPage() {
             anonymous topic/comment analytics events in app-private SQLite for up to seven days so
             events can upload after reconnection. This queue contains no account, visitor or session
             identifier and can be disabled using the analytics preference above. The website keeps
-            its unsent topic/comment events in memory only. These technologies store
+            its unsent topic/comment events in memory only. Previously downloaded personalised
+            feed page ordering is stored in encrypted private storage for up to 12 hours after
+            the last successful consent check; cached general-ranked pages are stored separately.
+            These technologies store
             information on your device but are not browser cookies. Clearing them may remove offline
             data or require you to sign in again; pending unsynchronised activity may be lost.
           </p>
