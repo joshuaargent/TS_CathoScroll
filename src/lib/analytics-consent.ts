@@ -175,9 +175,18 @@ export function createConsentBoundAbortSignal(
       controller.abort();
     }
   };
+  const onStorageChange = (event: StorageEvent) => {
+    if (event.key === storageKeyForUser(expectedUserId) && !hasAnalyticsConsent(choice, userId)) {
+      controller.abort();
+    }
+  };
   window.addEventListener(analyticsConsentChangeEvent, onConsentChange);
+  window.addEventListener('storage', onStorageChange);
   return {
     signal: controller.signal,
-    dispose: () => window.removeEventListener(analyticsConsentChangeEvent, onConsentChange),
+    dispose: () => {
+      window.removeEventListener(analyticsConsentChangeEvent, onConsentChange);
+      window.removeEventListener('storage', onStorageChange);
+    },
   };
 }
