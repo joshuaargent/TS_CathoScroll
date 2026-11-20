@@ -168,6 +168,7 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
 
       const { data, error: rpcError } = await client.rpc('set_my_personalization_consent', {
         p_enabled: enabled,
+        p_consent_version: '2026-11-20-v4',
       });
       if (rpcError) throw rpcError;
       if (!isRecord(data) || data.enabled !== enabled) {
@@ -253,7 +254,7 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
               </span>
             </div>
             <p className="text-text-secondary mt-2 text-sm leading-relaxed">
-              Build a private interest profile to tailor your topic recommendations. This is optional and off until you enable it; only account actions recorded after you opt in are used. Operational analytics remain separate.
+              Build a private interest profile to tailor your topic recommendations. This is optional and off until you enable it; account actions and reading signals recorded after you opt in are used. Service improvement analytics is enabled with personalisation.
             </p>
           </div>
         </div>
@@ -263,7 +264,7 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
             I explicitly consent to CathoScroll using my account actions (progress, bookmarks, likes and comments) and selected interests to personalise my recommendations. These signals may reveal religious or philosophical beliefs; they are used to rank content, not to label your beliefs.
           </p>
           <p className="text-text-muted mt-2 text-sm leading-relaxed">
-            Only these account actions and the categories you choose are used for recommendations. Operational analytics such as impressions, reading time, swipes and skips are not used for personalisation. The profile is private, never used for sponsor targeting, and can be deleted by withdrawing consent.
+            Your recommendations use your explicit account actions, selected categories and reading signals such as viewable impressions, reading time, swipes, skips and completions. Enabling personalisation also enables Service improvement analytics; that choice stays on until you turn personalisation off. The profile is private, never used for sponsor targeting, and can be deleted by withdrawing consent.
           </p>
           <div className="mt-4 flex flex-wrap gap-3">
             <Button
@@ -371,12 +372,12 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
         <div className="border-border mt-6 border-t pt-5">
           <h3 className="font-semibold">Analytics choices</h3>
           <p className="text-text-muted mt-1 text-sm leading-relaxed">
-            These are separate from personalisation and never change how your recommendations are ranked.
+            Service improvement analytics is required while personalisation is enabled and also supports operational reporting. You can turn it off after disabling personalisation. Sponsor measurement remains independent.
           </p>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <div className="bg-bg-secondary/50 rounded-xl p-4">
               <p className="font-semibold text-sm">Service improvement analytics</p>
-              <p className="text-text-muted mt-1 text-sm">Optional topic and comment engagement, signed-out aggregate activity, and site/performance measurement.</p>
+              <p className="text-text-muted mt-1 text-sm">Measures topic and comment engagement and site performance. It also supplies reading signals to your private recommendations while personalisation is enabled.</p>
             </div>
             <div className="bg-bg-secondary/50 rounded-xl p-4">
               <p className="font-semibold text-sm">Sponsor measurement</p>
