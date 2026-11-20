@@ -75,7 +75,7 @@ The current code's memory-only approach avoids persistent browser storage and re
 
 - [ICO: Guidance on storage and access technologies](https://ico.org.uk/for-organisations/direct-marketing-and-privacy-and-electronic-communications/guidance-on-the-use-of-storage-and-access-technologies/)
 - [ICO: Statistical-purposes exception](https://ico.org.uk/for-organisations/direct-marketing-and-privacy-and-electronic-communications/guidance-on-the-use-of-storage-and-access-technologies/what-are-the-exceptions/)
-- [ICO: Special-category data](https://ico.org.uk/for-organisations/uk-gdpr-guidance-and-resources/lawful-basis/a-guide-to-lawful-basis/special-category-data/)
+
 - [Supabase: GDPR compliance](https://supabase.com/docs/guides/security/gdpr-compliance)
 - [Supabase: Pricing and plan comparison](https://supabase.com/pricing)
 - [Supabase: Data Processing Addendum](https://supabase.com/legal/customer-resources/data-processing-addendum)
