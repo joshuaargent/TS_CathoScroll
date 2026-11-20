@@ -1,5 +1,7 @@
 'use client';
 
+import type { SignedInAnalyticsOutbox } from './offline/signed-in-analytics-store';
+
 export type FeedAnalyticsEventType =
   | 'impression'
   | 'viewable_impression'
@@ -37,6 +39,26 @@ type FeedAnalyticsTransport = {
   retired?: boolean;
 };
 const transports = new Map<string, FeedAnalyticsTransport>();
+let persistentOutbox: SignedInAnalyticsOutbox | null = null;
+
+export async function configureFeedAnalyticsOutbox(outbox: SignedInAnalyticsOutbox): Promise<void> {
+  await outbox.initialize();
+  persistentOutbox = outbox;
+  for (const userId of transports.keys()) void flushFeedAnalytics(userId);
+}
+
+export async function clearFeedAnalyticsOutbox(userId: string): Promise<void> {
+  pendingQueues.delete(userId);
+  visitedTopicsByUser.delete(userId);
+  completedTopicsByUser.delete(userId);
+  if (persistentOutbox) await persistentOutbox.clearUser(userId);
+}
+
+async function hasPendingFeedAnalytics(userId: string): Promise<boolean> {
+  if (readQueue(userId).length) return true;
+  if (!persistentOutbox) return false;
+  return (await persistentOutbox.pending(userId, 'topic', 1)).length > 0;
+}
 
 // These session-scoped sets live outside React components so conditional
 // rendering of interstitial cards cannot reset visit/completion attribution.
@@ -146,16 +168,25 @@ export function recordFeedAnalyticsEvent(
     metadata,
   };
 
-  // Keep the active-page queue bounded. Analytics are not written to browser
-  // storage; unsent events are discarded when the page or app process ends.
-  // If the queue fills, discard the oldest events rather than stopping capture.
+  if (persistentOutbox) {
+    void persistentOutbox.enqueue(userId, 'topic', event)
+      .then(() => { if (navigator.onLine) void flushFeedAnalytics(userId); })
+      .catch((error: unknown) => {
+        console.error('Unable to persist signed-in topic analytics:', error);
+        const queue = readQueue(userId);
+        queue.push(event);
+        if (queue.length > queueLimit) queue.splice(0, queue.length - queueLimit);
+        writeQueue(userId, queue);
+        if (navigator.onLine) void flushFeedAnalytics(userId);
+      });
+    return;
+  }
+
+  // The web client keeps its existing bounded in-memory queue.
   const queue = readQueue(userId);
   queue.push(event);
-  if (queue.length > queueLimit) {
-    queue.splice(0, queue.length - queueLimit);
-  }
+  if (queue.length > queueLimit) queue.splice(0, queue.length - queueLimit);
   writeQueue(userId, queue);
-
   if (navigator.onLine) void flushFeedAnalytics(userId);
 }
 
@@ -165,10 +196,11 @@ export async function flushFeedAnalytics(userId: string, keepalive = false): Pro
   flushingUsers.add(userId);
   try {
     for (;;) {
-      const queue = readQueue(userId);
-      if (queue.length === 0) break;
-
-      const batch = queue.slice(0, batchLimit);
+      const stored = persistentOutbox ? await persistentOutbox.pending(userId, 'topic', batchLimit) : [];
+      const storedIds = new Set(stored.map((event) => event.event_id));
+      const memory = readQueue(userId).filter((event) => !storedIds.has(event.event_id));
+      const batch = [...stored, ...memory].slice(0, batchLimit);
+      if (batch.length === 0) break;
       let response: Response;
       const transport = transports.get(userId);
       const headers = new Headers({ 'Content-Type': 'application/json' });
@@ -200,30 +232,27 @@ export async function flushFeedAnalytics(userId: string, keepalive = false): Pro
       if (!response.ok) break;
 
       const acceptedIds = new Set(batch.map((event) => event.event_id));
-      const latestQueue = readQueue(userId);
-      writeQueue(
-        userId,
-        latestQueue.filter((event) => !acceptedIds.has(event.event_id))
-      );
+      if (persistentOutbox) {
+        await persistentOutbox.acknowledge(userId, 'topic', [...acceptedIds]);
+      }
+      writeQueue(userId, readQueue(userId).filter((event) => !acceptedIds.has(event.event_id)));
 
       if (keepalive) break;
     }
   } finally {
     flushingUsers.delete(userId);
     const transport = transports.get(userId);
-    if (transport?.retired && readQueue(userId).length === 0) {
+    if (transport?.retired) {
       // React may clean up this listener effect immediately before the topic
       // duration effect records its final event. Defer transport retirement
       // until the current cleanup stack has completed so that last event keeps
       // the native endpoint and bearer-token provider.
       queueMicrotask(() => {
-        if (
-          transports.get(userId) === transport &&
-          readQueue(userId).length === 0 &&
-          !flushingUsers.has(userId)
-        ) {
-          transports.delete(userId);
-        }
+        void hasPendingFeedAnalytics(userId).then((pending) => {
+          if (transports.get(userId) === transport && !pending && !flushingUsers.has(userId)) {
+            transports.delete(userId);
+          }
+        }).catch((error: unknown) => console.error('Unable to inspect pending topic analytics:', error));
       });
     }
   }
@@ -263,11 +292,10 @@ export function installFeedAnalyticsListeners(
       installedTransport.retired = true;
       Promise.resolve().then(() => {
         if (transports.get(userId) !== installedTransport) return;
-        if (readQueue(userId).length === 0 && !flushingUsers.has(userId)) {
-          transports.delete(userId);
-        } else {
-          void flushFeedAnalytics(userId);
-        }
+        void hasPendingFeedAnalytics(userId).then((pending) => {
+          if (!pending && !flushingUsers.has(userId)) transports.delete(userId);
+          else void flushFeedAnalytics(userId);
+        }).catch((error: unknown) => console.error('Unable to inspect pending topic analytics:', error));
       });
     }
   };

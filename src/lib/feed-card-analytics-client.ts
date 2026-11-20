@@ -1,5 +1,7 @@
 'use client';
 
+import type { SignedInAnalyticsOutbox } from './offline/signed-in-analytics-store';
+
 type FeedCardEventType = 'impression' | 'viewable_impression' | 'active_duration' | 'skip' | 'completion' | 'open';
 type QueuedEvent = {
   event_id: string;
@@ -17,6 +19,25 @@ type FeedCardAnalyticsTransport = { endpoint?: string; getAccessToken?: () => Pr
 const transports = new Map<string, FeedCardAnalyticsTransport>();
 const flushingUsers = new Set<string>();
 const sessionIds = new Map<string, string>();
+let persistentOutbox: SignedInAnalyticsOutbox | null = null;
+
+export async function configureFeedCardAnalyticsOutbox(outbox: SignedInAnalyticsOutbox): Promise<void> {
+  await outbox.initialize();
+  persistentOutbox = outbox;
+  for (const userId of transports.keys()) void flushFeedCardAnalytics(userId);
+}
+
+export async function clearFeedCardAnalyticsOutbox(userId: string): Promise<void> {
+  pendingQueues.delete(userId);
+  sessionIds.delete(userId);
+  if (persistentOutbox) await persistentOutbox.clearUser(userId);
+}
+
+async function hasPendingFeedCardAnalytics(userId: string): Promise<boolean> {
+  if (readQueue(userId).length) return true;
+  if (!persistentOutbox) return false;
+  return (await persistentOutbox.pending(userId, 'comment', 1)).length > 0;
+}
 
 function uuid(): string | null {
   try {
@@ -53,8 +74,7 @@ export function recordFeedCardAnalyticsEvent(
   const eventId = uuid();
   const currentSessionId = getSessionId(userId);
   if (!eventId || !currentSessionId) return;
-  const queue = readQueue(userId);
-  queue.push({
+  const event: QueuedEvent = {
     event_id: eventId,
     session_id: currentSessionId,
     event_type: eventType,
@@ -62,7 +82,22 @@ export function recordFeedCardAnalyticsEvent(
     card_id: String(commentId),
     duration_ms: Math.max(0, Math.min(300000, Math.round(durationMs))),
     metadata: {},
-  });
+  };
+  if (persistentOutbox) {
+    void persistentOutbox.enqueue(userId, 'comment', event)
+      .then(() => { if (navigator.onLine) void flushFeedCardAnalytics(userId); })
+      .catch((error: unknown) => {
+        console.error('Unable to persist signed-in comment analytics:', error);
+        const queue = readQueue(userId);
+        queue.push(event);
+        if (queue.length > queueLimit) queue.splice(0, queue.length - queueLimit);
+        writeQueue(userId, queue);
+        if (navigator.onLine) void flushFeedCardAnalytics(userId);
+      });
+    return;
+  }
+  const queue = readQueue(userId);
+  queue.push(event);
   if (queue.length > queueLimit) queue.splice(0, queue.length - queueLimit);
   writeQueue(userId, queue);
   if (navigator.onLine) void flushFeedCardAnalytics(userId);
@@ -73,7 +108,10 @@ export async function flushFeedCardAnalytics(userId: string, keepalive = false) 
   flushingUsers.add(userId);
   try {
     for (;;) {
-      const batch = readQueue(userId).slice(0, 50);
+      const stored = persistentOutbox ? await persistentOutbox.pending(userId, 'comment', 50) : [];
+      const storedIds = new Set(stored.map((event) => event.event_id));
+      const memory = readQueue(userId).filter((event) => !storedIds.has(event.event_id));
+      const batch = [...stored, ...memory].slice(0, 50);
       if (!batch.length) break;
       const transport = transports.get(userId);
       const headers = new Headers({ 'Content-Type': 'application/json' });
@@ -96,13 +134,18 @@ export async function flushFeedCardAnalytics(userId: string, keepalive = false) 
       } catch { break; }
       if (!response.ok) break;
       const accepted = new Set(batch.map((event) => event.event_id));
+      if (persistentOutbox) await persistentOutbox.acknowledge(userId, 'comment', [...accepted]);
       writeQueue(userId, readQueue(userId).filter((event) => !accepted.has(event.event_id)));
       if (keepalive) break;
     }
   } finally {
     flushingUsers.delete(userId);
     const transport = transports.get(userId);
-    if (transport?.retired && readQueue(userId).length === 0) transports.delete(userId);
+    if (transport?.retired) {
+      void hasPendingFeedCardAnalytics(userId).then((pending) => {
+        if (!pending && transports.get(userId) === transport) transports.delete(userId);
+      }).catch((error: unknown) => console.error('Unable to inspect pending comment analytics:', error));
+    }
   }
 }
 
