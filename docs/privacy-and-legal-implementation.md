@@ -154,7 +154,7 @@ A separate purpose-by-purpose UK GDPR assessment has been added at [docs/uk-gdpr
 
 For sponsor-measurement opt-outs, the proposed fallback is campaign/day served-placement aggregates only, without client viewability/click events, visitor/session tokens, or per-person frequency records. Campaign-wide pacing and caps remain. Account access, account synchronisation, bookmarks, likes, progress, notes and general feed ranking remain unaffected by optional analytics choices.
 
-**Status:** the consent implementation is in consolidated PR #25. The three database migrations are live in production; matching app code is not deployed until PR #25 is merged and released. Controller approval of Article 6 and Article 9 positions, PECR Regulation 6 treatment, the DPIA residual risk, children/age safeguards, provider contracts and international transfers remains outstanding. Do not describe CathoScroll as legally cleared solely because the assessment or consent UI exists.
+**Status:** PR #25 was merged and its application code deployed to production in commit `e0da259` on 20 November 2026. The three consent migrations are recorded as applied in production. Controller approval of Article 6 and Article 9 positions, PECR Regulation 6 treatment, DPIA residual risk, children/age safeguards, provider contracts and international transfers remains outstanding. The deployed technical controls do not constitute legal clearance.
 
 ## Optional analytics consent (separate from recommendation personalisation)
 
