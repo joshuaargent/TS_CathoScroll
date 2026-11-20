@@ -919,7 +919,7 @@ function App() {
         }
         if (privateDatabaseReady) {
           try {
-            const personalizedCache = new OfflineRankedFeedCache(cacheDatabase, localCatalogue);
+            const personalizedCache = new OfflineRankedFeedCache(cacheDatabase, localCatalogue, true);
             await personalizedCache.initialize();
             personalizedFeedCacheRef.current = personalizedCache;
           } catch (cacheError) {

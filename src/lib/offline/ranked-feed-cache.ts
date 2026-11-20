@@ -38,7 +38,8 @@ function cursorKey(cursor: RankedFeedCursor | null): string {
 export class OfflineRankedFeedCache {
   constructor(
     private readonly database: OfflineDatabase,
-    private readonly catalogue: OfflineCatalogue
+    private readonly catalogue: OfflineCatalogue,
+    private readonly allowPersonalizedCache = false
   ) {}
 
   async initialize(): Promise<void> {
@@ -58,13 +59,15 @@ export class OfflineRankedFeedCache {
         CREATE INDEX IF NOT EXISTS offline_ranked_feed_pages_updated
         ON offline_ranked_feed_pages(mode, owner_id, updated_at)
       `);
-      await db.execute(`
-        CREATE TABLE IF NOT EXISTS offline_personalization_consent_cache (
-          user_id TEXT PRIMARY KEY NOT NULL,
-          enabled INTEGER NOT NULL CHECK (enabled IN (0, 1)),
-          checked_at TEXT NOT NULL
-        )
-      `);
+      if (this.allowPersonalizedCache) {
+        await db.execute(`
+          CREATE TABLE IF NOT EXISTS offline_personalization_consent_cache (
+            user_id TEXT PRIMARY KEY NOT NULL,
+            enabled INTEGER NOT NULL CHECK (enabled IN (0, 1)),
+            checked_at TEXT NOT NULL
+          )
+        `);
+      }
       await this.prune(db);
     });
   }
@@ -74,14 +77,17 @@ export class OfflineRankedFeedCache {
       'DELETE FROM offline_ranked_feed_pages WHERE updated_at < ?',
       [new Date(Date.now() - maximumPageAgeMs).toISOString()]
     );
-    await db.execute(
-      'DELETE FROM offline_personalization_consent_cache WHERE checked_at < ?',
-      [new Date(Date.now() - consentFreshnessMs).toISOString()]
-    );
+    if (this.allowPersonalizedCache) {
+      await db.execute(
+        'DELETE FROM offline_personalization_consent_cache WHERE checked_at < ?',
+        [new Date(Date.now() - consentFreshnessMs).toISOString()]
+      );
+    }
   }
 
   async save(mode: RankedFeedMode, userId: string | null, cursor: RankedFeedCursor | null, page: RankedFeedPage): Promise<void> {
     const ownerId = assertOwner(mode, userId);
+    if (mode === 'personalized' && !this.allowPersonalizedCache) throw new Error('Personalised pages require encrypted private storage.');
     if (!page || !Array.isArray(page.topics) || page.topics.length > 50 ||
       page.topics.some((topic) => !topic || typeof topic.id !== 'string' || !topic.id || topic.id.length > 100) ||
       new Set(page.topics.map((topic) => topic.id)).size !== page.topics.length) {
@@ -106,6 +112,7 @@ export class OfflineRankedFeedCache {
 
   async load(mode: RankedFeedMode, userId: string | null, cursor: RankedFeedCursor | null): Promise<RankedFeedPage | null> {
     const ownerId = assertOwner(mode, userId);
+    if (mode === 'personalized' && !this.allowPersonalizedCache) throw new Error('Personalised pages require encrypted private storage.');
     const rows = await this.database.transaction(async (db) => {
       await this.prune(db);
       return db.query(
@@ -131,6 +138,7 @@ export class OfflineRankedFeedCache {
 
   async setConsent(userId: string, enabled: boolean): Promise<void> {
     assertOwner('personalized', userId);
+    if (!this.allowPersonalizedCache) throw new Error('Personalisation consent must use encrypted private storage.');
     await this.database.transaction(async (db) => {
       if (!enabled) {
         await db.execute('DELETE FROM offline_ranked_feed_pages WHERE mode = ? AND owner_id = ?', ['personalized', userId]);
@@ -146,6 +154,7 @@ export class OfflineRankedFeedCache {
 
   async hasFreshConsent(userId: string): Promise<boolean> {
     assertOwner('personalized', userId);
+    if (!this.allowPersonalizedCache) throw new Error('Personalisation consent must use encrypted private storage.');
     return this.database.transaction(async (db) => {
       await this.prune(db);
       const rows = await db.query(
@@ -160,6 +169,7 @@ export class OfflineRankedFeedCache {
 
   async clearUser(userId: string): Promise<void> {
     assertOwner('personalized', userId);
+    if (!this.allowPersonalizedCache) throw new Error('Personalised pages require encrypted private storage.');
     await this.database.transaction(async (db) => {
       await db.execute('DELETE FROM offline_ranked_feed_pages WHERE mode = ? AND owner_id = ?', ['personalized', userId]);
       await db.execute('DELETE FROM offline_personalization_consent_cache WHERE user_id = ?', [userId]);
