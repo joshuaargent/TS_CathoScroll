@@ -1038,3 +1038,23 @@ REVOKE ALL ON FUNCTION catho_private.refresh_feed_card_analytics_daily() FROM PU
 REVOKE ALL ON FUNCTION catho_private.prune_feed_card_analytics_events(timestamptz, integer) FROM PUBLIC, anon, authenticated, service_role;
 GRANT EXECUTE ON FUNCTION catho_private.refresh_feed_card_analytics_daily() TO service_role;
 GRANT EXECUTE ON FUNCTION catho_private.prune_feed_card_analytics_events(timestamptz, integer) TO service_role;
+
+
+DO $feed_card_analytics_cron$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM cron.job WHERE jobname='cathoscroll-rollup-feed-card-analytics') THEN
+    PERFORM cron.schedule(
+      'cathoscroll-rollup-feed-card-analytics',
+      '*/5 * * * *',
+      'SELECT catho_private.refresh_feed_card_analytics_daily();'
+    );
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM cron.job WHERE jobname='cathoscroll-prune-feed-card-analytics') THEN
+    PERFORM cron.schedule(
+      'cathoscroll-prune-feed-card-analytics',
+      '*/15 * * * *',
+      'SELECT catho_private.prune_feed_card_analytics_events(statement_timestamp() - interval ''180 days'', 5000);'
+    );
+  END IF;
+END;
+$feed_card_analytics_cron$;
