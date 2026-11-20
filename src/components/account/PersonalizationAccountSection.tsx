@@ -260,7 +260,7 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
 
         <div className="border-border bg-bg-secondary/30 mt-6 rounded-xl border p-4">
           <p className="font-semibold text-sm leading-relaxed">
-            I explicitly consent to CathoScroll using my account actions (progress, bookmarks, likes and comments) and selected interests to personalise my recommendations. These signals may reveal religious or philosophical interests; they rank content, not my beliefs.
+            I explicitly consent to CathoScroll using my account actions (progress, bookmarks, likes and comments) and selected interests to personalise my recommendations. These signals may reveal religious or philosophical beliefs; they are used to rank content, not to label your beliefs.
           </p>
           <p className="text-text-muted mt-2 text-sm leading-relaxed">
             Only these account actions and the categories you choose are used for recommendations. Operational analytics such as impressions, reading time, swipes and skips are not used for personalisation. The profile is private, never used for sponsor targeting, and can be deleted by withdrawing consent.
