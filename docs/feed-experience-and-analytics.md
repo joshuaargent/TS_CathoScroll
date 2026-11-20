@@ -103,7 +103,7 @@ Offline analytics must never block or delay bookmarks, likes, progress, notes, c
 
 ## Recommendation system
 
-The existing weighted-category RPC has been extended rather than replaced. It uses completed topics, bookmarks, likes, comments and signed-in feed telemetry as recommendation signals only when the account has explicitly enabled personalisation. Without consent, it does not read or aggregate those account-history signals: all category weights remain neutral and completed-topic history is not used to suppress recommendations. Category weights are frozen into the cursor so pagination remains deterministic; withdrawing consent also normalises already-issued cursors immediately.
+The weighted-category RPC uses completed topics, bookmarks, likes, comments and other explicit account actions recorded after the user enables personalisation. Operational feed and Top Comments analytics—including impressions, reading duration, swipe depth, skips, return visits and card exposure—are never recommendation inputs. Without personalisation consent, category weights remain neutral and completed-topic history is not used to suppress recommendations. Category weights are frozen into the cursor so pagination remains deterministic; withdrawing consent also normalises already-issued cursors immediately.
 
 Feed signals use a 90-day window and a 30-day half-life:
 - Viewable impression: +0.40, capped at +1.20 per topic.
