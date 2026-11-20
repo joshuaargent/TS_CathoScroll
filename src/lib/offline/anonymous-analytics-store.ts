@@ -53,6 +53,9 @@ export class NativeAnonymousAnalyticsOutbox implements AnonymousFeedAnalyticsOut
       return rows.map(eventFromRow);
     });
   }
+  async clear(): Promise<void> {
+    await this.database.transaction((db) => db.execute('DELETE FROM offline_anonymous_analytics_outbox'));
+  }
   async acknowledge(eventIds: string[]): Promise<void> {
     if (!Array.isArray(eventIds) || eventIds.length > 100 || eventIds.some((id) => !validEventId(id)) || new Set(eventIds).size !== eventIds.length) {
       throw new Error('Invalid anonymous analytics acknowledgement.');

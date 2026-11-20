@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { createPageMetadata } from '@/lib/seo';
+import { AnonymousAnalyticsPreference } from '@/components/privacy/AnonymousAnalyticsPreference';
 
 export const metadata = createPageMetadata({
   title: "Cookies",
@@ -92,6 +93,14 @@ export default function CookiesPage() {
             Analytics and Speed Insights provide separate site-traffic and technical-performance
             measurement for signed-in and signed-out visitors.
           </p>
+        </section>
+
+        <section>
+          <h2 className="mb-4 text-3xl font-bold">Anonymous topic and comment analytics preference</h2>
+          <p className="text-text-secondary mb-4 leading-relaxed">
+            This optional control applies to signed-out topic and Top Comments measurement used only to understand and improve CathoScroll. It does not control account-linked analytics, sponsor delivery measurement, or Vercel site/performance analytics.
+          </p>
+          <AnonymousAnalyticsPreference />
         </section>
 
         <section>

@@ -15,9 +15,19 @@ export interface AnonymousFeedAnalyticsOutbox {
   enqueue(event: AnonymousFeedAnalyticsEvent): Promise<void>;
   pending(limit: number): Promise<AnonymousFeedAnalyticsEvent[]>;
   acknowledge(eventIds: string[]): Promise<void>;
+  clear(): Promise<void>;
 }
 
 const queueLimit = 2000;
+export const anonymousAnalyticsPreferenceKey = 'cathoscroll.anonymous-analytics.enabled.v1';
+
+function anonymousAnalyticsEnabled(): boolean {
+  try {
+    return typeof window !== 'undefined' && window.localStorage.getItem(anonymousAnalyticsPreferenceKey) !== 'false';
+  } catch {
+    return false;
+  }
+}
 const recentEventKeys = new Map<string, number>();
 const pendingEvents: AnonymousFeedAnalyticsEvent[] = [];
 const volatileEventIds = new Set<string>();
@@ -54,12 +64,32 @@ function getEndpoint(): string {
     : '/api/analytics/anonymous-events';
 }
 
+
+export async function setAnonymousFeedAnalyticsEnabled(enabled: boolean): Promise<void> {
+  if (typeof window === 'undefined') throw new Error('Analytics preferences are unavailable.');
+  window.localStorage.setItem(anonymousAnalyticsPreferenceKey, enabled ? 'true' : 'false');
+  if (!enabled) {
+    pendingEvents.splice(0, pendingEvents.length);
+    volatileEventIds.clear();
+    if (persistentOutbox) {
+      await outboxReady;
+      await persistentOutbox.clear();
+    }
+  }
+}
+
 export async function configureAnonymousFeedAnalyticsOutbox(
   outbox: AnonymousFeedAnalyticsOutbox
 ): Promise<void> {
   await outbox.initialize();
   persistentOutbox = outbox;
   outboxReady = Promise.resolve();
+  if (!anonymousAnalyticsEnabled()) {
+    pendingEvents.splice(0, pendingEvents.length);
+    volatileEventIds.clear();
+    await outbox.clear();
+    return;
+  }
   for (const event of pendingEvents.slice()) {
     try {
       await outbox.enqueue(event);
@@ -73,6 +103,14 @@ export async function configureAnonymousFeedAnalyticsOutbox(
 
 export async function flushAnonymousFeedAnalyticsQueue(): Promise<void> {
   if (typeof window === 'undefined') return;
+  if (!anonymousAnalyticsEnabled()) {
+    pendingEvents.splice(0, pendingEvents.length);
+    volatileEventIds.clear();
+    if (persistentOutbox) {
+      try { await outboxReady; await persistentOutbox.clear(); } catch { /* Disabled analytics are never uploaded. */ }
+    }
+    return;
+  }
   if (typeof navigator === 'undefined' || !navigator.onLine || flushPromise) return;
   if (!persistentOutbox && pendingEvents.length === 0) return;
 
@@ -154,7 +192,7 @@ export function recordAnonymousFeedEvent(
   eventType: AnonymousEventType,
   durationMs = 0,
 ): void {
-  if (typeof window === 'undefined') return;
+  if (typeof window === 'undefined' || !anonymousAnalyticsEnabled()) return;
   const eventId = uuid();
   const id = String(entityId);
   if (!eventId || !id || id.length > 160) return;
