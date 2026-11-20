@@ -859,6 +859,24 @@ function App() {
   }, [catalogueMessage]);
 
   useEffect(() => {
+    function syncPersonalizationConsent(event: Event) {
+      const detail = (event as CustomEvent<{
+        userId?: unknown;
+        enabled?: unknown;
+        complete?: (result: Promise<void>) => void;
+      }>).detail;
+      if (!detail || typeof detail.userId !== 'string' || typeof detail.enabled !== 'boolean') return;
+      const cache = personalizedFeedCacheRef.current;
+      const result = cache
+        ? cache.setConsent(detail.userId, detail.enabled)
+        : Promise.reject(new Error('Encrypted personalised feed cache is unavailable.'));
+      detail.complete?.(result);
+    }
+    window.addEventListener('cathoscroll:personalization-consent-changed', syncPersonalizationConsent);
+    return () => window.removeEventListener('cathoscroll:personalization-consent-changed', syncPersonalizationConsent);
+  }, []);
+
+  useEffect(() => {
     const message = activityStatus && activityStatus.userId === user?.id ? activityStatus.error : '';
     if (!message) {
       clearNativeStatusNotice('account-activity');
