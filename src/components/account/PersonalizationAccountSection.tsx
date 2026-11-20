@@ -75,24 +75,26 @@ function readTopicInterests(value: unknown): PersonalizationStatus['top_topic_in
   );
 }
 
-async function readAnalyticsChoices(client: SupabaseClient, userId: string, apiBaseUrl?: string): Promise<AnalyticsChoices> {
-  const { data: sessionData, error: sessionError } = await client.auth.getSession();
-  if (sessionError || !sessionData.session?.access_token) throw sessionError ?? new Error('Authentication required.');
-  const endpoint = apiBaseUrl
-    ? new URL('/api/privacy/analytics-consent', apiBaseUrl).toString()
-    : '/api/privacy/analytics-consent';
-  const response = await fetch(endpoint, {
-    method: 'GET',
-    headers: {
-      Authorization: `Bearer ${sessionData.session.access_token}`,
-      'X-Catho-Expected-User-Id': userId,
-    },
-    cache: 'no-store',
-  });
-  const payload: unknown = await response.json().catch(() => null);
-  if (!response.ok || !isRecord(payload) || !isRecord(payload.consent)) {
-    throw new Error(isRecord(payload) && typeof payload.error === 'string' ? payload.error : 'Unable to read analytics choices.');
-  }
+async function readAnalyticsChoices(client: SupabaseClient, userId: string, apiBaseUrl: string | undefined, personalizationEnabled: boolean): Promise<AnalyticsChoices> {
+  const local = readAnalyticsConsent(userId);
+  try {
+    const { data: sessionData, error: sessionError } = await client.auth.getSession();
+    if (sessionError || !sessionData.session?.access_token) throw sessionError ?? new Error('Authentication required.');
+    const endpoint = apiBaseUrl
+      ? new URL('/api/privacy/analytics-consent', apiBaseUrl).toString()
+      : '/api/privacy/analytics-consent';
+    const response = await fetch(endpoint, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${sessionData.session.access_token}`,
+        'X-Catho-Expected-User-Id': userId,
+      },
+      cache: 'no-store',
+    });
+    const payload: unknown = await response.json().catch(() => null);
+    if (!response.ok || !isRecord(payload) || !isRecord(payload.consent)) {
+      throw new Error(isRecord(payload) && typeof payload.error === 'string' ? payload.error : 'Unable to read analytics choices.');
+    }
   if (
     typeof payload.consent.serviceImprovement !== 'boolean' ||
     typeof payload.consent.sponsorMeasurement !== 'boolean' ||
@@ -100,17 +102,43 @@ async function readAnalyticsChoices(client: SupabaseClient, userId: string, apiB
   ) {
     throw new Error('Invalid analytics choices response.');
   }
-  const local = readAnalyticsConsent(userId);
-  if (local?.syncPending) {
+    if (local?.syncPending) {
+      return {
+        serviceImprovement: payload.consent.personalizationEnabled ? true : local.serviceImprovement,
+        sponsorMeasurement: local.sponsorMeasurement,
+      };
+    }
     return {
-      serviceImprovement: payload.consent.personalizationEnabled ? true : local.serviceImprovement,
-      sponsorMeasurement: local.sponsorMeasurement,
+      serviceImprovement: payload.consent.serviceImprovement,
+      sponsorMeasurement: payload.consent.sponsorMeasurement,
     };
+  } catch (cause) {
+    if (local) {
+      return {
+        serviceImprovement: personalizationEnabled ? true : local.serviceImprovement,
+        sponsorMeasurement: local.sponsorMeasurement,
+      };
+    }
+    throw cause;
   }
-  return {
-    serviceImprovement: payload.consent.serviceImprovement,
-    sponsorMeasurement: payload.consent.sponsorMeasurement,
+}
+
+async function persistAnalyticsChoices(
+  userId: string,
+  next: AnalyticsChoices,
+  updatedAt: string,
+  syncPending: boolean
+): Promise<void> {
+  const previous = readAnalyticsConsent(userId);
+  const interim = {
+    serviceImprovement: previous?.serviceImprovement === true && next.serviceImprovement,
+    sponsorMeasurement: previous?.sponsorMeasurement === true && next.sponsorMeasurement,
   };
+  if (!interim.serviceImprovement) denyAnalyticsConsentInMemory('serviceImprovement', userId);
+  if (!interim.sponsorMeasurement) denyAnalyticsConsentInMemory('sponsorMeasurement', userId);
+  saveAnalyticsConsent(interim, userId, { updatedAt, syncPending: false });
+  await clearAnalyticsConsentQueues(userId, previous, next);
+  saveAnalyticsConsent(next, userId, { updatedAt, syncPending });
 }
 
 export function PersonalizationAccountSection({ client, apiBaseUrl }: { client: SupabaseClient; apiBaseUrl?: string }) {
@@ -155,7 +183,7 @@ export function PersonalizationAccountSection({ client, apiBaseUrl }: { client: 
       setStatus(nextStatus);
       setSelectedCategories(nextStatus.selected_categories);
       try {
-        const nextAnalyticsChoices = await readAnalyticsChoices(client, authData.user.id, apiBaseUrl);
+        const nextAnalyticsChoices = await readAnalyticsChoices(client, authData.user.id, apiBaseUrl, nextStatus.enabled);
         if (request === requestVersion.current) setAnalyticsChoices(nextAnalyticsChoices);
       } catch {
         if (request === requestVersion.current) setAnalyticsChoices(null);
@@ -206,7 +234,7 @@ export function PersonalizationAccountSection({ client, apiBaseUrl }: { client: 
   }, [accountUserId]);
 
   async function updateAnalyticsChoice(key: keyof AnalyticsChoices, value: boolean) {
-    if (!analyticsChoices || analyticsSaving || loading || saving) return;
+    if (!analyticsChoices || !accountUserId || analyticsSaving || loading || saving) return;
     if (key === 'serviceImprovement' && status.enabled && !value) {
       setError('Turn off personalisation before disabling Service improvement analytics.');
       return;
@@ -215,7 +243,17 @@ export function PersonalizationAccountSection({ client, apiBaseUrl }: { client: 
     setAnalyticsSaving(true);
     setError('');
     setMessage('');
+    const saveOffline = async () => {
+      await persistAnalyticsChoices(accountUserId, next, new Date().toISOString(), true);
+      setAnalyticsChoices(next);
+      requestAnalyticsConsentSync();
+      setMessage('Saved on this device. These choices will sync when you reconnect.');
+    };
     try {
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        await saveOffline();
+        return;
+      }
       const { data: sessionData, error: sessionError } = await client.auth.getSession();
       if (sessionError || !sessionData.session?.access_token) throw sessionError ?? new Error('Authentication required.');
       const endpoint = apiBaseUrl
@@ -225,14 +263,21 @@ export function PersonalizationAccountSection({ client, apiBaseUrl }: { client: 
         method: 'POST',
         headers: {
           Authorization: `Bearer ${sessionData.session.access_token}`,
-          'X-Catho-Expected-User-Id': accountUserId ?? '',
+          'X-Catho-Expected-User-Id': accountUserId,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ ...next, version: 1 }),
       });
       const payload: unknown = await response.json().catch(() => null);
-      if (!response.ok || !isRecord(payload) || !isRecord(payload.consent)) {
+      if (!response.ok) {
+        if (response.status >= 500) {
+          await saveOffline();
+          return;
+        }
         throw new Error(isRecord(payload) && typeof payload.error === 'string' ? payload.error : 'Unable to save analytics choices.');
+      }
+      if (!isRecord(payload) || !isRecord(payload.consent)) {
+        throw new Error('Invalid analytics choices response.');
       }
       if (typeof payload.consent.serviceImprovement !== 'boolean' || typeof payload.consent.sponsorMeasurement !== 'boolean') {
         throw new Error('Invalid analytics choices response.');
@@ -244,22 +289,23 @@ export function PersonalizationAccountSection({ client, apiBaseUrl }: { client: 
       const updatedAt = typeof payload.consent.updatedAt === 'string'
         ? payload.consent.updatedAt
         : new Date().toISOString();
-      const previousChoices = accountUserId ? readAnalyticsConsent(accountUserId) : null;
-      const interimChoices = {
-        serviceImprovement: previousChoices?.serviceImprovement === true && confirmedChoices.serviceImprovement,
-        sponsorMeasurement: previousChoices?.sponsorMeasurement === true && confirmedChoices.sponsorMeasurement,
-      };
-      if (!interimChoices.serviceImprovement) denyAnalyticsConsentInMemory('serviceImprovement', accountUserId);
-      if (!interimChoices.sponsorMeasurement) denyAnalyticsConsentInMemory('sponsorMeasurement', accountUserId);
-      saveAnalyticsConsent(interimChoices, accountUserId, { updatedAt, syncPending: false });
-      await clearAnalyticsConsentQueues(accountUserId, previousChoices, confirmedChoices);
-      saveAnalyticsConsent(confirmedChoices, accountUserId, { updatedAt, syncPending: false });
+      await persistAnalyticsChoices(accountUserId, confirmedChoices, updatedAt, false);
       setAnalyticsChoices(confirmedChoices);
       requestAnalyticsConsentSync();
       setMessage('Analytics choices saved.');
     } catch (cause) {
-      console.error('Unable to update analytics choices:', cause);
-      setError(cause instanceof Error ? cause.message : 'Unable to save analytics choices. Try again.');
+      if (cause instanceof TypeError || (typeof navigator !== 'undefined' && !navigator.onLine)) {
+        try {
+          await saveOffline();
+          return;
+        } catch (offlineCause) {
+          console.error('Unable to save analytics choices offline:', offlineCause);
+          setError(offlineCause instanceof Error ? offlineCause.message : 'Unable to save choices on this device.');
+        }
+      } else {
+        console.error('Unable to update analytics choices:', cause);
+        setError(cause instanceof Error ? cause.message : 'Unable to save analytics choices. Try again.');
+      }
     } finally {
       setAnalyticsSaving(false);
     }
