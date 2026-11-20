@@ -292,13 +292,14 @@ function NativeViewer(props: {
   const [pendingActions, setPendingActions] = useState(() => new Set<string>());
   const pendingRef = useRef(new Set<string>());
   const requestSignIn = useSignInPrompt();
-  const getAnalyticsAccessToken = useCallback(async () => {
+  const getAnalyticsAccessToken = useCallback(async (expectedUserId?: string) => {
     const { data, error } = await createClient().auth.getSession();
     if (error) {
       console.error('Unable to obtain native analytics session:', error.message);
       return null;
     }
-    return data.session?.access_token ?? null;
+    if (!data.session || (expectedUserId && data.session.user.id !== expectedUserId)) return null;
+    return data.session.access_token;
   }, []);
   const navigation = useContext(TopicNavigation);
   if (!navigation) throw new Error('Native topic navigation is unavailable.');
@@ -669,14 +670,19 @@ function App() {
   const [activityVersion, setActivityVersion] = useState(0);
   const [activityAttempt, setActivityAttempt] = useState(0);
   const retryStartup = useRef<() => void>(() => {});
-  const getNativeSponsorAccessToken = useCallback(async () => {
+  const getNativeSponsorAccessToken = useCallback(async (expectedUserId?: string) => {
     const { data, error } = await createClient().auth.getSession();
     if (error) {
       console.error('Unable to obtain the native sponsor analytics session:', error.message);
       return null;
     }
-    return data.session?.access_token ?? null;
+    if (!data.session || (expectedUserId && data.session.user.id !== expectedUserId)) return null;
+    return data.session.access_token;
   }, []);
+  const getSponsorAccessToken = useCallback(
+    () => getNativeSponsorAccessToken(user?.id),
+    [getNativeSponsorAccessToken, user?.id]
+  );
 
   useEffect(() => {
     if (!catalogue || authStatus !== 'ready') return;
@@ -1352,7 +1358,7 @@ function App() {
       <SponsorAnalyticsSync
         apiBaseUrl={siteConfig.url}
         userId={user?.id ?? null}
-        getAccessToken={getNativeSponsorAccessToken}
+        getAccessToken={getSponsorAccessToken}
       />
       <SignInPromptProvider>
         <NativeNotificationsProvider userId={user?.id ?? null}>

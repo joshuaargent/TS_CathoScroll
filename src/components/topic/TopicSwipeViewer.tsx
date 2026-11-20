@@ -26,7 +26,7 @@ interface TopicSwipeViewerProps {
   active?: boolean;
   userId: string | null;
   analyticsEndpoint?: string;
-  getAnalyticsAccessToken?: () => Promise<string | null>;
+  getAnalyticsAccessToken?: (expectedUserId?: string) => Promise<string | null>;
   currentActivity:
     | (Omit<TopicActivity, 'likes' | 'comments'> & {
         likes: number | null;
@@ -103,7 +103,7 @@ export function TopicSwipeViewer({
     if (!userId || !active) return;
     return installFeedAnalyticsListeners(userId, {
       endpoint: analyticsEndpoint,
-      getAccessToken: getAnalyticsAccessToken,
+      getAccessToken: () => getAnalyticsAccessToken?.(userId) ?? Promise.resolve(null),
     });
   }, [active, analyticsEndpoint, getAnalyticsAccessToken, userId]);
 

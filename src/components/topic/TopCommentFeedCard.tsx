@@ -28,7 +28,7 @@ interface TopCommentFeedCardProps {
   nextEntryPreview?: ReactNode;
   previousEntryPreview?: ReactNode;
   analyticsEndpoint?: string;
-  getAnalyticsAccessToken?: () => Promise<string | null>;
+  getAnalyticsAccessToken?: (expectedUserId?: string) => Promise<string | null>;
 }
 
 function CommentLikeControl({
@@ -174,7 +174,7 @@ export function TopCommentFeedCard({
     if (!active || !userId || previewMode) return;
     return installFeedCardAnalyticsListeners(userId, {
       endpoint: analyticsEndpoint,
-      getAccessToken: getAnalyticsAccessToken,
+      getAccessToken: () => getAnalyticsAccessToken?.(userId) ?? Promise.resolve(null),
     });
   }, [active, analyticsEndpoint, getAnalyticsAccessToken, previewMode, userId]);
 
