@@ -226,9 +226,11 @@ export default function PrivacyPage() {
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            Sponsors receive aggregate campaign performance reporting. They do not receive
-            user identities, individual reading histories, private notes, personalisation
-            profiles, or raw user-level analytics events.
+            Sponsors receive aggregate campaign performance reporting. Campaign/day served totals include
+            all eligible deliveries, while viewability, click and click-through measurements include
+            only visits where Sponsor measurement was enabled. They do not receive user identities,
+            individual reading histories, private notes, personalisation profiles, or raw user-level
+            analytics events.
           </p>
         </section>
 
