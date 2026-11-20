@@ -68,10 +68,13 @@ function readTopicInterests(value: unknown): PersonalizationStatus['top_topic_in
   );
 }
 
-async function readAnalyticsChoices(client: SupabaseClient, userId: string): Promise<AnalyticsChoices> {
+async function readAnalyticsChoices(client: SupabaseClient, userId: string, apiBaseUrl?: string): Promise<AnalyticsChoices> {
   const { data: sessionData, error: sessionError } = await client.auth.getSession();
   if (sessionError || !sessionData.session?.access_token) throw sessionError ?? new Error('Authentication required.');
-  const response = await fetch('/api/privacy/analytics-consent', {
+  const endpoint = apiBaseUrl
+    ? new URL('/api/privacy/analytics-consent', apiBaseUrl).toString()
+    : '/api/privacy/analytics-consent';
+  const response = await fetch(endpoint, {
     method: 'GET',
     headers: {
       Authorization: `Bearer ${sessionData.session.access_token}`,
@@ -92,7 +95,7 @@ async function readAnalyticsChoices(client: SupabaseClient, userId: string): Pro
   };
 }
 
-export function PersonalizationAccountSection({ client }: { client: SupabaseClient }) {
+export function PersonalizationAccountSection({ client, apiBaseUrl }: { client: SupabaseClient; apiBaseUrl?: string }) {
   const [status, setStatus] = useState<PersonalizationStatus>(emptyStatus);
   const [analyticsChoices, setAnalyticsChoices] = useState<AnalyticsChoices | null>(null);
   const [analyticsSaving, setAnalyticsSaving] = useState(false);
@@ -134,7 +137,7 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
       setStatus(nextStatus);
       setSelectedCategories(nextStatus.selected_categories);
       try {
-        const nextAnalyticsChoices = await readAnalyticsChoices(client, authData.user.id);
+        const nextAnalyticsChoices = await readAnalyticsChoices(client, authData.user.id, apiBaseUrl);
         if (request === requestVersion.current) setAnalyticsChoices(nextAnalyticsChoices);
       } catch {
         if (request === requestVersion.current) setAnalyticsChoices(null);
@@ -149,7 +152,7 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
       // Only the newest request may release the loading state.
       if (request === requestVersion.current) setLoading(false);
     }
-  }, [client]);
+  }, [apiBaseUrl, client]);
 
   useEffect(() => {
     let active = true;
@@ -180,7 +183,10 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
     try {
       const { data: sessionData, error: sessionError } = await client.auth.getSession();
       if (sessionError || !sessionData.session?.access_token) throw sessionError ?? new Error('Authentication required.');
-      const response = await fetch('/api/privacy/analytics-consent', {
+      const endpoint = apiBaseUrl
+        ? new URL('/api/privacy/analytics-consent', apiBaseUrl).toString()
+        : '/api/privacy/analytics-consent';
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${sessionData.session.access_token}`,
