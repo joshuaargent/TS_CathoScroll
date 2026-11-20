@@ -38,6 +38,8 @@ test('anonymous analytics queue is persisted locally and restored by the shared 
   assert.ok(anonymousAnalytics.includes('window.localStorage.setItem(queueStorageKey'));
   assert.ok(anonymousAnalytics.includes('window.localStorage.getItem(queueStorageKey)'));
   assert.ok(anonymousAnalytics.includes('function hydrateQueue()'));
+  assert.ok(anonymousAnalytics.includes('const queueMaxAgeMs = 29 * 24 * 60 * 60 * 1000;'));
+  assert.ok(anonymousAnalytics.includes('queuedAt: now'));
   assert.ok(anonymousAnalytics.includes('pendingEvents.slice(0, 40)'));
   assert.ok(anonymousAnalytics.includes("window.addEventListener('online'"));
   assert.ok(anonymousAnalytics.includes("window.addEventListener('pageshow'"));
