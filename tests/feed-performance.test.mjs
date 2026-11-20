@@ -91,9 +91,11 @@ test('Top Comments inventory refreshes safely without replacing unrelated cached
 });
 
 test('feed analytics in-memory queue is bounded to the most recent 200 events per account', async () => {
+  const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
   const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
   const originalFetch = globalThis.fetch;
   const requests = [];
+  globalThis.window = {};
   globalThis.fetch = async (_url, init) => {
     requests.push(JSON.parse(init.body).events);
     return new Response(JSON.stringify({ accepted: 50 }), { status: 200 });
@@ -113,6 +115,8 @@ test('feed analytics in-memory queue is bounded to the most recent 200 events pe
     assert.equal(queued.at(-1).entity_id, 'topic-249');
   } finally {
     globalThis.fetch = originalFetch;
+    if (originalWindow) Object.defineProperty(globalThis, 'window', originalWindow);
+    else delete globalThis.window;
     if (originalNavigator) Object.defineProperty(globalThis, 'navigator', originalNavigator);
     else delete globalThis.navigator;
   }
@@ -180,11 +184,13 @@ test('final native reading-time events retain the authenticated transport throug
 
 
 test('feed topic visit attribution ignores StrictMode effect replays', async () => {
+  const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
   const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
   const originalFetch = globalThis.fetch;
   const originalNow = Date.now;
   const requests = [];
   let now = 1000;
+  globalThis.window = {};
   Date.now = () => now;
   globalThis.fetch = async (_url, init) => {
     requests.push(JSON.parse(init.body).events);
@@ -205,6 +211,8 @@ test('feed topic visit attribution ignores StrictMode effect replays', async () 
   } finally {
     Date.now = originalNow;
     globalThis.fetch = originalFetch;
+    if (originalWindow) Object.defineProperty(globalThis, 'window', originalWindow);
+    else delete globalThis.window;
     if (originalNavigator) Object.defineProperty(globalThis, 'navigator', originalNavigator);
     else delete globalThis.navigator;
   }
