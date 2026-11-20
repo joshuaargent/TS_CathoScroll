@@ -22,11 +22,15 @@ function eventEndpoint(apiBaseUrl?: string): string {
 const pendingQueues = new Map<string, QueuedSponsorCampaignEvent[]>();
 const queueLimit = 1000;
 const flushingUsers = new Set<string>();
+const activeSponsorTransports = new Map<string, { getAccessToken: AccessTokenProvider; apiBaseUrl?: string }>();
 let persistentOutbox: SignedInAnalyticsOutbox | null = null;
 
 export async function configureSponsorAnalyticsOutbox(outbox: SignedInAnalyticsOutbox): Promise<void> {
   await outbox.initialize();
   persistentOutbox = outbox;
+  for (const [userId, transport] of activeSponsorTransports) {
+    void flushSponsorCampaignEvents(userId, transport.getAccessToken, transport.apiBaseUrl);
+  }
 }
 
 export async function clearSponsorAnalyticsOutbox(userId: string): Promise<void> {
@@ -170,6 +174,8 @@ export function installSponsorAnalyticsListeners(
 ): () => void {
   if (typeof window === 'undefined') return () => undefined;
 
+  const installedTransport = { getAccessToken, apiBaseUrl };
+  activeSponsorTransports.set(userId, installedTransport);
   const flush = () => void flushSponsorCampaignEvents(userId, getAccessToken, apiBaseUrl);
   const onVisibilityChange = () => {
     if (document.visibilityState === 'visible') flush();
@@ -185,6 +191,7 @@ export function installSponsorAnalyticsListeners(
     window.removeEventListener('online', flush);
     window.removeEventListener('pageshow', flush);
     document.removeEventListener('visibilitychange', onVisibilityChange);
+    if (activeSponsorTransports.get(userId) === installedTransport) activeSponsorTransports.delete(userId);
   };
 }
 
