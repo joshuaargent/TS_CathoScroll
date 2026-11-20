@@ -13,7 +13,7 @@ The existing measurement streams remain separate:
 
 Sponsor delivery signals are never added to organic topic recommendation weights.
 
-**Production rollout status:** the currently deployed production profile refresher still reads `feed_analytics_events` and `feed_card_analytics_events` when recommendation personalisation is enabled. PR26 replaces that dependency with explicit-action-only profile inputs and versioned cursor rebasing. Until the SQL upgrade is applied to production, do not describe the two data flows as fully separated.
+**Production rollout status:** production currently reads `feed_analytics_events` and `feed_card_analytics_events` when personalisation is enabled, but the live consent path does not yet require Service improvement analytics to be enabled at the same time. This change makes the dependency explicit: personalisation enables Service improvement analytics, the service-analytics control is locked while personalisation is active, and the profile refresher checks both consent records. Existing v3 opt-ins are withdrawn and must be renewed under v4. The production SQL upgrade and app release are still pending.
 
 ## Personalisation privacy model
 
@@ -24,6 +24,10 @@ When enabled, the private topic-interest profile is recomputed from eligible exp
 | Signal | Treatment |
 | --- | --- |
 | Completed topics and progress | Strong explicit learning evidence |
+| Viewable impressions, active duration and swipe depth | Positive reading/engagement evidence, with bounded weights and recency decay |
+| Skips | Negative signal only after repeated skips in separate sessions |
+| Return visits and completion | Positive repeat-engagement and completion evidence |
+| Top Comments exposure and reading | Small topic-interest signal, separate from sponsor measurement |
 | Bookmarks | Strong explicit save/interest evidence |
 | Topic likes | Explicit positive topic interest |
 | Comments written, comment likes and replies written | Explicit community interaction evidence |
@@ -42,13 +46,13 @@ The profile is private: it is not exposed through public profiles and is not use
 ## Database objects
 
 - `catho_private.user_personalization_consents`: per-account opt-in, version and withdrawal timestamps.
-- `catho_private.user_topic_interest_scores`: private per-topic score, explicit-action evidence, short-/long-term values, model version and refresh time; the legacy inferred-score field remains zero for schema compatibility.
+- `catho_private.user_topic_interest_scores`: private per-topic score, explicit and inferred evidence, short-/long-term values, model version and refresh time.
 - `catho_private.user_explicit_category_interests`: categories directly selected by the account owner.
 - `public.set_my_personalization_consent(boolean)`: authenticated owner-only consent change; withdrawal deletes derived profile and explicit category selections.
 - `public.get_my_personalization_status()`: authenticated owner-only status and available category options.
 - `public.set_my_personalization_interests(text[])`: validates and replaces the current user's selected categories.
 - `catho_private.refresh_user_interest_profile(uuid)`: private recomputation from eligible account actions and consented reading signals; not executable by app roles.
-- `catho_private.get_user_feed_preference_signals(uuid)`: owner-checked recommendation helper; returns explicit-action and selected-category signals only while opted in.
+- `catho_private.get_user_feed_preference_signals(uuid)`: owner-checked recommendation helper; returns derived reading signals and selected-category signals only while both consent records are active.
 - `catho_private.get_user_recommendation_category_weights(uuid)`: private, consent-checked helper shared by first-page ranking and active-cursor rebasing; reads the profile only when personalisation and Service improvement analytics are enabled.
 - `public.get_admin_analytics_deep_dive(uuid,timestamptz,timestamptz)`: admin-verified aggregate-only reporting function, callable only by the service role.
 
