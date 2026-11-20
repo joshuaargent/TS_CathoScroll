@@ -25,10 +25,6 @@ export function SigninForm({
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [needsMfa, setNeedsMfa] = useState(false);
-  const [mfaFactorId, setMfaFactorId] = useState('');
-  const [mfaChallengeId, setMfaChallengeId] = useState('');
-  const [mfaCode, setMfaCode] = useState('');
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -51,27 +47,6 @@ export function SigninForm({
         return;
       }
 
-      const { data: assurance, error: assuranceError } =
-        await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-      if (assuranceError) throw assuranceError;
-      if (assurance.nextLevel === 'aal2' && assurance.currentLevel !== 'aal2') {
-        const { data: factorData, error: factorError } = await supabase.auth.mfa.listFactors();
-        if (factorError) throw factorError;
-        const factor = factorData.totp.find((item) => item.status === 'verified');
-        if (!factor) {
-          setError('This account requires a second factor, but no verified authenticator is available. Contact support to recover access.');
-          return;
-        }
-        const { data: challenge, error: challengeError } =
-          await supabase.auth.mfa.challenge({ factorId: factor.id });
-        if (challengeError) throw challengeError;
-        setMfaFactorId(factor.id);
-        setMfaChallengeId(challenge.id);
-        setMfaCode('');
-        setNeedsMfa(true);
-        setPassword('');
-        return;
-      }
 
       setPassword('');
       onSignedIn();
@@ -83,40 +58,6 @@ export function SigninForm({
     }
   }
 
-  async function handleMfaSubmit(event: React.FormEvent) {
-    event.preventDefault();
-    if (loading || !/^\\d{6,8}$/.test(mfaCode.trim()) || !mfaFactorId || !mfaChallengeId) {
-      setError('Enter the current six- to eight-digit authenticator code.');
-      return;
-    }
-    setLoading(true);
-    setError('');
-    try {
-      const supabase = clientFactory();
-      const { error: verifyError } = await supabase.auth.mfa.verify({
-        factorId: mfaFactorId,
-        challengeId: mfaChallengeId,
-        code: mfaCode.trim(),
-      });
-      if (verifyError) throw verifyError;
-      const { data: assurance, error: assuranceError } =
-        await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-      if (assuranceError) throw assuranceError;
-      if (assurance.currentLevel !== 'aal2') {
-        throw new Error('The authenticator code was not accepted. Try again.');
-      }
-      setMfaCode('');
-      setNeedsMfa(false);
-      setMfaFactorId('');
-      setMfaChallengeId('');
-      onSignedIn();
-    } catch (cause) {
-      console.error('Unable to verify sign-in authenticator:', cause);
-      setError('Unable to verify that authenticator code. Check the code and try again.');
-    } finally {
-      setLoading(false);
-    }
-  }
 
   return (
     <div className="container py-12">
@@ -126,36 +67,6 @@ export function SigninForm({
           Continue your learning journey with CathoScroll.
         </p>
       </div>
-      {needsMfa ? (
-        <form onSubmit={handleMfaSubmit} className="space-y-6">
-          <div className="border-border rounded-2xl border p-6">
-            <h2 className="text-xl font-bold">Verify your identity</h2>
-            <p className="text-text-secondary mt-2 text-sm">
-              This account has an authenticator enabled. Enter the current code from your authenticator app to finish signing in.
-            </p>
-          </div>
-          <Input
-            label="Authenticator code"
-            type="text"
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            maxLength={8}
-            value={mfaCode}
-            placeholder="000000"
-            disabled={loading || !online}
-            onChange={(event) => setMfaCode(event.target.value.replace(/\\D/g, '').slice(0, 8))}
-            required
-          />
-          {error && <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-600">{error}</div>}
-          <Button type="submit" size="lg" className="w-full" disabled={loading || !online} style={{ color: '#fff' }}>
-            {loading ? 'Verifying…' : 'Verify and sign in'}
-          </Button>
-          <button type="button" className="text-accent text-sm font-medium hover:underline" disabled={loading}
-            onClick={() => { setNeedsMfa(false); setMfaFactorId(''); setMfaChallengeId(''); setMfaCode(''); setError(''); }}>
-            Back to password sign-in
-          </button>
-        </form>
-      ) : (
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="border-border rounded-2xl border p-6">
           <p className="text-text-secondary">{description}</p>
@@ -225,7 +136,6 @@ export function SigninForm({
           </div>
         )}
       </form>
-      )}
     </div>
   );
 }
