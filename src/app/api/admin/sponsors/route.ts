@@ -70,16 +70,13 @@ export async function POST(request: Request) {
     return respond(request, { error: 'Forbidden' }, 403);
   }
 
-  const { user, isAdmin, error: roleError, mfaRequired } =
+  const { user, isAdmin, error: roleError } =
     await getAdminSessionFromRequest(request);
 
   if (!user) return respond(request, { error: 'Authentication required' }, 401);
   if (roleError) {
     console.error('Unable to verify sponsor-management access:', roleError.message);
     return respond(request, { error: 'Unable to verify administrator access' }, 500);
-  }
-  if (mfaRequired) {
-    return respond(request, { error: 'Complete administrator MFA before managing sponsors.' }, 403);
   }
   if (!isAdmin) return respond(request, { error: 'Forbidden' }, 403);
 
