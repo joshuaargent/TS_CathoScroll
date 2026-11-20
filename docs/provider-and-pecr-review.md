@@ -31,8 +31,8 @@
 - Current plan: Hobby.
 - Production project: ts_cathoscroll.
 - Current production deployment: READY on main; the logo-free PR branch has not been deployed.
-- Published Hobby runtime log retention: one hour.
-- Vercel Web Analytics documentation says it does not use third-party cookies and derives a request hash discarded after 24 hours.
+- Published Hobby runtime log retention: one hour; the Hobby analytics product includes one month of Web Analytics history.
+- Vercel Web Analytics documentation says it does not use third-party cookies and derives a request hash discarded after 24 hours. The Hobby plan currently includes one month of Web Analytics history; that is a product reporting window, not a guarantee that every associated operational log has the same retention.
 - Vercel DPA (last updated 17 March 2026) applies to Pro and Enterprise customers, not Hobby.
 - Vercel Terms (19 October 2026) restrict Hobby to personal/non-commercial use and permit model training/use of customer content on Hobby. The fair-use guidance expressly treats advertising as commercial usage.
 
