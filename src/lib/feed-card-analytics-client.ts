@@ -133,6 +133,7 @@ export async function flushFeedCardAnalytics(userId: string, keepalive = false) 
         if (!accessToken || !hasAnalyticsConsent('serviceImprovement', userId)) break;
         headers.set('Authorization', 'Bearer ' + accessToken);
       }
+      if (consentRequest.signal.aborted || !hasAnalyticsConsent('serviceImprovement', userId)) break;
       let response: Response;
       try {
         response = await fetch(transport?.endpoint ?? '/api/analytics/feed-card-events', {
