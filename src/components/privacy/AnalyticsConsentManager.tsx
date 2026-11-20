@@ -177,7 +177,7 @@ export function AnalyticsConsentManager({ userId = null, apiBaseUrl, getAccessTo
     } finally {
       setSaving(false);
     }
-  }, [clearWithdrawnQueues, saving, syncServerConsent]);
+  }, [clearWithdrawnQueues, saving, syncServerConsent, userId]);
 
   useEffect(() => {
     const existing = readAnalyticsConsent(userId);
