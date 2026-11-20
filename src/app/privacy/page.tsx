@@ -187,7 +187,7 @@ export default function PrivacyPage() {
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            You may withdraw personalisation consent in Account settings and analytics consent using Manage analytics choices on the Cookie Policy page. Withdrawal stops future optional collection, clears pending local analytics queues and synchronises signed-in consent changes when the device reconnects. It does not affect processing carried out before withdrawal or essential account and synchronisation features.
+            You may turn off personalisation in Account settings. This deletes your derived recommendation profile and stops reading signals being used to rank your feed. Service improvement analytics remains enabled until you turn it off separately after personalisation is disabled. You can manage sponsor measurement and object to signed-out aggregate statistics through Manage choices on the Cookie Policy page. Changes stop future collection for the relevant purpose, clear matching pending queues and synchronise signed-in choices when the device reconnects.
           </p>
         </section>
 
