@@ -13,25 +13,29 @@ The existing measurement streams remain separate:
 
 Sponsor delivery signals are never added to organic topic recommendation weights.
 
-**Production rollout status:** the currently deployed production profile refresher still reads `feed_analytics_events` and `feed_card_analytics_events` when recommendation personalisation is enabled. PR26 replaces that dependency with explicit-action-only profile inputs and versioned cursor rebasing. Until the SQL upgrade is applied to production, do not describe the two data flows as fully separated.
+**Production rollout status:** production currently reads `feed_analytics_events` and `feed_card_analytics_events` when personalisation is enabled, but the live consent path does not yet require Service improvement analytics to be enabled at the same time. This change makes the dependency explicit: personalisation enables Service improvement analytics, the service-analytics control is locked while personalisation is active, and the profile refresher checks both consent records. Existing v3 opt-ins are withdrawn and must be renewed under v4. The production SQL upgrade and app release are still pending.
 
 ## Personalisation privacy model
 
 Personalisation is **off by default**. The account owner must explicitly opt in using the separate signup checkbox or Account → Personalisation. The consent record is versioned and belongs to the authenticated account. Signup consent is captured by an `auth.users` insert trigger from the one-time signup metadata value; subsequent user-metadata edits do not re-enable it. The browser cannot read or write the private profile tables directly.
 
-When enabled, the private topic-interest profile is recomputed only from explicit account actions recorded after the user grants recommendation consent. Operational analytics events are never read by the recommendation-profile refresher and never influence recommendation weights.
+When enabled, the private topic-interest profile is recomputed from eligible explicit account actions and passive reading signals recorded after recommendation consent. Enabling personalisation also enables Service improvement analytics; the account cannot disable that analytics choice until personalisation is turned off. The profile uses viewable impressions, active reading duration, swipe depth, skips, completions, return visits and eligible Top Comments exposure alongside progress, bookmarks, likes, comments, comment likes, replies and user-selected categories. Sponsor measurement is never used for recommendations.
 
 | Signal | Treatment |
 | --- | --- |
 | Completed topics and progress | Strong explicit learning evidence |
+| Viewable impressions, active duration and swipe depth | Positive reading/engagement evidence, with bounded weights and recency decay |
+| Skips | Negative signal only after repeated skips in separate sessions |
+| Return visits and completion | Positive repeat-engagement and completion evidence |
+| Top Comments exposure and reading | Small topic-interest signal, separate from sponsor measurement |
 | Bookmarks | Strong explicit save/interest evidence |
 | Topic likes | Explicit positive topic interest |
 | Comments written, comment likes and replies written | Explicit community interaction evidence |
 | User-selected categories | Stored separately and treated as a strong user-declared preference |
 
-The model uses only eligible account actions recorded after consent, with a maximum 180-day evidence window. Profile refreshes are cached for five minutes. It maintains separate short-term (14-day half-life) and long-term (90-day half-life) scores. Per-topic scores and evidence are capped, and profile rows are removed when their supporting evidence ages out. Explicit category interests are stored separately and combined with the derived topic-interest profile.
+The model uses only eligible account actions and reading signals recorded after consent, with a maximum 180-day evidence window. Profile refreshes are cached for five minutes. It maintains separate short-term (14-day half-life) and long-term (90-day half-life) scores. Per-topic scores and evidence are capped, and profile rows are removed when their supporting evidence ages out. Explicit category interests are stored separately and combined with the derived topic-interest profile.
 
-The recommendation service preserves its existing category-weighted scheduling, category-diversity rule, pagination cursor and topic-only content ordering. Cursors carry the `explicit-actions-v3` model version. When an active cursor carries an older or missing version, the server rebuilds category weights from explicit account actions while preserving per-category served counts, keyset positions, the last category and the diversity streak. **All account-history recommendation weighting is consent-gated**, including progress/completions, bookmarks, topic likes, comments, explicit-action-derived topic scores and explicit category interests. Passive analytics measurements—including impressions, reading duration, swipe depth, skips, return visits and Top Comments exposure—are never used for personalisation or recommendation ranking. Without personalisation consent, category weights are neutral and completed-topic suppression is disabled. If consent is withdrawn during an active feed cursor, the RPC immediately normalises its category weights and stops excluding completed topics; it does not wait for a new session.
+The recommendation service preserves its existing category-weighted scheduling, category-diversity rule, pagination cursor and topic-only content ordering. Cursors carry the `activity-signals-v4` model version. When an active cursor carries an older or missing version, the server rebuilds category weights from consented activity signals while preserving per-category served counts, keyset positions, the last category and the diversity streak. **All account-history recommendation weighting is consent-gated**, including progress/completions, bookmarks, topic likes, comments, explicit-action-derived topic scores and explicit category interests. Passive reading measurements are used only while both personalisation and Service improvement analytics consent are active. Turning off personalisation deletes the derived profile and stops recommendation weighting; the independent Service improvement analytics choice can then be withdrawn separately. Without personalisation consent, category weights are neutral and completed-topic suppression is disabled. If consent is withdrawn during an active feed cursor, the RPC immediately normalises its category weights and stops excluding completed topics; it does not wait for a new session.
 
 Turning personalisation off immediately deletes the derived topic-interest profile and selected category-interest rows, records withdrawal, and stops all account-history recommendation weighting. Historical operational analytics events are not deleted by this action; they remain in the separate analytics pipeline under its existing 180-day raw-event retention policy and are never used for personalisation.
 
@@ -42,14 +46,15 @@ The profile is private: it is not exposed through public profiles and is not use
 ## Database objects
 
 - `catho_private.user_personalization_consents`: per-account opt-in, version and withdrawal timestamps.
-- `catho_private.user_topic_interest_scores`: private per-topic score, explicit-action evidence, short-/long-term values, model version and refresh time; the legacy inferred-score field remains zero for schema compatibility.
+- `catho_private.user_topic_interest_scores`: private per-topic score, explicit and inferred evidence, short-/long-term values, model version and refresh time.
 - `catho_private.user_explicit_category_interests`: categories directly selected by the account owner.
-- `public.set_my_personalization_consent(boolean)`: authenticated owner-only consent change; withdrawal deletes derived profile and explicit category selections.
+- `public.set_my_personalization_consent(boolean, text)`: authenticated owner-only v4 consent change; new grants require the current disclosure version and withdrawal deletes derived profile and explicit category selections.
+- `public.set_my_personalization_consent(boolean)`: legacy withdrawal-only wrapper; attempts to grant consent from older clients are rejected.
 - `public.get_my_personalization_status()`: authenticated owner-only status and available category options.
 - `public.set_my_personalization_interests(text[])`: validates and replaces the current user's selected categories.
-- `catho_private.refresh_user_interest_profile(uuid)`: private recomputation from explicit account actions only; not executable by app roles.
-- `catho_private.get_user_feed_preference_signals(uuid)`: owner-checked recommendation helper; returns explicit-action and selected-category signals only while opted in.
-- `catho_private.get_user_recommendation_category_weights(uuid)`: private, consent-checked helper shared by first-page ranking and active-cursor rebasing; explicit account actions only.
+- `catho_private.refresh_user_interest_profile(uuid)`: private recomputation from eligible account actions and consented reading signals; not executable by app roles.
+- `catho_private.get_user_feed_preference_signals(uuid)`: owner-checked recommendation helper; returns derived reading signals and selected-category signals only while both consent records are active.
+- `catho_private.get_user_recommendation_category_weights(uuid)`: private, consent-checked helper shared by first-page ranking and active-cursor rebasing; reads the profile only when personalisation and Service improvement analytics are enabled.
 - `public.get_admin_analytics_deep_dive(uuid,timestamptz,timestamptz)`: admin-verified aggregate-only reporting function, callable only by the service role.
 
 All profile tables are in the private schema, have RLS enabled, and have no direct client grants. Public RPCs derive identity from `auth.uid()`; callers cannot pass another account ID.
@@ -71,7 +76,7 @@ The date range remains capped at 180 days because identifier-bearing raw analyti
 
 ## Data interpretation and current limitations
 
-- Recommendation-profile signals come only from explicit signed-in account actions after separate recommendation consent. Operational analytics events are separate and never used to build or refresh the profile. General feed ranking consumes site-wide daily topic aggregates from signed-in and signed-out activity; anonymous rows contain no visitor identifiers and do not create a visitor-specific profile. Admin analytics displays signed-in and anonymous event counts separately. No anonymous unique-person or session count is inferred.
+- Recommendation-profile signals combine explicit signed-in account actions with consented reading analytics after personalisation opt-in. The opt-in also enables Service improvement analytics, which cannot be disabled until personalisation is turned off. Sponsor measurement remains separate and is never used for recommendation weighting. General feed ranking consumes site-wide daily topic aggregates from signed-in and signed-out activity; anonymous rows contain no visitor identifiers and do not create a visitor-specific profile. Admin analytics displays signed-in and anonymous event counts separately. No anonymous unique-person or session count is inferred.
 - Topic and comment-card raw event tables currently have relatively low volume. Early rates can be volatile and should be interpreted alongside denominators.
 - Historical events can only support metrics that were actually collected. Comment-card exposure history cannot be reconstructed before its instrumentation was deployed.
 - The current content model has category and topic identifiers but no governed subtopic/tag taxonomy. Subtopic affinities should not be fabricated from free-text or inferred religious labels. Add curated topic tags before implementing that layer.
@@ -85,3 +90,7 @@ The live deep-dive RPC was smoke-tested for a 30-day administrator reporting win
 The Supabase security and performance advisors were rerun after the schema changes. New profile tables are private and direct client grants are revoked. The advisors continue to report existing project-wide private-schema RLS-without-policy notices and existing authenticated SECURITY DEFINER RPC notices; these need to be assessed against their intended function contracts rather than broadly suppressing the findings. The new profile foreign-key indexes were added after the performance advisor identified missing coverage.
 
 The versioned database upgrade is [personalization-analytics-upgrade.sql](personalization-analytics-upgrade.sql). The canonical fresh-project SQL bootstrap includes the same personalisation tables, functions, indexes and grants. The live project still has the previous analytics-coupled profile refresher. PR26 updates the canonical bootstrap and existing upgrade SQL; the production SQL change is applied directly after merge.
+
+**Consent-version transition:** the activity-signal consent wording is version `2026-11-20-v4`. Existing accounts that accepted the earlier v3 wording are switched off during the upgrade and their derived profile/category rows are deleted; they must explicitly opt in again after seeing the updated disclosure. Their separately granted Service improvement analytics choice, if any, remains unchanged.
+
+**Disclosure-version enforcement:** new opt-ins require `2026-11-20-v4` from the signup metadata or the two-argument personalisation RPC. The legacy one-argument RPC remains available only to withdraw consent; attempts to enable through older clients are rejected. The signup trigger ignores legacy metadata without the v4 disclosure marker.
