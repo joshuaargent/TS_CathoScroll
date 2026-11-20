@@ -55,7 +55,7 @@ export function createFeedCardPlacementRules({
       createEntry: (topic) => {
         const result = sponsorResults.get(topic.id);
         // Confirmed empty inventory consumes cadence but creates no slot.
-        if (result && (result.campaigns.length === 0 || !result.sessionId)) return null;
+        if (result && result.campaigns.length === 0) return null;
         return {
           type: 'sponsor',
           topicId: topic.id,
