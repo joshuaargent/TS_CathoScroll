@@ -105,13 +105,16 @@ export async function flushSponsorCampaignEvents(
   getAccessToken: AccessTokenProvider,
   apiBaseUrl?: string
 ): Promise<void> {
-  if (
-    typeof window === 'undefined' ||
-    !hasAnalyticsConsent('sponsorMeasurement') ||
-    typeof navigator === 'undefined' ||
-    !navigator.onLine ||
-    flushingUsers.has(userId)
-  ) return;
+  if (typeof window === 'undefined') return;
+  if (!hasAnalyticsConsent('sponsorMeasurement')) {
+    pendingQueues.delete(userId);
+    if (persistentOutbox) {
+      try { await persistentOutbox.clearStream(userId, 'sponsor'); }
+      catch (cause) { console.error('Unable to clear withdrawn sponsor analytics:', cause); }
+    }
+    return;
+  }
+  if (typeof navigator === 'undefined' || !navigator.onLine || flushingUsers.has(userId)) return;
 
   flushingUsers.add(userId);
   try {
