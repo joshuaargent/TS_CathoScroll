@@ -150,6 +150,10 @@ test('declining sponsor measurement preserves delivery and campaign-day totals w
   assert.ok(eventRoute.includes('if (!consent.sponsorMeasurement) return respond(request, { recorded: false });'));
 
   for (const sql of [bootstrap, migration]) {
+    assert.ok(sql.includes('REVOKE ALL ON FUNCTION public.get_user_analytics_consent(uuid) FROM PUBLIC, anon, authenticated, service_role;'));
+    assert.ok(sql.includes('GRANT EXECUTE ON FUNCTION public.get_user_analytics_consent(uuid) TO service_role;'));
+    assert.ok(sql.includes('REVOKE ALL ON FUNCTION public.set_user_analytics_consent(uuid, boolean, boolean, integer) FROM PUBLIC, anon, authenticated, service_role;'));
+    assert.ok(sql.includes('GRANT EXECUTE ON FUNCTION public.set_user_analytics_consent(uuid, boolean, boolean, integer) TO service_role;'));
     assert.ok(sql.includes("p_session_token !~* '^[0-9a-f-]{36}$'"));
     assert.ok(sql.includes('IF p_session_token IS NOT NULL THEN'));
     assert.ok(sql.includes('CASE WHEN p_session_token IS NULL THEN true ELSE'));
