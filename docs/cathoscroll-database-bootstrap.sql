@@ -6680,52 +6680,7 @@ BEGIN
     RETURN v_count;
   END IF;
 
-  WITH event_scores AS (
-    SELECT e.entity_id AS topic_id,
-      sum(CASE e.event_type
-        WHEN 'viewable_impression' THEN 0.40
-        WHEN 'active_duration' THEN least(coalesce((e.metadata->>'duration_ms')::numeric,0),60000)/60000*0.25
-        WHEN 'swipe_depth' THEN least(coalesce((e.metadata->>'depth')::numeric,0),4)/4*0.50
-        WHEN 'completion' THEN 2.50
-        WHEN 'return_visit' THEN 0.75
-        ELSE 0 END * power(0.5::numeric,greatest(0,extract(epoch FROM (v_now-e.received_at))/2592000))) AS inferred_score,
-      sum(CASE WHEN e.received_at >= v_now-interval '14 days' THEN
-        CASE e.event_type
-          WHEN 'viewable_impression' THEN 0.40
-          WHEN 'active_duration' THEN least(coalesce((e.metadata->>'duration_ms')::numeric,0),60000)/60000*0.25
-          WHEN 'swipe_depth' THEN least(coalesce((e.metadata->>'depth')::numeric,0),4)/4*0.50
-          WHEN 'completion' THEN 2.50
-          WHEN 'return_visit' THEN 0.75 ELSE 0 END
-        * power(0.5::numeric,greatest(0,extract(epoch FROM (v_now-e.received_at))/1209600))
-        ELSE 0 END) AS short_score,
-      sum(CASE e.event_type
-        WHEN 'viewable_impression' THEN 0.40
-        WHEN 'active_duration' THEN least(coalesce((e.metadata->>'duration_ms')::numeric,0),60000)/60000*0.25
-        WHEN 'swipe_depth' THEN least(coalesce((e.metadata->>'depth')::numeric,0),4)/4*0.50
-        WHEN 'completion' THEN 2.50
-        WHEN 'return_visit' THEN 0.75 ELSE 0 END
-        * power(0.5::numeric,greatest(0,extract(epoch FROM (v_now-e.received_at))/7776000))) AS long_score,
-      count(*)::integer AS evidence_count
-    FROM catho_private.feed_analytics_events e
-    WHERE e.user_id=p_user_id
-      AND e.received_at>=greatest(v_now-interval '90 days',v_consent_at) AND e.received_at<v_now
-      AND e.event_type IN ('viewable_impression','active_duration','swipe_depth','completion','return_visit')
-    GROUP BY e.entity_id
-  ),
-  skip_sessions AS (
-    SELECT e.entity_id AS topic_id,e.session_id,
-      max(power(0.5::numeric,greatest(0,extract(epoch FROM (v_now-e.received_at))/2592000))) AS decay
-    FROM catho_private.feed_analytics_events e
-    WHERE e.user_id=p_user_id AND e.event_type='skip'
-      AND e.received_at>=greatest(v_now-interval '90 days',v_consent_at) AND e.received_at<v_now
-    GROUP BY e.entity_id,e.session_id
-  ),
-  skip_scores AS (
-    SELECT topic_id,count(*)::integer AS skip_sessions,
-      least(3::numeric,sum(1.5*decay)) AS negative_score
-    FROM skip_sessions GROUP BY topic_id
-  ),
-  explicit_events AS (
+  WITH explicit_events AS (
     SELECT p.topic_id,5::numeric AS weight,p.completed_at AS happened_at FROM public.progress p
       WHERE p.user_id=p_user_id AND p.completed_at>=greatest(v_now-interval '180 days',v_consent_at)
     UNION ALL
@@ -6746,18 +6701,6 @@ BEGIN
       JOIN public.comments parent ON parent.id=reply.parent_id
       WHERE reply.user_id=p_user_id AND reply.is_deleted=false AND parent.is_deleted=false
         AND reply.created_at>=greatest(v_now-interval '180 days',v_consent_at)
-    UNION ALL
-    SELECT c.topic_id,
-      CASE e.event_type
-        WHEN 'viewable_impression' THEN 0.25
-        WHEN 'active_duration' THEN least(e.duration_ms,60000)::numeric/60000*0.20
-        WHEN 'open' THEN 0.75 ELSE 0 END,
-      e.received_at
-    FROM catho_private.feed_card_analytics_events e
-      JOIN public.comments c ON c.id::text=e.card_id
-    WHERE e.user_id=p_user_id AND e.card_type='top-comment'
-      AND e.event_type IN ('viewable_impression','active_duration','open')
-      AND e.received_at>=greatest(v_now-interval '90 days',v_consent_at) AND e.received_at<v_now
   ),
   explicit_scores AS (
     SELECT topic_id,
@@ -6771,19 +6714,17 @@ BEGIN
   ),
   combined AS (
     SELECT t.id AS topic_id,t.category_slug,
-      least(8::numeric,greatest(0::numeric,coalesce(es.short_score,0)+coalesce(ex.short_score,0))) AS short_score,
-      least(8::numeric,greatest(0::numeric,coalesce(es.long_score,0)+coalesce(ex.long_score,0))) AS long_score,
+      least(8::numeric,greatest(0::numeric,coalesce(ex.short_score,0))) AS short_score,
+      least(8::numeric,greatest(0::numeric,coalesce(ex.long_score,0))) AS long_score,
       least(8::numeric,greatest(0::numeric,coalesce(ex.explicit_score,0))) AS explicit_score,
-      least(8::numeric,greatest(0::numeric,coalesce(es.inferred_score,0))) AS inferred_score,
-      CASE WHEN coalesce(ss.skip_sessions,0)>=2 THEN least(4::numeric,ss.negative_score) ELSE 0::numeric END AS negative_score,
-      coalesce(es.evidence_count,0)+coalesce(ex.evidence_count,0)+coalesce(ss.skip_sessions,0) AS evidence_count
+      0::numeric AS inferred_score,
+      0::numeric AS negative_score,
+      coalesce(ex.evidence_count,0) AS evidence_count
     FROM public.topics t
     JOIN public.categories c ON c.slug=t.category_slug AND c.is_published=true
-    LEFT JOIN event_scores es ON es.topic_id=t.id
     LEFT JOIN explicit_scores ex ON ex.topic_id=t.id
-    LEFT JOIN skip_scores ss ON ss.topic_id=t.id
     WHERE t.is_published=true
-      AND (es.topic_id IS NOT NULL OR ex.topic_id IS NOT NULL OR ss.topic_id IS NOT NULL)
+      AND ex.topic_id IS NOT NULL
   ),
   upserted AS (
     INSERT INTO catho_private.user_topic_interest_scores
@@ -6792,7 +6733,7 @@ BEGIN
     SELECT p_user_id,topic_id,category_slug,
       greatest(-4::numeric,least(8::numeric,(short_score*0.35)+(long_score*0.65)-negative_score)),
       least(12::numeric,short_score*0.35+long_score*0.65),negative_score,evidence_count,
-      short_score,long_score,explicit_score,inferred_score,'2026-11-19-v2',v_now
+      short_score,long_score,explicit_score,inferred_score,'2026-11-20-v3-explicit-only',v_now
     FROM combined
     ON CONFLICT (user_id,topic_id) DO UPDATE SET
       category_slug=EXCLUDED.category_slug,score=EXCLUDED.score,
