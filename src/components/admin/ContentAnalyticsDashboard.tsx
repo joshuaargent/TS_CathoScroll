@@ -273,14 +273,14 @@ export function ContentAnalyticsDashboard({
     {
       label: 'Signed-in impressions',
       value: hasTelemetry ? formatNumber(events.impressions) : '—',
-      signedOutValue: formatNumber(anonymous.topic_impressions),
+      signedOutValue: anonymous.topic_impressions > 0 ? formatNumber(anonymous.topic_impressions) : undefined,
       detail: 'Topic feed cards displayed',
       icon: BarChart3,
     },
     {
       label: 'Signed-in viewable impressions',
       value: hasTelemetry ? formatNumber(events.viewable_impressions) : '—',
-      signedOutValue: formatNumber(anonymous.topic_viewable_impressions),
+      signedOutValue: anonymous.topic_viewable_impressions > 0 ? formatNumber(anonymous.topic_viewable_impressions) : undefined,
       detail: 'At least 50% visible for one second',
       icon: Users,
     },
