@@ -31,7 +31,7 @@ test('optional analytics consent is explicit, purpose-specific and off by defaul
   assert.ok(manager.includes('Optional analytics improve CathoScroll and measure sponsor performance.'));
   assert.ok(manager.includes('Personalisation uses reading signals and enables Service improvement analytics.'));
   assert.ok(manager.includes('Signed-out topic/comment aggregates and sponsor campaign/day served totals continue by default'));
-  assert.ok(manager.includes('Manage choices includes an objection to topic/comment aggregates'));
+  assert.ok(manager.includes('Manage choices lets you object to topic/comment aggregates'));
   assert.ok(manager.includes('Turn off anonymous aggregate measurement'));
   assert.ok(manager.includes('max-h-[min(75vh,420px)] max-w-md p-4 sm:p-5'));
 
