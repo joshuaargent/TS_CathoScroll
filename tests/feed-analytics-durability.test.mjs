@@ -16,7 +16,7 @@ async function importTypeScript(relativePath, instance = '') {
   return import('data:text/javascript;base64,' + encoded + (instance ? '#' + instance : ''));
 }
 
-const [analytics, sponsor, sponsorAnalytics, topicFeed, cardRegistry, readme, sponsorClient, sync, layout, nativeMain, bootstrap, anonymousAnalytics, sponsorSync, cardAnalytics] = await Promise.all([
+const [analytics, sponsor, sponsorAnalytics, topicFeed, cardRegistry, readme, sponsorClient, sync, layout, nativeMain, bootstrap, anonymousAnalytics, sponsorSync, cardAnalytics, anonymousOutbox] = await Promise.all([
   readFile(new URL('../src/lib/feed-analytics-client.ts', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/SponsorFeedCard.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/lib/sponsor-analytics-client.ts', import.meta.url), 'utf8'),
@@ -31,15 +31,25 @@ const [analytics, sponsor, sponsorAnalytics, topicFeed, cardRegistry, readme, sp
   readFile(new URL('../src/lib/anonymous-feed-analytics-client.ts', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/providers/SponsorAnalyticsSync.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/lib/feed-card-analytics-client.ts', import.meta.url), 'utf8'),
+  readFile(new URL('../src/lib/offline/anonymous-analytics-store.ts', import.meta.url), 'utf8'),
 ]);
 
 
-test('first-party analytics retries stay in memory and never use terminal storage', () => {
-  assert.ok(anonymousAnalytics.includes('const pendingEvents: AnonymousEvent[] = [];'));
-  assert.ok(anonymousAnalytics.includes('pendingEvents.slice(0, 40)'));
+test('signed-out topic/comment analytics uses a durable native outbox and a bounded web memory queue', () => {
+  assert.ok(anonymousAnalytics.includes('const pendingEvents: AnonymousFeedAnalyticsEvent[] = [];'));
+  assert.ok(anonymousAnalytics.includes('configureAnonymousFeedAnalyticsOutbox'));
+  assert.ok(anonymousAnalytics.includes('persistentOutbox.pending(40)'));
+  assert.ok(anonymousAnalytics.includes('setAnonymousFeedAnalyticsEnabled'));
+  assert.ok(anonymousAnalytics.includes('anonymousAnalyticsPreferenceKey'));
   assert.ok(anonymousAnalytics.includes("window.addEventListener('online'"));
   assert.ok(anonymousAnalytics.includes("window.addEventListener('pageshow'"));
-  assert.doesNotMatch(anonymousAnalytics, /localStorage|sessionStorage|indexedDB/);
+  assert.doesNotMatch(anonymousAnalytics, /sessionStorage|indexedDB/);
+  assert.ok(anonymousOutbox.includes('offline_anonymous_analytics_outbox'));
+  assert.ok(anonymousOutbox.includes('maximumEvents = 2000'));
+  assert.ok(anonymousOutbox.includes('maximumAgeMs = 7 * 24 * 60 * 60 * 1000'));
+  assert.ok(anonymousOutbox.includes('INSERT OR IGNORE'));
+  assert.ok(anonymousOutbox.includes('async clear()'));
+  assert.doesNotMatch(anonymousOutbox, /user_id|session_id|visitor_id|account_id/i);
   assert.ok(analytics.includes('const pendingQueues = new Map'));
   assert.ok(cardAnalytics.includes('const pendingQueues = new Map'));
   assert.ok(sponsorAnalytics.includes('const pendingQueues = new Map'));
