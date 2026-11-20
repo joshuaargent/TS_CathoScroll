@@ -391,7 +391,9 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
     next: Pick<AnalyticsConsent, 'serviceImprovement' | 'sponsorMeasurement'>
   ) => {
     if (saving) return;
-    if (!next.serviceImprovement && (!effectivePersonalizationStatusKnown || effectivePersonalizationEnabled)) {
+    const previous = readAnalyticsConsent(userId);
+    const isServiceImprovementWithdrawal = previous?.serviceImprovement === true && !next.serviceImprovement;
+    if (isServiceImprovementWithdrawal && (!effectivePersonalizationStatusKnown || effectivePersonalizationEnabled)) {
       setError(effectivePersonalizationEnabled
         ? 'Turn off personalisation before disabling Service improvement analytics.'
         : 'Checking your personalisation settings. Try again in a moment.');
@@ -403,7 +405,6 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
     setSaving(true);
     setError('');
     try {
-      const previous = readAnalyticsConsent(userId);
       // Apply every withdrawal immediately and keep every newly granted purpose
       // disabled until its pre-consent queue has been cleared.
       const interim = {
