@@ -289,7 +289,7 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
         <div className="border-border mt-6 border-t pt-5">
           <h3 className="font-semibold">Categories I want to explore</h3>
           <p className="text-text-muted mt-1 text-sm">
-            These are interests you explicitly choose. They receive a stronger recommendation signal than inferred reading behaviour.
+            These categories are your direct preferences. They are combined with your explicit account actions; operational analytics are not used for personalisation.
           </p>
           <div className="mt-4 grid gap-2 sm:grid-cols-2">
             {status.category_options.map((category) => (
