@@ -62,12 +62,12 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
 
     let branch: HTMLElement | null = dialog;
     while (branch?.parentElement) {
-      const parent = branch.parentElement;
-      for (const child of Array.from(parent.children)) {
+      const parentElement: HTMLElement = branch.parentElement;
+      for (const child of Array.from(parentElement.children)) {
         if (child !== branch && child instanceof HTMLElement) setInert(child);
       }
-      if (parent === document.body) break;
-      branch = parent;
+      if (parentElement === document.body) break;
+      branch = parentElement;
     }
 
     const previousOverflow = document.body.style.overflow;
