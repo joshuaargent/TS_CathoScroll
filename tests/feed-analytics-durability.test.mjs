@@ -201,7 +201,7 @@ test('sponsor events remain retryable after a failed send within the active proc
   const originalDocument = Object.getOwnPropertyDescriptor(globalThis, 'document');
   const originalFetch = globalThis.fetch;
   const requests = [];
-  Object.defineProperty(globalThis, 'window', { configurable: true, value: { addEventListener() {}, removeEventListener() {} } });
+  Object.defineProperty(globalThis, 'window', { configurable: true, value: createTestWindow() });
   Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { onLine: false } });
   Object.defineProperty(globalThis, 'document', { configurable: true, value: { visibilityState: 'visible', addEventListener() {}, removeEventListener() {} } });
   globalThis.fetch = async (_url, init) => {
