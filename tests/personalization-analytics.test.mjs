@@ -103,18 +103,27 @@ test('recommendation profile signals are gated by consent', () => {
   assert.match(body, /user_explicit_category_interests/);
 });
 
-test('profile scoring separates short and long horizons and suppresses one-session skips', () => {
+test('recommendation profiles use explicit account actions and never read operational analytics', () => {
   const body = functionBody('catho_private.refresh_user_interest_profile');
+  assert.doesNotMatch(body, /feed_analytics_events|feed_card_analytics_events|viewable_impression|active_duration|swipe_depth|return_visit|skip_sessions/);
+  assert.match(body, /FROM public\.progress/);
+  assert.match(body, /FROM public\.bookmarks/);
+  assert.match(body, /FROM public\.topic_likes/);
+  assert.match(body, /FROM public\.comments/);
+  assert.match(body, /FROM public\.comment_likes/);
   assert.match(body, /interval '14 days'/);
-  assert.match(body, /interval '90 days'/);
   assert.match(body, /interval '180 days'/);
-  assert.match(body, /coalesce\(ss\.skip_sessions,0\)>=2/);
-  assert.match(body, /explicit_score/);
-  assert.match(body, /inferred_score/);
+  assert.match(body, /7776000/);
+  assert.match(body, /0::numeric AS inferred_score/);
+  assert.match(body, /0::numeric AS negative_score/);
   assert.match(body, /v_consent_at/);
-  assert.match(body, /greatest\(v_now-interval '90 days',v_consent_at\)/);
+  assert.match(body, /explicit-only/);
   assert.match(body, /s\.updated_at < v_now/);
   assert.match(body, /v_last_refresh >= v_now-interval '5 minutes'/);
+  const upgradeStart = upgrade.lastIndexOf('CREATE OR REPLACE FUNCTION catho_private.refresh_user_interest_profile');
+  const upgradeEnd = upgrade.indexOf('$function$;', upgradeStart);
+  assert.ok(upgradeStart >= 0 && upgradeEnd > upgradeStart);
+  assert.doesNotMatch(upgrade.slice(upgradeStart, upgradeEnd), /feed_analytics_events|feed_card_analytics_events/);
 });
 
 test('admin deep dive returns aggregate reports and correctly censors immature cohorts', () => {
