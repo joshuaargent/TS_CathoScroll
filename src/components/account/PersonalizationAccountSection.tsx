@@ -5,6 +5,8 @@ import { ShieldCheck, Sparkles } from 'lucide-react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { Button } from '@/components/ui/Button';
+import { AnalyticsConsentSettingsButton } from '@/components/privacy/AnalyticsConsentManager';
+import { requestAnalyticsConsentSync } from '@/lib/analytics-consent';
 
 type PersonalizationStatus = {
   enabled: boolean;
@@ -173,6 +175,7 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
         throw new Error('Personalisation settings were not confirmed.');
       }
       await syncNativeConsent(authData.user.id, enabled, false);
+      requestAnalyticsConsentSync();
 
       const refreshed = await load();
       setMessage(refreshed
@@ -259,10 +262,10 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
 
         <div className="border-border bg-bg-secondary/30 mt-6 rounded-xl border p-4">
           <p className="font-semibold text-sm leading-relaxed">
-            I explicitly consent to CathoScroll using my topic-reading activity and selected interests, which may reveal religious or philosophical beliefs, to personalise my recommendations.
+            I explicitly consent to CathoScroll using my topic-reading activity, reading analytics and selected interests, which may reveal religious or philosophical beliefs, to personalise my recommendations. This also enables Service improvement analytics while personalisation is on.
           </p>
           <p className="text-text-muted mt-2 text-sm leading-relaxed">
-            Because Catholic and religious topics may reveal religious or philosophical beliefs, this profile is treated as sensitive. It is private and never used for sponsor targeting. You can withdraw consent at any time.
+            Reading signals include views, reading duration, swipe depth, skips, completions and return visits. They are used to improve your recommendations and the service, not for sponsor targeting. Service improvement analytics cannot be disabled while personalisation is on; turn off personalisation first. Sponsor measurement is a separate choice.
           </p>
           <div className="mt-4 flex flex-wrap gap-3">
             <Button
@@ -283,6 +286,14 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
               {saving && status.enabled ? 'Saving…' : 'Turn off and delete profile'}
             </Button>
           </div>
+        </div>
+
+        <div className="border-border mt-6 border-t pt-5">
+          <h3 className="font-semibold">Analytics choices</h3>
+          <p className="text-text-muted mt-1 text-sm leading-relaxed">
+            Service improvement analytics is automatically enabled while personalisation is enabled and cannot be switched off independently. Turn off personalisation first, then manage service improvement analytics and Sponsor measurement separately.
+          </p>
+          <div className="mt-3"><AnalyticsConsentSettingsButton /></div>
         </div>
 
         <div className="border-border mt-6 border-t pt-5">
@@ -363,7 +374,7 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
         <div className="border-border mt-6 flex items-start gap-3 border-t pt-5">
           <ShieldCheck className="text-text-muted mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
           <p className="text-text-muted text-sm leading-relaxed">
-            Your profile is private and is not shown on your public profile or used for sponsor targeting. Turning this off deletes the profile and stops recommendation weighting; operational analytics follow a separate retention policy.
+            Your profile is private and is not shown on your public profile or used for sponsor targeting. Turning personalisation off deletes the derived profile and stops recommendation weighting. Service improvement analytics remains a separate setting after personalisation is disabled; Sponsor measurement is always separate.
           </p>
         </div>
 
