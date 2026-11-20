@@ -109,11 +109,9 @@ function DailyOverviewChart({ series }: { series: AnalyticsDay[] }) {
   </Card>;
 }
 
-export function AdminAnalyticsHub({ overview, period, section = 'overview', series, deepDive, comparison }: { overview: Overview; period: AnalyticsPeriod; section?: string; series: AnalyticsDay[]; deepDive: AnalyticsDeepDiveData; comparison: Overview }) {
+export function AdminAnalyticsHub({ overview, period, section = 'overview', series, deepDive, comparison }: { overview: Overview; period: AnalyticsPeriod; section?: string; series: AnalyticsDay[]; deepDive: AnalyticsDeepDiveData }) {
   const t = overview.totals;
   const totalExposures = t.topic_impressions + t.sponsor_served + t.comment_card_impressions + t.anonymous_topic_impressions + t.anonymous_sponsor_served + t.anonymous_comment_card_impressions;
-  const previous = comparison.totals;
-  const change = (current: number, prior: number) => prior > 0 ? ((current - prior) / prior * 100).toFixed(1) + '%' : current > 0 ? 'New' : '0.0%';
   const sectionHref = (value: string) => `/admin/analytics?period=${period}&section=${value}`;
   const showAll = section === 'overview';
   const categories = showAll ? overview.categories.slice(0, 5) : overview.categories;
@@ -154,12 +152,6 @@ export function AdminAnalyticsHub({ overview, period, section = 'overview', seri
       })}
     </nav>
 
-    <section className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-      <Metric label="Topic impressions vs previous" value={change(t.topic_impressions + t.anonymous_topic_impressions, previous.topic_impressions + previous.anonymous_topic_impressions)} detail={number(t.topic_impressions + t.anonymous_topic_impressions) + ' current · ' + number(previous.topic_impressions + previous.anonymous_topic_impressions) + ' previous'} icon={Activity} />
-      <Metric label="Sponsor delivery vs previous" value={change(t.sponsor_served + t.anonymous_sponsor_served, previous.sponsor_served + previous.anonymous_sponsor_served)} detail={number(t.sponsor_served + t.anonymous_sponsor_served) + ' current · ' + number(previous.sponsor_served + previous.anonymous_sponsor_served) + ' previous'} icon={Megaphone} />
-      <Metric label="Comment exposure vs previous" value={change(t.comment_card_impressions + t.anonymous_comment_card_impressions, previous.comment_card_impressions + previous.anonymous_comment_card_impressions)} detail={number(t.comment_card_impressions + t.anonymous_comment_card_impressions) + ' current · ' + number(previous.comment_card_impressions + previous.anonymous_comment_card_impressions) + ' previous'} icon={MessageCircle} />
-      <Metric label="Total placements vs previous" value={change(totalExposures, previous.topic_impressions + previous.sponsor_served + previous.comment_card_impressions + previous.anonymous_topic_impressions + previous.anonymous_sponsor_served + previous.anonymous_comment_card_impressions)} detail="Same-length immediately preceding period" icon={Activity} />
-    </section>
     <section className="mt-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       <Metric label="Total feed placements" value={number(totalExposures)} detail="Signed-in and anonymous placements; stream metrics remain separate below" icon={Activity} />
       <Metric label="Topic impressions" value={number(t.topic_impressions)} signedOutValue={t.anonymous_topic_impressions > 0 ? number(t.anonymous_topic_impressions) : undefined} detail={number(t.topic_viewable_impressions) + ' viewable · ' + duration(t.topic_active_duration_ms) + ' active time'} icon={BookOpen} />
@@ -170,12 +162,6 @@ export function AdminAnalyticsHub({ overview, period, section = 'overview', seri
       <Metric label="Anonymous topic activity" value={number(t.anonymous_topic_impressions)} detail={number(t.anonymous_topic_viewable_impressions) + ' viewable · ' + duration(t.anonymous_topic_active_duration_ms) + ' active time'} icon={BookOpen} />
       <Metric label="Anonymous sponsor delivery" value={number(t.anonymous_sponsor_served)} detail={number(t.anonymous_sponsor_viewable_impressions) + ' measured viewable · ' + number(t.anonymous_sponsor_clicks) + ' clicks; opted-out deliveries excluded'} icon={Megaphone} />
       <Metric label="Anonymous Top Comments" value={number(t.anonymous_comment_card_impressions)} detail={number(t.anonymous_comment_card_viewable_impressions) + ' viewable · ' + number(t.anonymous_comment_card_opens) + ' discussion opens'} icon={MessageCircle} />
-    </section>
-    <section className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-      <Metric label="Categories" value={number(t.category_count)} detail="All categories in the library" icon={BarChart3} />
-      <Metric label="Topics" value={number(t.topic_count)} detail={number(t.topic_completions) + ' recorded completions in range'} icon={BookOpen} />
-      <Metric label="Sponsors" value={number(t.sponsor_count)} detail="Sponsor organisations" icon={Users} />
-      <Metric label="Comments" value={number(t.comment_count)} detail={number(t.comment_likes) + ' comment likes · ' + number(t.replies) + ' replies · ' + number(t.comment_card_skips) + ' card skips'} icon={Heart} />
     </section>
 
     <section className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
