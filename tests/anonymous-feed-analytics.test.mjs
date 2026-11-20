@@ -77,6 +77,7 @@ test('anonymous sponsor selection and event recording are separate from account-
   assert.match(eventRoute, /record_anonymous_sponsor_campaign_event/);
   assert.match(eventRoute, /p_placement_id: parsed\.value\.placementKey/);
   assert.match(eventRoute, /placementKey/);
+  assert.match(card, /recordAnonymousSponsorCampaignEvent/);
   assert.match(eventRoute, /isSameOriginOrNativeRequest\(request, true\)/);
   assert.match(card, /userId: string \| null/);
   assert.match(sql, /CREATE TABLE catho_private\.anonymous_sponsor_session_frequency/);
