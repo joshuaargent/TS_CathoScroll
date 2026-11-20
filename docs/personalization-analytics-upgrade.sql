@@ -668,6 +668,83 @@ $function$;
 ALTER FUNCTION catho_private.prune_feed_card_analytics_events(timestamptz,integer) OWNER TO postgres;
 
 -- Recommendation RPC: all account-history weighting is consent-gated.
+CREATE OR REPLACE FUNCTION catho_private.get_user_recommendation_category_weights(p_user_id uuid)
+ RETURNS TABLE(category_slug text, weight numeric)
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+  v_current_user_id uuid := auth.uid();
+  v_consent_at timestamptz;
+BEGIN
+  IF v_current_user_id IS NULL OR v_current_user_id IS DISTINCT FROM p_user_id THEN
+    RAISE EXCEPTION 'Cannot read another account recommendation category weights' USING ERRCODE = '42501';
+  END IF;
+
+  SELECT c.granted_at INTO v_consent_at
+  FROM catho_private.user_personalization_consents c
+  WHERE c.user_id = p_user_id AND c.enabled = true;
+
+  IF v_consent_at IS NULL THEN
+    RETURN;
+  END IF;
+
+  RETURN QUERY
+  WITH signals AS (
+    SELECT p.topic_id, 5::numeric AS weight
+    FROM public.progress p
+    WHERE p.user_id = p_user_id
+      AND p.completed_at >= v_consent_at
+
+    UNION ALL
+
+    SELECT b.topic_id, 4::numeric
+    FROM public.bookmarks b
+    WHERE b.user_id = p_user_id
+      AND b.created_at >= v_consent_at
+
+    UNION ALL
+
+    SELECT l.topic_id, 3::numeric
+    FROM public.topic_likes l
+    WHERE l.user_id = p_user_id
+      AND l.created_at >= v_consent_at
+
+    UNION ALL
+
+    SELECT DISTINCT c.topic_id, 3::numeric
+    FROM public.comments c
+    WHERE c.user_id = p_user_id
+      AND c.is_deleted = false
+      AND c.created_at >= v_consent_at
+  ),
+  legacy_preferences AS (
+    SELECT t.category_slug, sum(s.weight) AS weight
+    FROM signals s
+    JOIN public.topics t ON t.id = s.topic_id AND t.is_published
+    JOIN public.categories c ON c.slug = t.category_slug AND c.is_published
+    GROUP BY t.category_slug
+  ),
+  feed_preferences AS (
+    SELECT feed_signals.category_slug, sum(feed_signals.weight) AS weight
+    FROM catho_private.get_user_feed_preference_signals(p_user_id) AS feed_signals
+    GROUP BY feed_signals.category_slug
+  ),
+  preferences AS (
+    SELECT category_slug, weight FROM legacy_preferences
+    UNION ALL
+    SELECT category_slug, weight FROM feed_preferences
+  )
+  SELECT p.category_slug, sum(p.weight)::numeric
+  FROM preferences p
+  GROUP BY p.category_slug;
+END;
+$function$;
+
+ALTER FUNCTION catho_private.get_user_recommendation_category_weights(uuid) OWNER TO postgres;
+REVOKE ALL ON FUNCTION catho_private.get_user_recommendation_category_weights(uuid) FROM PUBLIC, anon, authenticated, service_role;
+
 CREATE OR REPLACE FUNCTION public.get_my_recommendation_page(feed_cursor jsonb DEFAULT NULL::jsonb, page_limit integer DEFAULT 50)
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -684,6 +761,7 @@ DECLARE
   streak integer;
   include_completed boolean;
   personalization_enabled boolean := false;
+  personalization_model_version constant text := 'explicit-actions-v3';
   initial_page boolean := feed_cursor IS NULL OR feed_cursor = 'null'::jsonb;
   item_count integer := 0;
 BEGIN
@@ -706,74 +784,23 @@ BEGIN
   IF initial_page THEN
     include_completed := NOT personalization_enabled;
     IF personalization_enabled THEN
-      -- Read account history only inside this consented branch.
-      WITH signals AS (
-       SELECT p.topic_id, 5::numeric AS weight
-       FROM public.progress p
-       WHERE p.user_id = current_user_id
-         AND p.completed_at >= (SELECT granted_at FROM catho_private.user_personalization_consents WHERE user_id=current_user_id AND enabled=true)
-
-       UNION ALL
-
-       SELECT b.topic_id, 4::numeric
-       FROM public.bookmarks b
-       WHERE b.user_id = current_user_id
-         AND b.created_at >= (SELECT granted_at FROM catho_private.user_personalization_consents WHERE user_id=current_user_id AND enabled=true)
-
-       UNION ALL
-
-       SELECT l.topic_id, 3::numeric
-       FROM public.topic_likes l
-       WHERE l.user_id = current_user_id
-         AND l.created_at >= (SELECT granted_at FROM catho_private.user_personalization_consents WHERE user_id=current_user_id AND enabled=true)
-
-       UNION ALL
-
-       SELECT DISTINCT c.topic_id, 3::numeric
-       FROM public.comments c
-       WHERE c.user_id = current_user_id
-         AND c.is_deleted = false
-         AND c.created_at >= (SELECT granted_at FROM catho_private.user_personalization_consents WHERE user_id=current_user_id AND enabled=true)
-     ),
-     legacy_preferences AS (
-      SELECT t.category_slug, sum(s.weight) AS weight
-      FROM signals s
-      JOIN public.topics t
-        ON t.id = s.topic_id AND t.is_published
-      JOIN public.categories c
-        ON c.slug = t.category_slug AND c.is_published
-      GROUP BY t.category_slug
-    ),
-    feed_preferences AS (
-      SELECT feed_signals.category_slug, sum(feed_signals.weight) AS weight
-      FROM catho_private.get_user_feed_preference_signals(current_user_id) AS feed_signals
-      GROUP BY feed_signals.category_slug
-    ),
-    preferences AS (
-      SELECT category_slug, weight FROM legacy_preferences
-      UNION ALL
-      SELECT category_slug, weight FROM feed_preferences
-    )
-    SELECT coalesce(
-      jsonb_agg(
-        jsonb_build_object(
-          'slug', c.slug,
-          'weight', round(1 + sqrt(greatest(coalesce(p.weight, 0), 0)::numeric), 6),
-          'served', 0,
-          'order', NULL,
-          'id', NULL
-        ) ORDER BY c.slug
-      ),
-      '[]'::jsonb
-    )
-    INTO categories
-    FROM public.categories c
-    LEFT JOIN (
-      SELECT category_slug, sum(weight) AS weight
-      FROM preferences
-      GROUP BY category_slug
-    ) p ON p.category_slug = c.slug
-    WHERE c.is_published;
+      SELECT coalesce(
+        jsonb_agg(
+          jsonb_build_object(
+            'slug', c.slug,
+            'weight', round(1 + sqrt(greatest(coalesce(p.weight, 0), 0)::numeric), 6),
+            'served', 0,
+            'order', NULL,
+            'id', NULL
+          ) ORDER BY c.slug
+        ),
+        '[]'::jsonb
+      )
+      INTO categories
+      FROM public.categories c
+      LEFT JOIN catho_private.get_user_recommendation_category_weights(current_user_id) p
+        ON p.category_slug = c.slug
+      WHERE c.is_published;
     ELSE
       SELECT coalesce(
         jsonb_agg(
@@ -797,7 +824,8 @@ BEGIN
       'categories', categories,
       'last', NULL,
       'streak', 0,
-      'includeCompleted', include_completed
+      'includeCompleted', include_completed,
+      'personalizationModelVersion', CASE WHEN personalization_enabled THEN personalization_model_version ELSE NULL END
     );
   ELSE
     state := feed_cursor;
@@ -812,6 +840,14 @@ BEGIN
      OR jsonb_typeof(state->'streak') IS DISTINCT FROM 'number'
      OR coalesce(state->>'streak', '') !~ '^[0-2]$'
      OR jsonb_typeof(state->'includeCompleted') IS DISTINCT FROM 'boolean'
+     OR (
+       state ? 'personalizationModelVersion'
+       AND state->'personalizationModelVersion' <> 'null'::jsonb
+       AND (
+         jsonb_typeof(state->'personalizationModelVersion') IS DISTINCT FROM 'string'
+         OR length(state->>'personalizationModelVersion') > 50
+       )
+     )
      OR (
        state->'last' <> 'null'::jsonb AND (
          jsonb_typeof(state->'last') IS DISTINCT FROM 'string'
@@ -865,11 +901,50 @@ BEGIN
   streak := (state->>'streak')::integer;
   include_completed := (state->>'includeCompleted')::boolean;
 
-  IF NOT personalization_enabled THEN
+  IF personalization_enabled
+     AND state->>'personalizationModelVersion' IS DISTINCT FROM personalization_model_version THEN
+    -- Rebuild weights from explicit account actions, preserving the active cursor's
+    -- per-category served counts and keyset positions.
+    SELECT coalesce(
+      jsonb_agg(
+        jsonb_build_object(
+          'slug', c.slug,
+          'weight', round(1 + sqrt(greatest(coalesce(p.weight, 0), 0)::numeric), 6),
+          'served', coalesce((existing.entry->>'served')::integer, 0),
+          'order', coalesce(existing.entry->'order', 'null'::jsonb),
+          'id', coalesce(existing.entry->'id', 'null'::jsonb)
+        ) ORDER BY c.slug
+      ),
+      '[]'::jsonb
+    )
+    INTO categories
+    FROM public.categories c
+    LEFT JOIN catho_private.get_user_recommendation_category_weights(current_user_id) p
+      ON p.category_slug = c.slug
+    LEFT JOIN LATERAL (
+      SELECT a.entry
+      FROM jsonb_array_elements(state->'categories') a(entry)
+      WHERE a.entry->>'slug' = c.slug
+      LIMIT 1
+    ) existing ON true
+    WHERE c.is_published;
+
+    state := state || jsonb_build_object(
+      'categories', categories,
+      'personalizationModelVersion', personalization_model_version
+    );
+  ELSIF NOT personalization_enabled THEN
     SELECT coalesce(jsonb_agg(a.entry || jsonb_build_object('weight',1) ORDER BY a.ordinality),'[]'::jsonb)
       INTO categories
     FROM jsonb_array_elements(categories) WITH ORDINALITY AS a(entry,ordinality);
     include_completed := true;
+    state := state || jsonb_build_object(
+      'categories', categories,
+      'includeCompleted', true,
+      'personalizationModelVersion', NULL
+    );
+  ELSE
+    state := state || jsonb_build_object('personalizationModelVersion', personalization_model_version);
   END IF;
 
   -- Select the category with the smallest served / weight.
@@ -964,7 +1039,8 @@ BEGIN
         'categories', categories,
         'last', last_category,
         'streak', streak,
-        'includeCompleted', include_completed
+        'includeCompleted', include_completed,
+        'personalizationModelVersion', CASE WHEN personalization_enabled THEN personalization_model_version ELSE NULL END
       )
       ELSE NULL END
   );
