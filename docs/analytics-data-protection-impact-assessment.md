@@ -183,10 +183,11 @@ Do not disable login, account synchronisation, bookmarks, likes, progress, notes
 
 ## Consent and withdrawal controls in the proposed release
 
-The separate global consent implementation is being developed in draft PR #25 and is not yet deployed to production:
+The separate global consent implementation is in consolidated PR #25. Its three database migrations are applied to production; the matching app code is not deployed until merge/release:
 
 - Service improvement analytics and Sponsor measurement are separate, optional purposes. Both are off by default. The first screen offers Accept all, Decline optional and Manage choices; detailed purpose descriptions and independent checkboxes are available under Manage choices.
 - The service-improvement choice explicitly explains that signed-in topic/comment engagement is account-linked and may reveal religious or philosophical beliefs. The controller must confirm the Article 6 basis and, where the actual processing reveals special-category beliefs, rely on a valid Article 9 condition. The explicit-consent wording is a control proposal, not a substitute for controller/legal approval.
+- Sponsor measurement is separately explicit. Anonymous event attribution includes the topic placement where the sponsor appeared, which may reveal religious/philosophical interests. Where that context meets the Article 9 revealing test, the controller must approve explicit consent under Article 9(2)(a) alongside Article 6(1)(a), or remove topic-level attribution before enabling the measurement.
 - Signed-in choices are stored in a private account consent table with a change-history record. Server ingestion RPCs and API routes fail closed unless the relevant purpose is enabled. Signed-out choices are kept separately on the device and do not create a visitor or account identifier.
 - Withdrawal takes effect locally immediately, clears the matching pending web/native event queues, prevents future flushes and synchronises signed-in changes when connectivity returns. The service-improvement choice does not control recommendation personalisation.
 - Vercel Web Analytics and Speed Insights are rendered only when the matching service-improvement choice is enabled.
