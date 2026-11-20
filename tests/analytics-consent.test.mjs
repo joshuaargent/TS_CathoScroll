@@ -152,7 +152,7 @@ test('withdrawal immediately blocks and clears the matching web and native analy
   assert.ok(sponsor.includes("!accessToken || consentRequest.signal.aborted || !hasAnalyticsConsent('sponsorMeasurement', userId)"));
   assert.ok(feed.includes("hasAnalyticsConsent('serviceImprovement', userId)"));
   assert.ok(comments.includes("hasAnalyticsConsent('serviceImprovement', userId)"));
-  assert.ok(anonymous.includes("localStorage.getItem(anonymousAnalyticsPreferenceKey) !== 'false'"));
+  assert.ok(anonymous.includes("localStorage.getItem(anonymousAnalyticsPreferenceKey) === 'false'"));
   assert.ok(manager.includes('Turn off anonymous aggregate measurement'));
 
   assert.ok(sponsor.includes("hasAnalyticsConsent('sponsorMeasurement', userId)"));
