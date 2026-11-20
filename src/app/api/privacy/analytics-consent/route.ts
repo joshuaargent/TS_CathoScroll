@@ -68,8 +68,11 @@ export async function POST(request: Request) {
     typeof parsed.value !== 'object' ||
     parsed.value === null ||
     Array.isArray(parsed.value) ||
+    !('serviceImprovement' in parsed.value) ||
     typeof parsed.value.serviceImprovement !== 'boolean' ||
+    !('sponsorMeasurement' in parsed.value) ||
     typeof parsed.value.sponsorMeasurement !== 'boolean' ||
+    !('version' in parsed.value) ||
     parsed.value.version !== 1
   ) return respond(request, { error: 'Invalid analytics consent preferences.' }, 400);
 
