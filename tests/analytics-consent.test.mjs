@@ -35,7 +35,7 @@ test('optional analytics consent is explicit, purpose-specific and off by defaul
 });
 
 test('account consent sync is identity-bound, retryable and enforced server-side', async () => {
-  const [manager, route, serverConsent, topicRoute, commentRoute, sponsorRoute, migration, lockOrderMigration] = await Promise.all([
+  const [manager, route, serverConsent, topicRoute, commentRoute, sponsorRoute, migration, lockOrderMigration, bootstrap] = await Promise.all([
     read('../src/components/privacy/AnalyticsConsentManager.tsx'),
     read('../src/app/api/privacy/analytics-consent/route.ts'),
     read('../src/lib/analytics-consent-server.ts'),
@@ -44,6 +44,7 @@ test('account consent sync is identity-bound, retryable and enforced server-side
     read('../src/app/api/content/sponsor-campaign-events/route.ts'),
     read('../supabase/migrations/20261120173544_analytics_consent_and_sponsor_opt_out.sql'),
     read('../supabase/migrations/20261120175931_fix_analytics_consent_lock_order_v2.sql'),
+    read('../docs/cathoscroll-database-bootstrap.sql'),
   ]);
 
   assert.ok(manager.includes("window.addEventListener('online', syncServerConsent)"));
