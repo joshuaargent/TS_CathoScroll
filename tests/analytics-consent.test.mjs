@@ -14,6 +14,8 @@ test('optional analytics consent is explicit, versioned and off by default', asy
   assert.ok(consent.includes('serviceImprovement: false'));
   assert.ok(consent.includes('sponsorMeasurement: false'));
   assert.ok(consent.includes('analyticsConsentVersion = 1'));
+  assert.ok(consent.includes('syncPending: options.syncPending ?? Boolean(userId)'));
+  assert.ok(consent.includes('deniedOverrides'));
   assert.ok(manager.includes('Accept all'));
   assert.ok(manager.includes('Decline optional'));
   assert.ok(manager.includes('Manage choices'));
@@ -37,6 +39,11 @@ test('signed-in consent is synchronized and enforced by authenticated ingestion 
   ]);
   assert.ok(manager.includes('analytics-consent'));
   assert.ok(manager.includes("window.addEventListener('online', syncServerConsent)"));
+  assert.ok(manager.includes('local.syncPending || !remote.exists'));
+  assert.ok(!manager.includes('Date.parse(remote.updatedAt)'));
+  assert.ok(manager.includes('X-Catho-Expected-User-Id'));
+  assert.ok(manager.includes('getAccessToken(expectedUserId)'));
+  assert.ok(route.includes("request.headers.get('X-Catho-Expected-User-Id')"));
   assert.ok(route.includes('set_user_analytics_consent'));
   assert.ok(serverConsent.includes('get_user_analytics_consent'));
   assert.ok(topicRoute.includes("getStoredAnalyticsConsent(user.id)"));
@@ -47,6 +54,8 @@ test('signed-in consent is synchronized and enforced by authenticated ingestion 
   assert.ok(sql.includes("consent.service_improvement = true"));
   assert.ok(sql.includes("consent.sponsor_measurement = true"));
   assert.ok(sql.includes('FOR SHARE'));
+  assert.ok(manager.includes('denyAnalyticsConsentInMemory'));
+  assert.ok(manager.includes('activeUserIdRef.current === expectedUserId'));
 });
 
 test('withdrawing consent clears the matching durable native analytics streams', async () => {
