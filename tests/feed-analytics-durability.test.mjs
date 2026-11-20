@@ -153,12 +153,13 @@ test('sponsor analytics queue stays in memory and flushes without a visible spon
   assert.ok(sponsorAnalytics.includes('queued.sessionId === event.sessionId'));
 });
 
-test('README distinguishes site-wide analytics ranking from explicit-action personalisation', () => {
-  assert.ok(readme.includes('site-wide, account-free engagement aggregates'));
-  assert.ok(readme.includes('adjusted only by their own explicit account actions and selected categories'));
-  assert.ok(readme.includes('Operational analytics are never used to personalise an individual\'s feed'));
-  assert.ok(readme.includes('Operational feed and Top Comments analytics'));
-  assert.doesNotMatch(readme, /recommendation RPC also reads the last 90 days of feed telemetry/);
+test('README distinguishes aggregate general ranking from consented personalisation signals', () => {
+  assert.ok(readme.includes('analytics-informed general ranking'));
+  assert.ok(readme.includes('adjusted by their own permitted activity signals'));
+  assert.ok(readme.includes('reading signals recorded after consent'));
+  assert.ok(readme.includes('Enabling personalisation also enables Service improvement analytics'));
+  assert.ok(readme.includes('Sponsor measurement remains independent'));
+  assert.doesNotMatch(readme, /Operational analytics are never used to personalise an individual/);
   assert.ok(readme.includes('Native apps use the same shared feed components and API endpoints as the website'));
   assert.ok(readme.includes('Anonymous sponsor viewable/click events use a bounded in-memory retry queue'));
 });
