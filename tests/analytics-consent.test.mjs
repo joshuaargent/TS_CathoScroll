@@ -29,6 +29,8 @@ test('optional analytics consent is explicit, purpose-specific and off by defaul
   assert.ok(manager.includes('Recommendation personalisation remains controlled separately'));
   assert.ok(layout.includes('<WebAnalyticsConsentManager />'));
   assert.ok(native.includes('<AnalyticsConsentManager'));
+  assert.ok(native.includes("loading={authStatus !== 'ready' || checkingAccount}"));
+  assert.ok(manager.includes('if (loading) return;'));
   assert.ok(cookies.includes('AnalyticsConsentSettingsButton'));
 });
 
