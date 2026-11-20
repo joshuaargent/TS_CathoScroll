@@ -56,7 +56,6 @@ export function createFeedCardPlacementRules({
       interval: sponsorInterval,
       priority: DEFAULT_FEED_CARD_RULES.sponsor.priority,
       createEntry: (topic) => {
-        if (!userId) return null;
         const result = sponsorResults.get(topic.id);
         // Confirmed empty inventory consumes cadence but creates no slot.
         if (result && (result.campaigns.length === 0 || !result.sessionId)) return null;
