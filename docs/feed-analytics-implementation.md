@@ -64,13 +64,17 @@ The dashboard uses the existing CathoScroll `Card`, `Badge` and `Button` compone
 
 ## Recommendation weighting
 
-The existing category round-robin recommendation RPC now incorporates private feed telemetry when it creates a new cursor. Existing progress, bookmarks, likes and comments remain strong preference signals. Telemetry is limited to the previous 90 days and uses a 30-day half-life.
+The `activity-signals-v4` recommendation profile is used only while both `user_personalization_consents.enabled=true` and `user_analytics_consents.service_improvement=true`. The profile refreshes at most every five minutes. When personalisation is off, Service improvement analytics may remain enabled for operational reporting, but recommendation queries do not read the account-history analytics or derived profile. Turning personalisation off deletes the derived topic profile and selected category interests.
 
-Per-topic telemetry contributions are bounded: viewable impressions +0.40 (maximum +1.20); active time +0.25 per minute (maximum +1.50); slide-depth events up to +0.50 each (maximum +1.50); completions +2.50 (maximum +3.00); return visits +0.75 (maximum +1.50). Early skips contribute -1.50 each (maximum -3.00), but only after skips occur in at least two distinct feed sessions for the same topic. The final per-topic score is clamped to -4 through +6.
+The profile combines eligible explicit account actions with passive feed and Top Comments signals recorded at or after the current personalisation grant:
 
-The private `catho_private.get_user_feed_preference_signals(uuid)` helper checks that the requested account matches `auth.uid()`, runs as postgres with an empty search path, and is executable only by authenticated users. It returns category-level scores only. Raw event table access remains denied. A partial `(user_id, received_at DESC)` index supports the bounded per-account lookup.
+- Feed reading signals use the previous 90 days: viewable impressions (+0.40), active reading duration (+0.25 per minute, capped at 60 seconds per event), swipe depth (up to +0.50 scaled to four slides), completions (+2.50) and return visits (+0.75).
+- Top Comments signals use the previous 90 days: viewable impressions (+0.25), active duration (+0.20 per minute, capped at 60 seconds) and opens (+0.75).
+- Explicit account actions use up to 180 days of post-grant evidence: completed progress (+5), bookmarks (+4), topic likes/comments/comment likes (+3) and replies (+2.5). Explicit category interests are added separately with category weight 8.
+- Short-term evidence uses a 14-day half-life and long-term evidence a 90-day half-life. The final positive score combines them at 35%/65%; each short- and long-term component is capped at 8.
+- Early skips contribute a decayed negative score of 1.5 per distinct feed session. The penalty is applied only after at least two distinct sessions for the same topic and is capped at 4.
 
-The recommendation RPC combines category telemetry scores with the existing explicit learning signals, applies `1 + sqrt(max(score, 0))`, and retains a minimum category weight of 1. Negative signals can temper an existing preference but do not remove baseline exploration. Scores are embedded in the feed cursor, so subsequent pages use the same preference snapshot and keep pagination deterministic. The existing weighted round-robin and category-streak protection are unchanged.
+The final per-topic score is clamped to -4 through +8. The private `catho_private.get_user_feed_preference_signals(uuid)` helper verifies that the requested account matches `auth.uid()`, checks both consent records, runs as postgres with an empty search path, and returns category-level scores only. The recommendation RPC applies `1 + sqrt(max(score, 0))), retains a baseline category weight of 1, and embeds the `activity-signals-v4` model version in the feed cursor. Existing weighted round-robin ordering and category-streak protection remain unchanged. Sponsor delivery and Sponsor measurement are never recommendation inputs.
 
 ## Database and security verification
 
