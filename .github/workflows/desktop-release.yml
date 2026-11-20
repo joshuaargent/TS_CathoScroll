@@ -234,7 +234,7 @@ jobs:
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
           CATHOSCROLL_VERSION: ${{ env.RELEASE_TAG }}
-          ANDROID_VERSION_CODE: ${{ github.run_number }}
+          ANDROID_VERSION_CODE: ${{ env.ANDROID_VERSION_CODE }}
         run: bash ./gradlew --no-daemon --stacktrace testReleaseUnitTest assembleRelease
 
       - name: Verify APK output and signing certificate
