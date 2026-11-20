@@ -247,8 +247,11 @@ test('web and native account/settings screens reuse the same components', () => 
   assert.match(accountSection, /requestAnalyticsConsentSync/);
   assert.match(accountSection, /readAnalyticsChoices/);
   assert.match(accountSection, /apiBaseUrl/);
-  assert.match(accountSection, /saveAnalyticsConsent\(interimChoices, accountUserId/);
-  assert.match(accountSection, /clearAnalyticsConsentQueues\(accountUserId, previousChoices, confirmedChoices\)/);
+  assert.match(accountSection, /persistAnalyticsChoices/);
+  assert.match(accountSection, /saveAnalyticsConsent\(interim, userId/);
+  assert.match(accountSection, /clearAnalyticsConsentQueues\(userId, previous, next\)/);
+  assert.match(accountSection, /navigator\.onLine/);
+  assert.match(accountSection, /syncPending/);
   assert.match(accountSection, /denyAnalyticsConsentInMemory/);
   assert.match(accountView, /apiBaseUrl\?: string/);
   assert.match(nativeAccount, /apiBaseUrl=\{siteConfig\.url\}/);
