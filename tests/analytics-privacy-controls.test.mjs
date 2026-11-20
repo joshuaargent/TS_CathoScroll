@@ -34,11 +34,18 @@ test('Vercel analytics preserves safe page routes and redacts sensitive content 
   const speed = await read('../src/components/providers/PrivacySafeSpeedInsights.tsx');
   assert.ok(layout.includes('<PrivacySafeAnalytics />'));
   assert.ok(layout.includes('<PrivacySafeSpeedInsights />'));
-  assert.ok(analytics.includes('beforeSend={redactAnalyticsEvent}'));
+  assert.ok(analytics.includes('beforeSend={beforeSend}'));
+  assert.ok(analytics.includes("hasAnalyticsConsent('serviceImprovement', user?.id ?? null)"));
+  assert.ok(analytics.includes('if (loading || !enabled) return null;'));
+  assert.ok(analytics.includes('return null;'));
+  assert.ok(analytics.includes('redactAnalyticsEvent(event)'));
   assert.ok(analytics.includes('url.search = \'\''));
   assert.ok(analytics.includes('url.hash = \'\''));
   assert.ok(analytics.includes('topic|topics'));
-  assert.ok(speed.includes('<SpeedInsights beforeSend={sanitiseSpeedInsightsEvent} />'));
+  assert.ok(speed.includes('<SpeedInsights beforeSend={beforeSend} />'));
+  assert.ok(speed.includes("hasAnalyticsConsent('serviceImprovement', user?.id ?? null)"));
+  assert.ok(speed.includes('if (loading || !enabled) return null;'));
+  assert.ok(speed.includes('sanitiseSpeedInsightsEvent(event)'));
   assert.ok(speed.includes('url.search = \'\''));
   assert.ok(speed.includes('topic|topics'));
   assert.ok(layout.includes('<meta name="referrer" content="strict-origin" />'));
@@ -50,6 +57,6 @@ test('analytics DPIA documents active signed-in analytics, signed-out aggregates
   assert.ok(assessment.includes('signed-out'));
   assert.ok(assessment.includes('Article 6'));
   assert.ok(assessment.includes('does not generate religious or philosophical belief labels, scores or classifications'));
-  assert.ok(!assessment.includes('Article 9'));
+  assert.ok(assessment.includes('Article 9'));
   assert.ok(assessment.includes('not a legal opinion'));
 });
