@@ -18,7 +18,6 @@ import {
   updateNativeProfile,
 } from './profile';
 import { usernameError } from '@/lib/username';
-import { NativeAccountMfaSecurity } from './account-mfa-security';
 
 export function NativeAccount({
   user,
@@ -330,7 +329,6 @@ export function NativeAccount({
       onSave={(event) => void saveChanges(event)}
       onSignOut={() => void signOut()}
     />
-    <NativeAccountMfaSecurity userId={user.id} />
     </>
   );
 }
