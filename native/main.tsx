@@ -881,7 +881,13 @@ function App() {
       if (!detail || typeof detail.userId !== 'string' || typeof detail.enabled !== 'boolean') return;
       const cache = personalizedFeedCacheRef.current;
       const result = cache
-        ? cache.setConsent(detail.userId, detail.enabled, detail.pendingSync === true)
+        ? cache.setConsent(detail.userId, detail.enabled, detail.pendingSync === true).then(() => {
+            // Immediately replace the personalised feed after local withdrawal;
+            // the next feed load also retries any pending server withdrawal.
+            setFeedPersonalized(detail.enabled);
+            setFeedGeneralRanked(!detail.enabled);
+            setFeedAttempt((attempt) => attempt + 1);
+          })
         : Promise.reject(new Error('Encrypted personalised feed cache is unavailable.'));
       detail.complete?.(result);
     }
