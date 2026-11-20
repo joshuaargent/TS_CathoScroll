@@ -84,7 +84,7 @@ test('personalisation consent is opt-in and versioned', () => {
   assert.match(bootstrap, /user_personalization_consents[\s\S]*enabled boolean NOT NULL DEFAULT false/);
   assert.match(bootstrap, /consent_version/);
   assert.match(settings, /This is optional and off until you enable it/);
-  assert.match(settings, /activity recorded after you opt in/);
+  assert.match(settings, /account actions and reading signals recorded after you opt in/);
   assert.match(bootstrap, /capture_signup_personalization_consent/);
   assert.match(bootstrap, /NEW\.raw_user_meta_data ->> 'personalization_consent' = 'true'/);
   assert.match(bootstrap, /AFTER INSERT ON auth\.users/);
@@ -303,8 +303,8 @@ test('personalisation explicitly enables service analytics and prevents disablin
   assert.match(accountSection, /p_consent_version: '2026-11-20-v4'/);
   assert.match(signupTrigger, /service_improvement/);
   const manager = readFileSync(new URL('../src/components/privacy/AnalyticsConsentManager.tsx', import.meta.url), 'utf8');
-  assert.match(manager, /disabled=\{saving \|\| personalizationEnabled \|\| !personalizationStatusKnown\}/);
-  assert.match(manager, /Turn off personalisation first to disable this choice/);
+  assert.match(manager, /disabled=\{saving \|\| effectivePersonalizationEnabled \|\| !effectivePersonalizationStatusKnown\}/);
+  assert.match(manager, /Turn off personalisation before disabling it/);
 });
 
 test('retired user subscription tier is absent from the bootstrap', () => {
