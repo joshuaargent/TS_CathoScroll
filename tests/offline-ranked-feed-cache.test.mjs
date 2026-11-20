@@ -33,9 +33,9 @@ test('offline personalisation only reuses encrypted cached server pages with fre
 
 test('personalised page cache is initialised only after the encrypted private database opens', () => {
   const openPrivate = native.indexOf('cacheDatabase = await openPrivateActivityDatabase(secureAuthStorage)');
-  const personalizedInit = native.indexOf('new OfflineRankedFeedCache(cacheDatabase, localCatalogue)');
+  const personalizedInit = native.indexOf('new OfflineRankedFeedCache(cacheDatabase, localCatalogue, true)');
   assert.ok(openPrivate >= 0 && personalizedInit > openPrivate);
   assert.match(native, /new OfflineRankedFeedCache\(databases\.catalogue, localCatalogue\)/);
   assert.match(native, /new OfflineRankedFeedCache\(cacheDatabase, localCatalogue, true\)/);
-  assert.match(native, /if \(privateDatabaseReady\)[\s\S]*?new OfflineRankedFeedCache\(cacheDatabase, localCatalogue\)/);
+  assert.match(native, /if \(privateDatabaseReady\)[\s\S]*?new OfflineRankedFeedCache\(cacheDatabase, localCatalogue, true\)/);
 });
