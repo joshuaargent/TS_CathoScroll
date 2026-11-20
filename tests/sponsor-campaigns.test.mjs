@@ -144,7 +144,7 @@ test('sponsored feed cards are disclosed and inserted separately from organic re
   assert.doesNotMatch(sponsorCard, /bg-accent text-white hover:bg-accent\/90/);
   assert.match(feedCore, /Anonymous placements share an in-memory session token for frequency caps/);
   assert.match(feedCore, /const sessionId = userId \? createSponsorPlacementId\(\) : createSponsorSessionId\(\)/);
-  assert.match(feedCore, /sessionId: string/);
+  assert.match(feedCore, /sessionId: string \\| null/);
   assert.match(deliveryRoute, /getAuthenticatedUserFromRequest/);
   assert.match(deliveryRoute, /isSameOriginOrNativeRequest/);
   assert.match(deliveryRoute, /get_weighted_sponsor_campaigns/);
