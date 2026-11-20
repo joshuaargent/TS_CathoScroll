@@ -13,8 +13,11 @@ type AnonymousEvent = {
   durationMs?: number;
 };
 
+const queueStorageKey = 'cathoscroll.anonymous-feed-events.v1';
+const queueLimit = 2000;
 const recentEventKeys = new Map<string, number>();
-const pendingEvents: { target: string; event: AnonymousEvent }[] = [];
+const pendingEvents: AnonymousEvent[] = [];
+let hydrated = false;
 let flushPromise: Promise<void> | null = null;
 let listenersInstalled = false;
 
@@ -26,62 +29,122 @@ function uuid(): string | null {
   }
 }
 
-function getEndpoint(endpoint?: string): string {
+function getEndpoint(): string {
   const nativeOrigin = typeof window !== 'undefined' && (
     window.location.protocol === 'capacitor:' ||
     window.location.protocol === 'capacitor-electron:' ||
     window.location.origin === 'http://localhost' ||
     window.location.origin === 'https://localhost'
   ) ? siteConfig.url : undefined;
-  return endpoint ?? (nativeOrigin
+  return nativeOrigin
     ? new URL('/api/analytics/anonymous-events', nativeOrigin).toString()
-    : '/api/analytics/anonymous-events');
+    : '/api/analytics/anonymous-events';
 }
 
-async function flushAnonymousEvents(): Promise<void> {
-  if (typeof window === 'undefined' || !navigator.onLine || pendingEvents.length === 0 || flushPromise) return;
+function isAnonymousEvent(value: unknown): value is AnonymousEvent {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const event = value as Record<string, unknown>;
+  if (typeof event.eventId !== 'string' || !/^[0-9a-f-]{36}$/i.test(event.eventId)) return false;
+  if (event.entityType !== 'topic' && event.entityType !== 'comment') return false;
+  if (typeof event.entityId !== 'string' || event.entityId.length < 1 || event.entityId.length > 160) return false;
+  if (!['impression', 'viewable_impression', 'active_duration', 'skip', 'completion', 'open'].includes(String(event.eventType))) return false;
+  if (event.eventType === 'active_duration') {
+    return typeof event.durationMs === 'number' && Number.isFinite(event.durationMs) &&
+      event.durationMs >= 0 && event.durationMs <= 60000;
+  }
+  return event.durationMs === undefined;
+}
 
-  const target = pendingEvents[0].target;
-  const batch = pendingEvents.filter((item) => item.target === target).slice(0, 40);
-  if (batch.length === 0) return;
+function persistQueue(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    if (pendingEvents.length === 0) {
+      window.localStorage.removeItem(queueStorageKey);
+    } else {
+      window.localStorage.setItem(queueStorageKey, JSON.stringify(pendingEvents.slice(-queueLimit)));
+    }
+  } catch {
+    // Storage can be unavailable or full; the in-memory queue remains usable for this process.
+  }
+}
 
+function hydrateQueue(): void {
+  if (hydrated || typeof window === 'undefined') return;
+  hydrated = true;
+  try {
+    const stored = window.localStorage.getItem(queueStorageKey);
+    if (!stored) return;
+    const parsed: unknown = JSON.parse(stored);
+    if (!Array.isArray(parsed)) {
+      window.localStorage.removeItem(queueStorageKey);
+      return;
+    }
+    for (const value of parsed.slice(-queueLimit)) {
+      if (isAnonymousEvent(value)) pendingEvents.push(value);
+    }
+    persistQueue();
+  } catch {
+    try {
+      window.localStorage.removeItem(queueStorageKey);
+    } catch {
+      // Ignore inaccessible or malformed local storage.
+    }
+  }
+}
+
+export async function flushAnonymousFeedAnalyticsQueue(): Promise<void> {
+  if (typeof window === 'undefined') return;
+  hydrateQueue();
+  if (!navigator.onLine || pendingEvents.length === 0 || flushPromise) return;
+
+  const batch = pendingEvents.slice(0, 40);
   let shouldContinue = false;
   flushPromise = (async () => {
     try {
-      const response = await fetch(target, {
+      const response = await fetch(getEndpoint(), {
         method: 'POST',
         credentials: 'same-origin',
         cache: 'no-store',
         keepalive: true,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ events: batch.map((item) => item.event) }),
+        body: JSON.stringify({ events: batch }),
       });
       if (response.ok || (response.status >= 400 && response.status < 500 && response.status !== 429)) {
         shouldContinue = true;
-        const completed = new Set(batch.map((item) => item.event.eventId));
+        const completed = new Set(batch.map((event) => event.eventId));
         for (let index = pendingEvents.length - 1; index >= 0; index -= 1) {
-          if (completed.has(pendingEvents[index].event.eventId)) pendingEvents.splice(index, 1);
+          if (completed.has(pendingEvents[index].eventId)) pendingEvents.splice(index, 1);
         }
+        persistQueue();
       }
     } catch {
-      // Keep the in-memory batch for the next event, visibility change or online event.
+      // Keep the batch on disk for retry after reconnect or the next app launch.
     }
   })().finally(() => {
     flushPromise = null;
-    if (shouldContinue && pendingEvents.length > 0 && navigator.onLine) void flushAnonymousEvents();
+    if (shouldContinue && pendingEvents.length > 0 && navigator.onLine) {
+      void flushAnonymousFeedAnalyticsQueue();
+    }
   });
 
   await flushPromise;
 }
 
-function installFlushListeners(): void {
-  if (listenersInstalled || typeof window === 'undefined') return;
-  listenersInstalled = true;
-  window.addEventListener('online', () => void flushAnonymousEvents());
-  window.addEventListener('pagehide', () => void flushAnonymousEvents());
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden') void flushAnonymousEvents();
-  });
+export function installAnonymousFeedAnalyticsSync(): () => void {
+  if (typeof window === 'undefined') return () => undefined;
+  hydrateQueue();
+  if (!listenersInstalled) {
+    listenersInstalled = true;
+    window.addEventListener('online', () => void flushAnonymousFeedAnalyticsQueue());
+    window.addEventListener('pageshow', () => void flushAnonymousFeedAnalyticsQueue());
+    window.addEventListener('pagehide', () => void flushAnonymousFeedAnalyticsQueue());
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') void flushAnonymousFeedAnalyticsQueue();
+      else void flushAnonymousFeedAnalyticsQueue();
+    });
+  }
+  void flushAnonymousFeedAnalyticsQueue();
+  return () => undefined;
 }
 
 export function recordAnonymousFeedEvent(
@@ -89,9 +152,9 @@ export function recordAnonymousFeedEvent(
   entityId: string | number,
   eventType: AnonymousEventType,
   durationMs = 0,
-  endpoint?: string,
 ): void {
   if (typeof window === 'undefined') return;
+  hydrateQueue();
   const eventId = uuid();
   const id = String(entityId);
   if (!eventId || !id || id.length > 160) return;
@@ -118,8 +181,9 @@ export function recordAnonymousFeedEvent(
       ? { durationMs: Math.max(0, Math.min(60000, Math.round(durationMs))) }
       : {}),
   };
-  pendingEvents.push({ target: getEndpoint(endpoint), event });
-  if (pendingEvents.length > 2000) pendingEvents.splice(0, pendingEvents.length - 2000);
-  installFlushListeners();
-  void flushAnonymousEvents();
+  pendingEvents.push(event);
+  if (pendingEvents.length > queueLimit) pendingEvents.splice(0, pendingEvents.length - queueLimit);
+  persistQueue();
+  installAnonymousFeedAnalyticsSync();
+  void flushAnonymousFeedAnalyticsQueue();
 }
