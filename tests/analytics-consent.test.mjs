@@ -75,11 +75,11 @@ test('declining sponsor measurement preserves sponsor delivery without session f
   ]);
   assert.ok(feed.includes("hasAnalyticsConsent('sponsorMeasurement')"));
   assert.ok(feed.includes('const sessionId = measurementEnabled'));
-  assert.ok(selectRoute.includes('measurementSessionId: string | null'));
+  assert.ok(selectRoute.includes('const measurementSessionId: string | null'));
   assert.ok(selectRoute.includes('p_session_token: measurementSessionId'));
   assert.ok(selectRoute.includes('p_session_id: measurementSessionId'));
   for (const sql of [bootstrap, migration]) {
-    assert.ok(sql.includes('p_session_token IS NULL OR'));
+    assert.ok(sql.includes('p_session_token IS NOT NULL AND'));
     assert.ok(sql.includes('IF p_session_token IS NOT NULL THEN'));
     assert.ok(sql.includes('v_session_id := CASE WHEN coalesce(v_sponsor_measurement, false) THEN p_session_id ELSE NULL END'));
     assert.ok(sql.includes('IF v_session_id IS NOT NULL THEN'));
