@@ -24,7 +24,7 @@ test('offline personalisation only reuses encrypted cached server pages with fre
   assert.match(cache, /consentFreshnessMs = 12 \* 60 \* 60 \* 1000/);
   assert.match(cache, /async hasFreshConsent/);
   assert.match(cache, /async clearUser/);
-  const consentDenialWrite = cache.indexOf('VALUES (?, 0, ?)');
+  const consentDenialWrite = cache.indexOf('VALUES (?, 0, ?, ?)');
   const personalisedPageDelete = cache.indexOf("DELETE FROM offline_ranked_feed_pages WHERE mode = ? AND owner_id = ?", consentDenialWrite);
   assert.ok(consentDenialWrite >= 0 && personalisedPageDelete > consentDenialWrite);
   assert.match(native, /personalizedFeedCacheRef\.current\.hasFreshConsent\(user\.id\)/);
@@ -41,4 +41,16 @@ test('personalised page cache is initialised only after the encrypted private da
   assert.match(native, /new OfflineRankedFeedCache\(databases\.catalogue, localCatalogue\)/);
   assert.match(native, /new OfflineRankedFeedCache\(cacheDatabase, localCatalogue, true\)/);
   assert.match(native, /if \(privateDatabaseReady\)[\s\S]*?new OfflineRankedFeedCache\(cacheDatabase, localCatalogue, true\)/);
+});
+
+
+test('offline personalisation withdrawal persists a deny tombstone until server sync succeeds', () => {
+  assert.match(cache, /pending_sync INTEGER NOT NULL DEFAULT 0/);
+  assert.match(cache, /async getPendingConsent/);
+  assert.match(cache, /async setConsent\(userId: string, enabled: boolean, pendingSync = false\)/);
+  assert.match(cache, /VALUES \(\?, 0, \?, \?\)/);
+  assert.match(native, /getPendingConsent\(user\.id\)/);
+  assert.match(native, /pendingConsent !== false/);
+  assert.match(native, /set_my_personalization_consent', \{ p_enabled: false \}/);
+  assert.match(native, /cathoscroll:personalization-consent-changed/);
 });
