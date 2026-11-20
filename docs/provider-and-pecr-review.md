@@ -30,7 +30,7 @@
 - Connected team: joshuaargent.
 - Current plan: Hobby.
 - Production project: ts_cathoscroll.
-- Current production deployment: READY on main at commit `e0da259`. The PR #26 database recommendation correction has been applied and verified, but its web application changes are not deployed yet; the consent 403 and admin analytics UI/chart corrections therefore remain outstanding in the live web app. The PR preview was blocked by Vercel's daily deployment quota.
+- Current production deployment: READY on main at commit `e0da259`. The PR #26 database recommendation correction has been applied and verified, but its web application changes are not deployed yet; the consent 403 and admin analytics UI/chart corrections therefore remain outstanding in the live web app. A PR #29 preview is now READY and includes the merged PR #26 changes plus the Account-page analytics preferences and corrected policy wording. Production deployment remains pending.
 - Published Hobby runtime log retention: one hour; the Hobby analytics product includes one month of Web Analytics history.
 - Vercel Web Analytics documentation says it does not use third-party cookies and derives a request hash discarded after 24 hours. The Hobby plan currently includes one month of Web Analytics history; that is a product reporting window, not a guarantee that every associated operational log has the same retention.
 - Vercel DPA (last updated 17 March 2026) applies to Pro and Enterprise customers, not Hobby.
