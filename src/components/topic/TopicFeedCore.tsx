@@ -14,7 +14,7 @@ import {
 } from '@/lib/sponsor-campaigns';
 import { createFeedRefreshCoordinator } from '@/lib/feed-refresh-coordinator';
 import { siteConfig } from '@/lib/constants';
-import { buildFeedEntryMap, collectReservedCommentIds, flattenFeedEntryMap, type FeedEntry, type FeedEntryMap } from '@/lib/feed-entry-map';
+import { buildFeedEntryMap, collectReservedCommentIds, flattenFeedEntryMap, reconcileFeedBoundary, type FeedEntry, type FeedEntryMap } from '@/lib/feed-entry-map';
 import {
   invokeRegisteredFeedEntryLifecycle,
   renderRegisteredFeedEntry,
