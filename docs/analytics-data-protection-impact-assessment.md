@@ -55,13 +55,13 @@ The controller must record the Article 6 basis selected for each analytics purpo
 
 ## 5. PECR and device storage/access
 
-First-party topic, Top Comments and sponsor analytics retry queues are held in page/app memory only. They are not written to browser local storage, session storage or IndexedDB and are discarded when the page or app process ends. The Vercel Web Analytics integration is documented by Vercel as not using third-party cookies; the URL-redaction hooks do not themselves create browser storage. The controller must still verify deployed SDK behaviour and assess any other device storage/access technologies under PECR. Essential authentication, offline learning data and user preferences must remain purpose-limited and must not be repurposed as analytics identifiers.
+The website's topic/comment retry queue and the sponsor frequency token are held in memory only. Native apps persist the signed-out topic/comment retry queue in app-private SQLite for up to seven days, capped at 2,000 events, with a free opt-out that clears pending rows. The Vercel Web Analytics integration is documented by Vercel as not using third-party cookies; the URL-redaction hooks do not themselves create browser storage. The controller must assess the native outbox under PECR and verify deployed SDK behaviour. Essential authentication, offline learning data and user preferences must remain purpose-limited and must not be repurposed as analytics identifiers.
 
 ## 6. Safeguards and proportionality
 
 - Keep signed-in and signed-out ingestion paths separate. The anonymous route validates event shape, bounds payload size and duration, checks same-origin/native requests and applies API rate limits.
 - Keep raw account-linked analytics tables, viewer bridges and ingestion RPCs private, with administrator-only aggregate reporting.
-- Store signed-out topic/comment activity only as UTC daily entity aggregates. Do not add visitor/session IDs, device fingerprints, account IDs or cross-visit profiles. Retain event UUID receipts for 30 days for deduplication. Keep unsent batches in memory only; do not persist analytics events to terminal equipment.
+- Store signed-out topic/comment activity server-side only as UTC daily entity aggregates. Do not add visitor/session IDs, device fingerprints, account IDs or cross-visit profiles. Retain event UUID receipts for 30 days for deduplication. Native clients may persist only the bounded anonymous retry outbox for up to seven days; provide and honour the free opt-out, and clear pending rows when users object.
 - Keep recommendation personalisation separate from operational analytics in purpose, user-facing wording and account controls.
 - Do not use reading activity for individual sponsor targeting.
 - Keep signed-out sponsor frequency control separate: generate a random token in page memory, store only its SHA-256 hash, and prune raw event/frequency rows after 30 days.
