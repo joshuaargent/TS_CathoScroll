@@ -159,7 +159,7 @@ The consent controls were merged in PR #25 and deployed to production in commit 
 - Separate default-off Service improvement analytics and Sponsor measurement choices, with Accept all, Decline optional and Manage choices.
 - Explicit service-improvement wording describing the risk that signed-in topic/comment engagement may reveal religious or philosophical beliefs.
 - Account-scoped signed-in consent storage/history and server-side gates for signed-in topic, comment and sponsor measurement events.
-- Device-local signed-out consent kept separate from account consent; signed-out aggregate events continue to omit account/session/visitor identifiers.
+- Device-local signed-out objection preference kept separate from account consent; signed-out aggregate events continue by default and omit account/session/visitor identifiers.
 - Immediate local withdrawal, purpose-specific offline queue clearing, and retryable signed-in consent synchronisation.
 - Sponsor delivery continues after measurement refusal, with campaign/day served totals only and no visitor/session frequency or viewability/click records.
 - Vercel Web Analytics and Speed Insights are gated behind Service improvement analytics. Recommendation personalisation remains separate.
