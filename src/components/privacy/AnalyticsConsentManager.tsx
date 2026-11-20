@@ -93,6 +93,24 @@ function ConsentManager({ userId = null }: AnalyticsConsentManagerProps) {
       setVisible(true);
       // Existing pre-consent queues must not be uploaded after this update.
       void clearWithdrawnQueues(null, { serviceImprovement: false, sponsorMeasurement: false });
+    } else {
+      // On native, the account can hydrate after this manager first mounts.
+      // Re-run the disabled-stream cleanup when that identity becomes known.
+      const tasks: Promise<unknown>[] = [];
+      if (!existing.serviceImprovement) {
+        if (userId) {
+          tasks.push(clearFeedAnalyticsOutbox(userId));
+          tasks.push(clearFeedCardAnalyticsOutbox(userId));
+        }
+        tasks.push(setAnonymousFeedAnalyticsEnabled(false));
+      }
+      if (!existing.sponsorMeasurement) {
+        if (userId) tasks.push(clearSponsorAnalyticsOutbox(userId));
+        tasks.push(Promise.resolve(clearAnonymousSponsorAnalyticsQueue()));
+      }
+      void Promise.all(tasks).catch((cause) => {
+        console.error('Unable to clear disabled analytics queues:', cause);
+      });
     }
     const manage = () => {
       hydrate(readAnalyticsConsent());
@@ -101,7 +119,7 @@ function ConsentManager({ userId = null }: AnalyticsConsentManagerProps) {
     };
     window.addEventListener(analyticsConsentManageEvent, manage);
     return () => window.removeEventListener(analyticsConsentManageEvent, manage);
-  }, [clearWithdrawnQueues, hydrate]);
+  }, [clearWithdrawnQueues, hydrate, userId]);
 
   if (!visible) return null;
 
