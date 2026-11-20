@@ -306,7 +306,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
       syncAbortRef.current?.abort();
       syncAbortRef.current = null;
     };
-  }, [userId]);
+  }, [loading, userId]);
 
 
   const save = useCallback(async (
