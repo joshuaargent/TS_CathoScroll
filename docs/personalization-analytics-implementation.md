@@ -47,9 +47,9 @@ The profile is private: it is not exposed through public profiles and is not use
 - `public.set_my_personalization_consent(boolean)`: authenticated owner-only consent change; withdrawal deletes derived profile and explicit category selections.
 - `public.get_my_personalization_status()`: authenticated owner-only status and available category options.
 - `public.set_my_personalization_interests(text[])`: validates and replaces the current user's selected categories.
-- `catho_private.refresh_user_interest_profile(uuid)`: private recomputation from explicit account actions only; not executable by app roles.
+- `catho_private.refresh_user_interest_profile(uuid)`: private recomputation from eligible account actions and consented reading signals; not executable by app roles.
 - `catho_private.get_user_feed_preference_signals(uuid)`: owner-checked recommendation helper; returns explicit-action and selected-category signals only while opted in.
-- `catho_private.get_user_recommendation_category_weights(uuid)`: private, consent-checked helper shared by first-page ranking and active-cursor rebasing; explicit account actions only.
+- `catho_private.get_user_recommendation_category_weights(uuid)`: private, consent-checked helper shared by first-page ranking and active-cursor rebasing; reads the profile only when personalisation and Service improvement analytics are enabled.
 - `public.get_admin_analytics_deep_dive(uuid,timestamptz,timestamptz)`: admin-verified aggregate-only reporting function, callable only by the service role.
 
 All profile tables are in the private schema, have RLS enabled, and have no direct client grants. Public RPCs derive identity from `auth.uid()`; callers cannot pass another account ID.
@@ -71,7 +71,7 @@ The date range remains capped at 180 days because identifier-bearing raw analyti
 
 ## Data interpretation and current limitations
 
-- Recommendation-profile signals come only from explicit signed-in account actions after separate recommendation consent. Operational analytics events are separate and never used to build or refresh the profile. General feed ranking consumes site-wide daily topic aggregates from signed-in and signed-out activity; anonymous rows contain no visitor identifiers and do not create a visitor-specific profile. Admin analytics displays signed-in and anonymous event counts separately. No anonymous unique-person or session count is inferred.
+- Recommendation-profile signals combine explicit signed-in account actions with consented reading analytics after personalisation opt-in. The opt-in also enables Service improvement analytics, which cannot be disabled until personalisation is turned off. Sponsor measurement remains separate and is never used for recommendation weighting. General feed ranking consumes site-wide daily topic aggregates from signed-in and signed-out activity; anonymous rows contain no visitor identifiers and do not create a visitor-specific profile. Admin analytics displays signed-in and anonymous event counts separately. No anonymous unique-person or session count is inferred.
 - Topic and comment-card raw event tables currently have relatively low volume. Early rates can be volatile and should be interpreted alongside denominators.
 - Historical events can only support metrics that were actually collected. Comment-card exposure history cannot be reconstructed before its instrumentation was deployed.
 - The current content model has category and topic identifiers but no governed subtopic/tag taxonomy. Subtopic affinities should not be fabricated from free-text or inferred religious labels. Add curated topic tags before implementing that layer.
