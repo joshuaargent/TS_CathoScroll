@@ -249,8 +249,8 @@ export default function AccountPage() {
       }}
       onSignOut={() => void signOut()}
     />
-    <section className="container mt-6">
-      <div className="border-border bg-bg-secondary/40 rounded-2xl border p-5">
+    <section className="container mt-6 pb-12">
+      <div className="border-border bg-bg-card rounded-2xl border p-5 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h2 className="font-bold">Account security</h2>
