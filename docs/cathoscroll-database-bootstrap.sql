@@ -8076,6 +8076,14 @@ BEGIN
 END;
 $function$;
 
+ALTER FUNCTION public.get_user_analytics_consent(uuid) OWNER TO postgres;
+REVOKE ALL ON FUNCTION public.get_user_analytics_consent(uuid) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.get_user_analytics_consent(uuid) TO service_role;
+ALTER FUNCTION public.set_user_analytics_consent(uuid, boolean, boolean, integer) OWNER TO postgres;
+REVOKE ALL ON FUNCTION public.set_user_analytics_consent(uuid, boolean, boolean, integer) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.set_user_analytics_consent(uuid, boolean, boolean, integer) TO service_role;
+
+
 
 ALTER FUNCTION public.record_feed_analytics_events(jsonb) OWNER TO postgres;
 REVOKE ALL ON FUNCTION public.record_feed_analytics_events(jsonb) FROM PUBLIC, anon, authenticated, service_role;
