@@ -61,6 +61,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
   const [serviceImprovement, setServiceImprovement] = useState(false);
   const [sponsorMeasurement, setSponsorMeasurement] = useState(false);
   const [anonymousAggregateEnabled, setAnonymousAggregateEnabled] = useState(true);
+  const [anonymousAggregateSaving, setAnonymousAggregateSaving] = useState(false);
   const [personalizationEnabled, setPersonalizationEnabled] = useState(false);
   const [personalizationStatusKnown, setPersonalizationStatusKnown] = useState(!userId);
   const [personalizationStateUserId, setPersonalizationStateUserId] = useState<string | null>(userId);
@@ -604,12 +605,13 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
               </p>
               <button
                 type="button"
-                disabled={saving}
+                disabled={saving || anonymousAggregateSaving}
                 onClick={() => {
                   const next = !anonymousAggregateEnabled;
+                  setAnonymousAggregateSaving(true);
                   void setAnonymousFeedAnalyticsEnabled(next).then(() => setAnonymousAggregateEnabled(next)).catch(() => {
                     setError('Your anonymous aggregate measurement preference could not be saved.');
-                  });
+                  }).finally(() => setAnonymousAggregateSaving(false));
                 }}
                 className="text-accent mt-2 text-sm font-semibold underline underline-offset-2 disabled:opacity-50"
               >
