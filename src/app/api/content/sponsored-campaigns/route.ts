@@ -111,7 +111,11 @@ export async function POST(request: Request) {
   }
 
   try {
-    let sponsorMeasurementEnabled = parsed.value.sessionId !== null;
+    // Anonymous measurement is opt-in per browser. Older clients that do not
+    // send the explicit flag fail closed while sponsor delivery remains enabled.
+    let sponsorMeasurementEnabled = isAnonymous
+      ? parsed.value.sponsorMeasurementConsent === true && parsed.value.sessionId !== null
+      : parsed.value.sessionId !== null;
     if (auth.user) {
       try {
         const consent = await getStoredAnalyticsConsent(auth.user.id);
