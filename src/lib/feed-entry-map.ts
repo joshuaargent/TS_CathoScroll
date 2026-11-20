@@ -67,6 +67,7 @@ export function buildFeedEntryMap({
   topics,
   comments,
   seenCommentIds,
+  userId,
   commentCadence = 0,
   sponsorCadence = 0,
   commentInterval = 5,
@@ -82,7 +83,6 @@ export function buildFeedEntryMap({
   const cardRules = createFeedCardPlacementRules({
     comments,
     reservedCommentIds,
-    userId,
     commentInterval,
     sponsorInterval,
     commentGroupSize,
