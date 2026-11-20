@@ -87,7 +87,6 @@ export async function POST(request: Request) {
       console.error('Unable to load administrator MFA session:', sessionError.message);
       return respond(request, { error: 'Unable to verify authenticator status.' }, 503);
     }
-    const accessToken = sessionData.session?.access_token;
     const verifiedToken = accessToken ?? sessionData.session?.access_token;
     if (!verifiedToken || !hasTotpAssuranceInAccessToken(verifiedToken)) {
       return respond(request, { error: 'Verify a TOTP authenticator code before enabling enforcement.' }, 403);
