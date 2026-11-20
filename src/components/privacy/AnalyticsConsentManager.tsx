@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   analyticsConsentChangeEvent,
   analyticsConsentManageEvent,
+  analyticsConsentSyncEvent,
   denyAnalyticsConsentInMemory,
   getAnalyticsConsentStorageKey,
   readAnalyticsConsent,
@@ -22,6 +23,29 @@ import {
   clearFeedCardAnalyticsOutbox,
 } from '@/lib/feed-card-analytics-client';
 
+export async function clearAnalyticsConsentQueues(
+  userId: string | null,
+  previous: AnalyticsConsent | null,
+  next: Pick<AnalyticsConsent, 'serviceImprovement' | 'sponsorMeasurement'>
+): Promise<void> {
+  const clearService = previous === null || previous.serviceImprovement !== next.serviceImprovement;
+  const clearSponsor = previous === null || previous.sponsorMeasurement !== next.sponsorMeasurement;
+  const tasks: Promise<unknown>[] = [];
+  if (clearService) {
+    if (userId) {
+      tasks.push(clearFeedAnalyticsOutbox(userId));
+      tasks.push(clearFeedCardAnalyticsOutbox(userId));
+    } else {
+      tasks.push(setAnonymousFeedAnalyticsEnabled(false));
+    }
+  }
+  if (clearSponsor) {
+    if (userId) tasks.push(clearSponsorAnalyticsOutbox(userId));
+    tasks.push(Promise.resolve(clearAnonymousSponsorAnalyticsQueue()));
+  }
+  await Promise.all(tasks);
+}
+
 type AnalyticsConsentManagerProps = {
   userId?: string | null;
   loading?: boolean;
@@ -34,6 +58,8 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
   const [managing, setManaging] = useState(false);
   const [serviceImprovement, setServiceImprovement] = useState(false);
   const [sponsorMeasurement, setSponsorMeasurement] = useState(false);
+  const [personalizationEnabled, setPersonalizationEnabled] = useState(false);
+  const [personalizationStatusKnown, setPersonalizationStatusKnown] = useState(!userId);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const activeUserIdRef = useRef<string | null>(userId);
@@ -41,9 +67,12 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
   const consentMutationRef = useRef(0);
   const dialogRef = useRef<HTMLElement | null>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
+  const managingRef = useRef(false);
 
   useEffect(() => {
     activeUserIdRef.current = userId;
+    setPersonalizationEnabled(false);
+    setPersonalizationStatusKnown(!userId);
   }, [userId]);
 
   useEffect(() => {
@@ -128,21 +157,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
     previous: AnalyticsConsent | null,
     next: Pick<AnalyticsConsent, 'serviceImprovement' | 'sponsorMeasurement'>
   ) => {
-    const clearService = previous === null || previous.serviceImprovement !== next.serviceImprovement;
-    const clearSponsor = previous === null || previous.sponsorMeasurement !== next.sponsorMeasurement;
-    const tasks: Promise<unknown>[] = [];
-    if (clearService) {
-      if (userId) {
-        tasks.push(clearFeedAnalyticsOutbox(userId));
-        tasks.push(clearFeedCardAnalyticsOutbox(userId));
-      }
-      else tasks.push(setAnonymousFeedAnalyticsEnabled(false));
-    }
-    if (clearSponsor) {
-      if (userId) tasks.push(clearSponsorAnalyticsOutbox(userId));
-      tasks.push(Promise.resolve(clearAnonymousSponsorAnalyticsQueue()));
-    }
-    await Promise.all(tasks);
+    await clearAnalyticsConsentQueues(userId, previous, next);
   }, [userId]);
 
   const syncServerConsent = useCallback(async () => {
@@ -213,17 +228,27 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
         updatedAt?: unknown;
         version?: unknown;
         exists?: unknown;
+        personalizationEnabled?: unknown;
       };
       if (
         typeof remote.serviceImprovement !== 'boolean' ||
         typeof remote.sponsorMeasurement !== 'boolean' ||
         typeof remote.exists !== 'boolean' ||
+        typeof remote.personalizationEnabled !== 'boolean' ||
         remote.version !== 1 ||
         !(remote.updatedAt === null || typeof remote.updatedAt === 'string')
       ) return;
 
+      setPersonalizationEnabled(remote.personalizationEnabled);
+      setPersonalizationStatusKnown(true);
       const local = readAnalyticsConsent(expectedUserId);
       if (local && (local.syncPending || !remote.exists)) {
+        // Personalisation requires Service improvement analytics, but a pending
+        // Sponsor measurement withdrawal is still independent and must sync.
+        const pendingChoices = {
+          serviceImprovement: remote.personalizationEnabled ? true : local.serviceImprovement,
+          sponsorMeasurement: local.sponsorMeasurement,
+        };
         const saveResponse = await fetch(endpoint, {
           method: 'POST',
           credentials,
@@ -234,8 +259,8 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
             return nextHeaders;
           })(),
           body: JSON.stringify({
-            serviceImprovement: local.serviceImprovement,
-            sponsorMeasurement: local.sponsorMeasurement,
+            serviceImprovement: pendingChoices.serviceImprovement,
+            sponsorMeasurement: pendingChoices.sponsorMeasurement,
             version: 1,
           }),
           signal: controller.signal,
@@ -253,13 +278,17 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
           sponsorMeasurement?: unknown;
           updatedAt?: unknown;
           version?: unknown;
+          personalizationEnabled?: unknown;
         };
         if (
           typeof saved.serviceImprovement !== 'boolean' ||
           typeof saved.sponsorMeasurement !== 'boolean' ||
+          typeof saved.personalizationEnabled !== 'boolean' ||
           saved.version !== 1 ||
           typeof saved.updatedAt !== 'string'
         ) return;
+        setPersonalizationEnabled(saved.personalizationEnabled);
+        setPersonalizationStatusKnown(true);
         const next = {
           serviceImprovement: saved.serviceImprovement,
           sponsorMeasurement: saved.sponsorMeasurement,
@@ -275,8 +304,10 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
           updatedAt: saved.updatedAt,
           syncPending: false,
         });
-        setVisible(false);
-        setManaging(false);
+        if (!managingRef.current) {
+          setVisible(false);
+          setManaging(false);
+        }
         return;
       }
 
@@ -314,8 +345,10 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
           updatedAt: remoteUpdatedAt,
           syncPending: false,
         });
-        setVisible(false);
-        setManaging(false);
+        if (!managingRef.current) {
+          setVisible(false);
+          setManaging(false);
+        }
         return;
       }
 
@@ -343,6 +376,12 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
     next: Pick<AnalyticsConsent, 'serviceImprovement' | 'sponsorMeasurement'>
   ) => {
     if (saving) return;
+    if (!next.serviceImprovement && (!personalizationStatusKnown || personalizationEnabled)) {
+      setError(personalizationEnabled
+        ? 'Turn off personalisation before disabling Service improvement analytics.'
+        : 'Checking your personalisation settings. Try again in a moment.');
+      return;
+    }
     consentMutationRef.current += 1;
     syncAbortRef.current?.abort();
     syncAbortRef.current = null;
@@ -362,6 +401,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
       await clearWithdrawnQueues(previous, next);
       saveAnalyticsConsent(next, userId);
       void syncServerConsent();
+      managingRef.current = false;
       setVisible(false);
       setManaging(false);
     } catch (cause) {
@@ -379,7 +419,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
     } finally {
       setSaving(false);
     }
-  }, [clearWithdrawnQueues, saving, syncServerConsent, userId]);
+  }, [clearWithdrawnQueues, personalizationEnabled, personalizationStatusKnown, saving, syncServerConsent, userId]);
 
   useEffect(() => {
     if (loading) return;
@@ -412,15 +452,17 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
     }
     const manage = () => {
       hydrate(readAnalyticsConsent(userId));
+      managingRef.current = true;
       setManaging(true);
       setVisible(true);
+      void syncServerConsent();
     };
     window.addEventListener(analyticsConsentManageEvent, manage);
     return () => {
       window.clearTimeout(hydrationTimer);
       window.removeEventListener(analyticsConsentManageEvent, manage);
     };
-  }, [clearWithdrawnQueues, hydrate, loading, userId]);
+  }, [clearWithdrawnQueues, hydrate, loading, syncServerConsent, userId]);
 
   useEffect(() => {
     const onConsentChange = (event: Event) => {
@@ -445,9 +487,11 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
       void syncServerConsent();
     }, 0);
     window.addEventListener('online', syncServerConsent);
+    window.addEventListener(analyticsConsentSyncEvent, syncServerConsent);
     return () => {
       window.clearTimeout(syncTimer);
       window.removeEventListener('online', syncServerConsent);
+      window.removeEventListener(analyticsConsentSyncEvent, syncServerConsent);
     };
   }, [loading, syncServerConsent]);
 
@@ -470,8 +514,10 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
         </h2>
         <p id="analytics-consent-description" className="text-text-secondary mt-3 text-sm leading-relaxed">
           {managing
-            ? 'Choose which optional analytics CathoScroll may collect. Both choices are optional and start off unless you have already enabled them.'
-            : 'Optional service improvement analytics help improve CathoScroll. They are not used for recommendations or to infer religious beliefs. Optional sponsor measurement records views, clicks, frequency and topic placement. Either context may reveal religious or philosophical interests. Accept all gives explicit consent to both; Decline optional declines both; Manage choices lets you choose separately.'}
+            ? 'Choose which analytics CathoScroll may collect. Service improvement analytics is required while personalisation is enabled; sponsor measurement remains optional.'
+            : personalizationEnabled
+              ? 'Personalisation is enabled, so Service improvement analytics is required for your reading signals and cannot be disabled until you turn personalisation off. Sponsor measurement remains optional.'
+              : 'Service improvement analytics helps improve CathoScroll and may support recommendations if you enable personalisation. Sponsor measurement is separate. Topic activity and sponsor placements may reveal religious or philosophical interests. Accept all enables both analytics choices; Decline optional declines both; Manage choices lets you choose separately.'}
         </p>
 
         {!managing ? (
@@ -487,7 +533,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
             <div className="grid grid-cols-2 gap-3">
               <button
                 type="button"
-                disabled={saving}
+                disabled={saving || personalizationEnabled || !personalizationStatusKnown}
                 onClick={() => void save({ serviceImprovement: false, sponsorMeasurement: false })}
                 className="border-border text-text-primary hover:bg-bg-secondary rounded-xl border px-4 py-3 text-sm font-semibold disabled:opacity-50"
               >
@@ -496,7 +542,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
               <button
                 type="button"
                 disabled={saving}
-                onClick={() => setManaging(true)}
+                onClick={() => { managingRef.current = true; setManaging(true); }}
                 className="border-border text-text-primary hover:bg-bg-secondary rounded-xl border px-4 py-3 text-sm font-semibold disabled:opacity-50"
               >
                 Manage choices
@@ -509,15 +555,16 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
               <input
                 type="checkbox"
                 checked={serviceImprovement}
-                disabled={saving}
+                disabled={saving || personalizationEnabled || !personalizationStatusKnown}
                 onChange={(event) => setServiceImprovement(event.target.checked)}
                 className="accent-accent mt-1 h-4 w-4 shrink-0"
               />
               <span className="min-w-0">
                 <span className="text-text-primary block font-semibold">I explicitly agree to Service improvement analytics</span>
                 <span className="text-text-secondary mt-1 block text-sm leading-relaxed">
-                  Measures topic and Top Comments engagement, signed-out daily aggregates, and site/performance analytics. When signed in, topic/comment activity is linked to your account and may reveal religious or philosophical beliefs (special-category data under UK GDPR). Enabling this choice is your explicit consent to service-improvement measurement only; it is never used for recommendations.
+                  Measures topic and Top Comments engagement, signed-out aggregate activity, and Vercel site/performance analytics. When signed in, topic/comment activity is linked to your account and may reveal religious or philosophical beliefs. If personalisation is enabled, these reading signals also inform your private recommendations. Enabling personalisation automatically enables this choice; turn off personalisation before disabling it.
                 </span>
+                {personalizationEnabled && <span className="text-accent mt-2 block text-xs font-semibold">Required while personalisation is enabled — Turn off personalisation first to disable this choice.</span>}
               </span>
             </label>
             <label className="border-border flex cursor-pointer items-start gap-3 rounded-xl border p-4">
@@ -531,18 +578,18 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
               <span className="min-w-0">
                 <span className="text-text-primary block font-semibold">I explicitly agree to Sponsor measurement</span>
                 <span className="text-text-secondary mt-1 block text-sm leading-relaxed">
-                  Measures sponsor viewability, clicks and frequency. When enabled, signed-in events are account-linked; signed-out frequency uses an in-memory session token hash retained for up to 30 days. Topic placement may reveal religious or philosophical interests (special-category data under UK GDPR). Data is used only for campaign reporting and frequency controls, never for recommendations or individual belief profiling. If declined, sponsor placements still appear; only campaign/day served totals remain, with no visit-level view, click or frequency records.
+                  Measures sponsor viewability, clicks and frequency. When enabled, signed-in events are account-linked; signed-out frequency uses a random in-memory session token whose hash is stored for up to 30 days. Anonymous event attribution can include the topic placement where a sponsor appeared. In a Catholic-content service, that context may reveal religious or philosophical interests and may involve special-category data under UK GDPR. If you decline, sponsor placements still appear and we retain only campaign/day served totals, without visitor/session frequency records or viewability/click events for your visit.
                 </span>
               </span>
             </label>
             <p className="text-text-muted text-xs leading-relaxed">
-              Essential operation, sign-in, account synchronisation, bookmarks, likes, progress, notes and general feed ranking continue regardless of these choices. Recommendation personalisation remains controlled separately in signup and Account settings.
+              Essential operation, sign-in, account synchronisation, bookmarks, likes, progress, notes and general feed ranking continue regardless of these choices. Personalisation requires Service improvement analytics; Sponsor measurement remains independent.
             </p>
             <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
               <button
                 type="button"
                 disabled={saving}
-                onClick={() => setManaging(false)}
+                onClick={() => { managingRef.current = false; setManaging(false); }}
                 className="border-border text-text-primary rounded-xl border px-4 py-3 text-sm font-semibold disabled:opacity-50"
               >
                 Back
