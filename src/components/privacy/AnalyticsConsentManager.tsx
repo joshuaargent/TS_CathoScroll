@@ -12,6 +12,11 @@ import {
   type AnalyticsConsent,
 } from '@/lib/analytics-consent';
 import {
+  isAnonymousFeedAnalyticsEnabled,
+  setAnonymousFeedAnalyticsEnabled,
+  anonymousAnalyticsPreferenceChangeEvent,
+} from '@/lib/anonymous-feed-analytics-client';
+import {
   clearAnonymousSponsorAnalyticsQueue,
   clearSponsorAnalyticsOutbox,
 } from '@/lib/sponsor-analytics-client';
@@ -56,6 +61,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
   const [managing, setManaging] = useState(false);
   const [serviceImprovement, setServiceImprovement] = useState(false);
   const [sponsorMeasurement, setSponsorMeasurement] = useState(false);
+  const [anonymousAggregateEnabled, setAnonymousAggregateEnabled] = useState(true);
   const [personalizationEnabled, setPersonalizationEnabled] = useState(false);
   const [personalizationStatusKnown, setPersonalizationStatusKnown] = useState(!userId);
   const [personalizationStateUserId, setPersonalizationStateUserId] = useState<string | null>(userId);
@@ -69,6 +75,13 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
   const dialogRef = useRef<HTMLElement | null>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
   const managingRef = useRef(false);
+
+  useEffect(() => {
+    const refreshAnonymousChoice = () => setAnonymousAggregateEnabled(isAnonymousFeedAnalyticsEnabled());
+    refreshAnonymousChoice();
+    window.addEventListener(anonymousAnalyticsPreferenceChangeEvent, refreshAnonymousChoice);
+    return () => window.removeEventListener(anonymousAnalyticsPreferenceChangeEvent, refreshAnonymousChoice);
+  }, []);
 
   useEffect(() => {
     activeUserIdRef.current = userId;
@@ -564,7 +577,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
               <span className="min-w-0">
                 <span className="text-text-primary block font-semibold">I explicitly agree to Service improvement analytics</span>
                 <span className="text-text-secondary mt-1 block text-sm leading-relaxed">
-                  Measures topic and Top Comments engagement, signed-out aggregate activity, and Vercel site/performance analytics. When signed in, topic/comment activity is linked to your account and may reveal religious or philosophical beliefs. If personalisation is enabled, these reading signals also inform your private recommendations. Enabling personalisation automatically enables this choice; turn off personalisation before disabling it.
+                  Measures signed-in topic and Top Comments engagement plus Vercel site/performance analytics. Account-linked activity may reveal religious or philosophical beliefs. While personalisation is enabled, reading signals also inform your private recommendations. Enabling personalisation automatically enables this choice; turn it off before disabling this choice.
                 </span>
                 {effectivePersonalizationEnabled && <span className="text-accent mt-2 block text-xs font-semibold">Required while personalisation is enabled — Turn off personalisation first to disable this choice.</span>}
               </span>
@@ -584,6 +597,20 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
                 </span>
               </span>
             </label>
+            <div className="border-border rounded-xl border p-4">
+              <p className="text-text-primary text-sm font-semibold">Signed-out aggregate measurement</p>
+              <p className="text-text-secondary mt-1 text-sm leading-relaxed">
+                By default, signed-out topic and comment activity is counted as daily totals without account, visitor or session identifiers. This is separate from optional account-linked analytics and does not create individual profiles. You can object at any time.
+              </p>
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => void setAnonymousFeedAnalyticsEnabled(!anonymousAggregateEnabled)}
+                className="text-accent mt-2 text-sm font-semibold underline underline-offset-2 disabled:opacity-50"
+              >
+                {anonymousAggregateEnabled ? 'Turn off anonymous aggregate measurement' : 'Turn on anonymous aggregate measurement'}
+              </button>
+            </div>
             <p className="text-text-muted text-xs leading-relaxed">
               Essential operation, sign-in, account synchronisation, bookmarks, likes, progress, notes and general feed ranking continue regardless of these choices. Personalisation requires Service improvement analytics; Sponsor measurement remains independent.
             </p>
