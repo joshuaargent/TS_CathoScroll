@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   analyticsConsentChangeEvent,
   analyticsConsentManageEvent,
+  analyticsConsentSyncEvent,
   denyAnalyticsConsentInMemory,
   getAnalyticsConsentStorageKey,
   readAnalyticsConsent,
@@ -34,6 +35,8 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
   const [managing, setManaging] = useState(false);
   const [serviceImprovement, setServiceImprovement] = useState(false);
   const [sponsorMeasurement, setSponsorMeasurement] = useState(false);
+  const [personalizationEnabled, setPersonalizationEnabled] = useState(false);
+  const [personalizationStatusKnown, setPersonalizationStatusKnown] = useState(!userId);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const activeUserIdRef = useRef<string | null>(userId);
@@ -44,6 +47,8 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
 
   useEffect(() => {
     activeUserIdRef.current = userId;
+    setPersonalizationEnabled(false);
+    setPersonalizationStatusKnown(!userId);
   }, [userId]);
 
   useEffect(() => {
@@ -213,17 +218,21 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
         updatedAt?: unknown;
         version?: unknown;
         exists?: unknown;
+        personalizationEnabled?: unknown;
       };
       if (
         typeof remote.serviceImprovement !== 'boolean' ||
         typeof remote.sponsorMeasurement !== 'boolean' ||
         typeof remote.exists !== 'boolean' ||
+        typeof remote.personalizationEnabled !== 'boolean' ||
         remote.version !== 1 ||
         !(remote.updatedAt === null || typeof remote.updatedAt === 'string')
       ) return;
 
+      setPersonalizationEnabled(remote.personalizationEnabled);
+      setPersonalizationStatusKnown(true);
       const local = readAnalyticsConsent(expectedUserId);
-      if (local && (local.syncPending || !remote.exists)) {
+      if (local && (local.syncPending || !remote.exists) && !(remote.personalizationEnabled && !local.serviceImprovement)) {
         const saveResponse = await fetch(endpoint, {
           method: 'POST',
           credentials,
@@ -253,13 +262,17 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
           sponsorMeasurement?: unknown;
           updatedAt?: unknown;
           version?: unknown;
+          personalizationEnabled?: unknown;
         };
         if (
           typeof saved.serviceImprovement !== 'boolean' ||
           typeof saved.sponsorMeasurement !== 'boolean' ||
+          typeof saved.personalizationEnabled !== 'boolean' ||
           saved.version !== 1 ||
           typeof saved.updatedAt !== 'string'
         ) return;
+        setPersonalizationEnabled(saved.personalizationEnabled);
+        setPersonalizationStatusKnown(true);
         const next = {
           serviceImprovement: saved.serviceImprovement,
           sponsorMeasurement: saved.sponsorMeasurement,
@@ -343,6 +356,10 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
     next: Pick<AnalyticsConsent, 'serviceImprovement' | 'sponsorMeasurement'>
   ) => {
     if (saving) return;
+    if (personalizationEnabled && !next.serviceImprovement) {
+      setError('Turn off personalisation before disabling Service improvement analytics.');
+      return;
+    }
     consentMutationRef.current += 1;
     syncAbortRef.current?.abort();
     syncAbortRef.current = null;
@@ -379,7 +396,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
     } finally {
       setSaving(false);
     }
-  }, [clearWithdrawnQueues, saving, syncServerConsent, userId]);
+  }, [clearWithdrawnQueues, personalizationEnabled, saving, syncServerConsent, userId]);
 
   useEffect(() => {
     if (loading) return;
@@ -414,13 +431,14 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
       hydrate(readAnalyticsConsent(userId));
       setManaging(true);
       setVisible(true);
+      void syncServerConsent();
     };
     window.addEventListener(analyticsConsentManageEvent, manage);
     return () => {
       window.clearTimeout(hydrationTimer);
       window.removeEventListener(analyticsConsentManageEvent, manage);
     };
-  }, [clearWithdrawnQueues, hydrate, loading, userId]);
+  }, [clearWithdrawnQueues, hydrate, loading, syncServerConsent, userId]);
 
   useEffect(() => {
     const onConsentChange = (event: Event) => {
@@ -445,9 +463,11 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
       void syncServerConsent();
     }, 0);
     window.addEventListener('online', syncServerConsent);
+    window.addEventListener(analyticsConsentSyncEvent, syncServerConsent);
     return () => {
       window.clearTimeout(syncTimer);
       window.removeEventListener('online', syncServerConsent);
+      window.removeEventListener(analyticsConsentSyncEvent, syncServerConsent);
     };
   }, [loading, syncServerConsent]);
 
@@ -470,8 +490,8 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
         </h2>
         <p id="analytics-consent-description" className="text-text-secondary mt-3 text-sm leading-relaxed">
           {managing
-            ? 'Choose which optional analytics CathoScroll may collect. Both choices are optional and start off unless you have already enabled them.'
-            : 'Optional analytics improve CathoScroll and measure sponsor performance. They are not used for recommendation personalisation or to infer religious beliefs. Topic activity and sponsor placements may reveal religious or philosophical interests. Accept all consents to both; Decline optional declines both; Manage choices lets you choose separately.'}
+            ? 'Choose which analytics CathoScroll may collect. Service improvement analytics is required while personalisation is enabled; sponsor measurement remains optional.'
+            : 'Service improvement analytics help improve CathoScroll and support recommendations when personalisation is enabled. Sponsor measurement is separate. Topic activity and sponsor placements may reveal religious or philosophical interests. Accept all enables both analytics choices; Decline optional declines both; Manage choices lets you choose separately.'}
         </p>
 
         {!managing ? (
@@ -487,7 +507,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
             <div className="grid grid-cols-2 gap-3">
               <button
                 type="button"
-                disabled={saving}
+                disabled={saving || personalizationEnabled}
                 onClick={() => void save({ serviceImprovement: false, sponsorMeasurement: false })}
                 className="border-border text-text-primary hover:bg-bg-secondary rounded-xl border px-4 py-3 text-sm font-semibold disabled:opacity-50"
               >
@@ -509,15 +529,16 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
               <input
                 type="checkbox"
                 checked={serviceImprovement}
-                disabled={saving}
+                disabled={saving || personalizationEnabled || !personalizationStatusKnown}
                 onChange={(event) => setServiceImprovement(event.target.checked)}
                 className="accent-accent mt-1 h-4 w-4 shrink-0"
               />
               <span className="min-w-0">
                 <span className="text-text-primary block font-semibold">I explicitly agree to Service improvement analytics</span>
                 <span className="text-text-secondary mt-1 block text-sm leading-relaxed">
-                  Measures topic and Top Comments engagement, signed-out aggregate activity, and Vercel site/performance analytics. When signed in, topic/comment activity is linked to your account and may reveal religious or philosophical beliefs; enabling this choice is your explicit consent to that limited service-improvement processing, which may involve special-category data under UK GDPR. It is not used for recommendation personalisation.
+                  Measures topic and Top Comments engagement, signed-out aggregate activity, and Vercel site/performance analytics. When signed in, topic/comment activity is linked to your account and may reveal religious or philosophical beliefs. If personalisation is enabled, these reading signals also inform your private recommendations. Enabling personalisation automatically enables this choice; turn off personalisation before disabling it.
                 </span>
+                {personalizationEnabled && <span className="text-accent mt-2 block text-xs font-semibold">Required while personalisation is enabled — turn off personalisation first to disable this choice.</span>}
               </span>
             </label>
             <label className="border-border flex cursor-pointer items-start gap-3 rounded-xl border p-4">
@@ -536,7 +557,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
               </span>
             </label>
             <p className="text-text-muted text-xs leading-relaxed">
-              Essential operation, sign-in, account synchronisation, bookmarks, likes, progress, notes and general feed ranking continue regardless of these choices. Recommendation personalisation remains controlled separately in signup and Account settings.
+              Essential operation, sign-in, account synchronisation, bookmarks, likes, progress, notes and general feed ranking continue regardless of these choices. Personalisation requires Service improvement analytics; Sponsor measurement remains independent.
             </p>
             <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
               <button
