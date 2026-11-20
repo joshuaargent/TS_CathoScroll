@@ -53,3 +53,10 @@ No offline note-editing queue is proposed. The existing design caches only serve
 - Verify encrypted private activity/note behaviour on Android and Electron; confirm iOS remains explicitly unsupported rather than silently writing private data to plaintext storage.
 - Verify personalisation consent/withdrawal online and confirm offline mode falls back to general catalogue.
 - Complete the existing feed visual/navigation and sponsor acceptance matrix before making the PR ready for review.
+
+
+## Implementation status
+
+- Persistent native anonymous analytics outbox implementation is committed on PR #22. The client persists before uploading, batches 40 events, retries after connectivity/foreground events, acknowledges only server-accepted IDs, and uses volatile memory fallback only if local persistence itself fails.
+- Exact branch head at audit update: 3d96d10532f145ac353a759431a3095deae82c07.
+- Automated validation for this exact head and native force-close/reconnect testing are pending. The implementation must not be treated as release-verified until those checks pass.
