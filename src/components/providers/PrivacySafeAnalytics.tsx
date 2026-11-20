@@ -1,7 +1,8 @@
 'use client';
 
+import { useSyncExternalStore } from 'react';
 import { Analytics, type BeforeSendEvent } from '@vercel/analytics/react';
-import { hasAnalyticsConsent } from '@/lib/analytics-consent';
+import { analyticsConsentChangeEvent, hasAnalyticsConsent } from '@/lib/analytics-consent';
 
 function sanitisePageUrl(rawUrl: string): string {
   const url = new URL(rawUrl);
@@ -26,7 +27,17 @@ function redactAnalyticsEvent(event: BeforeSendEvent): BeforeSendEvent {
   return { ...event, url: sanitisePageUrl(event.url) };
 }
 
+function subscribe(onChange: () => void) {
+  window.addEventListener(analyticsConsentChangeEvent, onChange);
+  return () => window.removeEventListener(analyticsConsentChangeEvent, onChange);
+}
+
+function getSnapshot() {
+  return hasAnalyticsConsent('serviceImprovement');
+}
+
 export function PrivacySafeAnalytics() {
-  if (!hasAnalyticsConsent('serviceImprovement')) return null;
+  const enabled = useSyncExternalStore(subscribe, getSnapshot, () => false);
+  if (!enabled) return null;
   return <Analytics beforeSend={redactAnalyticsEvent} />;
 }
