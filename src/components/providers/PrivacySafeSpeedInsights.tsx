@@ -2,6 +2,7 @@
 
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import type { ComponentProps } from 'react';
+import { hasAnalyticsConsent } from '@/lib/analytics-consent';
 
 type SpeedInsightsEvent = Parameters<NonNullable<ComponentProps<typeof SpeedInsights>['beforeSend']>>[0];
 
@@ -25,5 +26,6 @@ function sanitiseSpeedInsightsEvent(data: SpeedInsightsEvent) {
 }
 
 export function PrivacySafeSpeedInsights() {
+  if (!hasAnalyticsConsent('serviceImprovement')) return null;
   return <SpeedInsights beforeSend={sanitiseSpeedInsightsEvent} />;
 }
