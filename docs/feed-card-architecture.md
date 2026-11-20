@@ -34,6 +34,6 @@ All feed entry types use the same `FeedProgress` component, extracted without ch
 
 ## Analytics and native parity
 
-The shared TopicSwipeViewer and TopCommentFeedCard emit signed-out exposure, viewability, active-time, skip/completion and open events through the in-memory anonymous analytics client. Signed-in users continue through the account-linked analytics clients. The SponsorFeedCard accepts a nullable user ID; anonymous sponsor viewable/click events include the topic placement key and the in-memory session token so the server can validate the exact served placement.
+The shared TopicSwipeViewer and TopCommentFeedCard emit signed-out exposure, viewability, active-time, skip/completion and open events through the in-memory anonymous analytics client. Signed-in users continue through the account-linked analytics clients. The SponsorFeedCard accepts a nullable user ID; anonymous sponsor viewable/click events use a bounded in-memory retry queue and include the topic placement key and in-memory session token so the server can validate the exact served placement. The queue retries after reconnect/backgrounding but is intentionally not persisted across app restarts.
 
 The web app and native shell both render the same TopicFeedCore and card registry. Native supplies its configured CathoScroll API origin for cross-origin sponsor and anonymous analytics requests; the API explicitly allows only the application's trusted native origins for anonymous requests. No separate native comment/sponsor card implementation is maintained.
