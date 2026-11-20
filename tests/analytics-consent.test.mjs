@@ -27,10 +27,13 @@ test('optional analytics consent is explicit, purpose-specific and off by defaul
   assert.ok(manager.includes('I explicitly agree to Service improvement analytics'));
   assert.ok(manager.includes('Sponsor measurement'));
   assert.ok(manager.includes('I explicitly agree to Sponsor measurement'));
-  assert.ok(manager.includes('If personalisation is enabled, these reading signals also inform your private recommendations.'));
-  assert.ok(manager.includes('Accept all enables both analytics choices; Decline optional declines both; Manage choices lets you choose separately'));
-  assert.ok(manager.includes('Accept all enables both analytics choices; Decline optional declines both; Manage choices lets you choose separately.'));
-  assert.ok(manager.includes('Topic activity and sponsor placements may reveal religious or philosophical interests.'));
+  assert.ok(manager.includes('While personalisation is enabled, reading signals also inform your private recommendations.'));
+  assert.ok(manager.includes('Optional analytics help improve CathoScroll.'));
+  assert.ok(manager.includes('Signed-out topic and comment activity is counted only in daily totals'));
+  assert.ok(manager.includes('Turn off anonymous aggregate measurement'));
+
+  assert.ok(manager.includes('may reveal religious or philosophical beliefs'));
+
   assert.ok(manager.includes('topic placement where a sponsor appeared'));
   assert.ok(manager.includes('may involve special-category data under UK GDPR'));
   assert.ok(manager.includes('Personalisation requires Service improvement analytics; Sponsor measurement remains independent.'));
@@ -65,7 +68,9 @@ test('account consent sync is identity-bound, retryable and enforced server-side
   assert.ok(manager.includes('sponsorMeasurement: local.sponsorMeasurement'));
   assert.ok(manager.includes('if (!managingRef.current)'));
   assert.ok(manager.includes('managingRef.current = true'));
-  assert.ok(manager.includes('personalizationStatusKnown, saving, syncServerConsent'));
+  assert.ok(manager.includes('effectivePersonalizationStatusKnown, saving, syncServerConsent'));
+  assert.ok(manager.includes('personalizationStateUserId === userId'));
+
   assert.ok(manager.includes('clearAnalyticsConsentQueues(userId, previous, next)'));
   assert.ok(manager.includes('getAccessToken(expectedUserId)'));
   assert.ok(manager.includes('}, [loading, userId]);'));
@@ -140,12 +145,14 @@ test('withdrawal immediately blocks and clears the matching web and native analy
   assert.ok(feed.includes("consentRequest.signal.aborted || !hasAnalyticsConsent('serviceImprovement', userId)"));
   assert.ok(comments.includes('createConsentBoundAbortSignal'));
   assert.ok(comments.includes("consentRequest.signal.aborted || !hasAnalyticsConsent('serviceImprovement', userId)"));
-  assert.ok(anonymous.includes('createConsentBoundAbortSignal'));
+  assert.doesNotMatch(anonymous, /createConsentBoundAbortSignal/);
   assert.ok(sponsor.includes('createConsentBoundAbortSignal'));
   assert.ok(sponsor.includes("!accessToken || consentRequest.signal.aborted || !hasAnalyticsConsent('sponsorMeasurement', userId)"));
   assert.ok(feed.includes("hasAnalyticsConsent('serviceImprovement', userId)"));
   assert.ok(comments.includes("hasAnalyticsConsent('serviceImprovement', userId)"));
-  assert.ok(anonymous.includes("hasAnalyticsConsent('serviceImprovement', null)"));
+  assert.ok(anonymous.includes("localStorage.getItem(anonymousAnalyticsPreferenceKey) !== 'false'"));
+  assert.ok(manager.includes('Turn off anonymous aggregate measurement'));
+
   assert.ok(sponsor.includes("hasAnalyticsConsent('sponsorMeasurement', userId)"));
   assert.ok(sponsor.includes("hasAnalyticsConsent('sponsorMeasurement', null)"));
 });
