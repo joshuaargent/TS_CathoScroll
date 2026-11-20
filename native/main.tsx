@@ -695,6 +695,7 @@ function App() {
         if (!navigator.onLine) {
           let page: CataloguePage | null = null;
           let offlinePersonalized = false;
+          let offlineGeneralRanked = false;
           if (user?.id && personalizedFeedCacheRef.current &&
               await personalizedFeedCacheRef.current.hasFreshConsent(user.id)) {
             page = await personalizedFeedCacheRef.current.load('personalized', user.id, null) as CataloguePage | null;
@@ -702,13 +703,14 @@ function App() {
           }
           if (!page && generalFeedCacheRef.current) {
             page = await generalFeedCacheRef.current.load('general', null, null) as CataloguePage | null;
+            offlineGeneralRanked = Boolean(page);
           }
           if (!page) page = await localCatalogue.topics();
           if (!active) return;
           setFirstPage(page);
           setFeedLoadError('');
           setFeedPersonalized(offlinePersonalized);
-          setFeedGeneralRanked(!offlinePersonalized && Boolean(generalFeedCacheRef.current));
+          setFeedGeneralRanked(offlineGeneralRanked);
           clearNativeStatusNotice('feed-online');
           return;
         }
@@ -764,6 +766,7 @@ function App() {
         try {
           let page: CataloguePage | null = null;
           let offlinePersonalized = false;
+          let offlineGeneralRanked = false;
           if (user?.id && personalizedFeedCacheRef.current &&
               await personalizedFeedCacheRef.current.hasFreshConsent(user.id)) {
             page = await personalizedFeedCacheRef.current.load('personalized', user.id, null) as CataloguePage | null;
@@ -771,13 +774,14 @@ function App() {
           }
           if (!page && generalFeedCacheRef.current) {
             page = await generalFeedCacheRef.current.load('general', null, null) as CataloguePage | null;
+            offlineGeneralRanked = Boolean(page);
           }
           if (!page) page = await localCatalogue.topics();
           if (!active) return;
           setFirstPage(page);
           setFeedLoadError('');
           setFeedPersonalized(offlinePersonalized);
-          setFeedGeneralRanked(!offlinePersonalized && Boolean(generalFeedCacheRef.current));
+          setFeedGeneralRanked(offlineGeneralRanked);
           notifyNativeStatus('The live feed is unavailable. Showing your most recently saved ranked feed where available.', {
             id: 'feed-online',
             action: { label: 'Retry', onClick: () => setFeedAttempt((value) => value + 1) },
