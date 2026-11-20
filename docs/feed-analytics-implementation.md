@@ -41,7 +41,7 @@ Administrators can open:
 - `/topic/[slug]/analytics`
 - `/categories/[category]/analytics`
 
-The contextual **View Analytics** action is shown beside topic actions and on category pages only when the current administrator session passes the existing admin/MFA check. Both analytics routes independently call `requireAdminPage()`, apply a per-admin shared rate limit and are marked noindex. Non-admins cannot use the aggregate RPC through the Data API.
+The contextual **View Analytics** action is shown beside topic actions and on category pages only when the current administrator session passes the existing administrator-role check. Both analytics routes independently call `requireAdminPage()`, apply a per-admin shared rate limit and are marked noindex. Non-admins cannot use the aggregate RPC through the Data API.
 
 `public.get_admin_content_analytics(text,text,timestamptz,timestamptz)` serves event totals, daily series and category top-topic impression counts from indexed daily aggregates, combining raw events only for partial UTC-day boundaries and session-depth calculations. This keeps dashboard work proportional to active content/day rows rather than every event. It is owned by `postgres`, uses `SECURITY DEFINER` with an empty search path, and is executable only by `service_role`. It returns aggregate counts and daily series only; it never returns user IDs, session IDs, comment text or raw events. The date window is validated and capped at 180 days.
 
@@ -142,7 +142,7 @@ The feed inserts Top Comments every five topic advances and sponsor placements e
 
 ## Unified Admin Analytics hub and Top Comments exposure
 
-The central administrator analytics page is `/admin/analytics`, linked from the shared Admin navigation. It provides an overall view and date-window navigation across categories, topics, sponsors and comments. Category and topic drill-downs reuse the existing `/categories/[category]/analytics` and `/topic/[slug]/analytics` pages; sponsor and comment drill-downs live under `/admin/analytics/sponsors/[id]` and `/admin/analytics/comments/[id]`. All routes independently require the existing administrator/MFA gate, apply the shared analytics read rate limit and are marked noindex.
+The central administrator analytics page is `/admin/analytics`, linked from the shared Admin navigation. It provides an overall view and date-window navigation across categories, topics, sponsors and comments. Category and topic drill-downs reuse the existing `/categories/[category]/analytics` and `/topic/[slug]/analytics` pages; sponsor and comment drill-downs live under `/admin/analytics/sponsors/[id]` and `/admin/analytics/comments/[id]`. All routes independently require the existing administrator-role check, apply the shared analytics read rate limit and are marked noindex.
 
 The overview keeps the three measurement streams distinct:
 - Topic feed: existing topic impressions, viewable impressions, active reading time, skips and completions from `feed_analytics_daily`.
