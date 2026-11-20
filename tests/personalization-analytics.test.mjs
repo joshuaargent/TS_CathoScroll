@@ -311,7 +311,7 @@ test('personalisation explicitly enables service analytics and prevents disablin
   assert.match(accountSection, /p_consent_version: '2026-11-20-v4'/);
   assert.match(signupTrigger, /service_improvement/);
   const manager = readFileSync(new URL('../src/components/privacy/AnalyticsConsentManager.tsx', import.meta.url), 'utf8');
-  assert.match(manager, /disabled=\{saving \|\| personalizationEnabled \|\| !personalizationStatusKnown\}/);
+  assert.match(manager, /disabled=\{saving \|\| effectivePersonalizationEnabled \|\| !effectivePersonalizationStatusKnown\}/);
   assert.match(manager, /Turn off personalisation first to disable this choice/);
 });
 
