@@ -491,31 +491,22 @@ export function TopicFeedCore({
       return;
     }
 
-    const activeTopicId = activeInterstitialTopicIdRef.current;
-    const currentId = currentTopicId.current;
-    const currentIndex = currentId
-      ? feedTopics.findIndex((topic) => topic.id === currentId)
-      : 0;
-    const activeIndex = activeTopicId
-      ? feedTopics.findIndex((topic) => topic.id === activeTopicId)
-      : -1;
-    const startIndex = activeIndex >= 0
-      ? activeIndex + 1
-      : Math.max(0, currentIndex);
     const previousMap = feedEntryMapRef.current;
     const commentsById = new Map(
       topComments.map((comment) => [comment.comment_id, comment] as const)
     );
-    const prefix = previousMap
-      ? previousMap.boundaries
-          .filter((boundary) => {
-            const index = feedTopics.findIndex((topic) => topic.id === boundary.topicId);
-            return index >= 0 && index < startIndex;
-          })
-          .map((boundary) => ({
-            ...boundary,
-            entries: boundary.entries.flatMap<import('@/lib/feed-entry-map').FeedEntry>((entry) => {
-              if (entry.type !== 'top-comments') return [entry];
+    const topicsById = new Map(feedTopics.map((topic) => [topic.id, topic] as const));
+
+    // Keep every already-assigned boundary for the lifetime of this feed
+    // session. Refreshes may update comment content or remove deleted comments,
+    // but they must not move a returning comment/sponsor card to another topic.
+    const preservedBoundaries = previousMap
+      ? previousMap.boundaries.flatMap((boundary) => {
+          const currentTopic = topicsById.get(boundary.topicId);
+          if (!currentTopic) return [];
+          const entries = boundary.entries.flatMap<FeedEntry>((entry) => {
+            if (entry.type === 'topic') return [{ ...entry, topic: currentTopic }];
+            if (entry.type === 'top-comments') {
               const currentComments = entry.comments.flatMap((comment) => {
                 const currentComment = commentsById.get(comment.comment_id);
                 return currentComment ? [currentComment] : [];
@@ -523,29 +514,44 @@ export function TopicFeedCore({
               return currentComments.length > 0
                 ? [{ ...entry, comments: currentComments }]
                 : [];
-            }),
-          }))
+            }
+            return [entry];
+          });
+          return [{
+            ...boundary,
+            entries,
+          }];
+        })
       : [];
-    const reservedCommentIds = collectReservedCommentIds(prefix, seenTopCommentIds.current);
+    const preservedTopicIds = new Set(preservedBoundaries.map((boundary) => boundary.topicId));
+    const reservedCommentIds = collectReservedCommentIds(
+      preservedBoundaries,
+      seenTopCommentIds.current
+    );
     const unseenComments = getUnseenTopFeedComments(topComments, reservedCommentIds);
     if (unseenComments.length <= 10 && topCommentsNextOffsetRef.current !== null) {
       void loadMoreTopComments();
     }
+
+    // Only topics appended since the last map build receive new placements.
+    // Existing boundaries and their cadence snapshots remain immutable.
+    const newTopics = feedTopics.filter((topic) => !preservedTopicIds.has(topic.id));
     const planned = buildFeedEntryMap({
-      topics: feedTopics.slice(startIndex),
+      topics: newTopics,
       comments: unseenComments,
       seenCommentIds: reservedCommentIds,
       userId,
-      commentCadence: topicsSinceTopCommentCardRef.current,
-      sponsorCadence: topicsSinceSponsorCardRef.current,
+      commentCadence: previousMap?.commentCadence ?? topicsSinceTopCommentCardRef.current,
+      sponsorCadence: previousMap?.sponsorCadence ?? topicsSinceSponsorCardRef.current,
       sponsorResults: sponsorResultsByTopicId.current,
     });
-    const boundaries = [...prefix, ...planned.boundaries];
+    const boundaries = [...preservedBoundaries, ...planned.boundaries];
     const byTopicId = new Map(boundaries.map((boundary) => [boundary.topicId, boundary] as const));
     const nextFeedEntryMap: FeedEntryMap = {
       ...planned,
       boundaries,
       byTopicId,
+      reservedCommentIds: planned.reservedCommentIds,
     };
     feedEntryMapRef.current = nextFeedEntryMap;
     setFeedEntryMap(nextFeedEntryMap);
