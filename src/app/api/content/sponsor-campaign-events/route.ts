@@ -39,15 +39,6 @@ export async function POST(request: Request) {
     console.error('Unable to verify sponsor-event authentication:', cause);
     return respond(request, { error: 'Authentication is temporarily unavailable.' }, 503);
   }
-  if (auth.user) {
-    try {
-      const consent = await getStoredAnalyticsConsent(auth.user.id);
-      if (!consent.sponsorMeasurement) return respond(request, { recorded: false });
-    } catch (cause) {
-      console.error('Unable to verify sponsor measurement consent:', cause);
-      return respond(request, { error: 'Sponsor measurement preferences are temporarily unavailable.' }, 503);
-    }
-  }
   const rateLimit = await checkApiRateLimit({
     scope: 'sponsor-campaign-events:write',
     identifier: auth.user?.id ?? `anonymous:${getTrustedClientIp(request) ?? 'unknown'}`,
@@ -81,6 +72,15 @@ export async function POST(request: Request) {
   // Keep a queued anonymous placement anonymous even if the visitor signs in
   // before its in-memory retry queue is flushed.
   const isAnonymous = !auth.user || typeof placementKey === 'string';
+  if (auth.user && !isAnonymous) {
+    try {
+      const consent = await getStoredAnalyticsConsent(auth.user.id);
+      if (!consent.sponsorMeasurement) return respond(request, { recorded: false });
+    } catch (cause) {
+      console.error('Unable to verify sponsor measurement consent:', cause);
+      return respond(request, { error: 'Sponsor measurement preferences are temporarily unavailable.' }, 503);
+    }
+  }
 
   if (
     !isValidUuid(campaignId) ||
