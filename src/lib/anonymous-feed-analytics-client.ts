@@ -93,6 +93,13 @@ export async function setAnonymousFeedAnalyticsEnabled(enabled: boolean): Promis
     if (enabled) window.localStorage.removeItem(anonymousAnalyticsPreferenceKey);
   } catch (cause) {
     failure = cause;
+    pendingEvents.splice(0, pendingEvents.length);
+    volatileEventIds.clear();
+    try {
+      if (persistentOutbox) await persistentOutbox.clear();
+    } catch {
+      // The stored objection remains authoritative; disabled events are never uploaded.
+    }
   } finally {
     anonymousPreferenceTransition = false;
     window.dispatchEvent(new Event(anonymousAnalyticsPreferenceChangeEvent));
