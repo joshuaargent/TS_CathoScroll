@@ -38,7 +38,7 @@ android {
         applicationId "com.joshuaargent.cathoscroll"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode (System.getenv("ANDROID_VERSION_CODE")?.toInteger() ?: 6)
+        versionCode (System.getenv("ANDROID_VERSION_CODE")?.toInteger() ?: 2004000)
         versionName (System.getenv("CATHOSCROLL_VERSION")?.replaceFirst(/^v/, '') ?: "2.4.0")
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
