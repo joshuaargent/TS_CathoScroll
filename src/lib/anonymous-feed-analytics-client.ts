@@ -153,7 +153,7 @@ export async function flushAnonymousFeedAnalyticsQueue(): Promise<void> {
         keepalive: true,
         signal: consentRequest.signal,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ events: batch }),
+        body: JSON.stringify({ serviceImprovementConsent: true, events: batch }),
       });
       if (!anonymousAnalyticsEnabled()) {
         pendingEvents.splice(0, pendingEvents.length);
