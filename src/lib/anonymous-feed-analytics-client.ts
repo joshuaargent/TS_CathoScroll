@@ -39,20 +39,6 @@ function getEndpoint(): string {
     : '/api/analytics/anonymous-events';
 }
 
-function isAnonymousEvent(value: unknown): value is AnonymousEvent {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
-  const event = value as Record<string, unknown>;
-  if (typeof event.eventId !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(event.eventId)) return false;
-  if (event.entityType !== 'topic' && event.entityType !== 'comment') return false;
-  if (typeof event.entityId !== 'string' || event.entityId.length < 1 || event.entityId.length > 160) return false;
-  if (!['impression', 'viewable_impression', 'active_duration', 'skip', 'completion', 'open'].includes(String(event.eventType))) return false;
-  if (event.eventType === 'active_duration') {
-    return typeof event.durationMs === 'number' && Number.isFinite(event.durationMs) &&
-      event.durationMs >= 0 && event.durationMs <= 60000;
-  }
-  return event.durationMs === undefined;
-}
-
 export async function flushAnonymousFeedAnalyticsQueue(): Promise<void> {
   if (typeof window === 'undefined') return;
   if (typeof navigator === 'undefined' || !navigator.onLine || pendingEvents.length === 0 || flushPromise) return;
@@ -77,7 +63,7 @@ export async function flushAnonymousFeedAnalyticsQueue(): Promise<void> {
         }
       }
     } catch {
-      // Keep the batch on disk for retry after reconnect or the next app launch.
+      // Keep the batch in memory for retry after reconnect while this process remains active.
     }
   })().finally(() => {
     flushPromise = null;
@@ -91,7 +77,6 @@ export async function flushAnonymousFeedAnalyticsQueue(): Promise<void> {
 
 export function installAnonymousFeedAnalyticsSync(): () => void {
   if (typeof window === 'undefined') return () => undefined;
-  hydrateQueue();
   if (!listenersInstalled) {
     listenersInstalled = true;
     window.addEventListener('online', () => void flushAnonymousFeedAnalyticsQueue());
@@ -112,7 +97,6 @@ export function recordAnonymousFeedEvent(
   durationMs = 0,
 ): void {
   if (typeof window === 'undefined') return;
-  hydrateQueue();
   const eventId = uuid();
   const id = String(entityId);
   if (!eventId || !id || id.length > 160) return;
