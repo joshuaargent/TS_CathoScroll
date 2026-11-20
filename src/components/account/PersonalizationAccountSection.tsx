@@ -274,6 +274,7 @@ export function PersonalizationAccountSection({ client, apiBaseUrl }: { client: 
 
       const { data, error: rpcError } = await client.rpc('set_my_personalization_consent', {
         p_enabled: enabled,
+        p_consent_version: '2026-11-20-v4',
       });
       if (rpcError) throw rpcError;
       if (!isRecord(data) || data.enabled !== enabled) {
