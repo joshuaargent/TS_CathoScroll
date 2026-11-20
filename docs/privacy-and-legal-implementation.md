@@ -33,7 +33,7 @@ CathoScroll's subject matter includes Catholic theology and other religious topi
 
 | Data | Source | Use | Consent state |
 |---|---|---|---|
-| Impressions, active duration, swipe depth, skips, return visits, Top Comments exposure | Operational analytics tables | Service measurement only; never recommendation input | Collected only under Service improvement analytics consent |
+| Impressions, active duration, swipe depth, skips, return visits, Top Comments exposure | Operational analytics tables | Current production also reads these tables for recommendation weighting when personalisation is enabled; PR26 removes that dependency. After upgrade: service measurement only. | Collected only under Service improvement analytics consent |
 | Progress/completions, bookmarks, topic likes, comments, comment likes, replies | Existing account activity | Explicit topic-interest evidence | Read for recommendation weighting only when separate personalisation consent is enabled |
 | Selected categories | Account settings | Strong user-declared interest signal | Stored only while enabled |
 | Derived topic/category scores | Private profile tables | Rank the user's own recommendations | Created/refreshed only while enabled |
@@ -51,13 +51,13 @@ The profile is not displayed on public profiles, is not provided to sponsors, an
 - The shared AccountPageView and PersonalizationSettingsPage are used by web and native; platform-specific authentication/session storage remains in the web/native adapters.
 - Withdrawal records the choice, deletes derived topic scores and explicit category choices, and prevents further account-history recommendation weighting.
 - Existing cursors are neutralised on the next recommendation RPC call after withdrawal; category weights become equal and completed-topic suppression is disabled. A new sign-in or page reload is not required for this server-side check to take effect.
-- Operational analytics records are separate and are never used for recommendation weighting. Personalisation withdrawal does not erase those records; they remain under their separately stated operational retention policy.
+- Current production still reads operational analytics events in the recommendation-profile refresher when personalisation is enabled. PR26 replaces this with explicit account actions only and active-cursor rebasing; until the production SQL upgrade is applied, the two purposes are not fully data-separated. Personalisation withdrawal does not erase operational analytics records; they remain under their separately stated retention policy.
 
 Consent version currently recorded by signup and the account RPC: `2026-11-19-v3`.
 
 ### Recommendation behaviour
 
-All account-history recommendation weighting is behind the explicit consent flag. This includes the legacy activity inputs (progress, bookmarks, topic likes and comments), derived interest scores, selected categories and feed telemetry.
+All account-history recommendation weighting is behind the explicit consent flag. Current production also includes feed telemetry in the recommendation profile. PR26 target inputs are explicit account actions (progress, bookmarks, topic likes, comments, comment likes and replies), derived explicit-action scores and selected categories; feed telemetry is excluded after the SQL upgrade.
 
 When consent is disabled:
 
