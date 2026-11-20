@@ -13,7 +13,7 @@ Signed-in topic/comment events remain account-linked. Signed-out topic/comment e
 
 ## 2. Purposes and necessity
 
-First-party feed and comment analytics help measure whether content and community cards are being seen and used, identify product issues, understand engagement and improve the service. The analytics dashboard reports overall, category, topic, comment and sponsor performance. Recommendation personalisation uses eligible explicit account actions only when the user enables it separately. The production database has been updated so recommendation profiles no longer read operational feed or Top Comments analytics events; old derived profiles were cleared and rebuilt from explicit account actions. The recommendation RPC rebases active cursors to the explicit-action-only model.
+First-party feed and comment analytics measure content and community-card engagement and support product improvement. When personalisation is enabled, eligible reading signals also inform that account's private recommendation profile. The updated consent model makes this explicit: personalisation enables Service improvement analytics, which remains locked until personalisation is withdrawn; the profile refresher checks both consent records. Sponsor measurement remains separate. Existing v3 personalisation opt-ins must be renewed under the new disclosure.
 
 Vercel Web Analytics provides broader site traffic reporting, including signed-out visits. Vercel Speed Insights measures real-world performance and Core Web Vitals. Neither provider stream is merged into CathoScroll's account-linked topic-event tables.
 
@@ -25,7 +25,7 @@ The topic feed records impressions, viewable impressions, active duration, skips
 
 Raw events are associated with the authenticated account and include the topic or comment identifier, event/session identifiers, event type, limited event metadata and server receipt time. The private database stores raw event streams and a private daily viewer bridge for up to 180 days. Daily rollups contain aggregate counts without account or session identifiers and are retained longer. Sponsor reporting remains a separate pipeline; sponsors do not receive raw user-level topic or comment activity. Anonymous sponsor event attribution records the topic placement identifier alongside a hashed session token; that context may reveal religious or philosophical interests. Treat this as a potential special-category risk and require explicit consent under Article 9(2)(a) where the controller determines the revealing test is met, or remove topic-level attribution if that condition is not approved.
 
-These records are account-linked personal data, not anonymous data. They record defined engagement measurements for internal product analytics. The analytics pipeline does not generate religious or philosophical belief labels, scores or classifications, and does not use analytics events to make decisions about users.
+These records are account-linked personal data, not anonymous data. They record defined engagement measurements for internal product analytics. When personalisation is enabled, a separate private recommendation profile also derives content-interest scores from eligible reading events. Those scores are not religious-affiliation labels or classifications, but may reveal interests in sensitive topics. They are used only to rank that user's own feed and are never shared with sponsors or used for sponsor targeting.
 
 ### 3.2 Signed-out topic and comment analytics
 
