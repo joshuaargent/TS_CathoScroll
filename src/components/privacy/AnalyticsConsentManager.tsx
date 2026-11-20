@@ -115,6 +115,8 @@ function ConsentManager({ userId = null, apiBaseUrl, getAccessToken }: Analytics
         });
         if (next.serviceImprovement) await setAnonymousFeedAnalyticsEnabled(true);
         else await setAnonymousFeedAnalyticsEnabled(false);
+        setVisible(false);
+        setManaging(false);
         return;
       }
 
@@ -123,7 +125,7 @@ function ConsentManager({ userId = null, apiBaseUrl, getAccessToken }: Analytics
           method: 'POST',
           credentials,
           cache: 'no-store',
-          headers: new Headers([...headers.entries(), ['Content-Type', 'application/json']]),
+          headers: (() => { const nextHeaders = new Headers(headers); nextHeaders.set('Content-Type', 'application/json'); return nextHeaders; })(),
           body: JSON.stringify({
             serviceImprovement: local.serviceImprovement,
             sponsorMeasurement: local.sponsorMeasurement,
