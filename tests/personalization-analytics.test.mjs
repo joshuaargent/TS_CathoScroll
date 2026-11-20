@@ -267,6 +267,12 @@ test('analytics and personalisation SQL upgrades are order-safe and use the new 
   for (const sql of [bootstrap, analyticsConsentUpgrade]) {
     assert.match(sql, /pg_catalog\.to_regclass\('catho_private\.user_personalization_consents'\)/);
   }
+  const analyticsSetterBlocks = [...analyticsConsentUpgrade.matchAll(/CREATE OR REPLACE FUNCTION public\.set_user_analytics_consent\([\s\S]*?\$function\$;/g)];
+  assert.equal(analyticsSetterBlocks.length, 2);
+  for (const block of analyticsSetterBlocks) {
+    assert.match(block[0], /Turn off personalisation before disabling Service improvement analytics/);
+    assert.match(block[0], /pg_catalog\.to_regclass\('catho_private\.user_personalization_consents'\)/);
+  }
   for (const sql of [bootstrap, upgrade]) {
     assert.match(sql, /ALTER TABLE catho_private\.user_topic_interest_scores ALTER COLUMN model_version SET DEFAULT '2026-11-20-v4'/);
     assert.match(sql, /'2026-11-20-v4'/);
