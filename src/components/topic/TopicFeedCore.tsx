@@ -14,7 +14,7 @@ import {
 } from '@/lib/sponsor-campaigns';
 import { createFeedRefreshCoordinator } from '@/lib/feed-refresh-coordinator';
 import { siteConfig } from '@/lib/constants';
-import { hasAnalyticsConsent } from '@/lib/analytics-consent';
+import { analyticsConsentChangeEvent, hasAnalyticsConsent } from '@/lib/analytics-consent';
 import { buildFeedEntryMap, collectReservedCommentIds, flattenFeedEntryMap, reconcileFeedBoundary, type FeedEntry, type FeedEntryMap } from '@/lib/feed-entry-map';
 import {
   invokeRegisteredFeedEntryLifecycle,
@@ -361,8 +361,15 @@ export function TopicFeedCore({
       if (inFlight) return inFlight;
 
       const requestedUserId = userId;
+      const requestedMeasurementEnabled = hasAnalyticsConsent('sponsorMeasurement', requestedUserId);
       const request = loadSponsorCampaigns(topic)
         .then((result) => {
+          // A consent change while the request is in flight invalidates its
+          // visitor/session token. Keep the sponsor placement, but never cache
+          // or expose the token after the user withdraws measurement.
+          if (hasAnalyticsConsent('sponsorMeasurement', requestedUserId) !== requestedMeasurementEnabled) {
+            return { ...result, sessionId: null };
+          }
           // Cache both successful and empty results. A missing placement is a
           // stable decision for this topic during the current feed session.
           if (sponsorSessionUserId.current === requestedUserId && !result.retryable) {
@@ -394,6 +401,37 @@ export function TopicFeedCore({
     },
     [loadSponsorCampaigns, userId]
   );
+
+  useEffect(() => {
+    const handleConsentChange = (event: Event) => {
+      const detail = (event as CustomEvent<{ userId?: string | null }>).detail;
+      if ((detail?.userId ?? null) !== (userId ?? null)) return;
+      if (hasAnalyticsConsent('sponsorMeasurement', userId)) return;
+
+      // Remove any token created before withdrawal from both the feed cache and
+      // the currently mounted card. Campaign delivery remains in the queue.
+      ephemeralSponsorSessionId = null;
+      sponsorRequestVersion.current += 1;
+      sponsorResultsByTopicId.current.clear();
+      sponsorCardsByTopicId.current.clear();
+      sponsorRequestsByTopicId.current.clear();
+
+      const currentMap = feedEntryMapRef.current;
+      if (!currentMap) return;
+      const boundaries = currentMap.boundaries.map((boundary) => ({
+        ...boundary,
+        entries: boundary.entries.map((entry) =>
+          entry.type === 'sponsor' ? { ...entry, sessionId: '' } : entry
+        ),
+      }));
+      const byTopicId = new Map(boundaries.map((boundary) => [boundary.topicId, boundary] as const));
+      const nextMap = { ...currentMap, boundaries, byTopicId };
+      feedEntryMapRef.current = nextMap;
+      setFeedEntryMap(nextMap);
+    };
+    window.addEventListener(analyticsConsentChangeEvent, handleConsentChange);
+    return () => window.removeEventListener(analyticsConsentChangeEvent, handleConsentChange);
+  }, [setFeedEntryMap, userId]);
 
   const loadMoreTopComments = useCallback(async () => {
     const offset = topCommentsNextOffsetRef.current;
