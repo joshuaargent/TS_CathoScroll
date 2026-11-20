@@ -145,7 +145,7 @@ test('explicit category interests are bounded and validated', () => {
 test('personalisation settings disclose the profile purpose and sponsor isolation', () => {
   assert.match(settings, /not shown on your public profile or used for sponsor targeting/);
   assert.match(settings, /Turn off and delete profile/);
-  assert.match(settings, /This setting is not a declaration of religious affiliation/);
+  assert.match(settings, /This may reveal religious or philosophical interests/);
 });
 
 test('signup collects separate, unchecked explicit consent on web and native', () => {
