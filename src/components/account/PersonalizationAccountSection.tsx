@@ -70,6 +70,7 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
   const [savingInterests, setSavingInterests] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const [accountUserId, setAccountUserId] = useState<string | null>(null);
   const requestVersion = useRef(0);
 
   const load = useCallback(async () => {
@@ -79,6 +80,7 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
       if (request !== requestVersion.current) return false;
       if (authError) throw authError;
       if (!authData.user) throw new Error('Authentication required.');
+      setAccountUserId(authData.user.id);
       setError('');
 
       const { data, error: rpcError } = await client.rpc('get_my_personalization_status');
@@ -132,28 +134,35 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
     setSaving(true);
     setError('');
     setMessage('');
+    let localWithdrawalSaved = false;
+    const syncNativeConsent = async (userId: string, nextEnabled: boolean, pendingSync: boolean) => {
+      let nativeCacheSync: Promise<void> | null = null;
+      window.dispatchEvent(new CustomEvent('cathoscroll:personalization-consent-changed', {
+        detail: {
+          userId,
+          enabled: nextEnabled,
+          pendingSync,
+          complete: (result: Promise<void>) => { nativeCacheSync = result; },
+        },
+      }));
+      if (nativeCacheSync) await nativeCacheSync;
+      return nativeCacheSync !== null;
+    };
     try {
+      // The identity was captured during the last successful settings load.
+      // Use it to write a local denial before any network-dependent auth call.
+      if (!enabled) {
+        if (!accountUserId) throw new Error('The account identity is not available on this device.');
+        localWithdrawalSaved = await syncNativeConsent(accountUserId, false, true);
+        if (localWithdrawalSaved) {
+          setStatus((current) => ({ ...current, enabled: false, topic_interests: 0, category_interests: 0, selected_categories: [], top_topic_interests: [] }));
+        }
+      }
+
       const { data: authData, error: authError } = await client.auth.getUser();
       if (authError || !authData.user) throw authError ?? new Error('Authentication required.');
-
-      const syncNativeConsent = async (nextEnabled: boolean, pendingSync: boolean) => {
-        let nativeCacheSync: Promise<void> | null = null;
-        window.dispatchEvent(new CustomEvent('cathoscroll:personalization-consent-changed', {
-          detail: {
-            userId: authData.user.id,
-            enabled: nextEnabled,
-            pendingSync,
-            complete: (result: Promise<void>) => { nativeCacheSync = result; },
-          },
-        }));
-        if (nativeCacheSync) await nativeCacheSync;
-      };
-
-      // Write a durable local denial before contacting the server. This makes
-      // withdrawal effective immediately on native devices, even offline.
-      if (!enabled) {
-        await syncNativeConsent(false, true);
-        setStatus((current) => ({ ...current, enabled: false, topic_interests: 0, category_interests: 0, selected_categories: [], top_topic_interests: [] }));
+      if (accountUserId && authData.user.id !== accountUserId) {
+        throw new Error('The signed-in account changed. Refresh settings before changing consent.');
       }
 
       const { data, error: rpcError } = await client.rpc('set_my_personalization_consent', {
@@ -163,7 +172,7 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
       if (!isRecord(data) || data.enabled !== enabled) {
         throw new Error('Personalisation settings were not confirmed.');
       }
-      await syncNativeConsent(enabled, false);
+      await syncNativeConsent(authData.user.id, enabled, false);
 
       const refreshed = await load();
       setMessage(refreshed
@@ -173,9 +182,11 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
         : 'Your setting was saved, but the latest status could not be refreshed. Use Refresh status to verify it.');
     } catch (cause) {
       console.error('Unable to update personalisation consent:', cause);
-      if (!enabled && !navigator.onLine) {
+      if (!enabled && localWithdrawalSaved) {
         setStatus((current) => ({ ...current, enabled: false, topic_interests: 0, category_interests: 0, selected_categories: [], top_topic_interests: [] }));
-        setMessage('Personalisation is disabled on this device. The server setting will synchronise when you reconnect.');
+        setMessage(navigator.onLine
+          ? 'Personalisation is disabled on this device. The server could not confirm the change; it will retry when the feed reconnects.'
+          : 'Personalisation is disabled on this device. The server setting will synchronise when you reconnect.');
       } else {
         setError(enabled
           ? 'Your setting could not be changed. No change has been assumed; try again.'
