@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { DoorOpen, Share2 } from 'lucide-react';
 
 import type { SponsorFeedCampaign } from '@/lib/sponsor-campaigns';
+import { hasAnalyticsConsent } from '@/lib/analytics-consent';
 import { recordAnonymousSponsorCampaignEvent, recordSponsorCampaignEvent } from '@/lib/sponsor-analytics-client';
 import { FeedInterstitialMotion } from './FeedInterstitialMotion';
 import { BaseFeedCard } from './BaseFeedCard';
@@ -69,7 +70,8 @@ export function SponsorFeedCard({
   const safeIndex = Math.min(activeIndex, Math.max(0, campaigns.length - 1));
   const campaign = campaigns[safeIndex];
   const campaignId = campaign?.campaign_id;
-  const viewablePlacementKey = campaignId
+  const sponsorMeasurementEnabled = hasAnalyticsConsent('sponsorMeasurement', userId);
+  const viewablePlacementKey = campaignId && sponsorMeasurementEnabled
     ? getSponsorPlacementKey(userId, sessionId, campaignId, placementKey)
     : null;
 
@@ -79,14 +81,14 @@ export function SponsorFeedCard({
 
   const recordEvent = useCallback(
     async (targetCampaignId: string, eventType: 'viewable_impression' | 'click') => {
-      if (previewMode) return false;
+      if (previewMode || !sponsorMeasurementEnabled) return false;
       const event = { campaignId: targetCampaignId, eventId: createEventId(), sessionId, eventType };
       if (!userId) {
         return recordAnonymousSponsorCampaignEvent({ ...event, placementKey }, sponsorApiBaseUrl);
       }
       return recordSponsorCampaignEvent(userId, event, getAccessToken, sponsorApiBaseUrl);
     },
-    [getAccessToken, placementKey, previewMode, sessionId, sponsorApiBaseUrl, userId]
+    [getAccessToken, placementKey, previewMode, sessionId, sponsorApiBaseUrl, sponsorMeasurementEnabled, userId]
   );
 
   useEffect(() => {
