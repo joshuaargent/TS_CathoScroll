@@ -1390,20 +1390,28 @@ BEGIN
   IF v_current_user_id IS NULL OR v_current_user_id IS DISTINCT FROM p_user_id THEN
     RAISE EXCEPTION 'Cannot read another account recommendation signals' USING ERRCODE='42501';
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM catho_private.user_personalization_consents c
-    WHERE c.user_id=p_user_id AND c.enabled=true) THEN RETURN; END IF;
+  IF NOT EXISTS (
+    SELECT 1
+    FROM catho_private.user_personalization_consents AS pc
+    JOIN catho_private.user_analytics_consents AS ac ON ac.user_id = pc.user_id
+    WHERE pc.user_id = p_user_id
+      AND pc.enabled = true
+      AND ac.service_improvement = true
+  ) THEN
+    RETURN;
+  END IF;
   PERFORM catho_private.refresh_user_interest_profile(p_user_id);
   RETURN QUERY
-  SELECT combined.category_slug,sum(combined.weight)::numeric
+  SELECT combined.category_slug, sum(combined.weight)::numeric
   FROM (
-    SELECT s.category_slug,s.score AS weight
-    FROM catho_private.user_topic_interest_scores s
-    WHERE s.user_id=p_user_id AND s.score<>0
+    SELECT s.category_slug, s.score AS weight
+    FROM catho_private.user_topic_interest_scores AS s
+    WHERE s.user_id = p_user_id AND s.score <> 0
     UNION ALL
-    SELECT e.category_slug,8::numeric AS weight
-    FROM catho_private.user_explicit_category_interests e
-    WHERE e.user_id=p_user_id
-  ) combined
+    SELECT e.category_slug, 8::numeric AS weight
+    FROM catho_private.user_explicit_category_interests AS e
+    WHERE e.user_id = p_user_id
+  ) AS combined
   GROUP BY combined.category_slug;
 END;
 $function$;
@@ -1415,74 +1423,25 @@ CREATE OR REPLACE FUNCTION catho_private.get_user_recommendation_category_weight
  SECURITY DEFINER
  SET search_path TO ''
 AS $function$
-DECLARE
-  v_current_user_id uuid := auth.uid();
-  v_consent_at timestamptz;
-  v_now timestamptz := statement_timestamp();
+DECLARE v_current_user_id uuid := auth.uid();
 BEGIN
   IF v_current_user_id IS NULL OR v_current_user_id IS DISTINCT FROM p_user_id THEN
     RAISE EXCEPTION 'Cannot read another account recommendation category weights' USING ERRCODE = '42501';
   END IF;
-
-  SELECT c.granted_at INTO v_consent_at
-  FROM catho_private.user_personalization_consents c
-  WHERE c.user_id = p_user_id AND c.enabled = true;
-
-  IF v_consent_at IS NULL THEN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM catho_private.user_personalization_consents AS pc
+    JOIN catho_private.user_analytics_consents AS ac ON ac.user_id = pc.user_id
+    WHERE pc.user_id = p_user_id
+      AND pc.enabled = true
+      AND ac.service_improvement = true
+  ) THEN
     RETURN;
   END IF;
-
   RETURN QUERY
-  WITH signals AS (
-    SELECT p.topic_id, 5::numeric AS weight
-    FROM public.progress p
-    WHERE p.user_id = p_user_id
-      AND p.completed_at >= greatest(v_now - interval '180 days', v_consent_at)
-
-    UNION ALL
-
-    SELECT b.topic_id, 4::numeric
-    FROM public.bookmarks b
-    WHERE b.user_id = p_user_id
-      AND b.created_at >= greatest(v_now - interval '180 days', v_consent_at)
-
-    UNION ALL
-
-    SELECT l.topic_id, 3::numeric
-    FROM public.topic_likes l
-    WHERE l.user_id = p_user_id
-      AND l.created_at >= greatest(v_now - interval '180 days', v_consent_at)
-
-    UNION ALL
-
-    SELECT DISTINCT c.topic_id, 3::numeric
-    FROM public.comments c
-    WHERE c.user_id = p_user_id
-      AND c.is_deleted = false
-      AND c.created_at >= greatest(v_now - interval '180 days', v_consent_at)
-  ),
-  legacy_preferences AS (
-    SELECT t.category_slug, sum(s.weight) AS weight
-    FROM signals s
-    JOIN public.topics t ON t.id = s.topic_id AND t.is_published
-    JOIN public.categories c ON c.slug = t.category_slug AND c.is_published
-    GROUP BY t.category_slug
-  ),
-  feed_preferences AS (
-    SELECT feed_signals.category_slug, sum(feed_signals.weight) AS weight
-    FROM catho_private.get_user_feed_preference_signals(p_user_id) AS feed_signals
-    GROUP BY feed_signals.category_slug
-  ),
-  preferences AS (
-    SELECT legacy_preferences.category_slug, legacy_preferences.weight
-    FROM legacy_preferences
-    UNION ALL
-    SELECT feed_preferences.category_slug, feed_preferences.weight
-    FROM feed_preferences
-  )
-  SELECT p.category_slug, sum(p.weight)::numeric
-  FROM preferences p
-  GROUP BY p.category_slug;
+  SELECT signals.category_slug, sum(signals.weight)::numeric
+  FROM catho_private.get_user_feed_preference_signals(p_user_id) AS signals
+  GROUP BY signals.category_slug;
 END;
 $function$;
 
@@ -1505,7 +1464,7 @@ DECLARE
   streak integer;
   include_completed boolean;
   personalization_enabled boolean := false;
-  personalization_model_version constant text := 'explicit-actions-v3';
+  personalization_model_version constant text := 'activity-signals-v4';
   initial_page boolean := feed_cursor IS NULL OR feed_cursor = 'null'::jsonb;
   item_count integer := 0;
 BEGIN
@@ -6843,13 +6802,15 @@ AS $function$
 DECLARE
   v_user_id uuid := auth.uid();
   v_now timestamptz := statement_timestamp();
+  v_previous_service boolean;
+  v_previous_sponsor boolean;
 BEGIN
   IF v_user_id IS NULL THEN RAISE EXCEPTION 'Authentication required' USING ERRCODE='42501'; END IF;
   IF p_enabled IS NULL THEN RAISE EXCEPTION 'A consent choice is required' USING ERRCODE='22023'; END IF;
   IF p_enabled THEN
     INSERT INTO catho_private.user_personalization_consents
       (user_id,enabled,consent_version,granted_at,withdrawn_at,updated_at)
-    VALUES (v_user_id,true,'2026-11-19-v3',v_now,NULL,v_now)
+    VALUES (v_user_id,true,'2026-11-20-v4',v_now,NULL,v_now)
     ON CONFLICT(user_id) DO UPDATE SET
       enabled=true,consent_version=EXCLUDED.consent_version,
       granted_at=CASE WHEN catho_private.user_personalization_consents.enabled
@@ -6857,6 +6818,36 @@ BEGIN
       withdrawn_at=NULL,
       profile_refreshed_at=CASE WHEN catho_private.user_personalization_consents.enabled THEN catho_private.user_personalization_consents.profile_refreshed_at ELSE NULL END,
       updated_at=EXCLUDED.updated_at;
+
+    SELECT service_improvement, sponsor_measurement
+    INTO v_previous_service, v_previous_sponsor
+    FROM catho_private.user_analytics_consents
+    WHERE user_id = v_user_id
+    FOR UPDATE;
+
+    INSERT INTO catho_private.user_analytics_consents (
+      user_id, service_improvement, sponsor_measurement, consent_version,
+      service_improvement_updated_at, sponsor_measurement_updated_at, created_at, updated_at
+    ) VALUES (
+      v_user_id, true, coalesce(v_previous_sponsor, false), 1,
+      v_now, coalesce(v_now, v_now), v_now, v_now
+    )
+    ON CONFLICT (user_id) DO UPDATE SET
+      service_improvement = true,
+      service_improvement_updated_at = CASE
+        WHEN catho_private.user_analytics_consents.service_improvement IS DISTINCT FROM true
+        THEN v_now ELSE catho_private.user_analytics_consents.service_improvement_updated_at END,
+      updated_at = v_now;
+
+    IF v_previous_service IS DISTINCT FROM true THEN
+      INSERT INTO catho_private.user_analytics_consent_history (
+        user_id, previous_service_improvement, previous_sponsor_measurement,
+        service_improvement, sponsor_measurement, consent_version, recorded_at
+      ) VALUES (
+        v_user_id, v_previous_service, v_previous_sponsor, true,
+        coalesce(v_previous_sponsor, false), 1, v_now
+      );
+    END IF;
     PERFORM catho_private.refresh_user_interest_profile(v_user_id);
   ELSE
     INSERT INTO catho_private.user_personalization_consents
@@ -6916,13 +6907,33 @@ CREATE OR REPLACE FUNCTION catho_private.capture_signup_personalization_consent(
  SECURITY DEFINER
  SET search_path TO ''
 AS $function$
+DECLARE
+  v_now timestamptz := statement_timestamp();
+  v_previous_sponsor boolean;
 BEGIN
   IF NEW.raw_user_meta_data ->> 'personalization_consent' = 'true' THEN
     INSERT INTO catho_private.user_personalization_consents
       (user_id,enabled,consent_version,granted_at,withdrawn_at,updated_at)
     VALUES
-      (NEW.id,true,'2026-11-19-v3',statement_timestamp(),NULL,statement_timestamp())
+      (NEW.id,true,'2026-11-20-v4',v_now,NULL,v_now)
     ON CONFLICT(user_id) DO NOTHING;
+
+    INSERT INTO catho_private.user_analytics_consents (
+      user_id, service_improvement, sponsor_measurement, consent_version,
+      service_improvement_updated_at, sponsor_measurement_updated_at, created_at, updated_at
+    ) VALUES (NEW.id, true, false, 1, v_now, v_now, v_now, v_now)
+    ON CONFLICT (user_id) DO UPDATE SET
+      service_improvement = true,
+      service_improvement_updated_at = CASE
+        WHEN catho_private.user_analytics_consents.service_improvement IS DISTINCT FROM true
+        THEN v_now ELSE catho_private.user_analytics_consents.service_improvement_updated_at END,
+      updated_at = v_now;
+
+    INSERT INTO catho_private.user_analytics_consent_history (
+      user_id, previous_service_improvement, previous_sponsor_measurement,
+      service_improvement, sponsor_measurement, consent_version, recorded_at
+    )
+    VALUES (NEW.id, NULL, NULL, true, false, 1, v_now);
   END IF;
   RETURN NEW;
 END;
@@ -7996,11 +8007,16 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path TO ''
 AS $function$
-DECLARE v_consent catho_private.user_analytics_consents%ROWTYPE;
+DECLARE
+  v_consent catho_private.user_analytics_consents%ROWTYPE;
+  v_personalization_enabled boolean := false;
 BEGIN
   IF p_user_id IS NULL OR NOT EXISTS (SELECT 1 FROM auth.users AS account WHERE account.id = p_user_id) THEN
     RAISE EXCEPTION 'Invalid account for analytics consent lookup' USING ERRCODE = '22023';
   END IF;
+  SELECT coalesce(pc.enabled, false) INTO v_personalization_enabled
+  FROM (SELECT p_user_id AS user_id) AS actor
+  LEFT JOIN catho_private.user_personalization_consents AS pc ON pc.user_id = actor.user_id;
   SELECT * INTO v_consent
   FROM catho_private.user_analytics_consents AS consent
   WHERE consent.user_id = p_user_id;
@@ -8010,7 +8026,8 @@ BEGIN
       'sponsorMeasurement', false,
       'updatedAt', NULL,
       'version', 1,
-      'exists', false
+      'exists', false,
+      'personalizationEnabled', v_personalization_enabled
     );
   END IF;
   RETURN pg_catalog.jsonb_build_object(
@@ -8018,7 +8035,8 @@ BEGIN
     'sponsorMeasurement', v_consent.sponsor_measurement,
     'updatedAt', v_consent.updated_at,
     'version', v_consent.consent_version,
-    'exists', true
+    'exists', true,
+    'personalizationEnabled', v_personalization_enabled
   );
 END;
 $function$;
@@ -8046,6 +8064,14 @@ BEGIN
     RAISE EXCEPTION 'Invalid analytics consent update' USING ERRCODE = '22023';
   END IF;
   PERFORM 1 FROM auth.users AS account WHERE account.id = p_user_id FOR UPDATE;
+
+  IF p_service_improvement IS NOT TRUE AND EXISTS (
+    SELECT 1 FROM catho_private.user_personalization_consents AS pc
+    WHERE pc.user_id = p_user_id AND pc.enabled = true
+  ) THEN
+    RAISE EXCEPTION 'Turn off personalisation before disabling Service improvement analytics' USING ERRCODE = '42501';
+  END IF;
+
   SELECT service_improvement, sponsor_measurement
   INTO v_previous_service, v_previous_sponsor
   FROM catho_private.user_analytics_consents
@@ -8091,7 +8117,11 @@ BEGIN
     'sponsorMeasurement', v_consent.sponsor_measurement,
     'updatedAt', v_consent.updated_at,
     'version', v_consent.consent_version,
-    'exists', true
+    'exists', true,
+    'personalizationEnabled', EXISTS (
+      SELECT 1 FROM catho_private.user_personalization_consents AS pc
+      WHERE pc.user_id = p_user_id AND pc.enabled = true
+    )
   );
 END;
 $function$;
