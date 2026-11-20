@@ -11,16 +11,17 @@ A UK privacy professional must review and complete this assessment before broad 
 
 ### Optional personalisation
 
-Users may separately opt in at signup or later in Account settings. The checkbox is unticked by default and is not required to use CathoScroll. The recorded consent version is `2026-11-19-v3`.
+Users may separately opt in at signup or later in Account settings. The checkbox is unticked by default and is not required to use CathoScroll. The recorded consent version is `2026-11-20-v4`.
 
-When enabled, the **PR26 target** system uses only explicit account actions recorded after personalisation consent:
+When enabled, the v4 model uses eligible explicit account actions and passive reading signals recorded after the personalisation grant:
 - progress and completed topics;
 - bookmarks and topic likes;
 - comments written, comment likes and replies written;
 - categories explicitly selected by the user;
-- derived topic/category interest scores based on those actions.
+- viewable impressions, active duration, swipe depth, skips, completions, return visits and eligible Top Comments exposure;
+- derived topic/category interest scores based on those signals.
 
-Operational reading measurements (impressions, active duration, swipe depth, skips, return visits and Top Comments exposure) are inputs to the recommendation profile only while personalisation and Service improvement analytics are both enabled.
+Passive reading measurements are recommendation inputs only while both personalisation and the linked Service improvement analytics permission are active. When personalisation is off, Service improvement analytics may remain enabled for operational reporting, but the recommendation RPC does not read account-history analytics or explicit-interest tables.
 
 **Consent dependency:** enabling personalisation also enables Service improvement analytics. The user cannot disable that analytics choice until personalisation is withdrawn. The profile refresher checks both consent records and uses only events recorded after the personalisation grant.
 
@@ -28,7 +29,7 @@ The profile is private, is not displayed on public profiles, and is not provided
 
 Explicit account actions and reading-signal evidence are limited to 180 days, with 14-day and 90-day decay horizons. Profile refresh is cached for five minutes. Withdrawal deletes derived topic scores and explicit category selections. The recommendation RPC immediately normalises active cursors after withdrawal.
 
-When consent is disabled, the recommendation RPC does not read account-history signal tables, uses neutral category weights, and does not suppress completed topics.
+When personalisation is disabled, the recommendation RPC does not read account-history signal tables, uses neutral category weights, and does not suppress completed topics.
 
 ### Operational analytics
 
@@ -69,12 +70,12 @@ The product's current minimum age is 13. This does not settle whether a particul
 |---|---|---|
 | Religious/philosophical interests inferred from reading patterns | Optional opt-in, clear sensitive-data wording, private profile, no sponsor sharing | Medium; validate consent and inference scope |
 | Users cannot genuinely refuse personalisation | All individual learning/community features remain free; neutral feed when off | Low, subject to product verification |
-| Consent is bundled or preselected | Separate unticked signup checkbox; separate Account control | Low; verify on web and native builds |
+| Consent is bundled or preselected | Unticked signup opt-in with clear linked Service improvement disclosure; Account control; service analytics locked while personalisation is on; sponsor separate | Low; verify on web and native builds |
 | Withdrawal leaves a personalised cursor active | Recommendation RPC re-normalises category weights and completion handling | Low; regression-tested |
 | Profile or raw event data exposed to sponsors | Separate sponsor pipeline; aggregate campaign reports only | Low; verify admin/export permissions |
 | Excessive retention | 90-day behavioural window, 180-day explicit evidence and raw-event/viewer bridge retention | Medium; verify all scheduled jobs and sponsor records |
 | Unauthorised access to profiles or raw events | Private schema, restricted RPCs, RLS, service-role-only admin reports | Medium; complete independent permission review |
-| Operational analytics itself reveals special-category interests | 180-day raw retention, access restrictions, not used for ranking without consent | High/unresolved until Article 9 assessment or redesign |
+| Operational analytics itself reveals special-category interests | 180-day raw retention and access restrictions; reading signals used for ranking only under the linked v4 opt-in; Article 6/Article 9 basis still requires controller approval | High/unresolved until Article 9 assessment or redesign |
 | Processor/international transfer exposure | Supabase and Vercel are identified processors | Medium/unresolved until regions, DPAs, and transfers verified |
 | Minors provide invalid consent | Minimum age 13 in Terms | High/unresolved until age/capacity approach reviewed |
 
