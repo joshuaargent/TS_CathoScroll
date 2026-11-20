@@ -113,7 +113,7 @@ test('sponsor analytics queue stays in memory and flushes without a visible spon
   assert.ok(sync.includes('supabase.auth.onAuthStateChange'));
   assert.ok(layout.includes('<SponsorAnalyticsSync />'));
   assert.ok(nativeMain.includes('<SponsorAnalyticsSync'));
-  assert.ok(nativeMain.includes('getAccessToken={getNativeSponsorAccessToken}'));
+  assert.ok(nativeMain.includes('getAccessToken={getSponsorAccessToken}'));
   assert.ok(topicFeed.includes("new URL('/api/content/sponsored-campaigns', effectiveSponsorApiBaseUrl)"));
   assert.ok(topicFeed.includes("window.location.protocol === 'capacitor:'"));
   assert.ok(sponsorAnalytics.includes("new URL('/api/content/sponsor-campaign-events', apiBaseUrl)"));
