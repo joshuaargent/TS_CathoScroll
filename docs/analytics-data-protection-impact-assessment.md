@@ -171,3 +171,12 @@ The ICO finalised its updated storage/access guidance on 29 April 2026. Its stat
 7. Keep the sponsor-logo compatibility bridge until the logo-free application is deployed and verified; then run the existing docs/sponsor-logo-removal.sql and confirm the old RPC signature and logo payload are absent.
 
 **Status:** technical review updated; controller legal approval, provider-contract acceptance, hosted MFA cleanup, production deployment and post-deployment bridge removal remain outstanding.
+
+
+## 14. Controller draft assessment and proposed consent model
+
+The detailed purpose-by-purpose engineering assessment, including the proposed Article 6/Article 9 position, sponsor opt-out fallback, PECR analysis, DPIA risk register and controller approval checklist, is maintained in [UK GDPR analytics assessment](./uk-gdpr-analytics-assessment.md). It is a draft for controller review, not a signed DPIA or legal opinion.
+
+The recommended design is to retain the existing event taxonomy and aggregate reporting for people who opt in, while separating account-linked service analytics from sponsor measurement. Account-linked topic/comment activity should use a separate explicit service-analytics choice that explains the religious-content context and may reveal religious/philosophical beliefs. Sponsor measurement should have its own optional choice. If sponsor measurement is declined, retain only campaign/day served-placement totals without visitor/session identifiers; do not record client viewability, clicks, CTR, or per-person frequency for that visitor. Keep recommendation personalisation on its existing separate signup and Account controls.
+
+Do not disable login, account synchronisation, bookmarks, likes, progress, notes, general feed ranking or sponsor delivery when optional analytics is declined. The controller must approve the Article 6 basis, any Article 9 condition, PECR Regulation 6 route, retention and residual DPIA risk before production enablement.
