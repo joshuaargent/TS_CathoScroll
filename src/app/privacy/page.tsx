@@ -123,7 +123,7 @@ export default function PrivacyPage() {
             <li>Administer paid sponsor campaigns, invoices, and sponsor account access.</li>
             <li>Measure sponsored campaign delivery and provide sponsors with aggregate campaign reports.</li>
             <li>Improve performance and reliability.</li>
-            <li>Measure topic and Top Comments engagement only where Service improvement analytics is enabled.</li>
+            <li>Measure topic and Top Comments engagement where Service improvement analytics is enabled; when personalisation is enabled, eligible reading signals also inform that user's recommendations.</li>
             <li>Measure sponsor viewability, clicks and frequency only where Sponsor measurement is enabled.</li>
             <li>Monitor abuse, spam, fraud, and security issues.</li>
             <li>Comply with legal obligations.</li>
@@ -135,10 +135,12 @@ export default function PrivacyPage() {
 
           <p className="text-text-secondary leading-relaxed">
             Personalisation is optional and is off by default. If you explicitly opt in,
-            CathoScroll may use your topic-reading activity (such as viewable reading time,
-            completion, repeat visits, and skips), your likes and bookmarks, relevant
-            community interactions, and category interests you choose to create a private
-            content-interest profile and personalise your topic recommendations.
+            CathoScroll uses your topic-reading activity (including viewable impressions, reading
+            duration, swipe depth, skips, completions and return visits), your likes and
+            bookmarks, relevant community interactions, and categories you choose to create
+            a private profile and personalise recommendations. This also enables Service
+            improvement analytics while personalisation is on; turn off personalisation before
+            disabling that analytics choice. Sponsor measurement remains separate and optional.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
@@ -155,10 +157,10 @@ export default function PrivacyPage() {
             You can review the categories and topics influencing your recommendations,
             change your selected interests, or withdraw consent at any time in
             <Link href="/account/personalization" className="text-accent mx-1 hover:underline">Account → Personalisation</Link>.
-            Withdrawing consent stops profile-based recommendation weighting and deletes
-            the derived topic-interest scores and selected category interests. It does not
-            erase separate operational analytics records that are retained for their
-            stated operational period.
+            Withdrawing consent stops recommendation weighting and deletes derived topic-interest
+            scores and selected category interests. Service improvement analytics then becomes
+            independently manageable; records already collected remain subject to the stated
+            retention period.
           </p>
         </section>
 
