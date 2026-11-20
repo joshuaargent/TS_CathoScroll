@@ -1396,7 +1396,7 @@ function App() {
     <ThemeProvider>
       <AnalyticsConsentManager
         userId={user?.id ?? null}
-        loading={authStatus !== 'ready' || checkingAccount}
+        loading={authStatus === 'loading' || checkingAccount}
         apiBaseUrl={siteConfig.url}
         getAccessToken={getNativeSponsorAccessToken}
       />
