@@ -677,6 +677,7 @@ AS $function$
 DECLARE
   v_current_user_id uuid := auth.uid();
   v_consent_at timestamptz;
+  v_now timestamptz := statement_timestamp();
 BEGIN
   IF v_current_user_id IS NULL OR v_current_user_id IS DISTINCT FROM p_user_id THEN
     RAISE EXCEPTION 'Cannot read another account recommendation category weights' USING ERRCODE = '42501';
@@ -695,21 +696,21 @@ BEGIN
     SELECT p.topic_id, 5::numeric AS weight
     FROM public.progress p
     WHERE p.user_id = p_user_id
-      AND p.completed_at >= v_consent_at
+      AND p.completed_at >= greatest(v_now - interval '180 days', v_consent_at)
 
     UNION ALL
 
     SELECT b.topic_id, 4::numeric
     FROM public.bookmarks b
     WHERE b.user_id = p_user_id
-      AND b.created_at >= v_consent_at
+      AND b.created_at >= greatest(v_now - interval '180 days', v_consent_at)
 
     UNION ALL
 
     SELECT l.topic_id, 3::numeric
     FROM public.topic_likes l
     WHERE l.user_id = p_user_id
-      AND l.created_at >= v_consent_at
+      AND l.created_at >= greatest(v_now - interval '180 days', v_consent_at)
 
     UNION ALL
 
@@ -717,7 +718,7 @@ BEGIN
     FROM public.comments c
     WHERE c.user_id = p_user_id
       AND c.is_deleted = false
-      AND c.created_at >= v_consent_at
+      AND c.created_at >= greatest(v_now - interval '180 days', v_consent_at)
   ),
   legacy_preferences AS (
     SELECT t.category_slug, sum(s.weight) AS weight
