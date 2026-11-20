@@ -64,7 +64,7 @@ export function recordSponsorCampaignEvent(
   getAccessToken: AccessTokenProvider,
   apiBaseUrl?: string
 ): boolean {
-  if (typeof window === 'undefined' || !userId || !hasAnalyticsConsent('sponsorMeasurement')) return false;
+  if (typeof window === 'undefined' || !userId || !hasAnalyticsConsent('sponsorMeasurement', userId)) return false;
   const queue = readQueue(userId);
   const alreadyQueued = queue.some(
     (queued) =>
@@ -106,7 +106,7 @@ export async function flushSponsorCampaignEvents(
   apiBaseUrl?: string
 ): Promise<void> {
   if (typeof window === 'undefined') return;
-  if (!hasAnalyticsConsent('sponsorMeasurement')) {
+  if (!hasAnalyticsConsent('sponsorMeasurement', null)) {
     pendingQueues.delete(userId);
     if (persistentOutbox) {
       try { await persistentOutbox.clearStream(userId, 'sponsor'); }
@@ -215,7 +215,7 @@ function anonymousEventEndpoint(apiBaseUrl?: string): string {
 }
 
 export async function flushAnonymousSponsorCampaignEvents(): Promise<void> {
-  if (typeof window === 'undefined' || !hasAnalyticsConsent('sponsorMeasurement')) {
+  if (typeof window === 'undefined' || !hasAnalyticsConsent('sponsorMeasurement', null)) {
     anonymousQueue.splice(0, anonymousQueue.length);
     return;
   }
