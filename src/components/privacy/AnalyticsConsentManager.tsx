@@ -1,10 +1,9 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { useAuth } from '@/components/providers/AuthProvider';
 import {
   analyticsConsentManageEvent,
-  analyticsConsentStorageKey,
-  getAnalyticsConsent,
   readAnalyticsConsent,
   saveAnalyticsConsent,
   type AnalyticsConsent,
@@ -23,7 +22,7 @@ import {
 
 type AnalyticsConsentManagerProps = { userId?: string | null };
 
-export function AnalyticsConsentManager({ userId = null }: AnalyticsConsentManagerProps) {
+function ConsentManager({ userId = null }: AnalyticsConsentManagerProps) {
   const [visible, setVisible] = useState(false);
   const [managing, setManaging] = useState(false);
   const [serviceImprovement, setServiceImprovement] = useState(false);
@@ -40,11 +39,8 @@ export function AnalyticsConsentManager({ userId = null }: AnalyticsConsentManag
     previous: AnalyticsConsent | null,
     next: Pick<AnalyticsConsent, 'serviceImprovement' | 'sponsorMeasurement'>
   ) => {
-    const serviceChangedToOff = previous?.serviceImprovement !== false && !next.serviceImprovement;
-    const sponsorChangedToOff = previous?.sponsorMeasurement !== false && !next.sponsorMeasurement;
-    const firstChoice = previous === null;
-    const clearService = serviceChangedToOff || (firstChoice && !next.serviceImprovement);
-    const clearSponsor = sponsorChangedToOff || (firstChoice && !next.sponsorMeasurement);
+    const clearService = previous === null || previous.serviceImprovement !== next.serviceImprovement;
+    const clearSponsor = previous === null || previous.sponsorMeasurement !== next.sponsorMeasurement;
     const tasks: Promise<unknown>[] = [];
     if (clearService) {
       if (userId) {
@@ -233,4 +229,14 @@ export function AnalyticsConsentSettingsButton() {
       Manage analytics choices
     </button>
   );
+}
+
+
+export function AnalyticsConsentManager() {
+  const { user } = useAuth();
+  return <ConsentManager userId={user?.id ?? null} />;
+}
+
+export function NativeAnalyticsConsentManager({ userId }: AnalyticsConsentManagerProps) {
+  return <ConsentManager userId={userId ?? null} />;
 }
