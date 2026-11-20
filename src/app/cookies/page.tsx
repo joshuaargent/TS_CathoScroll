@@ -63,12 +63,15 @@ export default function CookiesPage() {
           <h2 className="mb-4 text-3xl font-bold">Analytics and Performance Measurement</h2>
 
           <p className="text-text-secondary leading-relaxed">
-            Service improvement analytics measures topic and Top Comments engagement. Signed-in
-            events are linked to your account; signed-out events are stored only as daily topic or
-            comment totals, without account, visitor or session identifiers. Deduplication
-            receipts are deleted after 30 days. Website retry batches stay in memory; Android and
-            Electron store pending events in app-private storage for up to seven days, capped at
-            2,000 per stream. Withdrawal clears pending events.
+            Service improvement analytics measures signed-in topic and Top Comments engagement
+            and is optional unless personalisation is enabled. Signed-in events are linked to your
+            account and may reveal religious or philosophical interests. Separately, signed-out
+            topic and comment activity is counted by default as daily totals without account,
+            visitor or session identifiers. Declining optional analytics does not disable these
+            aggregates. You can object at any time through Manage choices; objecting stops new
+            events and clears pending anonymous events. Deduplication receipts are deleted after
+            30 days. Website retry batches stay in memory; Android and Electron store pending
+            signed-out events in app-private storage for up to seven days, capped at 2,000 events.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
