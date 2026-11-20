@@ -48,6 +48,18 @@ test('anonymous analytics queue is persisted locally and restored by the shared 
   assert.doesNotMatch(anonymousAnalytics, /sessionStorage|indexedDB/);
 });
 
+test('anonymous sponsor event retries stay in memory and never persist the session token', () => {
+  const anonymousQueueStart = sponsorAnalytics.indexOf('const anonymousQueue:');
+  assert.ok(anonymousQueueStart >= 0);
+  const anonymousQueueSource = sponsorAnalytics.slice(anonymousQueueStart);
+  assert.match(anonymousQueueSource, /recordAnonymousSponsorCampaignEvent/);
+  assert.match(anonymousQueueSource, /flushAnonymousSponsorCampaignEvents/);
+  assert.match(anonymousQueueSource, /window\.addEventListener\('online'/);
+  assert.doesNotMatch(anonymousQueueSource, /localStorage|sessionStorage|indexedDB/);
+  assert.match(sponsorSync, /installAnonymousSponsorAnalyticsListeners\(\)/);
+  assert.match(sponsor, /recordAnonymousSponsorCampaignEvent/);
+});
+
 test('anonymous analytics receipts and sponsor session records use 30-day retention', () => {
   assert.match(bootstrap, /anonymous_sponsor_events[\\s\\S]*?interval ''30 days''/);
   assert.match(bootstrap, /anonymous_sponsor_session_frequency[\\s\\S]*?interval ''30 days''/);
