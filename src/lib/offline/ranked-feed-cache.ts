@@ -1,11 +1,12 @@
 import type { Topic } from '@/types';
 import type { GeneralFeedCursor } from '@/lib/content';
+import type { CatalogueCursor } from './catalogue';
 import type { RecommendationCursor } from '@/lib/recommendations';
 import type { OfflineDatabase } from './activity-store';
 import type { OfflineCatalogue } from './catalogue';
 
 export type RankedFeedMode = 'general' | 'personalized';
-export type RankedFeedCursor = GeneralFeedCursor | RecommendationCursor;
+export type RankedFeedCursor = CatalogueCursor | GeneralFeedCursor | RecommendationCursor;
 export interface RankedFeedPage {
   topics: Topic[];
   nextCursor: RankedFeedCursor | null;
@@ -24,7 +25,7 @@ function assertOwner(mode: RankedFeedMode, userId: string | null): string {
 }
 
 function stableJson(value: unknown): string {
-  if (value === null || typeof value !== 'object') return JSON.stringify(value);
+  if (value === null || typeof value !== 'object') return JSON.stringify(value) ?? 'null';
   if (Array.isArray(value)) return '[' + value.map(stableJson).join(',') + ']';
   const record = value as Record<string, unknown>;
   return '{' + Object.keys(record).sort().map((key) => JSON.stringify(key) + ':' + stableJson(record[key])).join(',') + '}';
