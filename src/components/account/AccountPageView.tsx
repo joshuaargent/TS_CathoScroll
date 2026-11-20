@@ -39,7 +39,7 @@ export type AccountPageViewProps = {
 
 export function AccountPageSkeleton() {
   return (
-    <div className={props.bottomPadding === false ? "container pt-12 pb-0" : "container py-12"}>
+    <div className="container py-12">
       <div className="mt-8 mb-10">
         <Skeleton className="h-16 w-64" />
         <Skeleton className="mt-4 h-6 w-96" />
@@ -80,7 +80,7 @@ export function AccountPageView(props: AccountPageViewProps) {
   if (props.loading) return <AccountPageSkeleton />;
 
   return (
-    <div className="container py-12">
+    <div className={props.bottomPadding === false ? "container pt-12 pb-0" : "container py-12"}>
       <div className="mt-8 mb-10">
         <h1 className="text-5xl font-extrabold md:text-7xl">Account</h1>
         <p className="text-text-secondary mt-4 text-lg">
