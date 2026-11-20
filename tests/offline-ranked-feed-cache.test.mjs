@@ -24,7 +24,7 @@ test('offline personalisation only reuses encrypted cached server pages with fre
   assert.match(cache, /consentFreshnessMs = 12 \* 60 \* 60 \* 1000/);
   assert.match(cache, /async hasFreshConsent/);
   assert.match(cache, /async clearUser/);
-  assert.match(native, /personalizedFeedCacheRef\.current\?\.hasFreshConsent\(user\.id\)/);
+  assert.match(native, /personalizedFeedCacheRef\.current\.hasFreshConsent\(user\.id\)/);
   assert.match(native, /personalizedFeedCacheRef\.current\?\.setConsent\(user\.id, status\.enabled\)/);
   assert.match(native, /personalizedFeedCacheRef\.current\.save\('personalized', user\.id, null, page\)/);
   assert.match(privacy, /12 hours after the last successful consent check/);
