@@ -725,6 +725,11 @@ function App() {
         let page: CataloguePage;
         let personalizedEnabled = false;
         if (user?.id) {
+          const pendingConsent = await personalizedFeedCacheRef.current?.getPendingConsent(user.id);
+          if (pendingConsent === false) {
+            const { error: withdrawalError } = await createClient().rpc('set_my_personalization_consent', { p_enabled: false });
+            if (!withdrawalError) await personalizedFeedCacheRef.current?.setConsent(user.id, false, false);
+          }
           const { data: status, error: statusError } =
             await createClient().rpc('get_my_personalization_status');
           personalizedEnabled =
@@ -733,7 +738,7 @@ function App() {
             status !== null &&
             'enabled' in status &&
             status.enabled === true;
-          if (!statusError && typeof status === 'object' && status !== null &&
+          if (pendingConsent !== false && !statusError && typeof status === 'object' && status !== null &&
               'enabled' in status && typeof status.enabled === 'boolean') {
             try {
               await personalizedFeedCacheRef.current?.setConsent(user.id, status.enabled);
@@ -863,12 +868,13 @@ function App() {
       const detail = (event as CustomEvent<{
         userId?: unknown;
         enabled?: unknown;
+        pendingSync?: unknown;
         complete?: (result: Promise<void>) => void;
       }>).detail;
       if (!detail || typeof detail.userId !== 'string' || typeof detail.enabled !== 'boolean') return;
       const cache = personalizedFeedCacheRef.current;
       const result = cache
-        ? cache.setConsent(detail.userId, detail.enabled)
+        ? cache.setConsent(detail.userId, detail.enabled, detail.pendingSync === true)
         : Promise.reject(new Error('Encrypted personalised feed cache is unavailable.'));
       detail.complete?.(result);
     }
