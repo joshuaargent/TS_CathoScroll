@@ -51,6 +51,9 @@ import { OfflineTopicCountCache, type CachedTopicCounts } from '@/lib/offline/to
 import { loadTopicActivity } from '@/lib/topic-activity';
 import { siteConfig } from '@/lib/constants';
 import { configureAnonymousFeedAnalyticsOutbox } from '@/lib/anonymous-feed-analytics-client';
+import { configureFeedAnalyticsOutbox, clearFeedAnalyticsOutbox } from '@/lib/feed-analytics-client';
+import { configureFeedCardAnalyticsOutbox, clearFeedCardAnalyticsOutbox } from '@/lib/feed-card-analytics-client';
+import { NativeSignedInAnalyticsOutbox } from '@/lib/offline/signed-in-analytics-store';
 import { NativeAnonymousAnalyticsOutbox } from '@/lib/offline/anonymous-analytics-store';
 import type { TopFeedComment } from '@/lib/feed-comments';
 import type { RecommendationCursor } from '@/lib/recommendations';
@@ -843,9 +846,11 @@ function App() {
         }
         const localCatalogue = new OfflineCatalogue(databases.catalogue);
         let cacheDatabase = databases.catalogue;
+        let privateDatabaseReady = false;
         try {
           await openPrivateActivity();
           cacheDatabase = await openPrivateActivityDatabase(secureAuthStorage);
+          privateDatabaseReady = true;
           clearNativeStatusNotice('private-cache-unavailable');
         } catch (cause) {
           // Keep public browsing and online reading available if secure storage
@@ -854,6 +859,21 @@ function App() {
           notifyNativeStatus('Encrypted offline account storage is unavailable. Saved notes and activity may not be available offline.', {
             id: 'private-cache-unavailable',
           });
+        }
+        if (privateDatabaseReady) {
+          try {
+            const signedInOutbox = new NativeSignedInAnalyticsOutbox(cacheDatabase);
+            await Promise.all([
+              configureFeedAnalyticsOutbox(signedInOutbox),
+              configureFeedCardAnalyticsOutbox(signedInOutbox),
+            ]);
+            clearNativeStatusNotice('signed-in-analytics-outbox');
+          } catch (cause) {
+            console.error('Encrypted signed-in analytics outbox is unavailable:', cause);
+            notifyNativeStatus('Signed-in topic and comment analytics may not be retained if the app closes before upload.', {
+              id: 'signed-in-analytics-outbox',
+            });
+          }
         }
         const localComments = new OfflineCommentCache(cacheDatabase);
         const localCounts = new OfflineTopicCountCache(cacheDatabase);
@@ -932,7 +952,20 @@ function App() {
         const supabase = createClient();
         const { data } = supabase.auth.onAuthStateChange((event, session) => {
           if (active) {
+            const previousUserId = cachedIdentity?.id ?? null;
             cachedIdentity = identityAfterAuthEvent(event, session, cachedIdentity);
+            const nextUserId = cachedIdentity?.id ?? null;
+            if (previousUserId && previousUserId !== nextUserId) {
+              void Promise.all([
+                clearFeedAnalyticsOutbox(previousUserId),
+                clearFeedCardAnalyticsOutbox(previousUserId),
+              ]).catch((cause: unknown) => {
+                console.error('Unable to clear the previous account analytics queue:', cause);
+                notifyNativeStatus('Some unsent analytics from the previous account could not be cleared from this device.', {
+                  id: 'signed-in-analytics-clear',
+                });
+              });
+            }
             setUser(cachedIdentity);
             setCheckingAccount(false);
           }
