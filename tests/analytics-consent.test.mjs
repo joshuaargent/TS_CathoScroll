@@ -32,7 +32,7 @@ test('optional analytics consent is explicit, purpose-specific and off by defaul
   assert.ok(manager.includes('Sponsor measurement separately records views, clicks, frequency and topic placement.'));
   assert.ok(manager.includes('Either context may reveal religious or philosophical interests.'));
   assert.ok(manager.includes('Accept all enables both; Decline optional declines both; Manage choices lets you choose separately.'));
-  assert.ok(manager.includes('Topic and comment activity may reveal religious or philosophical interests.'));
+  assert.ok(manager.includes('Either context may reveal religious or philosophical interests.'));
   assert.ok(manager.includes('Topic placement may reveal religious or philosophical interests'));
   assert.ok(manager.includes('special-category data under UK GDPR'));
   assert.ok(manager.includes('Recommendation personalisation remains controlled separately'));
