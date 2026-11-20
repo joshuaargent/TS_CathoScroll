@@ -33,7 +33,7 @@ CathoScroll's subject matter includes Catholic theology and other religious topi
 
 | Data | Source | Use | Consent state |
 |---|---|---|---|
-| Impressions, active duration, swipe depth, skips, return visits, Top Comments exposure | Operational analytics tables | Current production also reads these tables for recommendation weighting when personalisation is enabled; PR26 removes that dependency. After upgrade: service measurement only. | Collected only under Service improvement analytics consent |
+| Impressions, active duration, swipe depth, skips, return visits, Top Comments exposure | Operational analytics tables | Used for service measurement and, only while personalisation is enabled, the account's private recommendation profile. | Service improvement analytics is enabled by the explicit personalisation opt-in and locked on until personalisation is withdrawn |
 | Progress/completions, bookmarks, topic likes, comments, comment likes, replies | Existing account activity | Explicit topic-interest evidence | Read for recommendation weighting only when separate personalisation consent is enabled |
 | Selected categories | Account settings | Strong user-declared interest signal | Stored only while enabled |
 | Derived topic/category scores | Private profile tables | Rank the user's own recommendations | Created/refreshed only while enabled |
@@ -51,7 +51,7 @@ The profile is not displayed on public profiles, is not provided to sponsors, an
 - The shared AccountPageView and PersonalizationSettingsPage are used by web and native; platform-specific authentication/session storage remains in the web/native adapters.
 - Withdrawal records the choice, deletes derived topic scores and explicit category choices, and prevents further account-history recommendation weighting.
 - Existing cursors are neutralised on the next recommendation RPC call after withdrawal; category weights become equal and completed-topic suppression is disabled. A new sign-in or page reload is not required for this server-side check to take effect.
-- Current production still reads operational analytics events in the recommendation-profile refresher when personalisation is enabled. PR26 replaces this with explicit account actions only and active-cursor rebasing; until the production SQL upgrade is applied, the two purposes are not fully data-separated. Personalisation withdrawal does not erase operational analytics records; they remain under their separately stated retention policy.
+- The recommendation profile reads eligible operational reading events only while both personalisation and Service improvement analytics are enabled. The personalisation opt-in expressly enables Service improvement analytics; the analytics choice is locked until personalisation is withdrawn. Personalisation withdrawal deletes the derived profile and makes Service improvement analytics independently manageable. Historical raw analytics remain under their stated retention period.
 
 Consent version currently recorded by signup and the account RPC: `2026-11-19-v3`.
 
@@ -66,7 +66,7 @@ When consent is disabled:
 - Completed-topic history is not used to suppress topics.
 - The normal catalogue ordering, pagination, diversity and safety rules remain in place.
 
-When consent is enabled, the bounded scoring model uses explicit account actions recorded after consent only, with a maximum 180-day evidence window. It maintains 14-day and 90-day decay horizons and refreshes at most every five minutes. Operational analytics events—including impressions, reading duration, swipe depth, skips, return visits and Top Comments exposure—are never recommendation inputs. Sponsor delivery signals are also never recommendation inputs.
+When consent is enabled, the bounded scoring model uses explicit account actions and reading signals recorded after consent, with a maximum 180-day evidence window. It maintains 14-day and 90-day decay horizons and refreshes at most every five minutes. Service improvement analytics is enabled with personalisation and cannot be disabled until personalisation is withdrawn. Sponsor delivery and Sponsor measurement signals are never recommendation inputs.
 
 ## Analytics and retention
 
@@ -82,14 +82,15 @@ Do not describe aggregate analytics as a unique count of all visitors where the 
 
 ## Public policy alignment
 
-The public Privacy Policy distinguishes signed-in account-linked topic/comment/sponsor analytics from signed-out daily entity aggregates. Signed-out topic/comment aggregates contain no account ID, raw session ID or persistent visitor ID; event UUID receipts are retained for 30 days. Website retry batches remain in page memory; Android and Electron persist signed-in topic/comment/sponsor retry batches in the encrypted private activity database (2,000 per stream, seven-day expiry, acknowledgement deletion and account-switch cleanup) and signed-out topic/comment events in a separate app-private SQLite outbox with a free opt-out. Anonymous sponsor frequency uses a random in-memory token whose SHA-256 hash is retained for up to 30 days; raw sponsor event/frequency rows are pruned after 30 days. Campaign-level aggregates are used for sponsor reporting. The policy keeps operational analytics and recommendation personalisation as separate purposes.
+The public Privacy Policy distinguishes account-linked service analytics, signed-out daily entity aggregates, recommendation personalisation and sponsor measurement. Signed-out topic/comment aggregates contain no account ID, raw session ID or persistent visitor ID; event UUID receipts are retained for 30 days. Website retry batches remain in page memory; Android and Electron persist signed-in topic/comment/sponsor retry batches in the encrypted private activity database (2,000 per stream, seven-day expiry, acknowledgement deletion and account-switch cleanup) and signed-out topic/comment events in a separate app-private SQLite outbox with opt-out. Anonymous sponsor frequency uses a random in-memory token whose SHA-256 hash is retained for up to 30 days; raw sponsor event/frequency rows are pruned after 30 days. Campaign-level aggregates are used for sponsor reporting. Recommendation activity is collected only with personalisation and Service improvement analytics consent; Sponsor measurement remains separate.
 
 The Terms and Cookie Policy state that individual learning, account and community features are free and that business/organisation sponsorship is the only paid offering. There are no user premium tiers, paid learning subscriptions, or in-app card payments. Sponsor invoices are settled through direct bank transfer outside the app.
 
 ## Lawful-basis and DPIA work
 
 The current policy wording identifies:
-- Article 6(1)(a) UK GDPR consent for optional personalisation and the separate optional operational analytics purposes; and
+- Article 6(1)(a) UK GDPR consent for optional personalisation and its linked Service improvement analytics; and
+- A separate Article 6 basis for any Service improvement analytics collected when personalisation is not enabled; and
 - Article 9(2)(a) explicit consent where personalisation, account-linked topic/comment analytics, or topic-linked sponsor measurement reveals special-category religious or philosophical belief data.
 
 The sponsor-measurement consent statement discloses that anonymous event attribution includes the topic placement where a sponsor appeared. The controller must confirm whether that context meets the Article 9 revealing test; if it does not approve the explicit-consent condition, topic-level attribution must be removed before sponsor measurement is enabled.
