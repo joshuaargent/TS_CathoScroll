@@ -1,11 +1,10 @@
 import type { OfflineDatabase, OfflineTransaction } from './activity-store';
 
 export type SignedInAnalyticsStream = 'topic' | 'comment';
-export type SignedInAnalyticsPayload = {
+export type SignedInAnalyticsPayload = object & {
   event_id: string;
   session_id: string;
   event_type: string;
-  [key: string]: unknown;
 };
 
 export interface SignedInAnalyticsOutbox {
