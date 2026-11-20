@@ -96,7 +96,7 @@ export default function CookiesPage() {
         <section>
           <h2 className="mb-4 text-3xl font-bold">Manage optional analytics</h2>
           <p className="text-text-secondary mb-4 leading-relaxed">
-            Service improvement analytics and Sponsor measurement are separate optional choices, both off by default. You can change either choice at any time. Declining them does not affect sign-in, account synchronisation, bookmarks, likes, progress, notes, sponsor delivery or general feed ranking. Recommendation personalisation remains a separate account setting.
+            Service improvement analytics starts off and can be managed independently when personalisation is off. Enabling personalisation also enables Service improvement analytics and locks it on until personalisation is disabled. Sponsor measurement is always a separate optional choice. Declining optional analytics does not affect sign-in, account synchronisation, bookmarks, likes, progress, notes, sponsor delivery or general feed ranking.
           </p>
           <AnalyticsConsentSettingsButton />
         </section>
