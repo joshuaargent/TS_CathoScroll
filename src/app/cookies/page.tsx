@@ -123,10 +123,11 @@ export default function CookiesPage() {
 
           <p className="text-text-secondary leading-relaxed">
             CathoScroll uses browser local storage, IndexedDB, and app-private device storage for
-            essential functions such as session support, offline topic and account data, pending
-            activity synchronisation, and retry queues. These technologies store information on
-            your device but are not browser cookies. Clearing them may remove offline data or
-            require you to sign in again; pending unsynchronised activity may be lost.
+            essential functions such as session support, offline topic and account data, and pending
+            user-requested activity synchronisation. First-party analytics retry queues are held in
+            memory only and are not written to these storage technologies. These technologies store
+            information on your device but are not browser cookies. Clearing them may remove offline
+            data or require you to sign in again; pending unsynchronised activity may be lost.
           </p>
         </section>
 
