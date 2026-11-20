@@ -135,7 +135,7 @@ export default function PrivacyPage() {
 
           <p className="text-text-secondary leading-relaxed">
             Personalisation is optional and is off by default. If you explicitly opt in,
-            CathoScroll uses only account actions recorded after consent (progress and
+            CathoScroll uses only explicit account actions recorded after consent (progress and
             completions, bookmarks, topic likes, comments, comment likes and replies) and
             the categories you choose to create a private content-interest profile and
             personalise your topic recommendations. Operational analytics such as impressions,
