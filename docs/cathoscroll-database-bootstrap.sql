@@ -7875,8 +7875,6 @@ REVOKE ALL ON FUNCTION public.record_anonymous_sponsor_campaign_event(text,uuid,
 GRANT EXECUTE ON FUNCTION public.record_anonymous_sponsor_campaign_event(text,uuid,text,uuid,text) TO service_role;
 REVOKE ALL ON FUNCTION catho_private.prune_anonymous_analytics() FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION catho_private.prune_anonymous_analytics() TO service_role;
-REVOKE ALL ON FUNCTION catho_private.prune_anonymous_analytics() FROM PUBLIC,anon,authenticated;
-GRANT EXECUTE ON FUNCTION catho_private.prune_anonymous_analytics() TO service_role;
 
 REVOKE ALL ON FUNCTION public.get_admin_sponsor_campaign_analytics(uuid,date,date) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.get_admin_sponsor_campaign_analytics(uuid,date,date) TO service_role;
