@@ -43,7 +43,7 @@ import { authStorageKey, secureAuthStorage } from './secure-auth-storage';
 import { SignInPromptProvider, useSignInPrompt } from '@/components/providers/SignInPromptProvider';
 import { SponsorAnalyticsSync } from '@/components/providers/SponsorAnalyticsSync';
 import { ThemeProvider } from '@/components/providers/ThemeProvider';
-import { NativeAnalyticsConsentManager } from '@/components/privacy/AnalyticsConsentManager';
+import { AnalyticsConsentManager } from '@/components/privacy/AnalyticsConsentManager';
 import { OfflineCatalogue, type CatalogueCursor } from '@/lib/offline/catalogue';
 import { CatalogueRefresh } from '@/lib/offline/catalogue-refresh';
 import { SupabaseCatalogueTransport } from '@/lib/offline/supabase-catalogue-transport';
@@ -1394,7 +1394,7 @@ function App() {
 
   return (
     <ThemeProvider>
-      <NativeAnalyticsConsentManager
+      <AnalyticsConsentManager
         userId={user?.id ?? null}
         apiBaseUrl={siteConfig.url}
         getAccessToken={getNativeSponsorAccessToken}
