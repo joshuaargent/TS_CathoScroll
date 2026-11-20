@@ -77,6 +77,7 @@ test('account consent sync is identity-bound, retryable and enforced server-side
   assert.ok(security.includes("request.headers.get('sec-fetch-site') === 'same-origin'"));
   assert.ok(security.includes('new URL(referer).origin === requestOrigin'));
   assert.ok(serverConsent.includes('get_user_analytics_consent'));
+  assert.ok(serverConsent.includes('personalizationEnabled'));
   assert.ok(topicRoute.includes('getStoredAnalyticsConsent(user.id)'));
   assert.ok(commentRoute.includes('getStoredAnalyticsConsent(user.id)'));
   assert.ok(sponsorRoute.includes('getStoredAnalyticsConsent(auth.user.id)'));
