@@ -1,6 +1,7 @@
 'use client';
 
 import type { SignedInAnalyticsOutbox } from './offline/signed-in-analytics-store';
+import { hasAnalyticsConsent } from './analytics-consent';
 
 export type FeedAnalyticsEventType =
   | 'impression'
@@ -51,7 +52,7 @@ export async function clearFeedAnalyticsOutbox(userId: string): Promise<void> {
   pendingQueues.delete(userId);
   visitedTopicsByUser.delete(userId);
   completedTopicsByUser.delete(userId);
-  if (persistentOutbox) await persistentOutbox.clearUser(userId);
+  if (persistentOutbox) await persistentOutbox.clearStream(userId, 'topic');
 }
 
 async function hasPendingFeedAnalytics(userId: string): Promise<boolean> {
@@ -88,7 +89,7 @@ function rememberTopic(
 }
 
 export function recordFeedTopicVisit(userId: string | null, topicId: string): void {
-  if (!userId || !topicId) return;
+  if (!userId || !topicId || !hasAnalyticsConsent('serviceImprovement')) return;
   const now = Date.now();
   const visitKey = userId + '\u0000' + topicId;
   const lastVisitAt = recentTopicVisitAt.get(visitKey);
@@ -154,7 +155,7 @@ export function recordFeedAnalyticsEvent(
   topicId: string,
   metadata: FeedAnalyticsMetadata = {}
 ): void {
-  if (!userId || !sessionId || typeof window === 'undefined' || !topicId || topicId.length > 100) return;
+  if (!userId || !sessionId || typeof window === 'undefined' || !topicId || topicId.length > 100 || !hasAnalyticsConsent('serviceImprovement')) return;
 
   const eventId = createUuid();
   if (!eventId) return;
@@ -191,7 +192,12 @@ export function recordFeedAnalyticsEvent(
 }
 
 export async function flushFeedAnalytics(userId: string, keepalive = false): Promise<void> {
-  if (typeof window === 'undefined' || !navigator.onLine || flushingUsers.has(userId)) return;
+  if (typeof window === 'undefined' || !hasAnalyticsConsent('serviceImprovement')) {
+    writeQueue(userId, []);
+    if (persistentOutbox) await persistentOutbox.clearStream(userId, 'topic');
+    return;
+  }
+  if (!navigator.onLine || flushingUsers.has(userId)) return;
 
   flushingUsers.add(userId);
   try {
