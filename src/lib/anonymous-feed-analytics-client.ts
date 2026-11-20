@@ -20,6 +20,7 @@ export interface AnonymousFeedAnalyticsOutbox {
 
 const queueLimit = 2000;
 export const anonymousAnalyticsPreferenceKey = 'cathoscroll.anonymous-analytics.enabled.v1';
+export const anonymousAnalyticsPreferenceChangeEvent = 'cathoscroll:anonymous-analytics-preference-change';
 
 function anonymousAnalyticsEnabled(): boolean {
   try {
@@ -73,6 +74,7 @@ export async function setAnonymousFeedAnalyticsEnabled(enabled: boolean): Promis
     await persistentOutbox.clear();
   }
   window.localStorage.setItem(anonymousAnalyticsPreferenceKey, enabled ? 'true' : 'false');
+  window.dispatchEvent(new Event(anonymousAnalyticsPreferenceChangeEvent));
   if (!enabled) {
     pendingEvents.splice(0, pendingEvents.length);
     volatileEventIds.clear();

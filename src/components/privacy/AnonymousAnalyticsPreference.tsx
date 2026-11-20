@@ -1,40 +1,53 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState, useSyncExternalStore } from 'react';
 import {
+  anonymousAnalyticsPreferenceChangeEvent,
   anonymousAnalyticsPreferenceKey,
   setAnonymousFeedAnalyticsEnabled,
 } from '@/lib/anonymous-feed-analytics-client';
 
+function getPreferenceSnapshot(): boolean {
+  try {
+    return window.localStorage.getItem(anonymousAnalyticsPreferenceKey) !== 'false';
+  } catch {
+    return false;
+  }
+}
+
+function getServerPreferenceSnapshot(): boolean {
+  return true;
+}
+
+function subscribeToPreference(onChange: () => void): () => void {
+  window.addEventListener('storage', onChange);
+  window.addEventListener(anonymousAnalyticsPreferenceChangeEvent, onChange);
+  return () => {
+    window.removeEventListener('storage', onChange);
+    window.removeEventListener(anonymousAnalyticsPreferenceChangeEvent, onChange);
+  };
+}
+
 export function AnonymousAnalyticsPreference() {
-  const [enabled, setEnabled] = useState(true);
-  const [ready, setReady] = useState(false);
+  const enabled = useSyncExternalStore(
+    subscribeToPreference,
+    getPreferenceSnapshot,
+    getServerPreferenceSnapshot
+  );
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
 
-  useEffect(() => {
-    try {
-      setEnabled(window.localStorage.getItem(anonymousAnalyticsPreferenceKey) !== 'false');
-    } catch {
-      setEnabled(false);
-      setMessage('Device storage is unavailable. Anonymous topic/comment analytics is disabled in this browser session.');
-    }
-    setReady(true);
-  }, []);
-
   async function update(next: boolean) {
-    if (busy || !ready) return;
+    if (busy) return;
     setBusy(true);
     setMessage('');
     try {
       await setAnonymousFeedAnalyticsEnabled(next);
-      setEnabled(next);
       setMessage(next
         ? 'Anonymous topic/comment analytics is enabled.'
         : 'Anonymous topic/comment analytics is off. Pending local events have been cleared.');
     } catch {
-      setEnabled(false);
-      setMessage('The preference could not be saved. Analytics is disabled for this session; check device storage and retry.');
+      setMessage('The preference is off, but pending local events could not be cleared. Analytics will not upload while it remains off; retry after checking device storage.');
     } finally {
       setBusy(false);
     }
@@ -51,7 +64,7 @@ export function AnonymousAnalyticsPreference() {
         </div>
         <button
           type="button"
-          disabled={!ready || busy}
+          disabled={busy}
           aria-pressed={enabled}
           onClick={() => void update(!enabled)}
           className="border-border rounded-lg border px-4 py-2 text-sm font-semibold disabled:opacity-50"
@@ -60,7 +73,7 @@ export function AnonymousAnalyticsPreference() {
         </button>
       </div>
       <p className="text-text-muted mt-3 text-sm" role="status" aria-live="polite">
-        {message || (ready ? (enabled ? 'Currently enabled. You can object at any time.' : 'Currently off.') : 'Loading preference…')}
+        {message || (enabled ? 'Currently enabled. You can object at any time.' : 'Currently off.')}
       </p>
     </div>
   );
