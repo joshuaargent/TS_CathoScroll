@@ -84,9 +84,9 @@ export default function CookiesPage() {
           <p className="text-text-secondary mt-4 leading-relaxed">
             First-party topic and Top Comments analytics are collected through separate
             authenticated and signed-out pipelines. Signed-in events are linked to the account.
-            On Android and Electron, unsent signed-in topic and Top Comments events are persisted
-            in the encrypted private activity database, capped at 2,000 events per stream and
-            seven days, then removed after server acknowledgement or account sign-out/change.
+            On Android and Electron, unsent signed-in topic, Top Comments and sponsor viewability/click
+            events are persisted in the encrypted private activity database, capped at 2,000 events
+            per stream and seven days, then removed after server acknowledgement or account sign-out/change.
             Signed-out events are sent directly to the service and stored only as daily aggregate
             counts; no persistent anonymous visitor identifier or analytics cookie is created.
             A short-lived random token is held in memory while a signed-out session is active for
