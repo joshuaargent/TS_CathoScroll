@@ -7565,6 +7565,7 @@ CREATE TABLE catho_private.anonymous_sponsor_campaign_daily (
   clicks bigint NOT NULL DEFAULT 0,
   PRIMARY KEY(event_date,campaign_id)
 );
+CREATE INDEX IF NOT EXISTS anonymous_sponsor_campaign_daily_campaign_id_idx ON catho_private.anonymous_sponsor_campaign_daily(campaign_id);
 ALTER TABLE catho_private.anonymous_feed_analytics_daily ENABLE ROW LEVEL SECURITY;
 ALTER TABLE catho_private.anonymous_feed_event_receipts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE catho_private.anonymous_sponsor_session_frequency ENABLE ROW LEVEL SECURITY;
