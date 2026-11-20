@@ -114,7 +114,7 @@ test('sponsor analytics queue stays in memory and flushes without a visible spon
 test('README documents bounded behavioural signals used by recommendation ranking', () => {
   assert.ok(readme.includes('bounded, decaying feed behaviour signals'));
   assert.ok(readme.includes('at least two distinct sessions'));
-  assert.ok(readme.includes('Native apps use the same authenticated endpoint for signed-in events'));
+  assert.ok(readme.includes('Native apps use the same shared feed components and API endpoints as the website'));
   assert.ok(readme.includes('Anonymous sponsor viewable/click events use a bounded in-memory retry queue'));
 });
 
