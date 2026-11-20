@@ -91,7 +91,7 @@ The product's current minimum age is 13. This does not settle whether a particul
 
 ## 6. Required decisions before broad production rollout
 
-1. **Operational analytics Article 9 condition:** Determine whether account-linked topic/card events reveal religious or philosophical beliefs in context. The personalisation consent does not cover this stream. If it is special-category processing, identify a valid Article 9 condition; if explicit consent is required, add a separate optional analytics consent or redesign the pipeline to aggregate/anonymise before retaining user-linked event detail.
+1. **Service improvement analytics Article 9 assessment:** Determine whether account-linked topic/card events reveal religious or philosophical beliefs in context. These events are collected only under the separate Service improvement analytics consent, not personalisation consent. The controller must document the Article 6 basis and whether Article 9(2)(a) explicit consent is required; confirm the notice clearly explains the topic/comment context. If no valid Article 9 condition applies, stop account-linked event detail and retain only anonymous daily aggregates.
 2. **DPIA completion:** Complete the necessity/proportionality assessment, risk scoring, mitigations, residual-risk decision, and controller approval. Do not treat this screening as approval.
 3. **Children:** Decide whether personalisation is available to users aged 13–17 and document capacity/parental considerations.
 4. **Controller details:** Add the controller's full legal identity and postal address to the public Privacy Policy.
