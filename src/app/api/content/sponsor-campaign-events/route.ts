@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { readBoundedJson } from '@/lib/http/read-json';
+import { getStoredAnalyticsConsent } from '@/lib/analytics-consent-server';
 import { checkApiRateLimit, getTrustedClientIp, rateLimitResponseHeaders } from '@/lib/security/api-rate-limit';
 import {
   createServiceRoleClient,
@@ -37,6 +38,15 @@ export async function POST(request: Request) {
   } catch (cause) {
     console.error('Unable to verify sponsor-event authentication:', cause);
     return respond(request, { error: 'Authentication is temporarily unavailable.' }, 503);
+  }
+  if (auth.user) {
+    try {
+      const consent = await getStoredAnalyticsConsent(auth.user.id);
+      if (!consent.sponsorMeasurement) return respond(request, { recorded: false });
+    } catch (cause) {
+      console.error('Unable to verify sponsor measurement consent:', cause);
+      return respond(request, { error: 'Sponsor measurement preferences are temporarily unavailable.' }, 503);
+    }
   }
   const rateLimit = await checkApiRateLimit({
     scope: 'sponsor-campaign-events:write',
