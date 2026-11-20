@@ -1,6 +1,7 @@
 'use client';
 
 import type { SignedInAnalyticsOutbox } from './offline/signed-in-analytics-store';
+import { hasAnalyticsConsent } from './analytics-consent';
 
 export type SponsorCampaignEventType = 'viewable_impression' | 'click';
 
@@ -35,6 +36,7 @@ export async function configureSponsorAnalyticsOutbox(outbox: SignedInAnalyticsO
 
 export async function clearSponsorAnalyticsOutbox(userId: string): Promise<void> {
   pendingQueues.delete(userId);
+  if (persistentOutbox) await persistentOutbox.clearStream(userId, 'sponsor');
 }
 
 function sponsorEventFromPayload(payload: { event_id: string; session_id: string; event_type: string; campaign_id?: unknown }): QueuedSponsorCampaignEvent {
@@ -62,7 +64,7 @@ export function recordSponsorCampaignEvent(
   getAccessToken: AccessTokenProvider,
   apiBaseUrl?: string
 ): boolean {
-  if (typeof window === 'undefined' || !userId) return false;
+  if (typeof window === 'undefined' || !userId || !hasAnalyticsConsent('sponsorMeasurement')) return false;
   const queue = readQueue(userId);
   const alreadyQueued = queue.some(
     (queued) =>
@@ -105,6 +107,7 @@ export async function flushSponsorCampaignEvents(
 ): Promise<void> {
   if (
     typeof window === 'undefined' ||
+    !hasAnalyticsConsent('sponsorMeasurement') ||
     typeof navigator === 'undefined' ||
     !navigator.onLine ||
     flushingUsers.has(userId)
@@ -209,7 +212,11 @@ function anonymousEventEndpoint(apiBaseUrl?: string): string {
 }
 
 export async function flushAnonymousSponsorCampaignEvents(): Promise<void> {
-  if (typeof window === 'undefined' || typeof navigator === 'undefined' || !navigator.onLine || anonymousFlushInProgress) return;
+  if (typeof window === 'undefined' || !hasAnalyticsConsent('sponsorMeasurement')) {
+    anonymousQueue.splice(0, anonymousQueue.length);
+    return;
+  }
+  if (typeof navigator === 'undefined' || !navigator.onLine || anonymousFlushInProgress) return;
   anonymousFlushInProgress = true;
   try {
     while (anonymousQueue.length > 0 && navigator.onLine) {
@@ -234,6 +241,10 @@ export async function flushAnonymousSponsorCampaignEvents(): Promise<void> {
   }
 }
 
+export function clearAnonymousSponsorAnalyticsQueue(): void {
+  anonymousQueue.splice(0, anonymousQueue.length);
+}
+
 export function installAnonymousSponsorAnalyticsListeners(): () => void {
   if (typeof window === 'undefined') return () => undefined;
   if (!anonymousListenersInstalled) {
@@ -252,7 +263,7 @@ export function recordAnonymousSponsorCampaignEvent(
   event: AnonymousQueuedSponsorCampaignEvent,
   apiBaseUrl?: string
 ): boolean {
-  if (typeof window === 'undefined' || !event.campaignId || !event.sessionId || !event.placementKey) return false;
+  if (typeof window === 'undefined' || !hasAnalyticsConsent('sponsorMeasurement') || !event.campaignId || !event.sessionId || !event.placementKey) return false;
   const alreadyQueued = anonymousQueue.some((queued) =>
     queued.event.campaignId === event.campaignId &&
     queued.event.sessionId === event.sessionId &&
