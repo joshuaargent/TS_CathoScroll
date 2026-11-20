@@ -149,12 +149,11 @@ function ConsentManager({ userId = null, apiBaseUrl, getAccessToken }: Analytics
     setSaving(true);
     setError('');
     try {
-      const previous = readAnalyticsConsent();
+      const previous = readAnalyticsConsent(userId);
       // Clear old events before granting again. A fresh opt-in must never
       // revive events queued before the user made the new choice.
       await clearWithdrawnQueues(previous, next);
-      saveAnalyticsConsent(next);
-      if (!userId && next.serviceImprovement) await setAnonymousFeedAnalyticsEnabled(true);
+      saveAnalyticsConsent(next, userId)
       void syncServerConsent();
       setVisible(false);
       setManaging(false);
