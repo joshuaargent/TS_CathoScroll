@@ -44,6 +44,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
   const consentMutationRef = useRef(0);
   const dialogRef = useRef<HTMLElement | null>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
+  const managingRef = useRef(false);
 
   useEffect(() => {
     activeUserIdRef.current = userId;
@@ -288,8 +289,10 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
           updatedAt: saved.updatedAt,
           syncPending: false,
         });
-        setVisible(false);
-        setManaging(false);
+        if (!managingRef.current) {
+          setVisible(false);
+          setManaging(false);
+        }
         return;
       }
 
@@ -327,8 +330,10 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
           updatedAt: remoteUpdatedAt,
           syncPending: false,
         });
-        setVisible(false);
-        setManaging(false);
+        if (!managingRef.current) {
+          setVisible(false);
+          setManaging(false);
+        }
         return;
       }
 
@@ -381,6 +386,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
       await clearWithdrawnQueues(previous, next);
       saveAnalyticsConsent(next, userId);
       void syncServerConsent();
+      managingRef.current = false;
       setVisible(false);
       setManaging(false);
     } catch (cause) {
@@ -398,7 +404,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
     } finally {
       setSaving(false);
     }
-  }, [clearWithdrawnQueues, personalizationEnabled, saving, syncServerConsent, userId]);
+  }, [clearWithdrawnQueues, personalizationEnabled, personalizationStatusKnown, saving, syncServerConsent, userId]);
 
   useEffect(() => {
     if (loading) return;
@@ -431,6 +437,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
     }
     const manage = () => {
       hydrate(readAnalyticsConsent(userId));
+      managingRef.current = true;
       setManaging(true);
       setVisible(true);
       void syncServerConsent();
@@ -567,7 +574,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
               <button
                 type="button"
                 disabled={saving}
-                onClick={() => setManaging(false)}
+                onClick={() => { managingRef.current = false; setManaging(false); }}
                 className="border-border text-text-primary rounded-xl border px-4 py-3 text-sm font-semibold disabled:opacity-50"
               >
                 Back
