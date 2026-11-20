@@ -462,9 +462,9 @@ export function TopicFeedCore({
       if (!currentBoundary) return;
       const currentSponsor = currentBoundary.entries.find((item) => item.type === 'sponsor');
       if (!currentSponsor || currentSponsor.type !== 'sponsor') return;
-      if (result.campaigns.length > 0 && result.sessionId) {
+      if (result.campaigns.length > 0) {
         currentSponsor.campaigns = result.campaigns;
-        currentSponsor.sessionId = result.sessionId;
+        currentSponsor.sessionId = result.sessionId ?? '';
         currentSponsor.status = 'ready';
       } else {
         currentBoundary.entries = currentBoundary.entries.filter((item) => item.type !== 'sponsor');
