@@ -504,34 +504,12 @@ export function TopicFeedCore({
       ? previousMap.boundaries.flatMap((boundary) => {
           const currentTopic = topicsById.get(boundary.topicId);
           if (!currentTopic) return [];
-          const entries = boundary.entries.flatMap<FeedEntry>((entry) => {
-            if (entry.type === 'topic') return [{ ...entry, topic: currentTopic }];
-            if (entry.type === 'top-comments') {
-              const currentComments = entry.comments.flatMap((comment) => {
-                const currentComment = commentsById.get(comment.comment_id);
-                return currentComment ? [currentComment] : [];
-              });
-              return currentComments.length > 0
-                ? [{ ...entry, comments: currentComments }]
-                : [];
-            }
-            if (entry.type === 'sponsor') {
-              const currentInventory = sponsorResultsByTopicId.current.get(boundary.topicId);
-              if (!currentInventory) return [entry];
-              if (currentInventory.campaigns.length === 0 || !currentInventory.sessionId) return [];
-              return [{
-                ...entry,
-                status: 'ready',
-                campaigns: currentInventory.campaigns,
-                sessionId: currentInventory.sessionId,
-              }];
-            }
-            return [entry];
-          });
-          return [{
-            ...boundary,
-            entries,
-          }];
+          return [reconcileFeedBoundary(
+            boundary,
+            currentTopic,
+            commentsById,
+            sponsorResultsByTopicId.current.get(boundary.topicId)
+          )];
         })
       : [];
     const preservedTopicIds = new Set(preservedBoundaries.map((boundary) => boundary.topicId));
