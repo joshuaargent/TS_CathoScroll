@@ -1205,11 +1205,19 @@ DECLARE
   v_affected_user_ids uuid[];
   v_now timestamptz := statement_timestamp();
 BEGIN
-  SELECT coalesce(array_agg(user_id), ARRAY[]::uuid[])
+  SELECT coalesce(array_agg(c.user_id), ARRAY[]::uuid[])
   INTO v_affected_user_ids
-  FROM catho_private.user_personalization_consents
-  WHERE enabled = true
-    AND consent_version IS DISTINCT FROM '2026-11-20-v4';
+  FROM catho_private.user_personalization_consents AS c
+  WHERE c.enabled = true
+    AND (
+      c.consent_version IS DISTINCT FROM '2026-11-20-v4'
+      OR NOT EXISTS (
+        SELECT 1
+        FROM catho_private.user_analytics_consents AS a
+        WHERE a.user_id = c.user_id
+          AND a.service_improvement = true
+      )
+    );
 
   UPDATE catho_private.user_personalization_consents
   SET enabled = false,
@@ -1224,5 +1232,28 @@ BEGIN
   WHERE user_id = ANY(v_affected_user_ids);
   DELETE FROM catho_private.user_explicit_category_interests
   WHERE user_id = ANY(v_affected_user_ids);
+
+  DELETE FROM catho_private.user_topic_interest_scores AS s
+  WHERE NOT EXISTS (
+    SELECT 1
+    FROM catho_private.user_personalization_consents AS c
+    JOIN catho_private.user_analytics_consents AS a
+      ON a.user_id = c.user_id
+     AND a.service_improvement = true
+    WHERE c.user_id = s.user_id
+      AND c.enabled = true
+      AND c.consent_version = '2026-11-20-v4'
+  );
+  DELETE FROM catho_private.user_explicit_category_interests AS i
+  WHERE NOT EXISTS (
+    SELECT 1
+    FROM catho_private.user_personalization_consents AS c
+    JOIN catho_private.user_analytics_consents AS a
+      ON a.user_id = c.user_id
+     AND a.service_improvement = true
+    WHERE c.user_id = i.user_id
+      AND c.enabled = true
+      AND c.consent_version = '2026-11-20-v4'
+  );
 END;
 $personalization_consent_regrant$;
