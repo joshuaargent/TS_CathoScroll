@@ -26,6 +26,9 @@ test('optional analytics consent is explicit, purpose-specific and off by defaul
   assert.ok(manager.includes('previousFocus.focus()'));
   assert.ok(manager.includes('I explicitly agree to Service improvement analytics'));
   assert.ok(manager.includes('Sponsor measurement'));
+  assert.ok(manager.includes('I explicitly agree to Sponsor measurement'));
+  assert.ok(manager.includes('topic placement where a sponsor appeared'));
+  assert.ok(manager.includes('may involve special-category data under UK GDPR'));
   assert.ok(manager.includes('Recommendation personalisation remains controlled separately'));
   assert.ok(layout.includes('<WebAnalyticsConsentManager />'));
   assert.ok(native.includes('<AnalyticsConsentManager'));
