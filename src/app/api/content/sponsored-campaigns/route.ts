@@ -112,8 +112,9 @@ export async function POST(request: Request) {
 
   try {
     const sponsorMeasurementConsent = (parsed.value as Record<string, unknown>).sponsorMeasurementConsent === true;
-    // Anonymous measurement is opt-in per browser. Older clients that do not
-    // send the explicit flag fail closed while sponsor delivery remains enabled.
+    // Detailed anonymous viewability, click and frequency measurement is opt-in.
+    // Without consent, no session token is passed and only campaign/day served
+    // aggregates are recorded while sponsor delivery remains enabled.
     let sponsorMeasurementEnabled = isAnonymous
       ? sponsorMeasurementConsent && parsed.value.sessionId !== null
       : parsed.value.sessionId !== null;
