@@ -36,6 +36,81 @@ export function AnalyticsConsentManager({ userId = null, apiBaseUrl, getAccessTo
   const activeUserIdRef = useRef<string | null>(userId);
   activeUserIdRef.current = userId;
   const syncAbortRef = useRef<AbortController | null>(null);
+  const dialogRef = useRef<HTMLElement | null>(null);
+  const restoreFocusRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (!visible || typeof document === 'undefined') return;
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+
+    restoreFocusRef.current = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
+    const previousInert = new Map<HTMLElement, boolean>();
+    const setInert = (element: HTMLElement) => {
+      if (!previousInert.has(element)) previousInert.set(element, element.inert);
+      element.inert = true;
+    };
+
+    let branch: HTMLElement | null = dialog;
+    while (branch?.parentElement) {
+      const parent = branch.parentElement;
+      for (const child of Array.from(parent.children)) {
+        if (child !== branch && child instanceof HTMLElement) setInert(child);
+      }
+      if (parent === document.body) break;
+      branch = parent;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const focusableSelector = [
+      'a[href]',
+      'button:not([disabled])',
+      'input:not([disabled])',
+      'select:not([disabled])',
+      'textarea:not([disabled])',
+      '[tabindex]:not([tabindex="-1"])',
+    ].join(',');
+    const focusable = () => Array.from(dialog.querySelectorAll<HTMLElement>(focusableSelector))
+      .filter((element) => !element.hidden && element.getAttribute('aria-hidden') !== 'true');
+    const first = focusable()[0];
+    (first ?? dialog).focus();
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      const items = focusable();
+      if (items.length === 0) {
+        event.preventDefault();
+        dialog.focus();
+        return;
+      }
+      const firstItem = items[0];
+      const lastItem = items[items.length - 1];
+      if (event.shiftKey && (document.activeElement === firstItem || !dialog.contains(document.activeElement))) {
+        event.preventDefault();
+        lastItem.focus();
+      } else if (!event.shiftKey && (document.activeElement === lastItem || !dialog.contains(document.activeElement))) {
+        event.preventDefault();
+        firstItem.focus();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown, true);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown, true);
+      for (const [element, wasInert] of previousInert) element.inert = wasInert;
+      document.body.style.overflow = previousOverflow;
+      const previousFocus = restoreFocusRef.current;
+      restoreFocusRef.current = null;
+      if (previousFocus?.isConnected) previousFocus.focus();
+    };
+  }, [visible]);
 
   const hydrate = useCallback((consent: AnalyticsConsent | null) => {
     setServiceImprovement(consent?.serviceImprovement ?? false);
@@ -322,6 +397,8 @@ export function AnalyticsConsentManager({ userId = null, apiBaseUrl, getAccessTo
         aria-describedby="analytics-consent-description"
         aria-modal="true"
         role="dialog"
+        tabIndex={-1}
+        ref={dialogRef}
         className="bg-bg-card border-border max-h-[min(90vh,760px)] w-full max-w-xl overflow-y-auto rounded-2xl border p-6 shadow-2xl sm:p-8"
       >
         <p className="text-accent text-xs font-bold tracking-[0.16em] uppercase">Your privacy</p>
