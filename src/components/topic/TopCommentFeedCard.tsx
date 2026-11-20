@@ -174,7 +174,7 @@ export function TopCommentFeedCard({
     if (!active || !userId || previewMode) return;
     return installFeedCardAnalyticsListeners(userId, {
       endpoint: analyticsEndpoint,
-      getAccessToken: () => getAnalyticsAccessToken?.(userId) ?? Promise.resolve(null),
+      ...(getAnalyticsAccessToken ? { getAccessToken: () => getAnalyticsAccessToken(userId) } : {}),
     });
   }, [active, analyticsEndpoint, getAnalyticsAccessToken, previewMode, userId]);
 
