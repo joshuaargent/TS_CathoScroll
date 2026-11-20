@@ -520,10 +520,10 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
         role="dialog"
         tabIndex={-1}
         ref={dialogRef}
-        className="bg-bg-card border-border max-h-[min(90vh,760px)] w-full max-w-xl overflow-y-auto rounded-2xl border p-6 shadow-2xl sm:p-8"
+        className={`bg-bg-card border-border w-full overflow-y-auto rounded-2xl border shadow-2xl ${managing ? 'max-h-[min(90vh,760px)] max-w-xl p-6 sm:p-8' : 'max-h-[min(75vh,420px)] max-w-md p-4 sm:p-5'}`}
       >
         <p className="text-accent text-xs font-bold tracking-[0.16em] uppercase">Your privacy</p>
-        <h2 id="analytics-consent-title" className="text-text-primary mt-2 text-2xl font-bold">
+        <h2 id="analytics-consent-title" className={`text-text-primary mt-2 font-bold ${managing ? 'text-2xl' : 'text-xl'}`}>
           {managing ? 'Manage analytics choices' : 'Help improve CathoScroll'}
         </h2>
         <p id="analytics-consent-description" className="text-text-secondary mt-3 text-sm leading-relaxed">
@@ -531,11 +531,11 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
             ? 'Choose optional analytics. Service improvement analytics is required while personalisation is enabled; sponsor measurement remains separate.'
             : effectivePersonalizationEnabled
               ? 'Personalisation is on, so Service improvement analytics is required. Turn off personalisation before disabling it.'
-              : 'Optional analytics help improve CathoScroll. Personalisation also uses your reading activity; sponsor measurement is separate. Signed-out topic and comment activity is counted only in daily totals, without account, visitor or session identifiers.'}
+              : 'Optional analytics help improve CathoScroll. Personalisation uses reading signals; sponsor measurement is separate. Signed-out topic/comment activity is counted in daily aggregates, with no visitor IDs and a separate opt-out.'}
         </p>
 
         {!managing ? (
-          <div className="mt-7 space-y-3">
+          <div className="mt-5 space-y-3">
             <button
               type="button"
               disabled={saving}
