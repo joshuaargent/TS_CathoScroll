@@ -49,9 +49,9 @@ test('Top Comments is due every five topic advances and sponsors every ten', () 
   assert.deepEqual(sponsorDueAt, [10, 20, 30]);
 });
 
-test('missing inventory suppresses only its own card schedule', () => {
+test('sponsor placement cadence is independent of sign-in while comment inventory remains user-aware', () => {
   assert.equal(comments.shouldInsertTopCommentCard(4, false), false);
-  assert.equal(sponsors.shouldInsertSponsorCard(9, false), false);
+  assert.equal(sponsors.shouldInsertSponsorCard(9, false), true);
   assert.equal(comments.shouldInsertTopCommentCard(4, true), true);
   assert.equal(sponsors.shouldInsertSponsorCard(9, true), true);
 });
