@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { readBoundedJson } from '@/lib/http/read-json';
 import { getStoredAnalyticsConsent } from '@/lib/analytics-consent-server';
-import { checkApiRateLimit, getTrustedClientIp, rateLimitResponseHeaders } from '@/lib/security/api-rate-limit';
+import { checkApiRateLimit, getTrustedClientIp } from '@/lib/security/api-rate-limit';
 import {
   createServiceRoleClient,
   getAuthenticatedUserFromRequest,
