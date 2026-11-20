@@ -1062,6 +1062,16 @@ BEGIN
     RAISE EXCEPTION 'Invalid analytics consent update' USING ERRCODE = '22023';
   END IF;
   PERFORM 1 FROM auth.users AS account WHERE account.id = p_user_id FOR UPDATE;
+
+  IF p_service_improvement IS NOT TRUE
+     AND pg_catalog.to_regclass('catho_private.user_personalization_consents') IS NOT NULL
+     AND EXISTS (
+       SELECT 1 FROM catho_private.user_personalization_consents AS pc
+       WHERE pc.user_id = p_user_id AND pc.enabled = true
+     ) THEN
+    RAISE EXCEPTION 'Turn off personalisation before disabling Service improvement analytics' USING ERRCODE = '42501';
+  END IF;
+
   SELECT service_improvement, sponsor_measurement
   INTO v_previous_service, v_previous_sponsor
   FROM catho_private.user_analytics_consents
@@ -1107,7 +1117,11 @@ BEGIN
     'sponsorMeasurement', v_consent.sponsor_measurement,
     'updatedAt', v_consent.updated_at,
     'version', v_consent.consent_version,
-    'exists', true
+    'exists', true,
+    'personalizationEnabled', EXISTS (
+      SELECT 1 FROM catho_private.user_personalization_consents AS pc
+      WHERE pc.user_id = p_user_id AND pc.enabled = true
+    )
   );
 END;
 $function$;
