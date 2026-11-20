@@ -326,3 +326,13 @@ test('recommendation upgrade reads only activity created after explicit consent 
   assert.match(bootstrapBody, /l\.created_at >= \(SELECT granted_at/);
   assert.match(bootstrapBody, /c\.created_at >= \(SELECT granted_at/);
 });
+
+
+test('analytics database scripts keep function grants after definitions and schedule maintenance', () => {
+  const pruneDefinition = bootstrap.indexOf('CREATE OR REPLACE FUNCTION catho_private.prune_anonymous_analytics()');
+  const pruneGrant = bootstrap.indexOf('REVOKE ALL ON FUNCTION catho_private.prune_anonymous_analytics()');
+  assert.ok(pruneDefinition >= 0 && pruneGrant > pruneDefinition);
+  assert.doesNotMatch(bootstrap, /^\), placement_id text/m);
+  assert.match(upgrade, /cathoscroll-rollup-feed-card-analytics/);
+  assert.match(upgrade, /cathoscroll-prune-feed-card-analytics/);
+});
