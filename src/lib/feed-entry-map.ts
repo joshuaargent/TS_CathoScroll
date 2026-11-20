@@ -67,7 +67,6 @@ export function buildFeedEntryMap({
   topics,
   comments,
   seenCommentIds,
-  userId,
   commentCadence = 0,
   sponsorCadence = 0,
   commentInterval = 5,
