@@ -14,7 +14,7 @@ This audit distinguishes offline browsing, offline reads, local mutation queues 
 | Likes, bookmarks, completion | Private activity SQLite store, durable outbox, revision/cursor reconciliation | Available on supported encrypted-storage platforms | Activity sync is account-linked and separate from analytics. |
 | Signed-in topic/comment exposure analytics | Encrypted private SQLite outbox (2,000 events per stream/account, seven-day expiry, server acknowledgement) on Android and Electron; memory-only on web | Durable on Android/Electron; best effort on web | Separate from activity sync. Account-scoped rows are cleared on sign-out/account switch. |
 | Signed-in sponsor event analytics | Separate bounded account-scoped queue | Best effort only | Sponsor delivery/viewability/click reporting is separate from topic/comment analytics and offline activity sync. |
-| Activity encryption | SQLCipher-backed private DB on Android; desktop private DB on Electron | Platform-limited | iOS currently has no equivalent encrypted private database/keychain-backed implementation in this path. The app must not silently move account activity or recommendation profiles into the unencrypted catalogue DB. |
+| Activity encryption | SQLCipher-backed private DB on Android; desktop private DB on Electron | Available for this release on Android and Electron | iOS is not part of this release. Private account data must never fall back to the unencrypted catalogue DB. |
 | Notes | Encrypted note cache; fetched from server online; edits require a verified online load and a live connection | Offline read where secure cache is supported; editing online-only | No offline edit queue is needed. Notes use AES-GCM with a key in native secure storage and account/topic-bound HMAC indexes. |
 | Comments | Public comment cache in local SQLite | Cached read | Comment creation/replies/likes require live server actions; cached comments are snapshots and can be stale. |
 | Topic counts | Local cache refreshed online | Cached read | Counts are explicitly freshness-aware. |
@@ -37,7 +37,7 @@ The queue is intentionally not encrypted because its schema excludes account-lin
 
 The native app now caches only server-ranked personalised pages, keyed by account and server cursor, in the encrypted private database. A successful online consent check is cached for 12 hours. This allows previously downloaded pages to be read offline without creating a second ranking algorithm or copying the derived interest profile into local storage. It does not calculate new personalised rankings offline.
 
-Do not persist a derived religious-interest profile in the public catalogue database. Do not treat a stale cached consent flag as current consent after an offline account switch or withdrawal on another device. Implementing this safely requires encrypted private storage and secure key lifecycle on iOS as well as Android and Electron; a versioned minimal account-scoped recommendation snapshot; a consent-version/revocation check with conservative fallback; local ranking parity tests; and reconciliation that never lets local approximations overwrite server-authoritative state.
+Do not persist a derived religious-interest profile in the public catalogue database. Do not treat a stale cached consent flag as current consent after an offline account switch or withdrawal on another device. For this Android/Electron release, personalised feed pages are stored only in the encrypted private database, scoped to the account, with a 12-hour consent freshness limit and deletion on local withdrawal/account switch. iOS is out of scope for this release.
 
 Offline personalisation is limited to previously downloaded pages while the local consent check remains fresh. After 12 hours, on withdrawal, account change, or when the next page was not downloaded, the app falls back to the cached server-ranked general feed, then catalogue order.
 
@@ -69,7 +69,7 @@ Implementation and privacy documentation were updated through commit f7c18d97a01
 
 ## Important sync distinction
 
-The signed-in *activity* outbox for likes, bookmarks and completion is durable on supported encrypted-storage platforms. The signed-in *analytics exposure* queues for topics and Top Comments are currently in-memory and can lose pending events when the app process exits. The new persistent outbox in this PR is for signed-out topic/comment analytics only. Do not describe it as extending or replacing signed-in analytics sync. Making account-linked analytics durable would require a separate encrypted queue, account-scoped cleanup semantics and iOS secure-storage parity; it is not included in this change.
+The signed-in *activity* outbox for likes, bookmarks and completion is durable on supported encrypted-storage platforms. The signed-in *analytics exposure* queues for topics and Top Comments now use a separate encrypted SQLite outbox on Android and Electron, with account-scoped cleanup. This is distinct from the revision-aware activity sync and does not replace it. The website retains in-memory analytics queues. iOS is outside this release scope.
 
 
 The native outbox installs reconnect and foreground listeners during native startup, not only after a new feed event. This ensures a queue left by a previous app process can upload after connectivity returns even if the user has not yet opened a feed card.
