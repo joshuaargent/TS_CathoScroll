@@ -22,13 +22,12 @@ export function OPTIONS(request: Request) {
 }
 
 export async function GET(request: Request) {
-  const { user, isAdmin, error, mfaRequired } = await getAdminSessionFromRequest(request);
+  const { user, isAdmin, error } = await getAdminSessionFromRequest(request);
   if (!user) return respond(request, { error: 'Authentication required' }, 401);
   if (error) {
     console.error('Unable to verify audit-log access:', error.message);
     return respond(request, { error: 'Unable to verify administrator access' }, 500);
   }
-  if (mfaRequired) return respond(request, { error: 'Complete administrator MFA at /account/security.' }, 403);
   if (!isAdmin) return respond(request, { error: 'Forbidden' }, 403);
 
   const rateLimit = await checkApiRateLimit({
