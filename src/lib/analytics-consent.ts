@@ -99,12 +99,15 @@ export function readAnalyticsConsent(userId?: string | null): AnalyticsConsent |
       typeof parsed.updatedAt !== 'string' ||
       ('syncPending' in parsed && typeof parsed.syncPending !== 'boolean')
     ) return null;
+    const serviceDenied = deniedOverrides.has(overrideKey('serviceImprovement', userId));
+    const sponsorDenied = deniedOverrides.has(overrideKey('sponsorMeasurement', userId));
     return {
       version: analyticsConsentVersion,
-      serviceImprovement: parsed.serviceImprovement,
-      sponsorMeasurement: parsed.sponsorMeasurement,
+      serviceImprovement: parsed.serviceImprovement && !serviceDenied,
+      sponsorMeasurement: parsed.sponsorMeasurement && !sponsorDenied,
       updatedAt: parsed.updatedAt,
-      syncPending: 'syncPending' in parsed ? parsed.syncPending : false,
+      syncPending: ('syncPending' in parsed ? parsed.syncPending : false) ||
+        (Boolean(userId) && (serviceDenied || sponsorDenied)),
     };
   } catch {
     return null;
