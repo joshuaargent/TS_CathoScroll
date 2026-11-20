@@ -21,9 +21,9 @@ test('signed-in and signed-out analytics require the matching optional consent',
   assert.ok(commentRoute.includes('getStoredAnalyticsConsent(user.id)'));
   assert.ok(topicRoute.includes('if (!consent.serviceImprovement) return respond(request, { accepted: 0 });'));
   assert.ok(commentRoute.includes('if (!consent.serviceImprovement) return respond(request, { accepted: 0 });'));
-  assert.ok(topicClient.includes("hasAnalyticsConsent('serviceImprovement')"));
-  assert.ok(commentClient.includes("hasAnalyticsConsent('serviceImprovement')"));
-  assert.ok(anonymousClient.includes("hasAnalyticsConsent('serviceImprovement')"));
+  assert.ok(topicClient.includes("hasAnalyticsConsent('serviceImprovement', userId)"));
+  assert.ok(commentClient.includes("hasAnalyticsConsent('serviceImprovement', userId)"));
+  assert.ok(anonymousClient.includes("hasAnalyticsConsent('serviceImprovement', null)"));
   assert.ok(!anonymousClient.includes('userId'));
 });
 
