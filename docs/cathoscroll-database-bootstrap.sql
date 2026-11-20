@@ -5015,7 +5015,6 @@ BEGIN
   RETURN pg_catalog.jsonb_build_object('campaigns',v_campaigns,'generated_at',pg_catalog.statement_timestamp());
 END;
 $function$;
-;
 
 ALTER FUNCTION public.get_weighted_sponsor_campaigns(uuid, uuid, text, text, integer) OWNER TO postgres;
 CREATE OR REPLACE FUNCTION public.record_sponsor_campaign_event(p_user_id uuid, p_campaign_id uuid, p_event_id uuid, p_session_id uuid, p_event_type text)
@@ -7830,7 +7829,6 @@ BEGIN
  END LOOP;
  RETURN pg_catalog.jsonb_build_object('campaigns',v_campaigns,'generated_at',statement_timestamp());
 END; $function$;
-;
 
 
 CREATE OR REPLACE FUNCTION catho_private.prune_anonymous_analytics()
