@@ -7889,3 +7889,17 @@ REVOKE ALL ON FUNCTION public.get_admin_sponsor_campaign_analytics(uuid,date,dat
 GRANT EXECUTE ON FUNCTION public.get_admin_sponsor_campaign_analytics(uuid,date,date) TO service_role;
 REVOKE ALL ON FUNCTION public.get_sponsor_campaign_analytics(uuid,uuid,date,date) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.get_sponsor_campaign_analytics(uuid,uuid,date,date) TO service_role;
+
+
+-- SECURITY HARDENING FOLLOW-UP (20 November 2026)
+-- Keep SECURITY DEFINER RPC resolution deterministic. These functions use fully
+-- schema-qualified relations/auth helpers; pg_catalog remains implicitly visible.
+ALTER FUNCTION public.offline_catalogue_changes(text,text) SET search_path = '';
+ALTER FUNCTION public.offline_catalogue_counts() SET search_path = '';
+ALTER FUNCTION public.offline_catalogue_head() SET search_path = '';
+ALTER FUNCTION public.offline_activity_changes(uuid,text,integer) SET search_path = '';
+ALTER FUNCTION public.offline_activity_head(uuid) SET search_path = '';
+ALTER FUNCTION public.offline_activity_snapshot(uuid,text) SET search_path = '';
+ALTER FUNCTION public.offline_apply_activity_batch(uuid,jsonb) SET search_path = '';
+ALTER FUNCTION public.offline_apply_activity_v2(uuid,uuid,uuid,text,text,text,text,boolean,timestamptz) SET search_path = '';
+ALTER FUNCTION public.record_feed_analytics_events(jsonb) SET search_path = '';
