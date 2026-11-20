@@ -157,7 +157,7 @@ For sponsor-measurement opt-outs, the proposed fallback is campaign/day served-p
 
 **Status:** PR #25 was merged and its application code deployed to production in commit `e0da259` on 20 November 2026. The three consent migrations are recorded as applied in production. Controller approval of Article 6 and Article 9 positions, PECR Regulation 6 treatment, DPIA residual risk, children/age safeguards, provider contracts and international transfers remains outstanding. The deployed technical controls do not constitute legal clearance.
 
-## Optional analytics consent (separate from recommendation personalisation)
+## Linked personalisation and Service improvement consent; separate Sponsor measurement
 
 Draft PR #25 introduces a separate, optional consent manager for two purposes:
 
