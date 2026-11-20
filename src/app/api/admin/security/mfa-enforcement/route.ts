@@ -4,7 +4,7 @@ import {
   createServiceRoleClient,
   getAuthenticatedUserFromRequest,
   hasTotpAssuranceInAccessToken,
-  isSameOrigin,
+  isSameOriginOrNativeRequest,
   nativeApiCorsHeaders,
 } from '@/lib/supabase/admin';
 import { checkApiRateLimit, rateLimitResponseHeaders } from '@/lib/security/api-rate-limit';
@@ -61,7 +61,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  if (!isSameOrigin(request)) return respond(request, { error: 'Forbidden' }, 403);
+  if (!isSameOriginOrNativeRequest(request)) return respond(request, { error: 'Forbidden' }, 403);
 
   try {
     const { supabase, user } = await getAuthenticatedUserFromRequest(request);
