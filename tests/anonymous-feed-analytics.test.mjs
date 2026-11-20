@@ -13,8 +13,10 @@ test('anonymous feed ingestion is bounded, rate-limited and service-role mediate
   assert.match(route, /getTrustedClientIp/);
   assert.match(route, /isSameOriginOrNativeRequest\(request, true\)/);
   assert.match(route, /record_anonymous_feed_analytics/);
-  assert.match(route, /serviceImprovementConsent !== true/);
-  assert.match(client, /serviceImprovementConsent: true/);
+  assert.doesNotMatch(route, /serviceImprovementConsent/);
+  assert.doesNotMatch(client, /serviceImprovementConsent/);
+  assert.match(client, /localStorage.getItem\(anonymousAnalyticsPreferenceKey\) !== 'false'/);
+  assert.match(client, /isAnonymousFeedAnalyticsEnabled/);
   assert.match(sql, /REVOKE ALL ON FUNCTION public\.record_anonymous_feed_analytics\(jsonb\) FROM PUBLIC,anon,authenticated/);
   assert.match(sql, /GRANT EXECUTE ON FUNCTION public\.record_anonymous_feed_analytics\(jsonb\) TO service_role/);
 });
