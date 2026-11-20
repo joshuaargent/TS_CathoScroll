@@ -46,7 +46,7 @@ The ranking function is part of the emergency clean-project bootstrap at `docs/c
 - Applied the function directly to the production Supabase database and verified the anonymous aggregate source is included.
 - Executed the function against the live published catalogue and confirmed it returned ranked topic records, category slugs and a continuation cursor.
 - Verified two consecutive pages of ten topics had zero duplicate topic IDs.
-- Optimised the scoring pass from repeated per-slot score calculation to one score calculation per page. A 24-topic production query measured approximately 17.7 ms and 3,419 shared-buffer hits after the change (compared with approximately 76.7 ms and 12,007 buffer hits before optimisation; timings are a single production measurement, not a load test).
+- Optimised the scoring pass from repeated per-slot score calculation to one score calculation per page. After including both signed-in and anonymous daily rollups, a 24-topic production query measured approximately 74.8 ms on its first run and 18.9 ms on a warm repeat, with 3,761 shared-buffer hits on both runs. The earlier pre-optimisation measurement was approximately 76.7 ms and 12,007 buffer hits. These are single production measurements, not a load test.
 - The application integration is on the open draft PR branch. A full application build and automated test run are still required before deployment.
 
 
