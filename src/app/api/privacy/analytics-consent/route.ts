@@ -22,6 +22,7 @@ export function OPTIONS(request: Request) {
   const headers = nativeApiCorsHeaders(request);
   if (!headers.has('Access-Control-Allow-Origin')) return new NextResponse(null, { status: 403 });
   headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  headers.set('Access-Control-Allow-Headers', 'Authorization, Content-Type, X-Catho-Expected-User-Id');
   return new NextResponse(null, { status: 204, headers });
 }
 
@@ -30,6 +31,10 @@ async function authenticate(request: Request) {
   try {
     const auth = await getAuthenticatedUserFromRequest(request);
     if (!auth.user) return { response: respond(request, { error: 'Authentication required.' }, 401) };
+    const expectedUserId = request.headers.get('X-Catho-Expected-User-Id');
+    if (expectedUserId && expectedUserId !== auth.user.id) {
+      return { response: respond(request, { error: 'Account changed during consent synchronisation.' }, 409) };
+    }
     return { user: auth.user };
   } catch (cause) {
     console.error('Unable to verify analytics-consent authentication:', cause);
