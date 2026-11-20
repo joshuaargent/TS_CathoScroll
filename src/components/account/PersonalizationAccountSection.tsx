@@ -261,7 +261,7 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
 
         <div className="border-border bg-bg-secondary/30 mt-6 rounded-xl border p-4">
           <p className="font-semibold text-sm leading-relaxed">
-            I explicitly consent to CathoScroll using my account actions (progress, bookmarks, likes and comments) and selected interests to personalise my recommendations. These signals may reveal religious or philosophical beliefs; they are used to rank content, not to label your beliefs.
+            I explicitly consent to CathoScroll using my account actions, selected interests and reading analytics (including views, reading duration, swipes and skips) to personalise my recommendations. Enabling personalisation also enables Service improvement analytics until I turn personalisation off. These signals may reveal religious or philosophical beliefs; they are used to rank content, not to label my beliefs.
           </p>
           <p className="text-text-muted mt-2 text-sm leading-relaxed">
             Your recommendations use your explicit account actions, selected categories and reading signals such as viewable impressions, reading time, swipes, skips and completions. Enabling personalisation also enables Service improvement analytics; that choice stays on until you turn personalisation off. The profile is private, never used for sponsor targeting, and can be deleted by withdrawing consent.
@@ -290,7 +290,7 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
         <div className="border-border mt-6 border-t pt-5">
           <h3 className="font-semibold">Categories I want to explore</h3>
           <p className="text-text-muted mt-1 text-sm">
-            These categories are your direct preferences. They are combined with your explicit account actions; operational analytics are not used for personalisation.
+            These categories are your direct preferences. They are combined with your explicit account actions and eligible reading signals while personalisation is enabled.
           </p>
           <div className="mt-4 grid gap-2 sm:grid-cols-2">
             {status.category_options.map((category) => (
