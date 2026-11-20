@@ -97,7 +97,7 @@ test('anonymous sponsor selection and event recording are separate from account-
   assert.match(card, /const sponsorMeasurementEnabled = hasAnalyticsConsent\('sponsorMeasurement', userId\)/);
   assert.match(card, /const viewablePlacementKey = campaignId && sponsorMeasurementEnabled/);
   assert.match(card, /if \(previewMode \|\| !sponsorMeasurementEnabled\) return false/);
-  assert.match(feedCore, /const measurementEnabled = hasAnalyticsConsent\\('sponsorMeasurement', userId\\)/);
+  assert.match(feedCore, /const measurementEnabled = hasAnalyticsConsent\('sponsorMeasurement', userId\)/);
   assert.match(feedCore, /sponsorMeasurementConsent: measurementEnabled/);
   assert.match(feedCore, /ephemeralSponsorSessionId = null/);
   assert.match(feedCore, /Never reuse an anonymous sponsor session token across sign-in\/account changes/);
