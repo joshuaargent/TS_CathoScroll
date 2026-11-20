@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { useAuth } from '@/components/providers/AuthProvider';
 import {
   analyticsConsentManageEvent,
   readAnalyticsConsent,
@@ -26,7 +25,7 @@ type AnalyticsConsentManagerProps = {
   getAccessToken?: () => Promise<string | null>;
 };
 
-function ConsentManager({ userId = null, apiBaseUrl, getAccessToken }: AnalyticsConsentManagerProps) {
+export function AnalyticsConsentManager({ userId = null, apiBaseUrl, getAccessToken }: AnalyticsConsentManagerProps = {}) {
   const [visible, setVisible] = useState(false);
   const [managing, setManaging] = useState(false);
   const [serviceImprovement, setServiceImprovement] = useState(false);
@@ -349,12 +348,3 @@ export function AnalyticsConsentSettingsButton() {
   );
 }
 
-
-export function AnalyticsConsentManager() {
-  const { user } = useAuth();
-  return <ConsentManager userId={user?.id ?? null} />;
-}
-
-export function NativeAnalyticsConsentManager({ userId, apiBaseUrl, getAccessToken }: AnalyticsConsentManagerProps) {
-  return <ConsentManager userId={userId ?? null} apiBaseUrl={apiBaseUrl} getAccessToken={getAccessToken} />;
-}
