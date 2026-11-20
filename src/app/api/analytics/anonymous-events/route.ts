@@ -28,11 +28,6 @@ export async function POST(request: Request) {
       !Array.isArray(parsed.value.events) || parsed.value.events.length < 1 || parsed.value.events.length > 40) {
     return respond(request, { error: 'Invalid anonymous analytics batch.' }, 400);
   }
-  // Fail closed for old clients and requests that do not affirm the
-  // browser's current service-improvement consent choice.
-  if ((parsed.value as Record<string, unknown>).serviceImprovementConsent !== true) {
-    return respond(request, { accepted: 0 });
-  }
   const address = getTrustedClientIp(request) ?? 'unknown';
   const rateLimit = await checkApiRateLimit({
     scope: 'anonymous-feed-analytics:write',
