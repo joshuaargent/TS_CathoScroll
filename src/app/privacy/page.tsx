@@ -173,13 +173,13 @@ export default function PrivacyPage() {
             <li>Contract: to create and operate your account and provide features you request.</li>
             <li>Legitimate interests: to secure, maintain, troubleshoot, moderate and prevent abuse, where a documented assessment shows that our interests are not overridden by your rights.</li>
             <li>Consent: for optional Service improvement analytics and Sponsor measurement, including account-linked topic/comment analytics when signed in.</li>
-            <li>Explicit consent under Article 6(1)(a) and, where topic/comment engagement reveals special-category beliefs, Article 9(2)(a): for that limited service-improvement processing. The consent choice is separate from recommendation personalisation.</li>
+            <li>Explicit consent under Article 6(1)(a) and, where topic/comment engagement or sponsor-placement context reveals special-category beliefs, Article 9(2)(a): for the relevant optional analytics processing. Service improvement analytics and Sponsor measurement are separate choices from each other and from recommendation personalisation.</li>
             <li>Legal obligation: to keep or disclose information where applicable law requires it.</li>
             <li>Consent: for optional personalisation. Because this processing may reveal religious or philosophical beliefs, we rely on your explicit consent under Article 6(1)(a) UK GDPR and the Article 9(2)(a) exception for the relevant special-category processing.</li>
           </ul>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            Service improvement analytics and sponsor measurement are optional and off by default. They are collected only after you enable the relevant choice in the analytics settings. Topic and comment engagement in a Catholic-content service may reveal religious or philosophical beliefs; the Service improvement analytics choice explains this and is separate from recommendation personalisation. We do not create a religious-affiliation label or make decisions about users from these analytics.
+            Service improvement analytics and sponsor measurement are optional and off by default. They are collected only after you enable the relevant choice in the analytics settings. Topic and comment engagement in a Catholic-content service may reveal religious or philosophical beliefs. Sponsor-measurement events can also be associated with the topic placement where a sponsor appeared. The relevant consent choices explain this possibility and are separate from recommendation personalisation. We do not create a religious-affiliation label or make decisions about users from these analytics.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
