@@ -103,9 +103,15 @@ test('recommendation profile signals are gated by consent', () => {
   assert.match(body, /user_explicit_category_interests/);
 });
 
-test('recommendation profiles use explicit account actions and never read operational analytics', () => {
+test('recommendation profiles use explicit actions and consented passive analytics', () => {
   const body = functionBody('catho_private.refresh_user_interest_profile');
-  assert.doesNotMatch(body, /feed_analytics_events|feed_card_analytics_events|viewable_impression|active_duration|swipe_depth|return_visit|skip_sessions/);
+  assert.match(body, /FROM catho_private\.feed_analytics_events/);
+  assert.match(body, /FROM catho_private\.feed_card_analytics_events/);
+  assert.match(body, /viewable_impression/);
+  assert.match(body, /active_duration/);
+  assert.match(body, /swipe_depth/);
+  assert.match(body, /return_visit/);
+  assert.match(body, /skip_sessions/);
   assert.match(body, /FROM public\.progress/);
   assert.match(body, /FROM public\.bookmarks/);
   assert.match(body, /FROM public\.topic_likes/);
@@ -117,13 +123,14 @@ test('recommendation profiles use explicit account actions and never read operat
   assert.match(body, /0::numeric AS inferred_score/);
   assert.match(body, /0::numeric AS negative_score/);
   assert.match(body, /v_consent_at/);
-  assert.match(body, /explicit-only/);
+  assert.doesNotMatch(body, /explicit-only/);
   assert.match(body, /s\.updated_at < v_now/);
   assert.match(body, /v_last_refresh >= v_now-interval '5 minutes'/);
   const upgradeStart = upgrade.lastIndexOf('CREATE OR REPLACE FUNCTION catho_private.refresh_user_interest_profile');
   const upgradeEnd = upgrade.indexOf('$function$;', upgradeStart);
   assert.ok(upgradeStart >= 0 && upgradeEnd > upgradeStart);
-  assert.doesNotMatch(upgrade.slice(upgradeStart, upgradeEnd), /feed_analytics_events|feed_card_analytics_events/);
+  assert.match(upgrade.slice(upgradeStart, upgradeEnd), /feed_analytics_events/);
+  assert.match(upgrade.slice(upgradeStart, upgradeEnd), /feed_card_analytics_events/);
 });
 
 test('authoritative bootstrap and existing personalization upgrade keep profile and cursor functions in sync', () => {
@@ -149,15 +156,16 @@ test('recommendation category helper is account-scoped, consent-gated and bounde
   const body = functionBody('catho_private.get_user_recommendation_category_weights');
   assert.match(body, /auth\.uid\(\)/);
   assert.match(body, /v_current_user_id IS DISTINCT FROM p_user_id/);
-  assert.match(body, /c\.enabled = true/);
-  assert.match(body, /greatest\(v_now - interval '180 days', v_consent_at\)/);
+  assert.match(body, /pc\.enabled = true/);
+  assert.match(body, /ac\.service_improvement = true/);
+  assert.match(body, /get_user_feed_preference_signals/);
   assert.match(body, /get_user_feed_preference_signals/);
   assert.doesNotMatch(body, /feed_analytics_events|feed_card_analytics_events/);
 });
 
 test('active recommendation cursors rebase model weights without losing pagination positions', () => {
   const body = functionBody('public.get_my_recommendation_page');
-  assert.match(body, /personalization_model_version constant text := 'explicit-actions-v3'/);
+  assert.match(body, /personalization_model_version constant text := 'activity-signals-v4'/);
   assert.match(body, /state->>'personalizationModelVersion' IS DISTINCT FROM personalization_model_version/);
   assert.match(body, /get_user_recommendation_category_weights\(current_user_id\)/);
   assert.match(body, /coalesce\(\(existing\.entry->>'served'\)::integer, 0\)/);
@@ -205,7 +213,8 @@ test('personalisation settings disclose the profile purpose and sponsor isolatio
 test('signup collects separate, unchecked explicit consent on web and native', () => {
   assert.match(signupForm, /name="personalizationConsent"/);
   assert.match(signupForm, /type="checkbox"/);
-  assert.match(signupForm, /I explicitly consent to CathoScroll using my reading activity and chosen interests/);
+  assert.match(signupForm, /I explicitly consent to CathoScroll using my reading activity, reading analytics and chosen interests/);
+  assert.match(signupForm, /This also enables Service improvement analytics while personalisation is on/);
   assert.doesNotMatch(signupForm, /name="personalizationConsent"[\s\S]{0,180}checked/);
   assert.match(webSignup, /personalization_consent: personalizationConsent/);
   assert.match(nativeSignup, /personalization_consent: personalizationConsent/);
@@ -216,7 +225,7 @@ test('all recommendation history signals are opt-in and withdrawal neutralises a
   const helper = functionBody('catho_private.get_user_recommendation_category_weights');
   assert.match(body, /SELECT coalesce\(enabled,false\) INTO personalization_enabled/);
   assert.match(body, /IF personalization_enabled THEN/);
-  assert.match(helper, /WITH signals AS/);
+  assert.match(helper, /get_user_feed_preference_signals/);
   assert.match(body, /ELSE[\s\S]*?SELECT coalesce/);
   assert.match(body, /include_completed := NOT personalization_enabled/);
   assert.match(body, /'includeCompleted', include_completed/);
@@ -224,16 +233,34 @@ test('all recommendation history signals are opt-in and withdrawal neutralises a
   assert.match(body, /'weight', 1/);
   assert.match(body, /include_completed := true/);
   assert.match(body, /personalizationModelVersion/);
-  assert.match(documentation, /All account-history recommendation weighting is consent-gated/);
+  assert.match(documentation, /Service improvement analytics/);
 });
 
 test('web and native account/settings screens reuse the same components', () => {
   assert.match(accountView, /PersonalizationAccountSection/);
   assert.match(accountSection, /set_my_personalization_consent/);
-  assert.match(accountSection, /I explicitly consent to CathoScroll using my topic-reading activity and selected interests/);
+  assert.match(accountSection, /I explicitly consent to CathoScroll using my topic-reading activity, reading analytics and selected interests/);
+  assert.match(accountSection, /Analytics choices/);
+  assert.match(accountSection, /requestAnalyticsConsentSync/);
   assert.match(nativeMain, /pathname === '\/account\/personalization'.*kind: 'account'/);
   assert.match(nativeAccount, /AccountPageView/);
   assert.match(accountView, /PersonalizationAccountSection/);
+});
+
+
+test('personalisation explicitly enables service analytics and prevents disabling it until withdrawal', () => {
+  const personalisationSetter = functionBody('public.set_my_personalization_consent');
+  const analyticsSetter = functionBody('public.set_user_analytics_consent');
+  const signupTrigger = functionBody('catho_private.capture_signup_personalization_consent');
+  assert.match(personalisationSetter, /INSERT INTO catho_private\.user_analytics_consents/);
+  assert.match(personalisationSetter, /service_improvement = true/);
+  assert.match(personalisationSetter, /user_analytics_consent_history/);
+  assert.match(analyticsSetter, /Turn off personalisation before disabling Service improvement analytics/);
+  assert.match(signupTrigger, /INSERT INTO catho_private\.user_analytics_consents/);
+  assert.match(signupTrigger, /service_improvement/);
+  const manager = readFileSync(new URL('../src/components/privacy/AnalyticsConsentManager.tsx', import.meta.url), 'utf8');
+  assert.match(manager, /disabled=\{saving \|\| personalizationEnabled \|\| !personalizationStatusKnown\}/);
+  assert.match(manager, /Turn off personalisation first to disable this choice/);
 });
 
 test('retired user subscription tier is absent from the bootstrap', () => {
@@ -252,7 +279,7 @@ test('existing-database upgrade contains feed-card analytics schema and secure i
   assert.match(upgrade, /GRANT EXECUTE ON FUNCTION public\.record_feed_card_analytics_events\(jsonb\) TO authenticated/);
 });
 
-test('recommendation upgrade reads only consented explicit actions through private helpers and has secure RPC ACLs', () => {
+test('recommendation upgrade reads consented activity signals through private helpers and has secure RPC ACLs', () => {
   const body = functionBody('public.get_my_recommendation_page');
   const helper = functionBody('catho_private.get_user_recommendation_category_weights');
   const profile = functionBody('catho_private.refresh_user_interest_profile');
@@ -263,8 +290,10 @@ test('recommendation upgrade reads only consented explicit actions through priva
     assert.match(signalBody, /b\.created_at\s*>=\s*greatest\(v_now\s*-\s*interval '180 days',\s*v_consent_at\)/);
     assert.match(signalBody, /l\.created_at\s*>=\s*greatest\(v_now\s*-\s*interval '180 days',\s*v_consent_at\)/);
   }
-  assert.match(helper, /c\.enabled = true/);
-  assert.doesNotMatch(helper + profile, /feed_analytics_events|feed_card_analytics_events/);
+  assert.match(helper, /pc\.enabled = true/);
+  assert.match(helper, /ac\.service_improvement = true/);
+  assert.match(profile, /feed_analytics_events/);
+  assert.match(profile, /feed_card_analytics_events/);
   assert.match(upgrade, /REVOKE ALL ON FUNCTION public\.get_my_recommendation_page\(jsonb, integer\) FROM PUBLIC, anon, authenticated, service_role/);
   assert.match(upgrade, /GRANT EXECUTE ON FUNCTION public\.get_my_recommendation_page\(jsonb, integer\) TO authenticated, service_role/);
 });
