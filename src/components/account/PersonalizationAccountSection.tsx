@@ -410,7 +410,7 @@ export function PersonalizationAccountSection({ client, apiBaseUrl }: { client: 
               />
               <span className="min-w-0">
                 <span className="text-text-primary block font-semibold">I explicitly agree to Service improvement analytics{status.enabled ? ' — required for personalisation' : ''}</span>
-                <span className="text-text-muted mt-1 block text-sm leading-relaxed">Measures topic and Top Comments engagement, signed-out aggregate activity, and Vercel site/performance analytics. When signed in, topic/comment activity is linked to your account and may reveal religious or philosophical beliefs. If personalisation is enabled, these reading signals also inform your private recommendations. Enabling personalisation automatically enables this choice; turn off personalisation before disabling it.</span>
+                <span className="text-text-muted mt-1 block text-sm leading-relaxed">Measures topic and Top Comments engagement, signed-out aggregate activity, and Vercel site/performance analytics. When signed in, topic/comment activity is linked to your account and may reveal religious or philosophical beliefs, potentially involving special-category data under UK GDPR. If personalisation is enabled, these reading signals also inform your private recommendations. Enabling personalisation automatically enables this choice; turn off personalisation before disabling it.</span>
               </span>
             </label>
             <label className="border-border flex cursor-pointer items-start gap-3 rounded-xl border p-4">
