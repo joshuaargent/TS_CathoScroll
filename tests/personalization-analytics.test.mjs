@@ -242,23 +242,13 @@ test('all recommendation history signals are opt-in and withdrawal neutralises a
 test('web and native account/settings screens reuse the same components', () => {
   assert.match(accountView, /PersonalizationAccountSection/);
   assert.match(accountSection, /set_my_personalization_consent/);
-  assert.match(accountSection, /I explicitly consent to CathoScroll using my topic-reading activity, reading analytics and selected interests/);
+  assert.match(accountSection, /I explicitly consent to CathoScroll using my account actions, selected interests and reading analytics/);
+  assert.match(accountSection, /p_consent_version: '2026-11-20-v4'/);
   assert.match(accountSection, /Analytics choices/);
-  assert.match(accountSection, /requestAnalyticsConsentSync/);
-  assert.match(accountSection, /readAnalyticsChoices/);
-  assert.match(accountSection, /apiBaseUrl/);
-  assert.match(accountSection, /persistAnalyticsChoices/);
-  assert.match(accountSection, /saveAnalyticsConsent\(interim, userId/);
-  assert.match(accountSection, /clearAnalyticsConsentQueues\(userId, previous, next\)/);
-  assert.match(accountSection, /navigator\.onLine/);
-  assert.match(accountSection, /syncPending/);
-  assert.match(accountSection, /denyAnalyticsConsentInMemory/);
-  assert.match(accountView, /apiBaseUrl\?: string/);
-  assert.match(nativeAccount, /apiBaseUrl=\{siteConfig\.url\}/);
-  assert.match(accountSection, /updateAnalyticsChoice/);
+  assert.match(accountSection, /Service improvement analytics is required while personalisation is enabled/);
+  assert.match(accountSection, /AnalyticsConsentSettingsButton/);
   assert.match(accountSection, /Sponsor measurement/);
-  assert.match(accountSection, /disabled=\{loading \|\| saving \|\| analyticsSaving \|\| !analyticsChoices \|\| status\.enabled\}/);
-  assert.match(nativeMain, /pathname === '\/account\/personalization'.*kind: 'account'/);
+  assert.match(nativeMain, /pathname === '\\/account\\/personalization'.*kind: 'account'/);
   assert.match(nativeAccount, /AccountPageView/);
   assert.match(accountView, /PersonalizationAccountSection/);
 });
