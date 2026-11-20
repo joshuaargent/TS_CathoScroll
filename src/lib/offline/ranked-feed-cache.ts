@@ -100,7 +100,7 @@ export class OfflineRankedFeedCache {
     }
     await this.database.transaction(async (db) => {
       await db.execute(
-        'INSERT INTO offline_ranked_feed_pages (mode, owner_id, cursor_key, topic_ids, next_cursor, updated_at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(mode, owner_id, cursor_key) DO UPDATE SET topic_ids = excluded.topic_ids, next_cursor = excluded.next_cursor, updated_at = excluded.updated_at',
+        'INSERT OR REPLACE INTO offline_ranked_feed_pages (mode, owner_id, cursor_key, topic_ids, next_cursor, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
         [mode, ownerId, cursorKey(cursor), ids, nextCursor, new Date().toISOString()]
       );
       await db.execute(
@@ -144,7 +144,7 @@ export class OfflineRankedFeedCache {
       // storage error, the offline reader still fails closed on the disabled
       // consent row rather than serving a stale personalised ranking.
       await this.database.transaction((db) => db.execute(
-        'INSERT INTO offline_personalization_consent_cache (user_id, enabled, checked_at) VALUES (?, 0, ?) ON CONFLICT(user_id) DO UPDATE SET enabled = 0, checked_at = excluded.checked_at',
+        'INSERT OR REPLACE INTO offline_personalization_consent_cache (user_id, enabled, checked_at) VALUES (?, 0, ?)',
         [userId, new Date().toISOString()]
       ));
       await this.database.transaction((db) => db.execute(
@@ -154,7 +154,7 @@ export class OfflineRankedFeedCache {
       return;
     }
     await this.database.transaction((db) => db.execute(
-      'INSERT INTO offline_personalization_consent_cache (user_id, enabled, checked_at) VALUES (?, 1, ?) ON CONFLICT(user_id) DO UPDATE SET enabled = 1, checked_at = excluded.checked_at',
+      'INSERT OR REPLACE INTO offline_personalization_consent_cache (user_id, enabled, checked_at) VALUES (?, 1, ?)',
       [userId, new Date().toISOString()]
     ));
   }
