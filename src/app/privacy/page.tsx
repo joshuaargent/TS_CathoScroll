@@ -242,81 +242,43 @@ export default function PrivacyPage() {
           <h2 className="mb-4 text-3xl font-bold">Analytics</h2>
 
           <p className="text-text-secondary leading-relaxed">
-            CathoScroll offers two separate optional analytics purposes: Service improvement
-            analytics and Sponsor measurement. Both are off by default and can be changed at any
-            time using Manage analytics choices on the Cookie Policy page. They are separate from
-            recommendation personalisation, are not used for recommendation ranking or belief
-            inference, and are not used to build sponsor targeting profiles.
+            Service improvement analytics measures topic and Top Comments engagement and helps
+            improve CathoScroll. When enabled, signed-in events are linked to your account and may
+            reveal religious or philosophical interests; this can involve special-category data.
+            Raw events and the restricted daily viewer bridge are retained for up to 180 days,
+            then non-identifying daily totals remain. Signed-out events are stored only as daily
+            aggregates without account, visitor or session identifiers; deduplication receipts
+            become eligible for deletion after 30 days.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            When Service improvement analytics is enabled, signed-in topic-feed and Top Comments
-            events are linked to the account that generated them. They measure impressions,
-            viewability, active reading time, skips, completions, slide depth, return visits and
-            discussion opens. Raw events and the restricted daily viewer bridge are retained for up
-            to 180 days; daily totals without account or session identifiers are retained longer.
-            Signed-out topic/comment analytics use a separate daily aggregate pipeline without
-            account, visitor or session identifiers. No anonymous unique-person metric is created.
-            Turning off recommendation personalisation does not itself change analytics consent.
-            On Android and Electron, unsent signed-in topic and Top Comments events are persisted in
-            the encrypted private activity database, capped at 2,000 events per stream and seven
-            days. Pending events are cleared when Service improvement analytics is withdrawn. The
-            website keeps unsent account-linked analytics in memory only. Vercel Web Analytics and
-            Speed Insights are loaded only while Service improvement analytics is enabled.
+            Enabling personalisation also enables Service improvement analytics because the same
+            eligible reading signals—impressions, viewable time, reading duration, swipe depth,
+            skips, completions, return visits and Top Comments exposure—help rank your private
+            recommendations. This choice cannot be disabled until personalisation is turned off.
+            Withdrawing personalisation deletes the derived profile; service analytics can then be
+            managed independently. Sponsor measurement is never used for recommendations.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            When Service improvement analytics is enabled, signed-out visitors contribute to CathoScroll's
-            separate first-party anonymous topic and Top Comments measurement. The browser sends event IDs and the relevant topic
-            or comment identifier, but no account ID, persistent visitor ID, raw session ID or
-            cross-visit profile. The server deduplicates events and stores only UTC daily aggregate
-            counts for impressions, viewability, active duration, skips, completions and discussion
-            opens. Event receipts used only for deduplication become eligible for deletion after 30 days; a scheduled cleanup runs every 15 minutes in bounded batches. On the website, unsent anonymous event batches are held in page memory only. Native apps persist the anonymous topic/comment retry queue in app-private SQLite, capped at 2,000 events and seven days, so it survives app termination and uploads after reconnection. The queue contains no account, visitor or session identifier; users can decline or withdraw Service improvement analytics through Manage analytics choices on the Cookie Policy page, which clears pending local events. The
-            API also applies abuse-prevention rate limits using a keyed HMAC fingerprint of the
-            trusted request IP; stale rate-limit entries become eligible for cleanup after two
-            days. That fingerprint is not joined to feed event aggregates. Standard hosting and
-            security logs may separately process network metadata under their own controls.
-            The aggregate counts do not support an anonymous unique-person or session count.
+            On Android and Electron, pending signed-in analytics are stored in encrypted private
+            storage and pending signed-out events in app-private SQLite, each capped at 2,000
+            events and seven days. Website queues remain in memory. Withdrawal clears the relevant
+            pending events. Vercel Web Analytics and Speed Insights load only while Service
+            improvement analytics is enabled. CathoScroll removes query strings and fragments and
+            replaces topic, category and search identifiers with generic route labels before
+            sending performance data; Vercel may separately process route, device, browser,
+            country and web-vital information under its own privacy terms.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            Sponsor delivery is separate from Sponsor measurement. Sponsored cards may be shown
-            whether or not you enable Sponsor measurement. If you enable it, a random session token
-            exists only in active page/app memory and its SHA-256 hash is stored for frequency
-            controls; raw sponsor event and frequency rows become eligible for deletion after 30
-            days. If you decline Sponsor measurement, no visitor/session token or hash is created,
-            no per-session frequency record is written, and no viewability/click event is collected.
-            In that case CathoScroll retains only campaign/day served totals needed for delivery and
-            pacing. Campaign-level caps continue to apply. The measured viewability and click rates
-            therefore describe only placements for which Sponsor measurement was enabled, not all
-            people who saw a sponsor card. Failed opted-in sponsor-event sends are retried in memory;
-            the retry queue is not persisted because the session token must not survive an app
-            restart.
-          </p>
-
-          <p className="text-text-secondary mt-4 leading-relaxed">
-            When Service improvement analytics is enabled, CathoScroll loads Vercel Web Analytics for
-            aggregate site-level traffic measurement, including visits from people who are not signed in. Vercel states that it does not use
-            third-party cookies and derives a short-lived visitor hash from the incoming request,
-            which is discarded after 24 hours. Its analytics data points may include timestamps,
-            page URLs, referrers, filtered query parameters, approximate geolocation, and device
-            and browser information. CathoScroll preserves ordinary page-level reporting but
-            replaces topic, category and search identifiers with generic route labels, removes
-            query strings and fragments, and applies a strict-origin referrer policy so the browser
-            sends only the referring site's origin. Vercel's own processing and any request-level
-            metadata remain subject to Vercel's privacy documentation and our processor and
-            international-transfer review.
-          </p>
-
-          <p className="text-text-secondary mt-4 leading-relaxed">
-            When Service improvement analytics is enabled, Vercel Speed Insights measures Core Web Vitals
-            and real-world page performance. Its event hook removes query strings and fragments and replaces
-            topic/category/search identifiers with generic route labels before transmission.
-            Speed Insights reports technical performance and is separate from CathoScroll's
-            account-linked product analytics. Vercel describes its Speed Insights data points as
-            anonymous and says they are not designed to identify visitors or reconstruct browsing
-            sessions; its published data fields include route and URL, device, browser, country and
-            web-vital measurements.
+            Sponsor delivery is separate from Sponsor measurement. Sponsor cards may appear even
+            when measurement is declined. If enabled, a random session token exists only in active
+            page/app memory and its SHA-256 hash supports frequency controls; raw event and
+            frequency records become eligible for deletion after 30 days. If declined, no visitor
+            token, frequency record, viewability or click event is created; CathoScroll retains
+            campaign/day served totals for delivery and pacing. Sponsor reports therefore measure
+            only opted-in placements, not every card shown.
           </p>
         </section>
 
