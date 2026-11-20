@@ -17,6 +17,7 @@ export type AccountPageViewProps = {
   newPassword: string;
   confirmPassword: string;
   personalizationClient: SupabaseClient;
+  apiBaseUrl?: string;
   saving: boolean;
   signingOut: boolean;
   saveDisabled: boolean;
@@ -202,7 +203,7 @@ export function AccountPageView(props: AccountPageViewProps) {
         </div>
         {props.signOutError && <p role="alert" className="text-sm text-red-600">{props.signOutError}</p>}
       </form>
-      <PersonalizationAccountSection client={props.personalizationClient} />
+      <PersonalizationAccountSection client={props.personalizationClient} apiBaseUrl={props.apiBaseUrl} />
     </div>
   );
 }
