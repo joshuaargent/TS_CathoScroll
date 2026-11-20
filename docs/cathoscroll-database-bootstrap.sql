@@ -7566,6 +7566,8 @@ CREATE TABLE catho_private.anonymous_sponsor_campaign_daily (
   PRIMARY KEY(event_date,campaign_id)
 );
 CREATE INDEX IF NOT EXISTS anonymous_sponsor_campaign_daily_campaign_id_idx ON catho_private.anonymous_sponsor_campaign_daily(campaign_id);
+CREATE INDEX IF NOT EXISTS anonymous_sponsor_events_received_at_idx ON catho_private.anonymous_sponsor_events(received_at);
+CREATE INDEX IF NOT EXISTS anonymous_sponsor_session_frequency_last_served_at_idx ON catho_private.anonymous_sponsor_session_frequency(last_served_at);
 ALTER TABLE catho_private.anonymous_feed_analytics_daily ENABLE ROW LEVEL SECURITY;
 ALTER TABLE catho_private.anonymous_feed_event_receipts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE catho_private.anonymous_sponsor_session_frequency ENABLE ROW LEVEL SECURITY;
@@ -7819,15 +7821,38 @@ CREATE OR REPLACE FUNCTION catho_private.prune_anonymous_analytics()
  SECURITY DEFINER
  SET search_path TO ''
 AS $function$
-DECLARE v_deleted integer:=0;
+DECLARE v_deleted integer:=0; v_batch integer:=0;
 BEGIN
- DELETE FROM catho_private.anonymous_sponsor_events
- WHERE received_at < statement_timestamp()-interval '30 days';
- GET DIAGNOSTICS v_deleted = ROW_COUNT;
- DELETE FROM catho_private.anonymous_sponsor_session_frequency
- WHERE last_served_at < statement_timestamp()-interval '30 days';
- DELETE FROM catho_private.anonymous_feed_event_receipts
- WHERE received_at < statement_timestamp()-interval '30 days';
+ WITH expired AS (
+   SELECT ctid FROM catho_private.anonymous_sponsor_events
+   WHERE received_at < statement_timestamp()-interval '30 days'
+   ORDER BY received_at LIMIT 5000 FOR UPDATE SKIP LOCKED
+ )
+ DELETE FROM catho_private.anonymous_sponsor_events target
+ USING expired WHERE target.ctid=expired.ctid;
+ GET DIAGNOSTICS v_batch = ROW_COUNT;
+ v_deleted:=v_deleted+v_batch;
+
+ WITH expired AS (
+   SELECT ctid FROM catho_private.anonymous_sponsor_session_frequency
+   WHERE last_served_at < statement_timestamp()-interval '30 days'
+   ORDER BY last_served_at LIMIT 5000 FOR UPDATE SKIP LOCKED
+ )
+ DELETE FROM catho_private.anonymous_sponsor_session_frequency target
+ USING expired WHERE target.ctid=expired.ctid;
+ GET DIAGNOSTICS v_batch = ROW_COUNT;
+ v_deleted:=v_deleted+v_batch;
+
+ WITH expired AS (
+   SELECT ctid FROM catho_private.anonymous_feed_event_receipts
+   WHERE received_at < statement_timestamp()-interval '30 days'
+   ORDER BY received_at LIMIT 5000 FOR UPDATE SKIP LOCKED
+ )
+ DELETE FROM catho_private.anonymous_feed_event_receipts target
+ USING expired WHERE target.ctid=expired.ctid;
+ GET DIAGNOSTICS v_batch = ROW_COUNT;
+ v_deleted:=v_deleted+v_batch;
+
  RETURN v_deleted;
 END;
 $function$;
