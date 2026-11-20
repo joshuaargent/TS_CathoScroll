@@ -13,7 +13,7 @@ Signed-in topic/comment events remain account-linked. Signed-out topic/comment e
 
 ## 2. Purposes and necessity
 
-First-party feed and comment analytics help measure whether content and community cards are being seen and used, identify product issues, understand engagement and improve the service. The existing analytics dashboard reports overall, category, topic, comment and sponsor performance. The recommendation system separately uses eligible account activity only where personalisation is enabled.
+First-party feed and comment analytics help measure whether content and community cards are being seen and used, identify product issues, understand engagement and improve the service. The existing analytics dashboard reports overall, category, topic, comment and sponsor performance. The recommendation system is intended to use eligible account activity only where personalisation is enabled. Current production also reads operational feed and Top Comments analytics event tables when personalisation is enabled; PR26 removes this coupling with an explicit-action-only profile and active-cursor rebase. Until the SQL upgrade is applied, the data flows are not fully separate.
 
 Vercel Web Analytics provides broader site traffic reporting, including signed-out visits. Vercel Speed Insights measures real-world performance and Core Web Vitals. Neither provider stream is merged into CathoScroll's account-linked topic-event tables.
 
