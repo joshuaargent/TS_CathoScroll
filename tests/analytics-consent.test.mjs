@@ -81,6 +81,7 @@ test('withdrawal immediately blocks and clears the matching web and native analy
   assert.ok(manager.includes('clearFeedCardAnalyticsOutbox(userId)'));
   assert.ok(manager.includes('clearSponsorAnalyticsOutbox(userId)'));
   assert.ok(manager.includes('clearAnonymousSponsorAnalyticsQueue()'));
+  assert.ok(manager.includes('saveAnalyticsConsent(interim, userId, { syncPending: Boolean(userId) })'));
   assert.ok(store.includes('clearStream(userId: string, stream: SignedInAnalyticsStream)'));
   assert.ok(feed.includes('createConsentBoundAbortSignal'));
   assert.ok(feed.includes("consentRequest.signal.aborted || !hasAnalyticsConsent('serviceImprovement', userId)"));
