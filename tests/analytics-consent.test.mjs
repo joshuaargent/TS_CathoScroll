@@ -27,13 +27,16 @@ test('optional analytics consent is explicit, purpose-specific and off by defaul
   assert.ok(manager.includes('I explicitly agree to Service improvement analytics'));
   assert.ok(manager.includes('Sponsor measurement'));
   assert.ok(manager.includes('I explicitly agree to Sponsor measurement'));
-  assert.ok(manager.includes('They are not used for recommendation personalisation or to infer religious beliefs'));
-  assert.ok(manager.includes('Accept all consents to both; Decline optional declines both; Manage choices lets you choose separately'));
-  assert.ok(manager.includes('Accept all consents to both; Decline optional declines both; Manage choices lets you choose separately.'));
+  assert.ok(manager.includes('If personalisation is enabled, these reading signals also inform your private recommendations.'));
+  assert.ok(manager.includes('Accept all enables both analytics choices; Decline optional declines both; Manage choices lets you choose separately'));
+  assert.ok(manager.includes('Accept all enables both analytics choices; Decline optional declines both; Manage choices lets you choose separately.'));
   assert.ok(manager.includes('Topic activity and sponsor placements may reveal religious or philosophical interests.'));
   assert.ok(manager.includes('topic placement where a sponsor appeared'));
   assert.ok(manager.includes('may involve special-category data under UK GDPR'));
-  assert.ok(manager.includes('Recommendation personalisation remains controlled separately'));
+  assert.ok(manager.includes('Personalisation requires Service improvement analytics; Sponsor measurement remains independent.'));
+  assert.ok(manager.includes('personalizationEnabled'));
+  assert.ok(manager.includes('Required while personalisation is enabled'));
+  assert.ok(manager.includes('Turn off personalisation before disabling Service improvement analytics'));
   assert.ok(layout.includes('<WebAnalyticsConsentManager />'));
   assert.ok(native.includes('<AnalyticsConsentManager'));
   assert.ok(native.includes("loading={authStatus === 'loading' || checkingAccount}"));
@@ -231,6 +234,6 @@ test('privacy assessment distinguishes special-category risk and keeps personali
   assert.ok(assessment.includes('Article 9'));
   assert.ok(assessment.includes('religious or philosophical beliefs'));
   assert.ok(assessment.includes('not a legal opinion'));
-  assert.ok(manager.includes('Recommendation personalisation remains controlled separately'));
+  assert.ok(manager.includes('Personalisation requires Service improvement analytics; Sponsor measurement remains independent.'));
   assert.ok(account.includes('personalization'));
 });
