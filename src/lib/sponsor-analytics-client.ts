@@ -242,6 +242,10 @@ export async function flushAnonymousSponsorCampaignEvents(): Promise<void> {
         break;
       }
       const queued = anonymousQueue[0];
+      if (consentRequest.signal.aborted || !hasAnalyticsConsent('sponsorMeasurement', null)) {
+        anonymousQueue.splice(0, anonymousQueue.length);
+        break;
+      }
       let response: Response;
       try {
         response = await fetch(anonymousEventEndpoint(queued.apiBaseUrl), {
