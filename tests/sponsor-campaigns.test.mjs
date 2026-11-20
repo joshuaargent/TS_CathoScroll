@@ -142,7 +142,8 @@ test('sponsored feed cards are disclosed and inserted separately from organic re
   assert.match(sponsorCard, /onDoubleClick=/);
   assert.doesNotMatch(sponsorCard, /campaign\.cta_label\}\s*<ExternalLink/);
   assert.doesNotMatch(sponsorCard, /bg-accent text-white hover:bg-accent\/90/);
-  assert.match(feedCore, /Reuse one in-memory token for this active app session/);
+  assert.match(feedCore, /Anonymous placements share an in-memory session token for frequency caps/);
+  assert.match(feedCore, /const sessionId = userId \? createSponsorPlacementId\(\) : createSponsorSessionId\(\)/);
   assert.match(feedCore, /sessionId: string/);
   assert.match(deliveryRoute, /getAuthenticatedUserFromRequest/);
   assert.match(deliveryRoute, /isSameOriginOrNativeRequest/);
