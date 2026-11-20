@@ -264,10 +264,12 @@ The current Auth configuration also has leaked-password protection disabled.
 The CathoScroll Supabase organisation is currently on the Free plan; Supabase
 requires Pro or above for leaked-password protection. Upgrade before enabling
 it in Auth settings. Email verification is a separate setting and remains
-disabled. TOTP authenticator enrolment remains an optional per-account Supabase
-Auth feature. CathoScroll does not implement organisation-wide administrator
-MFA enforcement; admin access is controlled by the protected administrator-role
-records.
+disabled. CathoScroll does not implement MFA or authenticator enrolment; sign-in
+uses the standard email/password flow and admin access is controlled by the
+protected administrator-role records. Supabase's hosted Auth service has its
+own TOTP enrolment/verification settings, which are separate from application
+code and must be disabled in the Supabase dashboard if you want to prevent
+factor enrolment at the provider level as well.
 
 The production database is currently small, so unused-index warnings are not
 evidence that those indexes should be dropped. Keep indexes that support
