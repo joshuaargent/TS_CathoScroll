@@ -124,12 +124,8 @@ The website loads comments in 50-row cursor pages. Like counts and the current v
 
 - Administrator APIs and protected pages use server-side administrator checks.
 - The owner alone can grant or revoke administrator roles.
-- A target account must have a verified TOTP factor before it can be granted administrator access.
 - Moderation, role and security actions are written to an append-only audit table; only the owner can view the paginated audit log.
-- Account Security provides optional per-account TOTP enrollment, verification and backup-factor setup. This uses Supabase Auth MFA factors and does not impose an organisation-wide administrator MFA policy.
-- Supabase organisation-wide MFA enforcement is not used by CathoScroll. Administrator access is based on the protected administrator-role table; each account may independently enable TOTP, which will then be challenged at sign-in by Supabase Auth.
-
-**Current state:** custom administrator MFA enforcement, its database control table/functions and the native blocking gate have been removed. TOTP enrollment remains optional per account.
+- CathoScroll does not implement multi-factor authentication, authenticator enrolment or authenticator challenges. Sign-in uses the existing email/password flow. Administrator access is controlled by the protected administrator-role table.
 
 ## API and browser protections
 
@@ -166,11 +162,10 @@ Comment inventory is fetched online but is not written to a persistent local cac
 
 ## Validation and limitations
 
-Rollback-only live-database tests exercised 1,001-comment pagination, cursor progression, reply ancestry, moderation/depth checks, notification column restrictions, recommendation limits, TOTP RLS assurance and audit-log immutability. Test fixtures were rolled back; no test comments, notifications or audit rows remain.
+Rollback-only live-database tests exercised 1,001-comment pagination, cursor progression, reply ancestry, moderation/depth checks, notification column restrictions, recommendation limits, administrator-role RLS and audit-log immutability. Test fixtures were rolled back; no test comments, notifications or audit rows remain.
 
 Not yet completed:
 
-- Owner TOTP enrollment and enforcement activation.
 - Supabase Auth dashboard verification for password policy, CAPTCHA and provider rate limits.
 - Leaked-password protection (available on Supabase Pro and above).
 - Browser verification of CSP and deployed headers; two earlier Vercel attempts hit the daily quota, but a later preview deployment is ready and still needs manual verification.
