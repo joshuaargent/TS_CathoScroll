@@ -75,7 +75,7 @@ test('withdrawal writes local denial using cached identity before network-depend
 });
 
 test('local withdrawal replaces the active personalised feed and retries the server state', () => {
-  assert.match(native, /setFeedPersonalized\(detail\.enabled\)/);
+  assert.match(native, /setFirstPage\(null\)/);
   assert.match(native, /setFeedAttempt\(\(attempt\) => attempt \+ 1\)/);
 });
 
