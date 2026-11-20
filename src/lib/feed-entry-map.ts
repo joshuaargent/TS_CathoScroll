@@ -134,12 +134,12 @@ export function reconcileFeedBoundary(
       return currentComments.length > 0 ? [{ ...entry, comments: currentComments }] : [];
     }
     if (entry.type === 'sponsor' && sponsorInventory) {
-      if (sponsorInventory.campaigns.length === 0 || !sponsorInventory.sessionId) return [];
+      if (sponsorInventory.campaigns.length === 0) return [];
       return [{
         ...entry,
         status: 'ready' as const,
         campaigns: sponsorInventory.campaigns,
-        sessionId: sponsorInventory.sessionId,
+        sessionId: sponsorInventory.sessionId ?? '',
       }];
     }
     return [entry];
