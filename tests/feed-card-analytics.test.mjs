@@ -7,26 +7,27 @@ const source = await readFile(new URL('../src/lib/feed-card-analytics-client.ts'
 const code = ts.transpileModule(source, {
   compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
 }).outputText;
-
-const storage = new Map();
-globalThis.localStorage = {
-  getItem: (key) => storage.get(key) ?? null,
-  setItem: (key, value) => storage.set(key, value),
-  removeItem: (key) => storage.delete(key),
-};
-globalThis.window = { setTimeout, clearTimeout, addEventListener() {}, removeEventListener() {} };
+globalThis.window = { addEventListener() {}, removeEventListener() {} };
 Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { onLine: false } });
 if (!globalThis.crypto?.randomUUID) {
   Object.defineProperty(globalThis, 'crypto', { configurable: true, value: { randomUUID: () => 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' } });
 }
 const analytics = await import('data:text/javascript;base64,' + Buffer.from(code).toString('base64'));
 
-test('queues only supported Top Comments exposure events per account', () => {
+test('queues only supported Top Comments exposure events per account without device storage', async () => {
+  const requests = [];
+  globalThis.fetch = async (url, options) => {
+    requests.push({ url, body: JSON.parse(options.body) });
+    return new Response(JSON.stringify({ accepted: 2 }), { status: 200 });
+  };
   analytics.recordFeedCardAnalyticsEvent('account-a', 'impression', 42);
   analytics.recordFeedCardAnalyticsEvent('account-a', 'viewable_impression', 42);
   analytics.recordFeedCardAnalyticsEvent('account-b', 'open', 42);
-  const a = JSON.parse(storage.get('cathoscroll:feed-card-analytics:v1:account-a'));
-  const b = JSON.parse(storage.get('cathoscroll:feed-card-analytics:v1:account-b'));
+  Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { onLine: true } });
+  await analytics.flushFeedCardAnalytics('account-a');
+  await analytics.flushFeedCardAnalytics('account-b');
+  const a = requests[0].body.events;
+  const b = requests[1].body.events;
   assert.deepEqual(a.map((event) => event.event_type), ['impression', 'viewable_impression']);
   assert.equal(a[0].card_type, 'top-comment');
   assert.equal(a[0].card_id, '42');
@@ -38,32 +39,43 @@ test('queues only supported Top Comments exposure events per account', () => {
     assert.equal('save' in event, false);
     assert.equal('share' in event, false);
   }
+  assert.doesNotMatch(source, /localStorage|sessionStorage|indexedDB/);
 });
 
-test('bounds the offline queue and retains the newest exposure events', () => {
+test('bounds the in-memory queue and retains the newest exposure events', async () => {
+  const requests = [];
+  globalThis.fetch = async (_url, options) => {
+    requests.push(JSON.parse(options.body).events);
+    return new Response(JSON.stringify({ accepted: 50 }), { status: 200 });
+  };
+  Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { onLine: false } });
   for (let id = 1; id <= 225; id += 1) {
     analytics.recordFeedCardAnalyticsEvent('bounded-account', 'active_duration', id, 5000);
   }
-  const queue = JSON.parse(storage.get('cathoscroll:feed-card-analytics:v1:bounded-account'));
-  assert.equal(queue.length, 200);
-  assert.equal(queue[0].card_id, '26');
-  assert.equal(queue.at(-1).card_id, '225');
+  Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { onLine: true } });
+  await analytics.flushFeedCardAnalytics('bounded-account');
+  const events = requests.flat();
+  assert.equal(events.length, 200);
+  assert.equal(events[0].card_id, '26');
+  assert.equal(events.at(-1).card_id, '225');
 });
 
-test('flushes a bounded batch and removes acknowledged event IDs only', async () => {
-  analytics.recordFeedCardAnalyticsEvent('flush-account', 'impression', 7);
-  analytics.recordFeedCardAnalyticsEvent('flush-account', 'open', 7);
+test('flushes events and removes acknowledged event IDs from memory', async () => {
   const requests = [];
   globalThis.fetch = async (url, options) => {
     requests.push({ url, body: JSON.parse(options.body) });
     return new Response(JSON.stringify({ accepted: 2 }), { status: 200 });
   };
+  Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { onLine: false } });
+  analytics.recordFeedCardAnalyticsEvent('flush-account', 'impression', 7);
+  analytics.recordFeedCardAnalyticsEvent('flush-account', 'open', 7);
   Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { onLine: true } });
   await analytics.flushFeedCardAnalytics('flush-account');
   assert.equal(requests.length, 1);
   assert.equal(requests[0].url, '/api/analytics/feed-card-events');
   assert.equal(requests[0].body.events.length, 2);
-  assert.equal(storage.has('cathoscroll:feed-card-analytics:v1:flush-account'), false);
+  await analytics.flushFeedCardAnalytics('flush-account');
+  assert.equal(requests.length, 1);
 });
 
 test('Top Comments viewability requires half visibility for one continuous second', async () => {
