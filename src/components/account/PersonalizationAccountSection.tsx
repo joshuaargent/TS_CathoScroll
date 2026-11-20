@@ -5,6 +5,7 @@ import { ShieldCheck, Sparkles } from 'lucide-react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { AnalyticsConsentSettingsButton } from '@/components/privacy/AnalyticsConsentManager';
+import { analyticsConsentSyncEvent } from '@/lib/analytics-consent';
 import { Button } from '@/components/ui/Button';
 
 type PersonalizationStatus = {
@@ -175,6 +176,7 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
         throw new Error('Personalisation settings were not confirmed.');
       }
       await syncNativeConsent(authData.user.id, enabled, false);
+      if (typeof window !== 'undefined') window.dispatchEvent(new Event(analyticsConsentSyncEvent));
 
       const refreshed = await load();
       setMessage(refreshed
