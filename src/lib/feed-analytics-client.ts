@@ -212,7 +212,19 @@ export async function flushFeedAnalytics(userId: string, keepalive = false): Pro
     flushingUsers.delete(userId);
     const transport = transports.get(userId);
     if (transport?.retired && readQueue(userId).length === 0) {
-      transports.delete(userId);
+      // React may clean up this listener effect immediately before the topic
+      // duration effect records its final event. Defer transport retirement
+      // until the current cleanup stack has completed so that last event keeps
+      // the native endpoint and bearer-token provider.
+      queueMicrotask(() => {
+        if (
+          transports.get(userId) === transport &&
+          readQueue(userId).length === 0 &&
+          !flushingUsers.has(userId)
+        ) {
+          transports.delete(userId);
+        }
+      });
     }
   }
 }
