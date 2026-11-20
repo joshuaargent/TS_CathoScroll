@@ -144,3 +144,12 @@ The ICO finalised its updated PECR storage/access guidance on 29 April 2026. Web
 Provider facts verified on 20 November 2026: Supabase project region eu-north-1 (Stockholm), Free plan; Supabase Free exposes one day of API/database logs and 24 hours of Auth audit-log access and has no automatic database backups/PITR. Supabase offers a DPA, but project acceptance has not been verified. Vercel connected team is Hobby; current Vercel terms restrict Hobby to personal/non-commercial use, commercial advertising requires Pro/Enterprise, and Vercel's DPA applies to Pro/Enterprise only. The current 19 October 2026 Hobby terms also permit use of Hobby-plan customer content for model training and sharing with third parties for model improvement. Keep sponsor advertising disabled on Hobby or move to a compliant commercial plan/host before activating paid sponsorships.
 
 The active production deployment is still on main, not the logo-free PR branch. Keep the temporary sponsor-logo compatibility bridge in place until the logo-free build is deployed; then apply the existing removal SQL and verify both RPC signatures and payloads.
+
+
+## Controller draft assessment — 20 November 2026
+
+A separate purpose-by-purpose UK GDPR assessment has been added at [docs/uk-gdpr-analytics-assessment.md](./uk-gdpr-analytics-assessment.md). It recommends preserving existing detailed analytics for people who make a separate optional choice, because account-linked topic/comment activity in a Catholic-content service may reveal or permit inferences about religious/philosophical beliefs. The assessment recommends a separate explicit service-analytics statement and a distinct sponsor-measurement choice; neither is personalisation consent.
+
+For sponsor-measurement opt-outs, the proposed fallback is campaign/day served-placement aggregates only, without client viewability/click events, visitor/session tokens, or per-person frequency records. Campaign-wide pacing and caps remain. Account access, account synchronisation, bookmarks, likes, progress, notes and general feed ranking remain unaffected by optional analytics choices.
+
+**Status:** this is an engineering assessment and proposed design. Controller approval of Article 6 and Article 9 positions, PECR Regulation 6 treatment, the DPIA residual risk, children/age safeguards, provider contracts and international transfers remains outstanding. Do not describe CathoScroll as legally cleared solely because the assessment or consent UI exists.
