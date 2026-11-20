@@ -91,7 +91,7 @@ test('personalisation consent is opt-in and versioned', () => {
 });
 
 test('withdrawal deletes both inferred and explicitly selected interests', () => {
-  const body = functionBody('public.set_my_personalization_consent');
+  const body = functionBody('public.set_my_personalization_consent(\n  p_enabled boolean,\n  p_consent_version text\n)');
   assert.match(body, /DELETE FROM catho_private\.user_topic_interest_scores WHERE user_id=v_user_id/);
   assert.match(body, /DELETE FROM catho_private\.user_explicit_category_interests WHERE user_id=v_user_id/);
   assert.match(body, /withdrawn_at=EXCLUDED\.withdrawn_at/);
