@@ -114,7 +114,7 @@ export function readAnalyticsConsent(userId?: string | null): AnalyticsConsent |
       serviceImprovement: parsed.serviceImprovement && !serviceDenied,
       sponsorMeasurement: parsed.sponsorMeasurement && !sponsorDenied,
       updatedAt: parsed.updatedAt,
-      syncPending: ('syncPending' in parsed ? parsed.syncPending : false) ||
+      syncPending: ('syncPending' in parsed ? parsed.syncPending === true : false) ||
         storageWriteFailedForDenial,
     };
   } catch {
