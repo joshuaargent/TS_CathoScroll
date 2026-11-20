@@ -175,3 +175,77 @@ export function installSponsorAnalyticsListeners(
     document.removeEventListener('visibilitychange', onVisibilityChange);
   };
 }
+
+export interface AnonymousQueuedSponsorCampaignEvent extends QueuedSponsorCampaignEvent {
+  placementKey: string;
+}
+
+const anonymousQueue: { event: AnonymousQueuedSponsorCampaignEvent; apiBaseUrl?: string }[] = [];
+let anonymousFlushInProgress = false;
+let anonymousListenersInstalled = false;
+
+function anonymousEventEndpoint(apiBaseUrl?: string): string {
+  return apiBaseUrl
+    ? new URL('/api/content/sponsor-campaign-events', apiBaseUrl).toString()
+    : '/api/content/sponsor-campaign-events';
+}
+
+export async function flushAnonymousSponsorCampaignEvents(): Promise<void> {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined' || !navigator.onLine || anonymousFlushInProgress) return;
+  anonymousFlushInProgress = true;
+  try {
+    while (anonymousQueue.length > 0 && navigator.onLine) {
+      const queued = anonymousQueue[0];
+      let response: Response;
+      try {
+        response = await fetch(anonymousEventEndpoint(queued.apiBaseUrl), {
+          method: 'POST',
+          credentials: 'same-origin',
+          keepalive: true,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...queued.event, sessionId: queued.event.sessionId, placementKey: queued.event.placementKey }),
+        });
+      } catch {
+        break;
+      }
+      if (!response.ok && response.status !== 400 && response.status !== 403) break;
+      anonymousQueue.shift();
+    }
+  } finally {
+    anonymousFlushInProgress = false;
+  }
+}
+
+export function installAnonymousSponsorAnalyticsListeners(): () => void {
+  if (typeof window === 'undefined') return () => undefined;
+  if (!anonymousListenersInstalled) {
+    anonymousListenersInstalled = true;
+    const flush = () => void flushAnonymousSponsorCampaignEvents();
+    window.addEventListener('online', flush);
+    window.addEventListener('pageshow', flush);
+    window.addEventListener('pagehide', flush);
+    document.addEventListener('visibilitychange', flush);
+  }
+  void flushAnonymousSponsorCampaignEvents();
+  return () => undefined;
+}
+
+export function recordAnonymousSponsorCampaignEvent(
+  event: AnonymousQueuedSponsorCampaignEvent,
+  apiBaseUrl?: string
+): boolean {
+  if (typeof window === 'undefined' || !event.campaignId || !event.sessionId || !event.placementKey) return false;
+  const alreadyQueued = anonymousQueue.some((queued) =>
+    queued.event.campaignId === event.campaignId &&
+    queued.event.sessionId === event.sessionId &&
+    queued.event.placementKey === event.placementKey &&
+    queued.event.eventType === event.eventType
+  );
+  if (!alreadyQueued) {
+    if (anonymousQueue.length >= 1000) return false;
+    anonymousQueue.push({ event, apiBaseUrl });
+  }
+  installAnonymousSponsorAnalyticsListeners();
+  void flushAnonymousSponsorCampaignEvents();
+  return true;
+}
