@@ -23,6 +23,29 @@ import {
   clearFeedCardAnalyticsOutbox,
 } from '@/lib/feed-card-analytics-client';
 
+export async function clearAnalyticsConsentQueues(
+  userId: string | null,
+  previous: AnalyticsConsent | null,
+  next: Pick<AnalyticsConsent, 'serviceImprovement' | 'sponsorMeasurement'>
+): Promise<void> {
+  const clearService = previous === null || previous.serviceImprovement !== next.serviceImprovement;
+  const clearSponsor = previous === null || previous.sponsorMeasurement !== next.sponsorMeasurement;
+  const tasks: Promise<unknown>[] = [];
+  if (clearService) {
+    if (userId) {
+      tasks.push(clearFeedAnalyticsOutbox(userId));
+      tasks.push(clearFeedCardAnalyticsOutbox(userId));
+    } else {
+      tasks.push(setAnonymousFeedAnalyticsEnabled(false));
+    }
+  }
+  if (clearSponsor) {
+    if (userId) tasks.push(clearSponsorAnalyticsOutbox(userId));
+    tasks.push(Promise.resolve(clearAnonymousSponsorAnalyticsQueue()));
+  }
+  await Promise.all(tasks);
+}
+
 type AnalyticsConsentManagerProps = {
   userId?: string | null;
   loading?: boolean;
@@ -134,21 +157,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
     previous: AnalyticsConsent | null,
     next: Pick<AnalyticsConsent, 'serviceImprovement' | 'sponsorMeasurement'>
   ) => {
-    const clearService = previous === null || previous.serviceImprovement !== next.serviceImprovement;
-    const clearSponsor = previous === null || previous.sponsorMeasurement !== next.sponsorMeasurement;
-    const tasks: Promise<unknown>[] = [];
-    if (clearService) {
-      if (userId) {
-        tasks.push(clearFeedAnalyticsOutbox(userId));
-        tasks.push(clearFeedCardAnalyticsOutbox(userId));
-      }
-      else tasks.push(setAnonymousFeedAnalyticsEnabled(false));
-    }
-    if (clearSponsor) {
-      if (userId) tasks.push(clearSponsorAnalyticsOutbox(userId));
-      tasks.push(Promise.resolve(clearAnonymousSponsorAnalyticsQueue()));
-    }
-    await Promise.all(tasks);
+    await clearAnalyticsConsentQueues(userId, previous, next);
   }, [userId]);
 
   const syncServerConsent = useCallback(async () => {
