@@ -190,13 +190,13 @@ CathoScroll uses two separate GitHub Actions workflows:
 
 ### Triggering a release
 
-Create and push an annotated version tag from the merged `main` commit. For example, for the current 2.3.2 package version:
+Create and push an annotated version tag from the merged `main` commit. For example, for the current 2.4.0 package version:
 
 ```bash
 git checkout main
 git pull origin main
-git tag -a v2.3.2 -m "CathoScroll v2.3.2"
-git push origin v2.3.2
+git tag -a v2.4.0 -m "CathoScroll v2.4.0"
+git push origin v2.4.0
 ```
 
 The tag push starts the release workflow. Do not create a separate manual release or upload build files yourself; the workflow creates/updates the GitHub release and publishes it after the platform builds and asset checks succeed. The workflow generates GitHub release notes automatically from the changes since the previous release.
