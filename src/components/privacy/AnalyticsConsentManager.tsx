@@ -2,8 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  analyticsConsentChangeEvent,
   analyticsConsentManageEvent,
   denyAnalyticsConsentInMemory,
+  getAnalyticsConsentStorageKey,
   readAnalyticsConsent,
   saveAnalyticsConsent,
   type AnalyticsConsent,
@@ -37,6 +39,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
   const activeUserIdRef = useRef<string | null>(userId);
   activeUserIdRef.current = userId;
   const syncAbortRef = useRef<AbortController | null>(null);
+  const consentMutationRef = useRef(0);
   const dialogRef = useRef<HTMLElement | null>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
 
@@ -142,11 +145,14 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
   const syncServerConsent = useCallback(async () => {
     if (loading || !userId || typeof window === 'undefined') return;
     const expectedUserId = userId;
+    let requestGeneration = consentMutationRef.current;
     syncAbortRef.current?.abort();
     const controller = new AbortController();
     syncAbortRef.current = controller;
     const isCurrentAccount = () =>
-      activeUserIdRef.current === expectedUserId && !controller.signal.aborted;
+      activeUserIdRef.current === expectedUserId &&
+      consentMutationRef.current === requestGeneration &&
+      !controller.signal.aborted;
 
     try {
       const headers = new Headers({ 'X-Catho-Expected-User-Id': expectedUserId });
@@ -241,6 +247,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
           updatedAt: saved.updatedAt,
           syncPending: false,
         });
+        requestGeneration = consentMutationRef.current;
         hydrate({
           version: 1,
           ...next,
@@ -268,6 +275,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
           if (!interim.serviceImprovement) denyAnalyticsConsentInMemory('serviceImprovement', expectedUserId);
           if (!interim.sponsorMeasurement) denyAnalyticsConsentInMemory('sponsorMeasurement', expectedUserId);
           saveAnalyticsConsent(interim, expectedUserId, { syncPending: false });
+          requestGeneration = consentMutationRef.current;
           await clearWithdrawnQueues(local, next);
           if (!isCurrentAccount()) return;
         }
@@ -278,6 +286,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
           updatedAt: remoteUpdatedAt,
           syncPending: false,
         });
+        requestGeneration = consentMutationRef.current;
         hydrate({
           version: 1,
           ...next,
@@ -313,6 +322,9 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
     next: Pick<AnalyticsConsent, 'serviceImprovement' | 'sponsorMeasurement'>
   ) => {
     if (saving) return;
+    consentMutationRef.current += 1;
+    syncAbortRef.current?.abort();
+    syncAbortRef.current = null;
     setSaving(true);
     setError('');
     try {
@@ -383,6 +395,23 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
     window.addEventListener(analyticsConsentManageEvent, manage);
     return () => window.removeEventListener(analyticsConsentManageEvent, manage);
   }, [clearWithdrawnQueues, hydrate, loading, userId]);
+
+  useEffect(() => {
+    const onConsentChange = (event: Event) => {
+      const detail = (event as CustomEvent<{ userId?: string | null }>).detail;
+      if ((detail?.userId ?? null) === userId) consentMutationRef.current += 1;
+    };
+    const storageKey = getAnalyticsConsentStorageKey(userId);
+    const onStorageChange = (event: StorageEvent) => {
+      if (event.key === storageKey) consentMutationRef.current += 1;
+    };
+    window.addEventListener(analyticsConsentChangeEvent, onConsentChange);
+    window.addEventListener('storage', onStorageChange);
+    return () => {
+      window.removeEventListener(analyticsConsentChangeEvent, onConsentChange);
+      window.removeEventListener('storage', onStorageChange);
+    };
+  }, [userId]);
 
   useEffect(() => {
     if (loading) return;
