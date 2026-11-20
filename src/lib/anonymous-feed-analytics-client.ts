@@ -25,7 +25,7 @@ export const anonymousAnalyticsPreferenceChangeEvent = 'cathoscroll:anonymous-an
 
 function anonymousAnalyticsEnabled(): boolean {
   try {
-    return typeof window !== 'undefined' && hasAnalyticsConsent('serviceImprovement') && window.localStorage.getItem(anonymousAnalyticsPreferenceKey) !== 'false';
+    return typeof window !== 'undefined' && hasAnalyticsConsent('serviceImprovement', null);
   } catch {
     return false;
   }
@@ -69,12 +69,8 @@ function getEndpoint(): string {
 
 export async function setAnonymousFeedAnalyticsEnabled(enabled: boolean): Promise<void> {
   if (typeof window === 'undefined') throw new Error('Analytics preferences are unavailable.');
-  const wasEnabled = anonymousAnalyticsEnabled();
-  if (enabled && !wasEnabled && persistentOutbox) {
-    await outboxReady;
-    await persistentOutbox.clear();
-  }
-  window.localStorage.setItem(anonymousAnalyticsPreferenceKey, enabled ? 'true' : 'false');
+  // The versioned consent record is the sole permission source. This legacy
+  // function remains as a queue-clearing compatibility API for older callers.
   window.dispatchEvent(new Event(anonymousAnalyticsPreferenceChangeEvent));
   if (!enabled) {
     pendingEvents.splice(0, pendingEvents.length);
