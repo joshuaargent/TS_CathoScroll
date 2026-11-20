@@ -324,7 +324,7 @@ export function AnalyticsConsentManager({ userId = null, apiBaseUrl, getAccessTo
       };
       if (!interim.serviceImprovement) denyAnalyticsConsentInMemory('serviceImprovement', userId);
       if (!interim.sponsorMeasurement) denyAnalyticsConsentInMemory('sponsorMeasurement', userId);
-      saveAnalyticsConsent(interim, userId, { syncPending: false });
+      saveAnalyticsConsent(interim, userId, { syncPending: Boolean(userId) });
       await clearWithdrawnQueues(previous, next);
       saveAnalyticsConsent(next, userId);
       void syncServerConsent();
