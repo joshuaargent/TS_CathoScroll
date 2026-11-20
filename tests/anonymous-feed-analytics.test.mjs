@@ -180,8 +180,8 @@ test('admin navigation and shells no longer expose the retired feed preview or A
     read('../src/app/admin/sponsor-campaigns/page.tsx'),
     read('../native/admin.tsx'),
   ]);
-  assert.doesNotMatch(navigation, /admin\\/previews|Feed card previews/);
+  assert.doesNotMatch(navigation, /admin\/previews|Feed card previews/);
   for (const source of [adminLoading, contentLoading, contentPage, sponsorsPage, campaignsPage, nativeAdmin]) {
-    assert.doesNotMatch(source, /Administration<\\/p>/);
+    assert.doesNotMatch(source, /Administration<\/p>/);
   }
 });
