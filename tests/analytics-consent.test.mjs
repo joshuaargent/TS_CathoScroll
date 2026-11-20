@@ -35,7 +35,7 @@ test('optional analytics consent is explicit, purpose-specific and off by defaul
 });
 
 test('account consent sync is identity-bound, retryable and enforced server-side', async () => {
-  const [manager, route, serverConsent, topicRoute, commentRoute, sponsorRoute, migration] = await Promise.all([
+  const [manager, route, serverConsent, topicRoute, commentRoute, sponsorRoute, migration, lockOrderMigration] = await Promise.all([
     read('../src/components/privacy/AnalyticsConsentManager.tsx'),
     read('../src/app/api/privacy/analytics-consent/route.ts'),
     read('../src/lib/analytics-consent-server.ts'),
@@ -43,6 +43,7 @@ test('account consent sync is identity-bound, retryable and enforced server-side
     read('../src/app/api/analytics/feed-card-events/route.ts'),
     read('../src/app/api/content/sponsor-campaign-events/route.ts'),
     read('../supabase/migrations/20261120180000_analytics_consent_and_sponsor_opt_out.sql'),
+    read('../supabase/migrations/20261120200000_fix_analytics_consent_lock_order_v2.sql'),
   ]);
 
   assert.ok(manager.includes("window.addEventListener('online', syncServerConsent)"));
@@ -50,6 +51,9 @@ test('account consent sync is identity-bound, retryable and enforced server-side
   assert.ok(manager.includes('getAccessToken(expectedUserId)'));
   assert.ok(manager.includes('}, [loading, userId]);'));
   assert.ok(manager.includes('activeUserIdRef.current === expectedUserId'));
+  assert.ok(manager.includes('consentMutationRef.current === requestGeneration'));
+  assert.ok(manager.includes('window.addEventListener(analyticsConsentChangeEvent, onConsentChange)'));
+  assert.ok(manager.includes('event.key === storageKey'));
   assert.ok(manager.includes('syncAbortRef.current?.abort()'));
   assert.ok(route.includes("request.headers.get('X-Catho-Expected-User-Id')"));
   assert.ok(route.includes('Account changed during consent synchronisation.'));
@@ -61,6 +65,15 @@ test('account consent sync is identity-bound, retryable and enforced server-side
   assert.ok(sponsorRoute.includes('getStoredAnalyticsConsent(auth.user.id)'));
   assert.ok(migration.includes('user_analytics_consents'));
   assert.ok(migration.includes('user_analytics_consent_history'));
+  const setter = lockOrderMigration.slice(lockOrderMigration.indexOf('CREATE OR REPLACE FUNCTION public.set_user_analytics_consent'));
+  assert.ok(setter.indexOf('FROM auth.users AS account WHERE account.id = p_user_id FOR UPDATE') < setter.indexOf('FROM catho_private.user_analytics_consents'));
+  for (const name of ['public.record_feed_analytics_events', 'public.record_feed_card_analytics_events', 'public.record_sponsor_campaign_event', 'public.get_weighted_sponsor_campaigns']) {
+    const start = lockOrderMigration.indexOf('CREATE OR REPLACE FUNCTION ' + name);
+    const end = lockOrderMigration.indexOf('$function$;', start);
+    const body = lockOrderMigration.slice(start, end);
+    assert.ok(body.includes('FOR KEY SHARE'));
+    assert.ok(body.indexOf('FOR KEY SHARE') < body.indexOf('FOR SHARE'));
+  }
   assert.ok(migration.includes('SELECT consent.service_improvement INTO v_service_consent'));
   assert.ok(migration.includes('SELECT consent.sponsor_measurement INTO v_sponsor_consent'));
 });
