@@ -47,7 +47,7 @@ export default async function AdminAnalyticsPage({ searchParams }: Props) {
     includeZeroAnonymousOnly = false
   ) => {
     const signedKeys = new Set(signedIn.map((item) => String(item[key])));
-    const attachAnonymous = (item: Record<string, unknown>) => ({
+    const attachAnonymous = (item: Record<string, unknown>): Record<string, unknown> => ({
       anonymous_impressions: Number(item.impressions ?? 0),
       anonymous_viewable_impressions: Number(item.viewable_impressions ?? 0),
       anonymous_served: Number(item.served ?? 0),
@@ -56,7 +56,7 @@ export default async function AdminAnalyticsPage({ searchParams }: Props) {
       anonymous_skips: Number(item.skips ?? 0),
       anonymous_opens: Number(item.opens ?? 0),
     });
-    const merged = [
+    const merged: Record<string, unknown>[] = [
       ...signedIn.map((item) => {
         const match = anonymousRows.find((row) => String(row[key]) === String(item[key]));
         return { ...item, ...attachAnonymous(match ?? {}) };
@@ -82,8 +82,8 @@ export default async function AdminAnalyticsPage({ searchParams }: Props) {
       })),
     ];
     return merged.sort((left, right) =>
-      Number(right.served ?? right.impressions ?? 0) + Number(right.anonymous_served ?? right.anonymous_impressions ?? 0) -
-      Number(left.served ?? left.impressions ?? 0) - Number(left.anonymous_served ?? left.anonymous_impressions ?? 0)
+      Number(right['served'] ?? right['impressions'] ?? 0) + Number(right['anonymous_served'] ?? right['anonymous_impressions'] ?? 0) -
+      Number(left['served'] ?? left['impressions'] ?? 0) - Number(left['anonymous_served'] ?? left['anonymous_impressions'] ?? 0)
     );
   };
   const mergedOverview = {
@@ -142,9 +142,9 @@ export default async function AdminAnalyticsPage({ searchParams }: Props) {
     },
   };
 
-  return <AdminAnalyticsHub overview={mergedCurrent as Parameters<typeof AdminAnalyticsHub>[0]['overview']}
+  return <AdminAnalyticsHub overview={mergedCurrent as unknown as Parameters<typeof AdminAnalyticsHub>[0]['overview']}
     series={mergedSeries as Parameters<typeof AdminAnalyticsHub>[0]['series']} period={period}
     section={query.section && ['overview','categories','topics','sponsors','comments'].includes(query.section) ? query.section : 'overview'}
     deepDive={deepDiveData as Parameters<typeof AdminAnalyticsHub>[0]['deepDive']}
-    comparison={mergedPrevious as Parameters<typeof AdminAnalyticsHub>[0]['overview']} />;
+    comparison={mergedPrevious as unknown as Parameters<typeof AdminAnalyticsHub>[0]['overview']} />;
 }
