@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 
 const bootstrap = readFileSync(new URL('../docs/cathoscroll-database-bootstrap.sql', import.meta.url), 'utf8');
 const upgrade = readFileSync(new URL('../docs/personalization-analytics-upgrade.sql', import.meta.url), 'utf8');
+const analyticsConsentUpgrade = readFileSync(new URL('../docs/analytics-consent-and-sponsor-opt-out-upgrade.sql', import.meta.url), 'utf8');
 const documentation = readFileSync(new URL('../docs/personalization-analytics-implementation.md', import.meta.url), 'utf8');
 const settings = readFileSync(new URL('../src/components/account/PersonalizationAccountSection.tsx', import.meta.url), 'utf8');
 const deepDive = readFileSync(new URL('../src/components/admin/AnalyticsDeepDivePanel.tsx', import.meta.url), 'utf8');
@@ -260,6 +261,16 @@ test('existing v3 personalisation consent is withdrawn and requires v4 re-consen
   assert.match(upgrade, /DELETE FROM catho_private\.user_topic_interest_scores[\s\S]*v_affected_user_ids/);
   assert.match(upgrade, /DELETE FROM catho_private\.user_explicit_category_interests[\s\S]*v_affected_user_ids/);
   assert.match(documentation, /must explicitly opt in again/);
+});
+
+test('analytics and personalisation SQL upgrades are order-safe and use the new profile default', () => {
+  for (const sql of [bootstrap, analyticsConsentUpgrade]) {
+    assert.match(sql, /pg_catalog\.to_regclass\('catho_private\.user_personalization_consents'\)/);
+  }
+  for (const sql of [bootstrap, upgrade]) {
+    assert.match(sql, /ALTER TABLE catho_private\.user_topic_interest_scores ALTER COLUMN model_version SET DEFAULT '2026-11-20-v4'/);
+    assert.match(sql, /'2026-11-20-v4'/);
+  }
 });
 
 test('personalisation explicitly enables service analytics and prevents disabling it until withdrawal', () => {
