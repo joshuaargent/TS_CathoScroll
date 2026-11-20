@@ -6807,6 +6807,7 @@ DECLARE
 BEGIN
   IF v_user_id IS NULL THEN RAISE EXCEPTION 'Authentication required' USING ERRCODE='42501'; END IF;
   IF p_enabled IS NULL THEN RAISE EXCEPTION 'A consent choice is required' USING ERRCODE='22023'; END IF;
+  PERFORM 1 FROM auth.users WHERE id = v_user_id FOR UPDATE;
   IF p_enabled THEN
     INSERT INTO catho_private.user_personalization_consents
       (user_id,enabled,consent_version,granted_at,withdrawn_at,updated_at)
@@ -6830,7 +6831,7 @@ BEGIN
       service_improvement_updated_at, sponsor_measurement_updated_at, created_at, updated_at
     ) VALUES (
       v_user_id, true, coalesce(v_previous_sponsor, false), 1,
-      v_now, coalesce(v_now, v_now), v_now, v_now
+      v_now, v_now, v_now, v_now
     )
     ON CONFLICT (user_id) DO UPDATE SET
       service_improvement = true,
