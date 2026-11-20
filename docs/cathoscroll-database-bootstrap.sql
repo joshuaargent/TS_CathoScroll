@@ -3675,6 +3675,10 @@ DECLARE
   v_count integer;
 BEGIN
   IF v_user_id IS NULL THEN RAISE EXCEPTION 'Authentication required' USING ERRCODE = '42501'; END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM catho_private.user_analytics_consents AS consent
+    WHERE consent.user_id = v_user_id AND consent.service_improvement = true
+  ) THEN RETURN 0; END IF;
   IF p_events IS NULL OR jsonb_typeof(p_events) <> 'array' THEN RAISE EXCEPTION 'Events must be a JSON array' USING ERRCODE = '22023'; END IF;
   v_submitted := jsonb_array_length(p_events);
   IF v_submitted < 1 OR v_submitted > 50 OR octet_length(p_events::text) > 16384 THEN
@@ -4986,6 +4990,10 @@ BEGIN
     RAISE EXCEPTION 'Invalid sponsor campaign event' USING ERRCODE = '22023';
   END IF;
   IF NOT EXISTS (
+    SELECT 1 FROM catho_private.user_analytics_consents AS consent
+    WHERE consent.user_id = p_user_id AND consent.sponsor_measurement = true
+  ) THEN RETURN false; END IF;
+  IF NOT EXISTS (
     SELECT 1 FROM catho_private.sponsor_campaign_events AS served
     WHERE served.user_id=p_user_id AND served.campaign_id=p_campaign_id
       AND served.session_id=p_session_id AND served.event_type='served'
@@ -6065,6 +6073,10 @@ declare
   v_duration_text text;
 begin
   if v_user_id is null then raise exception 'authentication required' using errcode='42501'; end if;
+  if not exists (
+    select 1 from catho_private.user_analytics_consents as consent
+    where consent.user_id = v_user_id and consent.service_improvement = true
+  ) then return 0; end if;
   if jsonb_typeof(p_events) <> 'array' or jsonb_array_length(p_events) < 1 or jsonb_array_length(p_events) > 50 then
     raise exception 'invalid event batch' using errcode='22023';
   end if;
