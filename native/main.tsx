@@ -50,6 +50,8 @@ import { OfflineCommentCache } from '@/lib/offline/comment-cache';
 import { OfflineTopicCountCache, type CachedTopicCounts } from '@/lib/offline/topic-count-cache';
 import { loadTopicActivity } from '@/lib/topic-activity';
 import { siteConfig } from '@/lib/constants';
+import { configureAnonymousFeedAnalyticsOutbox } from '@/lib/anonymous-feed-analytics-client';
+import { NativeAnonymousAnalyticsOutbox } from '@/lib/offline/anonymous-analytics-store';
 import type { TopFeedComment } from '@/lib/feed-comments';
 import type { RecommendationCursor } from '@/lib/recommendations';
 import type { GeneralFeedCursor } from '@/lib/content';
@@ -832,6 +834,13 @@ function App() {
       let failure = 'Unable to open app storage. Please try again.';
       try {
         const databases = await openNativeDatabases(secureAuthStorage);
+        try {
+          await configureAnonymousFeedAnalyticsOutbox(new NativeAnonymousAnalyticsOutbox(databases.catalogue));
+          clearNativeStatusNotice('anonymous-analytics-outbox');
+        } catch (cause) {
+          console.error('Durable anonymous analytics storage is unavailable:', cause);
+          notifyNativeStatus('Some signed-out analytics may not be retained if the app closes before upload.', { id: 'anonymous-analytics-outbox' });
+        }
         const localCatalogue = new OfflineCatalogue(databases.catalogue);
         let cacheDatabase = databases.catalogue;
         try {

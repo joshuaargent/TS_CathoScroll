@@ -122,3 +122,22 @@ test('general ranking uses anonymous site-wide topic aggregates without viewer h
   assert.match(fn, /a\.entity_type='topic'/);
   assert.doesNotMatch(fn, /auth\.uid\(\)|public\.progress/);
 });
+
+
+test('native signed-out analytics is durably queued without visitor or account identity', () => {
+  const client = read('../src/lib/anonymous-feed-analytics-client.ts');
+  const store = read('../src/lib/offline/anonymous-analytics-store.ts');
+  const native = read('../native/main.tsx');
+  assert.match(client, /configureAnonymousFeedAnalyticsOutbox/);
+  assert.match(client, /persistentOutbox\\.pending\\(40\\)/);
+  assert.match(client, /persistentOutbox\\.acknowledge/);
+  assert.match(store, /offline_anonymous_analytics_outbox/);
+  assert.match(store, /maximumEvents = 2000/);
+  assert.match(store, /maximumAgeMs = 7 \\* 24 \\* 60 \\* 60 \\* 1000/);
+  assert.match(store, /INSERT OR IGNORE/);
+  assert.match(store, /ORDER BY rowid ASC LIMIT/);
+  assert.match(store, /DELETE FROM offline_anonymous_analytics_outbox/);
+  assert.doesNotMatch(store, /user_id|session_id|visitor_id|account_id/i);
+  assert.match(native, /new NativeAnonymousAnalyticsOutbox\\(databases\\.catalogue\\)/);
+  assert.match(native, /configureAnonymousFeedAnalyticsOutbox/);
+});
