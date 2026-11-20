@@ -16,7 +16,7 @@ async function importTypeScript(relativePath, instance = '') {
   return import('data:text/javascript;base64,' + encoded + (instance ? '#' + instance : ''));
 }
 
-const [analytics, sponsor, sponsorAnalytics, topicFeed, cardRegistry, readme, sponsorClient, sync, layout, nativeMain, bootstrap] = await Promise.all([
+const [analytics, sponsor, sponsorAnalytics, topicFeed, cardRegistry, readme, sponsorClient, sync, layout, nativeMain, bootstrap, anonymousAnalytics, sponsorSync] = await Promise.all([
   readFile(new URL('../src/lib/feed-analytics-client.ts', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/SponsorFeedCard.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/lib/sponsor-analytics-client.ts', import.meta.url), 'utf8'),
@@ -28,7 +28,31 @@ const [analytics, sponsor, sponsorAnalytics, topicFeed, cardRegistry, readme, sp
   readFile(new URL('../src/app/layout.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../native/main.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../docs/cathoscroll-database-bootstrap.sql', import.meta.url), 'utf8'),
+  readFile(new URL('../src/lib/anonymous-feed-analytics-client.ts', import.meta.url), 'utf8'),
+  readFile(new URL('../src/components/providers/SponsorAnalyticsSync.tsx', import.meta.url), 'utf8'),
 ]);
+
+
+test('anonymous analytics queue is persisted locally and restored by the shared web/native sync provider', () => {
+  assert.ok(anonymousAnalytics.includes("const queueStorageKey = 'cathoscroll.anonymous-feed-events.v1';"));
+  assert.ok(anonymousAnalytics.includes('window.localStorage.setItem(queueStorageKey'));
+  assert.ok(anonymousAnalytics.includes('window.localStorage.getItem(queueStorageKey)'));
+  assert.ok(anonymousAnalytics.includes('function hydrateQueue()'));
+  assert.ok(anonymousAnalytics.includes('pendingEvents.slice(0, 40)'));
+  assert.ok(anonymousAnalytics.includes("window.addEventListener('online'"));
+  assert.ok(anonymousAnalytics.includes("window.addEventListener('pageshow'"));
+  assert.ok(anonymousAnalytics.includes('persistQueue();'));
+  assert.ok(sponsorSync.includes('installAnonymousFeedAnalyticsSync();'));
+  assert.ok(layout.includes('<SponsorAnalyticsSync />'));
+  assert.ok(nativeMain.includes('<SponsorAnalyticsSync'));
+  assert.doesNotMatch(anonymousAnalytics, /sessionStorage|indexedDB/);
+});
+
+test('anonymous analytics receipts and sponsor session records use 30-day retention', () => {
+  assert.match(bootstrap, /anonymous_sponsor_events[\\s\\S]*?interval ''30 days''/);
+  assert.match(bootstrap, /anonymous_sponsor_session_frequency[\\s\\S]*?interval ''30 days''/);
+  assert.match(bootstrap, /anonymous_feed_event_receipts[\\s\\S]*?interval ''30 days''/);
+});
 
 test('feed analytics retains queued events until server acknowledgement and drains on startup', () => {
   assert.ok(analytics.includes('const queueLimit = 200;'));
