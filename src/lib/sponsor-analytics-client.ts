@@ -35,7 +35,6 @@ export async function configureSponsorAnalyticsOutbox(outbox: SignedInAnalyticsO
 
 export async function clearSponsorAnalyticsOutbox(userId: string): Promise<void> {
   pendingQueues.delete(userId);
-  if (persistentOutbox) await persistentOutbox.clearUser(userId);
 }
 
 function sponsorEventFromPayload(payload: { event_id: string; session_id: string; event_type: string; campaign_id?: unknown }): QueuedSponsorCampaignEvent {

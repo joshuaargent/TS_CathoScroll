@@ -30,7 +30,6 @@ export async function configureFeedCardAnalyticsOutbox(outbox: SignedInAnalytics
 export async function clearFeedCardAnalyticsOutbox(userId: string): Promise<void> {
   pendingQueues.delete(userId);
   sessionIds.delete(userId);
-  if (persistentOutbox) await persistentOutbox.clearUser(userId);
 }
 
 async function hasPendingFeedCardAnalytics(userId: string): Promise<boolean> {
