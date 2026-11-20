@@ -50,16 +50,45 @@ export class NativeSignedInAnalyticsOutbox implements SignedInAnalyticsOutbox {
 
   async initialize(): Promise<void> {
     await this.database.transaction(async (db) => {
-      await db.execute(`
-        CREATE TABLE IF NOT EXISTS offline_signed_in_analytics_outbox (
-          user_id TEXT NOT NULL,
-          stream TEXT NOT NULL CHECK (stream IN ('topic', 'comment')),
-          event_id TEXT NOT NULL,
-          payload TEXT NOT NULL,
-          created_at TEXT NOT NULL,
-          PRIMARY KEY (user_id, stream, event_id)
-        )
-      `);
+      const existing = await db.query(
+        "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'offline_signed_in_analytics_outbox'"
+      );
+      if (existing.length > 1 || (existing.length === 1 && typeof existing[0].sql !== 'string')) {
+        throw new Error('The signed-in analytics outbox schema is invalid.');
+      }
+      if (existing.length === 1 && !String(existing[0].sql).includes("'sponsor'")) {
+        // Upgrade an earlier preview build that created a topic/comment-only
+        // CHECK constraint. Preserve pending events atomically.
+        await db.execute('DROP INDEX IF EXISTS offline_signed_in_analytics_pending');
+        await db.execute('ALTER TABLE offline_signed_in_analytics_outbox RENAME TO offline_signed_in_analytics_outbox_v1');
+        await db.execute(`
+          CREATE TABLE offline_signed_in_analytics_outbox (
+            user_id TEXT NOT NULL,
+            stream TEXT NOT NULL CHECK (stream IN ('topic', 'comment', 'sponsor')),
+            event_id TEXT NOT NULL,
+            payload TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            PRIMARY KEY (user_id, stream, event_id)
+          )
+        `);
+        await db.execute(`
+          INSERT INTO offline_signed_in_analytics_outbox (user_id, stream, event_id, payload, created_at)
+          SELECT user_id, stream, event_id, payload, created_at
+          FROM offline_signed_in_analytics_outbox_v1
+        `);
+        await db.execute('DROP TABLE offline_signed_in_analytics_outbox_v1');
+      } else if (existing.length === 0) {
+        await db.execute(`
+          CREATE TABLE offline_signed_in_analytics_outbox (
+            user_id TEXT NOT NULL,
+            stream TEXT NOT NULL CHECK (stream IN ('topic', 'comment', 'sponsor')),
+            event_id TEXT NOT NULL,
+            payload TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            PRIMARY KEY (user_id, stream, event_id)
+          )
+        `);
+      }
       await db.execute(`
         CREATE INDEX IF NOT EXISTS offline_signed_in_analytics_pending
         ON offline_signed_in_analytics_outbox(user_id, stream, created_at)
