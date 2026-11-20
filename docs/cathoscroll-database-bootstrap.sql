@@ -1,5 +1,5 @@
 -- CathoScroll complete application-schema and public catalogue bootstrap
--- Reconciled against production on 2026-11-19.
+-- Reconciled against production on 2026-11-20.
 --
 -- IMPORTANT:
 --   * Run ONLY against a fresh Supabase project. This script intentionally
