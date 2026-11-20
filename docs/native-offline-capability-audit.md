@@ -29,7 +29,7 @@ The native app now uses a SQLite outbox in the public catalogue database for sig
 
 The outbox accepts only the existing anonymous topic/comment event schema, deduplicates by event UUID, retains at most 2,000 events, expires unsent events after seven days, uploads batches of 40 when online or when the app returns to the foreground, retains failed and rate-limited batches, and deletes acknowledged events only after a successful server response. Server-side event receipt deduplication makes retries safe if the server accepted a batch but the client did not receive the acknowledgement.
 
-The queue is intentionally not encrypted because its schema excludes account-linked or private profile data. It is separate from the encrypted signed-in activity database, signed-in analytics, and sponsor delivery/frequency records. The web client retains its existing in-memory queue; this outbox is installed by the Capacitor/Electron entry point.
+The queue is intentionally not encrypted because its schema excludes account-linked or private profile data. It is separate from the encrypted signed-in activity database, signed-in analytics, and sponsor delivery/frequency records. The web client retains its existing in-memory queue; this outbox is installed by the Capacitor/Electron entry point. The Cookie Policy provides a free anonymous topic/comment analytics opt-out; disabling it clears pending native rows and prevents further collection. Re-enabling first clears any stale rows before new events can be queued.
 
 ## Personalisation offline decision
 
@@ -60,3 +60,6 @@ No offline note-editing queue is proposed. The existing design caches only serve
 - Persistent native anonymous analytics outbox implementation is committed on PR #22. The client persists before uploading, batches 40 events, retries after connectivity/foreground events, acknowledges only server-accepted IDs, and uses volatile memory fallback only if local persistence itself fails.
 - Exact branch head at audit update: 3d96d10532f145ac353a759431a3095deae82c07.
 - Automated validation for this exact head and native force-close/reconnect testing are pending. The implementation must not be treated as release-verified until those checks pass.
+
+
+Implementation and privacy documentation were updated through commit f7c18d97a01c3f239158bf6b4644825074ff9b15. The native analytics preference is stored as a local setting only; it is not an analytics identifier. The controller must record the PECR Schedule A1 assessment before release. Automated checks and device-level outbox acceptance remain pending.
