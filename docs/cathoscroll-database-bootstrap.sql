@@ -7647,9 +7647,6 @@ END;
 $function$;
 REVOKE ALL ON FUNCTION public.get_admin_anonymous_analytics(uuid,timestamptz,timestamptz,text,text) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.get_admin_anonymous_analytics(uuid,timestamptz,timestamptz,text,text) TO service_role;
-REVOKE ALL ON FUNCTION catho_private.prune_anonymous_analytics() FROM PUBLIC,anon,authenticated;
-GRANT EXECUTE ON FUNCTION catho_private.prune_anonymous_analytics() TO service_role;
-
 DO $anonymous_analytics_cron$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM cron.job WHERE jobname='cathoscroll-anonymous-analytics-prune') THEN
@@ -7662,16 +7659,6 @@ $anonymous_analytics_cron$;
 
 
 -- ANONYMOUS SPONSOR ANALYTICS REPLACEMENTS
-
-
-
-),
-  placement_id text NOT NULL CHECK (length(placement_id) BETWEEN 1 AND 160),
-  event_type text NOT NULL CHECK (event_type IN ('served','viewable_impression','click')),
-  received_at timestamptz NOT NULL DEFAULT statement_timestamp(),
-  PRIMARY KEY(campaign_id,event_id)
-);
-
 
 -- ANONYMOUS PIPELINE FUNCTION DEFINITIONS (exact live definitions)
 CREATE OR REPLACE FUNCTION public.get_anonymous_sponsor_campaigns(p_session_token text, p_category_slug text DEFAULT NULL::text, p_topic_id text DEFAULT NULL::text, p_limit integer DEFAULT 1)
@@ -7882,6 +7869,8 @@ BEGIN
 END; $function$;
 REVOKE ALL ON FUNCTION public.record_anonymous_sponsor_campaign_event(text,uuid,text,uuid,text) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.record_anonymous_sponsor_campaign_event(text,uuid,text,uuid,text) TO service_role;
+REVOKE ALL ON FUNCTION catho_private.prune_anonymous_analytics() FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION catho_private.prune_anonymous_analytics() TO service_role;
 REVOKE ALL ON FUNCTION catho_private.prune_anonymous_analytics() FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION catho_private.prune_anonymous_analytics() TO service_role;
 
