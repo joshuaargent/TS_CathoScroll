@@ -169,6 +169,8 @@ export function TopicFeedCore({
   useEffect(() => {
     if (sponsorSessionUserId.current === userId) return;
     sponsorSessionUserId.current = userId;
+    // Never reuse an anonymous sponsor session token across sign-in/account changes.
+    ephemeralSponsorSessionId = null;
     seenTopCommentUserId.current = userId;
     topCommentCadenceUserId.current = userId;
     seenTopCommentIds.current.clear();
