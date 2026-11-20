@@ -28,8 +28,8 @@ test('optional analytics consent is explicit, purpose-specific and off by defaul
   assert.ok(manager.includes('Sponsor measurement'));
   assert.ok(manager.includes('I explicitly agree to Sponsor measurement'));
   assert.ok(manager.includes('While personalisation is enabled, reading signals also inform your private recommendations.'));
-  assert.ok(manager.includes('Optional analytics improve CathoScroll and measure sponsor views, clicks, frequency and placement.'));
-  assert.ok(manager.includes('Personalisation uses reading signals and enables Service improvement analytics.'));
+  assert.ok(manager.includes('Optional analytics improve CathoScroll and measure sponsor views/clicks/frequency/placement.'));
+  assert.ok(manager.includes('Personalisation enables Service improvement analytics and reading-signal recommendations.'));
   assert.ok(manager.includes('Signed-out topic/comment and sponsor totals continue as daily aggregates without visitor IDs'));
   assert.ok(manager.includes('Manage choices lets you object to topic/comment aggregates'));
   assert.ok(manager.includes('Turn off anonymous aggregate measurement'));
