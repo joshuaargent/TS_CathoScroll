@@ -567,7 +567,7 @@ END;
 $function$;
 
 
-REVOKE ALL ON FUNCTION public.set_my_personalization_consent(boolean) FROM PUBLIC,anon;
+REVOKE ALL ON FUNCTION public.set_my_personalization_consent(boolean) FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION public.get_my_personalization_status() FROM PUBLIC,anon;
 REVOKE ALL ON FUNCTION public.set_my_personalization_interests(text[]) FROM PUBLIC,anon;
 GRANT EXECUTE ON FUNCTION public.set_my_personalization_consent(boolean) TO authenticated;
