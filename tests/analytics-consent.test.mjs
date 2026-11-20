@@ -86,7 +86,7 @@ test('account consent sync is identity-bound, retryable and enforced server-side
   assert.ok(serverConsent.includes('get_user_analytics_consent'));
   assert.ok(serverConsent.includes('personalizationEnabled'));
   assert.ok(manager.includes('remote.personalizationEnabled'));
-  assert.ok(manager.includes('p_service_improvement IS NOT TRUE'));
+  assert.ok(bootstrap.includes('p_service_improvement IS NOT TRUE'));
   assert.ok(manager.includes('clearAnalyticsConsentQueues'));
   assert.ok(topicRoute.includes('getStoredAnalyticsConsent(user.id)'));
   assert.ok(commentRoute.includes('getStoredAnalyticsConsent(user.id)'));
