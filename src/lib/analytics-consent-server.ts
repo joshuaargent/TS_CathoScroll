@@ -6,6 +6,7 @@ export type StoredAnalyticsConsent = {
   updatedAt: string | null;
   version: number;
   exists: boolean;
+  personalizationEnabled: boolean;
 };
 
 export async function getStoredAnalyticsConsent(userId: string): Promise<StoredAnalyticsConsent> {
@@ -22,7 +23,8 @@ export async function getStoredAnalyticsConsent(userId: string): Promise<StoredA
     typeof value.sponsorMeasurement !== 'boolean' ||
     !(value.updatedAt === null || typeof value.updatedAt === 'string') ||
     typeof value.version !== 'number' ||
-    typeof value.exists !== 'boolean'
+    typeof value.exists !== 'boolean' ||
+    typeof value.personalizationEnabled !== 'boolean'
   ) throw new Error('The account analytics consent response is invalid.');
   return {
     serviceImprovement: value.serviceImprovement,
@@ -30,5 +32,6 @@ export async function getStoredAnalyticsConsent(userId: string): Promise<StoredA
     updatedAt: value.updatedAt,
     version: value.version,
     exists: value.exists,
+    personalizationEnabled: value.personalizationEnabled,
   };
 }
