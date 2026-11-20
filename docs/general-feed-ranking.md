@@ -5,7 +5,7 @@
 CathoScroll has two distinct ranking layers:
 
 1. **General ranking** is the default for signed-out visitors and signed-in accounts with personalisation disabled. It uses site-wide engagement and public content interactions. It does not read a visitor's account history.
-2. **Personalised ranking** is available only after a user explicitly enables personalisation. The existing recommendation RPC uses that account's eligible activity signals to adjust category weights.
+2. **Personalised ranking** is available only after a user explicitly enables personalisation. The recommendation RPC uses only that account's explicit actions recorded after consent (progress/completions, bookmarks, topic likes, comments, comment likes and replies) and the categories the user selects. It never reads operational feed or Top Comments analytics events.
 
 Personalisation is not required to receive a ranked feed.
 

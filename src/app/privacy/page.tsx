@@ -135,20 +135,21 @@ export default function PrivacyPage() {
 
           <p className="text-text-secondary leading-relaxed">
             Personalisation is optional and is off by default. If you explicitly opt in,
-            CathoScroll may use your topic-reading activity (such as viewable reading time,
-            completion, repeat visits, and skips), your likes and bookmarks, relevant
-            community interactions, and category interests you choose to create a private
-            content-interest profile and personalise your topic recommendations.
+            CathoScroll uses only explicit account actions recorded after consent (progress and
+            completions, bookmarks, topic likes, comments, comment likes and replies) and
+            the categories you choose to create a private content-interest profile and
+            personalise your topic recommendations. Operational analytics such as impressions,
+            reading time, swipe depth, skips, return visits and Top Comments exposure are
+            never used for recommendation ranking.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            Because CathoScroll focuses on Catholic theology, Scripture, and related
-            religious subjects, these interests and activity patterns may reveal or allow
-            inferences about religious or philosophical beliefs. We treat this possibility
-            as sensitive and only use this profile for personalising your own educational
-            recommendations after your explicit opt-in. It is not a declaration of your
-            religious affiliation, is not displayed on your public profile, and is not
-            shared with sponsors or used for advertising targeting.
+            Because CathoScroll focuses on Catholic theology, Scripture and related religious
+            subjects, these account actions and selected categories may reveal or allow
+            inferences about religious or philosophical beliefs. We use the private profile
+            only to rank educational content in your own feed; we do not create a religious-
+            belief or affiliation label. It is not displayed on your public profile and is
+            never shared with sponsors or used for advertising targeting.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
@@ -191,13 +192,11 @@ export default function PrivacyPage() {
           <h2 className="mb-4 text-3xl font-bold">Automated Recommendations</h2>
 
           <p className="text-text-secondary leading-relaxed">
-            If you opt in to personalisation, automated ranking uses a private profile derived only from
-            explicit account actions recorded after consent (progress, bookmarks, topic likes,
-            comments, comment likes and replies) and your selected categories. It does not read
-            operational analytics events. It orders educational topics in your own feed and does not determine access to
-            essential services, prices, employment, credit, insurance, or other decisions with
-            legal or similarly significant effects. You can turn off personalisation and delete
-            the derived profile through Account settings.
+            Personalised ranking uses only the explicit account actions and selected categories
+            described above. It does not read operational analytics events and only changes the
+            order of educational topics in your feed; it does not determine access to essential
+            services or make decisions with legal or similarly significant effects. You can turn
+            it off and delete the derived profile through Account settings.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">

@@ -14,6 +14,8 @@ const accountView = readFileSync(new URL('../src/components/account/AccountPageV
 const accountSection = readFileSync(new URL('../src/components/account/PersonalizationAccountSection.tsx', import.meta.url), 'utf8');
 const nativeMain = readFileSync(new URL('../native/main.tsx', import.meta.url), 'utf8');
 const nativeAccount = readFileSync(new URL('../native/account.tsx', import.meta.url), 'utf8');
+const privacyPolicy = readFileSync(new URL('../src/app/privacy/page.tsx', import.meta.url), 'utf8');
+const cookiePolicy = readFileSync(new URL('../src/app/cookies/page.tsx', import.meta.url), 'utf8');
 
 
 function bootstrapFunctionRanges(source) {
@@ -83,7 +85,7 @@ test('personalisation consent is opt-in and versioned', () => {
   assert.match(bootstrap, /user_personalization_consents[\s\S]*enabled boolean NOT NULL DEFAULT false/);
   assert.match(bootstrap, /consent_version/);
   assert.match(settings, /This is optional and off until you enable it/);
-  assert.match(settings, /activity recorded after you opt in/);
+  assert.match(settings, /account actions recorded after you opt in/);
   assert.match(bootstrap, /capture_signup_personalization_consent/);
   assert.match(bootstrap, /NEW\.raw_user_meta_data ->> 'personalization_consent' = 'true'/);
   assert.match(bootstrap, /AFTER INSERT ON auth\.users/);
@@ -202,10 +204,22 @@ test('personalisation settings disclose the profile purpose and sponsor isolatio
   assert.match(settings, /may reveal religious or philosophical beliefs/);
 });
 
+test('public privacy and cookie policies keep operational analytics separate from personalisation', () => {
+  const personalisationStart = privacyPolicy.indexOf('<h2 className="mb-4 text-3xl font-bold">Personalisation and Sensitive Interests</h2>');
+  const lawfulBasesStart = privacyPolicy.indexOf('<h2 className="mb-4 text-3xl font-bold">Lawful Bases for Processing</h2>');
+  assert.ok(personalisationStart >= 0 && lawfulBasesStart > personalisationStart);
+  const personalisationSection = privacyPolicy.slice(personalisationStart, lawfulBasesStart);
+  assert.match(personalisationSection, /explicit account actions recorded after consent/);
+  assert.match(personalisationSection, /Operational analytics such as impressions,[\s\S]*never used for recommendation ranking/);
+  assert.doesNotMatch(personalisationSection, /viewable reading time,[\s\S]*repeat visits,[\s\S]*skips/);
+  assert.match(cookiePolicy, /they do not read operational analytics events such as impressions/);
+});
+
 test('signup collects separate, unchecked explicit consent on web and native', () => {
   assert.match(signupForm, /name="personalizationConsent"/);
   assert.match(signupForm, /type="checkbox"/);
-  assert.match(signupForm, /I explicitly consent to CathoScroll using my reading activity and chosen interests/);
+  assert.match(signupForm, /I explicitly consent to CathoScroll using my account actions \(progress, bookmarks, likes and comments\) and selected interests/);
+  assert.match(signupForm, /Operational analytics are separate and are not used for recommendations/);
   assert.doesNotMatch(signupForm, /name="personalizationConsent"[\s\S]{0,180}checked/);
   assert.match(webSignup, /personalization_consent: personalizationConsent/);
   assert.match(nativeSignup, /personalization_consent: personalizationConsent/);
@@ -230,7 +244,9 @@ test('all recommendation history signals are opt-in and withdrawal neutralises a
 test('web and native account/settings screens reuse the same components', () => {
   assert.match(accountView, /PersonalizationAccountSection/);
   assert.match(accountSection, /set_my_personalization_consent/);
-  assert.match(accountSection, /I explicitly consent to CathoScroll using my topic-reading activity and selected interests/);
+  assert.match(accountSection, /I explicitly consent to CathoScroll using my account actions \(progress, bookmarks, likes and comments\) and selected interests/);
+  assert.match(accountSection, /Operational analytics such as impressions, reading time, swipes and skips are not used for personalisation/);
+  assert.match(accountSection, /AnalyticsConsentSettingsButton/);
   assert.match(nativeMain, /pathname === '\/account\/personalization'.*kind: 'account'/);
   assert.match(nativeAccount, /AccountPageView/);
   assert.match(accountView, /PersonalizationAccountSection/);

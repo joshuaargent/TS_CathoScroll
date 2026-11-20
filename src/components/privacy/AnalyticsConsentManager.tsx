@@ -471,7 +471,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
         <p id="analytics-consent-description" className="text-text-secondary mt-3 text-sm leading-relaxed">
           {managing
             ? 'Choose which optional analytics CathoScroll may collect. Both choices are optional and start off unless you have already enabled them.'
-            : 'Optional analytics improve CathoScroll and measure sponsor performance. They are not used for recommendation personalisation or to infer religious beliefs. Topic activity and sponsor placements may reveal religious or philosophical interests. Accept all consents to both; Decline optional declines both; Manage choices lets you choose separately.'}
+            : 'Optional service improvement analytics help improve CathoScroll. They are not used for recommendations or to infer religious beliefs. Optional sponsor measurement records views, clicks, frequency and topic placement. Either context may reveal religious or philosophical interests. Accept all gives explicit consent to both; Decline optional declines both; Manage choices lets you choose separately.'}
         </p>
 
         {!managing ? (
@@ -516,7 +516,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
               <span className="min-w-0">
                 <span className="text-text-primary block font-semibold">I explicitly agree to Service improvement analytics</span>
                 <span className="text-text-secondary mt-1 block text-sm leading-relaxed">
-                  Measures topic and Top Comments engagement, signed-out aggregate activity, and Vercel site/performance analytics. When signed in, topic/comment activity is linked to your account and may reveal religious or philosophical beliefs; enabling this choice is your explicit consent to that limited service-improvement processing, which may involve special-category data under UK GDPR. It is not used for recommendation personalisation.
+                  Measures topic and Top Comments engagement, signed-out daily aggregates, and site/performance analytics. When signed in, topic/comment activity is linked to your account and may reveal religious or philosophical beliefs (special-category data under UK GDPR). Enabling this choice is your explicit consent to service-improvement measurement only; it is never used for recommendations.
                 </span>
               </span>
             </label>
@@ -531,7 +531,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
               <span className="min-w-0">
                 <span className="text-text-primary block font-semibold">I explicitly agree to Sponsor measurement</span>
                 <span className="text-text-secondary mt-1 block text-sm leading-relaxed">
-                  Measures sponsor viewability, clicks and frequency. When enabled, signed-in events are account-linked; signed-out frequency uses a random in-memory session token whose hash is stored for up to 30 days. Anonymous event attribution can include the topic placement where a sponsor appeared. In a Catholic-content service, that context may reveal religious or philosophical interests and may involve special-category data under UK GDPR. If you decline, sponsor placements still appear and we retain only campaign/day served totals, without visitor/session frequency records or viewability/click events for your visit.
+                  Measures sponsor viewability, clicks and frequency. When enabled, signed-in events are account-linked; signed-out frequency uses an in-memory session token hash retained for up to 30 days. Topic placement may reveal religious or philosophical interests (special-category data under UK GDPR). Data is used only for campaign reporting and frequency controls, never for recommendations or individual belief profiling. If declined, sponsor placements still appear; only campaign/day served totals remain, with no visit-level view, click or frequency records.
                 </span>
               </span>
             </label>
