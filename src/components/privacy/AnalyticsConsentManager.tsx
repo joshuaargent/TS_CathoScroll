@@ -533,7 +533,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
             ? 'Choose optional analytics. Service improvement analytics is required while personalisation is enabled; sponsor measurement remains separate.'
             : effectivePersonalizationEnabled
               ? 'Personalisation is on, so Service improvement analytics is required. Turn off personalisation before disabling it.'
-              : 'Optional analytics improve CathoScroll and measure sponsor performance. Catholic-content activity may reveal religious or philosophical beliefs. Personalisation uses reading signals and enables Service improvement analytics. Signed-out topic/comment aggregates and sponsor campaign/day served totals continue by default; Manage choices includes an objection to topic/comment aggregates.'}
+              : 'Optional analytics improve CathoScroll and measure sponsor views, clicks, frequency and placement. Catholic-content activity may reveal religious or philosophical beliefs. Personalisation uses reading signals and enables Service improvement analytics. If Sponsor measurement is off, sponsor delivery continues with campaign/day served totals only. Signed-out topic/comment and sponsor totals use no visitor IDs; Manage choices lets you object to topic/comment aggregates.'}
         </p>
 
         {!managing ? (
