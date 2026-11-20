@@ -35,13 +35,12 @@ export function OPTIONS(request: Request) {
 export async function PATCH(request: Request, { params }: RouteContext) {
   if (!isSameOriginOrNativeRequest(request)) return respond(request, { error: 'Forbidden' }, 403);
 
-  const { user, isAdmin, error: roleError, mfaRequired } = await getAdminSessionFromRequest(request);
+  const { user, isAdmin, error: roleError } = await getAdminSessionFromRequest(request);
   if (!user) return respond(request, { error: 'Authentication required' }, 401);
   if (roleError) {
     console.error('Unable to verify campaign-management access:', roleError.message);
     return respond(request, { error: 'Unable to verify administrator access.' }, 500);
   }
-  if (mfaRequired) return respond(request, { error: 'Complete administrator MFA before managing campaigns.' }, 403);
   if (!isAdmin) return respond(request, { error: 'Forbidden' }, 403);
 
   const rateLimit = await checkApiRateLimit({
