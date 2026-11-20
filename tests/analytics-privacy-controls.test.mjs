@@ -43,10 +43,12 @@ test('Vercel analytics preserves safe page routes and redacts sensitive content 
   assert.ok(layout.includes('<meta name="referrer" content="strict-origin" />'));
 });
 
-test('analytics DPIA documents active signed-in analytics and signed-out exclusion', async () => {
+test('analytics DPIA documents active signed-in analytics, signed-out aggregates and the measured purpose', async () => {
   const assessment = await read('../docs/analytics-data-protection-impact-assessment.md');
   assert.ok(assessment.includes('signed-in'));
   assert.ok(assessment.includes('signed-out'));
-  assert.ok(assessment.includes('Article 9'));
+  assert.ok(assessment.includes('Article 6'));
+  assert.ok(assessment.includes('does not generate religious or philosophical belief labels, scores or classifications'));
+  assert.ok(!assessment.includes('Article 9'));
   assert.ok(assessment.includes('not a legal opinion'));
 });
