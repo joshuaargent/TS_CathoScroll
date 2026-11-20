@@ -87,6 +87,8 @@ function LineChart({ series, anonymousSeries }: { series: DailyContentAnalytics[
   const padding = { top: 18, right: 20, bottom: 42, left: 42 };
   const chartWidth = width - padding.left - padding.right;
   const chartHeight = height - padding.top - padding.bottom;
+  const dates = [...new Set([...series.map((item) => item.date), ...anonymousSeries.map((item) => item.date)])].sort();
+  const dateIndexByDate = new Map(dates.map((date, index) => [date, index]));
   const maxValue = Math.max(
     1,
     ...series.flatMap((item) => [item.impressions, item.viewable_impressions]),
@@ -99,8 +101,6 @@ function LineChart({ series, anonymousSeries }: { series: DailyContentAnalytics[
     const y = padding.top + chartHeight - (value / maxValue) * chartHeight;
     return `${x.toFixed(1)},${y.toFixed(1)}`;
   };
-  const dates = [...new Set([...series.map((item) => item.date), ...anonymousSeries.map((item) => item.date)])].sort();
-  const dateIndexByDate = new Map(dates.map((date, index) => [date, index]));
   const signedByDate = new Map(series.map((item) => [item.date, item]));
   const anonymousByDate = new Map(anonymousSeries.map((item) => [item.date, item]));
   const impressions = dates.map((date,index) => pointFor(signedByDate.get(date)?.impressions ?? 0,index)).join(' ');
