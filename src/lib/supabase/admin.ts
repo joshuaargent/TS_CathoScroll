@@ -54,31 +54,28 @@ export async function getAuthenticatedUserFromRequest(request: Request) {
 
 export async function getAdminSessionFromRequest(request: Request) {
   const { supabase, user } = await getAuthenticatedUserFromRequest(request);
-  if (!user) return { user: null, isAdmin: false, error: null, mfaRequired: false };
+  if (!user) return { user: null, isAdmin: false, error: null };
   const { data, error } = await supabase
     .from('admin_users')
     .select('user_id')
     .eq('user_id', user.id)
     .maybeSingle();
-  if (error) return { user, isAdmin: false, error: new Error(error.message), mfaRequired: false };
-  return { user, isAdmin: Boolean(data), error: null, mfaRequired: false };
+  if (error) return { user, isAdmin: false, error: new Error(error.message) };
+  return { user, isAdmin: Boolean(data), error: null };
 }
 
 export async function getAdminSession() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { user: null, isAdmin: false, error: null, mfaRequired: false };
+  if (!user) return { user: null, isAdmin: false, error: null };
 
-  // Administrator access is based on the protected role table. Individual
-  // users may enable TOTP on their own accounts, but CathoScroll does not
-  // impose organisation-wide or custom administrator MFA enforcement.
   const { data, error } = await supabase
     .from('admin_users')
     .select('user_id')
     .eq('user_id', user.id)
     .maybeSingle();
-  if (error) return { user, isAdmin: false, error: new Error(error.message), mfaRequired: false };
-  return { user, isAdmin: Boolean(data), error: null, mfaRequired: false };
+  if (error) return { user, isAdmin: false, error: new Error(error.message) };
+  return { user, isAdmin: Boolean(data), error: null };
 }
 
 export function createServiceRoleClient() {
