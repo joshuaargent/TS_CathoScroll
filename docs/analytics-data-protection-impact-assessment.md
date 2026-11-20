@@ -100,7 +100,7 @@ Users can exercise applicable access, rectification, erasure, restriction and ob
 
 The implementation now records signed-in topic/comment events in account-linked tables and signed-out topic/comment events only as daily entity aggregates. The latter do not support anonymous unique-person counts. Signed-out sponsor delivery uses a separate campaign pipeline with hashed, short-lived frequency protection and aggregate reporting. The Admin Analytics hub, topic/category pages, sponsor/comment detail pages, admin campaign manager and sponsor portal present signed-in and anonymous counts separately. Vercel Web Analytics and Speed Insights remain separate provider streams.
 
-The principal remaining legal task is to document the Article 6 basis and obtain advice on Article 9 applicability/condition for account-linked operational topic/comment analytics. The controller must also review whether entity/day aggregates and infrastructure request logs could identify people in context, and complete provider/transfer and log-retention reviews. This is not a legal sign-off or a claim that every data flow is anonymous.
+The principal remaining legal tasks are to document the Article 6 basis and obtain advice on Article 9 applicability/condition for account-linked operational topic/comment analytics, and to resolve the Vercel Hobby-plan contract issue. The controller must also review whether entity/day aggregates and infrastructure request logs could identify people in context, and complete provider/transfer and log-retention reviews. This is not a legal sign-off or a claim that every data flow is anonymous.
 
 ## 10. Sponsor analytics
 
@@ -110,7 +110,7 @@ Sponsor campaign delivery, viewability, click analytics and frequency controls a
 
 1. Record an Article 6 basis for each analytics purpose and complete a legitimate-interests assessment where Article 6(1)(f) is selected.
 2. Obtain specialist advice on whether operational topic/comment analytics process special-category data and record the applicable Article 9 condition where required.
-3. Review Vercel's DPA, subprocessors, transfer safeguards, retention and project settings.
+3. Confirm the Vercel plan is commercially suitable and that an applicable DPA/UK transfer mechanism is in force. The connected team is currently Hobby; Vercel's DPA applies to Pro/Enterprise, so production sponsorship must not be treated as contractually cleared until this is resolved. Review subprocessors, transfer safeguards, retention and project settings.
 4. Verify deployed Web Analytics and Speed Insights network events, route redaction and SDK versions.
 5. Review CDN, WAF, hosting and function logs, including IP, URL, referrer and user-agent retention.
 6. Confirm aggregate dashboard suppression for low-volume data and keep sponsor access aggregate-only.
