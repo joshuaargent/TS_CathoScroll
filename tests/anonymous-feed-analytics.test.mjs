@@ -17,6 +17,13 @@ test('anonymous feed ingestion is bounded, rate-limited and service-role mediate
   assert.doesNotMatch(client, /serviceImprovementConsent/);
   assert.match(client, /localStorage.getItem\(anonymousAnalyticsPreferenceKey\) !== 'false'/);
   assert.match(client, /isAnonymousFeedAnalyticsEnabled/);
+  const recordStart = client.indexOf('export function recordAnonymousFeedEvent(');
+  const recordBody = client.slice(recordStart);
+  assert.ok(recordStart >= 0);
+  assert.ok(recordBody.indexOf('!anonymousAnalyticsEnabled()') < recordBody.indexOf('const eventId = uuid()'));
+  assert.match(recordBody, /preferenceGeneration !== anonymousPreferenceGeneration/);
+  assert.match(client, /await Promise\.allSettled\(\[\.\.\.pendingOutboxWrites\]\)/);
+  assert.match(client, /anonymousFlushAbortController\?\.abort\(\)/);
   assert.match(sql, /REVOKE ALL ON FUNCTION public\.record_anonymous_feed_analytics\(jsonb\) FROM PUBLIC,anon,authenticated/);
   assert.match(sql, /GRANT EXECUTE ON FUNCTION public\.record_anonymous_feed_analytics\(jsonb\) TO service_role/);
 });
