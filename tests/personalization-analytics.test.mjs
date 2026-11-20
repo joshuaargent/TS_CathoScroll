@@ -249,7 +249,8 @@ test('web and native account/settings screens reuse the same components', () => 
   assert.match(accountSection, /Service improvement analytics is required while personalisation is enabled/);
   assert.match(accountSection, /AnalyticsConsentSettingsButton/);
   assert.match(accountSection, /Sponsor measurement/);
-  assert.match(nativeMain, /pathname === '\\/account\\/personalization'.*kind: 'account'/);
+  assert.ok(nativeMain.includes("pathname === '/account/personalization'"));
+  assert.ok(nativeMain.includes("kind: 'account'"));
   assert.match(nativeAccount, /AccountPageView/);
   assert.match(accountView, /PersonalizationAccountSection/);
 });
