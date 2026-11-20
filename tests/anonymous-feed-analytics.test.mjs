@@ -46,7 +46,9 @@ test('signed-out topic and Top Comments cards emit aggregate events', () => {
   assert.match(client, /pendingEvents/);
   assert.match(client, /addEventListener\('online'/);
   assert.match(client, /pendingEvents/);
-  assert.doesNotMatch(client, /localStorage|sessionStorage|indexedDB/);
+  assert.match(client, /anonymousAnalyticsPreferenceKey/);
+  assert.match(client, /setAnonymousFeedAnalyticsEnabled/);
+  assert.doesNotMatch(client, /sessionStorage|indexedDB/);
   assert.match(client, /installAnonymousFeedAnalyticsSync/);
   assert.match(client, /flushAnonymousFeedAnalyticsQueue/);
   assert.doesNotMatch(client, /sessionStorage|indexedDB/);

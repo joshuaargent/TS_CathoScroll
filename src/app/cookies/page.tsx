@@ -89,7 +89,12 @@ export default function CookiesPage() {
             A short-lived random token is held in memory while a signed-out session is active for
             sponsor frequency controls; only its hash is stored, and raw sponsor session/event
             records become eligible for deletion after 30 days; a scheduled cleanup runs every 15 minutes in bounded batches. The token is not written to cookies or local
-            storage. Event deduplication receipts are deleted after 30 days. Unsent first-party topic/comment analytics batches are held in memory only while the page or app process is active. They are not written to browser storage or retained across restarts. Event deduplication receipts remain server-side for 30 days. Vercel Web
+            storage. Event deduplication receipts are deleted after 30 days. On native apps, unsent
+            topic/comment batches are held in app-private SQLite storage until upload, capped at
+            2,000 events and deleted after seven days. The queue contains no account, visitor or
+            session identifier. On the website, unsent batches remain in page memory only. You can
+            turn off anonymous topic/comment analytics below; doing so clears pending local events.
+            Vercel Web
             Analytics and Speed Insights provide separate site-traffic and technical-performance
             measurement for signed-in and signed-out visitors.
           </p>
