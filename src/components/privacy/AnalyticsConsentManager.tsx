@@ -51,7 +51,7 @@ function ConsentManager({ userId = null, apiBaseUrl, getAccessToken }: Analytics
         tasks.push(clearFeedAnalyticsOutbox(userId));
         tasks.push(clearFeedCardAnalyticsOutbox(userId));
       }
-      tasks.push(setAnonymousFeedAnalyticsEnabled(false));
+      else tasks.push(setAnonymousFeedAnalyticsEnabled(false));
     }
     if (clearSponsor) {
       if (userId) tasks.push(clearSponsorAnalyticsOutbox(userId));
@@ -98,7 +98,7 @@ function ConsentManager({ userId = null, apiBaseUrl, getAccessToken }: Analytics
         !(remote.updatedAt === null || typeof remote.updatedAt === 'string')
       ) return;
 
-      const local = readAnalyticsConsent();
+      const local = readAnalyticsConsent(userId);
       const remoteIsNewer = remote.exists && typeof remote.updatedAt === 'string' &&
         (!local || Date.parse(remote.updatedAt) > Date.parse(local.updatedAt));
       if (remoteIsNewer || (!local && remote.exists)) {
@@ -110,14 +110,12 @@ function ConsentManager({ userId = null, apiBaseUrl, getAccessToken }: Analytics
           local.serviceImprovement !== next.serviceImprovement ||
           local.sponsorMeasurement !== next.sponsorMeasurement;
         if (choicesChanged) await clearWithdrawnQueues(local, next);
-        saveAnalyticsConsent(next);
+        saveAnalyticsConsent(next, userId);
         hydrate({
           version: 1,
           ...next,
           updatedAt: remote.updatedAt as string,
         });
-        if (next.serviceImprovement) await setAnonymousFeedAnalyticsEnabled(true);
-        else if (choicesChanged) await setAnonymousFeedAnalyticsEnabled(false);
         setVisible(false);
         setManaging(false);
         return;
@@ -156,7 +154,7 @@ function ConsentManager({ userId = null, apiBaseUrl, getAccessToken }: Analytics
       // revive events queued before the user made the new choice.
       await clearWithdrawnQueues(previous, next);
       saveAnalyticsConsent(next);
-      if (next.serviceImprovement) await setAnonymousFeedAnalyticsEnabled(true);
+      if (!userId && next.serviceImprovement) await setAnonymousFeedAnalyticsEnabled(true);
       void syncServerConsent();
       setVisible(false);
       setManaging(false);
@@ -164,7 +162,7 @@ function ConsentManager({ userId = null, apiBaseUrl, getAccessToken }: Analytics
       console.error('Unable to apply analytics preferences:', cause);
       setError('Your preference could not be fully saved or pending events could not be cleared. Optional analytics remain disabled until you retry.');
       try {
-        saveAnalyticsConsent({ serviceImprovement: false, sponsorMeasurement: false });
+        saveAnalyticsConsent({ serviceImprovement: false, sponsorMeasurement: false }, userId);
       } catch {
         // Keep the modal open and fail closed in memory.
       }
@@ -176,7 +174,7 @@ function ConsentManager({ userId = null, apiBaseUrl, getAccessToken }: Analytics
   }, [clearWithdrawnQueues, saving, syncServerConsent]);
 
   useEffect(() => {
-    const existing = readAnalyticsConsent();
+    const existing = readAnalyticsConsent(userId);
     hydrate(existing);
     if (!existing) {
       setVisible(true);
@@ -191,7 +189,7 @@ function ConsentManager({ userId = null, apiBaseUrl, getAccessToken }: Analytics
           tasks.push(clearFeedAnalyticsOutbox(userId));
           tasks.push(clearFeedCardAnalyticsOutbox(userId));
         }
-        tasks.push(setAnonymousFeedAnalyticsEnabled(false));
+        else tasks.push(setAnonymousFeedAnalyticsEnabled(false));
       }
       if (!existing.sponsorMeasurement) {
         if (userId) tasks.push(clearSponsorAnalyticsOutbox(userId));
@@ -202,7 +200,7 @@ function ConsentManager({ userId = null, apiBaseUrl, getAccessToken }: Analytics
       });
     }
     const manage = () => {
-      hydrate(readAnalyticsConsent());
+      hydrate(readAnalyticsConsent(userId));
       setManaging(true);
       setVisible(true);
     };
