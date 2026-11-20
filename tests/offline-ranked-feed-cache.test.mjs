@@ -88,7 +88,7 @@ test('withdrawal clears the stale personalised page before the replacement feed 
 test('personalised offline pages are invalidated when the recommendation model changes', () => {
   assert.match(cache, /offline_ranked_feed_cache_meta/);
   assert.match(cache, /personalized_model_version/);
-  assert.match(cache, /explicit-actions-v3/);
+  assert.match(cache, /activity-signals-v4/);
   const modelCheck = cache.indexOf('SELECT cache_value FROM offline_ranked_feed_cache_meta');
   const pageInvalidation = cache.indexOf('DELETE FROM offline_ranked_feed_pages WHERE mode = ?', modelCheck);
   const modelWrite = cache.indexOf('INSERT OR REPLACE INTO offline_ranked_feed_cache_meta', pageInvalidation);
