@@ -20,9 +20,13 @@ import {
   clearFeedCardAnalyticsOutbox,
 } from '@/lib/feed-card-analytics-client';
 
-type AnalyticsConsentManagerProps = { userId?: string | null };
+type AnalyticsConsentManagerProps = {
+  userId?: string | null;
+  apiBaseUrl?: string;
+  getAccessToken?: () => Promise<string | null>;
+};
 
-function ConsentManager({ userId = null }: AnalyticsConsentManagerProps) {
+function ConsentManager({ userId = null, apiBaseUrl, getAccessToken }: AnalyticsConsentManagerProps) {
   const [visible, setVisible] = useState(false);
   const [managing, setManaging] = useState(false);
   const [serviceImprovement, setServiceImprovement] = useState(false);
@@ -56,6 +60,85 @@ function ConsentManager({ userId = null }: AnalyticsConsentManagerProps) {
     await Promise.all(tasks);
   }, [userId]);
 
+  const syncServerConsent = useCallback(async () => {
+    if (!userId || typeof window === 'undefined') return;
+    try {
+      const headers = new Headers();
+      let credentials: RequestCredentials = 'same-origin';
+      if (getAccessToken) {
+        const accessToken = await getAccessToken();
+        if (!accessToken) return;
+        headers.set('Authorization', 'Bearer ' + accessToken);
+        credentials = 'omit';
+      }
+      const endpoint = apiBaseUrl
+        ? new URL('/api/privacy/analytics-consent', apiBaseUrl).toString()
+        : '/api/privacy/analytics-consent';
+      const response = await fetch(endpoint, {
+        method: 'GET',
+        credentials,
+        cache: 'no-store',
+        headers,
+      });
+      if (!response.ok) return;
+      const payload: unknown = await response.json();
+      if (typeof payload !== 'object' || payload === null || !('consent' in payload)) return;
+      const remote = payload.consent as {
+        serviceImprovement?: unknown;
+        sponsorMeasurement?: unknown;
+        updatedAt?: unknown;
+        version?: unknown;
+        exists?: unknown;
+      };
+      if (
+        typeof remote.serviceImprovement !== 'boolean' ||
+        typeof remote.sponsorMeasurement !== 'boolean' ||
+        typeof remote.exists !== 'boolean' ||
+        remote.version !== 1 ||
+        !(remote.updatedAt === null || typeof remote.updatedAt === 'string')
+      ) return;
+
+      const local = readAnalyticsConsent();
+      const remoteIsNewer = remote.exists && typeof remote.updatedAt === 'string' &&
+        (!local || Date.parse(remote.updatedAt) > Date.parse(local.updatedAt));
+      if (remoteIsNewer || (!local && remote.exists)) {
+        const next = {
+          serviceImprovement: remote.serviceImprovement,
+          sponsorMeasurement: remote.sponsorMeasurement,
+        };
+        await clearWithdrawnQueues(local, next);
+        saveAnalyticsConsent(next);
+        hydrate({
+          version: 1,
+          ...next,
+          updatedAt: remote.updatedAt as string,
+        });
+        if (next.serviceImprovement) await setAnonymousFeedAnalyticsEnabled(true);
+        else await setAnonymousFeedAnalyticsEnabled(false);
+        return;
+      }
+
+      if (local && (!remote.exists || !remote.updatedAt || Date.parse(local.updatedAt) >= Date.parse(remote.updatedAt))) {
+        const saveResponse = await fetch(endpoint, {
+          method: 'POST',
+          credentials,
+          cache: 'no-store',
+          headers: new Headers([...headers.entries(), ['Content-Type', 'application/json']]),
+          body: JSON.stringify({
+            serviceImprovement: local.serviceImprovement,
+            sponsorMeasurement: local.sponsorMeasurement,
+            version: 1,
+          }),
+        });
+        if (!saveResponse.ok) {
+          console.warn('Analytics consent sync will retry when the device reconnects.');
+        }
+      }
+    } catch (cause) {
+      console.warn('Analytics consent sync is deferred until connectivity is available:', cause);
+    }
+  }, [apiBaseUrl, clearWithdrawnQueues, getAccessToken, hydrate, userId]);
+
   const save = useCallback(async (
     next: Pick<AnalyticsConsent, 'serviceImprovement' | 'sponsorMeasurement'>
   ) => {
@@ -69,6 +152,7 @@ function ConsentManager({ userId = null }: AnalyticsConsentManagerProps) {
       await clearWithdrawnQueues(previous, next);
       saveAnalyticsConsent(next);
       if (next.serviceImprovement) await setAnonymousFeedAnalyticsEnabled(true);
+      void syncServerConsent();
       setVisible(false);
       setManaging(false);
     } catch (cause) {
@@ -84,7 +168,7 @@ function ConsentManager({ userId = null }: AnalyticsConsentManagerProps) {
     } finally {
       setSaving(false);
     }
-  }, [clearWithdrawnQueues, saving]);
+  }, [clearWithdrawnQueues, saving, syncServerConsent]);
 
   useEffect(() => {
     const existing = readAnalyticsConsent();
@@ -120,6 +204,12 @@ function ConsentManager({ userId = null }: AnalyticsConsentManagerProps) {
     window.addEventListener(analyticsConsentManageEvent, manage);
     return () => window.removeEventListener(analyticsConsentManageEvent, manage);
   }, [clearWithdrawnQueues, hydrate, userId]);
+
+  useEffect(() => {
+    void syncServerConsent();
+    window.addEventListener('online', syncServerConsent);
+    return () => window.removeEventListener('online', syncServerConsent);
+  }, [syncServerConsent]);
 
   if (!visible) return null;
 
@@ -255,6 +345,6 @@ export function AnalyticsConsentManager() {
   return <ConsentManager userId={user?.id ?? null} />;
 }
 
-export function NativeAnalyticsConsentManager({ userId }: AnalyticsConsentManagerProps) {
-  return <ConsentManager userId={userId ?? null} />;
+export function NativeAnalyticsConsentManager({ userId, apiBaseUrl, getAccessToken }: AnalyticsConsentManagerProps) {
+  return <ConsentManager userId={userId ?? null} apiBaseUrl={apiBaseUrl} getAccessToken={getAccessToken} />;
 }
