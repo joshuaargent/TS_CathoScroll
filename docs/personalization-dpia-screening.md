@@ -13,20 +13,20 @@ A UK privacy professional must review and complete this assessment before broad 
 
 Users may separately opt in at signup or later in Account settings. The checkbox is unticked by default and is not required to use CathoScroll. The recorded consent version is `2026-11-19-v3`.
 
-When enabled, the production system uses only explicit account actions recorded after personalisation consent:
+When enabled, the **PR26 target** system uses only explicit account actions recorded after personalisation consent:
 - progress and completed topics;
 - bookmarks and topic likes;
 - comments written, comment likes and replies written;
 - categories explicitly selected by the user;
 - derived topic/category interest scores based on those actions.
 
-Operational analytics measurements (impressions, active duration, swipe depth, skips, return visits and Top Comments exposure) are not inputs to the recommendation profile.
+Operational reading measurements (impressions, active duration, swipe depth, skips, return visits and Top Comments exposure) are inputs to the recommendation profile only while personalisation and Service improvement analytics are both enabled.
 
-**Production verification (20 November 2026):** the live database profile refresher and recommendation RPC have been updated and checked. They no longer read operational feed or Top Comments analytics events. Existing derived profiles were cleared and rebuilt from explicit account actions; the analytics event tables remain for service measurement only.
+**Consent dependency:** enabling personalisation also enables Service improvement analytics. The user cannot disable that analytics choice until personalisation is withdrawn. The profile refresher checks both consent records and uses only events recorded after the personalisation grant.
 
 The profile is private, is not displayed on public profiles, and is not provided to sponsors. It is not used for user-level sponsor targeting. Sponsors may select contextual category/topic placement criteria, but those criteria are not derived from the user's private profile.
 
-Explicit account-action evidence is limited to 180 days, with 14-day and 90-day decay horizons. No operational analytics events are used. Profile refresh is cached for five minutes. Withdrawal deletes derived topic scores and explicit category selections. The recommendation RPC immediately normalises active cursors after withdrawal.
+Explicit account actions and reading-signal evidence are limited to 180 days, with 14-day and 90-day decay horizons. Profile refresh is cached for five minutes. Withdrawal deletes derived topic scores and explicit category selections. The recommendation RPC immediately normalises active cursors after withdrawal.
 
 When consent is disabled, the recommendation RPC does not read account-history signal tables, uses neutral category weights, and does not suppress completed topics.
 
@@ -34,7 +34,7 @@ When consent is disabled, the recommendation RPC does not read account-history s
 
 Separate operational analytics records authenticated feed, comment-card, and sponsor events for admin reporting, content-performance measurement, reliability, and frequency-cap enforcement. Raw events and user/day viewer bridges are retained for up to 180 days; non-identifying daily aggregates are retained longer.
 
-Operational analytics are **not** covered by the personalisation checkbox and are never used for recommendation weighting. They are collected only under their separate Service improvement analytics choice. These account-linked topic/card events may nevertheless reveal sensitive interests. A separate Article 6/Article 9 assessment is an unresolved launch gate; see section 6.
+Service improvement analytics is covered by the personalisation choice while personalisation is enabled, and is locked on during that period. If personalisation is off, Service improvement analytics can be managed independently. Account-linked topic/card events may reveal sensitive interests; the controller must document the applicable Article 6 basis and, where the data reveals beliefs, an Article 9 condition. Sponsor measurement remains a separate optional purpose.
 
 ### Sponsor reporting
 
@@ -91,7 +91,7 @@ The product's current minimum age is 13. This does not settle whether a particul
 
 ## 6. Required decisions before broad production rollout
 
-1. **Service improvement analytics Article 9 assessment:** Determine whether account-linked topic/card events reveal religious or philosophical beliefs in context. These events are collected only under the separate Service improvement analytics consent, not personalisation consent. The controller must document the Article 6 basis and whether Article 9(2)(a) explicit consent is required; confirm the notice clearly explains the topic/comment context. If no valid Article 9 condition applies, stop account-linked event detail and retain only anonymous daily aggregates.
+1. **Operational analytics Article 9 condition:** Determine whether account-linked topic/card events reveal religious or philosophical beliefs in context. The personalisation consent does not cover this stream. If it is special-category processing, identify a valid Article 9 condition; if explicit consent is required, add a separate optional analytics consent or redesign the pipeline to aggregate/anonymise before retaining user-linked event detail.
 2. **DPIA completion:** Complete the necessity/proportionality assessment, risk scoring, mitigations, residual-risk decision, and controller approval. Do not treat this screening as approval.
 3. **Children:** Decide whether personalisation is available to users aged 13–17 and document capacity/parental considerations.
 4. **Controller details:** Add the controller's full legal identity and postal address to the public Privacy Policy.
