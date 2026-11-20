@@ -522,6 +522,9 @@ CREATE OR REPLACE FUNCTION public.set_my_personalization_consent(p_enabled boole
  SET search_path TO ''
 AS $function$
 BEGIN
+  IF p_enabled IS NULL THEN
+    RAISE EXCEPTION 'A consent choice is required' USING ERRCODE='22023';
+  END IF;
   IF p_enabled IS TRUE THEN
     RAISE EXCEPTION 'Update CathoScroll and review the current personalisation notice before enabling recommendations' USING ERRCODE='42501';
   END IF;
