@@ -3,17 +3,41 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import ts from 'typescript';
 
-const source = await readFile(new URL('../src/lib/feed-card-analytics-client.ts', import.meta.url), 'utf8');
-const code = ts.transpileModule(source, {
-  compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
-}).outputText;
-globalThis.window = { addEventListener() {}, removeEventListener() {} };
+async function transpiledDataUrl(relativePath) {
+  const source = await readFile(new URL(relativePath, import.meta.url), 'utf8');
+  let output = ts.transpileModule(source, {
+    compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
+  }).outputText;
+  if (output.includes("from './analytics-consent'")) {
+    const consentSource = await readFile(new URL('../src/lib/analytics-consent.ts', import.meta.url), 'utf8');
+    const consentCode = ts.transpileModule(consentSource, {
+      compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
+    }).outputText;
+    const consentUrl = 'data:text/javascript;base64,' + Buffer.from(consentCode).toString('base64');
+    output = output.replaceAll("from './analytics-consent'", `from '${consentUrl}'`);
+  }
+  return 'data:text/javascript;base64,' + Buffer.from(output).toString('base64');
+}
+
+const analyticsUrl = await transpiledDataUrl('../src/lib/feed-card-analytics-client.ts');
+globalThis.window = {
+  addEventListener() {},
+  removeEventListener() {},
+  localStorage: {
+    getItem(key) {
+      if (key.includes('.account.')) return JSON.stringify({
+        version: 1, serviceImprovement: true, sponsorMeasurement: true,
+        updatedAt: '2026-11-20T12:00:00.000Z',
+      });
+      return null;
+    },
+  },
+};
 Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { onLine: false } });
 if (!globalThis.crypto?.randomUUID) {
   Object.defineProperty(globalThis, 'crypto', { configurable: true, value: { randomUUID: () => 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' } });
 }
-const analytics = await import('data:text/javascript;base64,' + Buffer.from(code).toString('base64'));
-
+const analytics = await import(analyticsUrl);
 test('queues only supported Top Comments exposure events per account without device storage', async () => {
   const requests = [];
   globalThis.fetch = async (url, options) => {
