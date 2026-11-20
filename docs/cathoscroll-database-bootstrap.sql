@@ -6696,6 +6696,8 @@ $function$;
 
 
 
+ALTER TABLE catho_private.user_topic_interest_scores ALTER COLUMN model_version SET DEFAULT '2026-11-20-v4';
+
 CREATE OR REPLACE FUNCTION catho_private.refresh_user_interest_profile(p_user_id uuid)
  RETURNS integer
  LANGUAGE plpgsql
