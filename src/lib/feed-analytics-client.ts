@@ -89,7 +89,7 @@ function rememberTopic(
 }
 
 export function recordFeedTopicVisit(userId: string | null, topicId: string): void {
-  if (!userId || !topicId || !hasAnalyticsConsent('serviceImprovement')) return;
+  if (!userId || !topicId || !hasAnalyticsConsent('serviceImprovement', userId)) return;
   const now = Date.now();
   const visitKey = userId + '\u0000' + topicId;
   const lastVisitAt = recentTopicVisitAt.get(visitKey);
