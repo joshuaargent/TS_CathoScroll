@@ -471,7 +471,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
         <p id="analytics-consent-description" className="text-text-secondary mt-3 text-sm leading-relaxed">
           {managing
             ? 'Choose which optional analytics CathoScroll may collect. Both choices are optional and start off unless you have already enabled them.'
-            : 'Optional analytics help us improve CathoScroll and measure sponsor performance. We do not use analytics for recommendation personalisation or to infer religious beliefs. Because CathoScroll covers Catholic content, some activity may still reveal religious or philosophical interests.'}
+            : 'Optional analytics help us improve CathoScroll and measure sponsor performance. Recommendation personalisation is a separate optional feature with its own consent. Because CathoScroll covers Catholic content, topic activity and sponsor placements may reveal religious or philosophical interests.'}
         </p>
 
         {!managing ? (
