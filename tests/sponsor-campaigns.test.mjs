@@ -67,6 +67,21 @@ test('weighted campaign selector enforces payment, dates, targeting, caps and co
   assert.doesNotMatch(selector, /ORDER BY -pg_catalog\.ln\(greatest\(pg_catalog\.random/);
 });
 
+test('signed-in and anonymous selectors derive category from the published topic and share campaign caps', () => {
+  const signedIn = functionBody('public.get_weighted_sponsor_campaigns');
+  const anonymous = functionBody('public.get_anonymous_sponsor_campaigns');
+  for (const selector of [signedIn, anonymous]) {
+    assert.match(selector, /SELECT (?:topic|t)\.category_slug INTO v_topic_category_slug/);
+    assert.match(selector, /v_topic_category_slug = ANY\(campaign\.target_category_slugs\)|v_topic_category_slug=ANY\(campaign\.target_category_slugs\)/);
+    assert.match(selector, /public\.topics/);
+    assert.match(selector, /is_published/);
+    assert.match(selector, /anonymous_sponsor_campaign_daily/);
+  }
+  assert.match(signedIn, /campaign\.served_count \+ coalesce/);
+  assert.match(signedIn, /campaign\.daily_impression_cap/);
+  assert.match(signedIn, /placement_weight::numeric ASC/);
+});
+
 test('sponsor event recording requires a served and viewable placement', () => {
   const recorder = functionBody(
     'public.record_sponsor_campaign_event',
