@@ -31,8 +31,8 @@ test('optional analytics consent is explicit, purpose-specific and off by defaul
   assert.ok(manager.includes('Service improvement analytics help improve CathoScroll. They are not used for recommendations or to infer religious beliefs.'));
   assert.ok(manager.includes('Sponsor measurement is separate. Accept all, decline optional, or manage choices.'));
   assert.ok(manager.includes('Topic and comment activity may reveal religious or philosophical interests.'));
-  assert.ok(manager.includes('topic placement where a sponsor appeared'));
-  assert.ok(manager.includes('may involve special-category data under UK GDPR'));
+  assert.ok(manager.includes('Topic placement may reveal religious or philosophical interests'));
+  assert.ok(manager.includes('special-category data under UK GDPR'));
   assert.ok(manager.includes('Recommendation personalisation remains controlled separately'));
   assert.ok(layout.includes('<WebAnalyticsConsentManager />'));
   assert.ok(native.includes('<AnalyticsConsentManager'));
