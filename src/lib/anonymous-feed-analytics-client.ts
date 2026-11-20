@@ -23,11 +23,13 @@ export const anonymousAnalyticsPreferenceKey = 'cathoscroll.anonymous-analytics.
 export const anonymousAnalyticsPreferenceChangeEvent = 'cathoscroll:anonymous-analytics-preference-change';
 
 function anonymousAnalyticsEnabled(): boolean {
-  if (typeof window === 'undefined' || anonymousPreferenceTransition) return false;
+  if (typeof window === 'undefined' || anonymousPreferenceTransition || anonymousAnalyticsOptedOut) return false;
   try {
-    return window.localStorage.getItem(anonymousAnalyticsPreferenceKey) !== 'false';
+    const optedOut = window.localStorage.getItem(anonymousAnalyticsPreferenceKey) === 'false';
+    if (optedOut) anonymousAnalyticsOptedOut = true;
+    return !optedOut;
   } catch {
-    return true;
+    return !anonymousAnalyticsOptedOut;
   }
 }
 
@@ -42,6 +44,7 @@ let listenersInstalled = false;
 let persistentOutbox: AnonymousFeedAnalyticsOutbox | null = null;
 let outboxReady: Promise<void> | null = null;
 let anonymousPreferenceGeneration = 0;
+let anonymousAnalyticsOptedOut = false;
 let anonymousPreferenceTransition = false;
 let anonymousFlushAbortController: AbortController | null = null;
 const pendingOutboxWrites = new Set<Promise<void>>();
@@ -80,7 +83,15 @@ export async function setAnonymousFeedAnalyticsEnabled(enabled: boolean): Promis
   anonymousPreferenceTransition = true;
   let failure: unknown = null;
   try {
-    if (!enabled) window.localStorage.setItem(anonymousAnalyticsPreferenceKey, 'false');
+    if (!enabled) {
+      try {
+        window.localStorage.setItem(anonymousAnalyticsPreferenceKey, 'false');
+      } catch (cause) {
+        anonymousAnalyticsOptedOut = true;
+        throw cause;
+      }
+      anonymousAnalyticsOptedOut = true;
+    }
     anonymousPreferenceGeneration += 1;
     const activeFlush = flushPromise;
     anonymousFlushAbortController?.abort();
@@ -90,7 +101,10 @@ export async function setAnonymousFeedAnalyticsEnabled(enabled: boolean): Promis
     pendingEvents.splice(0, pendingEvents.length);
     volatileEventIds.clear();
     if (persistentOutbox) await persistentOutbox.clear();
-    if (enabled) window.localStorage.removeItem(anonymousAnalyticsPreferenceKey);
+    if (enabled) {
+      window.localStorage.removeItem(anonymousAnalyticsPreferenceKey);
+      anonymousAnalyticsOptedOut = false;
+    }
   } catch (cause) {
     failure = cause;
     pendingEvents.splice(0, pendingEvents.length);
@@ -118,7 +132,7 @@ export async function configureAnonymousFeedAnalyticsOutbox(
   const configurePromise = (async () => {
     await outbox.initialize();
     persistentOutbox = outbox;
-    if (!anonymousAnalyticsEnabled() || preferenceGeneration !== anonymousPreferenceGeneration) {
+    if (!isAnonymousFeedAnalyticsEnabled() || preferenceGeneration !== anonymousPreferenceGeneration) {
       pendingEvents.splice(0, pendingEvents.length);
       volatileEventIds.clear();
       await outbox.clear();
@@ -285,7 +299,7 @@ export function recordAnonymousFeedEvent(
   eventType: AnonymousEventType,
   durationMs = 0,
 ): void {
-  if (typeof window === 'undefined' || !anonymousAnalyticsEnabled()) return;
+  if (typeof window === 'undefined' || !isAnonymousFeedAnalyticsEnabled()) return;
   const preferenceGeneration = anonymousPreferenceGeneration;
   const eventId = uuid();
   const id = String(entityId);
