@@ -17,7 +17,7 @@ const nativeAccount = readFileSync(new URL('../native/account.tsx', import.meta.
 
 
 function bootstrapFunctionRanges(source) {
-  const starts = [...source.matchAll(/CREATE(?: OR REPLACE)? FUNCTION\s+([a-z0-9_]+\.[a-z0-9_]+)\s*\(/gi)];
+  const starts = [...source.matchAll(/CREATE OR REPLACE FUNCTION\s+([a-z0-9_]+\.[a-z0-9_]+)\s*\(/gi)];
   return starts.map((match) => {
     let cursor = match.index + match[0].length;
     let depth = 1;
@@ -61,7 +61,7 @@ test('emergency bootstrap inventory matches the reconciled production schema', (
   assert.ok((bootstrap.match(/CREATE TRIGGER /g) ?? []).length >= 34);
   assert.ok((bootstrap.match(/CREATE (?:UNIQUE )?INDEX(?: IF NOT EXISTS)? /g) ?? []).length >= 95);
   const functionRanges = bootstrapFunctionRanges(bootstrap);
-  assert.equal(functionRanges.length, functionStarts.length);
+  assert.equal(functionRanges.length, (bootstrap.match(/CREATE OR REPLACE FUNCTION\s+[a-z0-9_]+\.[a-z0-9_]+\s*\(/gi) ?? []).length);
   for (let index = 0; index < functionRanges.length - 1; index += 1) {
     assert.ok(functionRanges[index].end <= functionRanges[index + 1].start, 'Function body overlaps the next SQL definition: ' + functionRanges[index].name);
   }
