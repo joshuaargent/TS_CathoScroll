@@ -16,6 +16,7 @@ export type AnalyticsConsent = {
   serviceImprovement: boolean;
   sponsorMeasurement: boolean;
   updatedAt: string;
+  syncPending: boolean;
 };
 
 export type AnalyticsConsentChoice = 'serviceImprovement' | 'sponsorMeasurement';
@@ -75,6 +76,7 @@ function emptyConsent(): AnalyticsConsent {
     serviceImprovement: false,
     sponsorMeasurement: false,
     updatedAt: '',
+    syncPending: false,
   };
 }
 
@@ -94,13 +96,15 @@ export function readAnalyticsConsent(userId?: string | null): AnalyticsConsent |
       !('sponsorMeasurement' in parsed) ||
       typeof parsed.sponsorMeasurement !== 'boolean' ||
       !('updatedAt' in parsed) ||
-      typeof parsed.updatedAt !== 'string'
+      typeof parsed.updatedAt !== 'string' ||
+      ('syncPending' in parsed && typeof parsed.syncPending !== 'boolean')
     ) return null;
     return {
       version: analyticsConsentVersion,
       serviceImprovement: parsed.serviceImprovement,
       sponsorMeasurement: parsed.sponsorMeasurement,
       updatedAt: parsed.updatedAt,
+      syncPending: 'syncPending' in parsed ? parsed.syncPending : false,
     };
   } catch {
     return null;
@@ -118,14 +122,16 @@ export function hasAnalyticsConsent(choice: AnalyticsConsentChoice, userId?: str
 
 export function saveAnalyticsConsent(
   choices: Pick<AnalyticsConsent, 'serviceImprovement' | 'sponsorMeasurement'>,
-  userId?: string | null
+  userId?: string | null,
+  options: { updatedAt?: string; syncPending?: boolean } = {}
 ): AnalyticsConsent {
   if (typeof window === 'undefined') throw new Error('Analytics preferences are unavailable.');
   const next: AnalyticsConsent = {
     version: analyticsConsentVersion,
     serviceImprovement: choices.serviceImprovement === true,
     sponsorMeasurement: choices.sponsorMeasurement === true,
-    updatedAt: new Date().toISOString(),
+    updatedAt: options.updatedAt ?? new Date().toISOString(),
+    syncPending: options.syncPending ?? Boolean(userId),
   };
   window.localStorage.setItem(storageKeyForUser(userId), JSON.stringify(next));
   for (const choice of ['serviceImprovement', 'sponsorMeasurement'] as const) {
