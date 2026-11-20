@@ -4911,7 +4911,7 @@ CREATE OR REPLACE FUNCTION public.get_weighted_sponsor_campaigns(p_user_id uuid,
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO ''
-AS $function$
+AS $function$;
 DECLARE
   v_campaign record;
   v_campaign_ids uuid[] := ARRAY[]::uuid[];
@@ -7775,7 +7775,7 @@ CREATE OR REPLACE FUNCTION public.get_anonymous_sponsor_campaigns(p_session_toke
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO ''
-AS $function$
+AS $function$;
 DECLARE v_campaign record; v_campaign_ids uuid[]:=ARRAY[]::uuid[]; v_campaigns jsonb:='[]'::jsonb;
  v_slot integer; v_today date:=(pg_catalog.timezone('UTC',statement_timestamp()))::date;
  v_hash text; v_topic_category_slug text;
