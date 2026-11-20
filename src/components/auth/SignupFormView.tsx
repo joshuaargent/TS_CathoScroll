@@ -126,7 +126,7 @@ export function SignupFormView({
                   className="accent-accent mt-0.5 h-4 w-4 shrink-0"
                 />
                 <span className="text-text-secondary text-xs leading-relaxed">
-                  <span className="text-text-primary font-semibold">Optional — I explicitly consent to CathoScroll using my account actions (progress, bookmarks, likes and comments) and selected interests to personalise recommendations. These signals may reveal religious or philosophical interests; they rank content, not beliefs. Operational analytics are separate and are not used for recommendations.</span>{' '}
+                  <span className="text-text-primary font-semibold">Optional — I explicitly consent to CathoScroll using my account actions (progress, bookmarks, likes and comments) and selected interests to personalise recommendations. These signals may reveal religious or philosophical beliefs; they are used to rank content, not to label your beliefs. Operational analytics are separate and are not used for recommendations.</span>{' '}
                   This is not needed to use CathoScroll. My profile is private, is not used for sponsor targeting, and I can withdraw consent in Account settings. See the{' '}
                   <Link href="/privacy" className="text-accent font-medium underline">Privacy Policy</Link>.
                 </span>
