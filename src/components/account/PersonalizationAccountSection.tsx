@@ -144,6 +144,20 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
         throw new Error('Personalisation settings were not confirmed.');
       }
 
+      // Native apps acknowledge this event only after the encrypted offline
+      // cache has persisted the new consent state. Withdrawal writes a durable
+      // deny marker before deleting cached personalised pages.
+      let nativeCacheSync: Promise<void> | null = null;
+      const consentEvent = new CustomEvent('cathoscroll:personalization-consent-changed', {
+        detail: {
+          userId: authData.user.id,
+          enabled,
+          complete: (result: Promise<void>) => { nativeCacheSync = result; },
+        },
+      });
+      window.dispatchEvent(consentEvent);
+      if (nativeCacheSync) await nativeCacheSync;
+
       const refreshed = await load();
       setMessage(refreshed
         ? enabled
