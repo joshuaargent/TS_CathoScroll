@@ -7782,7 +7782,11 @@ BEGIN
  END LOOP;
  RETURN pg_catalog.jsonb_build_object('campaigns',v_campaigns,'generated_at',statement_timestamp());
 END; $function$;
-
+ALTER FUNCTION public.get_anonymous_sponsor_campaigns(text, text, text, integer) OWNER TO postgres;
+REVOKE ALL ON FUNCTION public.get_anonymous_sponsor_campaigns(text, text, text, integer)
+  FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.get_anonymous_sponsor_campaigns(text, text, text, integer)
+  TO service_role;
 
 CREATE OR REPLACE FUNCTION catho_private.prune_anonymous_analytics()
  RETURNS integer
