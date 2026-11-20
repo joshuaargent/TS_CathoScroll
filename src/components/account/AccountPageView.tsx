@@ -9,6 +9,7 @@ import { PersonalizationAccountSection } from './PersonalizationAccountSection';
 
 export type AccountPageViewProps = {
   loading?: boolean;
+  bottomPadding?: boolean;
   displayName: string;
   username: string;
   bio: string;
@@ -38,7 +39,7 @@ export type AccountPageViewProps = {
 
 export function AccountPageSkeleton() {
   return (
-    <div className="container pt-12 pb-0">
+    <div className={props.bottomPadding === false ? "container pt-12 pb-0" : "container py-12"}>
       <div className="mt-8 mb-10">
         <Skeleton className="h-16 w-64" />
         <Skeleton className="mt-4 h-6 w-96" />
