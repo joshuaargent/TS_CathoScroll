@@ -39,18 +39,19 @@ function subscribe(onChange: () => void) {
 
 export function PrivacySafeAnalytics() {
   const { user, loading } = useAuth();
+  const userId = userId;
   useEffect(() => {
-    if (!loading && !user) clearLegacyAnonymousAnalyticsConsent();
-  }, [loading, user?.id]);
+    if (!loading && userId === null) clearLegacyAnonymousAnalyticsConsent();
+  }, [loading, userId]);
   const getSnapshot = useCallback(
     () => hasAnalyticsConsent('serviceImprovement', user?.id ?? null),
-    [user?.id]
+    [userId]
   );
   const enabled = useSyncExternalStore(subscribe, getSnapshot, () => false);
   const beforeSend = useCallback((event: BeforeSendEvent) => {
     if (loading || !hasAnalyticsConsent('serviceImprovement', user?.id ?? null)) return null;
     return redactAnalyticsEvent(event);
-  }, [loading, user?.id]);
+  }, [loading, userId]);
   if (loading || !enabled) return null;
   return <Analytics beforeSend={beforeSend} />;
 }
