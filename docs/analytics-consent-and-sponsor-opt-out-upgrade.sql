@@ -1236,6 +1236,16 @@ REVOKE ALL ON FUNCTION public.get_public_general_topic_page(jsonb,integer) FROM 
 GRANT EXECUTE ON FUNCTION public.get_public_general_topic_page(jsonb,integer) TO anon,authenticated;
 NOTIFY pgrst, 'reload schema';
 
+-- Stop the scheduled job before removing its function or tables.
+DO $anonymous_cron_cleanup$
+BEGIN
+  IF to_regclass('cron.job') IS NOT NULL THEN
+    EXECUTE 'SELECT cron.unschedule(jobid) FROM cron.job WHERE jobname = $1'
+      USING 'cathoscroll-anonymous-analytics-prune';
+  END IF;
+END;
+$anonymous_cron_cleanup$;
+
 -- Remove all legacy anonymous analytics storage and entry points.
 DROP FUNCTION IF EXISTS public.get_admin_anonymous_analytics(uuid, timestamptz, timestamptz, text, text);
 DROP FUNCTION IF EXISTS public.get_anonymous_sponsor_campaigns(text, text, text, integer);
@@ -1259,15 +1269,6 @@ ALTER TABLE catho_private.sponsor_campaign_events
   ADD CONSTRAINT sponsor_campaign_events_event_type_check
   CHECK (event_type IN ('viewable_impression', 'click'));
 DROP TABLE IF EXISTS catho_private.sponsor_campaign_user_frequency;
-
-DO $anonymous_cron_cleanup$
-BEGIN
-  IF to_regclass('cron.job') IS NOT NULL THEN
-    EXECUTE 'SELECT cron.unschedule(jobid) FROM cron.job WHERE jobname = $1'
-      USING 'cathoscroll-anonymous-analytics-prune';
-  END IF;
-END;
-$anonymous_cron_cleanup$;
 
 NOTIFY pgrst, 'reload schema';
 
