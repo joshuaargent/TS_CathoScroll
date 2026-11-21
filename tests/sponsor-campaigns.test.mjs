@@ -60,6 +60,8 @@ test('weighted campaign selector enforces payment, dates, targeting and opted-in
   assert.doesNotMatch(selector, /event_type = 'served'/);
   assert.match(selector, /frequency_cap_per_user_total/);
   assert.match(selector, /lifetime\.received_at >= statement_timestamp\(\) - interval '180 days'/);
+  assert.match(selector, /FROM catho_private\.sponsor_campaign_events AS lifetime/);
+  assert.doesNotMatch(selector, /rolling_window/);
   assert.doesNotMatch(selector, /FOR UPDATE OF campaign SKIP LOCKED/);
   assert.match(selector, /campaign\.placement_weight/);
   assert.match(selector, /daily\.viewable_impressions/);
