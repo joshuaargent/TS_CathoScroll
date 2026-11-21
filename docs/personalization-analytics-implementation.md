@@ -8,7 +8,7 @@ CathoScroll has three separate signed-in optional purposes:
 - Personalisation uses eligible account activity and selected category interests to build a private recommendation profile.
 - Sponsor measurement measures signed-in sponsor viewability, clicks and frequency for campaign reporting.
 
-These purposes must not be silently combined. The current UI automatically enables Service improvement analytics while Personalisation is enabled. If the controller treats them as distinct purposes, this is a consent-granularity risk and must be separated before release or supported by a documented legal assessment. Sponsor measurement remains a separate choice.
+These purposes have independent, unticked opt-ins. Personalisation may use direct account actions and selected categories under its own explicit consent. Passive reading signals are collected only under the separate Service improvement choice and inform recommendations only when both Personalisation and Service improvement are enabled. Withdrawing either choice stops that purpose's processing; Sponsor measurement remains a third separate choice.
 
 ## Signal limits
 
@@ -20,7 +20,7 @@ The public general feed is not a personalisation profile. It uses public interac
 
 ## Personalised feed
 
-The recommendation RPC uses the account's private post-consent profile and explicitly selected category interests. The profile is not exposed to other users or sponsors. Admin deep-dive reports are aggregate-only and do not return user IDs, session IDs or raw per-user event records. Sponsor activity never contributes to recommendations. Turning Personalisation off stops new recommendation processing and deletes the derived profile and selected interests. Existing v3 grants are withdrawn by the v4 upgrade; affected users must explicitly opt in again under the current consent version.
+The recommendation RPC uses the account's private profile and explicitly selected category interests. Direct account actions are used under Personalisation consent; passive reading signals are included only while Service improvement consent is also active. The profile is not exposed to other users or sponsors. Admin deep-dive reports are aggregate-only and do not return user IDs, session IDs or raw per-user event records. Sponsor activity never contributes to recommendations. Turning Personalisation off stops new recommendation processing and deletes the derived profile and selected interests. Existing v3 grants are withdrawn by the v4 upgrade; affected users must explicitly opt in again under the current consent version.
 
 Native Android and Electron display previously downloaded server-ranked pages from encrypted offline storage. There is no separate offline recommendation learner. Cached recommendations are subject to existing cache expiry and consent-freshness rules.
 
