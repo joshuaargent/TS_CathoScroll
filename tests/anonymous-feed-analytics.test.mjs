@@ -147,7 +147,7 @@ test('all analytics surfaces report anonymous counts separately', () => {
   assert.match(chartSource, /index \/ \(dates\.length - 1\)/);
   assert.match(chartSource, /dateIndexByDate\.get\(item\.date\)/);
   assert.doesNotMatch(chartSource, /series\.length <= 1/);
-  assert.match(sponsorPortal, /Anonymous served/);
+  assert.match(sponsorPortal, /Signed-out served/);
   assert.match(campaignManager, /anonymous served/i);
 });
 
