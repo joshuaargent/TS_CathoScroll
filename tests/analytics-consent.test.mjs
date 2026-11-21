@@ -12,7 +12,7 @@ function getLastFunctionDefinition(sql, name) {
 }
 
 test('optional analytics consent is explicit, purpose-specific and off by default', async () => {
-  const [consent, manager, layout, native, cookies, account, signup, anonymous] = await Promise.all([
+  const [consent, manager, layout, native, cookies, account, signup] = await Promise.all([
     read('../src/lib/analytics-consent.ts'),
     read('../src/components/privacy/AnalyticsConsentManager.tsx'),
     read('../src/app/layout.tsx'),
@@ -20,7 +20,6 @@ test('optional analytics consent is explicit, purpose-specific and off by defaul
     read('../src/app/cookies/page.tsx'),
     read('../src/components/account/AnalyticsConsentSettingsPanel.tsx'),
     read('../src/components/auth/SignupFormView.tsx'),
-    read('../src/components/privacy/AnonymousAnalyticsPreference.tsx'),
   ]);
 
   assert.ok(consent.includes('serviceImprovement: false'));
@@ -47,13 +46,11 @@ test('optional analytics consent is explicit, purpose-specific and off by defaul
   assert.ok(signup.includes('name="sponsorMeasurementConsent"'));
   assert.ok(signup.includes('I explicitly consent'));
   assert.ok(signup.includes('Required while personalisation is enabled.'));
-  assert.ok(anonymous.includes('Turn off aggregate measurement'));
-  assert.ok(anonymous.includes('daily totals without visitor or session IDs'));
   assert.ok(layout.includes('<WebAnalyticsConsentManager />'));
   assert.ok(native.includes('<AnalyticsConsentManager'));
   assert.ok(native.includes("loading={authStatus === 'loading' || checkingAccount}"));
   assert.ok(cookies.includes('AnalyticsConsentSettingsButton'));
-  assert.ok(cookies.includes('<AnonymousAnalyticsPreference />'));
+  assert.doesNotMatch(cookies, /AnonymousAnalyticsPreference/);
 });
 
 test('account consent sync is identity-bound, retryable and enforced server-side', async () => {
@@ -135,13 +132,12 @@ test('account consent sync is identity-bound, retryable and enforced server-side
 });
 
 test('withdrawal immediately blocks and clears the matching web and native analytics queues', async () => {
-  const [manager, consent, store, feed, comments, anonymous, sponsor] = await Promise.all([
+  const [manager, consent, store, feed, comments, sponsor] = await Promise.all([
     read('../src/components/privacy/AnalyticsConsentManager.tsx'),
     read('../src/lib/analytics-consent.ts'),
     read('../src/lib/offline/signed-in-analytics-store.ts'),
     read('../src/lib/feed-analytics-client.ts'),
     read('../src/lib/feed-card-analytics-client.ts'),
-    read('../src/lib/anonymous-feed-analytics-client.ts'),
     read('../src/lib/sponsor-analytics-client.ts'),
   ]);
 
@@ -154,73 +150,42 @@ test('withdrawal immediately blocks and clears the matching web and native analy
   assert.ok(manager.includes('clearFeedAnalyticsOutbox(userId)'));
   assert.ok(manager.includes('clearFeedCardAnalyticsOutbox(userId)'));
   assert.ok(manager.includes('clearSponsorAnalyticsOutbox(userId)'));
-  assert.ok(manager.includes('clearAnonymousSponsorAnalyticsQueue()'));
+
   assert.ok(manager.includes('saveAnalyticsConsent(interim, userId, { syncPending: Boolean(userId) })'));
   assert.ok(store.includes('clearStream(userId: string, stream: SignedInAnalyticsStream)'));
   assert.ok(feed.includes('createConsentBoundAbortSignal'));
   assert.ok(feed.includes("consentRequest.signal.aborted || !hasAnalyticsConsent('serviceImprovement', userId)"));
   assert.ok(comments.includes('createConsentBoundAbortSignal'));
   assert.ok(comments.includes("consentRequest.signal.aborted || !hasAnalyticsConsent('serviceImprovement', userId)"));
-  assert.doesNotMatch(anonymous, /createConsentBoundAbortSignal/);
   assert.ok(sponsor.includes('createConsentBoundAbortSignal'));
   assert.ok(sponsor.includes("!accessToken || consentRequest.signal.aborted || !hasAnalyticsConsent('sponsorMeasurement', userId)"));
   assert.ok(feed.includes("hasAnalyticsConsent('serviceImprovement', userId)"));
   assert.ok(comments.includes("hasAnalyticsConsent('serviceImprovement', userId)"));
-  assert.ok(anonymous.includes("localStorage.getItem(anonymousAnalyticsPreferenceKey) === 'false'"));
-  assert.ok(manager.includes('clearAnonymousSponsorAnalyticsQueue()'));
 
   assert.ok(sponsor.includes("hasAnalyticsConsent('sponsorMeasurement', userId)"));
-  assert.ok(sponsor.includes("hasAnalyticsConsent('sponsorMeasurement', null)"));
 });
 
-test('declining sponsor measurement preserves delivery and campaign-day totals without visitor tracking', async () => {
-  const [feed, selectRoute, eventRoute, sponsorClient, bootstrap, migration, entryMap, placementRules] = await Promise.all([
+test('declining sponsor measurement preserves sponsor delivery without recording delivery counters', async () => {
+  const [feed, selectRoute, eventRoute, sponsorClient, card, bootstrap, migration] = await Promise.all([
     read('../src/components/topic/TopicFeedCore.tsx'),
     read('../src/app/api/content/sponsored-campaigns/route.ts'),
     read('../src/app/api/content/sponsor-campaign-events/route.ts'),
     read('../src/lib/sponsor-analytics-client.ts'),
+    read('../src/components/topic/SponsorFeedCard.tsx'),
     read('../docs/cathoscroll-database-bootstrap.sql'),
     read('../docs/analytics-consent-and-sponsor-opt-out-upgrade.sql'),
-    read('../src/lib/feed-entry-map.ts'),
-    read('../src/lib/feed-card-placement-registry.ts'),
   ]);
-
-  assert.ok(feed.includes("hasAnalyticsConsent('sponsorMeasurement', userId)"));
-  assert.ok(feed.includes('const sessionId = measurementEnabled'));
   assert.match(feed, /const measurementEnabled = Boolean\(userId && hasAnalyticsConsent\('sponsorMeasurement', userId\)\)/);
-  assert.doesNotMatch(feed, /sponsorMeasurementConsent: measurementEnabled/);
-  assert.ok(sponsorClient.includes('sponsorMeasurementConsent: true'));
-  assert.ok(feed.includes('if (result.campaigns.length > 0)'));
-  assert.ok(feed.includes('handleConsentChange'));
-  assert.ok(feed.includes("entry.type === 'sponsor' ? { ...entry, sessionId: '' } : entry"));
-  assert.ok(entryMap.includes('if (sponsorInventory.campaigns.length === 0) return []'));
-  assert.ok(entryMap.includes("sessionId: sponsorInventory.sessionId ?? ''"));
-  assert.ok(placementRules.includes('if (result && result.campaigns.length === 0) return null;'));
-  assert.ok(!placementRules.includes('!result.sessionId'));
-
-  assert.ok(selectRoute.includes('const measurementSessionId: string | null'));
-  assert.ok(selectRoute.includes('p_session_token: measurementSessionId'));
-  assert.ok(selectRoute.includes('sponsorMeasurementEnabled = consent.sponsorMeasurement && parsed.value.sessionId !== null;'));
-  assert.ok(selectRoute.includes('// Detailed Sponsor measurement is account-only.'));
-  assert.ok(eventRoute.includes('if (!auth.user) return respond(request, { recorded: false }, 403);'));
-  assert.ok(eventRoute.includes('const consent = await getStoredAnalyticsConsent(auth.user.id);'));
-  assert.ok(eventRoute.includes('if (!consent.sponsorMeasurement) return respond(request, { recorded: false });'));
-  assert.doesNotMatch(eventRoute, /sponsorMeasurementConsent/);
-  assert.ok(selectRoute.includes('p_session_id: measurementSessionId'));
-  assert.ok(eventRoute.includes('if (!consent.sponsorMeasurement) return respond(request, { recorded: false });'));
-
+  assert.match(selectRoute, /!sponsorMeasurementEnabled[\s\S]*?get_anonymous_sponsor_campaigns/);
+  assert.match(selectRoute, /get_weighted_sponsor_campaigns/);
+  assert.match(eventRoute, /if \(!auth\.user\) return respond\(request, \{ recorded: false \}, 403\)/);
+  assert.doesNotMatch(sponsorClient + card, /recordAnonymousSponsorCampaignEvent|anonymousQueue/);
+  assert.match(card, /if \(previewMode \|\| !sponsorMeasurementEnabled \|\| !userId\) return false/);
   for (const sql of [bootstrap, migration]) {
-    assert.ok(sql.includes('REVOKE ALL ON FUNCTION public.get_user_analytics_consent(uuid) FROM PUBLIC, anon, authenticated, service_role;'));
-    assert.ok(sql.includes('GRANT EXECUTE ON FUNCTION public.get_user_analytics_consent(uuid) TO service_role;'));
-    assert.ok(sql.includes('REVOKE ALL ON FUNCTION public.set_user_analytics_consent(uuid, boolean, boolean, integer) FROM PUBLIC, anon, authenticated, service_role;'));
-    assert.ok(sql.includes('GRANT EXECUTE ON FUNCTION public.set_user_analytics_consent(uuid, boolean, boolean, integer) TO service_role;'));
-    assert.match(sql, /p_session_token remains in the RPC signature for compatibility but is intentionally ignored/);
-    assert.doesNotMatch(sql, /CREATE OR REPLACE FUNCTION public.record_anonymous_sponsor_campaign_event/);
-    assert.doesNotMatch(sql, /INSERT INTO catho_private\.anonymous_sponsor_events/);
-    assert.doesNotMatch(sql, /INSERT INTO catho_private\.anonymous_sponsor_session_frequency/);
-    assert.ok(sql.includes('INSERT INTO catho_private.sponsor_campaign_daily'));
-    assert.ok(sql.includes('v_session_id := CASE WHEN coalesce(v_sponsor_measurement, false) THEN p_session_id ELSE NULL END'));
-    assert.ok(sql.includes('IF v_session_id IS NOT NULL THEN'));
+    const finalModel = sql.slice(sql.lastIndexOf('-- FINAL ANALYTICS MODEL'));
+    assert.match(finalModel, /DROP TABLE IF EXISTS catho_private\.anonymous_sponsor_campaign_daily/);
+    assert.match(finalModel, /UPDATE public\.sponsor_campaigns SET served_count = 0/);
+    assert.match(finalModel, /DELETE FROM catho_private\.sponsor_campaign_events WHERE event_type = 'served'/);
   }
 });
 
