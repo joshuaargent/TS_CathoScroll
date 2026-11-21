@@ -306,29 +306,62 @@ BEGIN
 
   WITH event_scores AS (
     SELECT e.entity_id AS topic_id,
-      sum(CASE e.event_type
-        WHEN 'viewable_impression' THEN 0.40
-        WHEN 'active_duration' THEN least(coalesce((e.metadata->>'duration_ms')::numeric,0),60000)/60000*0.25
-        WHEN 'swipe_depth' THEN least(coalesce((e.metadata->>'depth')::numeric,0),4)/4*0.50
-        WHEN 'completion' THEN 2.50
-        WHEN 'return_visit' THEN 0.75
-        ELSE 0 END * power(0.5::numeric,greatest(0,extract(epoch FROM (v_now-e.received_at))/2592000))) AS inferred_score,
-      sum(CASE WHEN e.received_at >= v_now-interval '14 days' THEN
-        CASE e.event_type
-          WHEN 'viewable_impression' THEN 0.40
-          WHEN 'active_duration' THEN least(coalesce((e.metadata->>'duration_ms')::numeric,0),60000)/60000*0.25
-          WHEN 'swipe_depth' THEN least(coalesce((e.metadata->>'depth')::numeric,0),4)/4*0.50
-          WHEN 'completion' THEN 2.50
-          WHEN 'return_visit' THEN 0.75 ELSE 0 END
-        * power(0.5::numeric,greatest(0,extract(epoch FROM (v_now-e.received_at))/1209600))
-        ELSE 0 END) AS short_score,
-      sum(CASE e.event_type
-        WHEN 'viewable_impression' THEN 0.40
-        WHEN 'active_duration' THEN least(coalesce((e.metadata->>'duration_ms')::numeric,0),60000)/60000*0.25
-        WHEN 'swipe_depth' THEN least(coalesce((e.metadata->>'depth')::numeric,0),4)/4*0.50
-        WHEN 'completion' THEN 2.50
-        WHEN 'return_visit' THEN 0.75 ELSE 0 END
-        * power(0.5::numeric,greatest(0,extract(epoch FROM (v_now-e.received_at))/7776000))) AS long_score,
+      least(1.20::numeric,coalesce(sum(CASE WHEN e.event_type='viewable_impression'
+        THEN 0.40*power(0.5::numeric,greatest(0,extract(epoch FROM (v_now-e.received_at))/2592000))
+        ELSE 0 END),0))
+      + least(1.50::numeric,coalesce(sum(CASE WHEN e.event_type='active_duration'
+        THEN least(coalesce((e.metadata->>'duration_ms')::numeric,0),60000)/60000*0.25
+          *power(0.5::numeric,greatest(0,extract(epoch FROM (v_now-e.received_at))/2592000))
+        ELSE 0 END),0))
+      + least(1.50::numeric,coalesce(sum(CASE WHEN e.event_type='swipe_depth'
+        THEN least(coalesce((e.metadata->>'depth')::numeric,0),4)/4*0.50
+          *power(0.5::numeric,greatest(0,extract(epoch FROM (v_now-e.received_at))/2592000))
+        ELSE 0 END),0))
+      + least(3.00::numeric,coalesce(sum(CASE WHEN e.event_type='completion'
+        THEN 2.50*power(0.5::numeric,greatest(0,extract(epoch FROM (v_now-e.received_at))/2592000))
+        ELSE 0 END),0))
+      + least(1.50::numeric,coalesce(sum(CASE WHEN e.event_type='return_visit'
+        THEN 0.75*power(0.5::numeric,greatest(0,extract(epoch FROM (v_now-e.received_at))/2592000))
+        ELSE 0 END),0)) AS inferred_score,
+      least(1.20::numeric,coalesce(sum(CASE WHEN e.event_type='viewable_impression'
+        AND e.received_at>=v_now-interval '14 days'
+        THEN 0.40*power(0.5::numeric,greatest(0,extract(epoch FROM (v_now-e.received_at))/1209600))
+        ELSE 0 END),0))
+      + least(1.50::numeric,coalesce(sum(CASE WHEN e.event_type='active_duration'
+        AND e.received_at>=v_now-interval '14 days'
+        THEN least(coalesce((e.metadata->>'duration_ms')::numeric,0),60000)/60000*0.25
+          *power(0.5::numeric,greatest(0,extract(epoch FROM (v_now-e.received_at))/1209600))
+        ELSE 0 END),0))
+      + least(1.50::numeric,coalesce(sum(CASE WHEN e.event_type='swipe_depth'
+        AND e.received_at>=v_now-interval '14 days'
+        THEN least(coalesce((e.metadata->>'depth')::numeric,0),4)/4*0.50
+          *power(0.5::numeric,greatest(0,extract(epoch FROM (v_now-e.received_at))/1209600))
+        ELSE 0 END),0))
+      + least(3.00::numeric,coalesce(sum(CASE WHEN e.event_type='completion'
+        AND e.received_at>=v_now-interval '14 days'
+        THEN 2.50*power(0.5::numeric,greatest(0,extract(epoch FROM (v_now-e.received_at))/1209600))
+        ELSE 0 END),0))
+      + least(1.50::numeric,coalesce(sum(CASE WHEN e.event_type='return_visit'
+        AND e.received_at>=v_now-interval '14 days'
+        THEN 0.75*power(0.5::numeric,greatest(0,extract(epoch FROM (v_now-e.received_at))/1209600))
+        ELSE 0 END),0)) AS short_score,
+      least(1.20::numeric,coalesce(sum(CASE WHEN e.event_type='viewable_impression'
+        THEN 0.40*power(0.5::numeric,greatest(0,extract(epoch FROM (v_now-e.received_at))/7776000))
+        ELSE 0 END),0))
+      + least(1.50::numeric,coalesce(sum(CASE WHEN e.event_type='active_duration'
+        THEN least(coalesce((e.metadata->>'duration_ms')::numeric,0),60000)/60000*0.25
+          *power(0.5::numeric,greatest(0,extract(epoch FROM (v_now-e.received_at))/7776000))
+        ELSE 0 END),0))
+      + least(1.50::numeric,coalesce(sum(CASE WHEN e.event_type='swipe_depth'
+        THEN least(coalesce((e.metadata->>'depth')::numeric,0),4)/4*0.50
+          *power(0.5::numeric,greatest(0,extract(epoch FROM (v_now-e.received_at))/7776000))
+        ELSE 0 END),0))
+      + least(3.00::numeric,coalesce(sum(CASE WHEN e.event_type='completion'
+        THEN 2.50*power(0.5::numeric,greatest(0,extract(epoch FROM (v_now-e.received_at))/7776000))
+        ELSE 0 END),0))
+      + least(1.50::numeric,coalesce(sum(CASE WHEN e.event_type='return_visit'
+        THEN 0.75*power(0.5::numeric,greatest(0,extract(epoch FROM (v_now-e.received_at))/7776000))
+        ELSE 0 END),0)) AS long_score,
       count(*)::integer AS evidence_count
     FROM catho_private.feed_analytics_events e
     WHERE e.user_id=p_user_id
