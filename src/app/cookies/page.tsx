@@ -37,7 +37,7 @@ export default function CookiesPage() {
 
           <p className="text-text-secondary leading-relaxed">
             CathoScroll uses cookies and similar technologies for core functionality, authentication,
-            security, essential preferences, and offline support. Account-linked first-party site and server-side product analytics are off by default unless you enable them or personalisation requires Service improvement analytics. Signed-out topic/comment daily aggregates are a separate statistical stream, described below. These analytics are not used for cross-site advertising or sponsor targeting profiles.
+            security, essential preferences, and offline support. Account-linked first-party site and server-side product analytics are off by default unless you enable them or personalisation requires Service improvement analytics. CathoScroll does not collect anonymous topic, comment or sponsor engagement statistics, and does not count sponsor deliveries. These analytics are not used for cross-site advertising or sponsor targeting profiles.
           </p>
         </section>
 
