@@ -78,15 +78,7 @@ export default function CookiesPage() {
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            Enabling personalisation also enables Service improvement analytics because eligible
-            reading signals inform your private recommendations. This analytics choice is locked
-            on until personalisation is turned off. Sponsor measurement is a separate explicit
-            choice for signed-in users only. If enabled, account-linked viewability and click events
-            use per-placement IDs for validation and account-level frequency records for caps; raw event/frequency records are
-            retained for up to 180 days. Signed-out visitors are not individually measured: no
-            token, hash, viewability, click or frequency record is created, while campaign/day
-            served totals still support delivery and pacing. Sponsor placement context may reveal
-            religious or philosophical interests, so measurement requires explicit consent.
+            Enabling Personalisation currently also enables Service improvement analytics because eligible reading signals inform private recommendations. This choice remains locked on until Personalisation is turned off. Sponsor measurement is a separate explicit choice for signed-in users only. If enabled, account-linked viewability and click events are used to derive opted-in frequency. Sponsor placements remain available when measurement is off, but no delivery, served, anonymous frequency or anonymous engagement counters are created.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
@@ -140,15 +132,7 @@ export default function CookiesPage() {
           <h2 className="mb-4 text-3xl font-bold">Local Storage and Offline Apps</h2>
 
           <p className="text-text-secondary leading-relaxed">
-            CathoScroll uses browser local storage, IndexedDB and app-private storage for sign-in,
-            offline content and pending synchronisation. Native apps keep a bounded, identifier-free
-            signed-out aggregate analytics retry queue for up to seven days by default; the website
-            keeps unsent anonymous events in memory. This queue is separate from the optional
-            account-linked Service improvement analytics choice and is cleared if you object. Personalised feed pages are cached in encrypted
-            private storage for up to 12 hours after the last consent check and pruned after 14 days;
-            general feed pages use a separate cache. These are device-storage technologies, not
-            browser cookies. Clearing them may remove offline data, require sign-in again or lose
-            pending activity.
+            CathoScroll uses browser local storage, IndexedDB and app-private storage for sign-in, offline content and pending synchronisation. Android and Electron persist only opted-in signed-in analytics in encrypted, account-scoped queues, capped at 2,000 events per stream and seven days. Website analytics retries remain in memory. No anonymous analytics queue or sponsor delivery counter is created. Personalised feed pages are cached in encrypted private storage for up to 12 hours after the last consent check and pruned after 14 days; general feed pages use a separate cache. These are device-storage technologies, not browser cookies. Clearing them may remove offline data, require sign-in again or lose pending activity.
           </p>
         </section>
 
