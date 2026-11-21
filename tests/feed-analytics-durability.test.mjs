@@ -46,7 +46,7 @@ function createTestWindow() {
 }
 
 
-const [analytics, sponsor, sponsorAnalytics, topicFeed, cardRegistry, readme, sponsorClient, sync, layout, nativeMain, bootstrap, cardAnalytics, signedInOutbox] = await Promise.all([
+const [analytics, sponsor, sponsorAnalytics, topicFeed, cardRegistry, readme, sponsorClient, sync, layout, nativeMain, bootstrap, cardAnalytics, signedInOutbox, upgrade] = await Promise.all([
   readFile(new URL('../src/lib/feed-analytics-client.ts', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/SponsorFeedCard.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/lib/sponsor-analytics-client.ts', import.meta.url), 'utf8'),
@@ -60,6 +60,7 @@ const [analytics, sponsor, sponsorAnalytics, topicFeed, cardRegistry, readme, sp
   readFile(new URL('../docs/cathoscroll-database-bootstrap.sql', import.meta.url), 'utf8'),
   readFile(new URL('../src/lib/feed-card-analytics-client.ts', import.meta.url), 'utf8'),
   readFile(new URL('../src/lib/offline/signed-in-analytics-store.ts', import.meta.url), 'utf8'),
+  readFile(new URL('../docs/analytics-consent-and-sponsor-opt-out-upgrade.sql', import.meta.url), 'utf8'),
 ]);
 
 
@@ -81,8 +82,16 @@ test('anonymous analytics queues are removed while opted-in signed-in queues rem
 });
 
 test('signed-in feed and sponsor raw-event retention remains 180 days', () => {
-  assert.match(bootstrap, /prune_feed_analytics_events\(statement_timestamp\(\) - interval ''180 days''/);
+  for (const sql of [bootstrap, upgrade]) {
+    assert.match(sql, /prune_feed_analytics_events\(statement_timestamp\(\) - interval ''180 days''/);
+    assert.match(sql, /prune_feed_card_analytics_events\(statement_timestamp\(\) - interval ''180 days''/);
+    assert.match(sql, /DELETE FROM catho_private\.feed_analytics_event_limits/);
+    assert.match(sql, /DELETE FROM catho_private\.feed_card_analytics_event_limits/);
+    assert.match(sql, /cathoscroll-prune-feed-analytics/);
+    assert.match(sql, /cathoscroll-prune-feed-card-analytics/);
+  }
   assert.match(bootstrap, /prune_sponsor_campaign_events\(statement_timestamp\(\) - interval ''180 days''/);
+  assert.match(upgrade, /prune_sponsor_campaign_events\(statement_timestamp\(\) - interval ''180 days''/);
 });
 
 test('feed analytics retains active-page events until server acknowledgement and retries on reconnect', () => {
