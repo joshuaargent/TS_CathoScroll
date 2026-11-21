@@ -184,7 +184,8 @@ test('declining sponsor measurement preserves sponsor delivery without recording
   for (const sql of [bootstrap, migration]) {
     const finalModel = sql.slice(sql.lastIndexOf('-- FINAL ANALYTICS MODEL'));
     assert.match(finalModel, /DROP TABLE IF EXISTS catho_private\.anonymous_sponsor_campaign_daily/);
-    assert.match(finalModel, /UPDATE public\.sponsor_campaigns SET served_count = 0/);
+    assert.match(finalModel, /ALTER TABLE public\.sponsor_campaigns DROP COLUMN IF EXISTS served_count/);
+    assert.match(finalModel, /ALTER TABLE catho_private\.sponsor_campaign_daily DROP COLUMN IF EXISTS served_count/);
     assert.match(finalModel, /DELETE FROM catho_private\.sponsor_campaign_events WHERE event_type = 'served'/);
   }
 });
