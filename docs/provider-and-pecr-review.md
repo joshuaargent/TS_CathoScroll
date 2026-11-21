@@ -81,7 +81,7 @@ The code review does not prove that provider contracts and transfers are complia
 
 ## Retention and withdrawal
 
-Signed-in raw analytics events, the restricted viewer bridge and associated event-rate-limit records are retained for up to 180 days under the current implementation. Native pending events are capped at 2,000 per stream and seven days, deleted after acknowledgement, and cleared on withdrawal/account change. Consent history is retained as needed to demonstrate the choice. Apply the published account deletion and legal-retention rules consistently.
+Signed-in raw analytics events and the restricted viewer bridge are retained for up to 180 days. Separate HMAC-protected API rate-limit records are security data containing endpoint/account-or-client keys, request counts and time-window timestamps; stale rows are opportunistically pruned after two days. Native pending events are capped at 2,000 per stream and seven days, deleted after acknowledgement, and cleared on withdrawal/account change. Consent history is retained as needed to demonstrate the choice. Apply the published account deletion and legal-retention rules consistently.
 
 Withdrawal must take effect locally immediately, stop new collection and uploads, clear the matching pending queue, and synchronise the denial to the server when connectivity returns. Do not silently switch to another lawful basis for the same optional purpose after consent is withdrawn.
 
