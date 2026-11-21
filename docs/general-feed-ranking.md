@@ -33,6 +33,10 @@ The score for each published topic is calculated once per page request and cache
 
 The general path includes completed topics. It does not consult `progress` or any bookmarks, likes, comments or feed telemetry belonging to the current visitor; public engagement counts and account-free site-wide aggregates are shared ranking inputs. Signed-out and opted-out visitors therefore receive the same general ranking logic.
 
+## Category pages
+
+A category page is a curated browse view, not the general popularity ranking and not the personalised feed. It filters published topics to the selected category and orders them by the editorial `order_index, id` cursor. It does not read account-level reading signals or signed-out aggregate analytics.
+
 ## Personalised category scheduling
 
 The personalisation profile uses progress/completions (+5), bookmarks (+4), topic likes (+3), comments (+3), comment likes (+3), replies (+2.5), plus passive feed signals and smaller Top Comments exposure/open signals. Passive signals are capped independently per topic and horizon: viewability +1.20, active reading +1.50, swipe depth +1.50, completions +3.00 and return visits +1.50. A 14-day half-life score contributes 35% and a 90-day half-life score 65%. Skips count negatively only after at least two distinct sessions, at -1.50 per session with a 30-day half-life and a -3.00 cap. The final topic score is clamped to -4 through +8.
