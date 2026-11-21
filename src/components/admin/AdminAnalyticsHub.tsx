@@ -159,17 +159,17 @@ export function AdminAnalyticsHub({ overview, period, section = 'overview', seri
     </nav>
 
     <section className="mt-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-      <Metric label="Topic impressions" value={number(t.topic_impressions)} detail={number(t.topic_viewable_impressions) + ' viewable · ' + duration(t.topic_active_duration_ms) + ' active time'} icon={BookOpen} />
-      <Metric label="Top Comments exposure" value={number(t.comment_card_impressions)} detail={number(t.comment_card_viewable_impressions) + ' viewable · ' + number(t.comment_card_opens) + ' discussion opens'} icon={MessageCircle} />
+      <Metric label="Opted-in topic impressions" value={number(t.topic_impressions)} detail={number(t.topic_viewable_impressions) + ' viewable · ' + duration(t.topic_active_duration_ms) + ' active time'} icon={BookOpen} />
+      <Metric label="Opted-in Top Comments exposure" value={number(t.comment_card_impressions)} detail={number(t.comment_card_viewable_impressions) + ' viewable · ' + number(t.comment_card_opens) + ' discussion opens'} icon={MessageCircle} />
       <Metric label="Opted-in sponsor viewable impressions" value={number(t.sponsor_viewable_impressions)} detail={number(t.sponsor_clicks) + ' clicks from opted-in signed-in users'} icon={Megaphone} />
     </section>
     <section className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-      <Metric label="Topic viewability" value={t.topic_impressions ? ((t.topic_viewable_impressions / t.topic_impressions) * 100).toFixed(1) + '%' : '—'} detail="Opted-in viewable impressions ÷ opted-in impressions" icon={Activity} />
-      <Metric label="Topic completion rate" value={t.topic_impressions ? ((t.topic_completions / t.topic_impressions) * 100).toFixed(1) + '%' : '—'} detail="Opted-in completions ÷ opted-in impressions" icon={CheckCircle2} />
+      <Metric label="Opted-in topic viewability" value={t.topic_impressions ? ((t.topic_viewable_impressions / t.topic_impressions) * 100).toFixed(1) + '%' : '—'} detail="Opted-in viewable impressions ÷ opted-in impressions" icon={Activity} />
+      <Metric label="Opted-in topic completion rate" value={t.topic_impressions ? ((t.topic_completions / t.topic_impressions) * 100).toFixed(1) + '%' : '—'} detail="Opted-in completions ÷ opted-in impressions" icon={CheckCircle2} />
       <Metric label="Sponsor click-through" value={t.sponsor_viewable_impressions ? ((t.sponsor_clicks / t.sponsor_viewable_impressions) * 100).toFixed(2) + '%' : '—'} detail="Opted-in clicks ÷ opted-in viewable impressions" icon={Megaphone} />
-      <Metric label="Comment-card viewability" value={t.comment_card_impressions ? ((t.comment_card_viewable_impressions / t.comment_card_impressions) * 100).toFixed(1) + '%' : '—'} detail="Opted-in viewable impressions ÷ opted-in impressions" icon={MessageCircle} />
-      <Metric label="Discussion open rate" value={t.comment_card_impressions ? ((t.comment_card_opens / t.comment_card_impressions) * 100).toFixed(1) + '%' : '—'} detail="Opted-in discussion opens ÷ opted-in comment-card impressions" icon={MessageCircle} />
-      <Metric label="Comment active time" value={duration(t.comment_card_active_duration_ms)} detail="Opted-in time while a Top Comments card was visible and active" icon={Activity} />
+      <Metric label="Opted-in comment-card viewability" value={t.comment_card_impressions ? ((t.comment_card_viewable_impressions / t.comment_card_impressions) * 100).toFixed(1) + '%' : '—'} detail="Opted-in viewable impressions ÷ opted-in impressions" icon={MessageCircle} />
+      <Metric label="Opted-in discussion open rate" value={t.comment_card_impressions ? ((t.comment_card_opens / t.comment_card_impressions) * 100).toFixed(1) + '%' : '—'} detail="Opted-in discussion opens ÷ opted-in comment-card impressions" icon={MessageCircle} />
+      <Metric label="Opted-in comment active time" value={duration(t.comment_card_active_duration_ms)} detail="Opted-in time while a Top Comments card was visible and active" icon={Activity} />
     </section>
     <DailyOverviewChart series={series} />
     <AnalyticsDeepDivePanel data={deepDive} />
@@ -194,7 +194,7 @@ export function AdminAnalyticsHub({ overview, period, section = 'overview', seri
       </SectionCard>}
     </section>
     <Card padding="md" className="mt-8"><p className="text-text-secondary text-sm">Measurement notes</p>
-      <p className="text-text-muted mt-2 text-xs leading-relaxed">Topic, Top Comments and sponsor measurement are separate opted-in event streams. No anonymous analytics or sponsor delivery counters are collected. Sponsor metrics represent only signed-in users who explicitly enabled Sponsor measurement; they are not extrapolated to all sponsor deliveries. Signed-in unique viewers exclude users who did not opt in. Comment likes and replies are shown as community interactions and are not added to feed impressions.</p>
+      <p className="text-text-muted mt-2 text-xs leading-relaxed">Topic, Top Comments and sponsor measurement are separate opted-in event streams. No anonymous analytics or sponsor delivery counters are collected. Sponsor metrics represent only signed-in users who explicitly enabled Sponsor measurement; they are not extrapolated to all sponsor deliveries. Opted-in signed-in unique viewers exclude users who did not opt in. Comment likes and replies are shown as community interactions and are not added to feed impressions.</p>
     </Card>
   </main>;
 }
