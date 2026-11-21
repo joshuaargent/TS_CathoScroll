@@ -26,6 +26,9 @@ test('optional analytics consent is explicit, purpose-specific and off by defaul
   assert.ok(consent.includes('serviceImprovement: false'));
   assert.ok(consent.includes('sponsorMeasurement: false'));
   assert.ok(consent.includes('analyticsConsentVersion = 1'));
+  assert.match(consent, /cathoscroll\.analytics-consent\.v2/);
+  assert.match(consent, /startsWith\(legacyPrefix \+ '\.account\.'/);
+  assert.ok(manager.includes('clearLegacyAnalyticsConsentStorage()'));
   assert.ok(consent.includes('syncPending: options.syncPending ?? Boolean(userId)'));
   assert.ok(consent.includes('deniedOverrides'));
   assert.match(consent, /if \(!userId\) return false/);
