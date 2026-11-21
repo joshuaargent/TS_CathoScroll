@@ -57,7 +57,7 @@ The minimum information required is normally the sender's name, email address, s
 
 The balancing test is favourable where messages are limited to the request, access is restricted, the information is deleted once the request is resolved and no longer needed, and users are informed that Formspree processes submissions. Users would reasonably expect a service contact form to deliver their message to the service operator.
 
-The form must not solicit religious/philosophical beliefs or other special-category data. If a person voluntarily includes such information, do not use it for another purpose. If it is not necessary to respond, delete or redact it. If further processing of special-category data is necessary, identify and document a valid Article 9 condition before doing so; Article 6(1)(f) alone is insufficient.
+The form must not solicit religious/philosophical beliefs or other special-category data. If a person voluntarily includes such information, do not use it for another purpose. If it is not necessary to respond, redact or delete it promptly. If it is necessary to handle the information in order to respond, obtain explicit consent for that limited processing or identify another valid Article 9 condition before further use; Article 6(1)(f) alone is insufficient.
 
 **Provisional conclusion:** Article 6(1)(f) is a plausible basis for responding to general enquiries, subject to controller approval and the retention/access safeguards above. Confirm the mailbox provider and Formspree retention/deletion terms.
 
