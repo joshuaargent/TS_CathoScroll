@@ -46,7 +46,7 @@ function createTestWindow() {
 }
 
 
-const [analytics, sponsor, sponsorAnalytics, topicFeed, cardRegistry, readme, sponsorClient, sync, layout, nativeMain, bootstrap, sponsorSync, cardAnalytics, signedInOutbox] = await Promise.all([
+const [analytics, sponsor, sponsorAnalytics, topicFeed, cardRegistry, readme, sponsorClient, sync, layout, nativeMain, bootstrap, cardAnalytics, signedInOutbox] = await Promise.all([
   readFile(new URL('../src/lib/feed-analytics-client.ts', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/SponsorFeedCard.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/lib/sponsor-analytics-client.ts', import.meta.url), 'utf8'),
@@ -54,7 +54,6 @@ const [analytics, sponsor, sponsorAnalytics, topicFeed, cardRegistry, readme, sp
   readFile(new URL('../src/components/topic/feed-card-registry.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../README.md', import.meta.url), 'utf8'),
   importTypeScript('../src/lib/sponsor-analytics-client.ts'),
-  readFile(new URL('../src/components/providers/SponsorAnalyticsSync.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/app/layout.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../native/main.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../docs/cathoscroll-database-bootstrap.sql', import.meta.url), 'utf8'),
