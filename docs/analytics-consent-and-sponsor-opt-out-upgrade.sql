@@ -55,6 +55,8 @@ DECLARE
   v_service_consent boolean := false;
 BEGIN
   IF v_user_id IS NULL THEN RAISE EXCEPTION 'Authentication required' USING ERRCODE = '42501'; END IF;
+  PERFORM 1 FROM auth.users AS account WHERE account.id = v_user_id FOR KEY SHARE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Authentication required' USING ERRCODE = '42501'; END IF;
   SELECT consent.service_improvement INTO v_service_consent
   FROM catho_private.user_analytics_consents AS consent
   WHERE consent.user_id = v_user_id
