@@ -403,7 +403,9 @@ test('the reset shows personalisation as not chosen until a current choice is re
   const account = readFileSync(new URL('../src/components/account/PersonalizationAccountSection.tsx', import.meta.url), 'utf8');
   assert.match(account, /status\.updated_at \? 'Disabled' : 'Not chosen'/);
   for (const sql of [bootstrap, upgrade]) {
-    const status = getLastFunctionDefinition(sql, 'public.get_my_personalization_status') ?? '';
+    const start = sql.lastIndexOf('CREATE OR REPLACE FUNCTION public.get_my_personalization_status');
+    const end = sql.indexOf('$function$;', start);
+    const status = start >= 0 && end >= 0 ? sql.slice(start, end + '$function$;'.length) : '';
     assert.match(status, /consent_version='2026-11-21-v6'/);
   }
 });
