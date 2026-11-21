@@ -14,11 +14,20 @@ export function AnonymousAnalyticsPreference() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    const refresh = () => setEnabled(isAnonymousFeedAnalyticsEnabled());
-    refresh();
-    setReady(true);
+    let active = true;
+    const refresh = () => {
+      if (active) setEnabled(isAnonymousFeedAnalyticsEnabled());
+    };
     window.addEventListener(anonymousAnalyticsPreferenceChangeEvent, refresh);
-    return () => window.removeEventListener(anonymousAnalyticsPreferenceChangeEvent, refresh);
+    void Promise.resolve().then(() => {
+      if (!active) return;
+      refresh();
+      setReady(true);
+    });
+    return () => {
+      active = false;
+      window.removeEventListener(anonymousAnalyticsPreferenceChangeEvent, refresh);
+    };
   }, []);
 
   async function update() {
