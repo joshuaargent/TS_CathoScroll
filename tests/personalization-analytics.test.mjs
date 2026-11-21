@@ -284,12 +284,13 @@ test('analytics and personalisation SQL upgrades are order-safe and use the new 
     assert.match(sql, /pg_catalog\.to_regclass\('catho_private\.user_personalization_consents'\)/);
   }
   const analyticsSetterBlocks = [...analyticsConsentUpgrade.matchAll(/CREATE OR REPLACE FUNCTION public\.set_user_analytics_consent\([\s\S]*?\$function\$;/g)];
-  assert.equal(analyticsSetterBlocks.length, 1);
-  for (const block of analyticsSetterBlocks) {
-    assert.doesNotMatch(block[0], /Turn off personalisation before disabling Service improvement analytics/);
-    assert.match(block[0], /profile_refreshed_at = NULL/);
-    assert.match(block[0], /pg_catalog\.to_regclass\('catho_private\.user_personalization_consents'\)/);
-  }
+  assert.ok(analyticsSetterBlocks.length >= 1);
+  const finalAnalyticsSetter = analyticsSetterBlocks.at(-1)[0];
+  assert.doesNotMatch(finalAnalyticsSetter, /Turn off personalisation before disabling Service improvement analytics/);
+  assert.match(finalAnalyticsSetter, /profile_refreshed_at = NULL/);
+  assert.match(finalAnalyticsSetter, /pg_catalog\.to_regclass\('catho_private\.user_personalization_consents'\)/);
+  assert.match(finalAnalyticsSetter, /purge_user_service_improvement_events\(p_user_id\)/);
+  assert.match(finalAnalyticsSetter, /purge_user_sponsor_measurement_events\(p_user_id\)/);
   for (const sql of [bootstrap, upgrade]) {
     assert.match(sql, /ALTER TABLE catho_private\.user_topic_interest_scores ALTER COLUMN model_version SET DEFAULT '2026-11-20-v4'/);
     assert.match(sql, /'2026-11-20-v4'/);
