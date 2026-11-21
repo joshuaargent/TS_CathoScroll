@@ -198,7 +198,7 @@ export function AnalyticsConsentSettingsPanel({
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
         <p className="text-text-muted text-xs">
-          Personalisation automatically enables Service improvement analytics. Sponsor measurement is separate and never affects recommendations.
+          Personalisation is independent. Passive reading signals inform recommendations only when both Personalisation and Service improvement analytics are enabled. Sponsor measurement is separate and never affects recommendations.
         </p>
         <button
           type="button"
