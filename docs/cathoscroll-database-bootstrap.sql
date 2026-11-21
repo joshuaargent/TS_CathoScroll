@@ -8319,6 +8319,7 @@ DECLARE
   v_campaigns jsonb := '[]'::jsonb;
   v_today date := (pg_catalog.timezone('UTC', statement_timestamp()))::date;
   v_topic_category_slug text;
+  v_slot integer;
 BEGIN
   -- The legacy session-token argument is deliberately ignored. It is not stored,
   -- hashed, used for frequency, or included in any analytics event.
@@ -8618,12 +8619,131 @@ DROP TABLE IF EXISTS catho_private.sponsor_campaign_user_frequency;
 DO $anonymous_cron_cleanup$
 BEGIN
   IF to_regclass('cron.job') IS NOT NULL THEN
-    PERFORM cron.unschedule(jobid)
-    FROM cron.job
-    WHERE jobname = 'cathoscroll-anonymous-analytics-prune';
+    EXECUTE 'SELECT cron.unschedule(jobid) FROM cron.job WHERE jobname = $1'
+      USING 'cathoscroll-anonymous-analytics-prune';
   END IF;
 END;
 $anonymous_cron_cleanup$;
+
+NOTIFY pgrst, 'reload schema';
+
+
+-- Corrected consented sponsor event ingestion. A delivery is never recorded:
+-- only an opted-in viewable impression or click creates an event row.
+CREATE OR REPLACE FUNCTION public.record_sponsor_campaign_event(
+  p_user_id uuid,
+  p_campaign_id uuid,
+  p_event_id uuid,
+  p_session_id uuid,
+  p_event_type text
+)
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO ''
+AS $function$
+DECLARE
+  v_today date := (pg_catalog.timezone('UTC', statement_timestamp()))::date;
+  v_inserted integer := 0;
+  v_sponsor_consent boolean := false;
+BEGIN
+  IF p_user_id IS NULL OR p_campaign_id IS NULL OR p_event_id IS NULL OR p_session_id IS NULL
+     OR p_event_type IS NULL OR p_event_type NOT IN ('viewable_impression', 'click')
+     OR NOT EXISTS (SELECT 1 FROM auth.users AS account WHERE account.id = p_user_id) THEN
+    RAISE EXCEPTION 'Invalid sponsor campaign event' USING ERRCODE = '22023';
+  END IF;
+
+  SELECT consent.sponsor_measurement INTO v_sponsor_consent
+  FROM catho_private.user_analytics_consents AS consent
+  WHERE consent.user_id = p_user_id FOR SHARE;
+  IF coalesce(v_sponsor_consent, false) IS NOT TRUE THEN RETURN false; END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.sponsor_campaigns AS campaign
+    JOIN public.sponsors AS sponsor ON sponsor.id = campaign.sponsor_id
+    WHERE campaign.id = p_campaign_id
+      AND campaign.status = 'approved'
+      AND campaign.starts_on <= v_today AND campaign.ends_on >= v_today
+      AND sponsor.status IN ('active', 'scheduled')
+      AND sponsor.payment_status IN ('received', 'not_required')
+      AND (sponsor.starts_on IS NULL OR sponsor.starts_on <= v_today)
+      AND (sponsor.ends_on IS NULL OR sponsor.ends_on >= v_today)
+  ) THEN
+    RAISE EXCEPTION 'Sponsor campaign is not currently eligible' USING ERRCODE = '42501';
+  END IF;
+
+  IF p_event_type = 'click' AND NOT EXISTS (
+    SELECT 1 FROM catho_private.sponsor_campaign_events AS viewed
+    WHERE viewed.user_id = p_user_id AND viewed.campaign_id = p_campaign_id
+      AND viewed.session_id = p_session_id AND viewed.event_type = 'viewable_impression'
+  ) THEN
+    RAISE EXCEPTION 'Sponsor campaign must be viewable before a click is recorded' USING ERRCODE = '42501';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM catho_private.sponsor_campaign_events AS existing
+    WHERE existing.user_id = p_user_id AND existing.campaign_id = p_campaign_id
+      AND existing.session_id = p_session_id AND existing.event_type = p_event_type
+  ) THEN
+    RETURN true;
+  END IF;
+
+  INSERT INTO catho_private.sponsor_campaign_events
+    (campaign_id, event_id, user_id, session_id, event_type, received_at)
+  VALUES (p_campaign_id, p_event_id, p_user_id, p_session_id, p_event_type, statement_timestamp())
+  ON CONFLICT DO NOTHING;
+  GET DIAGNOSTICS v_inserted = ROW_COUNT;
+  IF v_inserted = 0 THEN
+    RETURN EXISTS (
+      SELECT 1 FROM catho_private.sponsor_campaign_events AS existing
+      WHERE existing.user_id = p_user_id AND existing.campaign_id = p_campaign_id
+        AND existing.session_id = p_session_id AND existing.event_type = p_event_type
+    );
+  END IF;
+
+  INSERT INTO catho_private.sponsor_campaign_daily
+    (event_date, campaign_id, viewable_impressions, clicks, updated_at)
+  VALUES (
+    v_today,
+    p_campaign_id,
+    CASE WHEN p_event_type = 'viewable_impression' THEN 1 ELSE 0 END,
+    CASE WHEN p_event_type = 'click' THEN 1 ELSE 0 END,
+    statement_timestamp()
+  )
+  ON CONFLICT (event_date, campaign_id) DO UPDATE
+  SET viewable_impressions = catho_private.sponsor_campaign_daily.viewable_impressions + EXCLUDED.viewable_impressions,
+      clicks = catho_private.sponsor_campaign_daily.clicks + EXCLUDED.clicks,
+      updated_at = EXCLUDED.updated_at;
+  RETURN true;
+END;
+$function$;
+ALTER FUNCTION public.record_sponsor_campaign_event(uuid, uuid, uuid, uuid, text) OWNER TO postgres;
+REVOKE ALL ON FUNCTION public.record_sponsor_campaign_event(uuid, uuid, uuid, uuid, text) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.record_sponsor_campaign_event(uuid, uuid, uuid, uuid, text) TO service_role;
+
+-- The delivery selectors intentionally do not enforce impression caps because
+-- no delivery counts are collected. Consented frequency limits are enforced
+-- from opted-in viewable-impression events by the weighted selector.
+DO $legacy_counter_reset$
+BEGIN
+  IF to_regclass('public.sponsor_campaigns') IS NOT NULL THEN
+    EXECUTE 'UPDATE public.sponsor_campaigns SET served_count = 0';
+  END IF;
+  IF to_regclass('catho_private.sponsor_campaign_daily') IS NOT NULL THEN
+    EXECUTE 'UPDATE catho_private.sponsor_campaign_daily SET served_count = 0';
+  END IF;
+END;
+$legacy_counter_reset$;
+
+DO $anonymous_cron_cleanup_final$
+BEGIN
+  IF to_regclass('cron.job') IS NOT NULL THEN
+    EXECUTE 'SELECT cron.unschedule(jobid) FROM cron.job WHERE jobname = $1'
+      USING 'cathoscroll-anonymous-analytics-prune';
+  END IF;
+END;
+$anonymous_cron_cleanup_final$;
 
 NOTIFY pgrst, 'reload schema';
 
