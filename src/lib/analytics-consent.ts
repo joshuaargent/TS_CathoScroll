@@ -155,6 +155,11 @@ export function hasAnalyticsConsent(choice: AnalyticsConsentChoice, userId?: str
   return getAnalyticsConsent(userId)[choice] === true;
 }
 
+export function hasSyncedAnalyticsConsent(choice: AnalyticsConsentChoice, userId?: string | null): boolean {
+  const consent = readAnalyticsConsent(userId);
+  return hasAnalyticsConsent(choice, userId) && consent?.syncPending !== true;
+}
+
 export function saveAnalyticsConsent(
   choices: Pick<AnalyticsConsent, 'serviceImprovement' | 'sponsorMeasurement'>,
   userId?: string | null,
