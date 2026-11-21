@@ -4,6 +4,13 @@ import test from 'node:test';
 
 const read = (path) => readFile(new URL(path, import.meta.url), 'utf8');
 
+function getLastFunctionDefinition(sql, name) {
+  const start = sql.lastIndexOf('CREATE OR REPLACE FUNCTION ' + name);
+  if (start < 0) return null;
+  const end = sql.indexOf('$function$;', start);
+  return end > start ? sql.slice(start, end) : null;
+}
+
 test('optional analytics consent is explicit, purpose-specific and off by default', async () => {
   const [consent, manager, layout, native, cookies, account, signup, anonymous] = await Promise.all([
     read('../src/lib/analytics-consent.ts'),
@@ -96,28 +103,23 @@ test('account consent sync is identity-bound, retryable and enforced server-side
   assert.ok(sponsorRoute.includes('getStoredAnalyticsConsent(auth.user.id)'));
   assert.ok(migration.includes('user_analytics_consents'));
   assert.ok(migration.includes('user_analytics_consent_history'));
-  const setter = migration.slice(migration.indexOf('CREATE OR REPLACE FUNCTION public.set_user_analytics_consent'));
+  const setter = getLastFunctionDefinition(migration, 'public.set_user_analytics_consent') ?? '';
   assert.ok(setter.indexOf('FROM auth.users AS account WHERE account.id = p_user_id FOR UPDATE') < setter.indexOf('FROM catho_private.user_analytics_consents'));
   for (const sql of [migration, bootstrap]) {
     for (const name of ['public.record_feed_analytics_events', 'public.record_sponsor_campaign_event', 'public.get_weighted_sponsor_campaigns']) {
-      const start = sql.indexOf('CREATE OR REPLACE FUNCTION ' + name);
-      const end = sql.indexOf('$function$;', start);
-      assert.ok(start >= 0 && end > start, name + ' must be present as a complete function in both install paths');
-      const body = sql.slice(start, end);
+      const body = getLastFunctionDefinition(sql, name);
+      assert.ok(body, name + ' must be present as a complete final function in both install paths');
       assert.ok(body.toLowerCase().includes('for key share'));
       assert.ok(body.toLowerCase().indexOf('for key share') < body.toLowerCase().indexOf('for share'));
     }
-    const setterStart = sql.indexOf('CREATE OR REPLACE FUNCTION public.set_user_analytics_consent');
-    const setterEnd = sql.indexOf('$function$;', setterStart);
-    const setter = sql.slice(setterStart, setterEnd);
+    const setter = getLastFunctionDefinition(sql, 'public.set_user_analytics_consent') ?? '';
     assert.ok(setter.indexOf('FOR UPDATE') < setter.indexOf('FROM catho_private.user_analytics_consents'));
   }
   for (const sql of [personalizationUpgrade, bootstrap]) {
     const name = 'public.record_feed_card_analytics_events';
-    const start = sql.indexOf('CREATE OR REPLACE FUNCTION ' + name);
-    const end = sql.indexOf('$function$;', start);
-    assert.ok(start >= 0 && end > start, name + ' must be present in both install paths');
-    const body = sql.slice(start, end).toLowerCase();
+    const definition = getLastFunctionDefinition(sql, name);
+    assert.ok(definition, name + ' must be present in both install paths');
+    const body = definition.toLowerCase();
     assert.ok(body.includes('for key share'));
     assert.ok(body.indexOf('for key share') < body.indexOf('for share'));
   }
@@ -192,7 +194,7 @@ test('declining sponsor measurement preserves delivery and campaign-day totals w
   assert.ok(selectRoute.includes('const measurementSessionId: string | null'));
   assert.ok(selectRoute.includes('p_session_token: measurementSessionId'));
   assert.ok(selectRoute.includes('sponsorMeasurementEnabled = consent.sponsorMeasurement && parsed.value.sessionId !== null;'));
-  assert.ok(selectRoute.includes('// Detailed sponsor measurement is account-only.'));
+  assert.ok(selectRoute.includes('// Detailed Sponsor measurement is account-only.'));
   assert.ok(eventRoute.includes('eventPayload.sponsorMeasurementConsent !== true'));
   assert.ok(selectRoute.includes('p_session_id: measurementSessionId'));
   assert.ok(eventRoute.includes('if (!consent.sponsorMeasurement) return respond(request, { recorded: false });'));
