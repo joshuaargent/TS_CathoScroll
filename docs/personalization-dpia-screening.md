@@ -13,7 +13,7 @@ A UK privacy professional must review and complete this assessment before broad 
 
 Users may separately opt in at signup or later in Account settings. The checkbox is unticked by default and is not required to use CathoScroll. The recorded consent version is `2026-11-20-v4`.
 
-When enabled, the v4 model uses eligible explicit account actions and passive reading signals recorded after the personalisation grant:
+When enabled, the v4 model uses eligible direct account actions and explicitly selected categories. Passive reading signals are included only when the user separately enables Service improvement analytics:
 - progress and completed topics;
 - bookmarks and topic likes;
 - comments written, comment likes and replies written;
@@ -21,9 +21,9 @@ When enabled, the v4 model uses eligible explicit account actions and passive re
 - viewable impressions, active duration, swipe depth, skips, completions, return visits and eligible Top Comments exposure;
 - derived topic/category interest scores based on those signals.
 
-Passive reading measurements are recommendation inputs only while both personalisation and the linked Service improvement analytics permission are active. When personalisation is off, Service improvement analytics may remain enabled for operational reporting, but the recommendation RPC does not read account-history analytics or explicit-interest tables.
+Passive reading measurements are recommendation inputs only while both independent choices are active. When Personalisation is off, Service improvement analytics may remain enabled for service reporting but does not create a recommendation profile. When Service improvement analytics is off, Personalisation continues to use direct account actions and selected categories, without collecting or processing passive reading signals for recommendations.
 
-**Consent dependency:** enabling personalisation also enables Service improvement analytics. The user cannot disable that analytics choice until personalisation is withdrawn. The profile refresher checks both consent records and uses only events recorded after the personalisation grant.
+**Consent model:** Personalisation and Service improvement analytics are independent opt-ins and can be withdrawn independently. The profile refresher always uses eligible direct account actions while Personalisation is enabled; it reads passive feed/card events only while Service improvement is also enabled, and only from the current Service improvement grant timestamp.
 
 The profile is private, is not displayed on public profiles, and is not provided to sponsors. It is not used for user-level sponsor targeting. Sponsors may select contextual category/topic placement criteria, but those criteria are not derived from the user's private profile.
 
@@ -35,7 +35,7 @@ When personalisation is disabled, the recommendation RPC does not read account-h
 
 Separate operational analytics records authenticated feed, comment-card, and sponsor events for admin reporting, content-performance measurement, reliability, and frequency-cap enforcement. Raw events and user/day viewer bridges are retained for up to 180 days; non-identifying daily aggregates are retained longer.
 
-Service improvement analytics is covered by the personalisation choice while personalisation is enabled, and is locked on during that period. If personalisation is off, Service improvement analytics can be managed independently. Account-linked topic/card events may reveal sensitive interests; the controller must document the applicable Article 6 basis and, where the data reveals beliefs, an Article 9 condition. Sponsor measurement remains a separate optional purpose.
+Service improvement analytics is independently optional. If both Service improvement and Personalisation are enabled, eligible passive reading signals may inform private recommendations; if only Service improvement is enabled, those signals are used for service reporting, not recommendations. Account-linked topic/card events may reveal sensitive interests; the controller must document the applicable Article 6 basis and, where the data reveals beliefs, an Article 9 condition. Sponsor measurement remains a separate optional purpose.
 
 ### Sponsor reporting
 
@@ -70,12 +70,12 @@ The product's current minimum age is 13. This does not settle whether a particul
 |---|---|---|
 | Religious/philosophical interests inferred from reading patterns | Optional opt-in, clear sensitive-data wording, private profile, no sponsor sharing | Medium; validate consent and inference scope |
 | Users cannot genuinely refuse personalisation | All individual learning/community features remain free; neutral feed when off | Low, subject to product verification |
-| Consent is bundled or preselected | Unticked signup opt-in with clear linked Service improvement disclosure; Account control; service analytics locked while personalisation is on; sponsor separate | Low; verify on web and native builds |
+| Consent is bundled or preselected | Separate unticked Personalisation and Service improvement choices; each can be withdrawn independently; Sponsor measurement is a third choice | Low; verify on web and native builds |
 | Withdrawal leaves a personalised cursor active | Recommendation RPC re-normalises category weights and completion handling | Low; regression-tested |
 | Profile or raw event data exposed to sponsors | Separate sponsor pipeline; aggregate campaign reports only | Low; verify admin/export permissions |
 | Excessive retention | 90-day behavioural window, 180-day explicit evidence and raw-event/viewer bridge retention | Medium; verify all scheduled jobs and sponsor records |
 | Unauthorised access to profiles or raw events | Private schema, restricted RPCs, RLS, service-role-only admin reports | Medium; complete independent permission review |
-| Operational analytics itself reveals special-category interests | 180-day raw retention and access restrictions; reading signals used for ranking only under the linked v4 opt-in; Article 6/Article 9 basis still requires controller approval | High/unresolved until Article 9 assessment or redesign |
+| Operational analytics itself reveals special-category interests | 180-day raw retention and access restrictions; reading signals inform recommendations only when both independent choices are active; Article 6/Article 9 basis still requires controller approval | High/unresolved until Article 9 assessment |
 | Processor/international transfer exposure | Supabase and Vercel are identified processors | Medium/unresolved until regions, DPAs, and transfers verified |
 | Minors provide invalid consent | Minimum age 13 in Terms | High/unresolved until age/capacity approach reviewed |
 
@@ -92,7 +92,7 @@ The product's current minimum age is 13. This does not settle whether a particul
 
 ## 6. Required decisions before broad production rollout
 
-1. **Operational analytics Article 9 condition:** Determine whether account-linked topic/card events reveal religious or philosophical beliefs in context. The personalisation opt-in also enables Service improvement analytics while personalisation is active, because the same eligible reading signals serve both purposes. If account-linked activity is special-category processing, document a valid Article 9 condition; the explicit opt-in must clearly cover both purposes. When personalisation is off, retain the separate optional Service improvement analytics control.
+1. **Operational analytics Article 9 condition:** Determine whether account-linked topic/card events reveal religious or philosophical beliefs in context. Personalisation consent covers direct account actions and selected categories used for recommendations. Service improvement analytics is a separate explicit opt-in for passive reading measurements; those signals contribute to recommendations only when Personalisation is also enabled. If account-linked activity is special-category processing, document a valid Article 9 condition for each relevant purpose and ensure the corresponding explicit consent clearly describes the data and use.
 2. **DPIA completion:** Complete the necessity/proportionality assessment, risk scoring, mitigations, residual-risk decision, and controller approval. Do not treat this screening as approval.
 3. **Children:** Decide whether personalisation is available to users aged 13–17 and document capacity/parental considerations.
 4. **Controller details:** Add the controller's full legal identity and postal address to the public Privacy Policy.
