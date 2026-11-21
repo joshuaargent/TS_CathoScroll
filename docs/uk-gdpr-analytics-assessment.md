@@ -87,7 +87,7 @@ When sponsor measurement is disabled:
 - Continue sponsor delivery and global campaign pacing/caps.
 - For this visitor, record only server-side campaign/day served-placement aggregates. Do not claim viewability, clicks, CTR, unique reach or per-person frequency for opted-out delivery.
 
-When signed-out aggregate topic/comment measurement is disabled through its separate objection control:
+If a signed-out visitor objects through the proposed aggregate objection control (pending product/controller approval):
 - Stop new anonymous event creation.
 - Clear pending web/native retry events and ensure re-enabling does not upload stale pre-withdrawal events.
 - Preserve all core content and account functionality.
