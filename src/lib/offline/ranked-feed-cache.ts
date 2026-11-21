@@ -22,7 +22,7 @@ const maximumPagesPerOwner = 30;
 const maximumPageAgeMs = 14 * 24 * 60 * 60 * 1000;
 const consentFreshnessMs = 12 * 60 * 60 * 1000;
 const personalizedModelVersion = 'activity-signals-v4';
-const personalizationConsentVersion = '2026-11-21-v5';
+const personalizationConsentVersion = '2026-11-21-v6';
 
 function assertOwner(mode: RankedFeedMode, userId: string | null): string {
   if (mode === 'general') return 'public';
@@ -108,13 +108,10 @@ export class OfflineRankedFeedCache {
           consentVersionRows.length !== 1 ||
           consentVersionRows[0].cache_value !== personalizationConsentVersion
         ) {
-          // Existing cached grants predate the current explicit-consent wording.
-          // Invalidate old grants and ranked pages before allowing offline use.
-          // Preserve only a pending local denial so an offline withdrawal cannot
-          // be lost during this version transition.
-          await db.execute(
-            'DELETE FROM offline_personalization_consent_cache WHERE enabled = 1 OR pending_sync = 0'
-          );
+          // This release resets every existing account to an undecided state.
+          // Remove all cached grants, denials and pending choices: the server-side
+          // reset is authoritative, and no pre-release local choice may be replayed.
+          await db.execute('DELETE FROM offline_personalization_consent_cache');
           await db.execute(
             'DELETE FROM offline_ranked_feed_pages WHERE mode = ?',
             ['personalized']
