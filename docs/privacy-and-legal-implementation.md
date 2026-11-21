@@ -43,7 +43,7 @@ Keep recommendation profiles private and delete the derived profile and selected
 - Verify Vercel, Supabase and all other processor terms, subprocessors, processing locations, Article 28 terms and international transfer safeguards.
 - Inspect production SDK requests, browser storage/access, native WebView behaviour and security logs.
 - Document Article 6 and Article 9 bases for each purpose; complete a legitimate-interests assessment where that basis is relied upon.
-- Confirm the controller's ICO fee-registration obligation and status.
+- Complete the ICO fee self-assessment and confirm registration status. As a sole trader, the controller may fall into Tier 1 (£52 annually where turnover is no more than £632,000 or staff numbers no more than 10), unless a specific exemption applies. Do not assume exemption; consider the public-register address before registering.
 - Update privacy information with controller identity, purposes, bases/conditions, data categories, recipients, transfers, retention, rights and complaint route.
 - Obtain UK data-protection solicitor review and controller sign-off before release.
 
