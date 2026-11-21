@@ -44,7 +44,7 @@ test('sponsor delivery selectors do not record served or anonymous delivery tota
   ]);
   for (const sql of [bootstrap, upgrade]) {
     const finalModel = sql.slice(sql.lastIndexOf('-- FINAL ANALYTICS MODEL'));
-    for (const name of ['get_anonymous_sponsor_campaigns', 'get_weighted_sponsor_campaigns']) {
+    for (const name of ['get_unmeasured_sponsor_campaigns', 'get_weighted_sponsor_campaigns']) {
       const start = finalModel.lastIndexOf('CREATE OR REPLACE FUNCTION public.' + name);
       const end = finalModel.indexOf('$function$;', start);
       assert.ok(start >= 0 && end > start);
@@ -52,7 +52,7 @@ test('sponsor delivery selectors do not record served or anonymous delivery tota
       assert.doesNotMatch(selector, /served_count|anonymous_sponsor_campaign_daily|INSERT INTO catho_private\.sponsor_campaign_daily/);
     }
   }
-  assert.match(route, /!sponsorMeasurementEnabled[\s\S]*?get_anonymous_sponsor_campaigns/);
+  assert.match(route, /!sponsorMeasurementEnabled[\s\S]*?get_unmeasured_sponsor_campaigns/);
   assert.match(card, /!sponsorMeasurementEnabled \|\| !userId/);
   assert.doesNotMatch(card, /recordAnonymousSponsorCampaignEvent/);
 });
