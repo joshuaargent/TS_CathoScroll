@@ -217,6 +217,34 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
         credentials = 'omit';
       }
       if (!isCurrentAccount()) return;
+
+      // A native offline withdrawal is written to the encrypted consent cache
+      // before its server update can run. Do not reconcile account analytics
+      // against the old server personalisation grant until the native feed
+      // has synchronised that pending denial and emits analyticsConsentSyncEvent.
+      const hasPendingNativePersonalizationChange = await new Promise<boolean>((resolve) => {
+        let settled = false;
+        const finish = (pending: boolean) => {
+          if (settled) return;
+          settled = true;
+          window.clearTimeout(timeout);
+          resolve(pending);
+        };
+        const timeout = window.setTimeout(() => finish(false), 300);
+        window.dispatchEvent(new CustomEvent('cathoscroll:personalization-consent-status-request', {
+          detail: {
+            userId: expectedUserId,
+            complete: (result: Promise<{
+              available: boolean;
+              consent: { enabled: boolean; pendingSync: boolean } | null;
+            }>) => {
+              void result.then(({ consent }) => finish(consent?.pendingSync === true)).catch(() => finish(false));
+            },
+          },
+        }));
+      });
+      if (!isCurrentAccount() || hasPendingNativePersonalizationChange) return;
+
       const endpoint = apiBaseUrl
         ? new URL('/api/privacy/analytics-consent', apiBaseUrl).toString()
         : '/api/privacy/analytics-consent';
