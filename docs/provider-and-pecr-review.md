@@ -21,7 +21,7 @@ Sponsor cards remain eligible for delivery regardless of consent. Delivery itsel
 - **Personalisation:** separate account-level recommendation purpose. The derived profile is private and must not be used for sponsor targeting.
 - **General feed ranking:** does not use anonymous analytics or sponsor delivery/measurement events.
 
-Website retry queues are memory-only. Android and Electron persist only consented signed-in analytics streams in encrypted app-private storage, capped at 2,000 events per stream and seven days, deleting acknowledged events and clearing the relevant stream on withdrawal or account change. No anonymous native queue exists.
+Website retry queues are memory-only. Android and Electron persist only consented signed-in analytics streams in encrypted app-private storage, capped at 2,000 events per stream and seven days, deleting acknowledged events and clearing the relevant stream on withdrawal or account change. Consented sponsor events include a server-issued placement receipt; the receipt is stored in the encrypted native outbox and expires server-side after seven days. No anonymous native queue exists.
 
 ## PECR assessment
 
