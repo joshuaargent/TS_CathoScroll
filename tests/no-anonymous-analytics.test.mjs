@@ -79,3 +79,49 @@ test('sponsor delivery selectors do not record served or anonymous delivery tota
   assert.match(card, /!sponsorMeasurementEnabled \|\| !userId/);
   assert.doesNotMatch(card, /recordAnonymousSponsorCampaignEvent/);
 });
+
+
+test('withdrawing analytics consent deletes account-linked events and rebuilds opted-in aggregates', async () => {
+  const [bootstrap, upgrade, privacy, cookies] = await Promise.all([
+    read('../docs/cathoscroll-database-bootstrap.sql'),
+    read('../docs/analytics-consent-and-sponsor-opt-out-upgrade.sql'),
+    read('../src/app/privacy/page.tsx'),
+    read('../src/app/cookies/page.tsx'),
+  ]);
+
+  for (const sql of [bootstrap, upgrade]) {
+    const serviceStart = sql.lastIndexOf('CREATE OR REPLACE FUNCTION catho_private.purge_user_service_improvement_events');
+    const serviceEnd = sql.indexOf('$function$;', serviceStart);
+    const sponsorStart = sql.lastIndexOf('CREATE OR REPLACE FUNCTION catho_private.purge_user_sponsor_measurement_events');
+    const sponsorEnd = sql.indexOf('$function$;', sponsorStart);
+    const consentStart = sql.lastIndexOf('CREATE OR REPLACE FUNCTION public.set_user_analytics_consent');
+    const consentEnd = sql.indexOf('$function$;', consentStart);
+    assert.ok(serviceStart >= 0 && serviceEnd > serviceStart);
+    assert.ok(sponsorStart >= 0 && sponsorEnd > sponsorStart);
+    assert.ok(consentStart >= 0 && consentEnd > consentStart);
+
+    const servicePurge = sql.slice(serviceStart, serviceEnd);
+    const sponsorPurge = sql.slice(sponsorStart, sponsorEnd);
+    const consent = sql.slice(consentStart, consentEnd);
+
+    assert.match(servicePurge, /DELETE FROM catho_private\.feed_analytics_events WHERE user_id = p_user_id/);
+    assert.match(servicePurge, /DELETE FROM catho_private\.feed_card_analytics_events WHERE user_id = p_user_id/);
+    assert.match(servicePurge, /DELETE FROM catho_private\.feed_analytics_daily_viewers WHERE user_id = p_user_id/);
+    assert.match(servicePurge, /DELETE FROM catho_private\.feed_card_analytics_daily_viewers WHERE user_id = p_user_id/);
+    assert.match(servicePurge, /INSERT INTO catho_private\.feed_analytics_daily/);
+    assert.match(servicePurge, /INSERT INTO catho_private\.feed_card_analytics_daily/);
+    assert.match(servicePurge, /refresh_user_interest_profile/);
+
+    assert.match(sponsorPurge, /DELETE FROM catho_private\.sponsor_campaign_events WHERE user_id = p_user_id/);
+    assert.match(sponsorPurge, /DELETE FROM catho_private\.sponsor_campaign_placement_receipts WHERE user_id = p_user_id/);
+    assert.match(sponsorPurge, /INSERT INTO catho_private\.sponsor_campaign_daily/);
+
+    assert.match(consent, /purge_user_service_improvement_events\(p_user_id\)/);
+    assert.match(consent, /purge_user_sponsor_measurement_events\(p_user_id\)/);
+    assert.match(sql, /DO \$consent_cleanup\$/);
+  }
+
+  assert.match(privacy, /Withdrawing Service improvement deletes your account-linked feed and Top Comments events/);
+  assert.match(privacy, /Withdrawing Sponsor measurement also deletes your account-linked sponsor event records/);
+  assert.match(cookies, /Withdrawing a purpose clears its local queue and deletes its account-linked server event records/);
+});
