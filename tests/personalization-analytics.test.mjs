@@ -308,10 +308,10 @@ test('personalisation and service improvement are independent explicit purposes'
   assert.match(signupTrigger, /personalization_consent_version/);
   assert.match(signupTrigger, /service_improvement_consent/);
   assert.match(signupTrigger, /sponsor_measurement_consent/);
-  assert.match(webSignup, /personalization_consent_version: personalizationConsent \? '2026-11-20-v4' : null/);
+  assert.match(webSignup, /personalization_consent_version: personalizationConsent \? '2026-11-21-v5' : null/);
   assert.match(webSignup, /service_improvement_consent: serviceImprovementConsent/);
   assert.match(webSignup, /sponsor_measurement_consent: sponsorMeasurementConsent/);
-  assert.match(nativeSignup, /personalization_consent_version: personalizationConsent \? '2026-11-20-v4' : null/);
+  assert.match(nativeSignup, /personalization_consent_version: personalizationConsent \? '2026-11-21-v5' : null/);
   assert.match(nativeSignup, /service_improvement_consent: serviceImprovementConsent/);
   assert.match(nativeSignup, /sponsor_measurement_consent: sponsorMeasurementConsent/);
   assert.match(accountSection, /p_consent_version: '2026-11-21-v5'/);
