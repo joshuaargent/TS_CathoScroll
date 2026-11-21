@@ -37,6 +37,10 @@ test('optional analytics consent is explicit, purpose-specific and off by defaul
   assert.ok(account.includes('Sponsor measurement'));
   assert.ok(account.includes('Required while personalisation is on'));
   assert.ok(account.includes('clearAnalyticsConsentQueues(userId, previous, next)'));
+  assert.ok(account.includes('offlineCacheAvailable: boolean'));
+  assert.ok(account.includes('offlinePersonalizationWithdrawal'));
+  assert.ok(account.includes('persistOfflinePersonalizationWithdrawal'));
+  assert.ok(account.includes('pendingSync: true'));
   assert.ok(signup.includes('name="personalizationConsent"'));
   assert.ok(signup.includes('name="serviceImprovementConsent"'));
   assert.ok(signup.includes('name="sponsorMeasurementConsent"'));
@@ -82,6 +86,8 @@ test('account consent sync is identity-bound, retryable and enforced server-side
   assert.ok(manager.includes('activeUserIdRef.current === expectedUserId'));
   assert.ok(manager.includes('consentMutationRef.current === requestGeneration'));
   assert.ok(manager.includes('readLocalChoiceSnapshot() === localChoiceSnapshot'));
+  assert.ok(manager.includes("cathoscroll:personalization-consent-status-request"));
+  assert.ok(manager.includes("consent?.pendingSync === true"));
   assert.ok(manager.includes('markOwnChoiceWrite();'));
   assert.ok(manager.includes('window.addEventListener(analyticsConsentChangeEvent, onConsentChange)'));
   assert.ok(manager.includes('event.key === storageKey'));
