@@ -38,7 +38,7 @@ Sponsor measurement is advertising measurement and must not start before the sep
 
 ## 6. Security and retention
 
-Signed-in raw analytics and the restricted viewer bridge are retained for up to 180 days under the current implementation. Native pending signed-in events use encrypted app-private storage, a 2,000-event per-stream cap and seven-day expiry; acknowledged events and withdrawn streams are cleared. Website pending queues are memory-only. Apply least-privilege access, service-role-only database functions, event validation, rate limits and audit logging.
+Signed-in raw analytics, the restricted viewer bridge and associated event-rate-limit records are retained for up to 180 days under the current implementation. Native pending signed-in events use encrypted app-private storage, a 2,000-event per-stream cap and seven-day expiry; acknowledged events and withdrawn streams are cleared. Website pending queues are memory-only. Apply least-privilege access, service-role-only database functions, event validation, rate limits and audit logging.
 
 Withdrawal must immediately deny new local collection, clear the matching queue, stop uploads and synchronise the denial server-side when online. Personalisation withdrawal must stop new profile updates and delete the derived profile and selected interests.
 
