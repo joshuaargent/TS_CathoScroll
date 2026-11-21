@@ -392,7 +392,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
     if (saving) return;
     const previous = readAnalyticsConsent(userId);
     const isServiceImprovementWithdrawal = previous?.serviceImprovement === true && !next.serviceImprovement;
-    if (isServiceImprovementWithdrawal && (!effectivePersonalizationStatusKnown || effectivePersonalizationEnabled)) {
+    if (isServiceImprovementWithdrawal && effectivePersonalizationStatusKnown && effectivePersonalizationEnabled) {
       setError(effectivePersonalizationEnabled
         ? 'Turn off personalisation before disabling Service improvement analytics.'
         : 'Checking your personalisation settings. Try again in a moment.');
@@ -547,7 +547,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
             <div className="grid grid-cols-2 gap-3">
               <button
                 type="button"
-                disabled={saving || effectivePersonalizationEnabled || !effectivePersonalizationStatusKnown}
+                disabled={saving || effectivePersonalizationEnabled}
                 onClick={() => void save({ serviceImprovement: false, sponsorMeasurement: false })}
                 className="border-border text-text-primary hover:bg-bg-secondary rounded-xl border px-4 py-3 text-sm font-semibold disabled:opacity-50"
               >
