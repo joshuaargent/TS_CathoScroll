@@ -55,7 +55,11 @@ test('sponsor delivery selectors do not record served or anonymous delivery tota
       const end = finalModel.indexOf('$function$;', start);
       assert.ok(start >= 0 && end > start);
       const selector = finalModel.slice(start, end);
-      assert.doesNotMatch(selector, /served_count|anonymous_sponsor_campaign_daily|INSERT INTO catho_private\.sponsor_campaign_daily/);
+      assert.doesNotMatch(selector, /served_count|anonymous_sponsor_campaign_daily|sponsor_campaign_user_frequency|INSERT INTO catho_private\.sponsor_campaign_daily/);
+      if (name === 'get_weighted_sponsor_campaigns') {
+        assert.match(selector, /sponsor_campaign_placement_receipts/);
+        assert.match(selector, /measurement_receipt/);
+      }
       if (name === 'get_unmeasured_sponsor_campaigns') {
         assert.doesNotMatch(selector, /session_id|session_token/);
       }
