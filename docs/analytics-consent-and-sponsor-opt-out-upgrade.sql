@@ -1525,6 +1525,185 @@ ALTER FUNCTION public.get_sponsor_campaign_analytics(uuid, uuid, date, date) OWN
 REVOKE ALL ON FUNCTION public.get_sponsor_campaign_analytics(uuid, uuid, date, date) FROM PUBLIC, anon, authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.get_sponsor_campaign_analytics(uuid, uuid, date, date) TO service_role;
 
+-- Replace the public general-feed ranking before removing the legacy anonymous
+-- aggregate table. The replacement uses public interactions and consented
+-- signed-in feed aggregates only.
+CREATE OR REPLACE FUNCTION public.get_public_general_topic_page(feed_cursor jsonb DEFAULT NULL::jsonb, page_limit integer DEFAULT 50)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+  state jsonb;
+  categories jsonb;
+  ranked_topics jsonb := '{}'::jsonb;
+  chosen record;
+  items jsonb := '[]'::jsonb;
+  last_category text;
+  streak integer;
+  item_count integer := 0;
+  initial_page boolean := feed_cursor IS NULL OR feed_cursor = 'null'::jsonb;
+BEGIN
+  IF page_limit IS NULL OR page_limit < 1 OR page_limit > 50 THEN
+    RAISE EXCEPTION 'Invalid general-feed page size' USING ERRCODE = '22023';
+  END IF;
+
+  IF initial_page THEN
+    SELECT coalesce(jsonb_agg(jsonb_build_object('slug', c.slug, 'served', 0, 'offset', 0) ORDER BY c.slug), '[]'::jsonb)
+    INTO categories FROM public.categories c WHERE c.is_published;
+    state := jsonb_build_object('categories', categories, 'last', NULL, 'streak', 0);
+  ELSE
+    state := feed_cursor;
+  END IF;
+
+  IF jsonb_typeof(state) IS DISTINCT FROM 'object'
+     OR NOT (state ?& ARRAY['categories','last','streak'])
+     OR octet_length(state::text) > 32768
+     OR jsonb_typeof(state->'categories') IS DISTINCT FROM 'array'
+     OR jsonb_array_length(state->'categories') > 200
+     OR jsonb_typeof(state->'streak') IS DISTINCT FROM 'number'
+     OR coalesce(state->>'streak','') !~ '^[0-2]$'
+     OR (state->'last' <> 'null'::jsonb AND (
+       jsonb_typeof(state->'last') IS DISTINCT FROM 'string'
+       OR state->>'last' !~ '^[a-z0-9]+(-[a-z0-9]+)*$'
+       OR length(state->>'last') > 100
+     )) THEN
+    RAISE EXCEPTION 'Invalid general-feed cursor' USING ERRCODE = '22023';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM jsonb_array_elements(state->'categories') a(entry)
+    WHERE jsonb_typeof(entry) IS DISTINCT FROM 'object'
+      OR NOT (entry ?& ARRAY['slug','served','offset'])
+      OR jsonb_typeof(entry->'slug') IS DISTINCT FROM 'string'
+      OR entry->>'slug' !~ '^[a-z0-9]+(-[a-z0-9]+)*$'
+      OR length(entry->>'slug') > 100
+      OR jsonb_typeof(entry->'served') IS DISTINCT FROM 'number'
+      OR coalesce(entry->>'served','') !~ '^[0-9]{1,9}$'
+      OR jsonb_typeof(entry->'offset') IS DISTINCT FROM 'number'
+      OR coalesce(entry->>'offset','') !~ '^[0-9]{1,9}$'
+  ) OR EXISTS (
+    SELECT 1 FROM jsonb_array_elements(state->'categories') a(entry)
+    GROUP BY entry->>'slug' HAVING count(*) > 1
+  ) THEN
+    RAISE EXCEPTION 'Invalid general-feed category cursor' USING ERRCODE = '22023';
+  END IF;
+
+  categories := state->'categories';
+  last_category := state->>'last';
+  streak := (state->>'streak')::integer;
+
+  -- Compute each topic score once per requested page, not once per feed slot.
+  SELECT coalesce(jsonb_object_agg(category_slug, topic_ids), '{}'::jsonb)
+  INTO ranked_topics
+  FROM (
+    SELECT category_slug,
+      jsonb_agg(topic_id ORDER BY rank_score DESC, order_index, topic_id) AS topic_ids
+    FROM (
+      SELECT t.id AS topic_id, t.category_slug, t.order_index,
+        (
+          coalesce((
+            SELECT sum(
+              d.viewable_impressions * exp(-greatest(0, current_date-d.event_date)::numeric / 45.0)
+              + d.impressions * 0.12 * exp(-greatest(0, current_date-d.event_date)::numeric / 45.0)
+              + d.completions * 2.0 * exp(-greatest(0, current_date-d.event_date)::numeric / 45.0)
+              + least(d.active_duration_ms, 3600000)::numeric / 60000.0 * 0.18
+                * exp(-greatest(0, current_date-d.event_date)::numeric / 45.0)
+              - d.skips * 0.35 * exp(-greatest(0, current_date-d.event_date)::numeric / 45.0)
+            )
+            FROM (
+              SELECT d.event_date,d.viewable_impressions,d.impressions,d.completions,d.active_duration_ms,d.skips,d.entity_id
+              FROM catho_private.feed_analytics_daily d
+              FROM catho_private.feed_analytics_daily d
+            ) d
+            WHERE d.entity_id=t.id AND d.event_date >= current_date-89
+          ),0)
+          + ln(1 + (SELECT count(*) FROM public.topic_likes l WHERE l.topic_id=t.id)) * 1.2
+          + ln(1 + (SELECT count(*) FROM public.bookmarks b WHERE b.topic_id=t.id)) * 1.0
+          + ln(1 + (SELECT count(*) FROM public.comments cm WHERE cm.topic_id=t.id
+            AND cm.parent_id IS NULL AND cm.is_deleted=false)) * 0.8
+          + 2.0 / sqrt(1 + coalesce((
+            SELECT sum(d.viewable_impressions) FROM (
+              SELECT d.event_date,d.viewable_impressions,d.impressions,d.completions,d.active_duration_ms,d.skips,d.entity_id
+              FROM catho_private.feed_analytics_daily d
+              FROM catho_private.feed_analytics_daily d
+            ) d
+            WHERE d.entity_id=t.id AND d.event_date >= current_date-89
+          ),0))
+        )::numeric AS rank_score
+      FROM public.topics t
+      JOIN public.categories c ON c.slug=t.category_slug AND c.is_published
+      WHERE t.is_published
+    ) scored
+    GROUP BY category_slug
+  ) grouped_topics;
+
+  WHILE item_count < page_limit LOOP
+    SELECT a.ordinality::integer - 1 AS position, a.entry,
+      t.id, t.slug, t.order_index, t.question, t.answer, t.explanation,
+      t.catechism_paragraphs, t.catechism_text, t.scripture_reference,
+      t.scripture_text, c.name AS category_name, c.slug AS category_slug
+    INTO chosen
+    FROM jsonb_array_elements(categories) WITH ORDINALITY a(entry, ordinality)
+    JOIN public.categories c ON c.slug=a.entry->>'slug' AND c.is_published
+    CROSS JOIN LATERAL (
+      SELECT topic.*
+      FROM jsonb_array_elements_text(coalesce(ranked_topics->c.slug,'[]'::jsonb))
+        WITH ORDINALITY ranked(topic_id, position)
+      JOIN public.topics topic ON topic.id=ranked.topic_id
+      ORDER BY ranked.position
+      OFFSET (a.entry->>'offset')::integer
+      LIMIT 1
+    ) t
+    ORDER BY
+      CASE WHEN streak >= 2 AND c.slug=last_category THEN 1 ELSE 0 END,
+      (a.entry->>'served')::integer,
+      c.slug
+    LIMIT 1;
+
+    IF NOT FOUND THEN EXIT; END IF;
+
+    items := items || jsonb_build_array(jsonb_build_object(
+      'id',chosen.id,'slug',chosen.slug,'category',chosen.category_name,
+      'categorySlug',chosen.category_slug,
+      'question',chosen.question,'answer',chosen.answer,'explanation',chosen.explanation,
+      'catechism',jsonb_build_object(
+        'paragraphs',coalesce(chosen.catechism_paragraphs,ARRAY[]::text[]),
+        'text',chosen.catechism_text
+      ),
+      'scripture',jsonb_build_object(
+        'reference',chosen.scripture_reference,'text',chosen.scripture_text
+      )
+    ));
+
+    categories := jsonb_set(categories,ARRAY[chosen.position::text],
+      chosen.entry || jsonb_build_object(
+        'served',(chosen.entry->>'served')::integer+1,
+        'offset',(chosen.entry->>'offset')::integer+1
+      ));
+
+    IF chosen.category_slug=last_category THEN
+      streak:=least(streak+1,2);
+    ELSE
+      last_category:=chosen.category_slug;
+      streak:=1;
+    END IF;
+    item_count:=item_count+1;
+  END LOOP;
+
+  RETURN jsonb_build_object(
+    'topics',items,
+    'nextCursor',CASE WHEN item_count=page_limit THEN
+      jsonb_build_object('categories',categories,'last',last_category,'streak',streak)
+      ELSE NULL END
+  );
+END;
+$function$;
+REVOKE ALL ON FUNCTION public.get_public_general_topic_page(jsonb,integer) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.get_public_general_topic_page(jsonb,integer) TO anon,authenticated;
+NOTIFY pgrst, 'reload schema';
+
 -- Remove all legacy anonymous analytics storage and entry points.
 DROP FUNCTION IF EXISTS public.get_admin_anonymous_analytics(uuid, timestamptz, timestamptz, text, text);
 DROP FUNCTION IF EXISTS public.record_anonymous_feed_analytics(jsonb);
@@ -1947,183 +2126,4 @@ REVOKE ALL ON FUNCTION public.get_admin_analytics_overview(uuid, timestamp with 
 GRANT EXECUTE ON FUNCTION public.get_admin_analytics_overview(uuid, timestamp with time zone, timestamp with time zone) TO service_role;
 DROP FUNCTION IF EXISTS public.get_admin_analytics_overview(timestamp with time zone, timestamp with time zone);
 
-NOTIFY pgrst, 'reload schema';
-
--- Replace the public general-feed ranking before removing the legacy anonymous
--- aggregate table. The replacement uses public interactions and consented
--- signed-in feed aggregates only.
-CREATE OR REPLACE FUNCTION public.get_public_general_topic_page(feed_cursor jsonb DEFAULT NULL::jsonb, page_limit integer DEFAULT 50)
- RETURNS jsonb
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO ''
-AS $function$
-DECLARE
-  state jsonb;
-  categories jsonb;
-  ranked_topics jsonb := '{}'::jsonb;
-  chosen record;
-  items jsonb := '[]'::jsonb;
-  last_category text;
-  streak integer;
-  item_count integer := 0;
-  initial_page boolean := feed_cursor IS NULL OR feed_cursor = 'null'::jsonb;
-BEGIN
-  IF page_limit IS NULL OR page_limit < 1 OR page_limit > 50 THEN
-    RAISE EXCEPTION 'Invalid general-feed page size' USING ERRCODE = '22023';
-  END IF;
-
-  IF initial_page THEN
-    SELECT coalesce(jsonb_agg(jsonb_build_object('slug', c.slug, 'served', 0, 'offset', 0) ORDER BY c.slug), '[]'::jsonb)
-    INTO categories FROM public.categories c WHERE c.is_published;
-    state := jsonb_build_object('categories', categories, 'last', NULL, 'streak', 0);
-  ELSE
-    state := feed_cursor;
-  END IF;
-
-  IF jsonb_typeof(state) IS DISTINCT FROM 'object'
-     OR NOT (state ?& ARRAY['categories','last','streak'])
-     OR octet_length(state::text) > 32768
-     OR jsonb_typeof(state->'categories') IS DISTINCT FROM 'array'
-     OR jsonb_array_length(state->'categories') > 200
-     OR jsonb_typeof(state->'streak') IS DISTINCT FROM 'number'
-     OR coalesce(state->>'streak','') !~ '^[0-2]$'
-     OR (state->'last' <> 'null'::jsonb AND (
-       jsonb_typeof(state->'last') IS DISTINCT FROM 'string'
-       OR state->>'last' !~ '^[a-z0-9]+(-[a-z0-9]+)*$'
-       OR length(state->>'last') > 100
-     )) THEN
-    RAISE EXCEPTION 'Invalid general-feed cursor' USING ERRCODE = '22023';
-  END IF;
-
-  IF EXISTS (
-    SELECT 1 FROM jsonb_array_elements(state->'categories') a(entry)
-    WHERE jsonb_typeof(entry) IS DISTINCT FROM 'object'
-      OR NOT (entry ?& ARRAY['slug','served','offset'])
-      OR jsonb_typeof(entry->'slug') IS DISTINCT FROM 'string'
-      OR entry->>'slug' !~ '^[a-z0-9]+(-[a-z0-9]+)*$'
-      OR length(entry->>'slug') > 100
-      OR jsonb_typeof(entry->'served') IS DISTINCT FROM 'number'
-      OR coalesce(entry->>'served','') !~ '^[0-9]{1,9}$'
-      OR jsonb_typeof(entry->'offset') IS DISTINCT FROM 'number'
-      OR coalesce(entry->>'offset','') !~ '^[0-9]{1,9}$'
-  ) OR EXISTS (
-    SELECT 1 FROM jsonb_array_elements(state->'categories') a(entry)
-    GROUP BY entry->>'slug' HAVING count(*) > 1
-  ) THEN
-    RAISE EXCEPTION 'Invalid general-feed category cursor' USING ERRCODE = '22023';
-  END IF;
-
-  categories := state->'categories';
-  last_category := state->>'last';
-  streak := (state->>'streak')::integer;
-
-  -- Compute each topic score once per requested page, not once per feed slot.
-  SELECT coalesce(jsonb_object_agg(category_slug, topic_ids), '{}'::jsonb)
-  INTO ranked_topics
-  FROM (
-    SELECT category_slug,
-      jsonb_agg(topic_id ORDER BY rank_score DESC, order_index, topic_id) AS topic_ids
-    FROM (
-      SELECT t.id AS topic_id, t.category_slug, t.order_index,
-        (
-          coalesce((
-            SELECT sum(
-              d.viewable_impressions * exp(-greatest(0, current_date-d.event_date)::numeric / 45.0)
-              + d.impressions * 0.12 * exp(-greatest(0, current_date-d.event_date)::numeric / 45.0)
-              + d.completions * 2.0 * exp(-greatest(0, current_date-d.event_date)::numeric / 45.0)
-              + least(d.active_duration_ms, 3600000)::numeric / 60000.0 * 0.18
-                * exp(-greatest(0, current_date-d.event_date)::numeric / 45.0)
-              - d.skips * 0.35 * exp(-greatest(0, current_date-d.event_date)::numeric / 45.0)
-            )
-            FROM (
-              SELECT d.event_date,d.viewable_impressions,d.impressions,d.completions,d.active_duration_ms,d.skips,d.entity_id
-              FROM catho_private.feed_analytics_daily d
-              FROM catho_private.feed_analytics_daily d
-            ) d
-            WHERE d.entity_id=t.id AND d.event_date >= current_date-89
-          ),0)
-          + ln(1 + (SELECT count(*) FROM public.topic_likes l WHERE l.topic_id=t.id)) * 1.2
-          + ln(1 + (SELECT count(*) FROM public.bookmarks b WHERE b.topic_id=t.id)) * 1.0
-          + ln(1 + (SELECT count(*) FROM public.comments cm WHERE cm.topic_id=t.id
-            AND cm.parent_id IS NULL AND cm.is_deleted=false)) * 0.8
-          + 2.0 / sqrt(1 + coalesce((
-            SELECT sum(d.viewable_impressions) FROM (
-              SELECT d.event_date,d.viewable_impressions,d.impressions,d.completions,d.active_duration_ms,d.skips,d.entity_id
-              FROM catho_private.feed_analytics_daily d
-              FROM catho_private.feed_analytics_daily d
-            ) d
-            WHERE d.entity_id=t.id AND d.event_date >= current_date-89
-          ),0))
-        )::numeric AS rank_score
-      FROM public.topics t
-      JOIN public.categories c ON c.slug=t.category_slug AND c.is_published
-      WHERE t.is_published
-    ) scored
-    GROUP BY category_slug
-  ) grouped_topics;
-
-  WHILE item_count < page_limit LOOP
-    SELECT a.ordinality::integer - 1 AS position, a.entry,
-      t.id, t.slug, t.order_index, t.question, t.answer, t.explanation,
-      t.catechism_paragraphs, t.catechism_text, t.scripture_reference,
-      t.scripture_text, c.name AS category_name, c.slug AS category_slug
-    INTO chosen
-    FROM jsonb_array_elements(categories) WITH ORDINALITY a(entry, ordinality)
-    JOIN public.categories c ON c.slug=a.entry->>'slug' AND c.is_published
-    CROSS JOIN LATERAL (
-      SELECT topic.*
-      FROM jsonb_array_elements_text(coalesce(ranked_topics->c.slug,'[]'::jsonb))
-        WITH ORDINALITY ranked(topic_id, position)
-      JOIN public.topics topic ON topic.id=ranked.topic_id
-      ORDER BY ranked.position
-      OFFSET (a.entry->>'offset')::integer
-      LIMIT 1
-    ) t
-    ORDER BY
-      CASE WHEN streak >= 2 AND c.slug=last_category THEN 1 ELSE 0 END,
-      (a.entry->>'served')::integer,
-      c.slug
-    LIMIT 1;
-
-    IF NOT FOUND THEN EXIT; END IF;
-
-    items := items || jsonb_build_array(jsonb_build_object(
-      'id',chosen.id,'slug',chosen.slug,'category',chosen.category_name,
-      'categorySlug',chosen.category_slug,
-      'question',chosen.question,'answer',chosen.answer,'explanation',chosen.explanation,
-      'catechism',jsonb_build_object(
-        'paragraphs',coalesce(chosen.catechism_paragraphs,ARRAY[]::text[]),
-        'text',chosen.catechism_text
-      ),
-      'scripture',jsonb_build_object(
-        'reference',chosen.scripture_reference,'text',chosen.scripture_text
-      )
-    ));
-
-    categories := jsonb_set(categories,ARRAY[chosen.position::text],
-      chosen.entry || jsonb_build_object(
-        'served',(chosen.entry->>'served')::integer+1,
-        'offset',(chosen.entry->>'offset')::integer+1
-      ));
-
-    IF chosen.category_slug=last_category THEN
-      streak:=least(streak+1,2);
-    ELSE
-      last_category:=chosen.category_slug;
-      streak:=1;
-    END IF;
-    item_count:=item_count+1;
-  END LOOP;
-
-  RETURN jsonb_build_object(
-    'topics',items,
-    'nextCursor',CASE WHEN item_count=page_limit THEN
-      jsonb_build_object('categories',categories,'last',last_category,'streak',streak)
-      ELSE NULL END
-  );
-END;
-$function$;
-REVOKE ALL ON FUNCTION public.get_public_general_topic_page(jsonb,integer) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.get_public_general_topic_page(jsonb,integer) TO anon,authenticated;
 NOTIFY pgrst, 'reload schema';
