@@ -59,17 +59,21 @@ export function AnalyticsConsentSettingsPanel({
   }, [personalizationEnabled, userId]);
 
   useEffect(() => {
-    hydrate();
+    let active = true;
+    void Promise.resolve().then(() => {
+      if (active) hydrate();
+    });
     const onConsentChange = (event: Event) => {
       const detail = (event as CustomEvent<{ userId?: string | null }>).detail;
-      if ((detail?.userId ?? null) === userId) hydrate();
+      if (active && (detail?.userId ?? null) === userId) hydrate();
     };
     const onStorageChange = (event: StorageEvent) => {
-      if (event.key === getAnalyticsConsentStorageKey(userId)) hydrate();
+      if (active && event.key === getAnalyticsConsentStorageKey(userId)) hydrate();
     };
     window.addEventListener(analyticsConsentChangeEvent, onConsentChange);
     window.addEventListener('storage', onStorageChange);
     return () => {
+      active = false;
       window.removeEventListener(analyticsConsentChangeEvent, onConsentChange);
       window.removeEventListener('storage', onStorageChange);
     };
