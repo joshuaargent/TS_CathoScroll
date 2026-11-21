@@ -408,6 +408,12 @@ test('the reset shows personalisation as not chosen until a current choice is re
   }
 });
 
+test('the initial signed-in baseline feed treats a missing personalisation row as disabled', () => {
+  for (const sql of [bootstrap, upgrade]) {
+    assert.match(sql, /coalesce\(bool_or\(enabled\),false\) INTO personalization_enabled/);
+  }
+});
+
 test('all profile reads and rebuilds require the new explicit personalisation consent version', () => {
   for (const sql of [bootstrap, upgrade]) {
     assert.match(sql, /WHERE c\.user_id=p_user_id AND c\.enabled=true\s+AND c\.consent_version='2026-11-21-v6'/);
