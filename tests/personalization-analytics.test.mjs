@@ -73,6 +73,8 @@ test('canonical bootstrap and existing-database upgrade keep final RPC definitio
     'public.get_weighted_sponsor_campaigns',
     'public.get_unmeasured_sponsor_campaigns',
     'public.record_sponsor_campaign_event',
+    'public.record_feed_analytics_events',
+    'public.record_feed_card_analytics_events',
     'public.set_user_analytics_consent',
     'public.get_admin_analytics_overview',
     'public.get_admin_analytics_series',
