@@ -138,9 +138,7 @@ export default function PrivacyPage() {
             CathoScroll uses your topic-reading activity (including viewable impressions, reading
             duration, swipe depth, skips, completions and return visits), your likes and
             bookmarks, relevant community interactions, and categories you choose to create
-            a private profile and personalise recommendations. This also enables Service
-            improvement analytics while personalisation is on; turn off personalisation before
-            disabling that analytics choice. Sponsor measurement remains separate and optional.
+            a private profile and personalise recommendations. Personalisation and Service improvement analytics are separate optional choices. Passive reading signals are collected only when Service improvement analytics is enabled and inform recommendations only while Personalisation is also enabled. Either choice can be withdrawn independently. Sponsor measurement remains separate and optional.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
@@ -329,7 +327,7 @@ export default function PrivacyPage() {
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            While personalisation is enabled, the private profile uses account actions and reading signals recorded after consent, including viewable impressions, reading duration, swipe depth, skips, completions, return visits and eligible Top Comments exposure. The evidence window is limited to 180 days, with 14-day and 90-day decay horizons. Enabling personalisation also enables Service improvement analytics; turn off personalisation before disabling that choice. Withdrawing personalisation deletes the derived profile and selected category interests. Sponsor measurement remains separate and is never used for recommendation ranking.
+            While personalisation is enabled, the private profile uses account actions and reading signals recorded after consent, including viewable impressions, reading duration, swipe depth, skips, completions, return visits and eligible Top Comments exposure. The evidence window is limited to 180 days, with 14-day and 90-day decay horizons. Personalisation and Service improvement analytics are independent choices. Passive reading signals inform recommendations only when both are enabled. Withdrawing Service improvement removes passive signals from recommendations; withdrawing Personalisation deletes the derived profile and selected category interests. Withdrawing personalisation deletes the derived profile and selected category interests. Sponsor measurement remains separate and is never used for recommendation ranking.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
