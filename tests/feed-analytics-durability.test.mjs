@@ -161,7 +161,8 @@ test('README distinguishes aggregate general ranking from consented personalisat
   assert.ok(readme.includes('Sponsor measurement remains independent'));
   assert.doesNotMatch(readme, /Operational analytics are never used to personalise an individual/);
   assert.ok(readme.includes('Native apps use the same shared feed components and API endpoints as the website'));
-  assert.ok(readme.includes('Anonymous sponsor viewable/click events use a bounded in-memory retry queue'));
+  assert.ok(readme.includes('Signed-out sponsor measurement is disabled'));
+  assert.doesNotMatch(readme, /Anonymous sponsor viewable\/click events use a bounded in-memory retry queue/);
 });
 
 test('sponsor analytics bounds the in-memory queue and sends the retained events', async () => {
