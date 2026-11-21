@@ -246,7 +246,7 @@ test('web and native account/settings screens reuse the same components', () => 
   assert.match(accountView, /PersonalizationAccountSection/);
   assert.match(accountSection, /set_my_personalization_consent/);
   assert.match(accountSection, /I explicitly consent to CathoScroll using my account actions, selected interests and reading analytics/);
-  assert.match(accountSection, /p_consent_version: '2026-11-20-v4'/);
+  assert.match(accountSection, /p_consent_version: '2026-11-21-v5'/);
   assert.match(accountSection, /analyticsConsentSyncEvent/);
   assert.match(accountSection, /AnalyticsConsentSettingsPanel/);
   assert.match(accountSection, /window\.addEventListener\('online', refresh\)/);
@@ -263,7 +263,7 @@ test('web and native account/settings screens reuse the same components', () => 
 
 
 test('existing v3 personalisation consent is withdrawn and requires v4 re-consent', () => {
-  assert.match(upgrade, /consent_version IS DISTINCT FROM '2026-11-20-v4'/);
+  assert.match(upgrade, /consent_version IS DISTINCT FROM '2026-11-21-v5'/);
   assert.match(upgrade, /SET enabled = false,[\s\S]*withdrawn_at = v_now/);
   assert.match(upgrade, /DELETE FROM catho_private\.user_topic_interest_scores[\s\S]*v_affected_user_ids/);
   assert.doesNotMatch(upgrade, /service_improvement = true/);
@@ -296,9 +296,9 @@ test('personalisation and service improvement are independent explicit purposes'
   const analyticsSetter = functionBody('public.set_user_analytics_consent');
   const signupTrigger = functionBody('catho_private.capture_signup_personalization_consent');
   assert.doesNotMatch(personalisationSetter, /INSERT INTO catho_private\.user_analytics_consents/);
-  assert.match(personalisationSetter, /p_consent_version IS DISTINCT FROM '2026-11-20-v4'/);
+  assert.match(personalisationSetter, /p_consent_version IS DISTINCT FROM '2026-11-21-v5'/);
   assert.match(legacySetter, /IF p_enabled IS TRUE THEN[\s\S]*RAISE EXCEPTION/);
-  assert.match(legacySetter, /set_my_personalization_consent\(false, '2026-11-20-v4'\)/);
+  assert.match(legacySetter, /set_my_personalization_consent\(false, '2026-11-21-v5'\)/);
   assert.match(personalisationSetter, /FROM auth\.users WHERE id = v_user_id FOR UPDATE/);
   assert.doesNotMatch(personalisationSetter, /service_improvement = true/);
   assert.match(personalisationSetter, /refresh_user_interest_profile\(v_user_id\)/);
@@ -314,7 +314,7 @@ test('personalisation and service improvement are independent explicit purposes'
   assert.match(nativeSignup, /personalization_consent_version: personalizationConsent \? '2026-11-20-v4' : null/);
   assert.match(nativeSignup, /service_improvement_consent: serviceImprovementConsent/);
   assert.match(nativeSignup, /sponsor_measurement_consent: sponsorMeasurementConsent/);
-  assert.match(accountSection, /p_consent_version: '2026-11-20-v4'/);
+  assert.match(accountSection, /p_consent_version: '2026-11-21-v5'/);
   assert.match(signupTrigger, /service_improvement/);
   const manager = readFileSync(new URL('../src/components/privacy/AnalyticsConsentManager.tsx', import.meta.url), 'utf8');
   assert.match(manager, /disabled=\{saving\}/);
