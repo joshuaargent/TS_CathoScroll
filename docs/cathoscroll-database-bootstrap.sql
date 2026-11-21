@@ -7781,15 +7781,6 @@ BEGIN
   END IF;
   PERFORM 1 FROM auth.users AS account WHERE account.id = p_user_id FOR UPDATE;
 
-  IF p_service_improvement IS NOT TRUE
-     AND pg_catalog.to_regclass('catho_private.user_personalization_consents') IS NOT NULL
-     AND EXISTS (
-       SELECT 1 FROM catho_private.user_personalization_consents AS pc
-       WHERE pc.user_id = p_user_id AND pc.enabled = true
-     ) THEN
-    RAISE EXCEPTION 'Turn off personalisation before disabling Service improvement analytics' USING ERRCODE = '42501';
-  END IF;
-
   SELECT service_improvement, sponsor_measurement
   INTO v_previous_service, v_previous_sponsor
   FROM catho_private.user_analytics_consents
@@ -7829,6 +7820,13 @@ BEGIN
     p_user_id, v_previous_service, v_previous_sponsor,
     p_service_improvement, p_sponsor_measurement, p_consent_version, v_now
   );
+
+  IF v_previous_service IS TRUE AND p_service_improvement IS FALSE
+     AND pg_catalog.to_regclass('catho_private.user_personalization_consents') IS NOT NULL THEN
+    UPDATE catho_private.user_personalization_consents
+    SET profile_refreshed_at = NULL
+    WHERE user_id = p_user_id AND enabled = true;
+  END IF;
 
   IF p_sponsor_measurement IS NOT TRUE THEN
     DELETE FROM catho_private.sponsor_campaign_placement_receipts
