@@ -57,7 +57,7 @@ A comment must meet the minimum engagement threshold (at least three combined li
 
 ### Sponsor rotation
 
-Sponsor selection is separate from all organic feed algorithms. A campaign must be approved, active, within its dates, paid/cleared, and match its category/topic targeting. Daily and lifetime impression caps apply. Eligible campaigns are rotated using their recent 30-day viewable-impression count divided by placement weight, with a random tie-breaker. When Sponsor measurement is enabled, account/session frequency limits also apply. When it is declined, delivery continues and only campaign/day served totals are recorded; no individual frequency, viewability or click measurement is collected.
+Sponsor selection is separate from all organic feed algorithms. A campaign must be approved, active, within its dates, paid/cleared, and match its category/topic targeting. Daily and lifetime impression caps apply. Eligible campaigns are rotated using their recent 30-day viewable-impression count divided by placement weight, with a random tie-breaker. When Sponsor measurement is enabled, account-level frequency limits also apply. When it is declined, delivery continues and only campaign/day served totals are recorded; no individual frequency, viewability or click measurement is collected.
 
 ### What each layer measures
 
@@ -68,7 +68,7 @@ Sponsor selection is separate from all organic feed algorithms. A campaign must 
 | Signed-out topic/comment statistics | Event UUIDs, public entity IDs and bounded metrics, rolled into daily totals | No visitor/session/account ID | Site-wide ranking and aggregate reporting; free objection available |
 | Personalisation | Post-consent account actions, reading signals and selected categories | Private account profile | Category scheduling and completed-topic suppression |
 | Sponsor delivery | Campaign eligibility, target context, served totals and global caps | Campaign/day | Deliver and pace paid placements |
-| Sponsor measurement | Viewability, clicks and frequency events | Signed-in account-linked events with a short-lived session token for frequency controls; signed-out visitors are not individually measured | Sponsor performance reporting and frequency controls |
+| Sponsor measurement | Viewability, clicks and frequency events | Signed-in account-linked events with per-placement IDs for event validation and account-level frequency controls; signed-out visitors are not individually measured | Sponsor performance reporting and frequency controls |
 
 ## Personalisation privacy model
 
