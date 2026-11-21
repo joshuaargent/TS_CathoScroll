@@ -180,13 +180,13 @@ test('declining sponsor measurement preserves sponsor delivery without recording
   assert.match(selectRoute, /get_weighted_sponsor_campaigns/);
   assert.match(eventRoute, /if \(!auth\.user\) return respond\(request, \{ recorded: false \}, 403\)/);
   assert.doesNotMatch(sponsorClient + card, /recordAnonymousSponsorCampaignEvent|anonymousQueue/);
-  assert.match(card, /if \(previewMode \|\| !sponsorMeasurementEnabled \|\| !userId\) return false/);
+  assert.match(card, /if \(previewMode \|\| !sponsorMeasurementEnabled \|\| !userId \|\| !placementReceipt\) return false/);
   for (const sql of [bootstrap, migration]) {
     const finalModel = sql.slice(sql.lastIndexOf('-- FINAL ANALYTICS MODEL'));
     assert.match(finalModel, /DROP TABLE IF EXISTS catho_private\.anonymous_sponsor_campaign_daily/);
     assert.match(finalModel, /ALTER TABLE public\.sponsor_campaigns DROP COLUMN IF EXISTS served_count/);
     assert.match(finalModel, /ALTER TABLE catho_private\.sponsor_campaign_daily DROP COLUMN IF EXISTS served_count/);
-    assert.match(finalModel, /DELETE FROM catho_private\.sponsor_campaign_events WHERE event_type = 'served'/);
+    assert.match(finalModel, /DROP FUNCTION IF EXISTS public\.get_admin_anonymous_analytics/);
   }
 });
 
