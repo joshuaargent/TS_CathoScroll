@@ -108,3 +108,13 @@ test('personalised offline pages are invalidated when the recommendation model c
   const modelWrite = cache.indexOf('INSERT OR REPLACE INTO offline_ranked_feed_cache_meta', pageInvalidation);
   assert.ok(modelCheck >= 0 && pageInvalidation > modelCheck && modelWrite > pageInvalidation);
 });
+
+
+test('offline cached consent never allows empty category interests to be saved', async () => {
+  const account = await readFile(new URL('../src/components/account/PersonalizationAccountSection.tsx', import.meta.url), 'utf8');
+  assert.match(account, /setCategoryInterestsLoaded\(false\)/);
+  assert.match(account, /!categoryInterestsLoaded \|\| selectedCategories\.length > 20/);
+  assert.match(account, /disabled=\{!status\.enabled \|\| !categoryInterestsLoaded/);
+  assert.match(account, /Saved category interests are not available offline/);
+  assert.match(account, /loading \|\| !categoryInterestsLoaded \? '—' : status\.category_interests/);
+});
