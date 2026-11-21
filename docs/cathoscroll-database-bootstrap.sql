@@ -6345,33 +6345,6 @@ BEGIN
   RETURN v_deleted + v_viewers_deleted + v_limits_deleted;
 END;
 $function$;
-DO $feed_analytics_retention_cron$
-DECLARE
-  existing_job record;
-BEGIN
-  FOR existing_job IN
-    SELECT jobid FROM cron.job
-    WHERE jobname IN (
-      'cathoscroll-prune-feed-analytics-events',
-      'cathoscroll-prune-feed-card-analytics-events'
-    )
-  LOOP
-    PERFORM cron.unschedule(existing_job.jobid);
-  END LOOP;
-
-  PERFORM cron.schedule(
-    'cathoscroll-prune-feed-analytics-events',
-    '45 2 * * *',
-    'SELECT catho_private.prune_feed_analytics_events(statement_timestamp() - interval ''180 days'', 5000);'
-  );
-  PERFORM cron.schedule(
-    'cathoscroll-prune-feed-card-analytics-events',
-    '0 3 * * *',
-    'SELECT catho_private.prune_feed_card_analytics_events(statement_timestamp() - interval ''180 days'', 5000);'
-  );
-END;
-$feed_analytics_retention_cron$;
-
 
 ALTER FUNCTION catho_private.prune_feed_card_analytics_events(timestamptz,integer) OWNER TO postgres;
 CREATE OR REPLACE FUNCTION public.get_admin_analytics_overview(p_actor_user_id uuid, p_from timestamp with time zone, p_to timestamp with time zone)
