@@ -22,6 +22,7 @@ const maximumPagesPerOwner = 30;
 const maximumPageAgeMs = 14 * 24 * 60 * 60 * 1000;
 const consentFreshnessMs = 12 * 60 * 60 * 1000;
 const personalizedModelVersion = 'activity-signals-v4';
+const personalizationConsentVersion = '2026-11-21-v5';
 
 function assertOwner(mode: RankedFeedMode, userId: string | null): string {
   if (mode === 'general') return 'public';
@@ -98,6 +99,30 @@ export class OfflineRankedFeedCache {
         const columns = await db.query('PRAGMA table_info(offline_personalization_consent_cache)');
         if (!columns.some((column) => column.name === 'pending_sync')) {
           await db.execute('ALTER TABLE offline_personalization_consent_cache ADD COLUMN pending_sync INTEGER NOT NULL DEFAULT 0 CHECK (pending_sync IN (0, 1))');
+        }
+        const consentVersionRows = await db.query(
+          'SELECT cache_value FROM offline_ranked_feed_cache_meta WHERE cache_key = ?',
+          ['personalization_consent_version']
+        );
+        if (
+          consentVersionRows.length !== 1 ||
+          consentVersionRows[0].cache_value !== personalizationConsentVersion
+        ) {
+          // Existing cached grants predate the current explicit-consent wording.
+          // Invalidate old grants and ranked pages before allowing offline use.
+          // Preserve only a pending local denial so an offline withdrawal cannot
+          // be lost during this version transition.
+          await db.execute(
+            'DELETE FROM offline_personalization_consent_cache WHERE enabled = 1 OR pending_sync = 0'
+          );
+          await db.execute(
+            'DELETE FROM offline_ranked_feed_pages WHERE mode = ?',
+            ['personalized']
+          );
+          await db.execute(
+            'INSERT OR REPLACE INTO offline_ranked_feed_cache_meta (cache_key, cache_value) VALUES (?, ?)',
+            ['personalization_consent_version', personalizationConsentVersion]
+          );
         }
       }
       await this.prune(db);
