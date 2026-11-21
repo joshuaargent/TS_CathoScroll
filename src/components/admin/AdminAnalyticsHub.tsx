@@ -179,6 +179,8 @@ export function AdminAnalyticsHub({ overview, period, section = 'overview', seri
       <Metric label="Topic completion rate" value={t.topic_impressions ? ((t.topic_completions / t.topic_impressions) * 100).toFixed(1) + '%' : '—'} detail="Opted-in completions ÷ opted-in impressions" icon={CheckCircle2} />
       <Metric label="Sponsor click-through" value={t.sponsor_viewable_impressions ? ((t.sponsor_clicks / t.sponsor_viewable_impressions) * 100).toFixed(2) + '%' : '—'} detail="Opted-in clicks ÷ opted-in viewable impressions" icon={Megaphone} />
       <Metric label="Comment-card viewability" value={t.comment_card_impressions ? ((t.comment_card_viewable_impressions / t.comment_card_impressions) * 100).toFixed(1) + '%' : '—'} detail="Opted-in viewable impressions ÷ opted-in impressions" icon={MessageCircle} />
+      <Metric label="Discussion open rate" value={t.comment_card_impressions ? ((t.comment_card_opens / t.comment_card_impressions) * 100).toFixed(1) + '%' : '—'} detail="Opted-in discussion opens ÷ opted-in comment-card impressions" icon={MessageCircle} />
+      <Metric label="Comment active time" value={duration(t.comment_card_active_duration_ms)} detail="Opted-in time while a Top Comments card was visible and active" icon={Activity} />
     </section>
     <DailyOverviewChart series={series} />
     <AnalyticsDeepDivePanel data={deepDive} />
