@@ -2118,7 +2118,6 @@ END;
 $function$;
 ALTER FUNCTION catho_private.purge_user_service_improvement_events(uuid) OWNER TO postgres;
 REVOKE ALL ON FUNCTION catho_private.purge_user_service_improvement_events(uuid) FROM PUBLIC, anon, authenticated, service_role;
-GRANT EXECUTE ON FUNCTION catho_private.purge_user_service_improvement_events(uuid) TO service_role;
 
 CREATE OR REPLACE FUNCTION catho_private.purge_user_sponsor_measurement_events(p_user_id uuid)
 RETURNS integer
@@ -2169,7 +2168,6 @@ END;
 $function$;
 ALTER FUNCTION catho_private.purge_user_sponsor_measurement_events(uuid) OWNER TO postgres;
 REVOKE ALL ON FUNCTION catho_private.purge_user_sponsor_measurement_events(uuid) FROM PUBLIC, anon, authenticated, service_role;
-GRANT EXECUTE ON FUNCTION catho_private.purge_user_sponsor_measurement_events(uuid) TO service_role;
 
 CREATE OR REPLACE FUNCTION public.set_user_analytics_consent(
   p_user_id uuid,
