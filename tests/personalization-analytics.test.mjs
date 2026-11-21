@@ -13,6 +13,7 @@ const webSignup = readFileSync(new URL('../src/app/signup/page.tsx', import.meta
 const nativeSignup = readFileSync(new URL('../native/signup.tsx', import.meta.url), 'utf8');
 const accountView = readFileSync(new URL('../src/components/account/AccountPageView.tsx', import.meta.url), 'utf8');
 const accountSection = readFileSync(new URL('../src/components/account/PersonalizationAccountSection.tsx', import.meta.url), 'utf8');
+const analyticsSettingsPanel = readFileSync(new URL('../src/components/account/AnalyticsConsentSettingsPanel.tsx', import.meta.url), 'utf8');
 const nativeMain = readFileSync(new URL('../native/main.tsx', import.meta.url), 'utf8');
 const nativeAccount = readFileSync(new URL('../native/account.tsx', import.meta.url), 'utf8');
 
@@ -254,6 +255,8 @@ test('web and native account/settings screens reuse the same components', () => 
   assert.match(accountSection, /p_consent_version: '2026-11-21-v5'/);
   assert.match(accountSection, /analyticsConsentSyncEvent/);
   assert.match(accountSection, /AnalyticsConsentSettingsPanel/);
+  assert.match(analyticsSettingsPanel, /checked=\{serviceImprovement\}[\s\S]*?disabled=\{disabled \|\| saving\}/);
+  assert.match(analyticsSettingsPanel, /checked=\{sponsorMeasurement\}[\s\S]*?disabled=\{disabled \|\| saving\}/);
   assert.match(accountSection, /window\.addEventListener\('online', refresh\)/);
   assert.match(accountSection, /categoryInterestsLoaded/);
   assert.match(accountSection, /!categoryInterestsLoaded \|\| selectedCategories\.length > 20/);
