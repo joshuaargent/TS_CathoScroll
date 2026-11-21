@@ -38,7 +38,7 @@ test('Vercel analytics preserves safe page routes and is consent-gated', async (
   assert.ok(layout.includes('<PrivacySafeAnalytics />'));
   assert.ok(layout.includes('<PrivacySafeSpeedInsights />'));
   assert.ok(analytics.includes('beforeSend={beforeSend}'));
-  assert.ok(analytics.includes("hasAnalyticsConsent('serviceImprovement', user?.id ?? null)"));
+  assert.ok(analytics.includes("hasAnalyticsConsent('serviceImprovement', userId)"));
   assert.ok(analytics.includes('if (loading || !enabled) return null;'));
   assert.ok(analytics.includes('redactAnalyticsEvent(event)'));
   assert.ok(analytics.includes("url.search = ''"));
