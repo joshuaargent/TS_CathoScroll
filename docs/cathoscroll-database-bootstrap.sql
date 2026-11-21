@@ -8471,6 +8471,8 @@ DROP FUNCTION IF EXISTS public.get_admin_analytics_overview(timestamp with time 
 
 NOTIFY pgrst, 'reload schema';
 
+DROP FUNCTION IF EXISTS public.get_admin_sponsor_analytics(uuid, timestamptz, timestamptz);
+
 CREATE TABLE IF NOT EXISTS catho_private.sponsor_campaign_placement_receipts (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   campaign_id uuid NOT NULL REFERENCES public.sponsor_campaigns(id) ON DELETE CASCADE,
