@@ -123,7 +123,7 @@ export default function PrivacyPage() {
             <li>Administer paid sponsor campaigns, invoices, and sponsor account access.</li>
             <li>Provide aggregate sponsor reports based only on signed-in users who explicitly enable Sponsor measurement.</li>
             <li>Improve performance and reliability.</li>
-            <li>Measure account-linked topic and Top Comments engagement where Service improvement analytics is enabled; when personalisation is enabled, eligible reading signals also inform that user's recommendations.</li>
+            <li>Measure account-linked topic and Top Comments engagement only when Service improvement analytics is enabled; eligible passive reading signals inform recommendations only when Personalisation is also enabled.</li>
             <li>Measure sponsor viewability, clicks and frequency only where Sponsor measurement is enabled.</li>
             <li>Monitor abuse, spam, fraud, and security issues.</li>
             <li>Comply with legal obligations.</li>
@@ -171,11 +171,11 @@ export default function PrivacyPage() {
 
           <p className="text-text-secondary leading-relaxed">
             If you opt in to personalisation, automated ranking uses a private profile derived from
-            account actions (progress, bookmarks, likes, comments, comment likes and replies), your
-            selected categories, and reading signals recorded after consent (viewable impressions,
-            reading duration, swipe depth, skips, completions, return visits and Top Comments
-            exposure). Passive reading signals contribute only if you separately enable Service
-            improvement analytics; Personalisation does not automatically enable analytics.
+            account actions (progress, bookmarks, likes, comments, comment likes and replies), and your
+            selected categories. Eligible passive reading signals (viewable impressions, reading
+            duration, swipe depth, skips, completions, return visits and Top Comments exposure)
+            are included only if you separately enable Service improvement analytics; they inform
+            recommendations only while Personalisation is also enabled.
             It orders educational topics in your own feed and does not determine access to
             essential services, prices, employment, credit, insurance, or other decisions with
             legal or similarly significant effects. You can turn off personalisation and delete
