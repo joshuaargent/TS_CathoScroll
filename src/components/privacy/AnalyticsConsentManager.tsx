@@ -6,6 +6,7 @@ import {
   analyticsConsentChangeEvent,
   analyticsConsentManageEvent,
   analyticsConsentSyncEvent,
+  clearLegacyAnalyticsConsentStorage,
   denyAnalyticsConsentInMemory,
   getAnalyticsConsentStorageKey,
   readAnalyticsConsent,
@@ -60,6 +61,10 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
   const dialogRef = useRef<HTMLElement | null>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
   const managingRef = useRef(false);
+
+  useEffect(() => {
+    clearLegacyAnalyticsConsentStorage();
+  }, []);
 
   useEffect(() => {
     activeUserIdRef.current = userId;
