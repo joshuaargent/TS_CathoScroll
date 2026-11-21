@@ -334,6 +334,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
         } catch (cause) {
           console.warn('Unable to clear stale local analytics consent:', cause);
         }
+        markOwnChoiceWrite();
         await clearAnalyticsConsentQueues(expectedUserId, null, {
           serviceImprovement: false,
           sponsorMeasurement: false,
