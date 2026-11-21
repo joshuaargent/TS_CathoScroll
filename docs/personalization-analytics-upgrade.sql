@@ -514,8 +514,8 @@ BEGIN
   ELSE
     INSERT INTO catho_private.user_personalization_consents
       (user_id,enabled,consent_version,granted_at,withdrawn_at,updated_at)
-    VALUES(v_user_id,false,NULL,NULL,v_now,v_now)
-    ON CONFLICT(user_id) DO UPDATE SET enabled=false,consent_version=NULL,granted_at=NULL,
+    VALUES(v_user_id,false,'2026-11-21-v6',NULL,v_now,v_now)
+    ON CONFLICT(user_id) DO UPDATE SET enabled=false,consent_version='2026-11-21-v6',granted_at=NULL,
       withdrawn_at=EXCLUDED.withdrawn_at,profile_refreshed_at=NULL,updated_at=EXCLUDED.updated_at;
     DELETE FROM catho_private.user_topic_interest_scores WHERE user_id=v_user_id;
     DELETE FROM catho_private.user_explicit_category_interests WHERE user_id=v_user_id;
@@ -612,13 +612,17 @@ BEGIN
   -- Personalisation is an independent explicit consent. Passive reading
   -- signals are used for recommendations only when Service improvement is
   -- separately enabled as well.
-  IF v_personalization THEN
-    INSERT INTO catho_private.user_personalization_consents
-      (user_id,enabled,consent_version,granted_at,withdrawn_at,updated_at)
-    VALUES
-      (NEW.id,true,'2026-11-21-v6',v_now,NULL,v_now)
-    ON CONFLICT(user_id) DO NOTHING;
-  END IF;
+  INSERT INTO catho_private.user_personalization_consents
+    (user_id,enabled,consent_version,granted_at,withdrawn_at,updated_at)
+  VALUES (
+    NEW.id,
+    v_personalization,
+    '2026-11-21-v6',
+    CASE WHEN v_personalization THEN v_now ELSE NULL END,
+    CASE WHEN v_personalization THEN NULL ELSE v_now END,
+    v_now
+  )
+  ON CONFLICT(user_id) DO NOTHING;
 
   -- The other analytics purposes are independent and remain off unless the
   -- corresponding unticked signup choice was explicitly selected.
