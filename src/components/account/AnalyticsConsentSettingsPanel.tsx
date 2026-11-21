@@ -127,6 +127,8 @@ export function AnalyticsConsentSettingsPanel({
     } catch (cause) {
       console.error('Unable to save analytics settings:', cause);
       if (offlinePersonalizationWithdrawal && !localPersonalizationDenialSaved) {
+        setServiceImprovement(previous?.serviceImprovement === true);
+        setSponsorMeasurement(previous?.sponsorMeasurement === true);
         setError('The native personalisation setting could not be saved offline, so your existing analytics preference has not been changed.');
         return;
       }
