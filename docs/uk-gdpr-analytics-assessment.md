@@ -30,7 +30,7 @@ When enabled, signed-in topic-feed and Top Comments events are linked to the acc
 
 ### Sponsor measurement
 
-When enabled, signed-in sponsor viewability, click and frequency events are account-linked. Event payloads are limited to campaign/event/session identifiers and event type. Do not add topic IDs, category IDs, reading histories or recommendation profile fields. Sponsor reports are aggregated and restricted to the consented population; they must not be presented as total platform delivery or total audience reach.
+When enabled, signed-in sponsor viewability, click and frequency events are account-linked. Event payloads are limited to campaign/event/session identifiers, the server-issued placement receipt and event type. The receipt proves that the campaign was selected for this opted-in account and expires after seven days. Do not add topic IDs, category IDs, reading histories or recommendation profile fields. Sponsor reports are aggregated and restricted to the consented population; they must not be presented as total platform delivery or total audience reach.
 
 ### Personalisation
 
