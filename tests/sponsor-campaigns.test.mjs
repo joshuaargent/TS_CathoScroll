@@ -158,7 +158,7 @@ test('sponsored feed cards are disclosed and inserted separately from organic re
   assert.doesNotMatch(sponsorCard, /bg-accent text-white hover:bg-accent\/90/);
   assert.match(feedCore, /Detailed Sponsor measurement is account-only/);
   assert.match(feedCore, /Signed-out placements[\s\S]*?never send an identifier/);
-  assert.match(feedCore, /const measurementEnabled = hasAnalyticsConsent\('sponsorMeasurement', userId\)/);
+  assert.match(feedCore, /const measurementEnabled = Boolean\(userId && hasAnalyticsConsent\('sponsorMeasurement', userId\)\)/);
   assert.match(feedCore, /const sessionId = measurementEnabled \? createSponsorPlacementId\(\) : null/);
   assert.match(feedCore, /sessionId: string \| null/);
   assert.match(deliveryRoute, /getAuthenticatedUserFromRequest/);
