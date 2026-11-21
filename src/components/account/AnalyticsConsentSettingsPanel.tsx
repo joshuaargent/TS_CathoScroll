@@ -92,6 +92,7 @@ export function AnalyticsConsentSettingsPanel({
           : previous?.serviceImprovement === true,
       sponsorMeasurement,
     };
+    let localPersonalizationDenialSaved = false;
     setSaving(true);
     setError('');
     setMessage('');
@@ -101,6 +102,7 @@ export function AnalyticsConsentSettingsPanel({
         // local personalisation denial first so the linked analytics denial
         // cannot be overwritten before the native cache syncs on reconnect.
         await persistOfflinePersonalizationWithdrawal(userId);
+        localPersonalizationDenialSaved = true;
       }
       const interim = {
         serviceImprovement: personalizationEnabled || (previous?.serviceImprovement === true && next.serviceImprovement),
@@ -119,6 +121,10 @@ export function AnalyticsConsentSettingsPanel({
         : 'Saved on this device. Your account settings will synchronise when you reconnect.');
     } catch (cause) {
       console.error('Unable to save analytics settings:', cause);
+      if (offlinePersonalizationWithdrawal && !localPersonalizationDenialSaved) {
+        setError('The native personalisation setting could not be saved offline, so your existing analytics preference has not been changed.');
+        return;
+      }
       denyAnalyticsConsentInMemory('serviceImprovement', userId);
       denyAnalyticsConsentInMemory('sponsorMeasurement', userId);
       try {
