@@ -251,7 +251,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
         typeof remote.serviceImprovement !== 'boolean' ||
         typeof remote.sponsorMeasurement !== 'boolean' ||
         typeof remote.exists !== 'boolean' ||
-        remote.version !== 1 ||
+        remote.version !== 2 ||
         !(remote.updatedAt === null || typeof remote.updatedAt === 'string')
       ) return;
 
@@ -277,7 +277,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
           body: JSON.stringify({
             serviceImprovement: pendingChoices.serviceImprovement,
             sponsorMeasurement: pendingChoices.sponsorMeasurement,
-            version: 1,
+            version: 2,
           }),
           signal: controller.signal,
         });
@@ -298,7 +298,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
         if (
           typeof saved.serviceImprovement !== 'boolean' ||
           typeof saved.sponsorMeasurement !== 'boolean' ||
-          saved.version !== 1 ||
+          saved.version !== 2 ||
           typeof saved.updatedAt !== 'string'
         ) return;
         const next = {
