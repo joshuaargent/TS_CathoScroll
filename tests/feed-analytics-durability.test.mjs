@@ -54,10 +54,10 @@ const [analytics, sponsor, sponsorAnalytics, topicFeed, cardRegistry, readme, sp
   readFile(new URL('../src/components/topic/feed-card-registry.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../README.md', import.meta.url), 'utf8'),
   importTypeScript('../src/lib/sponsor-analytics-client.ts'),
+  readFile(new URL('../src/components/providers/SponsorAnalyticsSync.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/app/layout.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../native/main.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../docs/cathoscroll-database-bootstrap.sql', import.meta.url), 'utf8'),
-  readFile(new URL('../src/components/providers/SponsorAnalyticsSync.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/lib/feed-card-analytics-client.ts', import.meta.url), 'utf8'),
   readFile(new URL('../src/lib/offline/signed-in-analytics-store.ts', import.meta.url), 'utf8'),
 ]);
