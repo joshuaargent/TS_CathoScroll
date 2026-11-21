@@ -36,7 +36,7 @@ export default function CookiesPage() {
 
           <p className="text-text-secondary leading-relaxed">
             CathoScroll uses cookies and similar technologies for core functionality, authentication,
-            security, essential preferences, and offline support. Account-linked first-party site and server-side product analytics are off by default unless you enable them or personalisation requires Service improvement analytics. CathoScroll does not collect anonymous topic, comment or sponsor engagement statistics, and does not count sponsor deliveries. These analytics are not used for cross-site advertising or sponsor targeting profiles.
+            security, essential preferences, and offline support. Account-linked first-party site and server-side product analytics are off by default unless you enable the relevant optional choice. Personalisation and Service improvement analytics are separate choices. CathoScroll does not collect anonymous topic, comment or sponsor engagement statistics, and does not count sponsor deliveries. These analytics are not used for cross-site advertising or sponsor targeting profiles.
           </p>
         </section>
 
@@ -70,7 +70,7 @@ export default function CookiesPage() {
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            Enabling Personalisation also enables Service improvement analytics because eligible reading signals inform private recommendations. This choice remains locked on until Personalisation is turned off. Sponsor measurement is a separate explicit choice for signed-in users only. If enabled, account-linked viewability and click events are used to derive opted-in frequency. A server-issued placement receipt validates that the campaign was selected; it is retained for up to seven days and deleted on withdrawal. Sponsor placements remain available when measurement is off, but no delivery, served, anonymous frequency or anonymous engagement counters are created.
+            Personalisation and Service improvement analytics are separate optional choices. Passive reading signals inform private recommendations only while both are enabled. You can withdraw either choice independently. Sponsor measurement is a separate explicit choice for signed-in users only. If enabled, account-linked viewability and click events are used to derive opted-in frequency. A server-issued placement receipt validates that the campaign was selected; it is retained for up to seven days and deleted on withdrawal. Sponsor placements remain available when measurement is off, but no delivery, served, anonymous frequency or anonymous engagement counters are created.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
@@ -85,7 +85,7 @@ export default function CookiesPage() {
         <section>
           <h2 className="mb-4 text-3xl font-bold">Manage optional analytics</h2>
           <p className="text-text-secondary mb-4 leading-relaxed">
-            Service improvement analytics is optional when personalisation is off and is automatically enabled and locked on while personalisation is enabled. Sponsor measurement is a separate optional choice. Signed-in users can manage optional account-linked choices at signup and in Account settings. Declining optional analytics does not affect sign-in, account synchronisation, bookmarks, likes, progress, notes, sponsor delivery or general feed ranking.
+            Service improvement analytics and Personalisation are separate optional choices. Passive reading signals inform recommendations only when both are enabled. Sponsor measurement is a separate optional choice. Signed-in users can manage optional account-linked choices at signup and in Account settings. Declining optional analytics does not affect sign-in, account synchronisation, bookmarks, likes, progress, notes, sponsor delivery or general feed ranking.
           </p>
           <AnalyticsConsentSettingsButton />
         </section>
