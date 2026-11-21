@@ -141,9 +141,9 @@ export default async function AdminAnalyticsEntityPage({ params, searchParams }:
     <div className="mt-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
       {kind === 'sponsors' ? <>
         <Metric label="Campaign deliveries" value={fmt(totals.served)} signedOutValue={Number(anonymousTotals.sponsor_served ?? 0) > 0 ? fmt(anonymousTotals.sponsor_served) : undefined} detail="Signed-in served sponsor placements" />
-        <Metric label="Anonymous deliveries" value={fmt(anonymousTotals.sponsor_served)} detail="Signed-out served placements, including visitors who declined Sponsor measurement" />
+        <Metric label="Signed-out deliveries" value={fmt(anonymousTotals.sponsor_served)} detail="Signed-out served placements, including visitors who declined Sponsor measurement" />
         <Metric label="Signed-in viewable / clicks" value={fmt(totals.viewable_impressions) + ' / ' + fmt(totals.clicks)} detail="Authenticated events recorded only where Sponsor measurement was enabled" />
-        <Metric label="Anonymous measurement" value="Served totals only" detail="No signed-out viewability, clicks, CTR or per-visitor frequency are collected" />
+        <Metric label="Signed-out measurement" value="Served totals only" detail="No signed-out viewability, clicks, CTR or per-visitor frequency are collected" />
         <Metric label="Active campaigns" value={fmt(totals.active_campaigns)} detail="Campaigns with signed-in delivery in this period" />
       </> : <>
         <Metric label="Signed-in card impressions" value={fmt(totals.impressions)} signedOutValue={Number(anonymousTotals.comment_card_impressions ?? 0) > 0 ? fmt(anonymousTotals.comment_card_impressions) : undefined} detail="Top Comments cards displayed to signed-in users" />
