@@ -68,7 +68,7 @@ Sponsor selection is separate from all organic feed algorithms. A campaign must 
 | Signed-out topic/comment statistics | Event UUIDs, public entity IDs and bounded metrics, rolled into daily totals | No visitor/session/account ID | Site-wide ranking and aggregate reporting; free objection available |
 | Personalisation | Post-consent account actions, reading signals and selected categories | Private account profile | Category scheduling and completed-topic suppression |
 | Sponsor delivery | Campaign eligibility, target context, served totals and global caps | Campaign/day | Deliver and pace paid placements |
-| Sponsor measurement | Viewability, clicks and frequency events | Account-linked or temporary signed-out session token | Sponsor performance reporting and frequency controls |
+| Sponsor measurement | Viewability, clicks and frequency events | Signed-in account-linked events with a short-lived session token for frequency controls; signed-out visitors are not individually measured | Sponsor performance reporting and frequency controls |
 
 ## Personalisation privacy model
 
