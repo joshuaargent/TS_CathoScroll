@@ -53,7 +53,7 @@ test('account consent sync is identity-bound, retryable and enforced server-side
     read('../src/app/api/analytics/feed-card-events/route.ts'),
     read('../src/app/api/content/sponsor-campaign-events/route.ts'),
     read('../docs/analytics-consent-and-sponsor-opt-out-upgrade.sql'),
-    read('../docs/analytics-consent-and-sponsor-opt-out-upgrade.sql'),
+    read('../docs/personalization-analytics-upgrade.sql'),
     read('../docs/cathoscroll-database-bootstrap.sql'),
     read('../src/lib/supabase/admin.ts'),
   ]);
@@ -98,8 +98,8 @@ test('account consent sync is identity-bound, retryable and enforced server-side
   assert.ok(migration.includes('user_analytics_consent_history'));
   const setter = lockOrderMigration.slice(lockOrderMigration.indexOf('CREATE OR REPLACE FUNCTION public.set_user_analytics_consent'));
   assert.ok(setter.indexOf('FROM auth.users AS account WHERE account.id = p_user_id FOR UPDATE') < setter.indexOf('FROM catho_private.user_analytics_consents'));
-  for (const sql of [lockOrderMigration, bootstrap]) {
-    for (const name of ['public.record_feed_analytics_events', 'public.record_feed_card_analytics_events', 'public.record_sponsor_campaign_event', 'public.get_weighted_sponsor_campaigns']) {
+  for (const sql of [migration, bootstrap]) {
+    for (const name of ['public.record_feed_analytics_events', 'public.record_sponsor_campaign_event', 'public.get_weighted_sponsor_campaigns']) {
       const start = sql.indexOf('CREATE OR REPLACE FUNCTION ' + name);
       const end = sql.indexOf('$function$;', start);
       assert.ok(start >= 0 && end > start, name + ' must be present as a complete function in both install paths');
@@ -111,6 +111,15 @@ test('account consent sync is identity-bound, retryable and enforced server-side
     const setterEnd = sql.indexOf('$function$;', setterStart);
     const setter = sql.slice(setterStart, setterEnd);
     assert.ok(setter.indexOf('FOR UPDATE') < setter.indexOf('FROM catho_private.user_analytics_consents'));
+  }
+  for (const sql of [personalizationUpgrade, bootstrap]) {
+    const name = 'public.record_feed_card_analytics_events';
+    const start = sql.indexOf('CREATE OR REPLACE FUNCTION ' + name);
+    const end = sql.indexOf('$function$;', start);
+    assert.ok(start >= 0 && end > start, name + ' must be present in both install paths');
+    const body = sql.slice(start, end).toLowerCase();
+    assert.ok(body.includes('for key share'));
+    assert.ok(body.indexOf('for key share') < body.indexOf('for share'));
   }
   assert.ok(migration.includes('SELECT consent.service_improvement INTO v_service_consent'));
   assert.ok(migration.includes('SELECT consent.sponsor_measurement INTO v_sponsor_consent'));
@@ -183,7 +192,7 @@ test('declining sponsor measurement preserves delivery and campaign-day totals w
   assert.ok(selectRoute.includes('const measurementSessionId: string | null'));
   assert.ok(selectRoute.includes('p_session_token: measurementSessionId'));
   assert.ok(selectRoute.includes('sponsorMeasurementEnabled = consent.sponsorMeasurement && parsed.value.sessionId !== null;'));
-  assert.ok(selectRoute.includes('Detailed anonymous viewability, click and frequency measurement is opt-in.'));
+  assert.ok(selectRoute.includes('// Detailed sponsor measurement is account-only.'));
   assert.ok(eventRoute.includes('eventPayload.sponsorMeasurementConsent !== true'));
   assert.ok(selectRoute.includes('p_session_id: measurementSessionId'));
   assert.ok(eventRoute.includes('if (!consent.sponsorMeasurement) return respond(request, { recorded: false });'));
