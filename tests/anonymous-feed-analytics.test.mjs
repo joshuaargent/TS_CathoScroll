@@ -202,3 +202,12 @@ test('admin navigation and shells no longer expose the retired feed preview or A
     assert.doesNotMatch(source, /Administration<\/p>/);
   }
 });
+
+test('anonymous analytics objections propagate to other tabs and clear their queues', () => {
+  const client = read('../src/lib/anonymous-feed-analytics-client.ts');
+  assert.match(client, /window\.addEventListener\('storage'/);
+  assert.match(client, /event\.key !== anonymousAnalyticsPreferenceKey && event\.key !== null/);
+  assert.match(client, /setAnonymousFeedAnalyticsEnabled\(enabled\)/);
+  assert.match(client, /anonymousFlushAbortController\?\.abort\(\)/);
+  assert.match(client, /await Promise\.allSettled\(\[\.\.\.pendingOutboxWrites\]\)/);
+});
