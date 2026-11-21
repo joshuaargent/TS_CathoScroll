@@ -78,7 +78,7 @@ function getEndpoint(): string {
 }
 
 
-export async function setAnonymousFeedAnalyticsEnabled(enabled: boolean): Promise<void> {
+async function applyAnonymousFeedAnalyticsPreference(enabled: boolean): Promise<void> {
   if (typeof window === 'undefined') throw new Error('Analytics preferences are unavailable.');
   anonymousPreferenceTransition = true;
   let failure: unknown = null;
@@ -125,6 +125,14 @@ export async function setAnonymousFeedAnalyticsEnabled(enabled: boolean): Promis
     throw failure;
   }
   if (enabled) void flushAnonymousFeedAnalyticsQueue();
+}
+
+let anonymousPreferenceUpdateQueue: Promise<void> = Promise.resolve();
+
+export function setAnonymousFeedAnalyticsEnabled(enabled: boolean): Promise<void> {
+  const update = anonymousPreferenceUpdateQueue.then(() => applyAnonymousFeedAnalyticsPreference(enabled));
+  anonymousPreferenceUpdateQueue = update.catch(() => undefined);
+  return update;
 }
 
 export async function configureAnonymousFeedAnalyticsOutbox(
