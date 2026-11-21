@@ -19,7 +19,8 @@ test('fresh native Account loads can read encrypted personalisation consent and 
   assert.match(account, /readNativePersonalizationCache\(sessionUser\.id\)/);
   assert.match(account, /forcedOfflineWithdrawal/);
   assert.match(account, /syncNativeConsent\(accountUserId, false, true\)/);
-  assert.match(panel, /personalizationStatusKnown/);
+  assert.match(account, /personalizationStatusKnown/);
+  assert.doesNotMatch(panel, /personalizationStatusKnown/);
   assert.match(panel, /previous\?\.serviceImprovement === true/);
 });
 
