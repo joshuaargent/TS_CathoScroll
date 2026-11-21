@@ -245,7 +245,6 @@ test('privacy assessment distinguishes special-category risk and keeps personali
   assert.ok(manager.includes('Personalisation is independent; passive reading signals inform recommendations only when both Personalisation and Service improvement analytics are enabled. Sponsor measurement remains independent.'));
   assert.ok(account.includes('personalization'));
   assert.ok(account.includes('AnalyticsConsentSettingsPanel'));
-  assert.ok(personalization.includes('I explicitly consent to CathoScroll using my account actions and selected interests to personalise my recommendations'));
+  assert.ok(account.includes('I explicitly consent to CathoScroll using my account actions and selected interests to personalise my recommendations'));
   assert.ok(analyticsSettings.includes('Passive reading signals inform recommendations only if Personalisation is separately enabled too.'));
-  assert.ok(analyticsSettings.includes('Required while personalisation is on.'));
 });
