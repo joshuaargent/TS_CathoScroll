@@ -124,7 +124,7 @@ export default function PrivacyPage() {
             <li>Provide aggregate sponsor reports based only on signed-in users who explicitly enable Sponsor measurement.</li>
             <li>Improve performance and reliability.</li>
             <li>Measure account-linked topic and Top Comments engagement only when Service improvement analytics is enabled; eligible passive reading signals inform recommendations only when Personalisation is also enabled.</li>
-            <li>Measure sponsor viewability, clicks and frequency only where Sponsor measurement is enabled.</li>
+            <li>Measure sponsor viewability, clicks on viewable placements and frequency only where Sponsor measurement is enabled.</li>
             <li>Monitor abuse, spam, fraud, and security issues.</li>
             <li>Comply with legal obligations.</li>
           </ul>
@@ -237,7 +237,7 @@ export default function PrivacyPage() {
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            Sponsor delivery is separate from Sponsor measurement. Sponsor cards remain available when measurement is off. Detailed sponsor viewability, clicks and frequency are measured only for signed-in users who explicitly enable Sponsor measurement. These events are account-linked and may reveal religious or philosophical interests. A server-issued placement receipt verifies that a measured campaign was selected; it expires after seven days and is deleted when Sponsor measurement is withdrawn. Withdrawing Sponsor measurement also deletes your account-linked sponsor event records and rebuilds recent campaign totals without your events; older aggregate totals may remain without user-level records. No anonymous sponsor engagement events, delivery counters, served totals or anonymous frequency records are collected. Sponsor measurement is never used for recommendations or religious-interest targeting.
+            Sponsor delivery is separate from Sponsor measurement. Sponsor cards remain available when measurement is off. Detailed sponsor viewability, clicks on viewable placements and frequency are measured only for signed-in users who explicitly enable Sponsor measurement. These events are account-linked and may reveal religious or philosophical interests. A server-issued placement receipt verifies that a measured campaign was selected; it expires after seven days and is deleted when Sponsor measurement is withdrawn. Withdrawing Sponsor measurement also deletes your account-linked sponsor event records and rebuilds recent campaign totals without your events; older aggregate totals may remain without user-level records. No anonymous sponsor engagement events, delivery counters, served totals or anonymous frequency records are collected. Sponsor measurement is never used for recommendations or religious-interest targeting.
           </p>
         </section>
 
