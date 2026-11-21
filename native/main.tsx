@@ -57,7 +57,7 @@ import { configureFeedCardAnalyticsOutbox, clearFeedCardAnalyticsOutbox } from '
 import { configureSponsorAnalyticsOutbox, clearSponsorAnalyticsOutbox } from '@/lib/sponsor-analytics-client';
 import { NativeSignedInAnalyticsOutbox } from '@/lib/offline/signed-in-analytics-store';
 import { NativeAnonymousAnalyticsOutbox } from '@/lib/offline/anonymous-analytics-store';
-import { OfflineRankedFeedCache } from '@/lib/offline/ranked-feed-cache';
+import { OfflineRankedFeedCache, type CachedPersonalizationConsent } from '@/lib/offline/ranked-feed-cache';
 import type { TopFeedComment } from '@/lib/feed-comments';
 import type { RecommendationCursor } from '@/lib/recommendations';
 import type { GeneralFeedCursor } from '@/lib/content';
@@ -870,6 +870,23 @@ function App() {
     }
     notifyNativeStatus(catalogueMessage, { id: 'catalogue-refresh' });
   }, [catalogueMessage]);
+
+  useEffect(() => {
+    function readPersonalizationConsentCache(event: Event) {
+      const detail = (event as CustomEvent<{
+        userId?: unknown;
+        complete?: (result: Promise<{ available: boolean; consent: CachedPersonalizationConsent | null }>) => void;
+      }>).detail;
+      if (!detail || typeof detail.userId !== 'string') return;
+      const cache = personalizedFeedCacheRef.current;
+      const result = cache
+        ? cache.getCachedConsent(detail.userId).then((consent) => ({ available: true, consent }))
+        : Promise.resolve({ available: false, consent: null });
+      detail.complete?.(result);
+    }
+    window.addEventListener('cathoscroll:personalization-consent-status-request', readPersonalizationConsentCache);
+    return () => window.removeEventListener('cathoscroll:personalization-consent-status-request', readPersonalizationConsentCache);
+  }, []);
 
   useEffect(() => {
     function syncPersonalizationConsent(event: Event) {
