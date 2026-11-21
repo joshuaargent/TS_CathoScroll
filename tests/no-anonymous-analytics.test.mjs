@@ -70,6 +70,7 @@ test('canonical database and existing-database upgrade remove anonymous analytic
     assert.match(sql, /ALTER TABLE catho_private\.sponsor_campaign_daily DROP COLUMN IF EXISTS served_count/);
     assert.match(sql, /DROP TABLE IF EXISTS catho_private\.sponsor_campaign_user_frequency/);
     assert.match(sql, /DROP FUNCTION IF EXISTS public\.get_admin_sponsor_analytics\(uuid, timestamptz, timestamptz\)/);
+    assert.match(sql, /DROP FUNCTION IF EXISTS public\.get_admin_analytics_overview\(timestamp with time zone, timestamp with time zone\)/);
     for (const name of [
       'get_sponsor_campaign_analytics',
       'get_admin_sponsor_analytics',
