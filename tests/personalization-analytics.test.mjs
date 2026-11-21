@@ -249,6 +249,8 @@ test('web and native account/settings screens reuse the same components', () => 
   assert.match(accountSection, /p_consent_version: '2026-11-20-v4'/);
   assert.match(accountSection, /analyticsConsentSyncEvent/);
   assert.match(accountSection, /AnalyticsConsentSettingsPanel/);
+  assert.match(accountSection, /offlineCacheAvailable=\{offlineCacheAvailable\}/);
+  assert.match(nativeMain, /window\.dispatchEvent\(new Event\(analyticsConsentSyncEvent\)\)/);
   assert.ok(nativeMain.includes("pathname === '/account/personalization'"));
   assert.ok(nativeMain.includes("kind: 'account'"));
   assert.match(nativeAccount, /AccountPageView/);
