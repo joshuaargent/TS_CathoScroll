@@ -187,7 +187,7 @@ test('administrator campaign reporting reads aggregate-only daily metrics', () =
     'ALTER FUNCTION public.get_admin_sponsor_campaign_analytics'
   );
   assert.match(analytics, /admin_users/);
-  assert.match(analytics, /p_to-p_from>179/);
+  assert.match(analytics, /p_to\\s*-\\s*p_from\\s*>\\s*179/);
   assert.match(analytics, /sponsor_campaign_daily/);
   assert.match(analytics, /viewable_impressions/);
   assert.match(analytics, /click_through_rate/);
