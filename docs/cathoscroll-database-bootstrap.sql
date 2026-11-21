@@ -8887,6 +8887,15 @@ BEGIN
   FROM event_totals
   LEFT JOIN viewer_totals USING (event_date, card_type, card_id);
 
+  IF pg_catalog.to_regclass('catho_private.user_personalization_consents') IS NOT NULL THEN
+    UPDATE catho_private.user_personalization_consents
+    SET profile_refreshed_at = NULL
+    WHERE user_id = p_user_id AND enabled = true;
+    IF pg_catalog.to_regprocedure('catho_private.refresh_user_interest_profile(uuid)') IS NOT NULL THEN
+      EXECUTE 'SELECT catho_private.refresh_user_interest_profile($1)' USING p_user_id;
+    END IF;
+  END IF;
+
   RETURN v_deleted;
 END;
 $function$;
@@ -9024,9 +9033,6 @@ BEGIN
 
   IF p_service_improvement IS NOT TRUE THEN
     PERFORM catho_private.purge_user_service_improvement_events(p_user_id);
-    IF pg_catalog.to_regprocedure('catho_private.refresh_user_interest_profile(uuid)') IS NOT NULL THEN
-      EXECUTE 'SELECT catho_private.refresh_user_interest_profile($1)' USING p_user_id;
-    END IF;
   END IF;
 
   IF p_sponsor_measurement IS NOT TRUE THEN
