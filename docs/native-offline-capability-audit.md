@@ -4,7 +4,7 @@
 
 | Capability | Android / Electron behaviour | Offline behaviour |
 |---|---|---|
-| Feed and topic pages | Shared web pages and server-ranked topic payloads | Previously downloaded pages can be read from encrypted local cache |
+| Feed and topic pages | Shared web pages and server-ranked topic payloads | The latest downloaded server-ranked pages are cached in encrypted local storage for offline reading |
 | Personalisation | Server-derived private category/topic ordering | Cached server-ranked pages only; no separate offline learner |
 | Likes, bookmarks and progress | Account-scoped activity sync | Existing revision-aware activity outbox queues changes and syncs on reconnect |
 | Signed-in Service improvement analytics | Encrypted account-scoped SQLite outbox | Only events created while explicit consent is active are queued; max 2,000 per stream, seven-day expiry, acknowledgement deletion |
