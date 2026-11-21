@@ -70,7 +70,7 @@ CathoScroll does not provide sponsors with user identities, raw user-level analy
 | Sponsor placement receipts | Seven days; deleted on Sponsor measurement withdrawal |
 | Native pending signed-in analytics outboxes | Encrypted app-private storage; maximum 2,000 events per stream and seven days; delete after acknowledgement, withdrawal or account change |
 | Website pending signed-in analytics queues | Memory-only; cleared on withdrawal or page/session termination |
-| Derived Personalisation profile and selected category interests | Deleted on Personalisation withdrawal; old v4 grants are invalidated by the v5 upgrade and affected profiles/interests are deleted pending fresh consent |
+| Derived Personalisation profile and selected category interests | Deleted on Personalisation withdrawal; pre-v6 grants are invalidated by the v6 upgrade and affected profiles/interests are deleted pending fresh consent |
 | Analytics consent records | Retained as needed to administer and demonstrate the user's choice, subject to account deletion and legal requirements |
 | Core account, user-generated content and sponsor accounting records | Retention depends on service operation, moderation, account deletion, dispute and statutory requirements; controller to confirm detailed periods |
 | Contact form submissions | Delete when the request is resolved and the information is no longer needed; confirm Formspree archive and email-mailbox retention and deletion controls |\n| Provider security/access logs and request metadata | Provider-specific; obtain current retention periods from provider accounts and contracts |
@@ -84,7 +84,7 @@ No anonymous topic/comment analytics, anonymous sponsor engagement, anonymous qu
 - Android and Electron store pending signed-in analytics only in encrypted app-private storage. Queues are account-scoped, capped and cleared on withdrawal/account change.
 - Website retry queues are memory-only.
 - Newly granted offline analytics choices do not upload queued events until the server has acknowledged the account consent.
-- Native personalisation consent caches are versioned. The current v5 consent transition invalidates old cached grants and personalised pages while preserving pending local denials.
+- Native personalisation consent caches are versioned. The current v6 consent transition invalidates old cached grants and personalised pages while preserving pending local denials.
 - Anonymous event pipelines and their native persistent outbox have been removed.
 - Access to provider accounts and production data should be limited to authorised personnel. Confirm current team membership, MFA, access logs, backup/restore controls and incident response arrangements.
 
