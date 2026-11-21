@@ -207,13 +207,13 @@ test('declining sponsor measurement preserves delivery and campaign-day totals w
     assert.ok(sql.includes('GRANT EXECUTE ON FUNCTION public.get_user_analytics_consent(uuid) TO service_role;'));
     assert.ok(sql.includes('REVOKE ALL ON FUNCTION public.set_user_analytics_consent(uuid, boolean, boolean, integer) FROM PUBLIC, anon, authenticated, service_role;'));
     assert.ok(sql.includes('GRANT EXECUTE ON FUNCTION public.set_user_analytics_consent(uuid, boolean, boolean, integer) TO service_role;'));
-    assert.ok(sql.includes("p_session_token !~* '^[0-9a-f-]{36}$'"));
-    assert.ok(sql.includes('IF p_session_token IS NOT NULL THEN'));
-    assert.ok(sql.includes('CASE WHEN p_session_token IS NULL THEN true ELSE'));
-    assert.ok(sql.includes('IF v_session_id IS NOT NULL THEN'));
+    assert.match(sql, /p_session_token remains in the RPC signature for compatibility but is intentionally ignored/);
+    assert.doesNotMatch(sql, /CREATE OR REPLACE FUNCTION public.record_anonymous_sponsor_campaign_event/);
+    assert.doesNotMatch(sql, /anonymous_sponsor_events|anonymous_sponsor_session_frequency/);
     assert.ok(sql.includes('INSERT INTO catho_private.anonymous_sponsor_campaign_daily(event_date,campaign_id,served_count)'));
     assert.ok(sql.includes('INSERT INTO catho_private.sponsor_campaign_daily'));
     assert.ok(sql.includes('v_session_id := CASE WHEN coalesce(v_sponsor_measurement, false) THEN p_session_id ELSE NULL END'));
+    assert.ok(sql.includes('IF v_session_id IS NOT NULL THEN'));
   }
 });
 
