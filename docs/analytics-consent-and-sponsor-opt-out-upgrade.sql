@@ -1246,6 +1246,8 @@ DROP TABLE IF EXISTS catho_private.anonymous_sponsor_campaign_daily;
 DROP TABLE IF EXISTS catho_private.anonymous_feed_event_receipts;
 DROP TABLE IF EXISTS catho_private.anonymous_feed_analytics_daily;
 
+DROP FUNCTION IF EXISTS public.get_admin_sponsor_analytics(uuid, timestamptz, timestamptz);
+
 -- No delivery counters or served events are retained. Frequency is measured only
 -- from viewable events for users who opted into Sponsor measurement.
 DELETE FROM catho_private.sponsor_campaign_events WHERE event_type = 'served';
