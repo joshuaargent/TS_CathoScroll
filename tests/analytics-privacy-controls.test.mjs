@@ -16,10 +16,18 @@ test('signed-in feed analytics is gated by the account Service improvement choic
 
   assert.ok(topicRoute.includes('getStoredAnalyticsConsent(user.id)'));
   assert.ok(commentRoute.includes('getStoredAnalyticsConsent(user.id)'));
-  assert.ok(topicRoute.includes('if (!consent.serviceImprovement) return respond(request, { accepted: 0 });'));
-  assert.ok(commentRoute.includes('if (!consent.serviceImprovement) return respond(request, { accepted: 0 });'));
+  assert.ok(topicRoute.includes("code: 'CONSENT_REQUIRED'"));
+  assert.ok(topicRoute.includes('}, 403);'));
+  assert.ok(commentRoute.includes("code: 'CONSENT_REQUIRED'"));
+  assert.ok(commentRoute.includes('}, 403);'));
   assert.ok(topicClient.includes("hasAnalyticsConsent('serviceImprovement', userId)"));
+  assert.ok(topicClient.includes("denyAnalyticsConsentInMemory('serviceImprovement', userId)"));
+  assert.ok(topicClient.includes('requestAnalyticsConsentSync()'));
+  assert.ok(topicClient.includes('clearFeedAnalyticsOutbox(userId)'));
   assert.ok(commentClient.includes("hasAnalyticsConsent('serviceImprovement', userId)"));
+  assert.ok(commentClient.includes("denyAnalyticsConsentInMemory('serviceImprovement', userId)"));
+  assert.ok(commentClient.includes('requestAnalyticsConsentSync()'));
+  assert.ok(commentClient.includes('clearFeedCardAnalyticsOutbox(userId)'));
   assert.doesNotMatch(topicViewer + commentViewer, /recordAnonymousFeedEvent|anonymous-feed-analytics-client/);
 });
 
