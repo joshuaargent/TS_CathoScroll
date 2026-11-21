@@ -269,13 +269,16 @@ export default function PrivacyPage() {
 
           <p className="text-text-secondary mt-4 leading-relaxed">
             Sponsor delivery is separate from Sponsor measurement. Sponsor cards appear even when
-            measurement is off. Detailed sponsor viewability, clicks and frequency are available
-            only to signed-in users who explicitly enable Sponsor measurement. Their events are
-            account-linked; per-placement IDs validate events and account-level frequency records support caps. Raw event
-            records are eligible for deletion after 180 days. Signed-out visitors are not measured
-            individually: only campaign/day served totals are retained for delivery and pacing.
-            The statistical-purpose exception is not used to justify sponsor viewability or click
-            measurement; those technologies require the separate Sponsor measurement choice.
+            measurement is off. The signed-out aggregate-measurement objection above applies only to
+            topic and comment statistics; it does not disable sponsor placements or aggregate
+            campaign/day served totals. Detailed sponsor viewability, clicks and frequency are
+            available only to signed-in users who explicitly enable Sponsor measurement. Their
+            events are account-linked; per-placement IDs validate events and account-level frequency
+            records support caps. Raw event records are eligible for deletion after 180 days.
+            Signed-out visitors are not measured individually: only campaign/day served totals are
+            retained for delivery and pacing. The statistical-purpose exception is not used to
+            justify sponsor viewability or click measurement; those technologies require the
+            separate Sponsor measurement choice.
           </p>
           <AnonymousAnalyticsPreference />
         </section>
