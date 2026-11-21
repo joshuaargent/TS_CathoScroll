@@ -205,13 +205,11 @@ export function TopicFeedCore({
   const loadSponsorCampaigns = useCallback(
     async (topic: Topic): Promise<{ campaigns: SponsorFeedCampaign[]; sessionId: string | null; retryable?: boolean }> => {
 
-      // Only opted-in anonymous placements share an in-memory session token for
-      // frequency caps; opted-out placements send no token. Signed-in opted-in
-      // placements get unique IDs so separate card views are not deduplicated.
-      const measurementEnabled = hasAnalyticsConsent('sponsorMeasurement', userId);
-      const sessionId = measurementEnabled
-        ? (userId ? createSponsorPlacementId() : createSponsorSessionId())
-        : null;
+      // Detailed Sponsor measurement is account-only. Signed-out placements
+      // always use aggregate campaign/day delivery and never send an identifier.
+      // Signed-in opted-in placements use a per-placement ID for event validation.
+      const measurementEnabled = Boolean(userId && hasAnalyticsConsent('sponsorMeasurement', userId));
+      const sessionId = measurementEnabled ? createSponsorPlacementId() : null;
       if (measurementEnabled && !sessionId) return { campaigns: [], sessionId: null, retryable: true };
 
       try {
