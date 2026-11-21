@@ -119,7 +119,7 @@ export function AnalyticsConsentSettingsPanel({
           <input
             type="checkbox"
             checked={sponsorMeasurement}
-            disabled={saving}
+            disabled={disabled || saving}
             onChange={(event) => setSponsorMeasurement(event.target.checked)}
             className="accent-accent mt-1 h-4 w-4 shrink-0"
           />
