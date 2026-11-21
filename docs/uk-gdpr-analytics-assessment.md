@@ -99,7 +99,7 @@ The following controls are proportionate and preserve the useful analytics:
 - Keep separate signed-in and signed-out totals; do not merge them into misleading unique-user metrics.
 - Retain raw account-linked analytics for no longer than the documented 180-day operational window only while the relevant consent is active; aggregate and delete detail under the existing bounded jobs.
 - Keep signed-out topic/comment aggregates free of visitor/session/account IDs and suppress small cells where a low count could expose an individual's activity.
-- For sponsor measurement opt-outs, retain campaign/day served counts only. Keep richer viewability/click/CTR and frequency metrics for opt-in visitors.
+- For sponsor measurement opt-outs, retain campaign/day served counts only. Keep richer viewability/click/CTR and frequency metrics only for signed-in account holders who explicitly opt in.
 - Keep sponsor reports aggregate-only and prevent sponsor access to raw event tables.
 - Continue event validation, rate limits, server-authoritative timestamps, idempotency, private tables, RLS and bounded cleanup.
 - Do not repurpose analytics for recommendation profiling, religious-affiliation inference, individual decisions or sponsor targeting.
