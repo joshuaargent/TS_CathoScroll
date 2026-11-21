@@ -7913,28 +7913,23 @@ CREATE OR REPLACE FUNCTION public.get_anonymous_sponsor_campaigns(p_session_toke
  SECURITY DEFINER
  SET search_path TO ''
 AS $function$
+-- p_session_token remains in the RPC signature for compatibility but is intentionally ignored.
 DECLARE v_campaign record; v_campaign_ids uuid[]:=ARRAY[]::uuid[]; v_campaigns jsonb:='[]'::jsonb;
  v_slot integer; v_today date:=(pg_catalog.timezone('UTC',statement_timestamp()))::date;
- v_hash text; v_topic_category_slug text;
+ v_topic_category_slug text;
 BEGIN
- IF (p_session_token IS NOT NULL AND (length(p_session_token)>100 OR p_session_token !~* '^[0-9a-f-]{36}$'))
-   OR p_limit IS NULL OR p_limit<1 OR p_limit>1
+ IF p_limit IS NULL OR p_limit<1 OR p_limit>1
    OR (p_category_slug IS NOT NULL AND p_category_slug !~ '^[a-z0-9]+(-[a-z0-9]+)*$')
    OR (p_topic_id IS NOT NULL AND p_topic_id !~ '^[a-z0-9]+(-[a-z0-9]+)*$') THEN
    RAISE EXCEPTION 'Invalid anonymous sponsor request' USING ERRCODE='22023';
  END IF;
  IF p_topic_id IS NULL THEN RAISE EXCEPTION 'Sponsor placement topic is required' USING ERRCODE='22023'; END IF;
- IF p_session_token IS NOT NULL THEN
-  v_hash:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p_session_token,'UTF8')),'hex');
-  END IF;
  SELECT t.category_slug INTO v_topic_category_slug FROM public.topics t WHERE t.id=p_topic_id AND t.is_published;
  IF NOT FOUND THEN RAISE EXCEPTION 'Sponsor placement topic is unavailable' USING ERRCODE='22023'; END IF;
- PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(v_hash,9173));
  FOR v_slot IN 1..p_limit LOOP
   SELECT campaign.id,sponsor.sponsor_name,campaign.headline,campaign.body,campaign.image_url,campaign.destination_url,campaign.cta_label,campaign.campaign_name
   INTO v_campaign
   FROM public.sponsor_campaigns campaign JOIN public.sponsors sponsor ON sponsor.id=campaign.sponsor_id
-  LEFT JOIN catho_private.anonymous_sponsor_session_frequency frequency ON frequency.campaign_id=campaign.id AND frequency.session_hash=v_hash AND p_session_token IS NOT NULL
   WHERE campaign.status='approved' AND sponsor.status IN ('active','scheduled')
     AND (sponsor.starts_on IS NULL OR sponsor.starts_on<=v_today) AND (sponsor.ends_on IS NULL OR sponsor.ends_on>=v_today)
     AND sponsor.payment_status IN ('received','not_required')
@@ -7944,22 +7939,12 @@ BEGIN
     AND (campaign.daily_impression_cap IS NULL OR coalesce((SELECT d.served_count FROM catho_private.sponsor_campaign_daily d WHERE d.campaign_id=campaign.id AND d.event_date=v_today),0)
       + coalesce((SELECT d.served_count FROM catho_private.anonymous_sponsor_campaign_daily d WHERE d.campaign_id=campaign.id AND d.event_date=v_today),0) < campaign.daily_impression_cap)
     AND (campaign.total_impression_cap IS NULL OR campaign.served_count + coalesce((SELECT sum(d.served_count) FROM catho_private.anonymous_sponsor_campaign_daily d WHERE d.campaign_id=campaign.id),0) < campaign.total_impression_cap)
-    AND CASE WHEN p_session_token IS NULL THEN true ELSE (
-      coalesce(frequency.served_count,0)<least(campaign.frequency_cap_per_user_total,5)
-      AND (SELECT count(*) FROM catho_private.anonymous_sponsor_events e WHERE e.campaign_id=campaign.id AND e.session_hash=v_hash AND e.event_type='viewable_impression' AND e.received_at>=statement_timestamp()-interval '24 hours') < least(campaign.frequency_cap_per_user_24h,2)
-    ) END
     AND NOT campaign.id=ANY(v_campaign_ids)
   ORDER BY (coalesce((SELECT sum(d.viewable_impressions) FROM catho_private.sponsor_campaign_daily d WHERE d.campaign_id=campaign.id AND d.event_date>=v_today-29),0)
       + coalesce((SELECT sum(d.viewable_impressions) FROM catho_private.anonymous_sponsor_campaign_daily d WHERE d.campaign_id=campaign.id AND d.event_date>=v_today-29),0))::numeric/campaign.placement_weight ASC,
       pg_catalog.random(),campaign.id
   LIMIT 1 FOR UPDATE OF campaign SKIP LOCKED;
   IF NOT FOUND THEN EXIT; END IF;
-  IF p_session_token IS NOT NULL THEN
-   INSERT INTO catho_private.anonymous_sponsor_events(campaign_id,event_id,session_hash,placement_id,event_type) VALUES(v_campaign.id,gen_random_uuid(),v_hash,p_topic_id,'served');
-   INSERT INTO catho_private.anonymous_sponsor_session_frequency(campaign_id,session_hash,served_count,last_served_at)
-   VALUES(v_campaign.id,v_hash,1,statement_timestamp())
-   ON CONFLICT(campaign_id,session_hash) DO UPDATE SET served_count=catho_private.anonymous_sponsor_session_frequency.served_count+1,last_served_at=EXCLUDED.last_served_at;
-  END IF;
   INSERT INTO catho_private.anonymous_sponsor_campaign_daily(event_date,campaign_id,served_count) VALUES(v_today,v_campaign.id,1)
   ON CONFLICT(event_date,campaign_id) DO UPDATE SET served_count=catho_private.anonymous_sponsor_campaign_daily.served_count+1;
   INSERT INTO catho_private.sponsor_campaign_daily(event_date,campaign_id,served_count) VALUES(v_today,v_campaign.id,0)
@@ -8079,48 +8064,7 @@ REVOKE ALL ON FUNCTION public.record_anonymous_feed_analytics(jsonb) FROM PUBLIC
 GRANT EXECUTE ON FUNCTION public.record_anonymous_feed_analytics(jsonb) TO service_role;
 REVOKE ALL ON FUNCTION public.get_anonymous_sponsor_campaigns(text,text,text,integer) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.get_anonymous_sponsor_campaigns(text,text,text,integer) TO service_role;
-CREATE OR REPLACE FUNCTION public.record_anonymous_sponsor_campaign_event(p_session_token text, p_campaign_id uuid, p_placement_id text, p_event_id uuid, p_event_type text)
- RETURNS boolean
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO ''
-AS $function$
-DECLARE v_hash text; v_served timestamptz; v_today date:=(pg_catalog.timezone('UTC',statement_timestamp()))::date;
-BEGIN
- IF p_session_token IS NULL OR p_session_token !~* '^[0-9a-f-]{36}$'
-  OR p_campaign_id IS NULL OR p_placement_id IS NULL OR length(p_placement_id) NOT BETWEEN 1 AND 160
-  OR p_event_id IS NULL OR p_event_type NOT IN ('viewable_impression','click') THEN
-  RAISE EXCEPTION 'Invalid anonymous sponsor event' USING ERRCODE='22023';
- END IF;
- v_hash:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p_session_token,'UTF8')),'hex');
- SELECT received_at INTO v_served FROM catho_private.anonymous_sponsor_events
- WHERE campaign_id=p_campaign_id AND session_hash=v_hash AND placement_id=p_placement_id
-  AND event_type='served' AND received_at>=statement_timestamp()-interval '24 hours'
- ORDER BY received_at DESC LIMIT 1;
- IF v_served IS NULL THEN RAISE EXCEPTION 'Sponsor placement was not eligible' USING ERRCODE='42501'; END IF;
- IF p_event_type='click' AND NOT EXISTS(
-  SELECT 1 FROM catho_private.anonymous_sponsor_events
-  WHERE campaign_id=p_campaign_id AND session_hash=v_hash AND placement_id=p_placement_id
-   AND event_type='viewable_impression' AND received_at>=v_served
- ) THEN RAISE EXCEPTION 'Click requires a viewable impression for this placement' USING ERRCODE='42501'; END IF;
- INSERT INTO catho_private.anonymous_sponsor_events(campaign_id,event_id,session_hash,placement_id,event_type)
- VALUES(p_campaign_id,p_event_id,v_hash,p_placement_id,p_event_type) ON CONFLICT DO NOTHING;
- IF NOT FOUND THEN RETURN false; END IF;
- IF p_event_type='viewable_impression' THEN
-  INSERT INTO catho_private.anonymous_sponsor_campaign_daily(event_date,campaign_id,viewable_impressions)
-  VALUES(v_today,p_campaign_id,1)
-  ON CONFLICT(event_date,campaign_id) DO UPDATE SET
-   viewable_impressions=catho_private.anonymous_sponsor_campaign_daily.viewable_impressions+1;
- ELSE
-  INSERT INTO catho_private.anonymous_sponsor_campaign_daily(event_date,campaign_id,clicks)
-  VALUES(v_today,p_campaign_id,1)
-  ON CONFLICT(event_date,campaign_id) DO UPDATE SET
-   clicks=catho_private.anonymous_sponsor_campaign_daily.clicks+1;
- END IF;
- RETURN true;
-END; $function$;
-REVOKE ALL ON FUNCTION public.record_anonymous_sponsor_campaign_event(text,uuid,text,uuid,text) FROM PUBLIC,anon,authenticated;
-GRANT EXECUTE ON FUNCTION public.record_anonymous_sponsor_campaign_event(text,uuid,text,uuid,text) TO service_role;
+
 REVOKE ALL ON FUNCTION catho_private.prune_anonymous_analytics() FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION catho_private.prune_anonymous_analytics() TO service_role;
 
