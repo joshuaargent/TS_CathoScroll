@@ -202,6 +202,18 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
     };
   }, [load]);
 
+  useEffect(() => {
+    const refresh = () => {
+      void load();
+    };
+    window.addEventListener('online', refresh);
+    window.addEventListener(analyticsConsentSyncEvent, refresh);
+    return () => {
+      window.removeEventListener('online', refresh);
+      window.removeEventListener(analyticsConsentSyncEvent, refresh);
+    };
+  }, [load]);
+
   async function updateConsent(enabled: boolean) {
     const forcedOfflineWithdrawal = !enabled && !personalizationStatusKnown && offlineCacheAvailable;
     if (saving || savingInterests || loading || (enabled === status.enabled && !forcedOfflineWithdrawal)) return;
