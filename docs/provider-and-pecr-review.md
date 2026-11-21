@@ -37,6 +37,24 @@ CathoScroll is a Catholic theology service. Account-linked reading behaviour and
 
 Do not use religious beliefs, inferred faith, topic/category history or recommendation profiles to target sponsors. Sponsor measurement is for aggregate campaign reporting and frequency controls only. Sponsors must not receive raw user-level events or reading histories.
 
+## Verified provider-account facts (21 November 2026)
+
+The connected account configuration was inspected read-only:
+
+| Provider | Verified configuration | Legal implication |
+|---|---|---|
+| Supabase | CathoScroll project; AWS region `eu-north-1` (Stockholm); Free organisation plan; PostgreSQL 17.11.0.011 | The database's primary region is Stockholm. This does not mean all support, account, telemetry, log or subprocessor processing stays in that region. |
+| Vercel | `ts_cathoscroll` project; Hobby team plan; current production deployment region `iad1` (US East) | The public Vercel DPA states that it applies to customers on Pro and Enterprise plans. The current Hobby account must not be assumed to have that DPA. This is a release blocker until Vercel confirms an applicable Article 28 processor agreement for the Hobby plan or the account moves to a plan with the required DPA. |
+
+Official provider materials reviewed:
+
+- Supabase [Data Processing Addendum](https://supabase.com/legal/customer-resources/data-processing-addendum), Version 1 — 1 August 2026. It identifies Supabase Pte. Ltd. as processor, provides for EU SCCs and a UK Addendum, and permits processing by authorised subprocessors. The controller must confirm the applicable agreement is incorporated into the actual account terms and review the current [subprocessor list](https://supabase.com/legal/customer-resources/subprocessor-list).
+- Supabase [Data Residency and Transfers FAQ](https://supabase.com/legal/privacy-resources/data-residency-and-transfers-faq), Version 1 — 6 October 2026. It states that the selected region hosts the primary database, Auth and Storage, but account information, support, telemetry, logs and CDN processing may involve other regions.
+- Vercel [Data Processing Addendum](https://vercel.com/legal/dpa), updated 17 March 2026, effective 31 March 2026. Its scope states that it applies to Vercel processing for customers on Pro and Enterprise plans and describes US primary processing facilities and international transfers. The current Hobby plan's contractual position remains unverified.
+- ICO [data protection fee self-assessment](https://ico.org.uk/for-organisations/data-protection-fee/data-protection-fee-self-assessment/). The ICO says organisations, including sole traders, that use personal information must pay unless exempt. Complete the official self-assessment; do not assume exemption or a fee tier.
+
+These checks verify account configuration and public terms only. They do not prove that either provider agreement has been accepted, that a transfer impact assessment has been completed, or that the current subprocessor list has been reviewed and recorded.
+
 ## Provider checks still required
 
 The code review does not prove that provider contracts and transfers are compliant. The controller must verify, in the actual accounts and current provider terms:
