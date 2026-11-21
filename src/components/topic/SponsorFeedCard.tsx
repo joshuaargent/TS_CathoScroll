@@ -5,7 +5,7 @@ import { DoorOpen, Share2 } from 'lucide-react';
 
 import type { SponsorFeedCampaign } from '@/lib/sponsor-campaigns';
 import { hasAnalyticsConsent } from '@/lib/analytics-consent';
-import { recordAnonymousSponsorCampaignEvent, recordSponsorCampaignEvent } from '@/lib/sponsor-analytics-client';
+import { recordSponsorCampaignEvent } from '@/lib/sponsor-analytics-client';
 import { FeedInterstitialMotion } from './FeedInterstitialMotion';
 import { BaseFeedCard } from './BaseFeedCard';
 
@@ -81,11 +81,8 @@ export function SponsorFeedCard({
 
   const recordEvent = useCallback(
     async (targetCampaignId: string, eventType: 'viewable_impression' | 'click') => {
-      if (previewMode || !sponsorMeasurementEnabled) return false;
+      if (previewMode || !sponsorMeasurementEnabled || !userId) return false;
       const event = { campaignId: targetCampaignId, eventId: createEventId(), sessionId, eventType };
-      if (!userId) {
-        return recordAnonymousSponsorCampaignEvent({ ...event, placementKey }, sponsorApiBaseUrl);
-      }
       return recordSponsorCampaignEvent(userId, event, getAccessToken, sponsorApiBaseUrl);
     },
     [getAccessToken, placementKey, previewMode, sessionId, sponsorApiBaseUrl, sponsorMeasurementEnabled, userId]
