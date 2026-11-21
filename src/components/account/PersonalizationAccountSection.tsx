@@ -74,13 +74,14 @@ function readNativePersonalizationCache(userId: string): Promise<NativePersonali
   if (typeof window === 'undefined') return Promise.resolve({ available: false, consent: null });
   return new Promise((resolve) => {
     let settled = false;
+    let timeout: number | undefined;
     const finish = (value: NativePersonalizationCacheResponse) => {
       if (settled) return;
       settled = true;
-      window.clearTimeout(timeout);
+      if (timeout !== undefined) window.clearTimeout(timeout);
       resolve(value);
     };
-    const timeout = window.setTimeout(() => finish({ available: false, consent: null }), 250);
+    timeout = window.setTimeout(() => finish({ available: false, consent: null }), 1000);
     const complete = (result: Promise<NativePersonalizationCacheResponse>) => {
       void result.then(finish).catch(() => finish({ available: true, consent: null }));
     };
@@ -115,6 +116,7 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
       if (!sessionUser) throw new Error('Authentication required.');
       setAccountUserId(sessionUser.id);
       setError('');
+      setMessage('');
 
       if (typeof navigator !== 'undefined' && !navigator.onLine) {
         const cached = await readNativePersonalizationCache(sessionUser.id);
