@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { createPageMetadata } from '@/lib/seo';
+import { AnonymousAnalyticsPreference } from '@/components/privacy/AnonymousAnalyticsPreference';
 
 export const metadata = createPageMetadata({
   title: "Privacy",
@@ -246,7 +247,7 @@ export default function PrivacyPage() {
           <h2 className="mb-4 text-3xl font-bold">Analytics</h2>
 
           <p className="text-text-secondary leading-relaxed">
-            Service improvement analytics measures account-linked topic and Top Comments engagement and helps improve CathoScroll. When enabled, signed-in events are linked to your account and may reveal religious or philosophical interests; this can involve special-category data. Raw events and the restricted daily viewer bridge are retained for up to 180 days, then non-identifying daily totals remain. Separately, signed-out topic/comment activity is counted by default as daily aggregates without account, visitor or session identifiers; the request also sends no account cookies or bearer token. Declining optional analytics does not disable those aggregates. You can object at any time through Manage choices; this stops new events and clears pending anonymous events. Deduplication receipts become eligible for deletion after 30 days.
+            Service improvement analytics measures account-linked topic and Top Comments engagement and helps improve CathoScroll. When enabled, signed-in events are linked to your account and may reveal religious or philosophical interests; this can involve special-category data. Raw events and the restricted daily viewer bridge are retained for up to 180 days, then non-identifying daily totals remain. Separately, signed-out topic/comment activity is counted by default as daily aggregates without account, visitor or session identifiers; the request also sends no account cookies or bearer token. Declining optional analytics does not disable those aggregates. You can object using the control below; this stops new events and clears pending anonymous events. Deduplication receipts become eligible for deletion after 30 days.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
@@ -255,7 +256,7 @@ export default function PrivacyPage() {
             skips, completions, return visits and Top Comments exposure—help rank your private
             recommendations. This choice cannot be disabled until personalisation is turned off.
             Withdrawing personalisation deletes the derived profile; service analytics can then be
-            managed independently. Sponsor measurement is never used for recommendations.
+            managed independently. Sponsor measurement is never used for recommendations. Account-linked analytics choices are available at signup and in Account settings.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
@@ -273,8 +274,9 @@ export default function PrivacyPage() {
             frequency records become eligible for deletion after 30 days. If declined, no visitor
             token, frequency record, viewability or click event is created; CathoScroll retains
             campaign/day served totals for delivery and pacing. Sponsor reports therefore measure
-            only opted-in placements, not every card shown.
+            only opted-in placements, not every card shown. The statistical-purpose exception is not used to justify sponsor viewability or click measurement; those measurements require the separate Sponsor measurement choice.
           </p>
+          <AnonymousAnalyticsPreference />
         </section>
 
         <section>
