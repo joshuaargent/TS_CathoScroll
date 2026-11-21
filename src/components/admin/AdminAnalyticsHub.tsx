@@ -93,7 +93,7 @@ function DailyOverviewChart({ series }: { series: AnalyticsDay[] }) {
       <span className="text-text-secondary inline-flex items-center gap-2"><span className="bg-emerald-600 h-2.5 w-2.5 rounded-full" /> Signed-in sponsor deliveries</span>
       <span className="text-text-secondary inline-flex items-center gap-2"><span className="bg-sky-600 h-2.5 w-2.5 rounded-full" /> Signed-in comment-card impressions</span>
       <span className="text-text-secondary inline-flex items-center gap-2"><span className="border-accent h-2.5 w-2.5 rounded-full border" /> Anonymous topics</span>
-      <span className="text-text-secondary inline-flex items-center gap-2"><span className="border-emerald-600 h-2.5 w-2.5 rounded-full border" /> Anonymous sponsors</span>
+      <span className="text-text-secondary inline-flex items-center gap-2"><span className="border-emerald-600 h-2.5 w-2.5 rounded-full border" /> Signed-out sponsors</span>
       <span className="text-text-secondary inline-flex items-center gap-2"><span className="border-sky-600 h-2.5 w-2.5 rounded-full border" /> Anonymous comments</span>
     </div>
     {series.length ? <svg viewBox={'0 0 ' + width + ' ' + height} className="mt-3 h-auto w-full" role="img" aria-label="Daily topic, sponsor and comment card activity">
@@ -160,7 +160,7 @@ export function AdminAnalyticsHub({ overview, period, section = 'overview', seri
     </section>
     <section className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
       <Metric label="Anonymous topic activity" value={number(t.anonymous_topic_impressions)} detail={number(t.anonymous_topic_viewable_impressions) + ' viewable · ' + duration(t.anonymous_topic_active_duration_ms) + ' active time'} icon={BookOpen} />
-      <Metric label="Anonymous sponsor delivery" value={number(t.anonymous_sponsor_served)} detail="Campaign/day served totals only; signed-out viewability and clicks are not collected" icon={Megaphone} />
+      <Metric label="Signed-out sponsor delivery" value={number(t.anonymous_sponsor_served)} detail="Campaign/day served totals only; signed-out viewability and clicks are not collected" icon={Megaphone} />
       <Metric label="Anonymous Top Comments" value={number(t.anonymous_comment_card_impressions)} detail={number(t.anonymous_comment_card_viewable_impressions) + ' viewable · ' + number(t.anonymous_comment_card_opens) + ' discussion opens'} icon={MessageCircle} />
     </section>
 
