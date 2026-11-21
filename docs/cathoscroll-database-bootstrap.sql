@@ -8736,3 +8736,7 @@ $function$;
 ALTER FUNCTION public.record_sponsor_campaign_event(uuid, uuid, uuid, uuid, uuid, text) OWNER TO postgres;
 REVOKE ALL ON FUNCTION public.record_sponsor_campaign_event(uuid, uuid, uuid, uuid, uuid, text) FROM PUBLIC, anon, authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.record_sponsor_campaign_event(uuid, uuid, uuid, uuid, uuid, text) TO service_role;
+
+-- Remove the former per-user served-frequency table. Frequency limits are
+-- derived only from the opted-in sponsor viewability event ledger.
+DROP TABLE IF EXISTS catho_private.sponsor_campaign_user_frequency;
