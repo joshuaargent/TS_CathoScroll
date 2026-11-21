@@ -154,7 +154,7 @@ export function SignupFormView({
                 />
                 <span className="text-text-secondary text-xs leading-relaxed">
                   <span className="text-text-primary font-semibold">Service improvement analytics — I explicitly consent</span>
-                  {' '}— optional measurement of signed-in topic/comment engagement and site performance. Activity may reveal religious or philosophical interests. Required while personalisation is enabled.
+                  {' '}— optional account-linked measurement of signed-in topic/comment engagement and site performance. Activity may reveal religious or philosophical interests. Required while personalisation is enabled.
                 </span>
               </label>
 
@@ -171,7 +171,7 @@ export function SignupFormView({
                 />
                 <span className="text-text-secondary text-xs leading-relaxed">
                   <span className="text-text-primary font-semibold">Sponsor measurement — I explicitly consent</span>
-                  {' '}— optional viewability, click and frequency measurement. Placement context may reveal religious or philosophical interests. Sponsor placements still appear if this is off.
+                  {' '}— optional account-linked viewability, click and frequency measurement using a temporary session token. Placement context may reveal religious or philosophical interests. Sponsor placements still appear if this is off.
                 </span>
               </label>
 
