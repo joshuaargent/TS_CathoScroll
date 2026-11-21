@@ -7,6 +7,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { AnalyticsConsentSettingsPanel } from '@/components/account/AnalyticsConsentSettingsPanel';
 import { analyticsConsentSyncEvent } from '@/lib/analytics-consent';
 import { Button } from '@/components/ui/Button';
+import type { CachedPersonalizationConsent } from '@/lib/offline/ranked-feed-cache';
 
 type PersonalizationStatus = {
   enabled: boolean;
@@ -64,6 +65,31 @@ function readTopicInterests(value: unknown): PersonalizationStatus['top_topic_in
   );
 }
 
+type NativePersonalizationCacheResponse = {
+  available: boolean;
+  consent: CachedPersonalizationConsent | null;
+};
+
+function readNativePersonalizationCache(userId: string): Promise<NativePersonalizationCacheResponse> {
+  if (typeof window === 'undefined') return Promise.resolve({ available: false, consent: null });
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (value: NativePersonalizationCacheResponse) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timeout);
+      resolve(value);
+    };
+    const timeout = window.setTimeout(() => finish({ available: false, consent: null }), 250);
+    const complete = (result: Promise<NativePersonalizationCacheResponse>) => {
+      void result.then(finish).catch(() => finish({ available: true, consent: null }));
+    };
+    window.dispatchEvent(new CustomEvent('cathoscroll:personalization-consent-status-request', {
+      detail: { userId, complete },
+    }));
+  });
+}
+
 export function PersonalizationAccountSection({ client }: { client: SupabaseClient }) {
   const [status, setStatus] = useState<PersonalizationStatus>(emptyStatus);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
@@ -73,18 +99,53 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [accountUserId, setAccountUserId] = useState<string | null>(null);
+  const [personalizationStatusKnown, setPersonalizationStatusKnown] = useState(false);
+  const [offlineCacheAvailable, setOfflineCacheAvailable] = useState(false);
   const requestVersion = useRef(0);
 
   const load = useCallback(async () => {
     const request = ++requestVersion.current;
     try {
+      // getSession reads the locally persisted auth session, so native account
+      // settings can identify the current account while the device is offline.
+      const { data: sessionData, error: sessionError } = await client.auth.getSession();
+      if (request !== requestVersion.current) return false;
+      if (sessionError) throw sessionError;
+      const sessionUser = sessionData.session?.user;
+      if (!sessionUser) throw new Error('Authentication required.');
+      setAccountUserId(sessionUser.id);
+      setError('');
+
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        const cached = await readNativePersonalizationCache(sessionUser.id);
+        if (request !== requestVersion.current) return false;
+        setOfflineCacheAvailable(cached.available);
+        if (cached.consent) {
+          setStatus({
+            ...emptyStatus,
+            enabled: cached.consent.enabled,
+            updated_at: cached.consent.checkedAt,
+          });
+          setSelectedCategories([]);
+          setPersonalizationStatusKnown(true);
+          setMessage(cached.consent.pendingSync
+            ? 'Your personalisation choice is saved on this device and will synchronise when you reconnect.'
+            : 'Offline: showing your last saved personalisation setting. Category interests will refresh when you reconnect.');
+          return true;
+        }
+        setStatus(emptyStatus);
+        setSelectedCategories([]);
+        setPersonalizationStatusKnown(false);
+        setMessage(cached.available
+          ? 'Your previous personalisation status is not cached. You can still turn it off on this device.'
+          : 'Personalisation settings need a connection on this device.');
+        return false;
+      }
+
       const { data: authData, error: authError } = await client.auth.getUser();
       if (request !== requestVersion.current) return false;
       if (authError) throw authError;
-      if (!authData.user) throw new Error('Authentication required.');
-      setAccountUserId(authData.user.id);
-      setError('');
-
+      if (!authData.user || authData.user.id !== sessionUser.id) throw new Error('The signed-in account changed. Refresh settings.');
       const { data, error: rpcError } = await client.rpc('get_my_personalization_status');
       if (request !== requestVersion.current) return false;
       if (rpcError) throw rpcError;
@@ -103,10 +164,13 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
       };
       setStatus(nextStatus);
       setSelectedCategories(nextStatus.selected_categories);
+      setPersonalizationStatusKnown(true);
+      setOfflineCacheAvailable(false);
       return true;
     } catch (cause) {
       if (request !== requestVersion.current) return false;
       console.error('Unable to load personalisation settings:', cause);
+      setPersonalizationStatusKnown(false);
       setError('Unable to load these settings. Check your connection and retry.');
       return false;
     } finally {
@@ -132,7 +196,8 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
   }, [load]);
 
   async function updateConsent(enabled: boolean) {
-    if (saving || savingInterests || loading || enabled === status.enabled) return;
+    const forcedOfflineWithdrawal = !enabled && !personalizationStatusKnown && offlineCacheAvailable;
+    if (saving || savingInterests || loading || (enabled === status.enabled && !forcedOfflineWithdrawal)) return;
     setSaving(true);
     setError('');
     setMessage('');
@@ -158,6 +223,7 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
         localWithdrawalSaved = await syncNativeConsent(accountUserId, false, true);
         if (localWithdrawalSaved) {
           setStatus((current) => ({ ...current, enabled: false, topic_interests: 0, category_interests: 0, selected_categories: [], top_topic_interests: [] }));
+          setPersonalizationStatusKnown(true);
         }
       }
 
@@ -252,7 +318,7 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
                   ? 'rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300'
                   : 'rounded-full bg-bg-secondary px-3 py-1 text-xs font-semibold text-text-secondary'}
               >
-                {loading ? 'Loading status…' : status.enabled ? 'Enabled' : error ? 'Unavailable' : 'Disabled'}
+                {loading ? 'Loading status…' : !personalizationStatusKnown ? 'Status unavailable' : status.enabled ? 'Enabled' : 'Disabled'}
               </span>
             </div>
             <p className="text-text-secondary mt-2 text-sm leading-relaxed">
@@ -272,7 +338,7 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
             <Button
               type="button"
               size="sm"
-              disabled={loading || saving || savingInterests || status.enabled || Boolean(error)}
+              disabled={loading || saving || savingInterests || !personalizationStatusKnown || status.enabled || Boolean(error)}
               onClick={() => void updateConsent(true)}
             >
               {saving && !status.enabled ? 'Saving…' : 'I explicitly consent — enable personalisation'}
@@ -281,10 +347,10 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
               type="button"
               size="sm"
               variant="secondary"
-              disabled={loading || saving || savingInterests || !status.enabled}
+              disabled={loading || saving || savingInterests || (!status.enabled && !(offlineCacheAvailable && !personalizationStatusKnown))}
               onClick={() => void updateConsent(false)}
             >
-              {saving && status.enabled ? 'Saving…' : 'Turn off and delete profile'}
+              {saving ? 'Saving…' : !personalizationStatusKnown && offlineCacheAvailable ? 'Turn off personalisation offline' : 'Turn off and delete profile'}
             </Button>
           </div>
         </div>
@@ -374,6 +440,7 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
         <AnalyticsConsentSettingsPanel
           userId={accountUserId}
           personalizationEnabled={status.enabled}
+          personalizationStatusKnown={personalizationStatusKnown}
           disabled={loading || !accountUserId}
         />
 
