@@ -208,6 +208,7 @@ test('anonymous analytics objections propagate to other tabs and clear their que
   assert.match(client, /window\.addEventListener\('storage'/);
   assert.match(client, /event\.key !== anonymousAnalyticsPreferenceKey && event\.key !== null/);
   assert.match(client, /setAnonymousFeedAnalyticsEnabled\(enabled\)/);
+  assert.match(client, /anonymousPreferenceUpdateQueue\.then\(\(\) => applyAnonymousFeedAnalyticsPreference\(enabled\)\)/);
   assert.match(client, /anonymousFlushAbortController\?\.abort\(\)/);
   assert.match(client, /await Promise\.allSettled\(\[\.\.\.pendingOutboxWrites\]\)/);
 });
