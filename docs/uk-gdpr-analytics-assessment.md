@@ -73,7 +73,7 @@ Withdrawal must stop new collection locally immediately, clear pending events fo
 
 Complete a DPIA screening and a proportionate DPIA. A full DPIA is mandatory if the processing is likely to result in high risk; assess the scale of special-category data, systematic profiling, vulnerable users, data linkage and likely effects. Keep a record of processing activities, purpose-specific retention, access controls, processor instructions, consent evidence and data-subject request procedures.
 
-Verify current Article 28 processor terms, subprocessors, processing locations, international transfer safeguards, security logs and retention for Vercel, Supabase and every other provider. Update the privacy notice with controller identity, purposes, Article 6 bases, Article 9 conditions, recipients, transfers, retention, rights and complaint route. Confirm the controller's ICO fee-registration obligation and status.
+Verify current Article 28 processor terms, subprocessors, processing locations, international transfer safeguards, security logs and retention for Vercel, Supabase and every other provider. Update the privacy notice with controller identity, purposes, Article 6 bases, Article 9 conditions, recipients, transfers, retention, rights and complaint route. Complete the ICO fee self-assessment and confirm registration status. As a sole trader, the controller may fall into Tier 1 (£52 annually where turnover is no more than £632,000 or staff numbers no more than 10), unless a specific exemption applies. Do not assume exemption; consider the public-register address before registering.
 
 ## 8. Release checklist
 
