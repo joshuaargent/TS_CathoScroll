@@ -55,7 +55,7 @@ This is the intended mapping, not a substitute for the controller's documented d
 
 Explicit consent under Article 9(2)(a) is the proposed condition for Personalisation and for any analytics purpose that processes special-category belief data. It must be specific, informed, freely given, affirmative, recorded and as easy to withdraw as to give. The live consent wording identifies the relevant account activity or placement context and the recommendation or analytics purpose. Personalisation, Service improvement analytics and Sponsor measurement are separate optional choices; passive reading signals inform recommendations only when both Personalisation and Service improvement analytics are enabled.
 
-Do not use legitimate interests to bypass Article 9 or PECR. For operational processing that does not involve special-category data or terminal storage/access, legitimate interests may be considered only after a documented necessity and balancing assessment.
+Do not use legitimate interests to bypass Article 9 or PECR. For operational processing that does not involve special-category data or terminal storage/access, legitimate interests may be considered only after a documented necessity and balancing assessment. A working security LIA is in [security-legitimate-interests-assessment.md](security-legitimate-interests-assessment.md); controller approval and verification of actual log fields/retention remain outstanding.
 
 ## 4. PECR
 
