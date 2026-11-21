@@ -38,8 +38,11 @@ test('optional analytics consent is explicit, purpose-specific and off by defaul
   assert.ok(account.includes('Personalisation is independent. Passive reading signals inform recommendations only when both Personalisation and Service improvement analytics are enabled.'));
   assert.ok(account.includes('clearAnalyticsConsentQueues(userId, previous, next)'));
   assert.ok(personalization.includes('offlineCacheAvailable'));
-  assert.ok(personalization.includes('offlinePersonalizationWithdrawal'));
-  assert.ok(personalization.includes('persistOfflinePersonalizationWithdrawal'));
+  assert.ok(personalization.includes('const forcedOfflineWithdrawal = !enabled && !personalizationStatusKnown && offlineCacheAvailable'));
+  assert.ok(personalization.includes("new CustomEvent('cathoscroll:personalization-consent-changed'"));
+  assert.ok(personalization.includes('pendingSync,'));
+  assert.ok(personalization.includes('Turn off personalisation offline'));
+  assert.ok(personalization.includes('setPersonalizationStatusKnown(true)'));
   assert.ok(personalization.includes('pendingSync: true'));
   assert.ok(account.includes('window.dispatchEvent(new Event(analyticsConsentSyncEvent))'));
   assert.ok(signup.includes('name="personalizationConsent"'));
