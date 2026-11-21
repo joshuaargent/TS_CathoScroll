@@ -1543,8 +1543,6 @@ ALTER TABLE catho_private.sponsor_campaign_events
 ALTER TABLE catho_private.sponsor_campaign_events
   ADD CONSTRAINT sponsor_campaign_events_event_type_check
   CHECK (event_type IN ('viewable_impression', 'click'));
-UPDATE public.sponsor_campaigns SET served_count = 0;
-UPDATE catho_private.sponsor_campaign_daily SET served_count = 0;
 DROP TABLE IF EXISTS catho_private.sponsor_campaign_user_frequency;
 
 DO $anonymous_cron_cleanup$
@@ -1657,16 +1655,6 @@ GRANT EXECUTE ON FUNCTION public.record_sponsor_campaign_event(uuid, uuid, uuid,
 -- The delivery selectors intentionally do not enforce impression caps because
 -- no delivery counts are collected. Consented frequency limits are enforced
 -- from opted-in viewable-impression events by the weighted selector.
-DO $legacy_counter_reset$
-BEGIN
-  IF to_regclass('public.sponsor_campaigns') IS NOT NULL THEN
-    EXECUTE 'UPDATE public.sponsor_campaigns SET served_count = 0';
-  END IF;
-  IF to_regclass('catho_private.sponsor_campaign_daily') IS NOT NULL THEN
-    EXECUTE 'UPDATE catho_private.sponsor_campaign_daily SET served_count = 0';
-  END IF;
-END;
-$legacy_counter_reset$;
 
 DO $anonymous_cron_cleanup_final$
 BEGIN
@@ -1730,3 +1718,134 @@ ALTER FUNCTION public.get_admin_sponsor_campaign_analytics(uuid, date, date) OWN
 REVOKE ALL ON FUNCTION public.get_admin_sponsor_campaign_analytics(uuid, date, date) FROM PUBLIC, anon, authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.get_admin_sponsor_campaign_analytics(uuid, date, date) TO service_role;
 
+CREATE OR REPLACE FUNCTION public.get_admin_analytics_overview(p_from timestamp with time zone, p_to timestamp with time zone)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare v_result jsonb;
+begin
+  if not exists(select 1 from public.admin_users where user_id=auth.uid()) then
+    raise exception 'administrator access required' using errcode='42501';
+  end if;
+  if p_from is null or p_to is null or p_to <= p_from or p_to-p_from > interval '180 days'
+    or p_to > statement_timestamp()+interval '1 day' then
+    raise exception 'invalid analytics range' using errcode='22023';
+  end if;
+  with topic_daily as (
+    select d.entity_id,d.event_date,d.impressions,d.viewable_impressions,d.active_duration_ms,d.skips,d.completions,d.return_visits
+    from catho_private.feed_analytics_daily d where d.event_date >= p_from::date and d.event_date <= p_to::date
+  ), sponsor_daily as (
+    select d.campaign_id,d.event_date,d.viewable_impressions,d.clicks
+    from catho_private.sponsor_campaign_daily d where d.event_date >= p_from::date and d.event_date <= p_to::date
+  ), comment_daily as (
+    select d.card_id,d.event_date,d.impressions,d.viewable_impressions,d.active_duration_ms,d.skips,d.completions,d.opens,d.unique_viewers
+    from catho_private.feed_card_analytics_daily d where d.event_date >= p_from::date and d.event_date <= p_to::date
+  ), totals as (
+    select
+      coalesce((select sum(impressions) from topic_daily),0) topic_impressions,
+      coalesce((select sum(viewable_impressions) from topic_daily),0) topic_viewable_impressions,
+      coalesce((select sum(active_duration_ms) from topic_daily),0) topic_active_duration_ms,
+      coalesce((select sum(skips) from topic_daily),0) topic_skips,
+      coalesce((select sum(completions) from topic_daily),0) topic_completions,
+      coalesce((select sum(viewable_impressions) from sponsor_daily),0) sponsor_viewable_impressions,
+      coalesce((select sum(clicks) from sponsor_daily),0) sponsor_clicks,
+      coalesce((select sum(impressions) from comment_daily),0) comment_card_impressions,
+      coalesce((select sum(viewable_impressions) from comment_daily),0) comment_card_viewable_impressions,
+      coalesce((select sum(active_duration_ms) from comment_daily),0) comment_card_active_duration_ms,
+      coalesce((select sum(skips) from comment_daily),0) comment_card_skips,
+      coalesce((select sum(opens) from comment_daily),0) comment_card_opens,
+      (select count(*) from public.categories) category_count,
+      (select count(*) from public.topics) topic_count,
+      (select count(*) from public.sponsors) sponsor_count,
+      (select count(*) from public.comments where is_deleted=false and parent_id is null) comment_count
+  ), categories as (
+    select c.slug,c.name,count(t.id) topic_count,
+      coalesce(sum(td.impressions),0) impressions,coalesce(sum(td.viewable_impressions),0) viewable_impressions
+    from public.categories c
+    left join public.topics t on t.category_slug=c.slug
+    left join topic_daily td on td.entity_id=t.id
+    group by c.slug,c.name
+    order by impressions desc,c.name
+  ), topics as (
+    select t.id,t.slug,t.question,t.category_slug,
+      coalesce(sum(td.impressions),0) impressions,coalesce(sum(td.viewable_impressions),0) viewable_impressions,
+      coalesce(sum(td.active_duration_ms),0) active_duration_ms
+    from public.topics t left join topic_daily td on td.entity_id=t.id
+    group by t.id,t.slug,t.question,t.category_slug
+    order by impressions desc,t.question
+    limit 100
+  ), sponsors as (
+    select s.id,s.sponsor_name,s.status,count(distinct sc.id) campaign_count,
+      coalesce(sum(sd.viewable_impressions),0) viewable_impressions,
+      coalesce(sum(sd.clicks),0) clicks
+    from public.sponsors s left join public.sponsor_campaigns sc on sc.sponsor_id=s.id
+    left join sponsor_daily sd on sd.campaign_id=sc.id
+    group by s.id,s.sponsor_name,s.status
+    order by viewable_impressions desc,s.sponsor_name
+    limit 100
+  ), comments as (
+    select c.id,c.topic_id,t.question topic_question,c.created_at,
+      coalesce(cd.impressions,0) impressions,coalesce(cd.viewable_impressions,0) viewable_impressions,
+      coalesce(cd.active_duration_ms,0) active_duration_ms,coalesce(cd.skips,0) skips,
+      coalesce(cd.opens,0) opens,
+      (select count(*) from public.comment_likes cl where cl.comment_id=c.id) likes,
+      (select count(*) from public.comments r where r.parent_id=c.id and r.is_deleted=false) replies
+    from public.comments c left join public.topics t on t.id=c.topic_id
+    left join (select card_id,sum(impressions) impressions,sum(viewable_impressions) viewable_impressions,
+      sum(active_duration_ms) active_duration_ms,sum(skips) skips,sum(opens) opens
+      from comment_daily group by card_id) cd on cd.card_id=c.id::text
+    where c.parent_id is null and c.is_deleted=false
+    order by impressions desc,c.created_at desc
+    limit 100
+  )
+  select jsonb_build_object(
+    'totals',(select to_jsonb(totals) from totals),
+    'categories',(select coalesce(jsonb_agg(to_jsonb(categories)),'[]'::jsonb) from categories),
+    'topics',(select coalesce(jsonb_agg(to_jsonb(topics)),'[]'::jsonb) from topics),
+    'sponsors',(select coalesce(jsonb_agg(to_jsonb(sponsors)),'[]'::jsonb) from sponsors),
+    'comments',(select coalesce(jsonb_agg(to_jsonb(comments)),'[]'::jsonb) from comments)
+  ) into v_result;
+  return v_result;
+end;
+$function$;
+CREATE OR REPLACE FUNCTION public.get_admin_analytics_series(p_actor_user_id uuid, p_from timestamp with time zone, p_to timestamp with time zone)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare v_result jsonb;
+begin
+  if p_actor_user_id is null or not exists(select 1 from public.admin_users where user_id=p_actor_user_id) then
+    raise exception 'administrator access required' using errcode='42501';
+  end if;
+  if p_from is null or p_to is null or p_to<=p_from or p_to-p_from>interval '180 days'
+    or p_to>statement_timestamp()+interval '1 day' then raise exception 'invalid analytics range' using errcode='22023'; end if;
+  with days as (
+    select d::date event_date from generate_series(date_trunc('day',p_from),date_trunc('day',p_to),interval '1 day') d
+  ), topic as (
+    select event_date,sum(impressions) impressions,sum(viewable_impressions) viewable_impressions
+    from catho_private.feed_analytics_daily where event_date>=p_from::date and event_date<=p_to::date group by event_date
+  ), sponsor as (
+    select event_date,sum(viewable_impressions) viewable_impressions,sum(clicks) clicks
+    from catho_private.sponsor_campaign_daily where event_date>=p_from::date and event_date<=p_to::date group by event_date
+  ), comments as (
+    select event_date,sum(impressions) impressions,sum(viewable_impressions) viewable_impressions
+    from catho_private.feed_card_analytics_daily where event_date>=p_from::date and event_date<=p_to::date group by event_date
+  )
+  select coalesce(jsonb_agg(jsonb_build_object('event_date',d.event_date,
+    'topic_impressions',coalesce(t.impressions,0),'topic_viewable_impressions',coalesce(t.viewable_impressions,0),
+    'sponsor_viewable_impressions',coalesce(s.viewable_impressions,0),
+    'sponsor_clicks',coalesce(s.clicks,0),'comment_impressions',coalesce(c.impressions,0),
+    'comment_viewable_impressions',coalesce(c.viewable_impressions,0)) order by d.event_date),'[]'::jsonb)
+  into v_result from days d left join topic t using(event_date) left join sponsor s using(event_date) left join comments c using(event_date);
+  return v_result;
+end;
+$function$;
+
+-- Permanently remove all sponsor delivery counters from the existing database.
+ALTER TABLE public.sponsor_campaigns DROP COLUMN IF EXISTS served_count;
+ALTER TABLE catho_private.sponsor_campaign_daily DROP COLUMN IF EXISTS served_count;
+NOTIFY pgrst, 'reload schema';
