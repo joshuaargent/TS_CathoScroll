@@ -152,7 +152,7 @@ test('sponsored feed cards are disclosed and inserted separately from organic re
   assert.match(feedCore, /Detailed Sponsor measurement is account-only/);
   assert.match(feedCore, /Signed-out placements[\s\S]*?never send an identifier/);
   assert.match(feedCore, /const measurementEnabled = hasAnalyticsConsent\('sponsorMeasurement', userId\)/);
-  assert.match(feedCore, /const sessionId = measurementEnabled[\s\S]*?createSponsorPlacementId\(\)[\s\S]*?createSponsorSessionId\(\)[\s\S]*?: null/);
+  assert.match(feedCore, /const sessionId = measurementEnabled \? createSponsorPlacementId\(\) : null/);
   assert.match(feedCore, /sessionId: string \| null/);
   assert.match(deliveryRoute, /getAuthenticatedUserFromRequest/);
   assert.match(deliveryRoute, /isSameOriginOrNativeRequest/);
