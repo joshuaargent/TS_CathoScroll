@@ -100,7 +100,7 @@ test('signed-out sponsor delivery is aggregate-only and detailed events require 
   assert.match(card, /const sponsorMeasurementEnabled = hasAnalyticsConsent\('sponsorMeasurement', userId\)/);
   assert.match(card, /const viewablePlacementKey = campaignId && sponsorMeasurementEnabled/);
   assert.match(card, /if \(previewMode \|\| !sponsorMeasurementEnabled\) return false/);
-  assert.match(feedCore, /const measurementEnabled = hasAnalyticsConsent\('sponsorMeasurement', userId\)/);
+  assert.match(feedCore, /const measurementEnabled = Boolean\(userId && hasAnalyticsConsent\('sponsorMeasurement', userId\)\)/);
   assert.doesNotMatch(feedCore, /sponsorMeasurementConsent/);
   assert.match(feedCore, /const sessionId = measurementEnabled/);
   assert.match(feedCore, /: null;/);
