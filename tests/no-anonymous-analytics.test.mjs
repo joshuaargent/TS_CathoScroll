@@ -30,7 +30,7 @@ test('canonical database and existing-database upgrade remove anonymous analytic
     assert.match(finalModel, /DROP FUNCTION IF EXISTS public\.record_anonymous_feed_analytics/);
     assert.match(finalModel, /DROP TABLE IF EXISTS catho_private\.anonymous_feed_analytics_daily/);
     assert.match(finalModel, /DROP TABLE IF EXISTS catho_private\.anonymous_feed_event_receipts/);
-    assert.match(finalModel, /DROP TABLE IF EXISTS catho_private\.anonymous_sponsor_campaign_events/);
+    assert.match(finalModel, /DROP TABLE IF EXISTS catho_private\.anonymous_sponsor_events/);
     assert.match(finalModel, /DROP TABLE IF EXISTS catho_private\.anonymous_sponsor_campaign_daily/);
   }
 });
