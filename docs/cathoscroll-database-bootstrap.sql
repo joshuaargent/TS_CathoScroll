@@ -4689,7 +4689,6 @@ CREATE UNIQUE INDEX sponsor_campaign_events_one_click_per_session_idx
 CREATE TABLE catho_private.sponsor_campaign_daily (
   event_date date NOT NULL,
   campaign_id uuid NOT NULL REFERENCES public.sponsor_campaigns(id) ON DELETE CASCADE,
-  served_count bigint NOT NULL DEFAULT 0 CHECK (served_count >= 0),
   viewable_impressions bigint NOT NULL DEFAULT 0 CHECK (viewable_impressions >= 0),
   clicks bigint NOT NULL DEFAULT 0 CHECK (clicks >= 0),
   updated_at timestamptz NOT NULL DEFAULT statement_timestamp(),
@@ -7956,9 +7955,6 @@ ALTER FUNCTION public.get_unmeasured_sponsor_campaigns(text, text, integer) OWNE
 REVOKE ALL ON FUNCTION public.get_unmeasured_sponsor_campaigns(text, text, integer) FROM PUBLIC, anon, authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.get_unmeasured_sponsor_campaigns(text, text, integer) TO service_role;
 
-ALTER FUNCTION public.get_anonymous_sponsor_campaigns(text, text, text, integer) OWNER TO postgres;
-REVOKE ALL ON FUNCTION public.get_anonymous_sponsor_campaigns(text, text, text, integer) FROM PUBLIC, anon, authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.get_anonymous_sponsor_campaigns(text, text, text, integer) TO service_role;
 
 CREATE OR REPLACE FUNCTION public.get_weighted_sponsor_campaigns(
   p_user_id uuid,
