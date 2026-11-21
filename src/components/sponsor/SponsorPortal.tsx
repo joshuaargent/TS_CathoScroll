@@ -34,12 +34,9 @@ interface CampaignMetric {
   campaign_id: string;
   campaign_name: string;
   status: string;
-  served: number;
   viewable_impressions: number;
   clicks: number;
   click_through_rate: number;
-  anonymous_served: number;
-  total_served: number;
 }
 
 export interface SponsorAnalytics {
@@ -438,13 +435,12 @@ export function SponsorPortal({
                     )}
                   </div>
                   <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-                    <div><p className="text-text-muted text-xs">Signed-in served</p><p className="mt-1 font-semibold tabular-nums">{(metric?.served ?? 0).toLocaleString('en-GB')}</p></div>
-                    <div><p className="text-text-muted text-xs">Signed-out served</p><p className="mt-1 font-semibold tabular-nums">{(metric?.anonymous_served ?? 0).toLocaleString('en-GB')}</p></div>
+
                     <div><p className="text-text-muted text-xs">Signed-in viewable</p><p className="mt-1 font-semibold tabular-nums">{(metric?.viewable_impressions ?? 0).toLocaleString('en-GB')}</p></div>
                     <div><p className="text-text-muted text-xs">Signed-in clicks</p><p className="mt-1 font-semibold tabular-nums">{(metric?.clicks ?? 0).toLocaleString('en-GB')}</p></div>
                     <div><p className="text-text-muted text-xs">Signed-in CTR</p><p className="mt-1 font-semibold tabular-nums">{(metric?.click_through_rate ?? 0).toFixed(2)}%</p></div>
                   </div>
-                  <p className="text-text-muted mt-3 text-xs">Signed-out delivery is reported as served totals only. Viewability, clicks and CTR are measured only for signed-in accounts that enable Sponsor measurement.</p>
+                  <p className="text-text-muted mt-3 text-xs">Sponsor viewability, clicks and frequency are measured only for signed-in accounts that explicitly enable Sponsor measurement. Sponsor deliveries are not counted.</p>
                 </article>
               );
             })}
