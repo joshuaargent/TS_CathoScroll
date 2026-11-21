@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Activity, ArrowUpRight, BarChart3, BookOpen, CheckCircle2, Heart, MessageCircle, Megaphone, Users } from 'lucide-react';
+import { Activity, ArrowUpRight, BarChart3, BookOpen, CheckCircle2, MessageCircle, Megaphone } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 import { AdminNavigation } from '@/components/admin/AdminNavigation';
@@ -38,16 +38,6 @@ type Overview = {
     topic_count: number;
     sponsor_count: number;
     comment_count: number;
-    topic_likes: number;
-    bookmarks: number;
-    completed_topics: number;
-    comments_created: number;
-    replies: number;
-    comment_likes: number;
-    unique_topic_viewers: number;
-    unique_sponsor_viewers: number;
-    unique_comment_viewers: number;
-    unique_feed_viewers: number;
   };
   categories: { slug: string; name: string; topic_count: number; impressions: number; viewable_impressions: number }[];
   topics: { id: string; slug: string; question: string; category_slug: string; impressions: number; viewable_impressions: number; active_duration_ms: number }[];
@@ -172,7 +162,7 @@ export function AdminAnalyticsHub({ overview, period, section = 'overview', seri
       <Metric label="Topic impressions" value={number(t.topic_impressions)} detail={number(t.topic_viewable_impressions) + ' viewable · ' + duration(t.topic_active_duration_ms) + ' active time'} icon={BookOpen} />
       <Metric label="Top Comments exposure" value={number(t.comment_card_impressions)} detail={number(t.comment_card_viewable_impressions) + ' viewable · ' + number(t.comment_card_opens) + ' discussion opens'} icon={MessageCircle} />
       <Metric label="Sponsor viewable impressions" value={number(t.sponsor_viewable_impressions)} detail={number(t.sponsor_clicks) + ' clicks from opted-in signed-in users'} icon={Megaphone} />
-      <Metric label="Unique signed-in viewers" value={number(t.unique_feed_viewers)} detail={number(t.unique_topic_viewers) + ' topic · ' + number(t.unique_sponsor_viewers) + ' sponsor · ' + number(t.unique_comment_viewers) + ' comment viewers'} icon={Users} />
+      <Metric label="Topic active time" value={duration(t.topic_active_duration_ms)} detail="Opted-in time while topic cards were visible and active" icon={Activity} />
     </section>
     <section className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       <Metric label="Topic viewability" value={t.topic_impressions ? ((t.topic_viewable_impressions / t.topic_impressions) * 100).toFixed(1) + '%' : '—'} detail="Opted-in viewable impressions ÷ opted-in impressions" icon={Activity} />
@@ -184,17 +174,7 @@ export function AdminAnalyticsHub({ overview, period, section = 'overview', seri
     </section>
     <DailyOverviewChart series={series} />
     <AnalyticsDeepDivePanel data={deepDive} />
-    <section className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-      <Metric label="Topic likes" value={number(t.topic_likes)} detail="Topic likes created in this period" icon={Heart} />
-      <Metric label="Bookmarks" value={number(t.bookmarks)} detail="Topic bookmarks created in this period" icon={BookOpen} />
-      <Metric label="Completed topics" value={number(t.completed_topics)} detail="Topic completions recorded in this period" icon={CheckCircle2} />
-      <Metric label="New top-level comments" value={number(t.comments_created)} detail="Comments created in this period" icon={MessageCircle} />
-    </section>
-    <section className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-      <Metric label="Replies" value={number(t.replies)} detail="Replies created in this period" icon={MessageCircle} />
-      <Metric label="Comment likes" value={number(t.comment_likes)} detail="Comment likes recorded in this period" icon={Heart} />
-      <Metric label="Top Comments opens" value={number(t.comment_card_opens)} detail="Discussion opens from a feed comment card" icon={MessageCircle} />
-    </section>
+
 
     <section className="mt-10 grid gap-5 lg:grid-cols-2">
       {(section === 'overview' || section === 'categories') && <SectionCard title="Categories" description="Compare category reach and topic coverage." count={number(t.category_count)} href={sectionHref('categories')} icon={BarChart3}>
