@@ -438,6 +438,23 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
 
   useEffect(() => {
     if (loading) return;
+
+    // Retire old signed-out grants from the former consent popup. Detailed
+    // Service improvement and Sponsor measurement are now account-only
+    // choices; signed-out visitors use the separate aggregate-statistics
+    // objection control instead.
+    const legacySignedOutConsent = readAnalyticsConsent(null);
+    if (legacySignedOutConsent?.serviceImprovement || legacySignedOutConsent?.sponsorMeasurement) {
+      denyAnalyticsConsentInMemory('serviceImprovement', null);
+      denyAnalyticsConsentInMemory('sponsorMeasurement', null);
+      try {
+        saveAnalyticsConsent({ serviceImprovement: false, sponsorMeasurement: false }, null, { syncPending: false });
+      } catch (cause) {
+        console.error('Unable to clear legacy signed-out analytics choices:', cause);
+      }
+      clearAnonymousSponsorAnalyticsQueue();
+    }
+
     const existing = readAnalyticsConsent(userId);
     const hydrationTimer = window.setTimeout(() => {
       hydrate(existing);
