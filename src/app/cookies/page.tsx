@@ -31,6 +31,9 @@ export default function CookiesPage() {
 
         <section>
           <h2 className="mb-4 text-3xl font-bold">How CathoScroll Uses Cookies and Similar Technologies</h2>
+          <p className="text-text-secondary mb-4 leading-relaxed">
+            CathoScroll is operated by Joshua Argent as a sole trader in the United Kingdom. For privacy requests, use the contact details at the end of this policy.
+          </p>
 
           <p className="text-text-secondary leading-relaxed">
             CathoScroll uses cookies and similar technologies for core functionality, authentication,
