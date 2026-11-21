@@ -116,5 +116,6 @@ test('offline cached consent never allows empty category interests to be saved',
   assert.match(account, /!categoryInterestsLoaded \|\| selectedCategories\.length > 20/);
   assert.match(account, /disabled=\{!status\.enabled \|\| !categoryInterestsLoaded/);
   assert.match(account, /Saved category interests are not available offline/);
+  assert.match(account, /Topic-interest details are unavailable offline/);
   assert.match(account, /loading \|\| !categoryInterestsLoaded \? '—' : status\.category_interests/);
 });
