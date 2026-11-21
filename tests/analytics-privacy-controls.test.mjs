@@ -76,8 +76,10 @@ test('admin sponsor analytics reports signed-out served totals only', async () =
   assert.ok(detail.includes('Signed-out measurement" value="Served totals only"'));
   assert.ok(detail.includes('No signed-out viewability, clicks, CTR or per-visitor frequency are collected'));
   assert.ok(!detail.includes('Anonymous viewable / clicks'));
-  assert.ok(!detail.includes('fmt(row.anonymous_viewable_impressions)'));
-  assert.ok(!detail.includes('fmt(row.anonymous_clicks)'));
+  const sponsorSeries = detail.slice(detail.indexOf("kind === 'sponsors' ?"), detail.indexOf(': fmt(row.impressions'));
+  assert.ok(sponsorSeries.includes('fmt(row.anonymous_served)'));
+  assert.ok(!sponsorSeries.includes('anonymous_viewable_impressions'));
+  assert.ok(!sponsorSeries.includes('anonymous_clicks'));
 });
 
 
