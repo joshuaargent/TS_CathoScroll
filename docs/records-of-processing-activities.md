@@ -96,7 +96,7 @@ The controller must maintain a procedure to identify and respond to rights reque
 
 - DPIA screening and the working analytics DPIA are maintained in `docs/personalization-dpia-screening.md` and `docs/analytics-data-protection-impact-assessment.md`.
 - Controller approval of the DPIA screening and decision on whether a full DPIA is mandatory remain outstanding. A proportionate DPIA is prudent because account-linked content engagement may reveal religious/philosophical beliefs.
-- The controller must approve the Article 6 basis and Article 9 condition for each relevant purpose and retain any legitimate-interests assessment for security/abuse processing.
+- The controller must approve the Article 6 basis and Article 9 condition for each relevant purpose and approve the working [security Legitimate Interests Assessment](security-legitimate-interests-assessment.md) for security/abuse processing.
 - Complete the ICO data protection fee self-assessment. Sole traders must pay unless exempt. The ICO public register displays the organisation name and address; decide on an appropriate business/alternative address before registration.
 - Verify Supabase and Vercel contractual terms, current subprocessors and transfer safeguards. Vercel's current Hobby plan/DPA mismatch is a release blocker.
 - Obtain specialist UK data-protection legal review before release.
