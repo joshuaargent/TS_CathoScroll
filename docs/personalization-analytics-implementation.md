@@ -15,6 +15,61 @@ Sponsor delivery signals are never added to organic topic recommendation weights
 
 **Production rollout status:** production currently reads `feed_analytics_events` and `feed_card_analytics_events` when personalisation is enabled, but the live consent path does not yet require Service improvement analytics to be enabled at the same time. This change makes the dependency explicit: personalisation enables Service improvement analytics, the service-analytics control is locked while personalisation is active, and the profile refresher checks both consent records. Existing v3 opt-ins are withdrawn and must be renewed under v4. The production SQL upgrade and app release are still pending.
 
+## Feed ranking and measurement layers
+
+These systems are deliberately separate. The general feed is a site-wide popularity/quality ranking; personalisation changes category allocation for one opted-in account; Top Comments has its own engagement ranking; sponsors use campaign rotation. Sponsor events never enter organic ranking.
+
+### General topic feed
+
+The public general feed uses daily site-wide aggregates from both signed-in Service improvement events and signed-out anonymous topic aggregates. It does not build or query a visitor-specific profile. For each published topic, the 90-day signal score is:
+
+- viewable impressions: +1.00 each;
+- impressions: +0.12 each;
+- completions: +2.00 each;
+- active reading: +0.18 per minute, capped at 60 minutes per daily row;
+- skips: -0.35 each.
+
+Each daily contribution is decayed by `exp(-age_in_days / 45)`. The score also adds logarithmically scaled public topic likes (+1.2 multiplier), bookmarks (+1.0), and top-level comments (+0.8). A low-exposure bonus of `2 / sqrt(1 + viewable_impressions)` gives newer or under-exposed topics some opportunity to surface. Topics are ranked within each category by this score, then curated `order_index` and topic ID. The feed selects the least-served category first and avoids a third consecutive topic from the same category where alternatives exist.
+
+Signed-out aggregate events contribute to this site-wide ranking even if a visitor has declined account-linked analytics. They are not connected to a signed-out visitor profile.
+
+### Personalised topic feed
+
+Personalisation does not replace the general feed with a per-topic score sort. It changes how frequently each category is selected:
+
+1. Build a private per-topic profile from eligible account actions and passive reading signals recorded after the current personalisation grant.
+2. Sum topic-interest scores by category and add a strong declared-interest weight of 8 for each category the user selected.
+3. Convert each category score into a scheduling weight: `1 + sqrt(max(category_score, 0))`.
+4. Select the category with the lowest `served_count / weight`, while avoiding a third consecutive topic from one category.
+5. Within the selected category, topics remain in curated `order_index, id` order. Completed topics are suppressed while personalisation is active; if the initial feed has no uncompleted topics, it falls back to completed topics.
+
+The profile includes progress/completions (+5), bookmarks (+4), topic likes (+3), comments (+3), comment likes (+3), replies (+2.5), and smaller Top Comments exposure/open signals. Passive feed signals are independently capped per topic and horizon: viewability +1.20, active reading +1.50, swipe depth +1.50, completions +3.00 and return visits +1.50. The 14-day half-life score contributes 35%; the 90-day half-life score contributes 65%. Skips are negative only after at least two distinct sessions, at -1.50 per session with a 30-day half-life and a -3.00 cap. The final topic score is clamped to -4 through +8.
+
+Personalisation requires Service improvement analytics to be enabled. Turning personalisation off deletes the derived profile and selected categories, stops profile-based category weighting, and restores the neutral general scheduling path. Sponsor measurement is never an input.
+
+### Top Comments
+
+Top Comments is not personalised. It considers up to the 5,000 newest eligible top-level comments from the last 90 days. Its engagement score is:
+
+`(likes + 2 × distinct reply authors + 0.5 × likes in the last 14 days + distinct reply authors in the last 14 days) / (1 + comment_age_in_weeks)`
+
+A comment must meet the minimum engagement threshold (at least three combined likes/reply authors, with at least two likes or one distinct reply author). Ties are broken by recency and comment ID. This favours substantive discussion while allowing recent engagement to matter more.
+
+### Sponsor rotation
+
+Sponsor selection is separate from all organic feed algorithms. A campaign must be approved, active, within its dates, paid/cleared, and match its category/topic targeting. Daily and lifetime impression caps apply. Eligible campaigns are rotated using their recent 30-day viewable-impression count divided by placement weight, with a random tie-breaker. When Sponsor measurement is enabled, account/session frequency limits also apply. When it is declined, delivery continues and only campaign/day served totals are recorded; no individual frequency, viewability or click measurement is collected.
+
+### What each layer measures
+
+| Layer | Data used | Identity level | Used for |
+| --- | --- | --- | --- |
+| General topic ranking | Daily topic engagement aggregates, public likes/bookmarks/comments | Site-wide aggregate | Same broad ranking for signed-in and signed-out visitors |
+| Service improvement analytics | Signed-in topic and Top Comments events; site performance | Account-linked | Operational reporting and service improvement |
+| Signed-out topic/comment statistics | Event UUIDs, public entity IDs and bounded metrics, rolled into daily totals | No visitor/session/account ID | Site-wide ranking and aggregate reporting; free objection available |
+| Personalisation | Post-consent account actions, reading signals and selected categories | Private account profile | Category scheduling and completed-topic suppression |
+| Sponsor delivery | Campaign eligibility, target context, served totals and global caps | Campaign/day | Deliver and pace paid placements |
+| Sponsor measurement | Viewability, clicks and frequency events | Account-linked or temporary signed-out session token | Sponsor performance reporting and frequency controls |
+
 ## Personalisation privacy model
 
 Personalisation is **off by default**. The account owner must explicitly opt in using the separate signup checkbox or Account → Personalisation. The consent record is versioned and belongs to the authenticated account. Signup consent is captured by an `auth.users` insert trigger from the one-time signup metadata value; subsequent user-metadata edits do not re-enable it. The browser cannot read or write the private profile tables directly.
