@@ -254,7 +254,7 @@ test('transient sponsor request failures remain retryable and cannot overwrite a
 
 test('sponsor viewability attribution survives card unmounts and remounts', () => {
   assert.match(sponsorCard, /const viewableSponsorPlacements = new Set<string>\(\)/);
-  assert.match(sponsorCard, /getSponsorPlacementKey\(userId, sessionId, campaignId, placementKey\)/);
+  assert.match(sponsorCard, /getSponsorPlacementKey\(userId, sessionId, campaignId, placementKey, placementReceipt\)/);
   assert.match(sponsorCard, /viewableSponsorPlacements\.has\(viewablePlacementKey\)/);
   assert.match(sponsorCard, /rememberViewableSponsorPlacement\(viewablePlacementKey\)/);
   assert.match(sponsorCard, /viewableSponsorPlacements\.size > 5000/);

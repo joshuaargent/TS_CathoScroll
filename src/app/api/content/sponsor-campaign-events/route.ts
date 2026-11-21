@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { readBoundedJson } from '@/lib/http/read-json';
 import { getStoredAnalyticsConsent } from '@/lib/analytics-consent-server';
-import { checkApiRateLimit, getTrustedClientIp, rateLimitResponseHeaders } from '@/lib/security/api-rate-limit';
+import { checkApiRateLimit, rateLimitResponseHeaders } from '@/lib/security/api-rate-limit';
 import {
   createServiceRoleClient,
   getAuthenticatedUserFromRequest,
@@ -39,9 +39,14 @@ export async function POST(request: Request) {
     console.error('Unable to verify sponsor-event authentication:', cause);
     return respond(request, { error: 'Authentication is temporarily unavailable.' }, 503);
   }
+
+  // Detailed sponsor viewability/click measurement is offered only to signed-in
+  // users who explicitly opted in. Unmeasured sponsor delivery is not counted.
+  if (!auth.user) return respond(request, { recorded: false }, 403);
+
   const rateLimit = await checkApiRateLimit({
     scope: 'sponsor-campaign-events:write',
-    identifier: auth.user?.id ?? `anonymous:${getTrustedClientIp(request) ?? 'unknown'}`,
+    identifier: auth.user.id,
     limit: 60,
     windowSeconds: 60,
   });
@@ -67,55 +72,41 @@ export async function POST(request: Request) {
   const campaignId = eventPayload.campaignId;
   const eventId = eventPayload.eventId;
   const sessionId = eventPayload.sessionId;
+  const placementReceipt = eventPayload.placementReceipt;
   const eventType = eventPayload.eventType;
-  const placementKey = eventPayload.placementKey;
-  // Keep a queued anonymous placement anonymous even if the visitor signs in
-  // before its in-memory retry queue is flushed.
-  const isAnonymous = !auth.user || typeof placementKey === 'string';
-  if (isAnonymous && eventPayload.sponsorMeasurementConsent !== true) {
-    return respond(request, { recorded: false });
-  }
-  if (auth.user && !isAnonymous) {
-    try {
-      const consent = await getStoredAnalyticsConsent(auth.user.id);
-      if (!consent.sponsorMeasurement) return respond(request, { recorded: false });
-    } catch (cause) {
-      console.error('Unable to verify sponsor measurement consent:', cause);
-      return respond(request, { error: 'Sponsor measurement preferences are temporarily unavailable.' }, 503);
-    }
+
+  // Drop legacy anonymous-queue payloads rather than attributing them to the
+  // account that happens to be signed in when a retry is attempted.
+  if (typeof eventPayload.placementKey === 'string') return respond(request, { recorded: false }, 403);
+
+  try {
+    const consent = await getStoredAnalyticsConsent(auth.user.id);
+    if (!consent.sponsorMeasurement) return respond(request, { recorded: false });
+  } catch (cause) {
+    console.error('Unable to verify sponsor measurement consent:', cause);
+    return respond(request, { error: 'Sponsor measurement preferences are temporarily unavailable.' }, 503);
   }
 
   if (
     !isValidUuid(campaignId) ||
     !isValidUuid(eventId) ||
     !isValidUuid(sessionId) ||
+    !isValidUuid(placementReceipt) ||
     typeof eventType !== 'string' ||
-    !eventTypes.includes(eventType as (typeof eventTypes)[number]) ||
-    (isAnonymous && (
-      typeof placementKey !== 'string' ||
-      placementKey.length < 1 ||
-      placementKey.length > 160
-    ))
+    !eventTypes.includes(eventType as (typeof eventTypes)[number])
   ) {
     return respond(request, { error: 'Invalid sponsor event.' }, 400);
   }
 
   try {
-    const { data, error } = isAnonymous
-      ? await createServiceRoleClient().rpc('record_anonymous_sponsor_campaign_event', {
-          p_session_token: sessionId,
-          p_campaign_id: campaignId,
-          p_placement_id: placementKey as string,
-          p_event_id: eventId,
-          p_event_type: eventType,
-        })
-      : await createServiceRoleClient().rpc('record_sponsor_campaign_event', {
-          p_user_id: auth.user!.id,
-          p_campaign_id: campaignId,
-          p_event_id: eventId,
-          p_session_id: sessionId,
-          p_event_type: eventType,
-        });
+    const { data, error } = await createServiceRoleClient().rpc('record_sponsor_campaign_event', {
+      p_user_id: auth.user.id,
+      p_campaign_id: campaignId,
+      p_event_id: eventId,
+      p_session_id: sessionId,
+      p_placement_receipt: placementReceipt,
+      p_event_type: eventType,
+    });
     if (error) {
       if (error.code === '42501') return respond(request, { error: 'Sponsor placement was not eligible.' }, 403);
       if (error.code === '22023') return respond(request, { error: 'Invalid sponsor event.' }, 400);

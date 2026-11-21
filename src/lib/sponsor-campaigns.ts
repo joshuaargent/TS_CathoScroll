@@ -10,6 +10,7 @@ export interface SponsorFeedCampaign {
   destination_url: string;
   cta_label: string;
   disclosure: 'Sponsored';
+  measurement_receipt?: string | null;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -48,7 +49,9 @@ export function isSponsorFeedCampaign(value: unknown): value is SponsorFeedCampa
     typeof value.cta_label === 'string' &&
     value.cta_label.length > 0 &&
     value.cta_label.length <= 32 &&
-    value.disclosure === 'Sponsored'
+    value.disclosure === 'Sponsored' &&
+    (value.measurement_receipt === undefined || value.measurement_receipt === null ||
+      (typeof value.measurement_receipt === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value.measurement_receipt)))
   );
 }
 

@@ -46,18 +46,10 @@ function appendUniqueFeedTopics(existing: Topic[], incoming: Topic[]): Topic[] {
   return additions.length > 0 ? [...existing, ...additions] : existing;
 }
 
-let ephemeralSponsorSessionId: string | null = null;
-
 function createSponsorPlacementId(): string | null {
   return typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
     ? crypto.randomUUID()
     : null;
-}
-
-function createSponsorSessionId(): string | null {
-  if (ephemeralSponsorSessionId) return ephemeralSponsorSessionId;
-  ephemeralSponsorSessionId = createSponsorPlacementId();
-  return ephemeralSponsorSessionId;
 }
 type ViewerProps = {
   topics: Topic[];
@@ -175,8 +167,7 @@ export function TopicFeedCore({
   useEffect(() => {
     if (sponsorSessionUserId.current === userId) return;
     sponsorSessionUserId.current = userId;
-    // Never reuse an anonymous sponsor session token across sign-in/account changes.
-    ephemeralSponsorSessionId = null;
+    // Clear sponsor placement IDs and cached selections across account changes.
     seenTopCommentUserId.current = userId;
     topCommentCadenceUserId.current = userId;
     seenTopCommentIds.current.clear();
@@ -205,12 +196,11 @@ export function TopicFeedCore({
   const loadSponsorCampaigns = useCallback(
     async (topic: Topic): Promise<{ campaigns: SponsorFeedCampaign[]; sessionId: string | null; retryable?: boolean }> => {
 
-      // Anonymous placements share an in-memory session token for frequency caps;
-      // signed-in placements get unique IDs so separate card views are not deduplicated.
-      const measurementEnabled = hasAnalyticsConsent('sponsorMeasurement', userId);
-      const sessionId = measurementEnabled
-        ? (userId ? createSponsorPlacementId() : createSponsorSessionId())
-        : null;
+      // Detailed Sponsor measurement is account-only. Signed-out placements
+      // use the token-free selector and create no measurement record.
+      // Signed-in opted-in placements receive a server-issued receipt for event validation.
+      const measurementEnabled = Boolean(userId && hasAnalyticsConsent('sponsorMeasurement', userId));
+      const sessionId = measurementEnabled ? createSponsorPlacementId() : null;
       if (measurementEnabled && !sessionId) return { campaigns: [], sessionId: null, retryable: true };
 
       try {
@@ -241,7 +231,6 @@ export function TopicFeedCore({
             signal: controller.signal,
             body: JSON.stringify({
               sessionId,
-              sponsorMeasurementConsent: measurementEnabled,
               categorySlug: topic.categorySlug ?? null,
               topicId: topic.id,
             }),
@@ -409,9 +398,8 @@ export function TopicFeedCore({
       if ((detail?.userId ?? null) !== (userId ?? null)) return;
       if (hasAnalyticsConsent('sponsorMeasurement', userId)) return;
 
-      // Remove any token created before withdrawal from both the feed cache and
-      // the currently mounted card. Campaign delivery remains in the queue.
-      ephemeralSponsorSessionId = null;
+      // Remove measurement receipts created before withdrawal from the feed cache
+      // and currently mounted card. Sponsor delivery remains available.
       sponsorResultsByTopicId.current.clear();
       sponsorCardsByTopicId.current.clear();
 

@@ -74,7 +74,6 @@ export async function POST(request: Request) {
     console.error('Unable to verify sponsor-feed authentication:', cause);
     return respond(request, { error: 'Authentication is temporarily unavailable.' }, 503);
   }
-  const isAnonymous = !auth.user;
 
   const rateLimit = await checkApiRateLimit({
     scope: 'sponsor-campaigns:serve',
@@ -111,12 +110,9 @@ export async function POST(request: Request) {
   }
 
   try {
-    const sponsorMeasurementConsent = (parsed.value as Record<string, unknown>).sponsorMeasurementConsent === true;
-    // Anonymous measurement is opt-in per browser. Older clients that do not
-    // send the explicit flag fail closed while sponsor delivery remains enabled.
-    let sponsorMeasurementEnabled = isAnonymous
-      ? sponsorMeasurementConsent && parsed.value.sessionId !== null
-      : parsed.value.sessionId !== null;
+    // Sponsor measurement is account-only. Sponsor delivery remains available
+    // without consent, but delivery itself is never counted or stored.
+    let sponsorMeasurementEnabled = false;
     if (auth.user) {
       try {
         const consent = await getStoredAnalyticsConsent(auth.user.id);
@@ -128,12 +124,11 @@ export async function POST(request: Request) {
         sponsorMeasurementEnabled = false;
       }
     }
-    const measurementSessionId: string | null = sponsorMeasurementEnabled && typeof parsed.value.sessionId === 'string'
+    const measurementSessionId: string | null = auth.user && sponsorMeasurementEnabled && typeof parsed.value.sessionId === 'string'
       ? parsed.value.sessionId
       : null;
-    const { data, error } = isAnonymous
-      ? await createServiceRoleClient().rpc('get_anonymous_sponsor_campaigns', {
-          p_session_token: measurementSessionId,
+    const { data, error } = !sponsorMeasurementEnabled
+      ? await createServiceRoleClient().rpc('get_unmeasured_sponsor_campaigns', {
           p_category_slug: parsed.value.categorySlug,
           p_topic_id: parsed.value.topicId,
           p_limit: 1,
@@ -164,6 +159,11 @@ export async function POST(request: Request) {
       return respond(request, { error: 'Sponsored content is temporarily unavailable.' }, 503);
     }
 
+    if (sponsorMeasurementEnabled && data.campaigns.some((campaign: Record<string, unknown>) =>
+      typeof campaign.measurement_receipt !== 'string' || !isValidUuid(campaign.measurement_receipt))) {
+      console.error('Consented sponsor selector omitted a valid placement receipt.');
+      return respond(request, { error: 'Sponsored content is temporarily unavailable.' }, 503);
+    }
     return respond(request, { campaigns: data.campaigns, generated_at: data.generated_at });
   } catch (cause) {
     console.error('Sponsor campaign selection failed:', cause);

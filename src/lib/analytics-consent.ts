@@ -3,6 +3,11 @@
 export const analyticsConsentStorageKey = 'cathoscroll.analytics-consent.v1';
 export const analyticsConsentChangeEvent = 'cathoscroll:analytics-consent-change';
 export const analyticsConsentManageEvent = 'cathoscroll:analytics-consent-manage';
+export const analyticsConsentSyncEvent = 'cathoscroll:analytics-consent-sync';
+
+export function requestAnalyticsConsentSync(): void {
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event(analyticsConsentSyncEvent));
+}
 export const analyticsConsentVersion = 1 as const;
 
 function storageKeyForUser(userId?: string | null): string {
@@ -122,13 +127,37 @@ export function readAnalyticsConsent(userId?: string | null): AnalyticsConsent |
   }
 }
 
+export function clearLegacyAnonymousAnalyticsConsent(): void {
+  if (typeof window === 'undefined') return;
+  const key = storageKeyForUser(null);
+  try {
+    window.localStorage.removeItem(key);
+    window.localStorage.removeItem('cathoscroll.anonymous-analytics.enabled.v1');
+  } catch {
+    // The signed-out consent gate still returns false if storage is unavailable.
+  }
+  for (const choice of ['serviceImprovement', 'sponsorMeasurement'] as const) {
+    deniedOverrides.add(overrideKey(choice, null));
+    getConsentChannel()?.postMessage({ type: 'deny', choice, userId: null });
+  }
+  window.dispatchEvent(new CustomEvent(analyticsConsentChangeEvent, { detail: { userId: null } }));
+}
+
 export function getAnalyticsConsent(userId?: string | null): AnalyticsConsent {
   return readAnalyticsConsent(userId) ?? emptyConsent();
 }
 
 export function hasAnalyticsConsent(choice: AnalyticsConsentChoice, userId?: string | null): boolean {
+  // Optional analytics are account-only. Signed-out visitors have no
+  // anonymous analytics or sponsor delivery measurement.
+  if (!userId) return false;
   if (deniedOverrides.has(overrideKey(choice, userId))) return false;
   return getAnalyticsConsent(userId)[choice] === true;
+}
+
+export function hasSyncedAnalyticsConsent(choice: AnalyticsConsentChoice, userId?: string | null): boolean {
+  const consent = readAnalyticsConsent(userId);
+  return hasAnalyticsConsent(choice, userId) && consent?.syncPending !== true;
 }
 
 export function saveAnalyticsConsent(

@@ -43,6 +43,8 @@ export function NativeSignup({ onSignedUp }: { onSignedUp: () => void }) {
     const password = String(data.get('password') ?? '');
     const confirmPassword = String(data.get('confirmPassword') ?? '');
     const personalizationConsent = data.get('personalizationConsent') === 'true';
+    const serviceImprovementConsent = data.get('serviceImprovementConsent') === 'true';
+    const sponsorMeasurementConsent = data.get('sponsorMeasurementConsent') === 'true';
     const invalidUsername = usernameError(username);
     if (invalidUsername) {
       setError(invalidUsername);
@@ -62,7 +64,7 @@ export function NativeSignup({ onSignedUp }: { onSignedUp: () => void }) {
       const { data: result, error: signupError } = await createClient().auth.signUp({
         email,
         password,
-        options: { data: { username, display_name: username, personalization_consent: personalizationConsent } },
+        options: { data: { username, display_name: username, personalization_consent: personalizationConsent, personalization_consent_version: personalizationConsent ? '2026-11-21-v5' : null, service_improvement_consent: serviceImprovementConsent, sponsor_measurement_consent: sponsorMeasurementConsent } },
       });
       if (signupError) throw signupError;
       if (result.session) {

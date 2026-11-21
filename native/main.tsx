@@ -51,13 +51,12 @@ import { OfflineCommentCache } from '@/lib/offline/comment-cache';
 import { OfflineTopicCountCache, type CachedTopicCounts } from '@/lib/offline/topic-count-cache';
 import { loadTopicActivity } from '@/lib/topic-activity';
 import { siteConfig } from '@/lib/constants';
-import { configureAnonymousFeedAnalyticsOutbox } from '@/lib/anonymous-feed-analytics-client';
+import { analyticsConsentSyncEvent } from '@/lib/analytics-consent';
 import { configureFeedAnalyticsOutbox, clearFeedAnalyticsOutbox } from '@/lib/feed-analytics-client';
 import { configureFeedCardAnalyticsOutbox, clearFeedCardAnalyticsOutbox } from '@/lib/feed-card-analytics-client';
 import { configureSponsorAnalyticsOutbox, clearSponsorAnalyticsOutbox } from '@/lib/sponsor-analytics-client';
 import { NativeSignedInAnalyticsOutbox } from '@/lib/offline/signed-in-analytics-store';
-import { NativeAnonymousAnalyticsOutbox } from '@/lib/offline/anonymous-analytics-store';
-import { OfflineRankedFeedCache } from '@/lib/offline/ranked-feed-cache';
+import { OfflineRankedFeedCache, type CachedPersonalizationConsent } from '@/lib/offline/ranked-feed-cache';
 import type { TopFeedComment } from '@/lib/feed-comments';
 import type { RecommendationCursor } from '@/lib/recommendations';
 import type { GeneralFeedCursor } from '@/lib/content';
@@ -735,7 +734,12 @@ function App() {
           const pendingConsent = await personalizedFeedCacheRef.current?.getPendingConsent(user.id);
           if (pendingConsent === false) {
             const { error: withdrawalError } = await createClient().rpc('set_my_personalization_consent', { p_enabled: false });
-            if (!withdrawalError) await personalizedFeedCacheRef.current?.setConsent(user.id, false, false);
+            if (!withdrawalError) {
+              await personalizedFeedCacheRef.current?.setConsent(user.id, false, false);
+              // Release the queued account-analytics preference only after
+              // the server has accepted the linked personalisation withdrawal.
+              window.dispatchEvent(new Event(analyticsConsentSyncEvent));
+            }
           }
           const { data: status, error: statusError } =
             await createClient().rpc('get_my_personalization_status');
@@ -872,6 +876,23 @@ function App() {
   }, [catalogueMessage]);
 
   useEffect(() => {
+    function readPersonalizationConsentCache(event: Event) {
+      const detail = (event as CustomEvent<{
+        userId?: unknown;
+        complete?: (result: Promise<{ available: boolean; consent: CachedPersonalizationConsent | null }>) => void;
+      }>).detail;
+      if (!detail || typeof detail.userId !== 'string') return;
+      const cache = personalizedFeedCacheRef.current;
+      const result = cache
+        ? cache.getCachedConsent(detail.userId).then((consent) => ({ available: true, consent }))
+        : Promise.resolve({ available: false, consent: null });
+      detail.complete?.(result);
+    }
+    window.addEventListener('cathoscroll:personalization-consent-status-request', readPersonalizationConsentCache);
+    return () => window.removeEventListener('cathoscroll:personalization-consent-status-request', readPersonalizationConsentCache);
+  }, []);
+
+  useEffect(() => {
     function syncPersonalizationConsent(event: Event) {
       const detail = (event as CustomEvent<{
         userId?: unknown;
@@ -924,12 +945,18 @@ function App() {
       let failure = 'Unable to open app storage. Please try again.';
       try {
         const databases = await openNativeDatabases(secureAuthStorage);
+        // Remove the obsolete signed-out analytics outbox from existing installs.
+        // It is no longer read, queued or uploaded by this version.
         try {
-          await configureAnonymousFeedAnalyticsOutbox(new NativeAnonymousAnalyticsOutbox(databases.catalogue));
-          clearNativeStatusNotice('anonymous-analytics-outbox');
+          await databases.catalogue.transaction((db) => db.execute(
+            'DROP TABLE IF EXISTS offline_anonymous_analytics_outbox'
+          ));
+          clearNativeStatusNotice('legacy-anonymous-analytics-cleanup');
         } catch (cause) {
-          console.error('Durable anonymous analytics storage is unavailable:', cause);
-          notifyNativeStatus('Some signed-out analytics may not be retained if the app closes before upload.', { id: 'anonymous-analytics-outbox' });
+          console.error('Unable to clear the retired anonymous analytics outbox:', cause);
+          notifyNativeStatus('Legacy anonymous analytics data could not be cleared from local storage yet.', {
+            id: 'legacy-anonymous-analytics-cleanup',
+          });
         }
         const localCatalogue = new OfflineCatalogue(databases.catalogue);
         try {

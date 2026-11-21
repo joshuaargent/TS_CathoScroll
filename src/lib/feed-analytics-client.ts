@@ -1,7 +1,7 @@
 'use client';
 
 import type { SignedInAnalyticsOutbox } from './offline/signed-in-analytics-store';
-import { createConsentBoundAbortSignal, hasAnalyticsConsent } from './analytics-consent';
+import { analyticsConsentChangeEvent, createConsentBoundAbortSignal, hasAnalyticsConsent, hasSyncedAnalyticsConsent } from './analytics-consent';
 
 export type FeedAnalyticsEventType =
   | 'impression'
@@ -197,6 +197,9 @@ export async function flushFeedAnalytics(userId: string, keepalive = false): Pro
     if (persistentOutbox) await persistentOutbox.clearStream(userId, 'topic');
     return;
   }
+  // A newly granted choice is persisted locally before the server accepts it.
+  // Keep its queued events until the consent RPC confirms the account choice.
+  if (!hasSyncedAnalyticsConsent('serviceImprovement', userId)) return;
   if (!navigator.onLine || flushingUsers.has(userId)) return;
 
   flushingUsers.add(userId);
@@ -297,12 +300,18 @@ export function installFeedAnalyticsListeners(
     }
   };
 
+  const onConsentChange = (event: Event) => {
+    const detail = (event as CustomEvent<{ userId?: string | null }>).detail;
+    if ((detail?.userId ?? null) === userId) flush();
+  };
   window.addEventListener('online', flush);
+  window.addEventListener(analyticsConsentChangeEvent, onConsentChange);
   window.addEventListener('pagehide', handleVisibility);
   document.addEventListener('visibilitychange', handleVisibility);
 
   return () => {
     window.removeEventListener('online', flush);
+    window.removeEventListener(analyticsConsentChangeEvent, onConsentChange);
     window.removeEventListener('pagehide', handleVisibility);
     document.removeEventListener('visibilitychange', handleVisibility);
 

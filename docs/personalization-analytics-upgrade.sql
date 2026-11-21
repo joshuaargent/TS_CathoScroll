@@ -1,13 +1,10 @@
 -- EXISTING DATABASE UPGRADE ONLY.
--- This script upgrades an older CathoScroll database with feed-card analytics.
--- It does not install the new optional analytics consent ledger or sponsor
--- measurement opt-out. For those changes, use
--- docs/analytics-consent-and-sponsor-opt-out-upgrade.sql after this schema is
--- current. Do not run either script against production until both the clean
--- bootstrap and existing-database upgrade paths have been tested on disposable
--- PostgreSQL databases.
+-- Apply docs/analytics-consent-and-sponsor-opt-out-upgrade.sql first: this
+-- upgrade depends on its consent ledger and history tables. It does not create
+-- new SQL migration files or alter sponsor measurement. The clean-install
+-- equivalent is maintained in docs/cathoscroll-database-bootstrap.sql.
 
--- Consented, private recommendation personalisation (model 2026-11-19-v2).
+-- Consented, private recommendation personalisation (model 2026-11-20-v4).
 CREATE TABLE IF NOT EXISTS catho_private.user_personalization_consents (
   user_id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   enabled boolean NOT NULL DEFAULT false,
@@ -30,7 +27,7 @@ CREATE TABLE IF NOT EXISTS catho_private.user_topic_interest_scores (
   positive_score numeric(8,4) NOT NULL DEFAULT 0,
   negative_score numeric(8,4) NOT NULL DEFAULT 0,
   evidence_count integer NOT NULL DEFAULT 0,
-  model_version text NOT NULL DEFAULT '2026-11-19-v1',
+  model_version text NOT NULL DEFAULT '2026-11-20-v4',
   updated_at timestamptz NOT NULL DEFAULT statement_timestamp(),
   short_term_score numeric(8,4) NOT NULL DEFAULT 0,
   long_term_score numeric(8,4) NOT NULL DEFAULT 0,
@@ -238,7 +235,7 @@ BEGIN
     'enabled',coalesce(v_enabled,false),'updated_at',v_updated_at,
     'topic_interests',v_topics,'category_interests',v_categories,
     'selected_categories',v_selected,'category_options',v_options,
-    'top_topic_interests',v_top_topics,'model_version','2026-11-19-v2'
+    'top_topic_interests',v_top_topics,'model_version','2026-11-20-v4'
   );
 END;
 $function$;
@@ -254,24 +251,32 @@ BEGIN
   IF v_current_user_id IS NULL OR v_current_user_id IS DISTINCT FROM p_user_id THEN
     RAISE EXCEPTION 'Cannot read another account recommendation signals' USING ERRCODE='42501';
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM catho_private.user_personalization_consents c
-    WHERE c.user_id=p_user_id AND c.enabled=true) THEN RETURN; END IF;
+  IF NOT EXISTS (
+    SELECT 1
+    FROM catho_private.user_personalization_consents AS pc
+    WHERE pc.user_id = p_user_id
+      AND pc.enabled = true
+  ) THEN
+    RETURN;
+  END IF;
   PERFORM catho_private.refresh_user_interest_profile(p_user_id);
   RETURN QUERY
-  SELECT combined.category_slug,sum(combined.weight)::numeric
+  SELECT combined.category_slug, sum(combined.weight)::numeric
   FROM (
-    SELECT s.category_slug,s.score AS weight
-    FROM catho_private.user_topic_interest_scores s
-    WHERE s.user_id=p_user_id AND s.score<>0
+    SELECT s.category_slug, s.score AS weight
+    FROM catho_private.user_topic_interest_scores AS s
+    WHERE s.user_id = p_user_id AND s.score <> 0
     UNION ALL
-    SELECT e.category_slug,8::numeric AS weight
-    FROM catho_private.user_explicit_category_interests e
-    WHERE e.user_id=p_user_id
-  ) combined
+    SELECT e.category_slug, 8::numeric AS weight
+    FROM catho_private.user_explicit_category_interests AS e
+    WHERE e.user_id = p_user_id
+  ) AS combined
   GROUP BY combined.category_slug;
 END;
 $function$;
 
+
+ALTER TABLE catho_private.user_topic_interest_scores ALTER COLUMN model_version SET DEFAULT '2026-11-20-v4';
 
 CREATE OR REPLACE FUNCTION catho_private.refresh_user_interest_profile(p_user_id uuid)
  RETURNS integer
@@ -283,11 +288,16 @@ DECLARE
   v_count integer := 0;
   v_now timestamptz := statement_timestamp();
   v_consent_at timestamptz;
+  v_service_consent_at timestamptz;
+  v_service_improvement boolean := false;
   v_last_refresh timestamptz;
 BEGIN
   IF p_user_id IS NULL THEN RETURN 0; END IF;
-  SELECT c.granted_at,c.profile_refreshed_at INTO v_consent_at,v_last_refresh
+  SELECT c.granted_at,c.profile_refreshed_at,
+    coalesce(a.service_improvement,false),a.service_improvement_updated_at
+  INTO v_consent_at,v_last_refresh,v_service_improvement,v_service_consent_at
   FROM catho_private.user_personalization_consents c
+  LEFT JOIN catho_private.user_analytics_consents a ON a.user_id=c.user_id
   WHERE c.user_id=p_user_id AND c.enabled=true;
   IF v_consent_at IS NULL THEN RETURN 0; END IF;
   IF v_last_refresh IS NOT NULL AND v_last_refresh >= v_now-interval '5 minutes' THEN
@@ -295,7 +305,87 @@ BEGIN
     RETURN v_count;
   END IF;
 
-  WITH explicit_events AS (
+  WITH event_scores AS (
+    SELECT e.entity_id AS topic_id,
+      least(1.20::numeric,coalesce(sum(CASE WHEN e.event_type='viewable_impression'
+        THEN 0.40*power(0.5::numeric,greatest(0,extract(epoch FROM (v_now-e.received_at))/2592000))
+        ELSE 0 END),0))
+      + least(1.50::numeric,coalesce(sum(CASE WHEN e.event_type='active_duration'
+        THEN least(coalesce((e.metadata->>'duration_ms')::numeric,0),60000)/60000*0.25
+          *power(0.5::numeric,greatest(0,extract(epoch FROM (v_now-e.received_at))/2592000))
+        ELSE 0 END),0))
+      + least(1.50::numeric,coalesce(sum(CASE WHEN e.event_type='swipe_depth'
+        THEN least(coalesce((e.metadata->>'depth')::numeric,0),4)/4*0.50
+          *power(0.5::numeric,greatest(0,extract(epoch FROM (v_now-e.received_at))/2592000))
+        ELSE 0 END),0))
+      + least(3.00::numeric,coalesce(sum(CASE WHEN e.event_type='completion'
+        THEN 2.50*power(0.5::numeric,greatest(0,extract(epoch FROM (v_now-e.received_at))/2592000))
+        ELSE 0 END),0))
+      + least(1.50::numeric,coalesce(sum(CASE WHEN e.event_type='return_visit'
+        THEN 0.75*power(0.5::numeric,greatest(0,extract(epoch FROM (v_now-e.received_at))/2592000))
+        ELSE 0 END),0)) AS inferred_score,
+      least(1.20::numeric,coalesce(sum(CASE WHEN e.event_type='viewable_impression'
+        AND e.received_at>=v_now-interval '14 days'
+        THEN 0.40*power(0.5::numeric,greatest(0,extract(epoch FROM (v_now-e.received_at))/1209600))
+        ELSE 0 END),0))
+      + least(1.50::numeric,coalesce(sum(CASE WHEN e.event_type='active_duration'
+        AND e.received_at>=v_now-interval '14 days'
+        THEN least(coalesce((e.metadata->>'duration_ms')::numeric,0),60000)/60000*0.25
+          *power(0.5::numeric,greatest(0,extract(epoch FROM (v_now-e.received_at))/1209600))
+        ELSE 0 END),0))
+      + least(1.50::numeric,coalesce(sum(CASE WHEN e.event_type='swipe_depth'
+        AND e.received_at>=v_now-interval '14 days'
+        THEN least(coalesce((e.metadata->>'depth')::numeric,0),4)/4*0.50
+          *power(0.5::numeric,greatest(0,extract(epoch FROM (v_now-e.received_at))/1209600))
+        ELSE 0 END),0))
+      + least(3.00::numeric,coalesce(sum(CASE WHEN e.event_type='completion'
+        AND e.received_at>=v_now-interval '14 days'
+        THEN 2.50*power(0.5::numeric,greatest(0,extract(epoch FROM (v_now-e.received_at))/1209600))
+        ELSE 0 END),0))
+      + least(1.50::numeric,coalesce(sum(CASE WHEN e.event_type='return_visit'
+        AND e.received_at>=v_now-interval '14 days'
+        THEN 0.75*power(0.5::numeric,greatest(0,extract(epoch FROM (v_now-e.received_at))/1209600))
+        ELSE 0 END),0)) AS short_score,
+      least(1.20::numeric,coalesce(sum(CASE WHEN e.event_type='viewable_impression'
+        THEN 0.40*power(0.5::numeric,greatest(0,extract(epoch FROM (v_now-e.received_at))/7776000))
+        ELSE 0 END),0))
+      + least(1.50::numeric,coalesce(sum(CASE WHEN e.event_type='active_duration'
+        THEN least(coalesce((e.metadata->>'duration_ms')::numeric,0),60000)/60000*0.25
+          *power(0.5::numeric,greatest(0,extract(epoch FROM (v_now-e.received_at))/7776000))
+        ELSE 0 END),0))
+      + least(1.50::numeric,coalesce(sum(CASE WHEN e.event_type='swipe_depth'
+        THEN least(coalesce((e.metadata->>'depth')::numeric,0),4)/4*0.50
+          *power(0.5::numeric,greatest(0,extract(epoch FROM (v_now-e.received_at))/7776000))
+        ELSE 0 END),0))
+      + least(3.00::numeric,coalesce(sum(CASE WHEN e.event_type='completion'
+        THEN 2.50*power(0.5::numeric,greatest(0,extract(epoch FROM (v_now-e.received_at))/7776000))
+        ELSE 0 END),0))
+      + least(1.50::numeric,coalesce(sum(CASE WHEN e.event_type='return_visit'
+        THEN 0.75*power(0.5::numeric,greatest(0,extract(epoch FROM (v_now-e.received_at))/7776000))
+        ELSE 0 END),0)) AS long_score,
+      count(*)::integer AS evidence_count
+    FROM catho_private.feed_analytics_events e
+    WHERE e.user_id=p_user_id
+      AND v_service_improvement IS TRUE
+      AND e.received_at>=greatest(v_now-interval '90 days',v_service_consent_at,v_consent_at) AND e.received_at<v_now
+      AND e.event_type IN ('viewable_impression','active_duration','swipe_depth','completion','return_visit')
+    GROUP BY e.entity_id
+  ),
+  skip_sessions AS (
+    SELECT e.entity_id AS topic_id,e.session_id,
+      max(power(0.5::numeric,greatest(0,extract(epoch FROM (v_now-e.received_at))/2592000))) AS decay
+    FROM catho_private.feed_analytics_events e
+    WHERE e.user_id=p_user_id AND e.event_type='skip'
+      AND v_service_improvement IS TRUE
+      AND e.received_at>=greatest(v_now-interval '90 days',v_service_consent_at,v_consent_at) AND e.received_at<v_now
+    GROUP BY e.entity_id,e.session_id
+  ),
+  skip_scores AS (
+    SELECT topic_id,count(*)::integer AS skip_sessions,
+      least(3::numeric,sum(1.5*decay)) AS negative_score
+    FROM skip_sessions GROUP BY topic_id
+  ),
+  explicit_events AS (
     SELECT p.topic_id,5::numeric AS weight,p.completed_at AS happened_at FROM public.progress p
       WHERE p.user_id=p_user_id AND p.completed_at>=greatest(v_now-interval '180 days',v_consent_at)
     UNION ALL
@@ -316,6 +406,19 @@ BEGIN
       JOIN public.comments parent ON parent.id=reply.parent_id
       WHERE reply.user_id=p_user_id AND reply.is_deleted=false AND parent.is_deleted=false
         AND reply.created_at>=greatest(v_now-interval '180 days',v_consent_at)
+    UNION ALL
+    SELECT c.topic_id,
+      CASE e.event_type
+        WHEN 'viewable_impression' THEN 0.25
+        WHEN 'active_duration' THEN least(e.duration_ms,60000)::numeric/60000*0.20
+        WHEN 'open' THEN 0.75 ELSE 0 END,
+      e.received_at
+    FROM catho_private.feed_card_analytics_events e
+      JOIN public.comments c ON c.id::text=e.card_id
+    WHERE e.user_id=p_user_id AND e.card_type='top-comment'
+      AND e.event_type IN ('viewable_impression','active_duration','open')
+      AND v_service_improvement IS TRUE
+      AND e.received_at>=greatest(v_now-interval '90 days',v_service_consent_at,v_consent_at) AND e.received_at<v_now
   ),
   explicit_scores AS (
     SELECT topic_id,
@@ -329,17 +432,19 @@ BEGIN
   ),
   combined AS (
     SELECT t.id AS topic_id,t.category_slug,
-      least(8::numeric,greatest(0::numeric,coalesce(ex.short_score,0))) AS short_score,
-      least(8::numeric,greatest(0::numeric,coalesce(ex.long_score,0))) AS long_score,
+      least(8::numeric,greatest(0::numeric,coalesce(es.short_score,0)+coalesce(ex.short_score,0))) AS short_score,
+      least(8::numeric,greatest(0::numeric,coalesce(es.long_score,0)+coalesce(ex.long_score,0))) AS long_score,
       least(8::numeric,greatest(0::numeric,coalesce(ex.explicit_score,0))) AS explicit_score,
-      0::numeric AS inferred_score,
-      0::numeric AS negative_score,
-      coalesce(ex.evidence_count,0) AS evidence_count
+      least(8::numeric,greatest(0::numeric,coalesce(es.inferred_score,0))) AS inferred_score,
+      CASE WHEN coalesce(ss.skip_sessions,0)>=2 THEN least(4::numeric,ss.negative_score) ELSE 0::numeric END AS negative_score,
+      coalesce(es.evidence_count,0)+coalesce(ex.evidence_count,0)+coalesce(ss.skip_sessions,0) AS evidence_count
     FROM public.topics t
     JOIN public.categories c ON c.slug=t.category_slug AND c.is_published=true
+    LEFT JOIN event_scores es ON es.topic_id=t.id
     LEFT JOIN explicit_scores ex ON ex.topic_id=t.id
+    LEFT JOIN skip_scores ss ON ss.topic_id=t.id
     WHERE t.is_published=true
-      AND ex.topic_id IS NOT NULL
+      AND (es.topic_id IS NOT NULL OR ex.topic_id IS NOT NULL OR ss.topic_id IS NOT NULL)
   ),
   upserted AS (
     INSERT INTO catho_private.user_topic_interest_scores
@@ -348,7 +453,7 @@ BEGIN
     SELECT p_user_id,topic_id,category_slug,
       greatest(-4::numeric,least(8::numeric,(short_score*0.35)+(long_score*0.65)-negative_score)),
       least(12::numeric,short_score*0.35+long_score*0.65),negative_score,evidence_count,
-      short_score,long_score,explicit_score,inferred_score,'2026-11-20-v3-explicit-only',v_now
+      short_score,long_score,explicit_score,inferred_score,'2026-11-20-v4',v_now
     FROM combined
     ON CONFLICT (user_id,topic_id) DO UPDATE SET
       category_slug=EXCLUDED.category_slug,score=EXCLUDED.score,
@@ -370,7 +475,11 @@ END;
 $function$;
 
 
-CREATE OR REPLACE FUNCTION public.set_my_personalization_consent(p_enabled boolean)
+
+CREATE OR REPLACE FUNCTION public.set_my_personalization_consent(
+  p_enabled boolean,
+  p_consent_version text
+)
  RETURNS jsonb
  LANGUAGE plpgsql
  SECURITY DEFINER
@@ -382,10 +491,14 @@ DECLARE
 BEGIN
   IF v_user_id IS NULL THEN RAISE EXCEPTION 'Authentication required' USING ERRCODE='42501'; END IF;
   IF p_enabled IS NULL THEN RAISE EXCEPTION 'A consent choice is required' USING ERRCODE='22023'; END IF;
+  IF p_enabled IS TRUE AND p_consent_version IS DISTINCT FROM '2026-11-21-v5' THEN
+    RAISE EXCEPTION 'Update CathoScroll and review the current personalisation notice before enabling recommendations' USING ERRCODE='42501';
+  END IF;
+  PERFORM 1 FROM auth.users WHERE id = v_user_id FOR UPDATE;
   IF p_enabled THEN
     INSERT INTO catho_private.user_personalization_consents
       (user_id,enabled,consent_version,granted_at,withdrawn_at,updated_at)
-    VALUES (v_user_id,true,'2026-11-19-v3',v_now,NULL,v_now)
+    VALUES (v_user_id,true,'2026-11-21-v5',v_now,NULL,v_now)
     ON CONFLICT(user_id) DO UPDATE SET
       enabled=true,consent_version=EXCLUDED.consent_version,
       granted_at=CASE WHEN catho_private.user_personalization_consents.enabled
@@ -393,6 +506,7 @@ BEGIN
       withdrawn_at=NULL,
       profile_refreshed_at=CASE WHEN catho_private.user_personalization_consents.enabled THEN catho_private.user_personalization_consents.profile_refreshed_at ELSE NULL END,
       updated_at=EXCLUDED.updated_at;
+
     PERFORM catho_private.refresh_user_interest_profile(v_user_id);
   ELSE
     INSERT INTO catho_private.user_personalization_consents
@@ -404,6 +518,23 @@ BEGIN
     DELETE FROM catho_private.user_explicit_category_interests WHERE user_id=v_user_id;
   END IF;
   RETURN jsonb_build_object('enabled',p_enabled,'updated_at',v_now);
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.set_my_personalization_consent(p_enabled boolean)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+BEGIN
+  IF p_enabled IS NULL THEN
+    RAISE EXCEPTION 'A consent choice is required' USING ERRCODE='22023';
+  END IF;
+  IF p_enabled IS TRUE THEN
+    RAISE EXCEPTION 'Update CathoScroll and review the current personalisation notice before enabling recommendations' USING ERRCODE='42501';
+  END IF;
+  RETURN public.set_my_personalization_consent(false, '2026-11-21-v5');
 END;
 $function$;
 
@@ -445,10 +576,12 @@ END;
 $function$;
 
 
-REVOKE ALL ON FUNCTION public.set_my_personalization_consent(boolean) FROM PUBLIC,anon;
+REVOKE ALL ON FUNCTION public.set_my_personalization_consent(boolean) FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION public.get_my_personalization_status() FROM PUBLIC,anon;
 REVOKE ALL ON FUNCTION public.set_my_personalization_interests(text[]) FROM PUBLIC,anon;
 GRANT EXECUTE ON FUNCTION public.set_my_personalization_consent(boolean) TO authenticated;
+REVOKE ALL ON FUNCTION public.set_my_personalization_consent(boolean, text) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.set_my_personalization_consent(boolean, text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.get_my_personalization_status() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.set_my_personalization_interests(text[]) TO authenticated;
 REVOKE ALL ON FUNCTION catho_private.refresh_user_interest_profile(uuid) FROM PUBLIC,anon,authenticated,service_role;
@@ -465,13 +598,52 @@ CREATE OR REPLACE FUNCTION catho_private.capture_signup_personalization_consent(
  SECURITY DEFINER
  SET search_path TO ''
 AS $function$
+DECLARE
+  v_now timestamptz := statement_timestamp();
+  v_personalization boolean := NEW.raw_user_meta_data ->> 'personalization_consent' = 'true'
+    AND NEW.raw_user_meta_data ->> 'personalization_consent_version' = '2026-11-21-v5';
+  v_service_improvement boolean := NEW.raw_user_meta_data ->> 'service_improvement_consent' = 'true';
+  v_sponsor_measurement boolean := NEW.raw_user_meta_data ->> 'sponsor_measurement_consent' = 'true';
 BEGIN
-  IF NEW.raw_user_meta_data ->> 'personalization_consent' = 'true' THEN
+  -- Personalisation is an independent explicit consent. Passive reading
+  -- signals are used for recommendations only when Service improvement is
+  -- separately enabled as well.
+  IF v_personalization THEN
     INSERT INTO catho_private.user_personalization_consents
       (user_id,enabled,consent_version,granted_at,withdrawn_at,updated_at)
     VALUES
-      (NEW.id,true,'2026-11-19-v3',statement_timestamp(),NULL,statement_timestamp())
+      (NEW.id,true,'2026-11-21-v5',v_now,NULL,v_now)
     ON CONFLICT(user_id) DO NOTHING;
+  END IF;
+
+  -- The other analytics purposes are independent and remain off unless the
+  -- corresponding unticked signup choice was explicitly selected.
+  IF v_service_improvement OR v_sponsor_measurement THEN
+    INSERT INTO catho_private.user_analytics_consents (
+      user_id, service_improvement, sponsor_measurement, consent_version,
+      service_improvement_updated_at, sponsor_measurement_updated_at, created_at, updated_at
+    ) VALUES (
+      NEW.id, v_service_improvement, v_sponsor_measurement, 1,
+      CASE WHEN v_service_improvement THEN v_now ELSE NULL END,
+      CASE WHEN v_sponsor_measurement THEN v_now ELSE NULL END,
+      v_now, v_now
+    )
+    ON CONFLICT (user_id) DO UPDATE SET
+      service_improvement = EXCLUDED.service_improvement,
+      sponsor_measurement = EXCLUDED.sponsor_measurement,
+      service_improvement_updated_at = CASE
+        WHEN catho_private.user_analytics_consents.service_improvement IS DISTINCT FROM EXCLUDED.service_improvement
+        THEN v_now ELSE catho_private.user_analytics_consents.service_improvement_updated_at END,
+      sponsor_measurement_updated_at = CASE
+        WHEN catho_private.user_analytics_consents.sponsor_measurement IS DISTINCT FROM EXCLUDED.sponsor_measurement
+        THEN v_now ELSE catho_private.user_analytics_consents.sponsor_measurement_updated_at END,
+      updated_at = v_now;
+
+    INSERT INTO catho_private.user_analytics_consent_history (
+      user_id, previous_service_improvement, previous_sponsor_measurement,
+      service_improvement, sponsor_measurement, consent_version, recorded_at
+    )
+    VALUES (NEW.id, NULL, NULL, v_service_improvement, v_sponsor_measurement, 1, v_now);
   END IF;
   RETURN NEW;
 END;
@@ -546,8 +718,16 @@ declare
   v_event_id_text text;
   v_session_id_text text;
   v_duration_text text;
+  v_service_consent boolean := false;
 begin
   if v_user_id is null then raise exception 'authentication required' using errcode='42501'; end if;
+    PERFORM 1 FROM auth.users AS account WHERE account.id = v_user_id FOR KEY SHARE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Authentication required' USING ERRCODE = '42501'; END IF;
+  select consent.service_improvement into v_service_consent
+  from catho_private.user_analytics_consents as consent
+  where consent.user_id = v_user_id
+  for share;
+  if coalesce(v_service_consent, false) is not true then return 0; end if;
   if jsonb_typeof(p_events) <> 'array' or jsonb_array_length(p_events) < 1 or jsonb_array_length(p_events) > 50 then
     raise exception 'invalid event batch' using errcode='22023';
   end if;
@@ -674,74 +854,23 @@ CREATE OR REPLACE FUNCTION catho_private.get_user_recommendation_category_weight
  SECURITY DEFINER
  SET search_path TO ''
 AS $function$
-DECLARE
-  v_current_user_id uuid := auth.uid();
-  v_consent_at timestamptz;
-  v_now timestamptz := statement_timestamp();
+DECLARE v_current_user_id uuid := auth.uid();
 BEGIN
   IF v_current_user_id IS NULL OR v_current_user_id IS DISTINCT FROM p_user_id THEN
     RAISE EXCEPTION 'Cannot read another account recommendation category weights' USING ERRCODE = '42501';
   END IF;
-
-  SELECT c.granted_at INTO v_consent_at
-  FROM catho_private.user_personalization_consents c
-  WHERE c.user_id = p_user_id AND c.enabled = true;
-
-  IF v_consent_at IS NULL THEN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM catho_private.user_personalization_consents AS pc
+    WHERE pc.user_id = p_user_id
+      AND pc.enabled = true
+  ) THEN
     RETURN;
   END IF;
-
   RETURN QUERY
-  WITH signals AS (
-    SELECT p.topic_id, 5::numeric AS weight
-    FROM public.progress p
-    WHERE p.user_id = p_user_id
-      AND p.completed_at >= greatest(v_now - interval '180 days', v_consent_at)
-
-    UNION ALL
-
-    SELECT b.topic_id, 4::numeric
-    FROM public.bookmarks b
-    WHERE b.user_id = p_user_id
-      AND b.created_at >= greatest(v_now - interval '180 days', v_consent_at)
-
-    UNION ALL
-
-    SELECT l.topic_id, 3::numeric
-    FROM public.topic_likes l
-    WHERE l.user_id = p_user_id
-      AND l.created_at >= greatest(v_now - interval '180 days', v_consent_at)
-
-    UNION ALL
-
-    SELECT DISTINCT c.topic_id, 3::numeric
-    FROM public.comments c
-    WHERE c.user_id = p_user_id
-      AND c.is_deleted = false
-      AND c.created_at >= greatest(v_now - interval '180 days', v_consent_at)
-  ),
-  legacy_preferences AS (
-    SELECT t.category_slug, sum(s.weight) AS weight
-    FROM signals s
-    JOIN public.topics t ON t.id = s.topic_id AND t.is_published
-    JOIN public.categories c ON c.slug = t.category_slug AND c.is_published
-    GROUP BY t.category_slug
-  ),
-  feed_preferences AS (
-    SELECT feed_signals.category_slug, sum(feed_signals.weight) AS weight
-    FROM catho_private.get_user_feed_preference_signals(p_user_id) AS feed_signals
-    GROUP BY feed_signals.category_slug
-  ),
-  preferences AS (
-    SELECT legacy_preferences.category_slug, legacy_preferences.weight
-    FROM legacy_preferences
-    UNION ALL
-    SELECT feed_preferences.category_slug, feed_preferences.weight
-    FROM feed_preferences
-  )
-  SELECT p.category_slug, sum(p.weight)::numeric
-  FROM preferences p
-  GROUP BY p.category_slug;
+  SELECT signals.category_slug, sum(signals.weight)::numeric
+  FROM catho_private.get_user_feed_preference_signals(p_user_id) AS signals
+  GROUP BY signals.category_slug;
 END;
 $function$;
 
@@ -764,7 +893,7 @@ DECLARE
   streak integer;
   include_completed boolean;
   personalization_enabled boolean := false;
-  personalization_model_version constant text := 'explicit-actions-v3';
+  personalization_model_version constant text := 'activity-signals-v4';
   initial_page boolean := feed_cursor IS NULL OR feed_cursor = 'null'::jsonb;
   item_count integer := 0;
 BEGIN
@@ -1090,10 +1219,59 @@ $feed_card_analytics_cron$;
 
 
 -- Remove recommendation profiles built from the former analytics-event inputs.
--- The next opted-in feed request rebuilds each profile from explicit account actions only.
+-- The next opted-in feed request rebuilds each profile from eligible account actions and reading signals.
 DELETE FROM catho_private.user_topic_interest_scores;
 
 UPDATE catho_private.user_personalization_consents
 SET profile_refreshed_at = NULL,
     updated_at = statement_timestamp()
 WHERE enabled = true;
+
+
+-- Personalisation is now a separate choice. Existing v3 opt-ins must be
+-- re-confirmed against the updated purpose wording before recommendations resume.
+DO $personalization_consent_regrant$
+DECLARE
+  v_affected_user_ids uuid[];
+  v_now timestamptz := statement_timestamp();
+BEGIN
+  SELECT coalesce(array_agg(c.user_id), ARRAY[]::uuid[])
+  INTO v_affected_user_ids
+  FROM catho_private.user_personalization_consents AS c
+  WHERE c.enabled = true
+    AND (
+      c.consent_version IS DISTINCT FROM '2026-11-21-v5'
+    );
+
+  UPDATE catho_private.user_personalization_consents
+  SET enabled = false,
+      consent_version = NULL,
+      granted_at = NULL,
+      withdrawn_at = v_now,
+      profile_refreshed_at = NULL,
+      updated_at = v_now
+  WHERE user_id = ANY(v_affected_user_ids);
+
+  DELETE FROM catho_private.user_topic_interest_scores
+  WHERE user_id = ANY(v_affected_user_ids);
+  DELETE FROM catho_private.user_explicit_category_interests
+  WHERE user_id = ANY(v_affected_user_ids);
+
+  DELETE FROM catho_private.user_topic_interest_scores AS s
+  WHERE NOT EXISTS (
+    SELECT 1
+    FROM catho_private.user_personalization_consents AS c
+    WHERE c.user_id = s.user_id
+      AND c.enabled = true
+      AND c.consent_version = '2026-11-21-v5'
+  );
+  DELETE FROM catho_private.user_explicit_category_interests AS i
+  WHERE NOT EXISTS (
+    SELECT 1
+    FROM catho_private.user_personalization_consents AS c
+    WHERE c.user_id = i.user_id
+      AND c.enabled = true
+      AND c.consent_version = '2026-11-21-v5'
+  );
+END;
+$personalization_consent_regrant$;

@@ -1,7 +1,7 @@
 'use client';
 
 import type { SignedInAnalyticsOutbox } from './offline/signed-in-analytics-store';
-import { createConsentBoundAbortSignal, hasAnalyticsConsent } from './analytics-consent';
+import { analyticsConsentChangeEvent, createConsentBoundAbortSignal, hasAnalyticsConsent, hasSyncedAnalyticsConsent } from './analytics-consent';
 
 export type SponsorCampaignEventType = 'viewable_impression' | 'click';
 
@@ -9,6 +9,7 @@ export interface QueuedSponsorCampaignEvent {
   campaignId: string;
   eventId: string;
   sessionId: string;
+  placementReceipt: string;
   eventType: SponsorCampaignEventType;
 }
 
@@ -39,12 +40,11 @@ export async function clearSponsorAnalyticsOutbox(userId: string): Promise<void>
   if (persistentOutbox) await persistentOutbox.clearStream(userId, 'sponsor');
 }
 
-function sponsorEventFromPayload(payload: { event_id: string; session_id: string; event_type: string; campaign_id?: unknown }): QueuedSponsorCampaignEvent {
+function sponsorEventFromPayload(payload: { event_id: string; session_id: string; event_type: string; campaign_id?: unknown; placement_receipt?: unknown }): QueuedSponsorCampaignEvent | null {
   if (typeof payload.campaign_id !== 'string' || !payload.campaign_id ||
-      (payload.event_type !== 'viewable_impression' && payload.event_type !== 'click')) {
-    throw new Error('Invalid persisted sponsor analytics event.');
-  }
-  return { campaignId: payload.campaign_id, eventId: payload.event_id, sessionId: payload.session_id, eventType: payload.event_type };
+      typeof payload.placement_receipt !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(payload.placement_receipt) ||
+      (payload.event_type !== 'viewable_impression' && payload.event_type !== 'click')) return null;
+  return { campaignId: payload.campaign_id, eventId: payload.event_id, sessionId: payload.session_id, placementReceipt: payload.placement_receipt, eventType: payload.event_type };
 }
 
 function readQueue(userId: string): QueuedSponsorCampaignEvent[] {
@@ -82,6 +82,7 @@ export function recordSponsorCampaignEvent(
       session_id: event.sessionId,
       event_type: event.eventType,
       campaign_id: event.campaignId,
+      placement_receipt: event.placementReceipt,
     }).then(() => flushSponsorCampaignEvents(userId, getAccessToken, apiBaseUrl)).catch((error: unknown) => {
       console.error('Unable to persist signed-in sponsor analytics:', error);
       if (queue.length < queueLimit) {
@@ -114,6 +115,9 @@ export async function flushSponsorCampaignEvents(
     }
     return;
   }
+  // Retain newly queued events until the server has acknowledged an offline
+  // Sponsor measurement opt-in.
+  if (!hasSyncedAnalyticsConsent('sponsorMeasurement', userId)) return;
   if (typeof navigator === 'undefined' || !navigator.onLine || flushingUsers.has(userId)) return;
 
   flushingUsers.add(userId);
@@ -128,6 +132,10 @@ export async function flushSponsorCampaignEvents(
       const stored = persistentOutbox ? await persistentOutbox.pending(userId, 'sponsor', 1) : [];
       const persistedEvent = stored[0];
       const event = persistedEvent ? sponsorEventFromPayload(persistedEvent) : readQueue(userId)[0];
+      if (persistedEvent && !event) {
+        await persistentOutbox!.acknowledge(userId, 'sponsor', [persistedEvent.event_id]);
+        continue;
+      }
       if (!event) break;
 
       let accessToken: string | null;
@@ -199,7 +207,12 @@ export function installSponsorAnalyticsListeners(
     if (document.visibilityState === 'visible') flush();
   };
 
+  const onConsentChange = (event: Event) => {
+    const detail = (event as CustomEvent<{ userId?: string | null }>).detail;
+    if ((detail?.userId ?? null) === userId) flush();
+  };
   window.addEventListener('online', flush);
+  window.addEventListener(analyticsConsentChangeEvent, onConsentChange);
   window.addEventListener('pageshow', flush);
   document.addEventListener('visibilitychange', onVisibilityChange);
   // Drain any events left by a previous sponsor placement or app session.
@@ -207,110 +220,9 @@ export function installSponsorAnalyticsListeners(
 
   return () => {
     window.removeEventListener('online', flush);
+    window.removeEventListener(analyticsConsentChangeEvent, onConsentChange);
     window.removeEventListener('pageshow', flush);
     document.removeEventListener('visibilitychange', onVisibilityChange);
     if (activeSponsorTransports.get(userId) === installedTransport) activeSponsorTransports.delete(userId);
   };
-}
-
-export interface AnonymousQueuedSponsorCampaignEvent extends QueuedSponsorCampaignEvent {
-  placementKey: string;
-}
-
-const anonymousQueue: { event: AnonymousQueuedSponsorCampaignEvent; apiBaseUrl?: string }[] = [];
-let anonymousFlushInProgress = false;
-let anonymousListenersInstalled = false;
-
-function anonymousEventEndpoint(apiBaseUrl?: string): string {
-  return apiBaseUrl
-    ? new URL('/api/content/sponsor-campaign-events', apiBaseUrl).toString()
-    : '/api/content/sponsor-campaign-events';
-}
-
-export async function flushAnonymousSponsorCampaignEvents(): Promise<void> {
-  if (typeof window === 'undefined' || !hasAnalyticsConsent('sponsorMeasurement', null)) {
-    anonymousQueue.splice(0, anonymousQueue.length);
-    return;
-  }
-  if (typeof navigator === 'undefined' || !navigator.onLine || anonymousFlushInProgress) return;
-  anonymousFlushInProgress = true;
-  const consentRequest = createConsentBoundAbortSignal('sponsorMeasurement', null);
-  try {
-    while (anonymousQueue.length > 0 && navigator.onLine) {
-      if (!hasAnalyticsConsent('sponsorMeasurement', null)) {
-        anonymousQueue.splice(0, anonymousQueue.length);
-        break;
-      }
-      const queued = anonymousQueue[0];
-      if (consentRequest.signal.aborted || !hasAnalyticsConsent('sponsorMeasurement', null)) {
-        anonymousQueue.splice(0, anonymousQueue.length);
-        break;
-      }
-      let response: Response;
-      try {
-        response = await fetch(anonymousEventEndpoint(queued.apiBaseUrl), {
-          method: 'POST',
-          credentials: 'same-origin',
-          keepalive: true,
-          signal: consentRequest.signal,
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            ...queued.event,
-            sessionId: queued.event.sessionId,
-            placementKey: queued.event.placementKey,
-            sponsorMeasurementConsent: true,
-          }),
-        });
-      } catch {
-        break;
-      }
-      if (!hasAnalyticsConsent('sponsorMeasurement', null)) {
-        anonymousQueue.splice(0, anonymousQueue.length);
-        break;
-      }
-      if (!response.ok && response.status !== 400 && response.status !== 403) break;
-      anonymousQueue.shift();
-    }
-  } finally {
-    consentRequest.dispose();
-    anonymousFlushInProgress = false;
-  }
-}
-
-export function clearAnonymousSponsorAnalyticsQueue(): void {
-  anonymousQueue.splice(0, anonymousQueue.length);
-}
-
-export function installAnonymousSponsorAnalyticsListeners(): () => void {
-  if (typeof window === 'undefined') return () => undefined;
-  if (!anonymousListenersInstalled) {
-    anonymousListenersInstalled = true;
-    const flush = () => void flushAnonymousSponsorCampaignEvents();
-    window.addEventListener('online', flush);
-    window.addEventListener('pageshow', flush);
-    window.addEventListener('pagehide', flush);
-    document.addEventListener('visibilitychange', flush);
-  }
-  void flushAnonymousSponsorCampaignEvents();
-  return () => undefined;
-}
-
-export function recordAnonymousSponsorCampaignEvent(
-  event: AnonymousQueuedSponsorCampaignEvent,
-  apiBaseUrl?: string
-): boolean {
-  if (typeof window === 'undefined' || !hasAnalyticsConsent('sponsorMeasurement', null) || !event.campaignId || !event.sessionId || !event.placementKey) return false;
-  const alreadyQueued = anonymousQueue.some((queued) =>
-    queued.event.campaignId === event.campaignId &&
-    queued.event.sessionId === event.sessionId &&
-    queued.event.placementKey === event.placementKey &&
-    queued.event.eventType === event.eventType
-  );
-  if (!alreadyQueued) {
-    if (anonymousQueue.length >= 1000) return false;
-    anonymousQueue.push({ event, apiBaseUrl });
-  }
-  installAnonymousSponsorAnalyticsListeners();
-  void flushAnonymousSponsorCampaignEvents();
-  return true;
 }

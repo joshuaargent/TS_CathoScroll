@@ -1,9 +1,9 @@
 'use client';
 
-import { useCallback, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useSyncExternalStore } from 'react';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { Analytics, type BeforeSendEvent } from '@vercel/analytics/react';
-import { analyticsConsentChangeEvent, hasAnalyticsConsent } from '@/lib/analytics-consent';
+import { analyticsConsentChangeEvent, clearLegacyAnonymousAnalyticsConsent, hasAnalyticsConsent } from '@/lib/analytics-consent';
 
 function sanitisePageUrl(rawUrl: string): string {
   const url = new URL(rawUrl);
@@ -39,15 +39,19 @@ function subscribe(onChange: () => void) {
 
 export function PrivacySafeAnalytics() {
   const { user, loading } = useAuth();
+  const userId = user?.id ?? null;
+  useEffect(() => {
+    if (!loading && userId === null) clearLegacyAnonymousAnalyticsConsent();
+  }, [loading, userId]);
   const getSnapshot = useCallback(
-    () => hasAnalyticsConsent('serviceImprovement', user?.id ?? null),
-    [user?.id]
+    () => hasAnalyticsConsent('serviceImprovement', userId),
+    [userId]
   );
   const enabled = useSyncExternalStore(subscribe, getSnapshot, () => false);
   const beforeSend = useCallback((event: BeforeSendEvent) => {
     if (loading || !hasAnalyticsConsent('serviceImprovement', user?.id ?? null)) return null;
     return redactAnalyticsEvent(event);
-  }, [loading, user?.id]);
+  }, [loading, userId]);
   if (loading || !enabled) return null;
   return <Analytics beforeSend={beforeSend} />;
 }
