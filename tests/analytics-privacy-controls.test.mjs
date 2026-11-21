@@ -75,7 +75,7 @@ test('sponsor delivery is available without consent and creates no delivery coun
   ]);
   assert.match(route, /!sponsorMeasurementEnabled[\s\S]*?get_unmeasured_sponsor_campaigns/);
   assert.match(route, /get_weighted_sponsor_campaigns/);
-  assert.match(card, /if \(previewMode \|\| !sponsorMeasurementEnabled \|\| !userId\) return false/);
+  assert.match(card, /if \(previewMode \|\| !sponsorMeasurementEnabled \|\| !userId \|\| !placementReceipt\) return false/);
   assert.match(card, /recordSponsorCampaignEvent\(userId/);
   assert.doesNotMatch(card + client, /recordAnonymousSponsorCampaignEvent|anonymousQueue|AnonymousQueuedSponsor/);
   for (const sql of [bootstrap, upgrade]) {
