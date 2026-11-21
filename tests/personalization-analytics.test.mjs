@@ -49,6 +49,15 @@ function bootstrapFunctionRanges(source) {
   });
 }
 
+function finalFunctionDefinition(source, qualifiedName) {
+  const marker = 'CREATE OR REPLACE FUNCTION ' + qualifiedName + '(';
+  const start = source.lastIndexOf(marker);
+  assert.notEqual(start, -1, 'missing SQL function: ' + qualifiedName);
+  const end = source.indexOf('$function$;', start);
+  assert.notEqual(end, -1, 'unterminated SQL function: ' + qualifiedName);
+  return source.slice(start, end + '$function$;'.length).replace(/\s+/g, ' ').trim();
+}
+
 function functionBody(name) {
   const start = bootstrap.lastIndexOf('CREATE OR REPLACE FUNCTION ' + name);
   assert.notEqual(start, -1, 'missing SQL function: ' + name);
@@ -57,6 +66,44 @@ function functionBody(name) {
   return bootstrap.slice(start, end + '$function$;'.length);
 }
 
+
+test('canonical bootstrap and existing-database upgrade keep final RPC definitions in sync', () => {
+  const analyticsFunctions = [
+    'public.get_public_general_topic_page',
+    'public.get_weighted_sponsor_campaigns',
+    'public.get_unmeasured_sponsor_campaigns',
+    'public.record_sponsor_campaign_event',
+    'public.set_user_analytics_consent',
+    'public.get_admin_analytics_overview',
+    'public.get_admin_analytics_series',
+    'public.get_sponsor_campaign_analytics',
+    'catho_private.prune_sponsor_campaign_events',
+    'catho_private.purge_user_service_improvement_events',
+    'catho_private.purge_user_sponsor_measurement_events',
+  ];
+  for (const name of analyticsFunctions) {
+    assert.equal(
+      finalFunctionDefinition(bootstrap, name),
+      finalFunctionDefinition(analyticsConsentUpgrade, name),
+      name + ' differs between the canonical bootstrap and analytics upgrade'
+    );
+  }
+
+  const personalizationFunctions = [
+    'public.get_my_recommendation_page',
+    'public.get_my_personalization_status',
+    'public.set_my_personalization_consent',
+    'catho_private.refresh_user_interest_profile',
+    'catho_private.prune_feed_card_analytics_events',
+  ];
+  for (const name of personalizationFunctions) {
+    assert.equal(
+      finalFunctionDefinition(bootstrap, name),
+      finalFunctionDefinition(upgrade, name),
+      name + ' differs between the canonical bootstrap and personalisation upgrade'
+    );
+  }
+});
 
 test('emergency bootstrap inventory matches the reconciled production schema', () => {
   const functionStarts = [...bootstrap.matchAll(/CREATE(?: OR REPLACE)? FUNCTION\s+([a-z0-9_]+\.[a-z0-9_]+)\s*\(/gi)];
