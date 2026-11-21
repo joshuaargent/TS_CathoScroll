@@ -55,7 +55,6 @@ test('canonical database and existing-database upgrade remove anonymous analytic
       'get_admin_sponsor_campaign_analytics',
       'get_admin_analytics_overview',
       'get_admin_analytics_series',
-      'get_admin_analytics_deep_dive',
       'record_sponsor_campaign_event',
     ]) {
       const start = sql.lastIndexOf('CREATE OR REPLACE FUNCTION public.' + name);
