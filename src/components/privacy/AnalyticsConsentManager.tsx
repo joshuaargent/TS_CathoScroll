@@ -209,7 +209,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
         const accessToken = await getAccessToken(expectedUserId);
         if (!isCurrentAccount()) return;
         if (!accessToken) {
-          if (!readAnalyticsConsent(expectedUserId)) setVisible(true);
+          if (!readAnalyticsConsent(expectedUserId)) setVisible(false);
           return;
         }
         headers.set('Authorization', 'Bearer ' + accessToken);
@@ -228,7 +228,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
       });
       if (!isCurrentAccount()) return;
       if (!response.ok) {
-        if (!readAnalyticsConsent(expectedUserId)) setVisible(true);
+        if (!readAnalyticsConsent(expectedUserId)) setVisible(false);
         return;
       }
       const payload: unknown = await response.json();
@@ -366,11 +366,11 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
         return;
       }
 
-      if (!local) setVisible(true);
+      if (!local) setVisible(false);
     } catch (cause) {
       if (!isCurrentAccount()) return;
       console.warn('Analytics consent sync is deferred until connectivity is available:', cause);
-      if (!readAnalyticsConsent(expectedUserId)) setVisible(true);
+      if (!readAnalyticsConsent(expectedUserId)) setVisible(false);
     } finally {
       if (syncAbortRef.current === controller) syncAbortRef.current = null;
     }
@@ -441,7 +441,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
     const existing = readAnalyticsConsent(userId);
     const hydrationTimer = window.setTimeout(() => {
       hydrate(existing);
-      if (!existing && !userId) setVisible(true);
+      if (!existing && !userId) setVisible(false);
     }, 0);
     if (!existing) {
       // Existing pre-consent queues must not be uploaded after this update.
@@ -468,7 +468,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
       hydrate(readAnalyticsConsent(userId));
       managingRef.current = true;
       setManaging(true);
-      setVisible(true);
+      setVisible(false);
       void syncServerConsent();
     };
     window.addEventListener(analyticsConsentManageEvent, manage);
@@ -648,17 +648,9 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
 
 export function AnalyticsConsentSettingsButton() {
   return (
-    <button
-      type="button"
-      onClick={() => {
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(new Event(analyticsConsentManageEvent));
-        }
-      }}
-      className="text-accent underline underline-offset-4 hover:no-underline"
-    >
-      Manage analytics choices
-    </button>
+    <a href="/account#analytics-choices" className="text-accent underline underline-offset-4 hover:no-underline">
+      Manage analytics choices in Account settings
+    </a>
   );
 }
 
