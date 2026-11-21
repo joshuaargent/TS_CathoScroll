@@ -350,17 +350,17 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
               </span>
             </div>
             <p className="text-text-secondary mt-2 text-sm leading-relaxed">
-              Build a private interest profile to tailor your topic recommendations. This is optional and off until you enable it; account actions and reading signals recorded after you opt in are used. Service improvement analytics is enabled with personalisation.
+              Build a private interest profile to tailor your topic recommendations. This is optional and off until you enable it; your account actions and selected categories are used. Passive reading signals are added only if you separately enable Service improvement analytics.
             </p>
           </div>
         </div>
 
         <div className="border-border bg-bg-secondary/30 mt-6 rounded-xl border p-4">
           <p className="font-semibold text-sm leading-relaxed">
-            I explicitly consent to CathoScroll using my account actions, selected interests and reading analytics (including views, reading duration, swipes and skips) to personalise my recommendations. Enabling personalisation also enables Service improvement analytics until I turn personalisation off. These signals may reveal religious or philosophical beliefs; they are used to rank content, not to label my beliefs.
+            I explicitly consent to CathoScroll using my account actions and selected interests to personalise my recommendations. If I separately enable Service improvement analytics, passive reading signals (including views, reading duration, swipes and skips) may also inform recommendations. These signals may reveal religious or philosophical beliefs; they are used to rank content, not to label my beliefs.
           </p>
           <p className="text-text-muted mt-2 text-sm leading-relaxed">
-            Your recommendations use your explicit account actions, selected categories and reading signals such as viewable impressions, reading time, swipes, skips and completions. Enabling personalisation also enables Service improvement analytics; that choice stays on until you turn personalisation off. The profile is private, never used for sponsor targeting, and can be deleted by withdrawing consent.
+            Your recommendations use your explicit account actions and selected categories. Passive reading signals such as viewable impressions, reading time, swipes, skips and completions contribute only while Service improvement analytics is separately enabled too. The profile is private, never used for sponsor targeting, and can be deleted by withdrawing Personalisation consent.
           </p>
           <div className="mt-4 flex flex-wrap gap-3">
             <Button
