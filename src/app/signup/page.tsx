@@ -37,7 +37,7 @@ export default function SignupPage() {
 
     const confirmPassword = String(formData.get('confirmPassword') ?? '');
     const personalizationConsent = formData.get('personalizationConsent') === 'true';
-    const serviceImprovementConsent = personalizationConsent || formData.get('serviceImprovementConsent') === 'true';
+    const serviceImprovementConsent = formData.get('serviceImprovementConsent') === 'true';
     const sponsorMeasurementConsent = formData.get('sponsorMeasurementConsent') === 'true';
 
     const invalidUsername = usernameError(username);
