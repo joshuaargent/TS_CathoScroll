@@ -78,17 +78,19 @@ function getEndpoint(): string {
 }
 
 
-async function applyAnonymousFeedAnalyticsPreference(enabled: boolean): Promise<void> {
+async function applyAnonymousFeedAnalyticsPreference(enabled: boolean, persistPreference: boolean): Promise<void> {
   if (typeof window === 'undefined') throw new Error('Analytics preferences are unavailable.');
   anonymousPreferenceTransition = true;
   let failure: unknown = null;
   try {
     if (!enabled) {
-      try {
-        window.localStorage.setItem(anonymousAnalyticsPreferenceKey, 'false');
-      } catch (cause) {
-        anonymousAnalyticsOptedOut = true;
-        throw cause;
+      if (persistPreference) {
+        try {
+          window.localStorage.setItem(anonymousAnalyticsPreferenceKey, 'false');
+        } catch (cause) {
+          anonymousAnalyticsOptedOut = true;
+          throw cause;
+        }
       }
       anonymousAnalyticsOptedOut = true;
     }
@@ -103,7 +105,7 @@ async function applyAnonymousFeedAnalyticsPreference(enabled: boolean): Promise<
     recentEventKeys.clear();
     if (persistentOutbox) await persistentOutbox.clear();
     if (enabled) {
-      window.localStorage.removeItem(anonymousAnalyticsPreferenceKey);
+      if (persistPreference) window.localStorage.removeItem(anonymousAnalyticsPreferenceKey);
       anonymousAnalyticsOptedOut = false;
     }
   } catch (cause) {
@@ -129,10 +131,16 @@ async function applyAnonymousFeedAnalyticsPreference(enabled: boolean): Promise<
 
 let anonymousPreferenceUpdateQueue: Promise<void> = Promise.resolve();
 
-export function setAnonymousFeedAnalyticsEnabled(enabled: boolean): Promise<void> {
-  const update = anonymousPreferenceUpdateQueue.then(() => applyAnonymousFeedAnalyticsPreference(enabled));
+function queueAnonymousFeedAnalyticsPreference(enabled: boolean, persistPreference: boolean): Promise<void> {
+  const update = anonymousPreferenceUpdateQueue.then(() =>
+    applyAnonymousFeedAnalyticsPreference(enabled, persistPreference)
+  );
   anonymousPreferenceUpdateQueue = update.catch(() => undefined);
   return update;
+}
+
+export function setAnonymousFeedAnalyticsEnabled(enabled: boolean): Promise<void> {
+  return queueAnonymousFeedAnalyticsPreference(enabled, true);
 }
 
 export async function configureAnonymousFeedAnalyticsOutbox(
@@ -292,8 +300,10 @@ export function installAnonymousFeedAnalyticsSync(): () => void {
     listenersInstalled = true;
     window.addEventListener('storage', (event: StorageEvent) => {
       if (event.key !== anonymousAnalyticsPreferenceKey && event.key !== null) return;
-      const enabled = window.localStorage.getItem(anonymousAnalyticsPreferenceKey) !== 'false';
-      void setAnonymousFeedAnalyticsEnabled(enabled).catch((cause) => {
+      const enabled = event.key === anonymousAnalyticsPreferenceKey
+        ? event.newValue !== 'false'
+        : window.localStorage.getItem(anonymousAnalyticsPreferenceKey) !== 'false';
+      void queueAnonymousFeedAnalyticsPreference(enabled, false).catch((cause) => {
         console.error('Unable to synchronise the anonymous analytics objection across tabs:', cause);
       });
     });
