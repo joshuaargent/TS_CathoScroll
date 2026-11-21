@@ -74,7 +74,6 @@ export async function POST(request: Request) {
     console.error('Unable to verify sponsor-feed authentication:', cause);
     return respond(request, { error: 'Authentication is temporarily unavailable.' }, 503);
   }
-  const isAnonymous = !auth.user;
 
   const rateLimit = await checkApiRateLimit({
     scope: 'sponsor-campaigns:serve',
@@ -125,12 +124,11 @@ export async function POST(request: Request) {
         sponsorMeasurementEnabled = false;
       }
     }
-    const measurementSessionId: string | null = !isAnonymous && sponsorMeasurementEnabled && typeof parsed.value.sessionId === 'string'
+    const measurementSessionId: string | null = auth.user && sponsorMeasurementEnabled && typeof parsed.value.sessionId === 'string'
       ? parsed.value.sessionId
       : null;
     const { data, error } = !sponsorMeasurementEnabled
-      ? await createServiceRoleClient().rpc('get_anonymous_sponsor_campaigns', {
-          p_session_token: measurementSessionId,
+      ? await createServiceRoleClient().rpc('get_unmeasured_sponsor_campaigns', {
           p_category_slug: parsed.value.categorySlug,
           p_topic_id: parsed.value.topicId,
           p_limit: 1,
