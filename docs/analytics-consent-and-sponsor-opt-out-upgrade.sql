@@ -1373,6 +1373,13 @@ BEGIN
 END;
 $function$;
 
+ALTER FUNCTION catho_private.prune_feed_analytics_events(timestamptz,integer) OWNER TO postgres;
+ALTER FUNCTION catho_private.prune_feed_card_analytics_events(timestamptz,integer) OWNER TO postgres;
+REVOKE ALL ON FUNCTION catho_private.prune_feed_analytics_events(timestamptz,integer) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION catho_private.prune_feed_card_analytics_events(timestamptz,integer) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION catho_private.prune_feed_analytics_events(timestamptz,integer) TO postgres;
+GRANT EXECUTE ON FUNCTION catho_private.prune_feed_card_analytics_events(timestamptz,integer) TO postgres;
+
 DO $feed_analytics_retention_cron$
 DECLARE
   existing_job record;
@@ -1381,21 +1388,21 @@ BEGIN
     FOR existing_job IN
       SELECT jobid FROM cron.job
       WHERE jobname IN (
-        'cathoscroll-prune-feed-analytics-events',
-        'cathoscroll-prune-feed-card-analytics-events'
+        'cathoscroll-prune-feed-analytics',
+        'cathoscroll-prune-feed-card-analytics'
       )
     LOOP
       PERFORM cron.unschedule(existing_job.jobid);
     END LOOP;
 
     PERFORM cron.schedule(
-      'cathoscroll-prune-feed-analytics-events',
-      '45 2 * * *',
+      'cathoscroll-prune-feed-analytics',
+      '*/15 * * * *',
       'SELECT catho_private.prune_feed_analytics_events(statement_timestamp() - interval ''180 days'', 5000);'
     );
     PERFORM cron.schedule(
-      'cathoscroll-prune-feed-card-analytics-events',
-      '0 3 * * *',
+      'cathoscroll-prune-feed-card-analytics',
+      '*/15 * * * *',
       'SELECT catho_private.prune_feed_card_analytics_events(statement_timestamp() - interval ''180 days'', 5000);'
     );
   END IF;
