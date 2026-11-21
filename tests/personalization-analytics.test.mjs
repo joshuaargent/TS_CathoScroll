@@ -335,7 +335,7 @@ test('personalisation and service improvement are independent explicit purposes'
   assert.doesNotMatch(manager, /serviceImprovement: remote\.personalizationEnabled \? true/);
   assert.doesNotMatch(manager, /Turn off personalisation before disabling it|effectivePersonalization/);
   assert.match(privacyPage, /Service improvement analytics, Personalisation and Sponsor measurement are optional,[\s\S]*?separate choices/);
-  assert.match(privacyPage, /Passive reading signals are collected only with Service improvement consent/);
+  assert.match(privacyPage, /If you separately enable Service improvement\\s+analytics, eligible reading signals/);
   assert.doesNotMatch(privacyPage, /Service improvement analytics is enabled when you opt into personalisation|remains enabled until you turn it off separately/);
   assert.match(cookiePage, /Personalisation and Service improvement analytics are separate optional choices/);
 });
