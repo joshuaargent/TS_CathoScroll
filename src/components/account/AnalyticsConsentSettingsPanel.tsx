@@ -13,37 +13,11 @@ import { clearAnalyticsConsentQueues } from '@/components/privacy/AnalyticsConse
 
 type AnalyticsConsentSettingsPanelProps = {
   userId: string | null;
-  personalizationEnabled: boolean;
-  personalizationStatusKnown: boolean;
-  offlineCacheAvailable: boolean;
   disabled?: boolean;
 };
 
-async function persistOfflinePersonalizationWithdrawal(userId: string): Promise<void> {
-  if (typeof window === 'undefined') {
-    throw new Error('Offline personalisation storage is unavailable.');
-  }
-  let cacheWrite: Promise<void> | null = null;
-  window.dispatchEvent(new CustomEvent('cathoscroll:personalization-consent-changed', {
-    detail: {
-      userId,
-      enabled: false,
-      pendingSync: true,
-      complete: (result: Promise<void>) => { cacheWrite = result; },
-    },
-  }));
-  if (!cacheWrite) {
-    throw new Error('The native personalisation cache did not accept the offline withdrawal.');
-  }
-  await cacheWrite;
-  window.dispatchEvent(new Event(analyticsConsentSyncEvent));
-}
-
 export function AnalyticsConsentSettingsPanel({
   userId,
-  personalizationEnabled,
-  personalizationStatusKnown,
-  offlineCacheAvailable,
   disabled = false,
 }: AnalyticsConsentSettingsPanelProps) {
   const [serviceImprovement, setServiceImprovement] = useState(false);
@@ -54,9 +28,9 @@ export function AnalyticsConsentSettingsPanel({
 
   const hydrate = useCallback(() => {
     const consent = readAnalyticsConsent(userId);
-    setServiceImprovement(personalizationEnabled || consent?.serviceImprovement === true);
+    setServiceImprovement(consent?.serviceImprovement === true);
     setSponsorMeasurement(consent?.sponsorMeasurement === true);
-  }, [personalizationEnabled, userId]);
+  }, [userId]);
 
   useEffect(() => {
     let active = true;
@@ -82,56 +56,26 @@ export function AnalyticsConsentSettingsPanel({
   async function saveChoices() {
     if (saving || disabled || !userId) return;
     const previous = readAnalyticsConsent(userId);
-    const offlinePersonalizationWithdrawal =
-      !personalizationStatusKnown &&
-      offlineCacheAvailable &&
-      typeof navigator !== 'undefined' &&
-      !navigator.onLine &&
-      previous?.serviceImprovement === true &&
-      !serviceImprovement;
-    const next = {
-      serviceImprovement: personalizationStatusKnown
-        ? personalizationEnabled || serviceImprovement
-        : offlinePersonalizationWithdrawal
-          ? false
-          : previous?.serviceImprovement === true,
-      sponsorMeasurement,
+    const next = { serviceImprovement, sponsorMeasurement };
+    const interim = {
+      serviceImprovement: previous?.serviceImprovement === true && next.serviceImprovement,
+      sponsorMeasurement: previous?.sponsorMeasurement === true && next.sponsorMeasurement,
     };
-    let localPersonalizationDenialSaved = false;
     setSaving(true);
     setError('');
     setMessage('');
     try {
-      if (offlinePersonalizationWithdrawal) {
-        // The server may still report personalisation as enabled. Persist a
-        // local personalisation denial first so the linked analytics denial
-        // cannot be overwritten before the native cache syncs on reconnect.
-        await persistOfflinePersonalizationWithdrawal(userId);
-        localPersonalizationDenialSaved = true;
-      }
-      const interim = {
-        serviceImprovement: personalizationEnabled || (previous?.serviceImprovement === true && next.serviceImprovement),
-        sponsorMeasurement: previous?.sponsorMeasurement === true && next.sponsorMeasurement,
-      };
       if (!interim.serviceImprovement) denyAnalyticsConsentInMemory('serviceImprovement', userId);
       if (!interim.sponsorMeasurement) denyAnalyticsConsentInMemory('sponsorMeasurement', userId);
       saveAnalyticsConsent(interim, userId, { syncPending: true });
       await clearAnalyticsConsentQueues(userId, previous, next);
       saveAnalyticsConsent(next, userId, { syncPending: true });
-      setServiceImprovement(next.serviceImprovement);
-      setSponsorMeasurement(next.sponsorMeasurement);
       window.dispatchEvent(new Event(analyticsConsentSyncEvent));
-      setMessage(navigator.onLine
+      setMessage(typeof navigator !== 'undefined' && navigator.onLine
         ? 'Saved. Your account settings are synchronising.'
         : 'Saved on this device. Your account settings will synchronise when you reconnect.');
     } catch (cause) {
       console.error('Unable to save analytics settings:', cause);
-      if (offlinePersonalizationWithdrawal && !localPersonalizationDenialSaved) {
-        setServiceImprovement(previous?.serviceImprovement === true);
-        setSponsorMeasurement(previous?.sponsorMeasurement === true);
-        setError('The native personalisation setting could not be saved offline, so your existing analytics preference has not been changed.');
-        return;
-      }
       denyAnalyticsConsentInMemory('serviceImprovement', userId);
       denyAnalyticsConsentInMemory('sponsorMeasurement', userId);
       try {
@@ -158,24 +102,16 @@ export function AnalyticsConsentSettingsPanel({
         <label className="border-border flex cursor-pointer items-start gap-3 rounded-xl border p-4">
           <input
             type="checkbox"
-            checked={personalizationEnabled || serviceImprovement}
-            disabled={disabled || saving || personalizationEnabled || (!personalizationStatusKnown && !(offlineCacheAvailable && typeof navigator !== 'undefined' && !navigator.onLine && serviceImprovement))}
+            checked={serviceImprovement}
+            disabled={disabled || saving}
             onChange={(event) => setServiceImprovement(event.target.checked)}
             className="accent-accent mt-1 h-4 w-4 shrink-0"
           />
           <span className="min-w-0">
             <span className="text-text-primary block text-sm font-semibold">I explicitly consent to Service improvement analytics</span>
             <span className="text-text-secondary mt-1 block text-sm leading-relaxed">
-              Measures account-linked topic/comment engagement and site performance. Activity may reveal religious or philosophical interests.
+              Measures account-linked topic/comment engagement and site performance. Activity may reveal religious or philosophical interests. Passive reading signals inform recommendations only if Personalisation is separately enabled too.
             </span>
-            {!personalizationStatusKnown && (
-              <span className="text-text-muted mt-2 block text-xs">Personalisation status is unavailable. While offline, you can withdraw this choice locally; personalisation will also be disabled on this device and both changes will synchronise when you reconnect. Sponsor measurement can still be changed.</span>
-            )}
-            {personalizationEnabled && (
-              <span className="text-accent mt-2 block text-xs font-semibold">
-                Required while personalisation is on. Turn personalisation off first to disable this.
-              </span>
-            )}
           </span>
         </label>
 
