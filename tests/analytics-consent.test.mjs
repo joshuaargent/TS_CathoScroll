@@ -31,7 +31,7 @@ test('optional analytics consent is explicit, purpose-specific and off by defaul
   assert.match(consent, /if \(!userId\) return false/);
   assert.match(manager, /legacySignedOutConsent = readAnalyticsConsent\(null\)/);
   assert.match(manager, /saveAnalyticsConsent\(\{ serviceImprovement: false, sponsorMeasurement: false \}, null/);
-  assert.doesNotMatch(manager, /setVisible\(true\)/);
+  assert.match(manager, /if \(!remote\.exists\)[\s\S]*?setVisible\(true\)/);
   assert.ok(manager.includes('if (loading || !visible) return null;'));
   assert.ok(account.includes('Service improvement analytics'));
   assert.ok(account.includes('Sponsor measurement'));
@@ -73,7 +73,9 @@ test('account consent sync is identity-bound, retryable and enforced server-side
   ]);
 
   assert.ok(manager.includes("window.addEventListener('online', syncServerConsent)"));
-  assert.ok(manager.includes('local.syncPending || !remote.exists'));
+  assert.ok(manager.includes('local?.syncPending === true'));
+  assert.match(manager, /if \(!remote\.exists\)[\s\S]*?removeItem\(getAnalyticsConsentStorageKey\(expectedUserId\)\)/);
+  assert.match(manager, /if \(!remote\.exists\)[\s\S]*?clearAnalyticsConsentQueues\(expectedUserId, null/);
   assert.ok(manager.includes('pendingChoices'));
   assert.ok(manager.includes('serviceImprovement: local.serviceImprovement'));
   assert.ok(manager.includes('sponsorMeasurement: local.sponsorMeasurement'));
