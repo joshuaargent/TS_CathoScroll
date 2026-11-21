@@ -30,7 +30,7 @@ Declining optional analytics must not sign a person out, disable account access,
 | Signed-out sponsor | Current in-memory random session token; server stores token hash for frequency controls; separate daily campaign aggregates; raw event/frequency rows currently 30 days | Hashed session token remains pseudonymous tracking, not anonymous data. Per-session frequency and client view/click events are advertising measurement. | With sponsor-measurement choice off, no token/hash, per-session frequency, client viewability or click tracking. Record only server-side campaign/day served totals without visitor/session keys. With choice on, retain the existing richer event/frequency measurement with the disclosed short retention. |
 | Vercel Web Analytics | Request-derived visitor hash discarded after 24 hours; URL/referrer/device/route and other metadata used for reporting | Short-lived hash still distinguishes a visitor during its life; request metadata may be personal data. Provider role/contract and international transfer also matter. | Load only after service-analytics opt-in. Continue path/query redaction and review provider logs/retention/contract. |
 | Vercel Speed Insights | Core Web Vitals plus route/browser/device/network metadata | Lower identification capability than session analytics, but still client-side collection and provider processing. | Load only after service-analytics opt-in for a consistent user choice. Continue route/query redaction. |
-| Recommendation personalisation | Private account-history signals and derived category/topic interests; may reveal beliefs; encrypted native cache | This is profiling and potentially special-category processing, distinct from operational measurement. | Keep the explicit opt-in on signup and Account settings; never enable personalisation from the analytics popup. The opt-in also enables Service improvement analytics, which cannot be disabled until personalisation is withdrawn. Keep offline cache/consent freshness and withdrawal behaviour. Sponsor measurement remains separate. |
+| Recommendation personalisation | Private account-history signals and derived category/topic interests; may reveal beliefs; encrypted native cache | This is profiling and potentially special-category processing, distinct from operational measurement. | Keep the explicit opt-in on signup and Account settings; there is no analytics popup. The opt-in also enables Service improvement analytics, which cannot be disabled until personalisation is withdrawn. Keep offline cache/consent freshness and withdrawal behaviour. Sponsor measurement remains separate. |
 
 ## 3. Article 6 and Article 9 assessment
 
@@ -60,9 +60,9 @@ The ICO statistical-purposes exception may be available only if every statutory 
 
 ## 4. Consent and preference design
 
-The proposed first-visit centred modal should be styled with CathoScroll's existing Card, typography, neutral background and purple accent. It must not obscure the app after a choice has been made and must be reopenable from the Cookie/Privacy settings.
+Do not show a first-visit analytics modal. Present purpose-specific optional choices at signup and inline in Account settings. Keep the separate signed-out aggregate objection directly accessible from the Privacy and Cookie Policy pages.
 
-Optional choices start off for new visitors. Provide equally clear **Accept all**, **Reject optional**, and **Save choices** actions, with individual controls:
+Optional account-linked choices start off. Present separate unticked controls for personalisation, Service improvement analytics and Sponsor measurement. When personalisation is enabled, Service improvement analytics is automatically checked and locked. Provide a single Save action in Account settings.
 
 - **Service improvement analytics (optional):** account-linked first-party topic and Top Comments engagement measurement plus Vercel Web Analytics/Speed Insights. Signed-out daily topic/comment aggregates are a separate statistical stream, on by default with a simple free objection. The explanation must say that topic activity on a Catholic-content service may reveal or permit inferences about religious/philosophical beliefs. This choice is separate from personalisation.
 - **Sponsor measurement (optional):** client-side sponsor viewability, clicks, CTR and per-session/per-account frequency measurement. Anonymous attribution includes the topic placement where the sponsor appeared; where that context reveals religious/philosophical beliefs, explicit consent under Article 9(2)(a) is required alongside Article 6(1)(a). The consent wording discloses this. If off, retain only server-side campaign/day served totals without visitor/session tracking.
@@ -156,7 +156,7 @@ No code change, checkbox or this draft assessment should be represented as a gua
 
 The consent controls were merged in PR #25 and deployed to production in commit `e0da259` on 20 November 2026. The three database migrations are recorded as applied in production. Browser/native end-to-end verification and controller approval remain separate outstanding checks:
 
-- Separate default-off Service improvement analytics and Sponsor measurement choices, with Accept all, Decline optional and Manage choices.
+- Separate default-off Service improvement analytics and Sponsor measurement choices at signup and inline in Account settings, without a first-visit popup.
 - Explicit service-improvement wording describing the risk that signed-in topic/comment engagement may reveal religious or philosophical beliefs.
 - Account-scoped signed-in consent storage/history and server-side gates for signed-in topic, comment and sponsor measurement events.
 - Device-local signed-out objection preference kept separate from account consent; signed-out aggregate events continue by default and omit account/session/visitor identifiers.
