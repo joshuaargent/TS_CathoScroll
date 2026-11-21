@@ -65,7 +65,7 @@ The form must not solicit religious/philosophical beliefs or other special-categ
 
 **Provisional conclusion:** Article 6(1)(f) is a plausible basis for the narrowly defined security and service-integrity purposes above, subject to controller approval, actual-field verification, retention configuration and implementation of the safeguards.
 
-This LIA does not cover analytics, Personalisation, Sponsor measurement, user-generated religious content or any processing that reveals or infers beliefs. Those purposes require their own Article 6 assessment and, where special-category data is processed, a separate Article 9 condition. The intended condition for the optional account-linked purposes is explicit consent under Article 9(2)(a).
+This LIA does not establish a basis for analytics, Personalisation, Sponsor measurement, publication/moderation of user-generated religious content or any processing that intentionally reveals or uses beliefs. Those purposes require their own Article 6 assessment and, where special-category data is processed, a separate Article 9 condition. The intended condition for the optional account-linked purposes is explicit consent under Article 9(2)(a).
 
 **Controller approval:** Pending.  
 **Retention verification:** Pending.  
