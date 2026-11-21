@@ -108,7 +108,7 @@ function LineChart({ series }: { series: DailyContentAnalytics[] }) {
           <span className="bg-accent h-2.5 w-2.5 rounded-full" /> Impressions
         </span>
         <span className="text-text-secondary inline-flex items-center gap-2">
-          <span className="bg-emerald-600 dark:bg-emerald-400 h-2.5 w-2.5 rounded-full" /> Signed-in viewable impressions
+          <span className="bg-emerald-600 dark:bg-emerald-400 h-2.5 w-2.5 rounded-full" /> Opted-in viewable impressions
         </span>
       </div>
       <svg
@@ -255,37 +255,37 @@ export function ContentAnalyticsDashboard({
 
   const eventMetrics = [
     {
-      label: 'Signed-in impressions',
+      label: 'Opted-in signed-in impressions',
       value: hasTelemetry ? formatNumber(events.impressions) : '—',
       detail: 'Topic feed cards displayed',
       icon: BarChart3,
     },
     {
-      label: 'Signed-in viewable impressions',
+      label: 'Opted-in viewable impressions',
       value: hasTelemetry ? formatNumber(events.viewable_impressions) : '—',
       detail: 'At least 50% visible for one second',
       icon: Users,
     },
     {
-      label: 'Unique signed-in viewers',
+      label: 'Opted-in unique viewers',
       value: hasTelemetry ? formatNumber(events.unique_viewers) : '—',
-      detail: 'Distinct signed-in viewers',
+      detail: 'Distinct opted-in signed-in viewers',
       icon: Users,
     },
     {
-      label: 'Signed-in active reading time',
+      label: 'Opted-in signed-in active reading time',
       value: hasTelemetry ? formatDuration(events.active_seconds) : '—',
       detail: 'Time while visible and active',
       icon: BarChart3,
     },
     {
-      label: 'Signed-in skip rate',
+      label: 'Opted-in signed-in skip rate',
       value: hasTelemetry && skipRate !== null ? `${skipRate.toFixed(1)}%` : '—',
       detail: 'Early skips ÷ impressions',
       icon: BarChart3,
     },
     {
-      label: 'Signed-in average active time',
+      label: 'Opted-in signed-in average active time',
       value:
         hasTelemetry && averageActiveSeconds !== null
           ? formatDuration(averageActiveSeconds)
@@ -295,32 +295,32 @@ export function ContentAnalyticsDashboard({
     },
 
     {
-      label: 'Signed-in average slide depth',
+      label: 'Opted-in signed-in average slide depth',
       value: hasTelemetry ? formatNumber(events.average_slide_depth) : '—',
       detail: 'Average slide index reached (1–4)',
       icon: BarChart3,
     },
     {
-      label: 'Signed-in completion events',
+      label: 'Opted-in signed-in completion events',
       value: hasTelemetry ? formatNumber(events.completions) : '—',
       detail: 'Completed topic reading sessions',
       icon: CheckCircle2,
     },
     {
-      label: 'Signed-in average completion',
+      label: 'Opted-in signed-in average completion',
       value: hasTelemetry ? `${events.average_completion_percent.toFixed(1)}%` : '—',
       detail: 'Average recorded completion percentage',
       icon: CheckCircle2,
     },
     {
-      label: 'Signed-in completion rate',
+      label: 'Opted-in signed-in completion rate',
       value:
         hasTelemetry && completionRate !== null ? `${completionRate.toFixed(1)}%` : '—',
       detail: 'Completions ÷ impressions',
       icon: CheckCircle2,
     },
     {
-      label: 'Signed-in return visits',
+      label: 'Opted-in signed-in return visits',
       value: hasTelemetry ? formatNumber(events.return_visits) : '—',
       detail: 'Additional visits to this content',
       icon: Users,
