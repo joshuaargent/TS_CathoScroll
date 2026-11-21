@@ -78,11 +78,14 @@ export function AnalyticsConsentSettingsPanel({
       console.error('Unable to save analytics settings:', cause);
       denyAnalyticsConsentInMemory('serviceImprovement', userId);
       denyAnalyticsConsentInMemory('sponsorMeasurement', userId);
+      let denialPersisted = false;
       try {
         saveAnalyticsConsent({ serviceImprovement: false, sponsorMeasurement: false }, userId, { syncPending: true });
+        denialPersisted = true;
       } catch {
         // In-memory denials remain active if local storage is unavailable.
       }
+      if (denialPersisted) window.dispatchEvent(new Event(analyticsConsentSyncEvent));
       setServiceImprovement(false);
       setSponsorMeasurement(false);
       setError('Could not safely save these settings. Optional analytics remain disabled on this device.');
