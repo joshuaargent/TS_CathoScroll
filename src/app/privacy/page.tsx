@@ -36,7 +36,7 @@ export default function PrivacyPage() {
           <h2 className="mb-4 text-3xl font-bold">Who We Are</h2>
 
           <p className="text-text-secondary leading-relaxed">
-            CathoScroll is operated by Joshua Argent, who is the data controller for the personal data
+            CathoScroll is operated by Joshua Argent as a sole trader in the United Kingdom. Joshua Argent is the data controller for the personal data
             described in this policy. CathoScroll provides educational resources focused on Catholic
             theology, Scripture, Church history, prayer, apologetics, and related subjects. You can
             contact the controller using the details at the end of this policy.
