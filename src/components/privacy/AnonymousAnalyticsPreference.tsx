@@ -8,13 +8,15 @@ import {
 } from '@/lib/anonymous-feed-analytics-client';
 
 export function AnonymousAnalyticsPreference() {
-  const [enabled, setEnabled] = useState(true);
+  const [enabled, setEnabled] = useState(false);
+  const [ready, setReady] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
     const refresh = () => setEnabled(isAnonymousFeedAnalyticsEnabled());
     refresh();
+    setReady(true);
     window.addEventListener(anonymousAnalyticsPreferenceChangeEvent, refresh);
     return () => window.removeEventListener(anonymousAnalyticsPreferenceChangeEvent, refresh);
   }, []);
@@ -44,11 +46,11 @@ export function AnonymousAnalyticsPreference() {
       </p>
       <button
         type="button"
-        disabled={saving}
+        disabled={saving || !ready}
         onClick={() => void update()}
         className="text-accent mt-3 text-sm font-semibold underline underline-offset-2 disabled:opacity-50"
       >
-        {saving ? 'Saving…' : enabled ? 'Turn off aggregate measurement' : 'Turn on aggregate measurement'}
+        {!ready ? 'Checking preference…' : saving ? 'Saving…' : enabled ? 'Turn off aggregate measurement' : 'Turn on aggregate measurement'}
       </button>
       {error && <p className="text-destructive mt-2 text-sm" role="alert">{error}</p>}
     </div>
