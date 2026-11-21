@@ -127,7 +127,8 @@ test('sponsor analytics queue stays in memory and flushes without a visible spon
 
 test('README distinguishes aggregate general ranking from consented personalisation signals', () => {
   assert.ok(readme.includes('public interactions, curated order, recency and category balancing'));
-  assert.ok(readme.includes('adjusted by their own permitted activity signals'));
+  assert.ok(readme.includes('Personalised ranking'));
+  assert.ok(readme.includes('account actions and reading signals recorded after consent'));
   assert.ok(readme.includes('reading signals recorded after consent'));
   assert.ok(readme.includes('Enabling personalisation also enables Service improvement analytics'));
   assert.ok(readme.includes('Sponsor measurement remains independent'));
