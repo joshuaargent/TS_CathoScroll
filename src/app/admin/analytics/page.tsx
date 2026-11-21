@@ -13,131 +13,47 @@ export default async function AdminAnalyticsPage({ searchParams }: Props) {
   const query = (await searchParams) ?? {};
   const { adminClient, user } = await requireAdminPage('/admin/analytics');
   const rateLimit = await checkApiRateLimit({ scope: 'admin:analytics:read', identifier: user.id, limit: 60, windowSeconds: 60 });
-  if (!rateLimit.allowed) throw new Error(rateLimit.unavailable ? 'Analytics are temporarily unavailable. Please try again.' : 'Too many analytics requests. Please wait before refreshing.');
+  if (!rateLimit.allowed) {
+    throw new Error(rateLimit.unavailable
+      ? 'Analytics are temporarily unavailable. Please try again.'
+      : 'Too many analytics requests. Please wait before refreshing.');
+  }
+
   const period: AnalyticsPeriod = isAnalyticsPeriod(query.period) ? query.period : '30d';
   const { from, to } = getAnalyticsRange(period);
-  const [{ data, error }, { data: seriesData, error: seriesError }, { data: deepDiveData, error: deepDiveError }, { data: anonymousData, error: anonymousError }] = await Promise.all([
-    adminClient.rpc('get_admin_analytics_overview', { p_actor_user_id: user.id, p_from: from.toISOString(), p_to: to.toISOString() }),
-    adminClient.rpc('get_admin_analytics_series', { p_actor_user_id: user.id, p_from: from.toISOString(), p_to: to.toISOString() }),
-    adminClient.rpc('get_admin_analytics_deep_dive', { p_actor_user_id: user.id, p_from: from.toISOString(), p_to: to.toISOString() }),
-    adminClient.rpc('get_admin_anonymous_analytics', { p_actor_user_id: user.id, p_from: from.toISOString(), p_to: to.toISOString(), p_entity_type: 'all', p_entity_id: null }),
+  const [{ data, error }, { data: seriesData, error: seriesError }, { data: deepDiveData, error: deepDiveError }] = await Promise.all([
+    adminClient.rpc('get_admin_analytics_overview', {
+      p_actor_user_id: user.id,
+      p_from: from.toISOString(),
+      p_to: to.toISOString(),
+    }),
+    adminClient.rpc('get_admin_analytics_series', {
+      p_actor_user_id: user.id,
+      p_from: from.toISOString(),
+      p_to: to.toISOString(),
+    }),
+    adminClient.rpc('get_admin_analytics_deep_dive', {
+      p_actor_user_id: user.id,
+      p_from: from.toISOString(),
+      p_to: to.toISOString(),
+    }),
   ]);
-  if (error || seriesError || deepDiveError || anonymousError || !anonymousData || !data || typeof data !== 'object' || !Array.isArray(seriesData) || !deepDiveData || typeof deepDiveData !== 'object') {
-    console.error('Unable to load admin analytics overview:', error?.message, seriesError?.message, deepDiveError?.message, anonymousError?.message);
+
+  if (error || seriesError || deepDiveError || !data || typeof data !== 'object'
+      || !Array.isArray(seriesData) || !deepDiveData || typeof deepDiveData !== 'object') {
+    console.error('Unable to load admin analytics overview:', error?.message, seriesError?.message, deepDiveError?.message);
     throw new Error('Unable to load analytics.');
   }
 
-  const anonymous = anonymousData as {
-    totals: Record<string, number>;
-    series: Record<string, number | string>[];
-    categories: { slug: string; impressions: number; viewable_impressions: number }[];
-    topics: { id: string; impressions: number; viewable_impressions: number; active_duration_ms: number }[];
-    sponsors: { id: string; served: number }[];
-    comments: { id: string; impressions: number; viewable_impressions: number; active_duration_ms: number; skips: number; opens: number }[];
-  };
-  const mergeEntities = (
-    signedIn: Record<string, unknown>[],
-    anonymousRows: Record<string, unknown>[],
-    key: 'id' | 'slug',
-    includeZeroAnonymousOnly = false,
-    sponsorServedOnly = false
-  ) => {
-    const signedKeys = new Set(signedIn.map((item) => String(item[key])));
-    const attachAnonymous = (item: Record<string, unknown>): Record<string, unknown> => {
-      if (sponsorServedOnly) return { anonymous_served: Number(item.served ?? 0) };
-      return {
-        anonymous_impressions: Number(item.impressions ?? 0),
-        anonymous_viewable_impressions: Number(item.viewable_impressions ?? 0),
-        anonymous_served: Number(item.served ?? 0),
-        anonymous_clicks: Number(item.clicks ?? 0),
-        anonymous_active_duration_ms: Number(item.active_duration_ms ?? 0),
-        anonymous_skips: Number(item.skips ?? 0),
-        anonymous_opens: Number(item.opens ?? 0),
-      };
-    };
-    const merged: Record<string, unknown>[] = [
-      ...signedIn.map((item) => {
-        const match = anonymousRows.find((row) => String(row[key]) === String(item[key]));
-        return { ...item, ...attachAnonymous(match ?? {}) };
-      }),
-      ...anonymousRows.filter((item) => !signedKeys.has(String(item[key])) && (includeZeroAnonymousOnly || (sponsorServedOnly ? Number(item.served ?? 0) > 0 : Number(item.impressions ?? 0) + Number(item.served ?? 0) + Number(item.opens ?? 0) + Number(item.clicks ?? 0) > 0))).map((item) => {
-        const cleanItem = { ...item };
-        if (sponsorServedOnly) {
-          delete cleanItem.viewable_impressions;
-          delete cleanItem.clicks;
-        }
-        return {
-        ...cleanItem,
-        impressions: 0,
-        viewable_impressions: 0,
-        active_duration_ms: 0,
-        skips: 0,
-        opens: 0,
-        served: 0,
-        clicks: 0,
-        likes: 0,
-        replies: 0,
-        topic_count: item.topic_count ?? 0,
-        status: '—',
-        campaign_count: 0,
-        topic_question: null,
-        topic_id: '',
-        created_at: '',
-        ...attachAnonymous(item),
-      };}),
-    ];
-    return merged.sort((left, right) =>
-      Number(right['served'] ?? right['impressions'] ?? 0) + Number(right['anonymous_served'] ?? right['anonymous_impressions'] ?? 0) -
-      Number(left['served'] ?? left['impressions'] ?? 0) - Number(left['anonymous_served'] ?? left['anonymous_impressions'] ?? 0)
-    );
-  };
-  const mergedOverview = {
-    ...(data as Record<string, unknown>),
-    categories: mergeEntities(
-      (data as { categories: Record<string, unknown>[] }).categories,
-      anonymous.categories as unknown as Record<string, unknown>[],
-      'slug',
-      true
-    ),
-    topics: mergeEntities(
-      (data as { topics: Record<string, unknown>[] }).topics,
-      anonymous.topics as unknown as Record<string, unknown>[],
-      'id'
-    ),
-    sponsors: mergeEntities(
-      (data as { sponsors: Record<string, unknown>[] }).sponsors,
-      anonymous.sponsors as unknown as Record<string, unknown>[],
-      'id',
-      false,
-      true
-    ),
-    comments: mergeEntities(
-      (data as { comments: Record<string, unknown>[] }).comments.map((item) => ({ ...item, id: String(item.id) })),
-      anonymous.comments as unknown as Record<string, unknown>[],
-      'id'
-    ).map((item) => ({ ...item, id: Number(item.id) })),
-  };
-  const mergedSeries = (seriesData as Record<string, unknown>[]).map((day) => {
-    const match = anonymous.series.find((row) => row.event_date === day.event_date);
-    return { ...day, ...Object.fromEntries(Object.entries(match ?? {}).filter(([key]) => key !== 'event_date' && key !== 'sponsor_viewable_impressions' && key !== 'sponsor_clicks').map(([key, value]) => ['anonymous_' + key, value])) };
-  });
-  const mergedTotals = {
-    ...(data as { totals: Record<string, number> }).totals,
-    anonymous_topic_impressions: anonymous.totals.topic_impressions ?? 0,
-    anonymous_topic_viewable_impressions: anonymous.totals.topic_viewable_impressions ?? 0,
-    anonymous_topic_active_duration_ms: anonymous.totals.topic_active_duration_ms ?? 0,
-    anonymous_topic_skips: anonymous.totals.topic_skips ?? 0,
-    anonymous_topic_completions: anonymous.totals.topic_completions ?? 0,
-    anonymous_sponsor_served: anonymous.totals.sponsor_served ?? 0,
-    anonymous_comment_card_impressions: anonymous.totals.comment_card_impressions ?? 0,
-    anonymous_comment_card_viewable_impressions: anonymous.totals.comment_card_viewable_impressions ?? 0,
-    anonymous_comment_card_active_duration_ms: anonymous.totals.comment_card_active_duration_ms ?? 0,
-    anonymous_comment_card_skips: anonymous.totals.comment_card_skips ?? 0,
-    anonymous_comment_card_opens: anonymous.totals.comment_card_opens ?? 0,
-  };
-  const mergedCurrent = { ...mergedOverview, totals: mergedTotals };
-  return <AdminAnalyticsHub overview={mergedCurrent as unknown as Parameters<typeof AdminAnalyticsHub>[0]['overview']}
-    series={mergedSeries as Parameters<typeof AdminAnalyticsHub>[0]['series']} period={period}
-    section={query.section && ['overview','categories','topics','sponsors','comments'].includes(query.section) ? query.section : 'overview'}
-    deepDive={deepDiveData as Parameters<typeof AdminAnalyticsHub>[0]['deepDive']} />;
+  return (
+    <AdminAnalyticsHub
+      overview={data as Parameters<typeof AdminAnalyticsHub>[0]['overview']}
+      series={seriesData as Parameters<typeof AdminAnalyticsHub>[0]['series']}
+      period={period}
+      section={query.section && ['overview', 'categories', 'topics', 'sponsors', 'comments'].includes(query.section)
+        ? query.section
+        : 'overview'}
+      deepDive={deepDiveData as Parameters<typeof AdminAnalyticsHub>[0]['deepDive']}
+    />
+  );
 }
