@@ -52,8 +52,8 @@ test('account consent sync is identity-bound, retryable and enforced server-side
     read('../src/app/api/analytics/feed-events/route.ts'),
     read('../src/app/api/analytics/feed-card-events/route.ts'),
     read('../src/app/api/content/sponsor-campaign-events/route.ts'),
-    read('../supabase/migrations/20261120173544_analytics_consent_and_sponsor_opt_out.sql'),
-    read('../supabase/migrations/20261120175931_fix_analytics_consent_lock_order_v2.sql'),
+    read('../docs/analytics-consent-and-sponsor-opt-out-upgrade.sql'),
+    read('../docs/analytics-consent-and-sponsor-opt-out-upgrade.sql'),
     read('../docs/cathoscroll-database-bootstrap.sql'),
     read('../src/lib/supabase/admin.ts'),
   ]);
@@ -162,7 +162,7 @@ test('declining sponsor measurement preserves delivery and campaign-day totals w
     read('../src/app/api/content/sponsor-campaign-events/route.ts'),
     read('../src/lib/sponsor-analytics-client.ts'),
     read('../docs/cathoscroll-database-bootstrap.sql'),
-    read('../supabase/migrations/20261120173544_analytics_consent_and_sponsor_opt_out.sql'),
+    read('../docs/analytics-consent-and-sponsor-opt-out-upgrade.sql'),
     read('../src/lib/feed-entry-map.ts'),
     read('../src/lib/feed-card-placement-registry.ts'),
   ]);
@@ -182,7 +182,7 @@ test('declining sponsor measurement preserves delivery and campaign-day totals w
 
   assert.ok(selectRoute.includes('const measurementSessionId: string | null'));
   assert.ok(selectRoute.includes('p_session_token: measurementSessionId'));
-  assert.ok(selectRoute.includes('sponsorMeasurementConsent && parsed.value.sessionId !== null'));
+  assert.ok(selectRoute.includes('sponsorMeasurementEnabled = consent.sponsorMeasurement && parsed.value.sessionId !== null;'));
   assert.ok(selectRoute.includes('Detailed anonymous viewability, click and frequency measurement is opt-in.'));
   assert.ok(eventRoute.includes('eventPayload.sponsorMeasurementConsent !== true'));
   assert.ok(selectRoute.includes('p_session_id: measurementSessionId'));
