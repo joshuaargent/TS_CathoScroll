@@ -33,7 +33,7 @@ When personalisation is disabled, the recommendation RPC does not read account-h
 
 ### Operational analytics
 
-Separate operational analytics records authenticated feed, comment-card, and sponsor events for admin reporting, content-performance measurement, reliability, and frequency-cap enforcement. Raw events, user/day viewer bridges and associated event-rate-limit records are retained for up to 180 days; non-identifying daily aggregates are retained longer.
+Separate operational analytics records authenticated feed, comment-card, and sponsor events for admin reporting, content-performance measurement, reliability, and frequency-cap enforcement. Raw events and user/day viewer bridges are retained for up to 180 days; non-identifying daily aggregates are retained longer. Separate HMAC-protected API rate-limit records are security data, opportunistically pruned after two days, and are not used for recommendations.
 
 Service improvement analytics is independently optional. If both Service improvement and Personalisation are enabled, eligible passive reading signals may inform private recommendations; if only Service improvement is enabled, those signals are used for service reporting, not recommendations. Account-linked topic/card events may reveal sensitive interests; the controller must document the applicable Article 6 basis and, where the data reveals beliefs, an Article 9 condition. Sponsor measurement remains a separate optional purpose.
 
@@ -84,7 +84,7 @@ The product's current minimum age is 13. This does not settle whether a particul
 - Consent record: private, versioned, timestamped; signup trigger records only an affirmative choice.
 - Derived profile: private tables; created/refreshed only while consent is enabled.
 - Withdrawal: derived topic scores and explicit category selections deleted; active cursor normalised.
-- Raw feed/community/sponsor events, user/day viewer bridge and associated event-rate-limit records: up to 180 days.
+- Raw feed/community/sponsor events and user/day viewer bridge: up to 180 days. API rate-limit keys/counters are separate security records, opportunistically pruned after two days.
 - Daily aggregates without user/session identifiers: retained longer.
 - Sponsor frequency-cap rows: pruned after campaign completion/rejection and the applicable 180-day cutoff.
 - Sponsor invoices and financial records: accounting retention period still needs to be set with the accountant.
