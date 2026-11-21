@@ -622,8 +622,7 @@ BEGIN
 
   -- The other analytics purposes are independent and remain off unless the
   -- corresponding unticked signup choice was explicitly selected.
-  IF v_service_improvement OR v_sponsor_measurement THEN
-    INSERT INTO catho_private.user_analytics_consents (
+  INSERT INTO catho_private.user_analytics_consents (
       user_id, service_improvement, sponsor_measurement, consent_version,
       service_improvement_updated_at, sponsor_measurement_updated_at, created_at, updated_at
     ) VALUES (
@@ -648,7 +647,6 @@ BEGIN
       service_improvement, sponsor_measurement, consent_version, recorded_at
     )
     VALUES (NEW.id, NULL, NULL, v_service_improvement, v_sponsor_measurement, 2, v_now);
-  END IF;
   RETURN NEW;
 END;
 $function$;
