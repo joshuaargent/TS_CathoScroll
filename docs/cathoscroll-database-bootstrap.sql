@@ -1395,6 +1395,7 @@ BEGIN
     FROM catho_private.user_personalization_consents AS pc
     WHERE pc.user_id = p_user_id
       AND pc.enabled = true
+      AND pc.consent_version = '2026-11-21-v6'
   ) THEN
     RETURN;
   END IF;
@@ -1431,6 +1432,7 @@ BEGIN
     FROM catho_private.user_personalization_consents AS pc
     WHERE pc.user_id = p_user_id
       AND pc.enabled = true
+      AND pc.consent_version = '2026-11-21-v6'
   ) THEN
     RETURN;
   END IF;
@@ -1478,7 +1480,7 @@ BEGIN
 
   SELECT coalesce(enabled,false) INTO personalization_enabled
   FROM catho_private.user_personalization_consents
-  WHERE user_id=current_user_id;
+  WHERE user_id=current_user_id AND consent_version='2026-11-21-v6';
 
   IF initial_page THEN
     include_completed := NOT personalization_enabled;
@@ -6698,7 +6700,8 @@ DECLARE
 BEGIN
   IF v_user_id IS NULL THEN RAISE EXCEPTION 'Authentication required' USING ERRCODE='42501'; END IF;
   SELECT enabled,updated_at INTO v_enabled,v_updated_at
-  FROM catho_private.user_personalization_consents WHERE user_id=v_user_id;
+  FROM catho_private.user_personalization_consents
+  WHERE user_id=v_user_id AND consent_version='2026-11-21-v6';
   IF coalesce(v_enabled,false) THEN
     SELECT count(*),count(DISTINCT category_slug) INTO v_topics,v_categories
     FROM (
@@ -6758,7 +6761,8 @@ BEGIN
   INTO v_consent_at,v_last_refresh,v_service_improvement,v_service_consent_at
   FROM catho_private.user_personalization_consents c
   LEFT JOIN catho_private.user_analytics_consents a ON a.user_id=c.user_id
-  WHERE c.user_id=p_user_id AND c.enabled=true;
+  WHERE c.user_id=p_user_id AND c.enabled=true
+    AND c.consent_version='2026-11-21-v6';
   IF v_consent_at IS NULL THEN RETURN 0; END IF;
   IF v_last_refresh IS NOT NULL AND v_last_refresh >= v_now-interval '5 minutes' THEN
     SELECT count(*)::integer INTO v_count FROM catho_private.user_topic_interest_scores WHERE user_id=p_user_id;
@@ -7018,6 +7022,7 @@ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM catho_private.user_personalization_consents c
     WHERE c.user_id=v_user_id AND c.enabled=true
+      AND c.consent_version='2026-11-21-v6'
   ) THEN
     RAISE EXCEPTION 'Enable personalisation before saving interests' USING ERRCODE='42501';
   END IF;
@@ -7813,6 +7818,7 @@ BEGIN
     'personalizationEnabled', EXISTS (
       SELECT 1 FROM catho_private.user_personalization_consents AS pc
       WHERE pc.user_id = p_user_id AND pc.enabled = true
+      AND pc.consent_version = '2026-11-21-v6'
     )
   );
 END;
@@ -9046,6 +9052,7 @@ BEGIN
     'personalizationEnabled', EXISTS (
       SELECT 1 FROM catho_private.user_personalization_consents AS pc
       WHERE pc.user_id = p_user_id AND pc.enabled = true
+      AND pc.consent_version = '2026-11-21-v6'
     )
   );
 END;
