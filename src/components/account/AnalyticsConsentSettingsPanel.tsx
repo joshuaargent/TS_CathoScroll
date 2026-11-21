@@ -13,10 +13,12 @@ import { clearAnalyticsConsentQueues } from '@/components/privacy/AnalyticsConse
 
 type AnalyticsConsentSettingsPanelProps = {
   userId: string | null;
+  disabled?: boolean;
 };
 
 export function AnalyticsConsentSettingsPanel({
   userId,
+  disabled = false,
 }: AnalyticsConsentSettingsPanelProps) {
   const [serviceImprovement, setServiceImprovement] = useState(false);
   const [sponsorMeasurement, setSponsorMeasurement] = useState(false);
@@ -101,7 +103,7 @@ export function AnalyticsConsentSettingsPanel({
           <input
             type="checkbox"
             checked={serviceImprovement}
-            disabled={saving}
+            disabled={disabled || saving}
             onChange={(event) => setServiceImprovement(event.target.checked)}
             className="accent-accent mt-1 h-4 w-4 shrink-0"
           />
@@ -136,7 +138,7 @@ export function AnalyticsConsentSettingsPanel({
         </p>
         <button
           type="button"
-          disabled={saving || !userId}
+          disabled={disabled || saving || !userId}
           onClick={() => void saveChoices()}
           className="bg-accent rounded-xl px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
         >
