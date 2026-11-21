@@ -53,7 +53,7 @@ A submission enters `pending_approval`. Sponsor users cannot set paid delivery w
 
 Sponsor users can edit drafts, pending submissions and rejected submissions. Updating a rejected submission resubmits it for review. Approved or paused campaigns cannot be edited directly by sponsor users; changes must be requested from CathoScroll so the live creative and delivery settings remain controlled.
 
-A campaign is not eligible for delivery unless its sponsor is active or scheduled, its payment state is `received` or `not_required`, and the sponsor and campaign date windows, targeting and frequency/delivery caps all pass.
+A campaign is not eligible for delivery unless its sponsor is active or scheduled, its payment state is `received` or `not_required`, and the sponsor/campaign date windows, targeting and campaign-wide delivery caps pass. Account-level frequency caps apply only to signed-in users who enable Sponsor measurement.
 
 ## Bank-transfer invoices and reconciliation
 
