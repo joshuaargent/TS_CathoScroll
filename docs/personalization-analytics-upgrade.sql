@@ -204,7 +204,8 @@ DECLARE
   v_top_topics jsonb := '[]'::jsonb;
 BEGIN
   IF v_user_id IS NULL THEN RAISE EXCEPTION 'Authentication required' USING ERRCODE='42501'; END IF;
-  SELECT enabled,updated_at INTO v_enabled,v_updated_at
+  SELECT coalesce(bool_or(enabled),false),max(updated_at)
+    INTO v_enabled,v_updated_at
   FROM catho_private.user_personalization_consents
   WHERE user_id=v_user_id AND consent_version='2026-11-21-v6';
   IF coalesce(v_enabled,false) THEN
@@ -916,7 +917,9 @@ BEGIN
     RAISE EXCEPTION 'Invalid page limit' USING ERRCODE = '22023';
   END IF;
 
-  SELECT coalesce(enabled,false) INTO personalization_enabled
+  -- Aggregate form always returns one row; a missing consent row is
+  -- explicitly false rather than NULL, so the initial baseline cursor remains valid.
+  SELECT coalesce(bool_or(enabled),false) INTO personalization_enabled
   FROM catho_private.user_personalization_consents
   WHERE user_id=current_user_id AND consent_version='2026-11-21-v6';
 
