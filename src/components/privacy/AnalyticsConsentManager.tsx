@@ -575,7 +575,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
         <p id="analytics-consent-description" className="text-text-secondary mt-3 text-sm leading-relaxed">
           {managing
             ? 'Choose optional analytics. Service improvement and Sponsor measurement are separate from Personalisation.'
-            : 'Optional analytics measure signed-in topic/comment engagement and sponsor viewability, clicks and frequency. Catholic-content activity may reveal religious or philosophical beliefs. Passive reading signals inform private recommendations only when Personalisation and Service improvement analytics are both enabled. Sponsor placements remain visible when measurement is off; no delivery or anonymous engagement counters are retained.'}
+            : 'Optional analytics measure signed-in topic/comment engagement and sponsor viewability, clicks on viewable placements and frequency. Catholic-content activity may reveal religious or philosophical beliefs. Passive reading signals inform private recommendations only when Personalisation and Service improvement analytics are both enabled. Sponsor placements remain visible when measurement is off; no delivery or anonymous engagement counters are retained.'}
         </p>
 
         {!managing ? (
@@ -635,7 +635,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
               <span className="min-w-0">
                 <span className="text-text-primary block font-semibold">I explicitly consent to Sponsor measurement</span>
                 <span className="text-text-secondary mt-1 block text-sm leading-relaxed">
-                  Measures sponsor viewability, clicks and frequency only for signed-in users who explicitly opt in. Events are account-linked and may reveal religious or philosophical interests. If you decline, sponsor placements still appear, but no sponsor engagement or delivery counters are retained.
+                  Measures sponsor viewability, clicks on viewable placements and frequency only for signed-in users who explicitly opt in. Events are account-linked and may reveal religious or philosophical interests. If you decline, sponsor placements still appear, but no sponsor engagement or delivery counters are retained.
                 </span>
               </span>
             </label>
