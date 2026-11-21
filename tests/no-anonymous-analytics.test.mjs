@@ -20,6 +20,7 @@ test('anonymous analytics clients, APIs, controls and native queues are absent',
   ]);
   assert.doesNotMatch(native, /NativeAnonymousAnalyticsOutbox|configureAnonymousFeedAnalyticsOutbox/);
   assert.doesNotMatch(privacy + cookies + manager, /AnonymousAnalyticsPreference|anonymous-feed-analytics-client/);
+  assert.ok(manager.includes("localStorage.removeItem('cathoscroll.anonymous-analytics.enabled.v1')"));
   assert.doesNotMatch(sponsorClient, /recordAnonymousSponsorCampaignEvent|anonymousQueue|AnonymousQueuedSponsor/);
   assert.doesNotMatch(topicPage + categoryPage + contentDashboard + adminHub + entityPage, /get_admin_anonymous_analytics|anonymousAnalytics|anonymous_served|anonymous_viewable/);
   assert.match(apiDirectory, /if \(!auth\.user\) return respond\(request, \{ recorded: false \}, 403\)/);
