@@ -36,7 +36,7 @@ When enabled, signed-in sponsor viewability, click and frequency events are acco
 
 Personalisation maintains a private account-level recommendation profile from eligible post-consent activity and selected category interests. It must not be used for sponsor targeting. Turning it off stops new recommendation processing and deletes the derived profile and selected interests under the implementation's deletion procedure.
 
-**Granularity issue requiring controller confirmation:** the current implementation automatically enables and locks Service improvement analytics while Personalisation is enabled. If these are genuinely distinct purposes, automatically bundling the choices may undermine granular consent. The safer design is to obtain a separate Personalisation consent for recommendation processing and keep Service improvement analytics independently optional. Do not release this bundled behaviour without a documented legal assessment or a code change that separates the purposes.
+Personalisation and Service improvement analytics now have independent explicit choices. Personalisation uses direct account actions and selected categories. Passive reading signals are collected only under Service improvement consent and inform recommendations only when Personalisation is separately enabled as well. Withdrawing Service improvement removes passive reading signals from the recommendation profile while leaving direct-action personalisation available; withdrawing Personalisation deletes the derived profile.
 
 ## 3. Lawful basis and special-category data
 
