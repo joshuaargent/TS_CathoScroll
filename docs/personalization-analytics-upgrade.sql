@@ -1288,6 +1288,15 @@ $personalization_consent_regrant$;
 -- dashboards start from zero. Product data (likes, bookmarks, progress,
 -- comments, notes and account activity) is deliberately untouched.
 --
+-- A durable marker makes the reset safe to rerun: subsequent executions
+-- leave choices and analytics collected after the reset untouched.
+CREATE TABLE IF NOT EXISTS catho_private.analytics_release_resets (
+  reset_key text PRIMARY KEY,
+  applied_at timestamptz NOT NULL DEFAULT statement_timestamp()
+);
+ALTER TABLE catho_private.analytics_release_resets ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON catho_private.analytics_release_resets FROM PUBLIC, anon, authenticated, service_role;
+
 -- Lock both consent ledgers and remove current grants first. Event ingestion
 -- functions take row-share locks on these rows, so once this transaction
 -- commits, old grants cannot write into the freshly cleared analytics tables.
@@ -1296,29 +1305,40 @@ LOCK TABLE catho_private.user_analytics_consents,
            catho_private.user_personalization_consents
   IN ACCESS EXCLUSIVE MODE;
 
-DELETE FROM catho_private.user_analytics_consents;
-DELETE FROM catho_private.user_personalization_consents;
+DO $release_analytics_reset$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM catho_private.analytics_release_resets
+    WHERE reset_key = '2026-11-21-no-anonymous-analytics-v1'
+  ) THEN
+    DELETE FROM catho_private.user_analytics_consents;
+    DELETE FROM catho_private.user_personalization_consents;
 
-DELETE FROM catho_private.sponsor_campaign_placement_receipts;
-DELETE FROM catho_private.sponsor_campaign_events;
-DELETE FROM catho_private.sponsor_campaign_daily;
+    DELETE FROM catho_private.sponsor_campaign_placement_receipts;
+    DELETE FROM catho_private.sponsor_campaign_events;
+    DELETE FROM catho_private.sponsor_campaign_daily;
 
-DELETE FROM catho_private.feed_card_analytics_events;
-DELETE FROM catho_private.feed_card_analytics_event_limits;
-DELETE FROM catho_private.feed_card_analytics_daily_viewers;
-DELETE FROM catho_private.feed_card_analytics_daily;
+    DELETE FROM catho_private.feed_card_analytics_events;
+    DELETE FROM catho_private.feed_card_analytics_event_limits;
+    DELETE FROM catho_private.feed_card_analytics_daily_viewers;
+    DELETE FROM catho_private.feed_card_analytics_daily;
 
-DELETE FROM catho_private.feed_analytics_events;
-DELETE FROM catho_private.feed_analytics_event_limits;
-DELETE FROM catho_private.feed_analytics_daily_viewers;
-DELETE FROM catho_private.feed_analytics_daily;
+    DELETE FROM catho_private.feed_analytics_events;
+    DELETE FROM catho_private.feed_analytics_event_limits;
+    DELETE FROM catho_private.feed_analytics_daily_viewers;
+    DELETE FROM catho_private.feed_analytics_daily;
 
--- Remove every derived or explicitly selected personalisation record. The
--- profile will be rebuilt only after a fresh explicit opt-in. Existing
--- account actions remain product records, but the profile builder's new
--- grant timestamp prevents pre-consent actions from entering the new profile.
-DELETE FROM catho_private.user_topic_interest_scores;
-DELETE FROM catho_private.user_explicit_category_interests;
+    -- Remove every derived or explicitly selected personalisation record.
+    -- Account actions remain product records, but the new profile's grant
+    -- timestamp prevents pre-consent actions entering the fresh profile.
+    DELETE FROM catho_private.user_topic_interest_scores;
+    DELETE FROM catho_private.user_explicit_category_interests;
+
+    INSERT INTO catho_private.analytics_release_resets(reset_key)
+    VALUES ('2026-11-21-no-anonymous-analytics-v1');
+  END IF;
+END;
+$release_analytics_reset$;
 
 COMMIT;
 NOTIFY pgrst, 'reload schema';
