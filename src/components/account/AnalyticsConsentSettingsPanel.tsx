@@ -14,12 +14,14 @@ import { clearAnalyticsConsentQueues } from '@/components/privacy/AnalyticsConse
 type AnalyticsConsentSettingsPanelProps = {
   userId: string | null;
   personalizationEnabled: boolean;
+  personalizationStatusKnown: boolean;
   disabled?: boolean;
 };
 
 export function AnalyticsConsentSettingsPanel({
   userId,
   personalizationEnabled,
+  personalizationStatusKnown,
   disabled = false,
 }: AnalyticsConsentSettingsPanelProps) {
   const [serviceImprovement, setServiceImprovement] = useState(false);
@@ -53,11 +55,13 @@ export function AnalyticsConsentSettingsPanel({
 
   async function saveChoices() {
     if (saving || disabled || !userId) return;
+    const previous = readAnalyticsConsent(userId);
     const next = {
-      serviceImprovement: personalizationEnabled || serviceImprovement,
+      serviceImprovement: personalizationStatusKnown
+        ? personalizationEnabled || serviceImprovement
+        : previous?.serviceImprovement === true,
       sponsorMeasurement,
     };
-    const previous = readAnalyticsConsent(userId);
     setSaving(true);
     setError('');
     setMessage('');
@@ -106,7 +110,7 @@ export function AnalyticsConsentSettingsPanel({
           <input
             type="checkbox"
             checked={personalizationEnabled || serviceImprovement}
-            disabled={disabled || saving || personalizationEnabled}
+            disabled={disabled || saving || personalizationEnabled || !personalizationStatusKnown}
             onChange={(event) => setServiceImprovement(event.target.checked)}
             className="accent-accent mt-1 h-4 w-4 shrink-0"
           />
@@ -115,6 +119,9 @@ export function AnalyticsConsentSettingsPanel({
             <span className="text-text-secondary mt-1 block text-sm leading-relaxed">
               Measures account-linked topic/comment engagement and site performance. Activity may reveal religious or philosophical interests.
             </span>
+            {!personalizationStatusKnown && (
+              <span className="text-text-muted mt-2 block text-xs">Personalisation status must be verified before changing this choice. Sponsor measurement can still be changed.</span>
+            )}
             {personalizationEnabled && (
               <span className="text-accent mt-2 block text-xs font-semibold">
                 Required while personalisation is on. Turn personalisation off first to disable this.
