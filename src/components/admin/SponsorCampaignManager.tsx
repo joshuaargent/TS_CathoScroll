@@ -275,20 +275,18 @@ export function SponsorCampaignManager({
                 <input name="placementWeight" type="number" min="1" max="1000" step="1" defaultValue="1" required className="border-border bg-bg-primary mt-2 w-full rounded-lg border px-3 py-2.5" />
               </label>
               <label className="block text-sm font-medium">
-                Max impressions per day
+                Opted-in viewable impressions per day
                 <input name="dailyImpressionCap" type="number" min="1" max="1000000000" step="1" className="border-border bg-bg-primary mt-2 w-full rounded-lg border px-3 py-2.5" placeholder="Unlimited" />
               </label>
             </div>
 
             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
               <label className="block text-sm font-medium">
-                Max impressions per signed-in user / 24h
-                <span className="text-text-muted mt-1 block text-xs">Signed-out app sessions are additionally capped at 2 per 24 hours.</span>
+                Opted-in viewable impressions per signed-in user / 24h
                 <input name="frequencyCapPerUser24h" type="number" min="1" max="25" step="1" defaultValue="1" required className="border-border bg-bg-primary mt-2 w-full rounded-lg border px-3 py-2.5" />
               </label>
               <label className="block text-sm font-medium">
-                Max impressions per signed-in user / campaign
-                <span className="text-text-muted mt-1 block text-xs">Signed-out app sessions are additionally capped at 5 per campaign.</span>
+                Opted-in viewable impressions per signed-in user / campaign
                 <input name="frequencyCapPerUserTotal" type="number" min="1" max="50" step="1" defaultValue="3" required className="border-border bg-bg-primary mt-2 w-full rounded-lg border px-3 py-2.5" />
               </label>
               <label className="block text-sm font-medium">
