@@ -1321,6 +1321,7 @@ DECLARE
   v_today date := (pg_catalog.timezone('UTC', statement_timestamp()))::date;
   v_topic_category_slug text;
   v_sponsor_measurement boolean := false;
+  v_slot integer;
 BEGIN
   IF p_user_id IS NULL OR p_session_id IS NULL OR p_limit IS NULL OR p_limit < 1 OR p_limit > 1
      OR NOT EXISTS (SELECT 1 FROM auth.users AS account WHERE account.id = p_user_id) THEN
@@ -1357,6 +1358,14 @@ BEGIN
       AND campaign.starts_on <= v_today AND campaign.ends_on >= v_today
       AND (cardinality(campaign.target_category_slugs) = 0 OR v_topic_category_slug = ANY(campaign.target_category_slugs))
       AND (cardinality(campaign.target_topic_ids) = 0 OR p_topic_id = ANY(campaign.target_topic_ids))
+      AND (campaign.daily_impression_cap IS NULL OR coalesce((
+        SELECT sum(daily.viewable_impressions) FROM catho_private.sponsor_campaign_daily AS daily
+        WHERE daily.campaign_id = campaign.id AND daily.event_date = v_today
+      ), 0) < campaign.daily_impression_cap)
+      AND (campaign.total_impression_cap IS NULL OR coalesce((
+        SELECT sum(daily.viewable_impressions) FROM catho_private.sponsor_campaign_daily AS daily
+        WHERE daily.campaign_id = campaign.id
+      ), 0) < campaign.total_impression_cap)
       AND (SELECT count(*) FROM catho_private.sponsor_campaign_events AS recent
         WHERE recent.user_id = p_user_id AND recent.campaign_id = campaign.id
           AND recent.event_type = 'viewable_impression'
