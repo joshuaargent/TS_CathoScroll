@@ -10,6 +10,10 @@ CathoScroll has three separate signed-in optional purposes:
 
 These purposes must not be silently combined. The current UI automatically enables Service improvement analytics while Personalisation is enabled. If the controller treats them as distinct purposes, this is a consent-granularity risk and must be separated before release or supported by a documented legal assessment. Sponsor measurement remains a separate choice.
 
+## Signal limits
+
+Passive reading signals are capped independently before they are combined, in both the clean-install bootstrap and existing-database upgrade. Per-topic caps are 1.20 for viewable impressions, 1.50 for active duration, 1.50 for swipe depth, 3.00 for completions and 1.50 for return visits. The same individual caps are applied to short-term and long-term decay windows; repeated impressions cannot consume the score budget reserved for other signals. Negative skip evidence has its own bounded score. The combined topic score is capped again after signal combination.
+
 ## General feed
 
 The public general feed is not a personalisation profile. It uses public interactions, curated order, recency and category exposure balancing, with signed-in Service improvement aggregates only where the relevant consent permits their use. It does not use anonymous topic/comment analytics, sponsor delivery or sponsor measurement events.
