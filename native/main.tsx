@@ -51,6 +51,7 @@ import { OfflineCommentCache } from '@/lib/offline/comment-cache';
 import { OfflineTopicCountCache, type CachedTopicCounts } from '@/lib/offline/topic-count-cache';
 import { loadTopicActivity } from '@/lib/topic-activity';
 import { siteConfig } from '@/lib/constants';
+import { analyticsConsentSyncEvent } from '@/lib/analytics-consent';
 import { configureAnonymousFeedAnalyticsOutbox } from '@/lib/anonymous-feed-analytics-client';
 import { configureFeedAnalyticsOutbox, clearFeedAnalyticsOutbox } from '@/lib/feed-analytics-client';
 import { configureFeedCardAnalyticsOutbox, clearFeedCardAnalyticsOutbox } from '@/lib/feed-card-analytics-client';
@@ -735,7 +736,12 @@ function App() {
           const pendingConsent = await personalizedFeedCacheRef.current?.getPendingConsent(user.id);
           if (pendingConsent === false) {
             const { error: withdrawalError } = await createClient().rpc('set_my_personalization_consent', { p_enabled: false });
-            if (!withdrawalError) await personalizedFeedCacheRef.current?.setConsent(user.id, false, false);
+            if (!withdrawalError) {
+              await personalizedFeedCacheRef.current?.setConsent(user.id, false, false);
+              // Release the queued account-analytics preference only after
+              // the server has accepted the linked personalisation withdrawal.
+              window.dispatchEvent(new Event(analyticsConsentSyncEvent));
+            }
           }
           const { data: status, error: statusError } =
             await createClient().rpc('get_my_personalization_status');
