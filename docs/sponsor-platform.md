@@ -13,7 +13,7 @@ Detailed measurement is a separate explicit opt-in for signed-in accounts. When 
 - A click after a valid viewable impression.
 - Account-level frequency derived from those consented viewable-impression events.
 
-Events are account-linked and use campaign, event and session/placement identifiers. They do not include topic IDs, category IDs or reading history. Sponsor measurement must not be used for organic feed ranking, recommendation profiles or belief-based sponsor targeting.
+Events are account-linked and use campaign, event, session and server-issued placement-receipt identifiers. The receipt is created only for opted-in selection, stored for up to seven days, and deleted when consent is withdrawn. Events do not include topic IDs, category IDs or reading history. Sponsor measurement must not be used for organic feed ranking, recommendation profiles or belief-based sponsor targeting.
 
 Sponsor/admin reports contain only viewable impressions, clicks and click-through rate from the opted-in population. They must not be labelled as total campaign deliveries, total reach or total-platform performance. CTR uses clicks divided by viewable impressions from the same opted-in population.
 
