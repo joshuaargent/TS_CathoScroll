@@ -101,6 +101,7 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
   const [message, setMessage] = useState('');
   const [accountUserId, setAccountUserId] = useState<string | null>(null);
   const [personalizationStatusKnown, setPersonalizationStatusKnown] = useState(false);
+  const [categoryInterestsLoaded, setCategoryInterestsLoaded] = useState(false);
   const [offlineCacheAvailable, setOfflineCacheAvailable] = useState(false);
   const requestVersion = useRef(0);
 
@@ -129,6 +130,7 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
             updated_at: cached.consent.checkedAt,
           });
           setSelectedCategories([]);
+          setCategoryInterestsLoaded(false);
           setPersonalizationStatusKnown(true);
           setMessage(cached.consent.pendingSync
             ? 'Your personalisation choice is saved on this device and will synchronise when you reconnect.'
@@ -137,6 +139,7 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
         }
         setStatus(emptyStatus);
         setSelectedCategories([]);
+        setCategoryInterestsLoaded(false);
         setPersonalizationStatusKnown(false);
         setMessage(cached.available
           ? 'Your previous personalisation status is not cached. You can still turn it off on this device.'
@@ -166,6 +169,7 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
       };
       setStatus(nextStatus);
       setSelectedCategories(nextStatus.selected_categories);
+      setCategoryInterestsLoaded(true);
       setPersonalizationStatusKnown(true);
       setOfflineCacheAvailable(false);
       return true;
@@ -173,6 +177,7 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
       if (request !== requestVersion.current) return false;
       console.error('Unable to load personalisation settings:', cause);
       setPersonalizationStatusKnown(false);
+      setCategoryInterestsLoaded(false);
       setError('Unable to load these settings. Check your connection and retry.');
       return false;
     } finally {
@@ -226,6 +231,7 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
         if (localWithdrawalSaved) {
           setStatus((current) => ({ ...current, enabled: false, topic_interests: 0, category_interests: 0, selected_categories: [], top_topic_interests: [] }));
           setPersonalizationStatusKnown(true);
+          setCategoryInterestsLoaded(false);
         }
       }
 
@@ -256,6 +262,7 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
       console.error('Unable to update personalisation consent:', cause);
       if (!enabled && localWithdrawalSaved) {
         setStatus((current) => ({ ...current, enabled: false, topic_interests: 0, category_interests: 0, selected_categories: [], top_topic_interests: [] }));
+        setCategoryInterestsLoaded(false);
         setMessage(navigator.onLine
           ? 'Personalisation is disabled on this device. The server could not confirm the change; it will retry when the feed reconnects.'
           : 'Personalisation is disabled on this device. The server setting will synchronise when you reconnect.');
@@ -276,7 +283,7 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
   }
 
   async function saveInterests() {
-    if (saving || savingInterests || loading || !status.enabled || selectedCategories.length > 20) return;
+    if (saving || savingInterests || loading || !status.enabled || !categoryInterestsLoaded || selectedCategories.length > 20) return;
     setSavingInterests(true);
     setError('');
     setMessage('');
@@ -362,6 +369,9 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
           <p className="text-text-muted mt-1 text-sm">
             These categories are your direct preferences. They are combined with your explicit account actions and eligible reading signals while personalisation is enabled.
           </p>
+          {!categoryInterestsLoaded && status.enabled && (
+            <p className="text-text-muted mt-3 text-sm">Saved category interests are not available offline. Reconnect to load them before editing or saving.</p>
+          )}
           <div className="mt-4 grid gap-2 sm:grid-cols-2">
             {status.category_options.map((category) => (
               <label
@@ -371,7 +381,7 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
                 <input
                   type="checkbox"
                   checked={selectedCategories.includes(category.slug)}
-                  disabled={!status.enabled || loading || saving || savingInterests}
+                  disabled={!status.enabled || !categoryInterestsLoaded || loading || saving || savingInterests}
                   onChange={(event) => setSelectedCategories((current) => event.target.checked
                     ? [...current, category.slug]
                     : current.filter((slug) => slug !== category.slug))}
@@ -382,12 +392,12 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
             ))}
           </div>
           <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-            <p className="text-text-muted text-xs">{selectedCategories.length} selected · up to 20</p>
+            <p className="text-text-muted text-xs">{categoryInterestsLoaded ? `${selectedCategories.length} selected · up to 20` : 'Saved interests unavailable offline'}</p>
             <Button
               type="button"
               size="sm"
               variant="secondary"
-              disabled={!status.enabled || loading || saving || savingInterests || selectedCategories.length > 20}
+              disabled={!status.enabled || !categoryInterestsLoaded || loading || saving || savingInterests || selectedCategories.length > 20}
               onClick={() => void saveInterests()}
             >
               {savingInterests ? 'Saving interests…' : 'Save category interests'}
@@ -398,11 +408,11 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
         <div className="mt-6 grid gap-3 sm:grid-cols-2">
           <div className="bg-bg-secondary/60 rounded-xl p-4">
             <p className="text-text-muted text-xs font-medium uppercase tracking-wide">Topic interests stored</p>
-            <p className="mt-2 text-2xl font-bold tabular-nums">{loading ? '—' : status.topic_interests}</p>
+            <p className="mt-2 text-2xl font-bold tabular-nums">{loading || !categoryInterestsLoaded ? '—' : status.topic_interests}</p>
           </div>
           <div className="bg-bg-secondary/60 rounded-xl p-4">
             <p className="text-text-muted text-xs font-medium uppercase tracking-wide">Category interests stored</p>
-            <p className="mt-2 text-2xl font-bold tabular-nums">{loading ? '—' : status.category_interests}</p>
+            <p className="mt-2 text-2xl font-bold tabular-nums">{loading || !categoryInterestsLoaded ? '—' : status.category_interests}</p>
           </div>
         </div>
 
