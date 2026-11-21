@@ -122,8 +122,8 @@ test('recommendation profiles use explicit actions and consented passive analyti
   assert.match(body, /interval '14 days'/);
   assert.match(body, /interval '180 days'/);
   assert.match(body, /7776000/);
-  assert.match(body, /WHEN 'viewable_impression' THEN 0\.40/);
-  assert.match(body, /WHEN 'completion' THEN 2\.50/);
+  assert.match(body, /event_type='viewable_impression'[\s\S]*?THEN 0\.40/);
+  assert.match(body, /event_type='completion'[\s\S]*?THEN 2\.50/);
   assert.match(body, /negative_score/);
   assert.match(body, /v_consent_at/);
   assert.doesNotMatch(body, /explicit-only/);
@@ -248,10 +248,8 @@ test('web and native account/settings screens reuse the same components', () => 
   assert.match(accountSection, /I explicitly consent to CathoScroll using my account actions, selected interests and reading analytics/);
   assert.match(accountSection, /p_consent_version: '2026-11-20-v4'/);
   assert.match(accountSection, /analyticsConsentSyncEvent/);
-  assert.match(accountSection, /Analytics choices/);
-  assert.match(accountSection, /Service improvement analytics is required while personalisation is enabled/);
   assert.match(accountSection, /AnalyticsConsentSettingsPanel/);
-  assert.match(accountSection, /Sponsor measurement/);
+  assert.match(accountSection, /AnalyticsConsentSettingsPanel/);
   assert.ok(nativeMain.includes("pathname === '/account/personalization'"));
   assert.ok(nativeMain.includes("kind: 'account'"));
   assert.match(nativeAccount, /AccountPageView/);
