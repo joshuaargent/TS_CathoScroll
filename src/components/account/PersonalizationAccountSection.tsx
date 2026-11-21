@@ -422,7 +422,9 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
             <p className="text-text-muted mt-1 text-sm">
               These are content-interest signals, not a measure of your religious beliefs or identity. The score is a relative ranking value used by the recommendation system.
             </p>
-            {status.top_topic_interests.length ? (
+            {!categoryInterestsLoaded ? (
+              <p className="text-text-muted mt-3 text-sm">Topic-interest details are unavailable offline. Reconnect to load them.</p>
+            ) : status.top_topic_interests.length ? (
               <ul className="mt-3 space-y-2">
                 {status.top_topic_interests.map((topic) => (
                   <li key={topic.topic_id} className="border-border flex flex-wrap items-center justify-between gap-3 rounded-xl border px-3 py-3">
