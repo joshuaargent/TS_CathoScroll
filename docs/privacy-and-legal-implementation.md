@@ -48,3 +48,8 @@ Keep recommendation profiles private and delete the derived profile and selected
 - Obtain UK data-protection solicitor review and controller sign-off before release.
 
 This document is not a legal opinion and does not certify provider contracts, transfers, ICO registration or deployed runtime behaviour.
+
+
+## Consent withdrawal and data removal
+
+Withdrawing Service improvement deletes the account-linked raw topic and Top Comments event records, event-rate-limit rows and user/day viewer bridges. The affected recent daily aggregates are rebuilt from the remaining opted-in event records, and the private recommendation profile is refreshed without passive reading signals. Withdrawing Sponsor measurement deletes that account's sponsor event records and placement receipts, then rebuilds recent campaign/day viewability and click aggregates from the remaining opted-in records. Local pending queues are cleared immediately. Aggregates older than the raw-event retention window may remain only as non-identifying totals with no user-level event or viewer bridge.
