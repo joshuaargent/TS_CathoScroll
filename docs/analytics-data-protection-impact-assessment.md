@@ -94,7 +94,7 @@ Users can exercise applicable access, rectification, erasure, restriction and ob
 
 ## 9. Conclusion and remaining actions
 
-The implementation now records signed-in topic/comment events in account-linked tables and signed-out topic/comment events only as daily entity aggregates. The latter do not support anonymous unique-person counts. Signed-out sponsor delivery uses a separate campaign pipeline with hashed, short-lived frequency protection and aggregate reporting. The Admin Analytics hub, topic/category pages, sponsor/comment detail pages, admin campaign manager and sponsor portal present signed-in and anonymous counts separately. Vercel Web Analytics and Speed Insights remain separate provider streams.
+The implementation now records signed-in topic/comment events in account-linked tables and signed-out topic/comment events only as daily entity aggregates. The latter do not support anonymous unique-person counts. Signed-out sponsor delivery records campaign/day served totals only, without session identifiers or detailed event measurement. The Admin Analytics hub, topic/category pages, sponsor/comment detail pages, admin campaign manager and sponsor portal present signed-in and anonymous counts separately. Vercel Web Analytics and Speed Insights remain separate provider streams.
 
 The principal remaining governance tasks are to document the Article 6 basis for each operational analytics purpose, review whether entity/day aggregates and infrastructure request logs could identify people in context, and complete provider, transfer and log-retention reviews. This is not a legal sign-off or a claim that every data flow is anonymous.
 
