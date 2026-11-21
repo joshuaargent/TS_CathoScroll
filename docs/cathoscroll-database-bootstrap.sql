@@ -6481,7 +6481,7 @@ begin
     select event_date,sum(impressions) impressions,sum(viewable_impressions) viewable_impressions
     from catho_private.feed_analytics_daily where event_date>=p_from::date and event_date<=p_to::date group by event_date
   ), sponsor as (
-    select event_date,sum(served_count) served,sum(viewable_impressions) viewable_impressions,sum(clicks) clicks
+    select event_date,sum(viewable_impressions) viewable_impressions,sum(clicks) clicks
     from catho_private.sponsor_campaign_daily where event_date>=p_from::date and event_date<=p_to::date group by event_date
   ), comments as (
     select event_date,sum(impressions) impressions,sum(viewable_impressions) viewable_impressions
@@ -6489,7 +6489,7 @@ begin
   )
   select coalesce(jsonb_agg(jsonb_build_object('event_date',d.event_date,
     'topic_impressions',coalesce(t.impressions,0),'topic_viewable_impressions',coalesce(t.viewable_impressions,0),
-    'sponsor_served',coalesce(s.served,0),'sponsor_viewable_impressions',coalesce(s.viewable_impressions,0),
+    'sponsor_viewable_impressions',coalesce(s.viewable_impressions,0),
     'sponsor_clicks',coalesce(s.clicks,0),'comment_impressions',coalesce(c.impressions,0),
     'comment_viewable_impressions',coalesce(c.viewable_impressions,0)) order by d.event_date),'[]'::jsonb)
   into v_result from days d left join topic t using(event_date) left join sponsor s using(event_date) left join comments c using(event_date);
@@ -7184,7 +7184,7 @@ begin
     select d.entity_id,d.event_date,d.impressions,d.viewable_impressions,d.active_duration_ms,d.skips,d.completions,d.return_visits
     from catho_private.feed_analytics_daily d where d.event_date >= p_from::date and d.event_date <= p_to::date
   ), sponsor_daily as (
-    select d.campaign_id,d.event_date,d.served_count,d.viewable_impressions,d.clicks
+    select d.campaign_id,d.event_date,d.viewable_impressions,d.clicks
     from catho_private.sponsor_campaign_daily d where d.event_date >= p_from::date and d.event_date <= p_to::date
   ), comment_daily as (
     select d.card_id,d.event_date,d.impressions,d.viewable_impressions,d.active_duration_ms,d.skips,d.completions,d.opens,d.unique_viewers
@@ -7196,7 +7196,6 @@ begin
       coalesce((select sum(active_duration_ms) from topic_daily),0) topic_active_duration_ms,
       coalesce((select sum(skips) from topic_daily),0) topic_skips,
       coalesce((select sum(completions) from topic_daily),0) topic_completions,
-      coalesce((select sum(served_count) from sponsor_daily),0) sponsor_served,
       coalesce((select sum(viewable_impressions) from sponsor_daily),0) sponsor_viewable_impressions,
       coalesce((select sum(clicks) from sponsor_daily),0) sponsor_clicks,
       coalesce((select sum(impressions) from comment_daily),0) comment_card_impressions,
@@ -7226,12 +7225,12 @@ begin
     limit 100
   ), sponsors as (
     select s.id,s.sponsor_name,s.status,count(distinct sc.id) campaign_count,
-      coalesce(sum(sd.served_count),0) served,coalesce(sum(sd.viewable_impressions),0) viewable_impressions,
+      coalesce(sum(sd.viewable_impressions),0) viewable_impressions,
       coalesce(sum(sd.clicks),0) clicks
     from public.sponsors s left join public.sponsor_campaigns sc on sc.sponsor_id=s.id
     left join sponsor_daily sd on sd.campaign_id=sc.id
     group by s.id,s.sponsor_name,s.status
-    order by served desc,s.sponsor_name
+    order by viewable_impressions desc,s.sponsor_name
     limit 100
   ), comments as (
     select c.id,c.topic_id,t.question topic_question,c.created_at,
@@ -8619,8 +8618,6 @@ ALTER TABLE catho_private.sponsor_campaign_events
 ALTER TABLE catho_private.sponsor_campaign_events
   ADD CONSTRAINT sponsor_campaign_events_event_type_check
   CHECK (event_type IN ('viewable_impression', 'click'));
-UPDATE public.sponsor_campaigns SET served_count = 0;
-UPDATE catho_private.sponsor_campaign_daily SET served_count = 0;
 DROP TABLE IF EXISTS catho_private.sponsor_campaign_user_frequency;
 
 DO $anonymous_cron_cleanup$
@@ -8733,16 +8730,6 @@ GRANT EXECUTE ON FUNCTION public.record_sponsor_campaign_event(uuid, uuid, uuid,
 -- The delivery selectors intentionally do not enforce impression caps because
 -- no delivery counts are collected. Consented frequency limits are enforced
 -- from opted-in viewable-impression events by the weighted selector.
-DO $legacy_counter_reset$
-BEGIN
-  IF to_regclass('public.sponsor_campaigns') IS NOT NULL THEN
-    EXECUTE 'UPDATE public.sponsor_campaigns SET served_count = 0';
-  END IF;
-  IF to_regclass('catho_private.sponsor_campaign_daily') IS NOT NULL THEN
-    EXECUTE 'UPDATE catho_private.sponsor_campaign_daily SET served_count = 0';
-  END IF;
-END;
-$legacy_counter_reset$;
 
 DO $anonymous_cron_cleanup_final$
 BEGIN
@@ -8806,3 +8793,7 @@ ALTER FUNCTION public.get_admin_sponsor_campaign_analytics(uuid, date, date) OWN
 REVOKE ALL ON FUNCTION public.get_admin_sponsor_campaign_analytics(uuid, date, date) FROM PUBLIC, anon, authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.get_admin_sponsor_campaign_analytics(uuid, date, date) TO service_role;
 
+-- Permanently remove all sponsor delivery counters from the schema.
+ALTER TABLE public.sponsor_campaigns DROP COLUMN IF EXISTS served_count;
+ALTER TABLE catho_private.sponsor_campaign_daily DROP COLUMN IF EXISTS served_count;
+NOTIFY pgrst, 'reload schema';
