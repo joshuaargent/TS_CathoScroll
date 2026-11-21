@@ -16,6 +16,8 @@ const accountSection = readFileSync(new URL('../src/components/account/Personali
 const analyticsSettingsPanel = readFileSync(new URL('../src/components/account/AnalyticsConsentSettingsPanel.tsx', import.meta.url), 'utf8');
 const nativeMain = readFileSync(new URL('../native/main.tsx', import.meta.url), 'utf8');
 const nativeAccount = readFileSync(new URL('../native/account.tsx', import.meta.url), 'utf8');
+const privacyPage = readFileSync(new URL('../src/app/privacy/page.tsx', import.meta.url), 'utf8');
+const cookiePage = readFileSync(new URL('../src/app/cookies/page.tsx', import.meta.url), 'utf8');
 
 
 function bootstrapFunctionRanges(source) {
@@ -332,6 +334,10 @@ test('personalisation and service improvement are independent explicit purposes'
   assert.match(manager, /serviceImprovement: local\.serviceImprovement/);
   assert.doesNotMatch(manager, /serviceImprovement: remote\.personalizationEnabled \? true/);
   assert.doesNotMatch(manager, /Turn off personalisation before disabling it|effectivePersonalization/);
+  assert.match(privacyPage, /Service improvement analytics, Personalisation and Sponsor measurement can each be enabled or withdrawn independently/);
+  assert.match(privacyPage, /Passive reading signals are collected only with Service improvement consent/);
+  assert.doesNotMatch(privacyPage, /Service improvement analytics is enabled when you opt into personalisation|remains enabled until you turn it off separately/);
+  assert.match(cookiePage, /Personalisation and Service improvement analytics are separate optional choices/);
 });
 
 test('retired user subscription tier is absent from the bootstrap', () => {
