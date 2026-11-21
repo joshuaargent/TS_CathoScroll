@@ -374,7 +374,7 @@ export function SponsorCampaignManager({
                               {(stats?.viewable_impressions ?? 0).toLocaleString('en-GB')} opted-in viewable
                             </p>
                             <p className="text-text-muted mt-1 text-xs">
-                              {(stats?.clicks ?? 0).toLocaleString('en-GB')} opted-in clicks
+                              {(stats?.clicks ?? 0).toLocaleString('en-GB')} opted-in clicks on viewable placements
                             </p>
                             <p className="text-text-muted mt-1 text-xs">Opted-in CTR: {(stats?.click_through_rate ?? 0).toFixed(2)}%</p>
                           </>
