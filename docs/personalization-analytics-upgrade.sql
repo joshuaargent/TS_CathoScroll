@@ -862,10 +862,8 @@ BEGIN
   IF NOT EXISTS (
     SELECT 1
     FROM catho_private.user_personalization_consents AS pc
-    JOIN catho_private.user_analytics_consents AS ac ON ac.user_id = pc.user_id
     WHERE pc.user_id = p_user_id
       AND pc.enabled = true
-      AND ac.service_improvement = true
   ) THEN
     RETURN;
   END IF;
@@ -1230,9 +1228,8 @@ SET profile_refreshed_at = NULL,
 WHERE enabled = true;
 
 
--- The new consent wording also enables Service improvement analytics while
--- personalisation is active. Existing v3 opt-ins did not disclose that link,
--- so they must be re-confirmed before the activity-signal model is used.
+-- Personalisation is now a separate choice. Existing v3 opt-ins must be
+-- re-confirmed against the updated purpose wording before recommendations resume.
 DO $personalization_consent_regrant$
 DECLARE
   v_affected_user_ids uuid[];
@@ -1244,12 +1241,6 @@ BEGIN
   WHERE c.enabled = true
     AND (
       c.consent_version IS DISTINCT FROM '2026-11-20-v4'
-      OR NOT EXISTS (
-        SELECT 1
-        FROM catho_private.user_analytics_consents AS a
-        WHERE a.user_id = c.user_id
-          AND a.service_improvement = true
-      )
     );
 
   UPDATE catho_private.user_personalization_consents
@@ -1270,9 +1261,6 @@ BEGIN
   WHERE NOT EXISTS (
     SELECT 1
     FROM catho_private.user_personalization_consents AS c
-    JOIN catho_private.user_analytics_consents AS a
-      ON a.user_id = c.user_id
-     AND a.service_improvement = true
     WHERE c.user_id = s.user_id
       AND c.enabled = true
       AND c.consent_version = '2026-11-20-v4'
