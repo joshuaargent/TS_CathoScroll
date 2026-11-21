@@ -2,6 +2,8 @@
 
 **Working DPIA — controller approval required**
 
+This is not a legal opinion.
+
 This assessment covers signed-in Service improvement analytics, signed-in Sponsor measurement, Personalisation, general feed ranking, Vercel Web Analytics/Speed Insights and the supporting web/native queues. It does not cover anonymous analytics because the final product decision is to collect none.
 
 ## 1. Processing purpose
