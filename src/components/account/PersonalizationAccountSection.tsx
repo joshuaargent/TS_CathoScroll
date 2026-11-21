@@ -74,16 +74,23 @@ function readNativePersonalizationCache(userId: string): Promise<NativePersonali
   if (typeof window === 'undefined') return Promise.resolve({ available: false, consent: null });
   return new Promise((resolve) => {
     let settled = false;
-    let timeout: number | undefined;
-    const finish = (value: NativePersonalizationCacheResponse) => {
+    const timeout = window.setTimeout(() => {
       if (settled) return;
       settled = true;
-      if (timeout !== undefined) window.clearTimeout(timeout);
-      resolve(value);
-    };
-    timeout = window.setTimeout(() => finish({ available: false, consent: null }), 1000);
+      resolve({ available: false, consent: null });
+    }, 1000);
     const complete = (result: Promise<NativePersonalizationCacheResponse>) => {
-      void result.then(finish).catch(() => finish({ available: true, consent: null }));
+      void result.then((value) => {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(timeout);
+        resolve(value);
+      }).catch(() => {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(timeout);
+        resolve({ available: true, consent: null });
+      });
     };
     window.dispatchEvent(new CustomEvent('cathoscroll:personalization-consent-status-request', {
       detail: { userId, complete },
