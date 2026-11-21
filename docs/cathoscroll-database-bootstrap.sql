@@ -8756,3 +8756,54 @@ $anonymous_cron_cleanup_final$;
 
 NOTIFY pgrst, 'reload schema';
 
+
+CREATE OR REPLACE FUNCTION public.get_admin_sponsor_campaign_analytics(
+  p_actor_user_id uuid,
+  p_from date DEFAULT ((timezone('UTC'::text, statement_timestamp()))::date - 29),
+  p_to date DEFAULT (timezone('UTC'::text, statement_timestamp()))::date
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO ''
+AS $function$
+DECLARE v_result jsonb;
+BEGIN
+  IF p_actor_user_id IS NULL OR NOT EXISTS (
+    SELECT 1 FROM public.admin_users AS admin WHERE admin.user_id = p_actor_user_id
+  ) THEN
+    RAISE EXCEPTION 'Administrator access required' USING ERRCODE = '42501';
+  END IF;
+  IF p_from IS NULL OR p_to IS NULL OR p_to < p_from OR p_to - p_from > 179 THEN
+    RAISE EXCEPTION 'Invalid sponsor analytics date range' USING ERRCODE = '22023';
+  END IF;
+
+  WITH metrics AS (
+    SELECT campaign.id AS campaign_id,
+      coalesce(sum(daily.viewable_impressions), 0) AS viewable_impressions,
+      coalesce(sum(daily.clicks), 0) AS clicks
+    FROM public.sponsor_campaigns AS campaign
+    LEFT JOIN catho_private.sponsor_campaign_daily AS daily
+      ON daily.campaign_id = campaign.id AND daily.event_date BETWEEN p_from AND p_to
+    GROUP BY campaign.id
+  )
+  SELECT jsonb_build_object(
+    'from', p_from,
+    'to', p_to,
+    'campaigns', coalesce(jsonb_agg(jsonb_build_object(
+      'campaign_id', metrics.campaign_id,
+      'viewable_impressions', metrics.viewable_impressions,
+      'clicks', metrics.clicks,
+      'click_through_rate', CASE WHEN metrics.viewable_impressions > 0
+        THEN round(metrics.clicks::numeric * 100 / metrics.viewable_impressions, 2)
+        ELSE 0 END
+    ) ORDER BY metrics.viewable_impressions DESC, metrics.campaign_id), '[]'::jsonb)
+  ) INTO v_result
+  FROM metrics;
+  RETURN v_result;
+END;
+$function$;
+ALTER FUNCTION public.get_admin_sponsor_campaign_analytics(uuid, date, date) OWNER TO postgres;
+REVOKE ALL ON FUNCTION public.get_admin_sponsor_campaign_analytics(uuid, date, date) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.get_admin_sponsor_campaign_analytics(uuid, date, date) TO service_role;
+
