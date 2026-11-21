@@ -1,7 +1,7 @@
 'use client';
 
 import type { SignedInAnalyticsOutbox } from './offline/signed-in-analytics-store';
-import { analyticsConsentChangeEvent, createConsentBoundAbortSignal, hasAnalyticsConsent, hasSyncedAnalyticsConsent } from './analytics-consent';
+import { analyticsConsentChangeEvent, createConsentBoundAbortSignal, denyAnalyticsConsentInMemory, hasAnalyticsConsent, hasSyncedAnalyticsConsent, requestAnalyticsConsentSync } from './analytics-consent';
 
 export type SponsorCampaignEventType = 'viewable_impression' | 'click';
 
@@ -168,13 +168,22 @@ export async function flushSponsorCampaignEvents(
         break;
       }
       if (!response.ok) {
+        if (response.status === 403) {
+          const rejection = await response.clone().json().catch(() => null) as { code?: string } | null;
+          if (rejection?.code === 'CONSENT_REQUIRED') {
+            denyAnalyticsConsentInMemory('sponsorMeasurement', userId);
+            await clearSponsorAnalyticsOutbox(userId).catch((cause: unknown) => {
+              console.error('Unable to clear sponsor analytics after server-side consent withdrawal:', cause);
+            });
+            requestAnalyticsConsentSync();
+            break;
+          }
+        }
         // A placement can expire while the device is offline. These client
         // errors are terminal for that event; do not let one stale item block
         // every newer sponsor event behind it. Transient auth/rate/server
         // failures remain queued for a later retry.
-        if (
-          (response.status === 400 || response.status === 403)
-        ) {
+        if (response.status === 400 || response.status === 403) {
           if (persistedEvent && persistentOutbox) await persistentOutbox.acknowledge(userId, 'sponsor', [event.eventId]);
           else acknowledgeEvent(userId, event.eventId);
           continue;
