@@ -127,6 +127,8 @@ test('recommendation profiles use explicit actions and consented passive analyti
   assert.match(body, /event_type='completion'[\s\S]*?THEN 2\.50/);
   assert.match(body, /negative_score/);
   assert.match(body, /v_consent_at/);
+  assert.match(body, /v_service_improvement IS TRUE/);
+  assert.match(body, /greatest\(v_now-interval '90 days',v_service_consent_at,v_consent_at\)/);
   assert.doesNotMatch(body, /explicit-only/);
   assert.match(body, /s\.updated_at < v_now/);
   assert.match(body, /v_last_refresh >= v_now-interval '5 minutes'/);
@@ -162,7 +164,7 @@ test('recommendation category helper is account-scoped, consent-gated and bounde
   assert.match(body, /auth\.uid\(\)/);
   assert.match(body, /v_current_user_id IS DISTINCT FROM p_user_id/);
   assert.match(body, /pc\.enabled = true/);
-  assert.match(body, /ac\.service_improvement = true/);
+  assert.doesNotMatch(body, /ac\.service_improvement = true/);
   assert.match(body, /get_user_feed_preference_signals/);
   assert.doesNotMatch(body, /feed_analytics_events|feed_card_analytics_events/);
 });
