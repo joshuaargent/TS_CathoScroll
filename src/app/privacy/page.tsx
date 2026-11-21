@@ -63,7 +63,7 @@ export default function PrivacyPage() {
             <li>Quiz progress and quiz results.</li>
             <li>Learning path progress.</li>
             <li>Technical, device, and security data.</li>
-            <li>Optional analytics events and aggregates only where you have enabled the relevant analytics choice.</li>
+            <li>Optional account-linked analytics events and aggregates only where you have enabled the relevant analytics choice; signed-out topic/comment daily aggregates are described separately below.</li>
             <li>Optional analytics consent choices and timestamps for signed-in accounts.</li>
             <li>Optional personalisation consent records, selected category interests, and derived topic-interest scores when you opt in.</li>
             <li>For sponsor representatives: organisation membership, campaign submissions, invoice details, and payment references.</li>
