@@ -267,10 +267,12 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
       setPersonalizationStateUserId(expectedUserId);
       const local = readAnalyticsConsent(expectedUserId);
       if (local && (local.syncPending || !remote.exists)) {
-        // Personalisation requires Service improvement analytics, but a pending
-        // Sponsor measurement withdrawal is still independent and must sync.
+        // Preserve the user's local denial. If the server confirms that
+        // personalisation is still enabled, its consent rule rejects this
+        // pending Service improvement withdrawal; never silently re-enable
+        // local collection. The user can disable personalisation separately.
         const pendingChoices = {
-          serviceImprovement: remote.personalizationEnabled ? true : local.serviceImprovement,
+          serviceImprovement: local.serviceImprovement,
           sponsorMeasurement: local.sponsorMeasurement,
         };
         const saveResponse = await fetch(endpoint, {
