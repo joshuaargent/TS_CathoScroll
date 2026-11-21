@@ -111,7 +111,7 @@ export function AnalyticsConsentSettingsPanel({
             className="accent-accent mt-1 h-4 w-4 shrink-0"
           />
           <span className="min-w-0">
-            <span className="text-text-primary block text-sm font-semibold">Service improvement analytics</span>
+            <span className="text-text-primary block text-sm font-semibold">I explicitly consent to Service improvement analytics</span>
             <span className="text-text-secondary mt-1 block text-sm leading-relaxed">
               Measures signed-in topic and comment engagement and site performance. Activity may reveal religious or philosophical interests.
             </span>
@@ -132,7 +132,7 @@ export function AnalyticsConsentSettingsPanel({
             className="accent-accent mt-1 h-4 w-4 shrink-0"
           />
           <span className="min-w-0">
-            <span className="text-text-primary block text-sm font-semibold">Sponsor measurement</span>
+            <span className="text-text-primary block text-sm font-semibold">I explicitly consent to Sponsor measurement</span>
             <span className="text-text-secondary mt-1 block text-sm leading-relaxed">
               Measures sponsor viewability, clicks and frequency. Placement context may reveal religious or philosophical interests. Sponsor placements still appear when this is off.
             </span>
