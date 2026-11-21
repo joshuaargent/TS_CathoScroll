@@ -9,6 +9,7 @@ export interface QueuedSponsorCampaignEvent {
   campaignId: string;
   eventId: string;
   sessionId: string;
+  placementReceipt: string;
   eventType: SponsorCampaignEventType;
 }
 
@@ -39,12 +40,11 @@ export async function clearSponsorAnalyticsOutbox(userId: string): Promise<void>
   if (persistentOutbox) await persistentOutbox.clearStream(userId, 'sponsor');
 }
 
-function sponsorEventFromPayload(payload: { event_id: string; session_id: string; event_type: string; campaign_id?: unknown }): QueuedSponsorCampaignEvent {
+function sponsorEventFromPayload(payload: { event_id: string; session_id: string; event_type: string; campaign_id?: unknown; placement_receipt?: unknown }): QueuedSponsorCampaignEvent | null {
   if (typeof payload.campaign_id !== 'string' || !payload.campaign_id ||
-      (payload.event_type !== 'viewable_impression' && payload.event_type !== 'click')) {
-    throw new Error('Invalid persisted sponsor analytics event.');
-  }
-  return { campaignId: payload.campaign_id, eventId: payload.event_id, sessionId: payload.session_id, eventType: payload.event_type };
+      typeof payload.placement_receipt !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(payload.placement_receipt) ||
+      (payload.event_type !== 'viewable_impression' && payload.event_type !== 'click')) return null;
+  return { campaignId: payload.campaign_id, eventId: payload.event_id, sessionId: payload.session_id, placementReceipt: payload.placement_receipt, eventType: payload.event_type };
 }
 
 function readQueue(userId: string): QueuedSponsorCampaignEvent[] {
@@ -82,6 +82,7 @@ export function recordSponsorCampaignEvent(
       session_id: event.sessionId,
       event_type: event.eventType,
       campaign_id: event.campaignId,
+      placement_receipt: event.placementReceipt,
     }).then(() => flushSponsorCampaignEvents(userId, getAccessToken, apiBaseUrl)).catch((error: unknown) => {
       console.error('Unable to persist signed-in sponsor analytics:', error);
       if (queue.length < queueLimit) {
@@ -128,6 +129,10 @@ export async function flushSponsorCampaignEvents(
       const stored = persistentOutbox ? await persistentOutbox.pending(userId, 'sponsor', 1) : [];
       const persistedEvent = stored[0];
       const event = persistedEvent ? sponsorEventFromPayload(persistedEvent) : readQueue(userId)[0];
+      if (persistedEvent && !event) {
+        await persistentOutbox!.acknowledge(userId, 'sponsor', [persistedEvent.event_id]);
+        continue;
+      }
       if (!event) break;
 
       let accessToken: string | null;
