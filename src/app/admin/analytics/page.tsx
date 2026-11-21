@@ -32,32 +32,42 @@ export default async function AdminAnalyticsPage({ searchParams }: Props) {
     series: Record<string, number | string>[];
     categories: { slug: string; impressions: number; viewable_impressions: number }[];
     topics: { id: string; impressions: number; viewable_impressions: number; active_duration_ms: number }[];
-    sponsors: { id: string; served: number; viewable_impressions: number; clicks: number }[];
+    sponsors: { id: string; served: number }[];
     comments: { id: string; impressions: number; viewable_impressions: number; active_duration_ms: number; skips: number; opens: number }[];
   };
   const mergeEntities = (
     signedIn: Record<string, unknown>[],
     anonymousRows: Record<string, unknown>[],
     key: 'id' | 'slug',
-    includeZeroAnonymousOnly = false
+    includeZeroAnonymousOnly = false,
+    sponsorServedOnly = false
   ) => {
     const signedKeys = new Set(signedIn.map((item) => String(item[key])));
-    const attachAnonymous = (item: Record<string, unknown>): Record<string, unknown> => ({
-      anonymous_impressions: Number(item.impressions ?? 0),
-      anonymous_viewable_impressions: Number(item.viewable_impressions ?? 0),
-      anonymous_served: Number(item.served ?? 0),
-      anonymous_clicks: Number(item.clicks ?? 0),
-      anonymous_active_duration_ms: Number(item.active_duration_ms ?? 0),
-      anonymous_skips: Number(item.skips ?? 0),
-      anonymous_opens: Number(item.opens ?? 0),
-    });
+    const attachAnonymous = (item: Record<string, unknown>): Record<string, unknown> => {
+      if (sponsorServedOnly) return { anonymous_served: Number(item.served ?? 0) };
+      return {
+        anonymous_impressions: Number(item.impressions ?? 0),
+        anonymous_viewable_impressions: Number(item.viewable_impressions ?? 0),
+        anonymous_served: Number(item.served ?? 0),
+        anonymous_clicks: Number(item.clicks ?? 0),
+        anonymous_active_duration_ms: Number(item.active_duration_ms ?? 0),
+        anonymous_skips: Number(item.skips ?? 0),
+        anonymous_opens: Number(item.opens ?? 0),
+      };
+    };
     const merged: Record<string, unknown>[] = [
       ...signedIn.map((item) => {
         const match = anonymousRows.find((row) => String(row[key]) === String(item[key]));
         return { ...item, ...attachAnonymous(match ?? {}) };
       }),
-      ...anonymousRows.filter((item) => !signedKeys.has(String(item[key])) && (includeZeroAnonymousOnly || Number(item.impressions ?? 0) + Number(item.served ?? 0) + Number(item.opens ?? 0) + Number(item.clicks ?? 0) > 0)).map((item) => ({
-        ...item,
+      ...anonymousRows.filter((item) => !signedKeys.has(String(item[key])) && (includeZeroAnonymousOnly || (sponsorServedOnly ? Number(item.served ?? 0) > 0 : Number(item.impressions ?? 0) + Number(item.served ?? 0) + Number(item.opens ?? 0) + Number(item.clicks ?? 0) > 0))).map((item) => {
+        const cleanItem = { ...item };
+        if (sponsorServedOnly) {
+          delete cleanItem.viewable_impressions;
+          delete cleanItem.clicks;
+        }
+        return {
+        ...cleanItem,
         impressions: 0,
         viewable_impressions: 0,
         active_duration_ms: 0,
@@ -74,7 +84,7 @@ export default async function AdminAnalyticsPage({ searchParams }: Props) {
         topic_id: '',
         created_at: '',
         ...attachAnonymous(item),
-      })),
+      };}),
     ];
     return merged.sort((left, right) =>
       Number(right['served'] ?? right['impressions'] ?? 0) + Number(right['anonymous_served'] ?? right['anonymous_impressions'] ?? 0) -
@@ -97,7 +107,9 @@ export default async function AdminAnalyticsPage({ searchParams }: Props) {
     sponsors: mergeEntities(
       (data as { sponsors: Record<string, unknown>[] }).sponsors,
       anonymous.sponsors as unknown as Record<string, unknown>[],
-      'id'
+      'id',
+      false,
+      true
     ),
     comments: mergeEntities(
       (data as { comments: Record<string, unknown>[] }).comments.map((item) => ({ ...item, id: String(item.id) })),
@@ -107,7 +119,7 @@ export default async function AdminAnalyticsPage({ searchParams }: Props) {
   };
   const mergedSeries = (seriesData as Record<string, unknown>[]).map((day) => {
     const match = anonymous.series.find((row) => row.event_date === day.event_date);
-    return { ...day, ...Object.fromEntries(Object.entries(match ?? {}).filter(([key]) => key !== 'event_date').map(([key, value]) => ['anonymous_' + key, value])) };
+    return { ...day, ...Object.fromEntries(Object.entries(match ?? {}).filter(([key]) => key !== 'event_date' && key !== 'sponsor_viewable_impressions' && key !== 'sponsor_clicks').map(([key, value]) => ['anonymous_' + key, value])) };
   });
   const mergedTotals = {
     ...(data as { totals: Record<string, number> }).totals,
@@ -117,8 +129,6 @@ export default async function AdminAnalyticsPage({ searchParams }: Props) {
     anonymous_topic_skips: anonymous.totals.topic_skips ?? 0,
     anonymous_topic_completions: anonymous.totals.topic_completions ?? 0,
     anonymous_sponsor_served: anonymous.totals.sponsor_served ?? 0,
-    anonymous_sponsor_viewable_impressions: anonymous.totals.sponsor_viewable_impressions ?? 0,
-    anonymous_sponsor_clicks: anonymous.totals.sponsor_clicks ?? 0,
     anonymous_comment_card_impressions: anonymous.totals.comment_card_impressions ?? 0,
     anonymous_comment_card_viewable_impressions: anonymous.totals.comment_card_viewable_impressions ?? 0,
     anonymous_comment_card_active_duration_ms: anonymous.totals.comment_card_active_duration_ms ?? 0,
