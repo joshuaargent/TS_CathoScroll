@@ -1429,10 +1429,8 @@ BEGIN
   IF NOT EXISTS (
     SELECT 1
     FROM catho_private.user_personalization_consents AS pc
-    JOIN catho_private.user_analytics_consents AS ac ON ac.user_id = pc.user_id
     WHERE pc.user_id = p_user_id
       AND pc.enabled = true
-      AND ac.service_improvement = true
   ) THEN
     RETURN;
   END IF;
