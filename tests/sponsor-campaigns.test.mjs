@@ -2,8 +2,9 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-const [bootstrap, feedCore, cardRegistry, placementRegistry, sponsorCard, campaignManager, campaignAdminRoute, deliveryRoute, eventRoute, campaignLib, campaignPage] = await Promise.all([
+const [bootstrap, sponsorOptOutUpgrade, feedCore, cardRegistry, placementRegistry, sponsorCard, campaignManager, campaignAdminRoute, deliveryRoute, eventRoute, campaignLib, campaignPage] = await Promise.all([
   readFile(new URL('../docs/cathoscroll-database-bootstrap.sql', import.meta.url), 'utf8'),
+  readFile(new URL('../docs/analytics-consent-and-sponsor-opt-out-upgrade.sql', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/TopicFeedCore.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/feed-card-registry.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/lib/feed-card-placement-registry.ts', import.meta.url), 'utf8'),
@@ -90,6 +91,8 @@ test('signed-in and anonymous selectors derive category from the published topic
   assert.doesNotMatch(anonymous, /p_session_token IS NOT NULL/);
   assert.doesNotMatch(anonymous, /anonymous_sponsor_events|anonymous_sponsor_session_frequency/);
   assert.match(anonymous, /INSERT INTO catho_private\.anonymous_sponsor_campaign_daily/);
+  assert.doesNotMatch(bootstrap, /CREATE OR REPLACE FUNCTION public\.record_anonymous_sponsor_campaign_event/);
+  assert.match(sponsorOptOutUpgrade, /DROP FUNCTION IF EXISTS public\.record_anonymous_sponsor_campaign_event/);
   assert.match(anonymous, /INSERT INTO catho_private\.anonymous_sponsor_campaign_daily/);
   assert.match(anonymous, /FROM catho_private\.sponsor_campaign_daily d[\s\S]*?placement_weight/);
   assert.match(signedIn, /placement_weight::numeric ASC/);
