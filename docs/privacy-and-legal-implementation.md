@@ -159,7 +159,7 @@ For sponsor-measurement opt-outs, the proposed fallback is campaign/day served-p
 
 ## Linked personalisation and Service improvement consent; separate Sponsor measurement
 
-Draft PR #25 introduces a separate, optional consent manager for two purposes:
+The account consent model exposes separate optional Service improvement analytics and Sponsor measurement purposes, with personalisation linking to Service improvement analytics:
 
 - **Service improvement analytics:** optional account-linked topic and Top Comments engagement plus Vercel Web Analytics/Speed Insights. The notice expressly explains that engagement with Catholic content may reveal or permit inferences about religious or philosophical beliefs. This choice is enabled and locked while personalisation is active; otherwise it is off by default. Signed-out daily aggregates are a separate statistical stream, on by default with a simple free objection.
 - **Sponsor measurement:** sponsor viewability, clicks and visitor/session frequency. Anonymous event attribution includes the topic placement where the sponsor appeared, which may reveal religious/philosophical interests. The separate control therefore expressly identifies this context and requires explicit consent under Article 9(2)(a) where the revealing test is met, alongside Article 6(1)(a). This is separate from sponsor delivery. Declining it does not remove sponsor cards or stop campaign/day served totals.
