@@ -155,19 +155,19 @@ export function AdminAnalyticsHub({ overview, period, section = 'overview', seri
     <section className="mt-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       <Metric label="Total feed placements" value={number(totalExposures)} detail="Signed-in and anonymous placements; stream metrics remain separate below" icon={Activity} />
       <Metric label="Topic impressions" value={number(t.topic_impressions)} signedOutValue={t.anonymous_topic_impressions > 0 ? number(t.anonymous_topic_impressions) : undefined} detail={number(t.topic_viewable_impressions) + ' viewable · ' + duration(t.topic_active_duration_ms) + ' active time'} icon={BookOpen} />
-      <Metric label="Sponsored delivery" value={number(t.sponsor_served)} signedOutValue={t.anonymous_sponsor_served > 0 ? number(t.anonymous_sponsor_served) : undefined} detail={number(t.sponsor_viewable_impressions) + ' viewable · ' + number(t.sponsor_clicks) + ' clicks'} icon={Megaphone} />
+      <Metric label="Sponsored delivery" value={number(t.sponsor_served)} signedOutValue={t.anonymous_sponsor_served > 0 ? number(t.anonymous_sponsor_served) : undefined} detail={number(t.sponsor_viewable_impressions) + ' signed-in viewable · ' + number(t.sponsor_clicks) + ' signed-in clicks'} icon={Megaphone} />
       <Metric label="Top Comments exposure" value={number(t.comment_card_impressions)} signedOutValue={t.anonymous_comment_card_impressions > 0 ? number(t.anonymous_comment_card_impressions) : undefined} detail={number(t.comment_card_viewable_impressions) + ' viewable · ' + number(t.comment_card_opens) + ' discussion opens'} icon={MessageCircle} />
     </section>
     <section className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
       <Metric label="Anonymous topic activity" value={number(t.anonymous_topic_impressions)} detail={number(t.anonymous_topic_viewable_impressions) + ' viewable · ' + duration(t.anonymous_topic_active_duration_ms) + ' active time'} icon={BookOpen} />
-      <Metric label="Anonymous sponsor delivery" value={number(t.anonymous_sponsor_served)} detail={number(t.anonymous_sponsor_viewable_impressions) + ' measured viewable · ' + number(t.anonymous_sponsor_clicks) + ' clicks; opted-out deliveries excluded'} icon={Megaphone} />
+      <Metric label="Anonymous sponsor delivery" value={number(t.anonymous_sponsor_served)} detail="Campaign/day served totals only; signed-out viewability and clicks are not collected" icon={Megaphone} />
       <Metric label="Anonymous Top Comments" value={number(t.anonymous_comment_card_impressions)} detail={number(t.anonymous_comment_card_viewable_impressions) + ' viewable · ' + number(t.anonymous_comment_card_opens) + ' discussion opens'} icon={MessageCircle} />
     </section>
 
     <section className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       <Metric label="Topic viewability" value={t.topic_impressions + t.anonymous_topic_impressions ? (((t.topic_viewable_impressions + t.anonymous_topic_viewable_impressions) / (t.topic_impressions + t.anonymous_topic_impressions)) * 100).toFixed(1) + '%' : '—'} detail="Signed-in and anonymous viewable impressions ÷ impressions" icon={Activity} />
       <Metric label="Topic completion rate" value={t.topic_impressions + t.anonymous_topic_impressions ? (((t.topic_completions + t.anonymous_topic_completions) / (t.topic_impressions + t.anonymous_topic_impressions)) * 100).toFixed(1) + '%' : '—'} detail="Signed-in and anonymous completions ÷ impressions" icon={BookOpen} />
-      <Metric label="Sponsor click-through" value={t.sponsor_viewable_impressions + t.anonymous_sponsor_viewable_impressions ? (((t.sponsor_clicks + t.anonymous_sponsor_clicks) / (t.sponsor_viewable_impressions + t.anonymous_sponsor_viewable_impressions)) * 100).toFixed(2) + '%' : '—'} detail="Clicks ÷ measured viewable impressions; excludes visits that declined Sponsor measurement" icon={Megaphone} />
+      <Metric label="Sponsor click-through" value={t.sponsor_viewable_impressions ? ((t.sponsor_clicks / t.sponsor_viewable_impressions) * 100).toFixed(2) + '%' : '—'} detail="Opted-in signed-in clicks ÷ viewable impressions; signed-out deliveries are excluded" icon={Megaphone} />
       <Metric label="Comment-card viewability" value={t.comment_card_impressions + t.anonymous_comment_card_impressions ? (((t.comment_card_viewable_impressions + t.anonymous_comment_card_viewable_impressions) / (t.comment_card_impressions + t.anonymous_comment_card_impressions)) * 100).toFixed(1) + '%' : '—'} detail="Signed-in and anonymous viewable impressions ÷ impressions" icon={MessageCircle} />
     </section>
     <DailyOverviewChart series={series} />
@@ -187,7 +187,7 @@ export function AdminAnalyticsHub({ overview, period, section = 'overview', seri
 
     <section className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       <Metric label="Topic skip rate" value={t.topic_impressions + t.anonymous_topic_impressions ? (((t.topic_skips + t.anonymous_topic_skips) / (t.topic_impressions + t.anonymous_topic_impressions)) * 100).toFixed(1) + '%' : '—'} detail="Signed-in and anonymous skips ÷ topic impressions" icon={Activity} />
-      <Metric label="Sponsor viewability" value={t.sponsor_served + t.anonymous_sponsor_served ? (((t.sponsor_viewable_impressions + t.anonymous_sponsor_viewable_impressions) / (t.sponsor_served + t.anonymous_sponsor_served)) * 100).toFixed(1) + '%' : '—'} detail="Signed-in and anonymous viewable impressions ÷ served placements" icon={Megaphone} />
+      <Metric label="Sponsor viewability" value={t.sponsor_served ? ((t.sponsor_viewable_impressions / t.sponsor_served) * 100).toFixed(1) + '%' : '—'} detail="Opted-in signed-in viewable impressions ÷ signed-in served placements; signed-out viewability is not collected" icon={Megaphone} />
       <Metric label="Comment active time" value={t.comment_card_viewable_impressions + t.anonymous_comment_card_viewable_impressions ? duration((t.comment_card_active_duration_ms + t.anonymous_comment_card_active_duration_ms) / (t.comment_card_viewable_impressions + t.anonymous_comment_card_viewable_impressions)) : '—'} detail="Average active time per signed-in or anonymous viewable card" icon={MessageCircle} />
       <Metric label="Discussion open rate" value={t.comment_card_impressions + t.anonymous_comment_card_impressions ? (((t.comment_card_opens + t.anonymous_comment_card_opens) / (t.comment_card_impressions + t.anonymous_comment_card_impressions)) * 100).toFixed(1) + '%' : '—'} detail="Signed-in and anonymous opens ÷ comment-card impressions" icon={Heart} />
     </section>
@@ -202,7 +202,7 @@ export function AdminAnalyticsHub({ overview, period, section = 'overview', seri
         {topics.map((item) => <EntityLink key={item.id} href={`/topic/${encodeURIComponent(item.slug)}/analytics?period=${period}`} title={item.question} detail={item.category_slug} metric={number(item.impressions) + ' signed-in · ' + number(item.anonymous_impressions ?? 0) + ' anonymous'} />)}
         {topics.length === 0 && <p className="text-text-muted text-sm">No topics available.</p>}
       </SectionCard>}
-      {(section === 'overview' || section === 'sponsors') && <SectionCard title="Sponsors" description="Track paid delivery, viewability and campaign clicks." count={number(t.sponsor_count)} href={sectionHref('sponsors')} icon={Megaphone}>
+      {(section === 'overview' || section === 'sponsors') && <SectionCard title="Sponsors" description="Track campaign delivery and opted-in signed-in viewability/click measurement." count={number(t.sponsor_count)} href={sectionHref('sponsors')} icon={Megaphone}>
         {sponsors.map((item) => <EntityLink key={item.id} href={`/admin/analytics/sponsors/${item.id}?period=${period}`} title={item.sponsor_name} detail={item.status + ' · ' + item.campaign_count + ' campaigns'} metric={number(item.served) + ' signed-in · ' + number(item.anonymous_served ?? 0) + ' anonymous served'} />)}
         {sponsors.length === 0 && <p className="text-text-muted text-sm">No sponsors available.</p>}
       </SectionCard>}
