@@ -132,6 +132,10 @@ export function getAnalyticsConsent(userId?: string | null): AnalyticsConsent {
 }
 
 export function hasAnalyticsConsent(choice: AnalyticsConsentChoice, userId?: string | null): boolean {
+  // Detailed account-linked analytics are no longer offered to signed-out
+  // visitors. Their separate anonymous aggregate topic/comment stream has its
+  // own objection control and never uses this consent gate.
+  if (!userId) return false;
   if (deniedOverrides.has(overrideKey(choice, userId))) return false;
   return getAnalyticsConsent(userId)[choice] === true;
 }
