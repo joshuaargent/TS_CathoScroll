@@ -652,7 +652,7 @@ GRANT EXECUTE ON FUNCTION public.set_user_analytics_consent(uuid, boolean, boole
 
 
 
--- Sponsor portal viewability/click/CTR are account-consented only. Signed-out reporting is served totals only.
+-- Sponsor portal reports only account-consented viewability and clicks. Unmeasured delivery is not counted.
 CREATE OR REPLACE FUNCTION public.get_sponsor_campaign_analytics(
   p_actor_user_id uuid,
   p_sponsor_id uuid,
