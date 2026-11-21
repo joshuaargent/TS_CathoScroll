@@ -121,6 +121,16 @@ test('signed-out sponsor delivery is aggregate-only and detailed events require 
   assert.match(anonymousSelector, /INSERT INTO catho_private\.anonymous_sponsor_campaign_daily\(event_date,campaign_id,served_count\)/);
   assert.doesNotMatch(sql, /CREATE OR REPLACE FUNCTION public\.record_anonymous_sponsor_campaign_event/);
   assert.match(sql, /cathoscroll-anonymous-analytics-prune/);
+
+  // Basic campaign/day delivery totals are not optional visitor measurement
+  // and must not be disabled by the signed-out topic/comment objection.
+  const privacy = read('../src/app/privacy/page.tsx');
+  const anonymousPreference = read('../src/components/privacy/AnonymousAnalyticsPreference.tsx');
+  assert.match(privacy, /Campaign\/day served totals include\\s+all eligible deliveries/);
+  assert.match(privacy, /Sponsor delivery is separate from Sponsor measurement/);
+  assert.match(privacy, /only campaign\/day served totals are retained for delivery and pacing/);
+  assert.match(anonymousPreference, /signed-out topic and comment activity/);
+  assert.doesNotMatch(anonymousPreference, /sponsor/i);
 });
 
 test('all analytics surfaces report anonymous counts separately', () => {
