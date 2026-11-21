@@ -87,8 +87,9 @@ test('signed-in and anonymous selectors derive category from the published topic
   assert.match(signedIn, /FROM catho_private\.anonymous_sponsor_campaign_daily AS daily[\s\S]*?campaign\.total_impression_cap/);
   assert.match(signedIn, /FROM catho_private\.anonymous_sponsor_campaign_daily AS daily[\s\S]*?placement_weight::numeric ASC/);
   assert.match(anonymous, /FROM catho_private\.sponsor_campaign_daily d[\s\S]*?campaign\.daily_impression_cap/);
-  assert.match(anonymous, /IF p_session_token IS NOT NULL THEN[\s\S]*?INSERT INTO catho_private\.anonymous_sponsor_events/);
-  assert.match(anonymous, /CASE WHEN p_session_token IS NULL THEN true ELSE/);
+  assert.doesNotMatch(anonymous, /p_session_token IS NOT NULL/);
+  assert.doesNotMatch(anonymous, /anonymous_sponsor_events|anonymous_sponsor_session_frequency/);
+  assert.match(anonymous, /INSERT INTO catho_private\.anonymous_sponsor_campaign_daily/);
   assert.match(anonymous, /INSERT INTO catho_private\.anonymous_sponsor_campaign_daily/);
   assert.match(anonymous, /FROM catho_private\.sponsor_campaign_daily d[\s\S]*?placement_weight/);
   assert.match(signedIn, /placement_weight::numeric ASC/);
@@ -148,7 +149,8 @@ test('sponsored feed cards are disclosed and inserted separately from organic re
   assert.match(sponsorCard, /onDoubleClick=/);
   assert.doesNotMatch(sponsorCard, /campaign\.cta_label\}\s*<ExternalLink/);
   assert.doesNotMatch(sponsorCard, /bg-accent text-white hover:bg-accent\/90/);
-  assert.match(feedCore, /Only opted-in anonymous placements share an in-memory session token for/);
+  assert.match(feedCore, /Detailed Sponsor measurement is account-only/);
+  assert.match(feedCore, /Signed-out placements[\s\S]*?never send an identifier/);
   assert.match(feedCore, /const measurementEnabled = hasAnalyticsConsent\('sponsorMeasurement', userId\)/);
   assert.match(feedCore, /const sessionId = measurementEnabled[\s\S]*?createSponsorPlacementId\(\)[\s\S]*?createSponsorSessionId\(\)[\s\S]*?: null/);
   assert.match(feedCore, /sessionId: string \| null/);
