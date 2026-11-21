@@ -64,3 +64,18 @@ test('analytics DPIA documents active signed-in analytics, signed-out aggregates
   assert.ok(assessment.includes('Article 9'));
   assert.ok(assessment.includes('not a legal opinion'));
 });
+
+
+test('admin sponsor analytics reports signed-out served totals only', async () => {
+  const hub = await read('../src/components/admin/AdminAnalyticsHub.tsx');
+  const detail = await read('../src/app/admin/analytics/[kind]/[id]/page.tsx');
+
+  assert.ok(hub.includes('Campaign/day served totals only; signed-out viewability and clicks are not collected'));
+  assert.ok(hub.includes('Opted-in signed-in clicks ÷ viewable impressions; signed-out deliveries are excluded'));
+  assert.ok(hub.includes('Opted-in signed-in viewable impressions ÷ signed-in served placements; signed-out viewability is not collected'));
+  assert.ok(detail.includes('Anonymous measurement" value="Served totals only"'));
+  assert.ok(detail.includes('No signed-out viewability, clicks, CTR or per-visitor frequency are collected'));
+  assert.ok(!detail.includes('Anonymous viewable / clicks'));
+  assert.ok(!detail.includes('fmt(row.anonymous_viewable_impressions)'));
+  assert.ok(!detail.includes('fmt(row.anonymous_clicks)'));
+});
