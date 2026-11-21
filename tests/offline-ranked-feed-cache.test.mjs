@@ -9,6 +9,20 @@ const [cache, native, audit, privacy] = await Promise.all([
   readFile(new URL('../src/app/privacy/page.tsx', import.meta.url), 'utf8'),
 ]);
 
+test('fresh native Account loads can read encrypted personalisation consent and withdraw offline', async () => {
+  const account = await readFile(new URL('../src/components/account/PersonalizationAccountSection.tsx', import.meta.url), 'utf8');
+  const panel = await readFile(new URL('../src/components/account/AnalyticsConsentSettingsPanel.tsx', import.meta.url), 'utf8');
+  assert.match(cache, /async getCachedConsent\(userId: string\)/);
+  assert.match(cache, /pending_sync FROM offline_personalization_consent_cache/);
+  assert.match(native, /personalization-consent-status-request/);
+  assert.match(account, /client\.auth\.getSession\(\)/);
+  assert.match(account, /readNativePersonalizationCache\(sessionUser\.id\)/);
+  assert.match(account, /forcedOfflineWithdrawal/);
+  assert.match(account, /syncNativeConsent\(accountUserId, false, true\)/);
+  assert.match(panel, /personalizationStatusKnown/);
+  assert.match(panel, /previous\?\.serviceImprovement === true/);
+});
+
 test('offline general feed reuses the latest cached server-ranked pages', () => {
   assert.match(cache, /offline_ranked_feed_pages/);
   assert.match(cache, /mode TEXT NOT NULL CHECK \(mode IN \('general', 'personalized'\)\)/);
