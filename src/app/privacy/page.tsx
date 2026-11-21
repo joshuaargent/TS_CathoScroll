@@ -174,11 +174,10 @@ export default function PrivacyPage() {
           <ul className="text-text-secondary mt-4 list-disc space-y-2 pl-6">
             <li>Contract: to create and operate your account and provide features you request.</li>
             <li>Legitimate interests: to secure, maintain, troubleshoot, moderate and prevent abuse, where a documented assessment shows that our interests are not overridden by your rights.</li>
-            <li>Consent: for optional account-linked Service improvement analytics when personalisation is off, Vercel site/performance measurement, and Sponsor measurement.</li>
-            <li>Explicit consent under Article 6(1)(a) and, where processing reveals religious or philosophical beliefs, Article 9(2)(a): for personalisation and its linked Service improvement analytics, and separately for Sponsor measurement.</li>
+            <li>Consent: for optional signed-in Service improvement analytics, Personalisation and Sponsor measurement. These are separate purpose choices, subject to the stated Personalisation dependency.</li>
+            <li>Explicit consent under Article 6(1)(a) and, where processing reveals or permits inference of religious or philosophical beliefs, Article 9(2)(a) UK GDPR: for the relevant reading/activity data and derived recommendation or analytics processing.</li>
             <li>PECR: prior consent for optional analytics or advertising storage/access technologies wherever required. Sponsor measurement is not collected before its explicit opt-in.</li>
             <li>Legal obligation: to keep or disclose information where applicable law requires it.</li>
-            <li>Consent: for optional personalisation and the reading analytics it requires. Because this processing may reveal religious or philosophical beliefs, we rely on your explicit consent under Article 6(1)(a) UK GDPR and the Article 9(2)(a) exception for the relevant special-category processing.</li>
           </ul>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
@@ -324,7 +323,7 @@ export default function PrivacyPage() {
           <h2 className="mb-4 text-3xl font-bold">Data Retention</h2>
 
           <p className="text-text-secondary leading-relaxed">
-            We retain information only for as long as reasonably necessary for the purpose for which it was collected, subject to legal, security, moderation, and accounting requirements. Raw signed-in feed, community-card and sponsor-campaign analytics events, together with the user/day viewer bridge used for unique-viewer reporting, are retained for up to 180 days. Signed-in sponsor frequency-cap records are removed after campaigns have completed or been rejected and the applicable 180-day cutoff has passed. No anonymous sponsor engagement or delivery counters are created or retained. Signed-in analytics consent choices and their change history are retained for as long as needed to demonstrate and administer your choice, subject to account deletion and applicable legal requirements.
+            We retain information only for as long as reasonably necessary for the purpose for which it was collected, subject to legal, security, moderation, and accounting requirements. Raw signed-in feed, community-card and sponsor-campaign analytics events, together with the user/day viewer bridge used for unique-viewer reporting, are retained for up to 180 days. Signed-in sponsor frequency limits are derived from the opted-in viewable-impression event ledger; no separate per-user frequency table is retained. No anonymous sponsor engagement or delivery counters are created or retained. Signed-in analytics consent choices and their change history are retained for as long as needed to demonstrate and administer your choice, subject to account deletion and applicable legal requirements.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
