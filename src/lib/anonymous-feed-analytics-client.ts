@@ -282,6 +282,13 @@ export function installAnonymousFeedAnalyticsSync(): () => void {
   if (typeof window === 'undefined') return () => undefined;
   if (!listenersInstalled) {
     listenersInstalled = true;
+    window.addEventListener('storage', (event: StorageEvent) => {
+      if (event.key !== anonymousAnalyticsPreferenceKey && event.key !== null) return;
+      const enabled = window.localStorage.getItem(anonymousAnalyticsPreferenceKey) !== 'false';
+      void setAnonymousFeedAnalyticsEnabled(enabled).catch((cause) => {
+        console.error('Unable to synchronise the anonymous analytics objection across tabs:', cause);
+      });
+    });
     window.addEventListener('online', () => void flushAnonymousFeedAnalyticsQueue());
     window.addEventListener('pageshow', () => void flushAnonymousFeedAnalyticsQueue());
     window.addEventListener('pagehide', () => void flushAnonymousFeedAnalyticsQueue());
