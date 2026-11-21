@@ -64,7 +64,7 @@ The website's signed-in and signed-out topic/comment retry queues and the signed
 - Store signed-out topic/comment activity server-side only as UTC daily entity aggregates. Do not add visitor/session IDs, device fingerprints, account IDs or cross-visit profiles. Retain event UUID receipts for 30 days for deduplication. Native clients may persist only the bounded anonymous retry outbox for up to seven days; provide and honour the free opt-out, and clear pending rows when users object.
 - Keep recommendation personalisation and operational analytics distinct in purpose and disclosure, while enforcing their consent dependency: enabling personalisation enables Service improvement analytics and locks that choice until personalisation is withdrawn.
 - Do not use reading activity for individual sponsor targeting.
-- Keep signed-out sponsor frequency control separate: generate a random token in page memory, store only its SHA-256 hash, and prune raw event/frequency rows after 30 days.
+- Do not create signed-out sponsor frequency control. Signed-out delivery uses campaign/day served aggregates only; no session token, event or frequency row is created.
 - Keep sponsor campaign daily aggregates separate from organic topic analytics; sponsor dashboards expose campaign-level totals only.
 - Retain signed-in raw feed/comment analytics and viewer bridges for no longer than 180 days; retain aggregate reporting without account/session identifiers.
 - Remove query strings and fragments from Vercel Web Analytics and Speed Insights events; replace topic, category and search identifiers with generic route labels.
