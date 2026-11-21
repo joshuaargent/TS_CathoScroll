@@ -74,9 +74,7 @@ test('account consent sync is identity-bound, retryable and enforced server-side
   assert.ok(manager.includes('sponsorMeasurement: local.sponsorMeasurement'));
   assert.ok(manager.includes('if (!managingRef.current)'));
   assert.ok(manager.includes('managingRef.current = true'));
-  assert.ok(manager.includes('effectivePersonalizationStatusKnown, saving, syncServerConsent'));
-  assert.ok(manager.includes('personalizationStateUserId === userId'));
-  assert.ok(manager.includes('previous?.serviceImprovement === true && !next.serviceImprovement'));
+  assert.ok(manager.includes('previous?.serviceImprovement === true && next.serviceImprovement'));
 
   assert.ok(manager.includes('clearAnalyticsConsentQueues(userId, previous, next)'));
   assert.ok(manager.includes('getAccessToken(expectedUserId)'));
@@ -99,8 +97,9 @@ test('account consent sync is identity-bound, retryable and enforced server-side
   assert.ok(security.includes('new URL(referer).origin === requestOrigin'));
   assert.ok(serverConsent.includes('get_user_analytics_consent'));
   assert.ok(serverConsent.includes('personalizationEnabled'));
-  assert.ok(manager.includes('remote.personalizationEnabled'));
-  assert.ok(bootstrap.includes('p_service_improvement IS NOT TRUE'));
+  assert.doesNotMatch(manager, /effectivePersonalization|personalizationEnabled/);
+  assert.doesNotMatch(bootstrap, /Turn off personalisation before disabling Service improvement analytics/);
+  assert.match(bootstrap, /profile_refreshed_at = NULL/);
   assert.ok(manager.includes('clearAnalyticsConsentQueues'));
   assert.ok(topicRoute.includes('getStoredAnalyticsConsent(user.id)'));
   assert.ok(commentRoute.includes('getStoredAnalyticsConsent(user.id)'));
