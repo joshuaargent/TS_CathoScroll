@@ -39,12 +39,12 @@ function subscribe(onChange: () => void) {
 
 export function PrivacySafeAnalytics() {
   const { user, loading } = useAuth();
-  const userId = userId;
+  const userId = user?.id ?? null;
   useEffect(() => {
     if (!loading && userId === null) clearLegacyAnonymousAnalyticsConsent();
   }, [loading, userId]);
   const getSnapshot = useCallback(
-    () => hasAnalyticsConsent('serviceImprovement', user?.id ?? null),
+    () => hasAnalyticsConsent('serviceImprovement', userId),
     [userId]
   );
   const enabled = useSyncExternalStore(subscribe, getSnapshot, () => false);
