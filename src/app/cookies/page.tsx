@@ -66,15 +66,7 @@ export default function CookiesPage() {
           <h2 className="mb-4 text-3xl font-bold">Analytics and Performance Measurement</h2>
 
           <p className="text-text-secondary leading-relaxed">
-            Service improvement analytics measures signed-in topic and Top Comments engagement
-            and is optional unless personalisation is enabled. Signed-in events are linked to your
-            account and may reveal religious or philosophical interests. Separately, signed-out
-            topic and comment activity is counted by default as daily totals without account,
-            visitor or session identifiers; the request also sends no account cookies or bearer token. Declining optional analytics does not disable these
-            aggregates. You can object at any time using the control below; objecting stops new
-            events and clears pending anonymous events. Deduplication receipts are deleted after
-            30 days. Website retry batches stay in memory; Android and Electron store pending
-            signed-out events in app-private storage for up to seven days, capped at 2,000 events.
+            Service improvement analytics measures signed-in topic and Top Comments engagement only while you have enabled it. Events are linked to your account and may reveal religious or philosophical interests. CathoScroll does not collect anonymous topic or comment engagement statistics and does not create anonymous analytics queues. Website retries remain in memory; Android and Electron persist only opted-in signed-in events in encrypted app-private storage, capped at 2,000 events per stream and seven days, with acknowledgement deletion.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
