@@ -63,7 +63,7 @@ export function AnalyticsConsentSettingsPanel({
     setMessage('');
     try {
       const interim = {
-        serviceImprovement: previous?.serviceImprovement === true && next.serviceImprovement,
+        serviceImprovement: personalizationEnabled || (previous?.serviceImprovement === true && next.serviceImprovement),
         sponsorMeasurement: previous?.sponsorMeasurement === true && next.sponsorMeasurement,
       };
       if (!interim.serviceImprovement) denyAnalyticsConsentInMemory('serviceImprovement', userId);
@@ -134,7 +134,7 @@ export function AnalyticsConsentSettingsPanel({
           <span className="min-w-0">
             <span className="text-text-primary block text-sm font-semibold">Sponsor measurement</span>
             <span className="text-text-secondary mt-1 block text-sm leading-relaxed">
-              Measures sponsor viewability, clicks and frequency. Signed-out frequency uses a temporary session token. Sponsor placements still appear when this is off.
+              Measures sponsor viewability, clicks and frequency. Placement context may reveal religious or philosophical interests. Sponsor placements still appear when this is off.
             </span>
           </span>
         </label>
