@@ -28,7 +28,7 @@ The current implementation automatically enables and locks Service improvement a
 
 The anonymous statistical pipelines have been removed rather than relying on a statistical-purposes exception. This does not settle PECR for signed-in analytics. Inspect the actual browser and native storage/access behaviour of all analytics SDKs, WebViews, SQLite stores and identifiers. Obtain prior consent where required. Do not assume first-party, account-linked, memory-only or short-lived processing is exempt.
 
-Sponsor viewability, clicks and frequency are advertising measurement and are gated behind prior Sponsor measurement consent. No sponsor delivery count is collected for users who decline.
+Sponsor viewability, clicks and frequency are advertising measurement and are gated behind prior Sponsor measurement consent. For opted-in accounts, a short-lived server-issued placement receipt validates that the campaign was selected; it expires after seven days and is deleted on withdrawal. No sponsor delivery count is collected for users who decline.
 
 ## Data minimisation and retention
 
