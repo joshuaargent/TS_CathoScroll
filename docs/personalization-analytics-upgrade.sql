@@ -367,7 +367,7 @@ BEGIN
     FROM catho_private.feed_analytics_events e
     WHERE e.user_id=p_user_id
       AND v_service_improvement IS TRUE
-      AND e.received_at>=greatest(v_now-interval '90 days',coalesce(v_service_consent_at,v_consent_at)) AND e.received_at<v_now
+      AND e.received_at>=greatest(v_now-interval '90 days',v_service_consent_at,v_consent_at) AND e.received_at<v_now
       AND e.event_type IN ('viewable_impression','active_duration','swipe_depth','completion','return_visit')
     GROUP BY e.entity_id
   ),
@@ -377,7 +377,7 @@ BEGIN
     FROM catho_private.feed_analytics_events e
     WHERE e.user_id=p_user_id AND e.event_type='skip'
       AND v_service_improvement IS TRUE
-      AND e.received_at>=greatest(v_now-interval '90 days',coalesce(v_service_consent_at,v_consent_at)) AND e.received_at<v_now
+      AND e.received_at>=greatest(v_now-interval '90 days',v_service_consent_at,v_consent_at) AND e.received_at<v_now
     GROUP BY e.entity_id,e.session_id
   ),
   skip_scores AS (
@@ -418,7 +418,7 @@ BEGIN
     WHERE e.user_id=p_user_id AND e.card_type='top-comment'
       AND e.event_type IN ('viewable_impression','active_duration','open')
       AND v_service_improvement IS TRUE
-      AND e.received_at>=greatest(v_now-interval '90 days',coalesce(v_service_consent_at,v_consent_at)) AND e.received_at<v_now
+      AND e.received_at>=greatest(v_now-interval '90 days',v_service_consent_at,v_consent_at) AND e.received_at<v_now
   ),
   explicit_scores AS (
     SELECT topic_id,
