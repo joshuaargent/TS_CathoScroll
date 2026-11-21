@@ -38,3 +38,8 @@ Sponsor delivery remains available to all eligible visitors without measurement.
 - Verify no topic/category identifiers enter sponsor measurement payloads.
 - Verify native offline cache does not learn or update a profile while offline.
 - Verify anonymous analytics and sponsor delivery counters remain absent from code, SQL, admin/sponsor UI and tests.
+
+
+### Withdrawal and recomputation
+
+Service improvement withdrawal deletes raw topic and Top Comments events and viewer-bridge rows for that account, rebuilds recent daily aggregates from the remaining opted-in event records, and refreshes the recommendation profile without passive reading signals. Direct account actions and selected categories remain available to Personalisation while that separate choice is enabled. Sponsor measurement withdrawal deletes the account's sponsor event records and placement receipts and rebuilds recent campaign aggregates without that account's events.
