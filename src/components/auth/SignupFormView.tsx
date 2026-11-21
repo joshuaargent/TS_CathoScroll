@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { FormEvent } from 'react';
 import Link from 'next/link';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
@@ -25,6 +26,10 @@ export function SignupFormView({
   onToggleConfirmPassword: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
+  const [personalizationConsent, setPersonalizationConsent] = useState(false);
+  const [serviceImprovementConsent, setServiceImprovementConsent] = useState(false);
+  const [sponsorMeasurementConsent, setSponsorMeasurementConsent] = useState(false);
+
   return (
     <div className="container py-12">
       <div className="mt-8 mb-10">
@@ -115,22 +120,65 @@ export function SignupFormView({
               </button>
             </div>
 
-            <div className="border-border bg-bg-secondary/40 rounded-xl border p-3">
+            <div className="border-border bg-bg-secondary/40 space-y-4 rounded-xl border p-4">
               <label htmlFor="signup-personalization-consent" className="flex cursor-pointer items-start gap-2.5">
                 <input
                   id="signup-personalization-consent"
                   name="personalizationConsent"
                   type="checkbox"
                   value="true"
+                  checked={personalizationConsent}
+                  onChange={(event) => {
+                    setPersonalizationConsent(event.target.checked);
+                    if (event.target.checked) setServiceImprovementConsent(true);
+                  }}
                   disabled={loading || !online}
                   className="accent-accent mt-0.5 h-4 w-4 shrink-0"
                 />
                 <span className="text-text-secondary text-xs leading-relaxed">
-                  <span className="text-text-primary font-semibold">Optional — I explicitly consent to CathoScroll using my account actions, chosen interests and reading analytics (views, reading time, swipes, skips and completions), which may reveal religious or philosophical beliefs, to personalise my recommendations. This also enables Service improvement analytics while personalisation is on.</span>{' '}
-                  This is not needed to use CathoScroll. My profile is private, is not used for sponsor targeting, and I can turn off personalisation at any time in Account settings. Sponsor measurement is a separate choice. See the{' '}
-                  <Link href="/privacy" className="text-accent font-medium underline">Privacy Policy</Link>.
+                  <span className="text-text-primary font-semibold">Personalised recommendations — I explicitly consent</span>
+                  {' '}to using my account actions, chosen interests and reading activity to build a private recommendation profile. This may reveal religious or philosophical beliefs. Turning this on also enables Service improvement analytics. It is optional and can be withdrawn in Account settings.
                 </span>
               </label>
+
+              <label htmlFor="signup-service-analytics-consent" className="flex cursor-pointer items-start gap-2.5">
+                <input
+                  id="signup-service-analytics-consent"
+                  name="serviceImprovementConsent"
+                  type="checkbox"
+                  value="true"
+                  checked={personalizationConsent || serviceImprovementConsent}
+                  onChange={(event) => setServiceImprovementConsent(event.target.checked)}
+                  disabled={loading || !online || personalizationConsent}
+                  className="accent-accent mt-0.5 h-4 w-4 shrink-0"
+                />
+                <span className="text-text-secondary text-xs leading-relaxed">
+                  <span className="text-text-primary font-semibold">Service improvement analytics</span>
+                  {' '}— optional measurement of signed-in topic/comment engagement and site performance. Activity may reveal religious or philosophical interests. Required while personalisation is enabled.
+                </span>
+              </label>
+
+              <label htmlFor="signup-sponsor-measurement-consent" className="flex cursor-pointer items-start gap-2.5">
+                <input
+                  id="signup-sponsor-measurement-consent"
+                  name="sponsorMeasurementConsent"
+                  type="checkbox"
+                  value="true"
+                  checked={sponsorMeasurementConsent}
+                  onChange={(event) => setSponsorMeasurementConsent(event.target.checked)}
+                  disabled={loading || !online}
+                  className="accent-accent mt-0.5 h-4 w-4 shrink-0"
+                />
+                <span className="text-text-secondary text-xs leading-relaxed">
+                  <span className="text-text-primary font-semibold">Sponsor measurement</span>
+                  {' '}— optional viewability, click and frequency measurement. Sponsor placements still appear if this is off.
+                </span>
+              </label>
+
+              <p className="text-text-muted text-xs leading-relaxed">
+                All choices are optional and can be changed later. See the{' '}
+                <Link href="/privacy" className="text-accent font-medium underline">Privacy Policy</Link>.
+              </p>
             </div>
 
             {error && (
