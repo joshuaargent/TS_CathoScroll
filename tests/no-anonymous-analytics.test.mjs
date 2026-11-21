@@ -48,6 +48,21 @@ test('canonical database and existing-database upgrade remove anonymous analytic
     assert.match(finalModel, /ALTER TABLE public\.sponsor_campaigns DROP COLUMN IF EXISTS served_count/);
     assert.match(finalModel, /ALTER TABLE catho_private\.sponsor_campaign_daily DROP COLUMN IF EXISTS served_count/);
     assert.match(finalModel, /DROP TABLE IF EXISTS catho_private\.sponsor_campaign_user_frequency/);
+    assert.match(finalModel, /DROP FUNCTION IF EXISTS public\.get_admin_sponsor_analytics\(uuid, timestamptz, timestamptz\)/);
+    for (const name of [
+      'get_sponsor_campaign_analytics',
+      'get_admin_sponsor_analytics',
+      'get_admin_sponsor_campaign_analytics',
+      'get_admin_analytics_overview',
+      'get_admin_analytics_series',
+      'get_admin_analytics_deep_dive',
+      'record_sponsor_campaign_event',
+    ]) {
+      const start = finalModel.lastIndexOf('CREATE OR REPLACE FUNCTION public.' + name);
+      const end = finalModel.indexOf('$function$;', start);
+      assert.ok(start >= 0 && end > start, name + ' must exist in the final database model');
+      assert.doesNotMatch(finalModel.slice(start, end), /served_count|sponsor_served/);
+    }
   }
 });
 
