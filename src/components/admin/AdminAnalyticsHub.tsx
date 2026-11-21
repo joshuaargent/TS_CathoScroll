@@ -162,7 +162,6 @@ export function AdminAnalyticsHub({ overview, period, section = 'overview', seri
       <Metric label="Topic impressions" value={number(t.topic_impressions)} detail={number(t.topic_viewable_impressions) + ' viewable · ' + duration(t.topic_active_duration_ms) + ' active time'} icon={BookOpen} />
       <Metric label="Top Comments exposure" value={number(t.comment_card_impressions)} detail={number(t.comment_card_viewable_impressions) + ' viewable · ' + number(t.comment_card_opens) + ' discussion opens'} icon={MessageCircle} />
       <Metric label="Opted-in sponsor viewable impressions" value={number(t.sponsor_viewable_impressions)} detail={number(t.sponsor_clicks) + ' clicks from opted-in signed-in users'} icon={Megaphone} />
-      <Metric label="Topic active time" value={duration(t.topic_active_duration_ms)} detail="Opted-in time while topic cards were visible and active" icon={Activity} />
     </section>
     <section className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       <Metric label="Topic viewability" value={t.topic_impressions ? ((t.topic_viewable_impressions / t.topic_impressions) * 100).toFixed(1) + '%' : '—'} detail="Opted-in viewable impressions ÷ opted-in impressions" icon={Activity} />
