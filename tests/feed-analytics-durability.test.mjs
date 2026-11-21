@@ -103,7 +103,11 @@ test('feed analytics retains active-page events until server acknowledgement and
   assert.ok(analytics.includes("persistentOutbox.enqueue(userId, 'topic', event)"));
   assert.ok(analytics.includes('flush();'));
   assert.ok(analytics.includes("window.addEventListener('online', flush)"));
-  assert.ok(analytics.includes('if (!response.ok) break'));
+  assert.ok(analytics.includes('if (!response.ok) {'));
+  assert.ok(analytics.includes("rejection?.code === 'CONSENT_REQUIRED'"));
+  assert.ok(analytics.includes("denyAnalyticsConsentInMemory('serviceImprovement', userId)"));
+  assert.ok(analytics.includes('requestAnalyticsConsentSync()'));
+  assert.ok(analytics.includes('clearFeedAnalyticsOutbox(userId)'));
   assert.ok(analytics.includes("persistentOutbox.acknowledge(userId, 'topic', [...acceptedIds])"));
 });
 
