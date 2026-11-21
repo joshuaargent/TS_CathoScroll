@@ -85,7 +85,7 @@ export function SponsorFeedCard({
       const event = { campaignId: targetCampaignId, eventId: createEventId(), sessionId, eventType };
       return recordSponsorCampaignEvent(userId, event, getAccessToken, sponsorApiBaseUrl);
     },
-    [getAccessToken, placementKey, previewMode, sessionId, sponsorApiBaseUrl, sponsorMeasurementEnabled, userId]
+    [getAccessToken, previewMode, sessionId, sponsorApiBaseUrl, sponsorMeasurementEnabled, userId]
   );
 
   useEffect(() => {
