@@ -171,3 +171,19 @@ Signed-in consent is stored in catho_private.user_analytics_consents, with a pri
 When Sponsor measurement is declined, sponsor selection receives a null session token/ID. The database still increments campaign/day served totals but does not write anonymous session events, signed-in served-session events, or per-session/per-user frequency rows. The viewability/click event endpoints are gated. Sponsor delivery and campaign-wide caps continue.
 
 **Deployment status:** production is currently on `main` commit `e0da259` (20 November 2026). PR #40 is still open and is not deployed. The live database remains on the older `2026-11-19-v3` personalisation model, has one enabled v3 grant and has no account-level analytics consent rows. The PR #40 SQL upgrade changes the model to `activity-signals-v4`, revokes old v3 grants so users must explicitly re-consent, and removes signed-out sponsor session-token/event measurement. The latest preview is not yet verified against the latest branch head. The SQL upgrade and matching app release must be coordinated; browser/native end-to-end verification and controller/legal approval remain outstanding.
+
+
+## Canonical four-system analytics model and controls (21 November 2026)
+
+CathoScroll separates these purposes:
+
+1. **Anonymous sponsor measurement:** aggregate campaign/day served placements, viewable impressions, clicks, total/average visible duration and aggregate delivery frequency/pacing. The design must not retain account, visitor, persistent session or cross-site identifiers, or individual browsing histories. Temporary event tokens, if technically necessary, remain memory-only and are discarded after aggregation. Signed-in and signed-out sponsor reporting must use one aggregate model rather than an account-linked raw event ledger.
+2. **Service improvement analytics:** overall platform performance and engagement, including topic impressions/completions, reading duration/skips, comment exposure/engagement, and category/topic performance.
+3. **Personalisation:** a private recommendation profile derived from permitted account activity and reading signals only while enabled. It changes organic recommendation ranking, not sponsor targeting. Withdrawal stops new signals and removes the derived profile.
+4. **General feed ranking:** a non-personalised baseline using site-wide engagement, public interactions, recency and exposure balancing. It is used by signed-out visitors and signed-in users without personalisation. Sponsors never affect organic ranking.
+
+The Privacy page exposes two compact, independent anonymous controls: (a) **Anonymous topic and comment statistics**, which objects to signed-out service-improvement statistics; and (b) **Anonymous sponsor measurement**, which withdraws from all optional anonymous sponsor metrics together. Neither objection removes sponsor placements. Signed-in users retain separate account controls for Service improvement analytics, Sponsor measurement and Personalisation.
+
+The native outbox for anonymous topic/comment service-improvement events remains appropriate for offline operation: it is app-private, bounded, short-lived, and must be cleared immediately on objection. It stores no account or persistent visitor/session identity. By contrast, anonymous sponsor measurement must not have a persistent native queue; transient events are memory-only and may be dropped on process exit. The current signed-in sponsor outbox containing event/session/campaign identifiers is not the target architecture and must be removed during sponsor-pipeline unification.
+
+These are product and technical requirements, not a legal conclusion. PECR applicability depends on actual device storage/access and the advertising consent context; the statistical-purposes exception must not be used for sponsor measurement. UK GDPR still requires assessment of request metadata, transient event processing, aggregation, processor logs and retention.
