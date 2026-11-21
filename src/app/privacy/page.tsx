@@ -257,7 +257,7 @@ export default function PrivacyPage() {
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            Sponsor delivery is separate from Sponsor measurement. Sponsor cards remain available when measurement is off. Detailed sponsor viewability, clicks and frequency are measured only for signed-in users who explicitly enable Sponsor measurement. These events are account-linked and may reveal religious or philosophical interests. No anonymous sponsor engagement events, delivery counters, served totals or anonymous frequency records are collected. Sponsor measurement is never used for recommendations or religious-interest targeting.
+            Sponsor delivery is separate from Sponsor measurement. Sponsor cards remain available when measurement is off. Detailed sponsor viewability, clicks and frequency are measured only for signed-in users who explicitly enable Sponsor measurement. These events are account-linked and may reveal religious or philosophical interests. A server-issued placement receipt is used to verify that a measured campaign was selected; it is retained for up to seven days and deleted when Sponsor measurement is withdrawn. No anonymous sponsor engagement events, delivery counters, served totals or anonymous frequency records are collected. Sponsor measurement is never used for recommendations or religious-interest targeting.
           </p>
         </section>
 
@@ -323,7 +323,7 @@ export default function PrivacyPage() {
           <h2 className="mb-4 text-3xl font-bold">Data Retention</h2>
 
           <p className="text-text-secondary leading-relaxed">
-            We retain information only for as long as reasonably necessary for the purpose for which it was collected, subject to legal, security, moderation, and accounting requirements. Raw signed-in feed, community-card and sponsor-campaign analytics events, together with the user/day viewer bridge used for unique-viewer reporting, are retained for up to 180 days. Signed-in sponsor frequency limits are derived from the opted-in viewable-impression event ledger; no separate per-user frequency table is retained. No anonymous sponsor engagement or delivery counters are created or retained. Signed-in analytics consent choices and their change history are retained for as long as needed to demonstrate and administer your choice, subject to account deletion and applicable legal requirements.
+            We retain information only for as long as reasonably necessary for the purpose for which it was collected, subject to legal, security, moderation, and accounting requirements. Raw signed-in feed, community-card and sponsor-campaign analytics events, together with the user/day viewer bridge used for unique-viewer reporting, are retained for up to 180 days. Server-issued sponsor placement receipts used to validate opted-in viewability and clicks expire after seven days and are deleted when Sponsor measurement is withdrawn. Signed-in sponsor frequency limits are derived from the opted-in viewable-impression event ledger; no separate per-user frequency table is retained. No anonymous sponsor engagement or delivery counters are created or retained. Signed-in analytics consent choices and their change history are retained for as long as needed to demonstrate and administer your choice, subject to account deletion and applicable legal requirements.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
