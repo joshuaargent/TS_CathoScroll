@@ -225,15 +225,17 @@ The Top Comments selector first materializes at most the newest 5,000 eligible r
 
 The product has four separate systems. They must not be collapsed into one consent purpose or one ranking algorithm:
 
-- **Anonymous sponsor measurement:** a separate anonymous campaign pipeline for served placements, viewable impressions, clicks, visible duration and aggregate campaign frequency/pacing. It must not retain account IDs, visitor IDs, persistent session IDs, cross-site identifiers or individual browsing histories. Any temporary placement/event token is memory-only, short-lived and discarded after aggregation. Signed-in opted-in sponsor measurement remains a separate account-linked stream with its own encrypted native outbox; the two sources may contribute to campaign-level reporting but must remain distinguishable.
-- **Service improvement analytics:** platform-wide topic impressions/completions, reading duration/skips, comment exposure/engagement, and category/topic performance. Signed-out topic/comment events are daily entity aggregates and have their own Privacy-page objection.
-- **Personalisation:** a private recommendation profile built from permitted account activity and reading signals only while enabled. It controls organic recommendation ranking, never sponsor targeting. Withdrawal stops new signals and removes the derived profile.
-- **General feed ranking:** the non-personalised baseline for signed-out and non-personalised signed-in users. It uses site-wide engagement statistics, public interactions, recency and exposure balancing, not an individual's private reading history. Sponsors never influence organic ranking.
+## Analytics and consent architecture
 
-The Privacy page has two independent anonymous measurement controls: **Anonymous topic and comment statistics** and **Anonymous sponsor measurement**. Each objection disables only its corresponding optional measurement; neither removes sponsor placements. Signed-in users retain separate account settings for Service improvement analytics, Sponsor measurement and Personalisation.
+CathoScroll does not collect anonymous topic/comment engagement, anonymous sponsor measurement or sponsor delivery counters. Signed-out visitors and signed-in users without the relevant opt-in create no analytics events, delivery totals, anonymous identifiers, retry queues or database aggregates.
 
-### Native queue policy
+- **Service improvement analytics:** optional signed-in account-linked topic and Top Comments engagement.
+- **Sponsor measurement:** separate optional signed-in viewability, clicks and frequency, derived only from consented viewable-impression events.
+- **Personalisation:** separate optional private recommendation profile.
+- **General ranking:** public interactions, curated order, recency and category exposure balancing; no anonymous analytics or sponsor activity.
 
-The native app-private outbox for anonymous topic/comment service-improvement analytics remains intentional. It supports offline event capture and later upload as daily aggregates. It is bounded (2,000 events), expires after seven days, deletes acknowledged events, and must be cleared immediately when the anonymous topic/comment objection is enabled. It must not contain account IDs or persistent visitor/session identifiers.
+Sponsor placements remain available when measurement is off. The delivery selector creates no served event or campaign/day counter. Campaign caps, where configured, apply only to opted-in viewable impressions and do not represent all deliveries.
 
-Anonymous sponsor measurement must not use a persistent native queue. Sponsor measurement events are transient and memory-only; events that cannot be delivered during the current app process may be dropped rather than replayed after restart. This avoids retaining an individual sponsor interaction history on-device. The signed-in sponsor event outbox is retained for users who explicitly opt in to Sponsor measurement; it is encrypted, account-scoped, bounded, short-lived and cleared on withdrawal/account change. Anonymous sponsor events are never written to that outbox and remain memory-only. Sponsor delivery remains independent of both anonymous objections.
+Website analytics retry queues are memory-only. Android and Electron persist only opted-in signed-in analytics in encrypted, account-scoped SQLite outboxes capped at 2,000 events per stream and seven days, with acknowledgement deletion and withdrawal/account-change cleanup. No anonymous native outbox exists.
+
+Consent withdrawal immediately blocks local collection, clears the matching pending stream, aborts uploads and synchronises the denial to the server when connectivity returns. Sponsor measurement must never be used for organic ranking, recommendation profiles or religious-interest sponsor targeting.
