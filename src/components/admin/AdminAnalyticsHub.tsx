@@ -142,7 +142,7 @@ export function AdminAnalyticsHub({ overview, period, section = 'overview', seri
     <nav aria-label="Analytics views" className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
       {[
         { value: 'overview', label: 'Overall', description: 'Opted-in activity and trends', count: number(totalFeedEngagement), suffix: 'feed events', icon: Activity },
-        { value: 'categories', label: 'Categories', description: 'Reach by category', count: number(t.category_count), suffix: 'categories', icon: BarChart3 },
+        { value: 'categories', label: 'Categories', description: 'Opted-in activity by category', count: number(t.category_count), suffix: 'categories', icon: BarChart3 },
         { value: 'topics', label: 'Topics', description: 'Reading and completion', count: number(t.topic_count), suffix: 'topics', icon: BookOpen },
         { value: 'sponsors', label: 'Sponsors', description: 'Opted-in campaign measurement', count: number(t.sponsor_count), suffix: 'sponsors', icon: Megaphone },
         { value: 'comments', label: 'Comments', description: 'Exposure and community activity', count: number(t.comment_count), suffix: 'comments', icon: MessageCircle },
@@ -176,7 +176,7 @@ export function AdminAnalyticsHub({ overview, period, section = 'overview', seri
 
 
     <section className="mt-10 grid gap-5 lg:grid-cols-2">
-      {(section === 'overview' || section === 'categories') && <SectionCard title="Categories" description="Compare category reach and topic coverage." count={number(t.category_count)} href={sectionHref('categories')} icon={BarChart3}>
+      {(section === 'overview' || section === 'categories') && <SectionCard title="Categories" description="Compare opted-in category impressions and topic coverage." count={number(t.category_count)} href={sectionHref('categories')} icon={BarChart3}>
         {categories.map((item) => <EntityLink key={item.slug} href={`/categories/${encodeURIComponent(item.slug)}/analytics?period=${period}`} title={item.name} detail={number(item.topic_count) + ' topics'} metric={number(item.impressions) + ' opted-in impressions'} />)}
         {categories.length === 0 && <p className="text-text-muted text-sm">No categories available.</p>}
       </SectionCard>}
