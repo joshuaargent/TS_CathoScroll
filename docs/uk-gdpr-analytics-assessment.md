@@ -71,7 +71,7 @@ Sponsor measurement reports must include only account-linked events from users w
 
 ## 6. Retention and technical controls
 
-- Signed-in raw feed/community/sponsor event records and the restricted viewer bridge: up to 180 days under the current implementation.
+- Signed-in raw feed/community/sponsor event records, the restricted viewer bridge and associated event-rate-limit records: up to 180 days under the current implementation.
 - Native pending signed-in analytics: encrypted app-private storage, maximum 2,000 events per stream, seven-day expiry, acknowledgement deletion and account/consent cleanup.
 - Website pending signed-in analytics: memory-only retry queues.
 - Derived Personalisation profile: delete on Personalisation withdrawal; retain no longer than required for the active recommendation purpose.
