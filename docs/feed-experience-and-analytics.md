@@ -137,13 +137,13 @@ Topic analytics should cover, where data exists:
 
 Category analytics aggregate topic-level metrics and show topic leaders, topic distribution, growth, engagement, completion, and areas with limited content. Distinguish historical metrics that are unavailable from true zero values. Do not fabricate historical impressions or viewing time from existing likes/comments.
 
-Sponsor analytics are separate and show eligible opportunities, viewable impressions, unique reach where measurable, clicks, click-through rate, frequency, and campaign trends. Sponsor dashboards expose only aggregate metrics for their own sponsor and never user identities or raw events.
+Sponsor analytics are separate and show only opted-in viewable impressions, clicks, click-through rate and frequency. Sponsor dashboards expose aggregate metrics for their own sponsor and never user identities or raw events. They do not report total delivery or reach across all visitors.
 
 ## Sponsor placement eligibility and retry behaviour
 
 The feed distinguishes a successful empty campaign selection from a failed sponsor request. A successful empty response is cached for the topic/session so the same ineligible slot is not repeatedly requested. Authentication, HTTP, timeout and network failures are not cached as empty inventory; the topic's due sponsor slot remains eligible for a retry when revisited. A stale request cannot clear a newer in-flight retry.
 
-The sponsor API can correctly return an empty campaign list when every campaign is ineligible because of date, approval/payment status, targeting, impression caps or per-user frequency caps. This is not a rendering failure: the feed skips the unavailable placement and continues without duplicating a topic. In particular, test campaigns with a five-serves-per-user-per-24-hour cap stop appearing after five successful served events until that rolling cap permits another serve.
+The sponsor API can correctly return an empty campaign list when every campaign is ineligible because of date, approval/payment status or targeting. For opted-in users, configured viewable-impression and per-account frequency caps can also make a campaign ineligible. These caps do not cover unmeasured deliveries, which are deliberately not recorded or counted. This is not a rendering failure: the feed skips the unavailable placement and continues without duplicating a topic.
 
 ## Future topic-card artwork
 
@@ -162,7 +162,7 @@ Run these checks against a preview with test comments and at least two eligible 
 1. **Cadence, group size and ordering:** after five topic advances, Top Comments appears once and contains no more than five comments. With seven eligible unseen comments, the first group reserves five and leaves the remaining two eligible for a later group. At the shared tenth-topic boundary, the order is topic → Top Comments → Sponsored → next topic. No topic is duplicated to make room for either interstitial.
 2. **Forward/reverse traversal:** verify topic A → comment group A → sponsor A → topic B, then reverse topic B → sponsor A → comment group A → topic A. Repeat several times without refreshing.
 3. **Comment position:** move to the second or later comment in a group, leave the group, then revisit it in both directions. The same group and active comment position must return.
-4. **Sponsor identity:** revisiting a sponsor placement must reuse the same campaign and placement/session ID. It must not select a new campaign or increment served count again.
+4. **Sponsor identity:** revisiting an opted-in sponsor placement must reuse the same campaign and placement receipt. It must not create a duplicate viewability event.
 5. **No eligible sponsor:** the due slot is omitted without a blank card, duplicated topic or stuck loading surface. The same empty result is reused for that topic during the session.
 6. **Slow/failing sponsor request:** throttle the network, advance from Top Comments while prefetch is pending, then reverse and advance again. The loading card must remain swipeable, time out cleanly, and ignore late responses after the active entry changes.
 7. **Pagination boundary:** throttle the next topic page and swipe forward at the final loaded topic. A successful page satisfies the pending gesture once; a reverse gesture cancels it. Duplicate IDs never append and prior topic positions remain unchanged.
