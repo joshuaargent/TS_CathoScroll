@@ -413,13 +413,16 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
     } catch (cause) {
       console.error('Unable to apply analytics preferences:', cause);
       setError('Your preference could not be fully saved or pending events could not be cleared. Optional analytics remain disabled until you retry.');
+      let denialPersisted = false;
       try {
         denyAnalyticsConsentInMemory('serviceImprovement', userId);
         denyAnalyticsConsentInMemory('sponsorMeasurement', userId);
-        saveAnalyticsConsent({ serviceImprovement: false, sponsorMeasurement: false }, userId);
+        saveAnalyticsConsent({ serviceImprovement: false, sponsorMeasurement: false }, userId, { syncPending: Boolean(userId) });
+        denialPersisted = true;
       } catch {
         // Keep the modal open and fail closed in memory.
       }
+      if (denialPersisted) void syncServerConsent();
       setServiceImprovement(false);
       setSponsorMeasurement(false);
     } finally {
