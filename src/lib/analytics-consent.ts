@@ -132,6 +132,7 @@ export function clearLegacyAnonymousAnalyticsConsent(): void {
   const key = storageKeyForUser(null);
   try {
     window.localStorage.removeItem(key);
+    window.localStorage.removeItem('cathoscroll.anonymous-analytics.enabled.v1');
   } catch {
     // The signed-out consent gate still returns false if storage is unavailable.
   }
