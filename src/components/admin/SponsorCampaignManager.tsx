@@ -292,7 +292,7 @@ export function SponsorCampaignManager({
                 <input name="frequencyCapPerUserTotal" type="number" min="1" max="50" step="1" defaultValue="3" required className="border-border bg-bg-primary mt-2 w-full rounded-lg border px-3 py-2.5" />
               </label>
               <label className="block text-sm font-medium">
-                Total campaign impression cap
+                Lifetime opted-in viewable-impression cap
                 <input name="totalImpressionCap" type="number" min="1" max="100000000000" step="1" className="border-border bg-bg-primary mt-2 w-full rounded-lg border px-3 py-2.5" placeholder="Unlimited" />
               </label>
             </div>
