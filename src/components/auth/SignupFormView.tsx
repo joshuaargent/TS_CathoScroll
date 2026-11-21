@@ -171,7 +171,7 @@ export function SignupFormView({
                 />
                 <span className="text-text-secondary text-xs leading-relaxed">
                   <span className="text-text-primary font-semibold">Sponsor measurement — I explicitly consent</span>
-                  {' '}— optional account-linked viewability, click and frequency measurement using a temporary session token. Placement context may reveal religious or philosophical interests. Sponsor placements still appear if this is off.
+                  {' '}— optional account-linked viewability, click and frequency measurement. Placement context may reveal religious or philosophical interests. Sponsor placements still appear if this is off.
                 </span>
               </label>
 
