@@ -46,7 +46,8 @@ test('optional analytics consent is explicit, purpose-specific and off by defaul
   assert.ok(signup.includes('name="serviceImprovementConsent"'));
   assert.ok(signup.includes('name="sponsorMeasurementConsent"'));
   assert.ok(signup.includes('I explicitly consent'));
-  assert.ok(signup.includes('Required while personalisation is enabled.'));
+  assert.ok(signup.includes('Passive reading signals are used for recommendations only if you separately enable Service improvement analytics.'));
+  assert.doesNotMatch(signup, /Required while personalisation is enabled/);
   assert.ok(layout.includes('<WebAnalyticsConsentManager />'));
   assert.ok(native.includes('<AnalyticsConsentManager'));
   assert.ok(native.includes("loading={authStatus === 'loading' || checkingAccount}"));
