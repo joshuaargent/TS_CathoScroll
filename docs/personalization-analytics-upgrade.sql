@@ -1269,9 +1269,6 @@ BEGIN
   WHERE NOT EXISTS (
     SELECT 1
     FROM catho_private.user_personalization_consents AS c
-    JOIN catho_private.user_analytics_consents AS a
-      ON a.user_id = c.user_id
-     AND a.service_improvement = true
     WHERE c.user_id = i.user_id
       AND c.enabled = true
       AND c.consent_version = '2026-11-20-v4'
