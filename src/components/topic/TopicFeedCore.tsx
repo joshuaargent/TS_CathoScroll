@@ -46,18 +46,10 @@ function appendUniqueFeedTopics(existing: Topic[], incoming: Topic[]): Topic[] {
   return additions.length > 0 ? [...existing, ...additions] : existing;
 }
 
-let ephemeralSponsorSessionId: string | null = null;
-
 function createSponsorPlacementId(): string | null {
   return typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
     ? crypto.randomUUID()
     : null;
-}
-
-function createSponsorSessionId(): string | null {
-  if (ephemeralSponsorSessionId) return ephemeralSponsorSessionId;
-  ephemeralSponsorSessionId = createSponsorPlacementId();
-  return ephemeralSponsorSessionId;
 }
 type ViewerProps = {
   topics: Topic[];
@@ -175,8 +167,7 @@ export function TopicFeedCore({
   useEffect(() => {
     if (sponsorSessionUserId.current === userId) return;
     sponsorSessionUserId.current = userId;
-    // Never reuse an anonymous sponsor session token across sign-in/account changes.
-    ephemeralSponsorSessionId = null;
+    // Clear sponsor placement IDs and cached selections across account changes.
     seenTopCommentUserId.current = userId;
     topCommentCadenceUserId.current = userId;
     seenTopCommentIds.current.clear();
@@ -407,9 +398,8 @@ export function TopicFeedCore({
       if ((detail?.userId ?? null) !== (userId ?? null)) return;
       if (hasAnalyticsConsent('sponsorMeasurement', userId)) return;
 
-      // Remove any token created before withdrawal from both the feed cache and
-      // the currently mounted card. Campaign delivery remains in the queue.
-      ephemeralSponsorSessionId = null;
+      // Remove placement IDs created before withdrawal from the feed cache and
+      // currently mounted card. Campaign delivery remains in the queue.
       sponsorResultsByTopicId.current.clear();
       sponsorCardsByTopicId.current.clear();
 
