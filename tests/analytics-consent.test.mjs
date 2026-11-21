@@ -70,7 +70,7 @@ test('account consent sync is identity-bound, retryable and enforced server-side
   assert.ok(manager.includes("window.addEventListener('online', syncServerConsent)"));
   assert.ok(manager.includes('local.syncPending || !remote.exists'));
   assert.ok(manager.includes('pendingChoices'));
-  assert.ok(manager.includes('serviceImprovement: remote.personalizationEnabled ? true : local.serviceImprovement'));
+  assert.ok(manager.includes('serviceImprovement: local.serviceImprovement'));
   assert.ok(manager.includes('sponsorMeasurement: local.sponsorMeasurement'));
   assert.ok(manager.includes('if (!managingRef.current)'));
   assert.ok(manager.includes('managingRef.current = true'));
