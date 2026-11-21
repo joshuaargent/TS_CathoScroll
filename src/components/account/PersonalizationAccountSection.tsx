@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ShieldCheck, Sparkles } from 'lucide-react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import { AnalyticsConsentSettingsButton } from '@/components/privacy/AnalyticsConsentManager';
+import { AnalyticsConsentSettingsPanel } from '@/components/account/AnalyticsConsentSettingsPanel';
 import { analyticsConsentSyncEvent } from '@/lib/analytics-consent';
 import { Button } from '@/components/ui/Button';
 
@@ -371,23 +371,11 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
           </p>
         </div>
 
-        <div className="border-border mt-6 border-t pt-5">
-          <h3 className="font-semibold">Analytics choices</h3>
-          <p className="text-text-muted mt-1 text-sm leading-relaxed">
-            Service improvement analytics is required while personalisation is enabled and also supports operational reporting. You can turn it off after disabling personalisation. Sponsor measurement remains independent.
-          </p>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <div className="bg-bg-secondary/50 rounded-xl p-4">
-              <p className="font-semibold text-sm">Service improvement analytics</p>
-              <p className="text-text-muted mt-1 text-sm">Measures topic and comment engagement and site performance. It also supplies reading signals to your private recommendations while personalisation is enabled.</p>
-            </div>
-            <div className="bg-bg-secondary/50 rounded-xl p-4">
-              <p className="font-semibold text-sm">Sponsor measurement</p>
-              <p className="text-text-muted mt-1 text-sm">Optional sponsor viewability, clicks and frequency. Sponsored placements continue if this is off.</p>
-            </div>
-          </div>
-          <p className="mt-4"><AnalyticsConsentSettingsButton /></p>
-        </div>
+        <AnalyticsConsentSettingsPanel
+          userId={accountUserId}
+          personalizationEnabled={status.enabled}
+          disabled={loading || !accountUserId}
+        />
 
         {error && (
           <div role="alert" className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
