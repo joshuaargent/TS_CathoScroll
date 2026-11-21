@@ -1238,6 +1238,8 @@ NOTIFY pgrst, 'reload schema';
 
 -- Remove all legacy anonymous analytics storage and entry points.
 DROP FUNCTION IF EXISTS public.get_admin_anonymous_analytics(uuid, timestamptz, timestamptz, text, text);
+DROP FUNCTION IF EXISTS public.get_anonymous_sponsor_campaigns(text, text, text, integer);
+DROP FUNCTION IF EXISTS public.record_anonymous_sponsor_campaign_event(text, uuid, text, uuid, text);
 DROP FUNCTION IF EXISTS public.record_anonymous_feed_analytics(jsonb);
 DROP FUNCTION IF EXISTS catho_private.prune_anonymous_analytics();
 DROP TABLE IF EXISTS catho_private.anonymous_sponsor_session_frequency;
