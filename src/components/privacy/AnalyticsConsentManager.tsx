@@ -256,7 +256,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
       ) return;
 
       const local = readAnalyticsConsent(expectedUserId);
-      if (local && (local.syncPending || !remote.exists)) {
+      if (local?.syncPending === true) {
         // Preserve the user's local denial. If the server confirms that
         // personalisation is still enabled, its consent rule rejects this
         // pending Service improvement withdrawal; never silently re-enable
@@ -319,6 +319,30 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
         if (!managingRef.current) {
           setVisible(false);
           setManaging(false);
+        }
+        return;
+      }
+
+      if (!remote.exists) {
+        // A missing server row is the authoritative undecided state after a
+        // consent reset. Never replay a previously synced local grant into it.
+        // A genuinely new offline choice is handled above via syncPending.
+        denyAnalyticsConsentInMemory('serviceImprovement', expectedUserId);
+        denyAnalyticsConsentInMemory('sponsorMeasurement', expectedUserId);
+        try {
+          window.localStorage.removeItem(getAnalyticsConsentStorageKey(expectedUserId));
+        } catch (cause) {
+          console.warn('Unable to clear stale local analytics consent:', cause);
+        }
+        await clearAnalyticsConsentQueues(expectedUserId, null, {
+          serviceImprovement: false,
+          sponsorMeasurement: false,
+        });
+        if (!isCurrentAccount()) return;
+        hydrate(null);
+        if (!managingRef.current) {
+          setManaging(false);
+          setVisible(true);
         }
         return;
       }
