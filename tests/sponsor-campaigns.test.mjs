@@ -31,7 +31,8 @@ test('campaign inventory is private and supports bounded, weighted delivery', ()
   assert.match(bootstrap, /REVOKE ALL ON TABLE public\.sponsor_campaigns FROM PUBLIC, anon, authenticated, service_role/);
   assert.match(bootstrap, /CREATE TABLE catho_private\.sponsor_campaign_events/);
   assert.match(bootstrap, /CREATE TABLE catho_private\.sponsor_campaign_daily/);
-  assert.match(bootstrap, /DROP TABLE IF EXISTS catho_private\.sponsor_campaign_user_frequency/);
+  assert.doesNotMatch(bootstrap, /CREATE TABLE catho_private\.sponsor_campaign_user_frequency/);
+  assert.doesNotMatch(bootstrap, /served_count bigint NOT NULL/);
   assert.match(bootstrap, /sponsor_campaign_events_one_viewable_per_session_idx/);
   assert.match(bootstrap, /sponsor_campaign_events_one_click_per_session_idx/);
   assert.match(bootstrap, /cathoscroll-prune-sponsor-campaign-events/);
@@ -61,7 +62,7 @@ test('weighted campaign selector enforces payment, dates, targeting, caps and co
   assert.match(selector, /campaign\.placement_weight/);
   assert.match(selector, /daily\.viewable_impressions/);
   assert.match(selector, /daily\.event_date >= v_today - 29/);
-  assert.match(selector, /viewable_impressions[\s\S]*placement_weight::numeric ASC/);
+  assert.match(selector, /viewable_impressions[\s\S]*placement_weight::numeric \/ \(1 \+ coalesce/);
   assert.match(selector, /p_limit > 1/);
   assert.doesNotMatch(selector, /ORDER BY -pg_catalog\.ln\(greatest\(pg_catalog\.random/);
 });
@@ -96,7 +97,9 @@ test('measured and unmeasured sponsor selectors never count deliveries', () => {
   assert.match(signedIn, /daily_impression_cap/);
   assert.match(signedIn, /total_impression_cap/);
   assert.match(signedIn, /daily\.viewable_impressions/);
-  assert.match(signedIn, /placement_weight::numeric ASC/);
+  assert.match(signedIn, /placement_weight::numeric \/ \(1 \+ coalesce/);
+  assert.match(signedIn, /sponsor_campaign_placement_receipts/);
+  assert.match(signedIn, /measurement_receipt/);
 
   assert.doesNotMatch(unmeasured, /p_session_token|session_token|session_id/);
   assert.match(unmeasured, /p_category_slug/);
@@ -115,12 +118,16 @@ test('sponsor event recording requires explicit consent and only records viewabi
   assert.match(recorder, /event_type = 'viewable_impression'/);
   assert.doesNotMatch(recorder, /event_type\s*=\s*'served'/);
   assert.doesNotMatch(recorder, /served_count/);
+  assert.match(recorder, /p_placement_receipt/);
+  assert.match(recorder, /receipt\.id = p_placement_receipt/);
   assert.match(recorder, /ON CONFLICT DO NOTHING/);
   assert.match(recorder, /sponsor_campaign_daily/);
   assert.match(eventRoute, /getAuthenticatedUserFromRequest/);
   assert.match(eventRoute, /isSameOriginOrNativeRequest/);
   assert.match(eventRoute, /checkApiRateLimit/);
   assert.match(eventRoute, /if \(!consent\.sponsorMeasurement\) return respond/);
+  assert.match(eventRoute, /placementReceipt/);
+  assert.match(eventRoute, /p_placement_receipt: placementReceipt/);
 });
 
 test('sponsored feed cards are disclosed and inserted separately from organic recommendations', () => {
