@@ -12,6 +12,12 @@ export interface RankedFeedPage {
   nextCursor: RankedFeedCursor | null;
 }
 
+export interface CachedPersonalizationConsent {
+  enabled: boolean;
+  checkedAt: string;
+  pendingSync: boolean;
+}
+
 const maximumPagesPerOwner = 30;
 const maximumPageAgeMs = 14 * 24 * 60 * 60 * 1000;
 const consentFreshnessMs = 12 * 60 * 60 * 1000;
@@ -197,6 +203,35 @@ export class OfflineRankedFeedCache {
       if (rows.length !== 1 || rows[0].enabled !== 1 || typeof rows[0].checked_at !== 'string') return false;
       const checkedAt = Date.parse(rows[0].checked_at);
       return Number.isFinite(checkedAt) && checkedAt <= Date.now() && Date.now() - checkedAt <= consentFreshnessMs;
+    });
+  }
+
+  async getCachedConsent(userId: string): Promise<CachedPersonalizationConsent | null> {
+    assertOwner('personalized', userId);
+    if (!this.allowPersonalizedCache) throw new Error('Personalisation consent must use encrypted private storage.');
+    return this.database.transaction(async (db) => {
+      await this.prune(db);
+      const rows = await db.query(
+        'SELECT enabled, checked_at, pending_sync FROM offline_personalization_consent_cache WHERE user_id = ?',
+        [userId]
+      );
+      if (
+        rows.length !== 1 ||
+        (rows[0].enabled !== 0 && rows[0].enabled !== 1) ||
+        typeof rows[0].checked_at !== 'string' ||
+        (rows[0].pending_sync !== 0 && rows[0].pending_sync !== 1)
+      ) return null;
+      const checkedAt = Date.parse(rows[0].checked_at);
+      const pendingSync = rows[0].pending_sync === 1;
+      if (
+        !pendingSync &&
+        (!Number.isFinite(checkedAt) || checkedAt > Date.now() || Date.now() - checkedAt > consentFreshnessMs)
+      ) return null;
+      return {
+        enabled: rows[0].enabled === 1,
+        checkedAt: rows[0].checked_at,
+        pendingSync,
+      };
     });
   }
 
