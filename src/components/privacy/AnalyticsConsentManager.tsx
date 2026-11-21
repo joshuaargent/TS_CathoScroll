@@ -450,10 +450,9 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
   useEffect(() => {
     if (loading) return;
 
-    // Retire old signed-out grants from the former consent popup. Detailed
-    // Service improvement and Sponsor measurement are now account-only
-    // choices; signed-out visitors use the separate aggregate-statistics
-    // objection control instead.
+    // Retire old signed-out grants from the former consent popup. Optional
+    // Service improvement and Sponsor measurement are account-only choices;
+    // signed-out visitors have no optional analytics collection or controls.
     const legacySignedOutConsent = readAnalyticsConsent(null);
     if (legacySignedOutConsent?.serviceImprovement || legacySignedOutConsent?.sponsorMeasurement) {
       denyAnalyticsConsentInMemory('serviceImprovement', null);
@@ -595,7 +594,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
               <input
                 type="checkbox"
                 checked={serviceImprovement}
-                disabled={saving || effectivePersonalizationEnabled || !effectivePersonalizationStatusKnown}
+                disabled={saving || effectivePersonalizationEnabled || (!effectivePersonalizationStatusKnown && !serviceImprovement)}
                 onChange={(event) => setServiceImprovement(event.target.checked)}
                 className="accent-accent mt-1 h-4 w-4 shrink-0"
               />
