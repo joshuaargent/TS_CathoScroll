@@ -82,7 +82,7 @@ When service analytics is disabled:
 - Keep recommendation personalisation state independent; it remains controlled only by signup/Account consent.
 
 When sponsor measurement is disabled:
-- Stop creating signed-in and signed-out client viewability/click/frequency events immediately.
+- Stop creating signed-in client viewability/click/frequency events immediately; signed-out client events are not created under the current design.
 - Clear unsent sponsor measurement events and any visitor/session frequency token/hash attributable to that preference, subject to database deletion design.
 - Continue sponsor delivery and global campaign pacing/caps.
 - For this visitor, record only server-side campaign/day served-placement aggregates. Do not claim viewability, clicks, CTR, unique reach or per-person frequency for opted-out delivery.
