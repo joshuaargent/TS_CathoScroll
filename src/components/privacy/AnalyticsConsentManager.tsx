@@ -415,8 +415,8 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
       setError('Your preference could not be fully saved or pending events could not be cleared. Optional analytics remain disabled until you retry.');
       try {
         denyAnalyticsConsentInMemory('serviceImprovement', userId);
-      denyAnalyticsConsentInMemory('sponsorMeasurement', userId);
-      saveAnalyticsConsent({ serviceImprovement: false, sponsorMeasurement: false }, userId);
+        denyAnalyticsConsentInMemory('sponsorMeasurement', userId);
+        saveAnalyticsConsent({ serviceImprovement: false, sponsorMeasurement: false }, userId);
       } catch {
         // Keep the modal open and fail closed in memory.
       }
@@ -577,7 +577,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
                 className="accent-accent mt-1 h-4 w-4 shrink-0"
               />
               <span className="min-w-0">
-                <span className="text-text-primary block font-semibold">I explicitly agree to Service improvement analytics</span>
+                <span className="text-text-primary block font-semibold">I explicitly consent to Service improvement analytics</span>
                 <span className="text-text-secondary mt-1 block text-sm leading-relaxed">
                   Measures signed-in topic and Top Comments engagement plus Vercel site/performance analytics. Account-linked activity may reveal religious or philosophical beliefs. These signals inform private recommendations only when Personalisation is separately enabled as well. You can enable or withdraw Service improvement analytics independently.
                 </span>
@@ -592,7 +592,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
                 className="accent-accent mt-1 h-4 w-4 shrink-0"
               />
               <span className="min-w-0">
-                <span className="text-text-primary block font-semibold">I explicitly agree to Sponsor measurement</span>
+                <span className="text-text-primary block font-semibold">I explicitly consent to Sponsor measurement</span>
                 <span className="text-text-secondary mt-1 block text-sm leading-relaxed">
                   Measures sponsor viewability, clicks and frequency only for signed-in users who explicitly opt in. Events are account-linked and may reveal religious or philosophical interests. If you decline, sponsor placements still appear, but no sponsor engagement or delivery counters are retained.
                 </span>
