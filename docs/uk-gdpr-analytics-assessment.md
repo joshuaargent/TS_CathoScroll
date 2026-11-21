@@ -40,9 +40,20 @@ Personalisation and Service improvement analytics now have independent explicit 
 
 ## 3. Lawful basis and special-category data
 
-For each purpose, document the Article 6 basis. Where reading behaviour or profiles intentionally reveal, infer or use religious/philosophical beliefs, identify a separate Article 9 condition. Article 6 consent alone is not an Article 9 condition.
+The intended Article 6 mapping for controller review is:
 
-Explicit consent under Article 9(2)(a) may be suitable for Personalisation and any analytics purpose that processes special-category belief data. It must be specific, informed, freely given, affirmative, recorded and as easy to withdraw as to give. Consent wording must identify the relevant reading/activity data and the recommendation or analytics purpose.
+| Processing purpose | Proposed Article 6 basis | Additional condition |
+|---|---|---|
+| Account creation, authentication and user-requested learning/community features | Article 6(1)(b), contract or pre-contract steps | None unless a particular field is special-category data |
+| Optional Service improvement analytics | Article 6(1)(a), consent | Article 9(2)(a), explicit consent, wherever the event data reveals or permits inference of religious/philosophical beliefs |
+| Optional Sponsor measurement | Article 6(1)(a), separate consent | Article 9(2)(a), explicit consent, wherever campaign/placement context reveals or permits inference of religious/philosophical beliefs |
+| Optional Personalisation | Article 6(1)(a), separate consent | Article 9(2)(a), explicit consent, wherever selected interests or the derived profile reveals or permits inference of religious/philosophical beliefs |
+| Security, fraud prevention, abuse prevention and service integrity | Article 6(1)(f), legitimate interests, supported by a documented LIA | Do not rely on this basis for special-category belief data without a valid Article 9 condition |
+| Accounting and other legally required records | Article 6(1)(c), legal obligation | Any special-category data requires a separate Article 9 condition |
+
+This is the intended mapping, not a substitute for the controller's documented decision. The controller must confirm each purpose, the actual data fields and whether any processing intentionally reveals, infers or uses religious/philosophical beliefs. Article 6 consent alone is not an Article 9 condition.
+
+Explicit consent under Article 9(2)(a) is the proposed condition for Personalisation and for any analytics purpose that processes special-category belief data. It must be specific, informed, freely given, affirmative, recorded and as easy to withdraw as to give. The live consent wording identifies the relevant account activity or placement context and the recommendation or analytics purpose. Personalisation, Service improvement analytics and Sponsor measurement are separate optional choices; passive reading signals inform recommendations only when both Personalisation and Service improvement analytics are enabled.
 
 Do not use legitimate interests to bypass Article 9 or PECR. For operational processing that does not involve special-category data or terminal storage/access, legitimate interests may be considered only after a documented necessity and balancing assessment.
 
