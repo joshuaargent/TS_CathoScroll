@@ -42,7 +42,7 @@ function TrendChart({ kind, series }: { kind: 'sponsors' | 'comments'; series: R
     return x.toFixed(1) + ',' + y.toFixed(1);
   }).join(' ');
   return <Card padding="lg" className="mt-8">
-    <h2 className="text-xl font-bold">Daily opted-in measurement</h2>
+    <h2 className="text-xl font-bold">Daily performance — opted-in measurement</h2>
     <p className="text-text-muted mt-1 text-sm">Only signed-in accounts that enabled the relevant analytics choice are represented.</p>
     <div className="mt-5 flex flex-wrap gap-4 text-xs">{lines.map((line) => <span key={line.key} className="text-text-secondary inline-flex items-center gap-2"><span className={'h-2.5 w-2.5 rounded-full ' + line.dot} />{line.label}</span>)}</div>
     {series.length ? <svg viewBox={'0 0 ' + width + ' ' + height} className="mt-3 h-auto w-full" role="img" aria-label="Daily opted-in analytics trend">
