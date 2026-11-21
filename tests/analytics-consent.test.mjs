@@ -169,7 +169,8 @@ test('declining sponsor measurement preserves delivery and campaign-day totals w
 
   assert.ok(feed.includes("hasAnalyticsConsent('sponsorMeasurement', userId)"));
   assert.ok(feed.includes('const sessionId = measurementEnabled'));
-  assert.ok(feed.includes('sponsorMeasurementConsent: measurementEnabled'));
+  assert.match(feed, /const measurementEnabled = Boolean\(userId && hasAnalyticsConsent\('sponsorMeasurement', userId\)\)/);
+  assert.doesNotMatch(feed, /sponsorMeasurementConsent: measurementEnabled/);
   assert.ok(sponsorClient.includes('sponsorMeasurementConsent: true'));
   assert.ok(feed.includes('if (result.campaigns.length > 0)'));
   assert.ok(feed.includes('handleConsentChange'));
