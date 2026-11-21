@@ -1116,4 +1116,109 @@ ALTER FUNCTION public.set_user_analytics_consent(uuid, boolean, boolean, integer
 REVOKE ALL ON FUNCTION public.set_user_analytics_consent(uuid, boolean, boolean, integer) FROM PUBLIC, anon, authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.set_user_analytics_consent(uuid, boolean, boolean, integer) TO service_role;
 
+
+
+-- Sponsor portal viewability/click/CTR are account-consented only. Signed-out reporting is served totals only.
+CREATE OR REPLACE FUNCTION public.get_sponsor_campaign_analytics(
+  p_actor_user_id uuid,
+  p_sponsor_id uuid,
+  p_from date DEFAULT ((timezone('UTC'::text, statement_timestamp()))::date - 29),
+  p_to date DEFAULT (timezone('UTC'::text, statement_timestamp()))::date
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO ''
+AS $function$
+DECLARE
+  v_result jsonb;
+BEGIN
+  IF p_actor_user_id IS NULL OR NOT EXISTS (
+    SELECT 1
+    FROM public.sponsor_memberships AS m
+    WHERE m.sponsor_id = p_sponsor_id
+      AND m.user_id = p_actor_user_id
+      AND m.status = 'active'
+  ) THEN
+    RAISE EXCEPTION 'Sponsor dashboard access required' USING ERRCODE = '42501';
+  END IF;
+
+  IF p_from IS NULL OR p_to IS NULL OR p_to < p_from OR p_to - p_from > 179 THEN
+    RAISE EXCEPTION 'Invalid sponsor analytics date range' USING ERRCODE = '22023';
+  END IF;
+
+  WITH campaigns AS (
+    SELECT c.id, c.campaign_name, c.status
+    FROM public.sponsor_campaigns AS c
+    WHERE c.sponsor_id = p_sponsor_id
+  ),
+  signed_in AS (
+    SELECT
+      d.campaign_id,
+      sum(d.served_count) AS served,
+      sum(d.viewable_impressions) AS viewable_impressions,
+      sum(d.clicks) AS clicks
+    FROM catho_private.sponsor_campaign_daily AS d
+    JOIN campaigns AS c ON c.id = d.campaign_id
+    WHERE d.event_date BETWEEN p_from AND p_to
+    GROUP BY d.campaign_id
+  ),
+  signed_out AS (
+    SELECT
+      d.campaign_id,
+      sum(d.served_count) AS served
+    FROM catho_private.anonymous_sponsor_campaign_daily AS d
+    JOIN campaigns AS c ON c.id = d.campaign_id
+    WHERE d.event_date BETWEEN p_from AND p_to
+    GROUP BY d.campaign_id
+  ),
+  metrics AS (
+    SELECT
+      c.id AS campaign_id,
+      c.campaign_name,
+      c.status,
+      coalesce(si.served, 0) AS served,
+      coalesce(si.viewable_impressions, 0) AS viewable_impressions,
+      coalesce(si.clicks, 0) AS clicks,
+      coalesce(so.served, 0) AS anonymous_served
+    FROM campaigns AS c
+    LEFT JOIN signed_in AS si ON si.campaign_id = c.id
+    LEFT JOIN signed_out AS so ON so.campaign_id = c.id
+  )
+  SELECT jsonb_build_object(
+    'from', p_from,
+    'to', p_to,
+    'campaigns', coalesce(
+      jsonb_agg(
+        jsonb_build_object(
+          'campaign_id', m.campaign_id,
+          'campaign_name', m.campaign_name,
+          'status', m.status,
+          'served', m.served,
+          'viewable_impressions', m.viewable_impressions,
+          'clicks', m.clicks,
+          'anonymous_served', m.anonymous_served,
+          'total_served', m.served + m.anonymous_served,
+          'click_through_rate',
+            CASE
+              WHEN m.viewable_impressions > 0
+                THEN round(m.clicks::numeric * 100 / m.viewable_impressions, 2)
+              ELSE 0
+            END
+        )
+        ORDER BY m.served + m.anonymous_served DESC, m.campaign_name
+      ),
+      '[]'::jsonb
+    )
+  )
+  INTO v_result
+  FROM metrics AS m;
+
+  RETURN v_result;
+END;
+$function$;
+ALTER FUNCTION public.get_sponsor_campaign_analytics(uuid, uuid, date, date) OWNER TO postgres;
+REVOKE ALL ON FUNCTION public.get_sponsor_campaign_analytics(uuid, uuid, date, date) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.get_sponsor_campaign_analytics(uuid, uuid, date, date) TO service_role;
+
 NOTIFY pgrst, 'reload schema';
