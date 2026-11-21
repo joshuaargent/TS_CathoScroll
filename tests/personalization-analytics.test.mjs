@@ -250,6 +250,8 @@ test('web and native account/settings screens reuse the same components', () => 
   assert.match(accountSection, /analyticsConsentSyncEvent/);
   assert.match(accountSection, /AnalyticsConsentSettingsPanel/);
   assert.match(accountSection, /window\.addEventListener\('online', refresh\)/);
+  assert.match(accountSection, /categoryInterestsLoaded/);
+  assert.match(accountSection, /!categoryInterestsLoaded \|\| selectedCategories\.length > 20/);
   assert.match(accountSection, /window\.addEventListener\(analyticsConsentSyncEvent, refresh\)/);
   assert.match(accountSection, /offlineCacheAvailable=\{offlineCacheAvailable\}/);
   assert.match(nativeMain, /window\.dispatchEvent\(new Event\(analyticsConsentSyncEvent\)\)/);
