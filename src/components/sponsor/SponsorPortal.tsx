@@ -437,10 +437,10 @@ export function SponsorPortal({
                   <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
 
                     <div><p className="text-text-muted text-xs">Opted-in viewable</p><p className="mt-1 font-semibold tabular-nums">{(metric?.viewable_impressions ?? 0).toLocaleString('en-GB')}</p></div>
-                    <div><p className="text-text-muted text-xs">Opted-in clicks</p><p className="mt-1 font-semibold tabular-nums">{(metric?.clicks ?? 0).toLocaleString('en-GB')}</p></div>
+                    <div><p className="text-text-muted text-xs">Opted-in clicks on viewable placements</p><p className="mt-1 font-semibold tabular-nums">{(metric?.clicks ?? 0).toLocaleString('en-GB')}</p></div>
                     <div><p className="text-text-muted text-xs">Opted-in CTR</p><p className="mt-1 font-semibold tabular-nums">{(metric?.click_through_rate ?? 0).toFixed(2)}%</p></div>
                   </div>
-                  <p className="text-text-muted mt-3 text-xs">Sponsor viewability, clicks and frequency are measured only for signed-in accounts that explicitly enable Sponsor measurement. Sponsor deliveries are not counted.</p>
+                  <p className="text-text-muted mt-3 text-xs">Sponsor viewability, clicks on viewable placements and frequency are measured only for signed-in accounts that explicitly enable Sponsor measurement. Sponsor deliveries are not counted.</p>
                 </article>
               );
             })}
