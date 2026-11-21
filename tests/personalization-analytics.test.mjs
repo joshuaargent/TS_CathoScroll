@@ -303,8 +303,9 @@ test('personalisation explicitly enables service analytics and prevents disablin
   assert.match(accountSection, /p_consent_version: '2026-11-20-v4'/);
   assert.match(signupTrigger, /service_improvement/);
   const manager = readFileSync(new URL('../src/components/privacy/AnalyticsConsentManager.tsx', import.meta.url), 'utf8');
-  assert.match(manager, /disabled=\{saving \|\| effectivePersonalizationEnabled \|\| !effectivePersonalizationStatusKnown\}/);
+  assert.match(manager, /disabled=\{saving \|\| effectivePersonalizationEnabled\}/);
   assert.match(manager, /Turn off personalisation before disabling it/);
+  assert.match(manager, /isServiceImprovementWithdrawal && effectivePersonalizationStatusKnown && effectivePersonalizationEnabled/);
 });
 
 test('retired user subscription tier is absent from the bootstrap', () => {
@@ -348,4 +349,18 @@ test('analytics database scripts keep function grants after definitions and sche
   assert.doesNotMatch(bootstrap, /^\), placement_id text/m);
   assert.match(upgrade, /cathoscroll-rollup-feed-card-analytics/);
   assert.match(upgrade, /cathoscroll-prune-feed-card-analytics/);
+});
+
+test('passive recommendation signals are capped independently before combination in both SQL releases', () => {
+  for (const sql of [bootstrap, upgrade]) {
+    const start = sql.lastIndexOf('CREATE OR REPLACE FUNCTION catho_private.refresh_user_interest_profile');
+    const end = sql.indexOf('$function$;', start);
+    const body = sql.slice(start, end);
+    assert.ok(start >= 0 && end > start);
+    assert.match(body, /least\(1\.20::numeric,coalesce\(sum\(CASE WHEN e\.event_type='viewable_impression'/);
+    assert.match(body, /least\(1\.50::numeric,coalesce\(sum\(CASE WHEN e\.event_type='active_duration'/);
+    assert.match(body, /least\(1\.50::numeric,coalesce\(sum\(CASE WHEN e\.event_type='swipe_depth'/);
+    assert.match(body, /least\(3\.00::numeric,coalesce\(sum\(CASE WHEN e\.event_type='completion'/);
+    assert.match(body, /least\(1\.50::numeric,coalesce\(sum\(CASE WHEN e\.event_type='return_visit'/);
+  }
 });
