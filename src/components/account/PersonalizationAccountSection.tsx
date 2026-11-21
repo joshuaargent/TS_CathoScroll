@@ -455,6 +455,7 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
           userId={accountUserId}
           personalizationEnabled={status.enabled}
           personalizationStatusKnown={personalizationStatusKnown}
+          offlineCacheAvailable={offlineCacheAvailable}
           disabled={loading || !accountUserId}
         />
 
