@@ -166,3 +166,5 @@ PR #40 is not deployed and its SQL upgrade has not been applied. Its target is t
 - Vercel Web Analytics and Speed Insights are gated behind Service improvement analytics. Sponsor measurement remains separate from recommendation personalisation.
 
 The consolidated documentation upgrade script has not been executed as one file, and the clean-install bootstrap has not been run against a disposable PostgreSQL database because no separately billed Supabase branch was created. Browser/native end-to-end verification and controller approval remain outstanding.
+
+Before release, the controller must approve the Article 6 basis for each analytics purpose and determine whether account-linked topic/comment activity is special-category data in the actual processing. If it is, the controller must document and validate the Article 9 condition; explicit consent must be specific, informed, freely given, unambiguous and withdrawable. The consent interface is a technical control, not legal approval.
