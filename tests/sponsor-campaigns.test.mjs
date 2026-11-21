@@ -59,6 +59,7 @@ test('weighted campaign selector enforces payment, dates, targeting and opted-in
   assert.match(selector, /lifetime\.event_type = 'viewable_impression'/);
   assert.doesNotMatch(selector, /event_type = 'served'/);
   assert.match(selector, /frequency_cap_per_user_total/);
+  assert.match(selector, /lifetime\.received_at >= statement_timestamp\(\) - interval '180 days'/);
   assert.doesNotMatch(selector, /FOR UPDATE OF campaign SKIP LOCKED/);
   assert.match(selector, /campaign\.placement_weight/);
   assert.match(selector, /daily\.viewable_impressions/);
@@ -99,6 +100,7 @@ test('measured and unmeasured sponsor selectors never count deliveries', () => {
   assert.match(signedIn, /frequency_cap_per_user_total/);
   assert.match(signedIn, /recent\.event_type = 'viewable_impression'/);
   assert.match(signedIn, /lifetime\.event_type = 'viewable_impression'/);
+  assert.match(signedIn, /lifetime\.received_at >= statement_timestamp\(\) - interval '180 days'/);
   assert.match(signedIn, /daily_impression_cap/);
   assert.match(signedIn, /total_impression_cap/);
   assert.match(signedIn, /daily\.viewable_impressions/);
