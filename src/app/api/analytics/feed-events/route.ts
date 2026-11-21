@@ -34,7 +34,7 @@ export async function POST(request: Request) {
   if (!user) return respond(request, { error: 'Authentication required.' }, 401);
   try {
     const consent = await getStoredAnalyticsConsent(user.id);
-    if (!consent.serviceImprovement) return respond(request, { accepted: 0 });
+    if (!consent.serviceImprovement) return respond(request, { error: 'Service improvement analytics consent is not active.', code: 'CONSENT_REQUIRED' }, 403);
   } catch (cause) {
     console.error('Unable to verify feed analytics consent:', cause);
     return respond(request, { error: 'Analytics preferences are temporarily unavailable.' }, 503);
