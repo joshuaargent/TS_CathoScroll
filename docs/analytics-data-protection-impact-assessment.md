@@ -28,7 +28,7 @@ No anonymous topic/comment analytics, sponsor engagement, served totals, campaig
 
 The controller must document an Article 6 basis for each purpose and a separate Article 9 condition wherever special-category beliefs are processed. Explicit consent may be appropriate under Article 9(2)(a), provided it is specific, informed, freely given, affirmative, recorded and withdrawable. Consent must be purpose-specific and not bundled with access to the service.
 
-The current implementation links Personalisation to Service improvement analytics by automatically enabling and locking the latter while Personalisation is on. The controller must resolve whether the purposes are genuinely the same. If distinct, separate them before release to preserve granular consent.
+Personalisation and Service improvement analytics are implemented as independent choices. Personalisation covers direct account actions and selected categories. Passive reading signals are collected only under Service improvement consent and inform recommendations only when Personalisation is also enabled. Withdrawing Service improvement invalidates the recommendation profile so passive reading signals are removed while direct-action personalisation remains.
 
 ## 5. PECR and terminal storage/access
 
@@ -58,4 +58,4 @@ Withdrawal must immediately deny new local collection, clear the matching queue,
 
 The subject matter and account-linked profiling create a material risk of special-category inference. A proportionate DPIA is prudent. Whether a full DPIA is legally mandatory depends on the scale and whether the processing is likely to result in high risk; assess this formally rather than assuming the small current user base settles the question.
 
-Before release, the controller must approve the Article 6/9 position, resolve the Personalisation/Service improvement consent dependency, inspect PECR storage/access, verify provider processor terms and international transfer safeguards, confirm ICO fee-registration status, maintain a record of processing activities and obtain specialist legal review.
+Before release, the controller must approve the Article 6/9 position, verify the independent Personalisation/Service improvement consent flows, inspect PECR storage/access, verify provider processor terms and international transfer safeguards, confirm ICO fee-registration status, maintain a record of processing activities and obtain specialist legal review.
