@@ -44,7 +44,7 @@ export default function TermsPage() {
           </h2>
 
           <p className="text-text-secondary leading-relaxed">
-            CathoScroll is an educational platform operated by Joshua Argent.
+            CathoScroll is an educational platform operated by Joshua Argent as a sole trader in the United Kingdom.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
