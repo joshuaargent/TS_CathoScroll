@@ -1,170 +1,84 @@
-# CathoScroll UK GDPR analytics assessment (controller draft)
+# UK GDPR and PECR analytics assessment
 
-**Assessment date:** 20 November 2026  
-**Scope:** First-party topic-feed, Top Comments, sponsor delivery/performance, signed-out aggregate analytics, Vercel Web Analytics and Speed Insights. Recommendation personalisation is considered only to confirm separation; its consent flow remains on signup and Account settings.  
-**Status:** Engineering assessment and proposed control design. **Not controller approval, legal advice, or a completed/signed DPIA.**
+**Controller working assessment — 21 November 2026**
 
-**Current consent model:** enabling recommendation personalisation also enables Service improvement analytics, which cannot be disabled until personalisation is withdrawn. The recommendation profile uses only activity recorded after that explicit opt-in. The two purposes are disclosed together for the period personalisation is enabled; Sponsor measurement remains separate.
+This document records the intended CathoScroll analytics model and the issues the controller must verify. It is not formal legal advice and must not be treated as completed solicitor sign-off.
 
-## 1. Executive conclusion
+## 1. Final product decision
 
-CathoScroll can retain most of its existing analytics. The proportionate approach is to separate the purposes and collection levels rather than switch all measurement off:
+CathoScroll does not collect anonymous analytics or sponsor delivery counters. This applies to signed-out visitors and signed-in users who have not opted into the relevant account-linked purpose.
 
-1. Keep essential operational/security records that are genuinely necessary to run, secure and synchronise the service, subject to their own documented purpose and retention.
-2. Ask for a separate, optional, affirmative **Service improvement analytics** choice before collecting account-linked topic and comment activity. The notice must expressly explain that, in a Catholic-content service, topic interactions may reveal or permit inferences about religious or philosophical beliefs. Use a separate explicit statement/checkbox for this stream, not the personalisation checkbox.
-3. The proposed signed-out topic/comment aggregate pipeline is separate from optional account-linked analytics and records daily entity-level counts without account, visitor or session identifiers or unique-person counts. If it runs by default using the PECR statistical-purposes exception, the controller must provide clear notice and a simple, free objection and document every Schedule A1 condition, including sole statistical service-improvement use, aggregate non-identifying output, no individual monitoring and prompt deletion of transient data. The current branch includes an objection control, but this was introduced as a proposed safeguard and is not an agreed product decision. If it is not approved, do not release the default-on native outbox under this exception; disable or redesign that collection first.
-4. Keep sponsor delivery operational, but separate sponsor measurement from delivery. If a signed-in account holder does not opt in to Sponsor measurement, retain only a server-side campaign/day served-placement aggregate needed to reconcile delivery. Do not create client viewability/click events, session tokens or per-person frequency profiles. Signed-out visitors are not offered detailed Sponsor measurement and receive the same aggregate-only fallback. Global campaign pacing and campaign-wide caps continue to protect inventory. Detailed viewability, clicks, CTR and frequency controls are available only to signed-in account holders who explicitly opt in.
-5. Gate Vercel Web Analytics and Speed Insights behind the service-improvement analytics choice. Keep URL redaction. Do not assume Vercel's short-lived request hash is anonymous or automatically covered by the PECR statistical-purposes exception.
-6. Keep recommendation personalisation as a separate explicit opt-in at signup and in Account settings. No first-visit analytics popup is used. The personalisation opt-in also enables Service improvement analytics because eligible reading signals support the private recommendation profile. That analytics control is locked until personalisation is turned off. Sponsor measurement remains a separate optional choice.
+No anonymous topic/comment totals, anonymous sponsor views/clicks/duration/frequency, served counters, campaign/day totals, visitor/session tokens, anonymous event receipts, anonymous retry queues or anonymous analytics database tables are to remain active.
 
-Declining optional analytics must not sign a person out, disable account access, stop bookmarks/likes/progress/notes synchronisation, alter general server ranking, or disable ordinary feed delivery. Those functions are not analytics consent.
+Sponsor cards continue to be delivered when measurement is disabled. The act of selecting or displaying a sponsor is not recorded as an analytics event. There is no served count, anonymous reach estimate or delivery pacing counter.
 
-## 2. Processing map and risk assessment
+The retained optional streams are:
 
-| Stream | Current data/operation | Main privacy issue | Proposed lawful/control position |
-|---|---|---|---|
-| Signed-in topic feed | Account-linked event IDs, session IDs, topic IDs, event type and bounded metrics; raw events and viewer bridge up to 180 days; aggregate admin reporting | Topic activity in a Catholic service can reveal or permit inference about religious/philosophical beliefs. Account linkage makes it personal data; a restricted dashboard does not make collection anonymous. | Opt-in service analytics with a clear explicit statement about the sensitive nature of topic activity. Proposed Article 6(1)(a) and, where the data reveals special-category beliefs, Article 9(2)(a). Retain only the existing bounded event detail needed for agreed reporting, then aggregate and delete on schedule. |
-| Signed-in Top Comments | Account-linked comment-card IDs, session IDs and impression/viewability/duration/skip/open events | Comment exposure can reveal interests and may be sensitive in context. | Service improvement analytics is enabled by the personalisation opt-in while personalisation is active; only then may eligible reading events also inform that user's private recommendation profile. |
-| Signed-in sponsor delivery/performance | Account-linked served/viewable/click events and per-user frequency controls; admin/sponsor reporting is aggregate | Advertising measurement and frequency control are distinct from core service analytics; account-linked exposure is personal data and may reveal interests. | Separate sponsor-measurement opt-in. Without it, no account-linked client event or per-user frequency record. Continue the campaign/day served aggregate only. Sponsor users continue to receive aggregate reporting only. |
-| Signed-out topic/comment | Event UUID, public entity ID and bounded metrics; daily aggregate tables; no persistent visitor/session/account identifier; native seven-day app-private outbox; 30-day dedupe receipts | Daily topic/comment cells and request metadata can still be identifying in context. Native outbox is terminal-equipment storage even though app-private. | Preserve as a distinct aggregate statistical stream by default only after the controller documents the PECR Schedule A1 statistical-purposes exception, clear notice and simple free objection. Do not claim unique people/sessions. Apply minimum-cell/suppression review where low counts could reveal activity. |
-| Signed-out sponsor | Campaign/day served-placement aggregates only; no session token, event receipt, viewability, click or frequency row | No visitor/session identifier or individual measurement is collected for signed-out visitors. | Keep delivery and campaign-wide caps; do not offer detailed sponsor measurement to signed-out visitors. Detailed measurement is available only to signed-in account holders who explicitly opt in. |
-| Vercel Web Analytics | Request-derived visitor hash discarded after 24 hours; URL/referrer/device/route and other metadata used for reporting | Short-lived hash still distinguishes a visitor during its life; request metadata may be personal data. Provider role/contract and international transfer also matter. | Load only after service-analytics opt-in. Continue path/query redaction and review provider logs/retention/contract. |
-| Vercel Speed Insights | Core Web Vitals plus route/browser/device/network metadata | Lower identification capability than session analytics, but still client-side collection and provider processing. | Load only after service-analytics opt-in for a consistent user choice. Continue route/query redaction. |
-| Recommendation personalisation | Private account-history signals and derived category/topic interests; may reveal beliefs; encrypted native cache | This is profiling and potentially special-category processing, distinct from operational measurement. | Keep the explicit opt-in on signup and Account settings; there is no analytics popup. The opt-in also enables Service improvement analytics, which cannot be disabled until personalisation is withdrawn. Keep offline cache/consent freshness and withdrawal behaviour. Sponsor measurement remains separate. |
+- Signed-in Service improvement analytics, requiring explicit account opt-in.
+- Signed-in Sponsor measurement, requiring a separate explicit account opt-in.
+- Personalisation, requiring explicit account opt-in and used only for private recommendations.
 
-## 3. Article 6 and Article 9 assessment
+Sponsor measurement is never used for organic ranking, Personalisation or individual belief-based targeting.
 
-### 3.1 Account-linked topic and comment analytics
+## 2. Data flows and purposes
 
-The existing purpose is internal service measurement: understanding whether content is reached, read, completed, skipped or discussed; improving reliability and the service; and operating administrator reporting. When personalisation is enabled, eligible reading events also contribute to a private content-interest profile used only for the user's own feed. This does not create an explicit belief label or support sponsor targeting.
+### Service improvement analytics
 
-That purpose is legitimate in principle, but it does not settle necessity or balancing. Account-linked event history is more intrusive than aggregate counts, particularly where the service's subject matter is religious. The current 180-day raw retention and user/day viewer bridge also mean this is not merely anonymous counting.
+When enabled, signed-in topic-feed and Top Comments events are linked to the account and include defined content identifiers, event identifiers, session identifiers, event types and bounded measurements. The purpose is to understand engagement and improve CathoScroll. The subject matter may reveal or permit inference of religious or philosophical beliefs.
 
-**Recommended controller position:** do not rely on a generic legitimate-interests statement as the sole answer for account-linked topic/comment telemetry. Use a dedicated optional service-analytics consent. Because the context may reveal religious/philosophical beliefs, the choice should expressly identify that nature of the data and be a clear, separate affirmative statement capable of meeting Article 9(2)(a) explicit-consent requirements where applicable. Use Article 6(1)(a) for this optional stream. Consent must be freely given, specific, informed, recorded, and as easy to withdraw as to give. Account access and core sync must remain available if declined.
+### Sponsor measurement
 
-This is a conservative risk-control recommendation, not a legal finding that every individual topic impression necessarily constitutes special-category data. The controller must confirm whether the data, purpose and actual use meet the statutory “revealing” test. If the controller concludes that Article 9 is not engaged for a defined aggregate-only operation, it must document why and still select an Article 6 basis for any personal data involved.
+When enabled, signed-in sponsor viewability, click and frequency events are account-linked. Event payloads are limited to campaign/event/session identifiers and event type. Do not add topic IDs, category IDs, reading histories or recommendation profile fields. Sponsor reports are aggregated and restricted to the consented population; they must not be presented as total platform delivery or total audience reach.
 
-### 3.2 Sponsor measurement
+### Personalisation
 
-Sponsor delivery and sponsor measurement are different purposes. Delivering a paid campaign can be necessary to fulfil the sponsor agreement and to enforce global campaign caps. Measuring an individual's viewability, click behaviour or frequency is not automatically necessary to deliver the placement.
+Personalisation maintains a private account-level recommendation profile from eligible post-consent activity and selected category interests. It must not be used for sponsor targeting. Turning it off stops new recommendation processing and deletes the derived profile and selected interests under the implementation's deletion procedure.
 
-**Recommended controller position:** offer sponsor measurement as a separate optional choice. Do not bundle it into service analytics. If declined, retain server-side campaign/day served-placement totals only; do not collect a user-linked or session-linked view/click/frequency record. Opted-in signed-in sponsor event attribution may include the topic placement identifier where the sponsor appeared. In a Catholic-content service, that context may reveal or permit inference about religious/philosophical beliefs; where it meets the Article 9 revealing test, treat the event as special-category processing and require explicit consent under Article 9(2)(a) alongside Article 6(1)(a). The Sponsor measurement wording must disclose the account linkage and topic-placement context. Signed-out visitors are not offered detailed sponsor measurement and create no viewability/click/frequency events. If the controller does not approve the Article 9 basis, remove topic-level attribution from sponsor measurement before enabling it. The controller should separately document the Article 6 basis for server-side delivery accounting and security/abuse prevention. Do not give sponsors user identities, device/session identifiers, individual histories or personalisation data.
+**Granularity issue requiring controller confirmation:** the current implementation automatically enables and locks Service improvement analytics while Personalisation is enabled. If these are genuinely distinct purposes, automatically bundling the choices may undermine granular consent. The safer design is to obtain a separate Personalisation consent for recommendation processing and keep Service improvement analytics independently optional. Do not release this bundled behaviour without a documented legal assessment or a code change that separates the purposes.
 
-A served count is not a unique-person count. Do not describe it as reach or unique impressions.
+## 3. Lawful basis and special-category data
 
-### 3.3 Signed-out aggregate service statistics
+For each purpose, document the Article 6 basis. Where reading behaviour or profiles intentionally reveal, infer or use religious/philosophical beliefs, identify a separate Article 9 condition. Article 6 consent alone is not an Article 9 condition.
 
-The current signed-out topic/comment pipeline is materially less intrusive than account-linked telemetry: no persistent visitor ID, session ID or account ID; no unique-person count; and the server stores daily aggregates. The native retry queue is still local terminal-equipment storage and must be assessed under PECR Regulation 6.
+Explicit consent under Article 9(2)(a) may be suitable for Personalisation and any analytics purpose that processes special-category belief data. It must be specific, informed, freely given, affirmative, recorded and as easy to withdraw as to give. Consent wording must identify the relevant reading/activity data and the recommendation or analytics purpose.
 
-The ICO statistical-purposes exception may be available only if every statutory condition is met, including exclusive service-improvement statistics, aggregate non-personal output, no tracking/monitoring or decisions about individuals/groups, prompt deletion of individual inputs once aggregation is complete, clear notice and a simple/free objection route. It cannot be used as a shortcut for any online-advertising storage/access purpose, including ad measurement/performance or frequency capping, even where reporting is aggregate or does not retain visitor identities. The controller should approve this route explicitly and verify deployed behaviour. If the conditions are not met, obtain the required consent or stop the affected terminal storage/access.
+Do not use legitimate interests to bypass Article 9 or PECR. For operational processing that does not involve special-category data or terminal storage/access, legitimate interests may be considered only after a documented necessity and balancing assessment.
 
-## 4. Consent and preference design
+## 4. PECR
 
-Do not show a first-visit analytics modal. Present purpose-specific optional choices at signup and inline in Account settings. If the controller chooses the statistical-purposes exception, keep the required simple/free objection directly accessible from the Privacy and Cookie Policy pages; this control remains a pending product decision.
+The anonymous pipelines have been removed rather than relying on the statistical-purposes exception. Sponsor measurement is advertising measurement and is gated behind prior explicit opt-in.
 
-Optional account-linked choices start off. Present separate unticked controls for personalisation, Service improvement analytics and Sponsor measurement. When personalisation is enabled, Service improvement analytics is automatically checked and locked. Provide a single Save action in Account settings.
+The controller must still inspect actual web and native behaviour for storage/access technologies. Check Vercel Web Analytics, Speed Insights, application code, embedded WebViews, local databases and any SDKs. Do not assume that memory-only queues, account linkage, first-party processing or short retention automatically avoids PECR. Any optional storage/access must be covered by valid prior consent where required, with withdrawal stopping future access.
 
-- **Service improvement analytics (optional):** account-linked first-party topic and Top Comments engagement measurement plus Vercel Web Analytics/Speed Insights. Signed-out daily topic/comment aggregates are a separate proposed statistical stream; default-on collection and its objection control require controller and product approval. Account-linked Service improvement analytics is a distinct purpose, but Personalisation automatically enables and locks it while active; when Personalisation is off, it can be managed independently. The explanation must say that topic activity on a Catholic-content service may reveal or permit inferences about religious/philosophical beliefs.
-- **Sponsor measurement (optional):** client-side sponsor viewability, clicks, CTR and per-session/per-account frequency measurement. Account-linked attribution includes the topic placement where the sponsor appeared; where that context reveals religious/philosophical beliefs, explicit consent under Article 9(2)(a) is required alongside Article 6(1)(a). The consent wording discloses this. Signed-out visitors are not offered detailed Sponsor measurement and receive only server-side campaign/day served totals without visitor/session tracking.
-- **Essential operation (always on):** authentication, account security, requested account/data synchronisation, consent preference storage, abuse prevention and other genuinely necessary operations. Do not place optional analytics inside this category.
+## 5. Sponsor targeting and reporting
 
-Do not pre-tick optional controls, treat inactivity as agreement, make Reject harder to use, or make service access conditional on analytics consent. Store a versioned record of each affirmative choice and withdrawal. The preference mechanism itself may store the minimum state needed to remember the user's decision; document that strictly necessary purpose and use no advertising identifier for it.
+Sponsor eligibility may use campaign configuration and the current page context to decide which campaign to show. Do not persist a person's religious-content interests for sponsor targeting or link sponsor campaigns to their recommendation profile.
 
-For signed-in analytics, an affirmative choice should be auditable against the account. For signed-out preferences, use a first-party preference record without creating a cross-site or cross-device visitor identity. Native preference persistence must be reviewed separately from browser storage.
+Sponsor measurement reports must include only account-linked events from users who enabled Sponsor measurement. Do not extrapolate these results to all deliveries, total reach or all CathoScroll users. No campaign served totals or anonymous delivery counts are collected.
 
-## 5. Withdrawal and queue handling
+## 6. Retention and technical controls
 
-When service analytics is disabled:
-- Stop creating new signed-in topic/comment analytics events immediately.
-- Clear unsent in-memory and native encrypted outbox events for the account; do not upload pre-withdrawal events later after a re-consent.
-- Stop Vercel Analytics and Speed Insights collection.
-- Preserve account login, bookmarks, likes, progress, notes, offline catalogue and general ranked feed.
-- Keep recommendation personalisation state independent; it remains controlled only by signup/Account consent.
+- Signed-in raw feed/community/sponsor event records and the restricted viewer bridge: up to 180 days under the current implementation.
+- Native pending signed-in analytics: encrypted app-private storage, maximum 2,000 events per stream, seven-day expiry, acknowledgement deletion and account/consent cleanup.
+- Website pending signed-in analytics: memory-only retry queues.
+- Derived Personalisation profile: delete on Personalisation withdrawal; retain no longer than required for the active recommendation purpose.
+- Consent records/history: retain only as needed to demonstrate and administer the user's choices, subject to account deletion and legal requirements.
+- Anonymous analytics and sponsor delivery counters: not collected; legacy anonymous tables, functions, cron jobs and queues must be removed by the database upgrade.
 
-When sponsor measurement is disabled:
-- Stop creating signed-in client viewability/click/frequency events immediately; signed-out client events are not created under the current design.
-- Clear unsent sponsor measurement events and any visitor/session frequency token/hash attributable to that preference, subject to database deletion design.
-- Continue sponsor delivery and global campaign pacing/caps.
-- For this visitor, record only server-side campaign/day served-placement aggregates. Do not claim viewability, clicks, CTR, unique reach or per-person frequency for opted-out delivery.
+Withdrawal must stop new collection locally immediately, clear pending events for the withdrawn stream, prevent subsequent uploads, and synchronise the denial to the server when connectivity returns. Do not silently switch lawful basis for the same optional purpose after withdrawal.
 
-If a signed-out visitor objects through the proposed aggregate objection control (pending product/controller approval):
-- Stop new anonymous event creation.
-- Clear pending web/native retry events and ensure re-enabling does not upload stale pre-withdrawal events.
-- Preserve all core content and account functionality.
+## 7. DPIA, records and provider due diligence
 
-## 6. Necessity, proportionality and minimisation
+Complete a DPIA screening and a proportionate DPIA. A full DPIA is mandatory if the processing is likely to result in high risk; assess the scale of special-category data, systematic profiling, vulnerable users, data linkage and likely effects. Keep a record of processing activities, purpose-specific retention, access controls, processor instructions, consent evidence and data-subject request procedures.
 
-The following controls are proportionate and preserve the useful analytics:
-- Keep the current event taxonomy and dashboard breakdowns for people who opt in.
-- Keep separate signed-in and signed-out totals; do not merge them into misleading unique-user metrics.
-- Retain raw account-linked analytics for no longer than the documented 180-day operational window only while the relevant consent is active; aggregate and delete detail under the existing bounded jobs.
-- Keep signed-out topic/comment aggregates free of visitor/session/account IDs and suppress small cells where a low count could expose an individual's activity.
-- For sponsor measurement opt-outs, retain campaign/day served counts only. Keep richer viewability/click/CTR and frequency metrics only for signed-in account holders who explicitly opt in.
-- Keep sponsor reports aggregate-only and prevent sponsor access to raw event tables.
-- Continue event validation, rate limits, server-authoritative timestamps, idempotency, private tables, RLS and bounded cleanup.
-- Do not repurpose analytics for recommendation profiling, religious-affiliation inference, individual decisions or sponsor targeting.
+Verify current Article 28 processor terms, subprocessors, processing locations, international transfer safeguards, security logs and retention for Vercel, Supabase and every other provider. Update the privacy notice with controller identity, purposes, Article 6 bases, Article 9 conditions, recipients, transfers, retention, rights and complaint route. Confirm the controller's ICO fee-registration obligation and status.
 
-## 7. DPIA screening and risk register
+## 8. Release checklist
 
-A DPIA is appropriate and should be completed before the new consent-gated account analytics is broadly enabled. The combination of religious-content context, account-linked behavioural records, recommendation profiling (separately consented), native offline persistence, sponsor measurement and children potentially using the service creates enough sensitivity to justify a full documented DPIA even if the controller ultimately concludes that some operations are not legally “high risk”.
-
-| Risk | Inherent level | Required mitigation | Residual assessment |
-|---|---|---|---|
-| Topic/comment activity reveals beliefs | High | Separate explicit service-analytics choice; no collection if declined; purpose limitation; 180-day maximum; aggregate reporting; strict access controls | Medium; controller to approve |
-| Sponsor event data becomes behavioural advertising profile | High | Separate sponsor choice; no user-level sponsor targeting; opt-out path records only campaign/day served aggregate; no raw sponsor events to sponsors | Low/Medium; verify actual SQL and APIs |
-| Small signed-out topic/day cells expose an individual's activity | Medium | No persistent IDs; minimum-cell/suppression threshold; short-lived dedupe receipts; minimise request logs | Low/Medium; controller to set threshold |
-| Native queue storage falls outside expected PECR route | Medium/High | Document Regulation 6 analysis, preference and deletion behaviour; verify Android/Electron deployed storage | Medium until PECR sign-off |
-| Consent state fails to propagate across web/native transports | High | Central consent service; immediate event gates; queue clearing; automated tests for each stream/platform | Low after tests and deployment verification |
-| Re-consent uploads old events collected before withdrawal | Medium | Clear queues on withdrawal and before enabling; version/timestamp checks | Low after tests |
-| Vercel processes routes/metadata before consent | Medium | Do not mount SDK components until opt-in; keep URL redaction; review logs, DPA, transfers | Medium until provider contract review |
-| Children or vulnerable users cannot give valid consent | High | Confirm age policy, capacity and parental/child design; do not infer consent from account creation | Open controller decision |
-| Data breach exposes account-linked topic history | High | Private schema, no client grants, least privilege, encryption at rest, access audit, bounded retention and incident response | Medium; verify production controls |
-
-## 8. Controller decisions required
-
-The controller must complete and sign off these decisions; engineering cannot make them on the controller's behalf:
-
-1. Confirm the controller's legal identity, address and contact route, and confirm who is responsible for data-protection requests.
-2. Approve Article 6(1)(a) and Article 9(2)(a) as the basis/condition for optional account-linked service analytics where the content/activity reveals special-category beliefs, or document a different valid Article 6/Article 9 combination before collection.
-3. Confirm whether signed-out topic/comment aggregates meet every condition of the PECR statistical-purposes exception; if not, use prior consent or disable the relevant storage/access.
-4. Approve the separate sponsor-measurement purpose and Article 6 basis; confirm that opt-out campaign/day served totals are sufficient for non-consenting visitors.
-5. Confirm whether under-18 users may use analytics/personalisation and what age-appropriate consent and safeguards are required.
-6. Approve the residual DPIA risks and retention periods, including sponsor accounting records and request/security logs.
-7. Confirm processor/controller roles, DPAs, subprocessors and international transfer safeguards for Supabase and Vercel. No paid sponsor campaigns are currently active; the owner intends to move to an appropriate commercial hosting plan before accepting paid sponsorship revenue. This is a future commercial-readiness action, not a blocker to the current pre-revenue service.
-8. Confirm PECR treatment of browser consent-preference storage and native app preference/outbox storage, and approve the deployed implementation after web and physical Android/Electron verification.
-
-## 9. Legal and technical sources
-
-- ICO, [Special category data](https://ico.org.uk/for-organisations/uk-gdpr-guidance-and-resources/lawful-basis/a-guide-to-lawful-basis/special-category-data/) (updated October 2026): Article 6 basis and separate Article 9 condition are both required; inferred religious/philosophical beliefs may be special-category data.
-- ICO, [What are the conditions for processing?](https://ico.org.uk/for-organisations/uk-gdpr-guidance-and-resources/lawful-basis/special-category-data/what-are-the-conditions-for-processing/): explicit consent must be specific, affirmative, clear, identify the nature of the special-category data and be withdrawable.
-- ICO, [Data protection impact assessments](https://ico.org.uk/for-organisations/uk-gdpr-guidance-and-resources/accountability-and-governance/guide-to-accountability-and-governance/data-protection-impact-assessments/): DPIA screening and high-risk processing criteria.
-- ICO, [Lawfulness, fairness and transparency](https://ico.org.uk/for-organisations/uk-gdpr-guidance-and-resources/data-protection-principles/a-guide-to-the-data-protection-principles/lawfulness-fairness-and-transparency/): purpose-specific lawful basis and transparent processing.
-- Existing implementation record: `docs/feed-analytics-implementation.md`, `docs/analytics-data-protection-impact-assessment.md`, `docs/provider-and-pecr-review.md`, `docs/privacy-and-legal-implementation.md`.
-
-## 10. Approval record
-
-**Controller:** Not yet named/confirmed in this engineering record.  
-**Article 6 basis approval:** Pending.  
-**Article 9 condition approval:** Pending where applicable.  
-**PECR Regulation 6 assessment:** Pending controller sign-off.  
-**DPIA residual-risk approval:** Pending.  
-**Date approved:** Pending.
-
-No code change, checkbox or this draft assessment should be represented as a guarantee of legal compliance until the controller has completed the decisions above and verified the deployed behaviour.
-
-## Implementation status: production baseline and PR #40 target
-
-The baseline consent manager and matching API/client gates were merged in PR #25 and deployed in production commit `e0da259`. The production migration ledger records `20261120173544_analytics_consent_and_sponsor_opt_out`, `20261120175643_fix_analytics_consent_lock_order` and `20261120175931_fix_analytics_consent_lock_order_v2`. The live database remains on the older `2026-11-19-v3` personalisation model, has one enabled v3 grant and has no account-level analytics consent rows. The live sponsor selector still has the legacy optional session-token parameter; the anonymous sponsor event and session-frequency tables currently contain zero rows.
-
-PR #40 is not deployed and its SQL upgrade has not been applied. Its target is to remove the first-visit popup, present the three separate unticked choices at signup and inline in Account settings, make Personalisation automatically enable/lock Service improvement analytics, require v4 explicit consent, revoke old v3 grants, and remove signed-out sponsor session-token/event/frequency measurement. Signed-out sponsor delivery would retain campaign/day served totals only. The app and SQL must be released together.
-
-- PR #40 presents Service improvement analytics and Sponsor measurement as separate account-linked choices and explains that topic/comment activity may reveal or permit inferences about religious or philosophical beliefs.
-- Personalisation automatically enables and locks Service improvement analytics while active; when Personalisation is off, Service improvement can be managed independently.
-- Signed-in consent is account-scoped and synchronised through the private consent ledger. Legacy signed-out optional analytics grants are retired; null-user consent never enables Vercel analytics or Sponsor measurement.
-- Native offline Account settings can read cached consent from encrypted storage and queue a local personalisation denial; the denial clears cached personalised pages and synchronises when online. The native feed displays previously server-ranked pages offline but does not recompute the recommendation algorithm locally.
-- The current branch includes a proposed device-local objection control for signed-out aggregate topic/comment statistics. This was introduced as a PECR safeguard, not an agreed product decision, and remains pending controller/product approval. Do not release the default-on native aggregate outbox under the statistical-purposes exception unless the control is approved or the collection is redesigned.
-- Vercel Web Analytics and Speed Insights are gated behind Service improvement analytics. Sponsor measurement remains separate from recommendation personalisation.
-
-The consolidated documentation upgrade script has not been executed as one file, and the clean-install bootstrap has not been run against a disposable PostgreSQL database because no separately billed Supabase branch was created. Browser/native end-to-end verification and controller approval remain outstanding.
-
-Before release, the controller must approve the Article 6 basis for each analytics purpose and determine whether account-linked topic/comment activity is special-category data in the actual processing. If it is, the controller must document and validate the Article 9 condition; explicit consent must be specific, informed, freely given, unambiguous and withdrawable. The consent interface is a technical control, not legal approval.
+- Confirm all anonymous analytics clients, APIs, controls, native queues, SQL tables/functions, cron jobs and admin/sponsor reporting paths are removed.
+- Confirm sponsor delivery creates no served counter, event receipt, session token, frequency record or aggregate delivery row when measurement is off.
+- Confirm opted-in signed-in Sponsor measurement still records only viewable impressions and clicks, with frequency derived from those consented viewability events.
+- Confirm signed-in Service improvement analytics and Personalisation remain properly gated and withdrawal-safe on web, Android and Electron.
+- Confirm no sponsor targeting or organic ranking uses religious-interest profiles or sponsor activity.
+- Run full tests, type-check, lint, production build and Android/Electron builds; obtain fresh independent code review.
+- Obtain controller and solicitor sign-off before applying production SQL or deploying.
