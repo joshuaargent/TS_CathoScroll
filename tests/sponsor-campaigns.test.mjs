@@ -108,6 +108,7 @@ test('measured and unmeasured sponsor selectors never count deliveries', () => {
   assert.doesNotMatch(unmeasured, /p_session_token|session_token|session_id/);
   assert.match(unmeasured, /p_category_slug/);
   assert.match(unmeasured, /p_topic_id/);
+  assert.match(unmeasured, /p_category_slug IS NOT NULL AND p_category_slug <> v_topic_category_slug/);
   assert.doesNotMatch(bootstrap, /CREATE OR REPLACE FUNCTION public\.record_anonymous_sponsor_campaign_event/);
   assert.match(sponsorOptOutUpgrade, /DROP TABLE IF EXISTS catho_private\.anonymous_sponsor_campaign_daily/);
 });
