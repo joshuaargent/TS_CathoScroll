@@ -1,4 +1,4 @@
-# CathoScroll — Legitimate Interests Assessment (LIA)
+# CathoScroll — Legitimate Interests Assessment (LIA): Security and Contact Requests
 
 **Controller:** Joshua Argent, trading as CathoScroll  
 **Assessment date:** 21 November 2026  
@@ -49,7 +49,19 @@ The service should not collect topic-reading history, religious-interest profile
 5. Keep security processing separate from optional Service improvement analytics, Sponsor measurement and Personalisation.
 6. Do not use this LIA as an Article 9 condition. If security processing intentionally reveals or uses religious/philosophical beliefs, stop and identify a valid Article 9 condition before proceeding.
 
-## 5. Conclusion
+## 5. Contact, support and feedback requests
+
+For general contact and feedback requests, CathoScroll has a legitimate interest in receiving and responding to messages about the service, support issues, bug reports and topic suggestions. For account support or steps requested before a service arrangement, Article 6(1)(b) may apply instead.
+
+The minimum information required is normally the sender's name, email address, subject and message. The contact form sends these fields to Formspree for delivery to CathoScroll. The form tells users not to include passwords, payment details or sensitive personal information. Messages are not used for analytics, Personalisation, sponsor targeting or marketing.
+
+The balancing test is favourable where messages are limited to the request, access is restricted, the information is deleted once the request is resolved and no longer needed, and users are informed that Formspree processes submissions. Users would reasonably expect a service contact form to deliver their message to the service operator.
+
+The form must not solicit religious/philosophical beliefs or other special-category data. If a person voluntarily includes such information, do not use it for another purpose. If it is not necessary to respond, delete or redact it. If further processing of special-category data is necessary, identify and document a valid Article 9 condition before doing so; Article 6(1)(f) alone is insufficient.
+
+**Provisional conclusion:** Article 6(1)(f) is a plausible basis for responding to general enquiries, subject to controller approval and the retention/access safeguards above. Confirm the mailbox provider and Formspree retention/deletion terms.
+
+## 6. Conclusion
 
 **Provisional conclusion:** Article 6(1)(f) is a plausible basis for the narrowly defined security and service-integrity purposes above, subject to controller approval, actual-field verification, retention configuration and implementation of the safeguards.
 
