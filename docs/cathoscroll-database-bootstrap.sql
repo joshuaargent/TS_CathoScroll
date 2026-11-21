@@ -7843,6 +7843,11 @@ BEGIN
     p_service_improvement, p_sponsor_measurement, p_consent_version, v_now
   );
 
+  IF p_sponsor_measurement IS NOT TRUE THEN
+    DELETE FROM catho_private.sponsor_campaign_placement_receipts
+    WHERE user_id = p_user_id;
+  END IF;
+
   RETURN pg_catalog.jsonb_build_object(
     'serviceImprovement', v_consent.service_improvement,
     'sponsorMeasurement', v_consent.sponsor_measurement,
@@ -7959,6 +7964,10 @@ BEGIN
   RETURN pg_catalog.jsonb_build_object('campaigns', v_campaigns, 'generated_at', statement_timestamp());
 END;
 $function$;
+ALTER FUNCTION public.get_unmeasured_sponsor_campaigns(text, text, integer) OWNER TO postgres;
+REVOKE ALL ON FUNCTION public.get_unmeasured_sponsor_campaigns(text, text, integer) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.get_unmeasured_sponsor_campaigns(text, text, integer) TO service_role;
+
 ALTER FUNCTION public.get_anonymous_sponsor_campaigns(text, text, text, integer) OWNER TO postgres;
 REVOKE ALL ON FUNCTION public.get_anonymous_sponsor_campaigns(text, text, text, integer) FROM PUBLIC, anon, authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.get_anonymous_sponsor_campaigns(text, text, text, integer) TO service_role;
