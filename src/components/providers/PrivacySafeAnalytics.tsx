@@ -49,7 +49,7 @@ export function PrivacySafeAnalytics() {
   );
   const enabled = useSyncExternalStore(subscribe, getSnapshot, () => false);
   const beforeSend = useCallback((event: BeforeSendEvent) => {
-    if (loading || !hasAnalyticsConsent('serviceImprovement', user?.id ?? null)) return null;
+    if (loading || !hasAnalyticsConsent('serviceImprovement', userId)) return null;
     return redactAnalyticsEvent(event);
   }, [loading, userId]);
   if (loading || !enabled) return null;
