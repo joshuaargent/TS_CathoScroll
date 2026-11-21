@@ -36,6 +36,7 @@ async function persistOfflinePersonalizationWithdrawal(userId: string): Promise<
     throw new Error('The native personalisation cache did not accept the offline withdrawal.');
   }
   await cacheWrite;
+  window.dispatchEvent(new Event(analyticsConsentSyncEvent));
 }
 
 export function AnalyticsConsentSettingsPanel({
