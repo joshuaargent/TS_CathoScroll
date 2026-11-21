@@ -38,7 +38,7 @@ test('campaign inventory is private and supports bounded, weighted delivery', ()
   assert.match(bootstrap, /cathoscroll-prune-sponsor-campaign-events/);
 });
 
-test('weighted campaign selector enforces payment, dates, targeting, caps and concurrency', () => {
+test('weighted campaign selector enforces payment, dates, targeting and opted-in caps without skipping concurrent placements', () => {
   const selector = functionBody(
     'public.get_weighted_sponsor_campaigns',
     'ALTER FUNCTION public.get_weighted_sponsor_campaigns'
@@ -58,7 +58,7 @@ test('weighted campaign selector enforces payment, dates, targeting, caps and co
   assert.match(selector, /lifetime\.event_type = 'viewable_impression'/);
   assert.doesNotMatch(selector, /event_type = 'served'/);
   assert.match(selector, /frequency_cap_per_user_total/);
-  assert.match(selector, /FOR UPDATE OF campaign SKIP LOCKED/);
+  assert.doesNotMatch(selector, /FOR UPDATE OF campaign SKIP LOCKED/);
   assert.match(selector, /campaign\.placement_weight/);
   assert.match(selector, /daily\.viewable_impressions/);
   assert.match(selector, /daily\.event_date >= v_today - 29/);
@@ -76,6 +76,10 @@ test('measured and unmeasured sponsor selectors never count deliveries', () => {
   assert.ok(signedIn.endsWith('$function$;'));
   assert.ok(unmeasured.endsWith('$function$;'));
   assert.equal(unmeasuredUpgrade, unmeasured, 'bootstrap and upgrade unmeasured selectors must match');
+  const weightedUpgradeStart = sponsorOptOutUpgrade.lastIndexOf('CREATE OR REPLACE FUNCTION public.get_weighted_sponsor_campaigns');
+  const weightedUpgradeEnd = sponsorOptOutUpgrade.indexOf('$function$;', weightedUpgradeStart);
+  const weightedUpgrade = sponsorOptOutUpgrade.slice(weightedUpgradeStart, weightedUpgradeEnd + '$function$;'.length);
+  assert.equal(weightedUpgrade, signedIn, 'bootstrap and upgrade weighted selectors must match');
 
   for (const selector of [signedIn, unmeasured]) {
     assert.match(selector, /SELECT topic\.category_slug INTO v_topic_category_slug/);
@@ -83,7 +87,7 @@ test('measured and unmeasured sponsor selectors never count deliveries', () => {
     assert.match(selector, /is_published/);
     assert.match(selector, /target_category_slugs/);
     assert.match(selector, /target_topic_ids/);
-    assert.match(selector, /FOR UPDATE OF campaign SKIP LOCKED/);
+    assert.doesNotMatch(selector, /FOR UPDATE OF campaign SKIP LOCKED/);
     assert.doesNotMatch(selector, /served_count|anonymous_sponsor_campaign_daily|sponsor_campaign_user_frequency/);
     assert.doesNotMatch(selector, /INSERT INTO catho_private\.sponsor_campaign_daily/);
     assert.doesNotMatch(selector, /UPDATE public\.sponsor_campaigns/);
