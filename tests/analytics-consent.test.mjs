@@ -237,10 +237,11 @@ test('Vercel analytics and performance telemetry are gated by service-improvemen
 });
 
 test('privacy assessment distinguishes special-category risk and keeps personalisation separate', async () => {
-  const [assessment, manager, account] = await Promise.all([
+  const [assessment, manager, account, analyticsSettings] = await Promise.all([
     read('../docs/analytics-data-protection-impact-assessment.md'),
     read('../src/components/privacy/AnalyticsConsentManager.tsx'),
     read('../src/components/account/PersonalizationAccountSection.tsx'),
+    read('../src/components/account/AnalyticsConsentSettingsPanel.tsx'),
   ]);
 
   assert.ok(assessment.includes('Article 6'));
@@ -250,6 +251,6 @@ test('privacy assessment distinguishes special-category risk and keeps personali
   assert.ok(manager.includes('Personalisation requires Service improvement analytics; Sponsor measurement remains independent.'));
   assert.ok(account.includes('personalization'));
   assert.ok(account.includes('I explicitly consent to CathoScroll using my account actions, selected interests and reading analytics'));
-  assert.ok(account.includes('Service improvement analytics is required while personalisation is enabled'));
+  assert.ok(analyticsSettings.includes('Required while personalisation is on.'));
   assert.ok(account.includes('AnalyticsConsentSettingsPanel'));
 });
