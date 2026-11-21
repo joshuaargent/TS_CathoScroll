@@ -14,7 +14,7 @@ Sponsor delivery remains available without measurement. Sponsor selection/displa
 
 ## 2. Data and people
 
-The relevant data may include account identifiers, topic/comment identifiers, event/session identifiers, event type, bounded durations and server receipt timestamps. Sponsor events contain campaign/event/session identifiers and event type. Recommendation profiles contain selected category interests and derived topic/category scores.
+The relevant data may include account identifiers, topic/comment identifiers, event/session identifiers, event type, bounded durations and server receipt timestamps. Sponsor events contain campaign/event/session identifiers, a server-issued placement receipt and event type. The receipt is created only for opted-in accounts, stored in the encrypted native outbox when pending, and expires server-side after seven days. Recommendation profiles contain selected category interests and derived topic/category scores.
 
 Users of a Catholic theology service may disclose or permit inference of religious or philosophical beliefs through their reading activity. Treat account-linked reading signals and derived recommendation profiles as potentially special-category data where the processing intentionally reveals, infers or uses those beliefs.
 
