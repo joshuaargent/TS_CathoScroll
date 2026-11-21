@@ -183,3 +183,18 @@ This is a technical implementation description, not a legal conclusion. Topic/co
 
 
 Native durability: the same encrypted private outbox also persists signed-in sponsor viewability/click events in a separate stream. Anonymous sponsor session tokens and their retry queue remain memory-only; anonymous topic/comment events use the separate anonymous outbox described above.
+
+
+## Product decision update — four analytics systems and native queues (21 November 2026)
+
+This section supersedes earlier implementation text above wherever it describes anonymous sponsor measurement as disabled, limited to served totals, or separate from signed-in sponsor reporting.
+
+CathoScroll separates:
+- **Anonymous sponsor measurement:** one aggregate campaign/day pipeline for served, viewable impressions, clicks, total/average visible duration and aggregate frequency/pacing. No account IDs, visitor IDs, persistent session IDs, cross-site identifiers or individual browsing histories may be retained. Any temporary event/placement token is memory-only and discarded after aggregation. Signed-in and signed-out sponsor measurement must converge on this aggregate reporting model.
+- **Service improvement analytics:** platform-wide topic impressions/completions, reading duration/skips, comment exposure/engagement, and category/topic performance.
+- **Personalisation:** private recommendation profile from permitted account activity and reading signals only while enabled; withdrawal stops signals and removes the derived profile.
+- **General feed ranking:** non-personalised baseline based on site-wide engagement, public interactions, recency and exposure balancing. Sponsors never influence organic ranking.
+
+The Privacy page exposes separate Anonymous topic and comment statistics and Anonymous sponsor measurement controls. Each objection affects only its corresponding optional measurement. Neither removes sponsor placements. Signed-in Account settings retain separate Service improvement analytics, Sponsor measurement and Personalisation choices.
+
+**Keep the native anonymous topic/comment outbox.** The app-private, bounded SQLite queue is useful and appropriate for offline service-improvement analytics: 2,000-event cap, seven-day expiry, server-acknowledgement deletion, no account/persistent visitor/session IDs, and immediate clearing on objection. **Do not add or retain a persistent native queue for anonymous sponsor measurement.** Those events are transient/in-memory and may be dropped when the app exits. The existing signed-in sponsor outbox containing account/event/session/campaign identifiers is legacy and must be removed when the unified aggregate-only sponsor pipeline is implemented. The present code still contains legacy sponsor event handling; this document records the approved target, not a claim that implementation is already complete.
