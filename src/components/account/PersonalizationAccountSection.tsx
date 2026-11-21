@@ -376,7 +376,7 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
             {status.category_options.map((category) => (
               <label
                 key={category.slug}
-                className={`border-border flex cursor-pointer items-center gap-3 rounded-xl border p-3 text-sm ${!status.enabled ? 'opacity-50' : 'hover:bg-bg-secondary'}`}
+                className={`border-border flex cursor-pointer items-center gap-3 rounded-xl border p-3 text-sm ${!status.enabled || !categoryInterestsLoaded ? 'opacity-50' : 'hover:bg-bg-secondary'}`}
               >
                 <input
                   type="checkbox"
