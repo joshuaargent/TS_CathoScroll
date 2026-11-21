@@ -1,7 +1,7 @@
 'use client';
 
 import type { SignedInAnalyticsOutbox } from './offline/signed-in-analytics-store';
-import { createConsentBoundAbortSignal, hasAnalyticsConsent } from './analytics-consent';
+import { analyticsConsentChangeEvent, createConsentBoundAbortSignal, hasAnalyticsConsent, hasSyncedAnalyticsConsent } from './analytics-consent';
 
 type FeedCardEventType = 'impression' | 'viewable_impression' | 'active_duration' | 'skip' | 'completion' | 'open';
 type QueuedEvent = {
@@ -110,6 +110,9 @@ export async function flushFeedCardAnalytics(userId: string, keepalive = false) 
     if (persistentOutbox) await persistentOutbox.clearStream(userId, 'comment');
     return;
   }
+  // Hold events collected after an offline opt-in until the account consent
+  // update has been acknowledged by the server.
+  if (!hasSyncedAnalyticsConsent('serviceImprovement', userId)) return;
   if (!navigator.onLine || flushingUsers.has(userId)) return;
   flushingUsers.add(userId);
   const consentRequest = createConsentBoundAbortSignal('serviceImprovement', userId);
@@ -181,11 +184,17 @@ export function installFeedCardAnalyticsListeners(
     if (document.visibilityState === 'hidden') void flushFeedCardAnalytics(userId, true);
   };
   flush();
+  const onConsentChange = (event: Event) => {
+    const detail = (event as CustomEvent<{ userId?: string | null }>).detail;
+    if ((detail?.userId ?? null) === userId) flush();
+  };
   window.addEventListener('online', flush);
+  window.addEventListener(analyticsConsentChangeEvent, onConsentChange);
   window.addEventListener('pagehide', flushOnHide);
   document.addEventListener('visibilitychange', flushOnHide);
   return () => {
     window.removeEventListener('online', flush);
+    window.removeEventListener(analyticsConsentChangeEvent, onConsentChange);
     window.removeEventListener('pagehide', flushOnHide);
     document.removeEventListener('visibilitychange', flushOnHide);
     if (transports.get(userId) === installed) {
