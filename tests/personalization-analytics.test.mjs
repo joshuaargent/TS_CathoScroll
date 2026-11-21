@@ -317,6 +317,8 @@ test('personalisation explicitly enables service analytics and prevents disablin
   const manager = readFileSync(new URL('../src/components/privacy/AnalyticsConsentManager.tsx', import.meta.url), 'utf8');
   assert.match(manager, /disabled=\{saving \|\| effectivePersonalizationEnabled \|\| \(!effectivePersonalizationStatusKnown && !serviceImprovement\)\}/);
   assert.match(manager, /saveAnalyticsConsent\(interim, userId, \{ syncPending: Boolean\(userId\) \}\)/);
+  assert.match(manager, /serviceImprovement: local\.serviceImprovement/);
+  assert.doesNotMatch(manager, /serviceImprovement: remote\.personalizationEnabled \? true/);
   assert.match(manager, /Turn off personalisation before disabling it/);
   assert.match(manager, /isServiceImprovementWithdrawal && effectivePersonalizationStatusKnown && effectivePersonalizationEnabled/);
 });
