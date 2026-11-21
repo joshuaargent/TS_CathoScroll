@@ -68,8 +68,8 @@ test('weighted campaign selector enforces payment, dates, targeting, caps and co
 
 test('measured and unmeasured sponsor selectors never count deliveries', () => {
   const signedIn = functionBody('public.get_weighted_sponsor_campaigns');
-  const unmeasured = functionBody('public.get_anonymous_sponsor_campaigns');
-  const upgradeStart = sponsorOptOutUpgrade.lastIndexOf('CREATE OR REPLACE FUNCTION public.get_anonymous_sponsor_campaigns');
+  const unmeasured = functionBody('public.get_unmeasured_sponsor_campaigns');
+  const upgradeStart = sponsorOptOutUpgrade.lastIndexOf('CREATE OR REPLACE FUNCTION public.get_unmeasured_sponsor_campaigns');
   const upgradeEnd = sponsorOptOutUpgrade.indexOf('$function$;', upgradeStart);
   const unmeasuredUpgrade = sponsorOptOutUpgrade.slice(upgradeStart, upgradeEnd + '$function$;'.length);
   assert.ok(signedIn.endsWith('$function$;'));
