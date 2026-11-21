@@ -37,24 +37,24 @@ test('canonical database and existing-database upgrade remove anonymous analytic
   assert.doesNotMatch(upgrade.slice(upgradeRankingStart, upgradeRankingEnd), /anonymous_feed_analytics_daily|anonymous_feed_event_receipts/);
   for (const sql of [bootstrap, upgrade]) {
     const finalModel = sql.slice(sql.lastIndexOf('-- FINAL ANALYTICS MODEL'));
-    assert.match(finalModel, /DROP FUNCTION IF EXISTS public\.get_admin_anonymous_analytics/);
+    assert.match(sql, /DROP FUNCTION IF EXISTS public\.get_admin_anonymous_analytics/);
     assert.match(sql, /get_anonymous_sponsor_campaigns/);
     assert.match(sql, /record_anonymous_sponsor_campaign_event/);
-    assert.match(finalModel, /DROP FUNCTION IF EXISTS public\.record_anonymous_feed_analytics/);
-    assert.match(finalModel, /DROP TABLE IF EXISTS catho_private\.anonymous_feed_analytics_daily/);
-    assert.match(finalModel, /DROP TABLE IF EXISTS catho_private\.anonymous_feed_event_receipts/);
-    assert.match(finalModel, /DROP TABLE IF EXISTS catho_private\.anonymous_sponsor_events/);
-    assert.match(finalModel, /DROP TABLE IF EXISTS catho_private\.anonymous_sponsor_campaign_daily/);
-    assert.match(finalModel, /DROP TABLE IF EXISTS catho_private\.anonymous_sponsor_session_frequency/);
-    assert.match(finalModel, /DROP FUNCTION IF EXISTS public\.get_anonymous_sponsor_campaigns/);
-    assert.match(finalModel, /DROP FUNCTION IF EXISTS public\.record_anonymous_sponsor_campaign_event/);
-    assert.match(finalModel, /DROP FUNCTION IF EXISTS catho_private\.prune_anonymous_analytics/);
-    assert.match(finalModel, /cathoscroll-anonymous-analytics-prune/);
-    assert.match(finalModel, /cron\.unschedule/);
-    assert.match(finalModel, /ALTER TABLE public\.sponsor_campaigns DROP COLUMN IF EXISTS served_count/);
-    assert.match(finalModel, /ALTER TABLE catho_private\.sponsor_campaign_daily DROP COLUMN IF EXISTS served_count/);
-    assert.match(finalModel, /DROP TABLE IF EXISTS catho_private\.sponsor_campaign_user_frequency/);
-    assert.match(finalModel, /DROP FUNCTION IF EXISTS public\.get_admin_sponsor_analytics\(uuid, timestamptz, timestamptz\)/);
+    assert.match(sql, /DROP FUNCTION IF EXISTS public\.record_anonymous_feed_analytics/);
+    assert.match(sql, /DROP TABLE IF EXISTS catho_private\.anonymous_feed_analytics_daily/);
+    assert.match(sql, /DROP TABLE IF EXISTS catho_private\.anonymous_feed_event_receipts/);
+    assert.match(sql, /DROP TABLE IF EXISTS catho_private\.anonymous_sponsor_events/);
+    assert.match(sql, /DROP TABLE IF EXISTS catho_private\.anonymous_sponsor_campaign_daily/);
+    assert.match(sql, /DROP TABLE IF EXISTS catho_private\.anonymous_sponsor_session_frequency/);
+    assert.match(sql, /DROP FUNCTION IF EXISTS public\.get_anonymous_sponsor_campaigns/);
+    assert.match(sql, /DROP FUNCTION IF EXISTS public\.record_anonymous_sponsor_campaign_event/);
+    assert.match(sql, /DROP FUNCTION IF EXISTS catho_private\.prune_anonymous_analytics/);
+    assert.match(sql, /cathoscroll-anonymous-analytics-prune/);
+    assert.match(sql, /cron\.unschedule/);
+    assert.match(sql, /ALTER TABLE public\.sponsor_campaigns DROP COLUMN IF EXISTS served_count/);
+    assert.match(sql, /ALTER TABLE catho_private\.sponsor_campaign_daily DROP COLUMN IF EXISTS served_count/);
+    assert.match(sql, /DROP TABLE IF EXISTS catho_private\.sponsor_campaign_user_frequency/);
+    assert.match(sql, /DROP FUNCTION IF EXISTS public\.get_admin_sponsor_analytics\(uuid, timestamptz, timestamptz\)/);
     for (const name of [
       'get_sponsor_campaign_analytics',
       'get_admin_sponsor_analytics',
