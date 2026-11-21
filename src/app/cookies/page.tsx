@@ -80,7 +80,7 @@ export default function CookiesPage() {
             reading signals inform your private recommendations. This analytics choice is locked
             on until personalisation is turned off. Sponsor measurement is a separate explicit
             choice for signed-in users only. If enabled, account-linked viewability and click events
-            use a temporary session token for frequency controls; raw event/frequency records are
+            use per-placement IDs for validation and account-level frequency records for caps; raw event/frequency records are
             retained for up to 180 days. Signed-out visitors are not individually measured: no
             token, hash, viewability, click or frequency record is created, while campaign/day
             served totals still support delivery and pacing. Sponsor placement context may reveal
