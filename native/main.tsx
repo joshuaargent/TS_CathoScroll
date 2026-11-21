@@ -52,12 +52,10 @@ import { OfflineTopicCountCache, type CachedTopicCounts } from '@/lib/offline/to
 import { loadTopicActivity } from '@/lib/topic-activity';
 import { siteConfig } from '@/lib/constants';
 import { analyticsConsentSyncEvent } from '@/lib/analytics-consent';
-import { configureAnonymousFeedAnalyticsOutbox } from '@/lib/anonymous-feed-analytics-client';
 import { configureFeedAnalyticsOutbox, clearFeedAnalyticsOutbox } from '@/lib/feed-analytics-client';
 import { configureFeedCardAnalyticsOutbox, clearFeedCardAnalyticsOutbox } from '@/lib/feed-card-analytics-client';
 import { configureSponsorAnalyticsOutbox, clearSponsorAnalyticsOutbox } from '@/lib/sponsor-analytics-client';
 import { NativeSignedInAnalyticsOutbox } from '@/lib/offline/signed-in-analytics-store';
-import { NativeAnonymousAnalyticsOutbox } from '@/lib/offline/anonymous-analytics-store';
 import { OfflineRankedFeedCache, type CachedPersonalizationConsent } from '@/lib/offline/ranked-feed-cache';
 import type { TopFeedComment } from '@/lib/feed-comments';
 import type { RecommendationCursor } from '@/lib/recommendations';
@@ -947,13 +945,6 @@ function App() {
       let failure = 'Unable to open app storage. Please try again.';
       try {
         const databases = await openNativeDatabases(secureAuthStorage);
-        try {
-          await configureAnonymousFeedAnalyticsOutbox(new NativeAnonymousAnalyticsOutbox(databases.catalogue));
-          clearNativeStatusNotice('anonymous-analytics-outbox');
-        } catch (cause) {
-          console.error('Durable anonymous analytics storage is unavailable:', cause);
-          notifyNativeStatus('Some signed-out analytics may not be retained if the app closes before upload.', { id: 'anonymous-analytics-outbox' });
-        }
         const localCatalogue = new OfflineCatalogue(databases.catalogue);
         try {
           const generalCache = new OfflineRankedFeedCache(databases.catalogue, localCatalogue);
