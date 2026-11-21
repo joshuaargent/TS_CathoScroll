@@ -23,6 +23,7 @@ export default async function AdminAnalyticsPage({ searchParams }: Props) {
   const { from, to } = getAnalyticsRange(period);
   const [{ data, error }, { data: seriesData, error: seriesError }, { data: deepDiveData, error: deepDiveError }] = await Promise.all([
     adminClient.rpc('get_admin_analytics_overview', {
+      p_actor_user_id: user.id,
       p_from: from.toISOString(),
       p_to: to.toISOString(),
     }),
