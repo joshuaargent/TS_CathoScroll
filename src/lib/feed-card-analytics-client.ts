@@ -1,7 +1,7 @@
 'use client';
 
 import type { SignedInAnalyticsOutbox } from './offline/signed-in-analytics-store';
-import { analyticsConsentChangeEvent, createConsentBoundAbortSignal, hasAnalyticsConsent, hasSyncedAnalyticsConsent } from './analytics-consent';
+import { analyticsConsentChangeEvent, createConsentBoundAbortSignal, denyAnalyticsConsentInMemory, hasAnalyticsConsent, hasSyncedAnalyticsConsent, requestAnalyticsConsentSync } from './analytics-consent';
 
 type FeedCardEventType = 'impression' | 'viewable_impression' | 'active_duration' | 'skip' | 'completion' | 'open';
 type QueuedEvent = {
@@ -154,7 +154,19 @@ export async function flushFeedCardAnalytics(userId: string, keepalive = false) 
         if (persistentOutbox) await persistentOutbox.clearStream(userId, 'comment');
         break;
       }
-      if (!response.ok) break;
+      if (!response.ok) {
+        if (response.status === 403) {
+          const rejection = await response.clone().json().catch(() => null) as { code?: string } | null;
+          if (rejection?.code === 'CONSENT_REQUIRED') {
+            denyAnalyticsConsentInMemory('serviceImprovement', userId);
+            await clearFeedCardAnalyticsOutbox(userId).catch((cause: unknown) => {
+              console.error('Unable to clear comment analytics after server-side consent withdrawal:', cause);
+            });
+            requestAnalyticsConsentSync();
+          }
+        }
+        break;
+      }
       const accepted = new Set(batch.map((event) => event.event_id));
       if (persistentOutbox) await persistentOutbox.acknowledge(userId, 'comment', [...accepted]);
       writeQueue(userId, readQueue(userId).filter((event) => !accepted.has(event.event_id)));
