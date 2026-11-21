@@ -128,6 +128,7 @@ test('signed-out sponsor delivery is aggregate-only and detailed events require 
   const anonymousPreference = read('../src/components/privacy/AnonymousAnalyticsPreference.tsx');
   assert.match(privacy, /Campaign\/day served totals include\s+all eligible deliveries/);
   assert.match(privacy, /Sponsor delivery is separate from Sponsor measurement/);
+  assert.match(privacy, /objection above applies only to\\s+topic and comment statistics; it does not disable sponsor placements or aggregate\\s+campaign\/day served totals/);
   assert.match(privacy, /only campaign\/day served totals are retained for delivery and pacing/);
   assert.match(anonymousPreference, /signed-out topic and comment activity/);
   assert.doesNotMatch(anonymousPreference, /sponsor/i);
