@@ -130,7 +130,7 @@ test('Top Comments viewability requires half visibility for one continuous secon
   assert.ok(hub.includes('Discussion open rate'));
   assert.ok(hub.includes('Comment active time'));
   assert.ok(hub.includes('Sponsor click-through'));
-  assert.ok(hub.includes('Topic active time'));
+  assert.ok(hub.includes("duration(t.topic_active_duration_ms)"));
   assert.ok(hub.includes('Topic completion rate'));
   const bootstrap = await readFile(new URL('../docs/cathoscroll-database-bootstrap.sql', import.meta.url), 'utf8');
   assert.ok(bootstrap.toLowerCase().includes('delete from catho_private.feed_card_analytics_daily_viewers v using doomed d'));
