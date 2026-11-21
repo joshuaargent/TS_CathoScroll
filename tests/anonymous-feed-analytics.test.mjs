@@ -207,7 +207,7 @@ test('anonymous analytics objections propagate to other tabs and clear their que
   const client = read('../src/lib/anonymous-feed-analytics-client.ts');
   assert.match(client, /window\.addEventListener\('storage'/);
   assert.match(client, /event\.key !== anonymousAnalyticsPreferenceKey && event\.key !== null/);
-  assert.match(client, /setAnonymousFeedAnalyticsEnabled\(enabled\)/);
+  assert.match(client, /queueAnonymousFeedAnalyticsPreference\(enabled, false\)/);
   assert.match(client, /anonymousPreferenceUpdateQueue\.then\(\(\) =>/);
   assert.match(client, /event\.newValue !== 'false'/);
   assert.match(client, /queueAnonymousFeedAnalyticsPreference\(enabled, false\)/);
