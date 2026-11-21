@@ -220,7 +220,8 @@ test('signup collects separate, unchecked explicit consent on web and native', (
   assert.match(signupForm, /Turning this on also enables Service improvement analytics/);
   assert.match(signupForm, /name="serviceImprovementConsent"/);
   assert.match(signupForm, /name="sponsorMeasurementConsent"/);
-  assert.doesNotMatch(signupForm, /name="personalizationConsent"[\s\S]{0,180}checked/);
+  assert.match(signupForm, /const \[personalizationConsent, setPersonalizationConsent\] = useState\(false\)/);
+  assert.match(signupForm, /checked=\{personalizationConsent\}/);
   assert.match(webSignup, /personalization_consent: personalizationConsent/);
   assert.match(nativeSignup, /personalization_consent: personalizationConsent/);
 });
