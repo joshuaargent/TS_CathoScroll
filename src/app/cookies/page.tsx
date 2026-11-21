@@ -70,7 +70,7 @@ export default function CookiesPage() {
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            Enabling Personalisation also enables Service improvement analytics because eligible reading signals inform private recommendations. This choice remains locked on until Personalisation is turned off. Sponsor measurement is a separate explicit choice for signed-in users only. If enabled, account-linked viewability and click events are used to derive opted-in frequency. Sponsor placements remain available when measurement is off, but no delivery, served, anonymous frequency or anonymous engagement counters are created.
+            Enabling Personalisation also enables Service improvement analytics because eligible reading signals inform private recommendations. This choice remains locked on until Personalisation is turned off. Sponsor measurement is a separate explicit choice for signed-in users only. If enabled, account-linked viewability and click events are used to derive opted-in frequency. A server-issued placement receipt validates that the campaign was selected; it is retained for up to seven days and deleted on withdrawal. Sponsor placements remain available when measurement is off, but no delivery, served, anonymous frequency or anonymous engagement counters are created.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
