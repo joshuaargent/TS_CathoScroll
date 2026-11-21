@@ -1222,3 +1222,332 @@ REVOKE ALL ON FUNCTION public.get_sponsor_campaign_analytics(uuid, uuid, date, d
 GRANT EXECUTE ON FUNCTION public.get_sponsor_campaign_analytics(uuid, uuid, date, date) TO service_role;
 
 NOTIFY pgrst, 'reload schema';
+
+
+-- FINAL ANALYTICS MODEL: NO ANONYMOUS MEASUREMENT AND NO SPONSOR DELIVERY COUNTERS.
+-- Sponsor selection is still available to every visitor. Selection itself is not recorded.
+CREATE OR REPLACE FUNCTION public.get_anonymous_sponsor_campaigns(
+  p_session_token text,
+  p_category_slug text DEFAULT NULL::text,
+  p_topic_id text DEFAULT NULL::text,
+  p_limit integer DEFAULT 1
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO ''
+AS $function$
+DECLARE
+  v_campaign record;
+  v_campaign_ids uuid[] := ARRAY[]::uuid[];
+  v_campaigns jsonb := '[]'::jsonb;
+  v_today date := (pg_catalog.timezone('UTC', statement_timestamp()))::date;
+  v_topic_category_slug text;
+BEGIN
+  -- The legacy session-token argument is deliberately ignored. It is not stored,
+  -- hashed, used for frequency, or included in any analytics event.
+  IF p_limit IS NULL OR p_limit < 1 OR p_limit > 1
+     OR (p_category_slug IS NOT NULL AND p_category_slug !~ '^[a-z0-9]+(-[a-z0-9]+)*$')
+     OR p_topic_id IS NULL
+     OR p_topic_id !~ '^[a-z0-9]+(-[a-z0-9]+)*$' THEN
+    RAISE EXCEPTION 'Invalid sponsor request' USING ERRCODE = '22023';
+  END IF;
+
+  SELECT topic.category_slug INTO v_topic_category_slug
+  FROM public.topics AS topic
+  WHERE topic.id = p_topic_id AND topic.is_published;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Sponsor placement topic is unavailable' USING ERRCODE = '22023';
+  END IF;
+
+  FOR v_slot IN 1..p_limit LOOP
+    SELECT campaign.id, sponsor.sponsor_name, campaign.headline, campaign.body,
+      campaign.image_url, campaign.destination_url, campaign.cta_label, campaign.campaign_name
+    INTO v_campaign
+    FROM public.sponsor_campaigns AS campaign
+    JOIN public.sponsors AS sponsor ON sponsor.id = campaign.sponsor_id
+    WHERE campaign.status = 'approved'
+      AND sponsor.status IN ('active', 'scheduled')
+      AND (sponsor.starts_on IS NULL OR sponsor.starts_on <= v_today)
+      AND (sponsor.ends_on IS NULL OR sponsor.ends_on >= v_today)
+      AND sponsor.payment_status IN ('received', 'not_required')
+      AND campaign.starts_on <= v_today AND campaign.ends_on >= v_today
+      AND (cardinality(campaign.target_category_slugs) = 0 OR v_topic_category_slug = ANY(campaign.target_category_slugs))
+      AND (cardinality(campaign.target_topic_ids) = 0 OR p_topic_id = ANY(campaign.target_topic_ids))
+      AND NOT campaign.id = ANY(v_campaign_ids)
+    ORDER BY campaign.placement_weight DESC, pg_catalog.random(), campaign.id
+    LIMIT 1 FOR UPDATE OF campaign SKIP LOCKED;
+
+    IF NOT FOUND THEN EXIT; END IF;
+
+    v_campaign_ids := pg_catalog.array_append(v_campaign_ids, v_campaign.id);
+    v_campaigns := v_campaigns || pg_catalog.jsonb_build_array(pg_catalog.jsonb_build_object(
+      'campaign_id', v_campaign.id,
+      'sponsor_name', v_campaign.sponsor_name,
+      'campaign_name', v_campaign.campaign_name,
+      'headline', v_campaign.headline,
+      'body', v_campaign.body,
+      'image_url', v_campaign.image_url,
+      'destination_url', v_campaign.destination_url,
+      'cta_label', v_campaign.cta_label,
+      'disclosure', 'Sponsored'
+    ));
+  END LOOP;
+
+  RETURN pg_catalog.jsonb_build_object('campaigns', v_campaigns, 'generated_at', statement_timestamp());
+END;
+$function$;
+ALTER FUNCTION public.get_anonymous_sponsor_campaigns(text, text, text, integer) OWNER TO postgres;
+REVOKE ALL ON FUNCTION public.get_anonymous_sponsor_campaigns(text, text, text, integer) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.get_anonymous_sponsor_campaigns(text, text, text, integer) TO service_role;
+
+CREATE OR REPLACE FUNCTION public.get_weighted_sponsor_campaigns(
+  p_user_id uuid,
+  p_session_id uuid,
+  p_category_slug text DEFAULT NULL::text,
+  p_topic_id text DEFAULT NULL::text,
+  p_limit integer DEFAULT 1
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO ''
+AS $function$
+DECLARE
+  v_campaign record;
+  v_campaign_ids uuid[] := ARRAY[]::uuid[];
+  v_campaigns jsonb := '[]'::jsonb;
+  v_today date := (pg_catalog.timezone('UTC', statement_timestamp()))::date;
+  v_topic_category_slug text;
+  v_sponsor_measurement boolean := false;
+BEGIN
+  IF p_user_id IS NULL OR p_session_id IS NULL OR p_limit IS NULL OR p_limit < 1 OR p_limit > 1
+     OR NOT EXISTS (SELECT 1 FROM auth.users AS account WHERE account.id = p_user_id) THEN
+    RAISE EXCEPTION 'Invalid sponsor measurement request' USING ERRCODE = '22023';
+  END IF;
+  PERFORM 1 FROM auth.users AS account WHERE account.id = p_user_id FOR KEY SHARE;
+  SELECT coalesce(consent.sponsor_measurement, false) INTO v_sponsor_measurement
+  FROM catho_private.user_analytics_consents AS consent
+  WHERE consent.user_id = p_user_id FOR SHARE;
+  IF NOT coalesce(v_sponsor_measurement, false) THEN
+    RAISE EXCEPTION 'Sponsor measurement consent required' USING ERRCODE = '42501';
+  END IF;
+
+  IF p_topic_id IS NULL OR p_topic_id !~ '^[a-z0-9]+(-[a-z0-9]+)*$' THEN
+    RAISE EXCEPTION 'Sponsor placement topic is required' USING ERRCODE = '22023';
+  END IF;
+  SELECT topic.category_slug INTO v_topic_category_slug
+  FROM public.topics AS topic WHERE topic.id = p_topic_id AND topic.is_published;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Sponsor placement topic is unavailable' USING ERRCODE = '22023';
+  END IF;
+
+  FOR v_slot IN 1..p_limit LOOP
+    SELECT campaign.id, sponsor.sponsor_name, campaign.headline, campaign.body,
+      campaign.image_url, campaign.destination_url, campaign.cta_label, campaign.campaign_name
+    INTO v_campaign
+    FROM public.sponsor_campaigns AS campaign
+    JOIN public.sponsors AS sponsor ON sponsor.id = campaign.sponsor_id
+    WHERE campaign.status = 'approved'
+      AND sponsor.status IN ('active', 'scheduled')
+      AND (sponsor.starts_on IS NULL OR sponsor.starts_on <= v_today)
+      AND (sponsor.ends_on IS NULL OR sponsor.ends_on >= v_today)
+      AND sponsor.payment_status IN ('received', 'not_required')
+      AND campaign.starts_on <= v_today AND campaign.ends_on >= v_today
+      AND (cardinality(campaign.target_category_slugs) = 0 OR v_topic_category_slug = ANY(campaign.target_category_slugs))
+      AND (cardinality(campaign.target_topic_ids) = 0 OR p_topic_id = ANY(campaign.target_topic_ids))
+      AND (SELECT count(*) FROM catho_private.sponsor_campaign_events AS recent
+        WHERE recent.user_id = p_user_id AND recent.campaign_id = campaign.id
+          AND recent.event_type = 'viewable_impression'
+          AND recent.received_at >= statement_timestamp() - interval '24 hours') < campaign.frequency_cap_per_user_24h
+      AND (SELECT count(*) FROM catho_private.sponsor_campaign_events AS lifetime
+        WHERE lifetime.user_id = p_user_id AND lifetime.campaign_id = campaign.id
+          AND lifetime.event_type = 'viewable_impression') < campaign.frequency_cap_per_user_total
+      AND NOT campaign.id = ANY(v_campaign_ids)
+    ORDER BY
+      coalesce((SELECT sum(daily.viewable_impressions)::numeric
+        FROM catho_private.sponsor_campaign_daily AS daily
+        WHERE daily.campaign_id = campaign.id
+          AND daily.event_date >= v_today - 29 AND daily.event_date <= v_today), 0)
+        / campaign.placement_weight::numeric ASC,
+      pg_catalog.random(), campaign.id
+    LIMIT 1 FOR UPDATE OF campaign SKIP LOCKED;
+
+    IF NOT FOUND THEN EXIT; END IF;
+
+    v_campaign_ids := pg_catalog.array_append(v_campaign_ids, v_campaign.id);
+    v_campaigns := v_campaigns || pg_catalog.jsonb_build_array(pg_catalog.jsonb_build_object(
+      'campaign_id', v_campaign.id,
+      'sponsor_name', v_campaign.sponsor_name,
+      'sponsor_logo_url', NULL,
+      'campaign_name', v_campaign.campaign_name,
+      'headline', v_campaign.headline,
+      'body', v_campaign.body,
+      'image_url', v_campaign.image_url,
+      'destination_url', v_campaign.destination_url,
+      'cta_label', v_campaign.cta_label,
+      'disclosure', 'Sponsored'
+    ));
+  END LOOP;
+
+  RETURN pg_catalog.jsonb_build_object('campaigns', v_campaigns, 'generated_at', statement_timestamp());
+END;
+$function$;
+ALTER FUNCTION public.get_weighted_sponsor_campaigns(uuid, uuid, text, text, integer) OWNER TO postgres;
+REVOKE ALL ON FUNCTION public.get_weighted_sponsor_campaigns(uuid, uuid, text, text, integer) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.get_weighted_sponsor_campaigns(uuid, uuid, text, text, integer) TO service_role;
+
+CREATE OR REPLACE FUNCTION public.get_admin_sponsor_analytics(
+  p_actor_user_id uuid,
+  p_sponsor_id uuid,
+  p_from timestamptz,
+  p_to timestamptz
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO ''
+AS $function$
+DECLARE v_result jsonb;
+BEGIN
+  IF p_actor_user_id IS NULL OR NOT EXISTS (
+    SELECT 1 FROM public.admin_users WHERE user_id = p_actor_user_id
+  ) THEN
+    RAISE EXCEPTION 'Administrator access required' USING ERRCODE = '42501';
+  END IF;
+  IF p_sponsor_id IS NULL OR p_from IS NULL OR p_to IS NULL
+     OR p_to <= p_from OR p_to - p_from > interval '180 days' THEN
+    RAISE EXCEPTION 'Invalid sponsor analytics range' USING ERRCODE = '22023';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.sponsors WHERE id = p_sponsor_id) THEN
+    RAISE EXCEPTION 'Sponsor not found' USING ERRCODE = 'P0002';
+  END IF;
+
+  WITH campaigns AS (
+    SELECT id, campaign_name, status
+    FROM public.sponsor_campaigns WHERE sponsor_id = p_sponsor_id
+  ),
+  metrics AS (
+    SELECT coalesce(sum(d.viewable_impressions), 0) AS viewable_impressions,
+      coalesce(sum(d.clicks), 0) AS clicks,
+      count(DISTINCT d.campaign_id) FILTER (WHERE d.viewable_impressions > 0) AS active_campaigns
+    FROM catho_private.sponsor_campaign_daily AS d
+    JOIN campaigns AS c ON c.id = d.campaign_id
+    WHERE d.event_date >= p_from::date AND d.event_date <= p_to::date
+  ),
+  series AS (
+    SELECT d.event_date,
+      coalesce(sum(d.viewable_impressions), 0) AS viewable_impressions,
+      coalesce(sum(d.clicks), 0) AS clicks
+    FROM catho_private.sponsor_campaign_daily AS d
+    JOIN campaigns AS c ON c.id = d.campaign_id
+    WHERE d.event_date >= p_from::date AND d.event_date <= p_to::date
+    GROUP BY d.event_date ORDER BY d.event_date
+  )
+  SELECT jsonb_build_object(
+    'sponsor_id', p_sponsor_id,
+    'totals', (SELECT to_jsonb(metrics) FROM metrics),
+    'campaigns', (SELECT coalesce(jsonb_agg(jsonb_build_object('id', c.id, 'name', c.campaign_name, 'status', c.status)), '[]'::jsonb) FROM campaigns AS c),
+    'series', (SELECT coalesce(jsonb_agg(to_jsonb(series)), '[]'::jsonb) FROM series)
+  ) INTO v_result;
+  RETURN v_result;
+END;
+$function$;
+ALTER FUNCTION public.get_admin_sponsor_analytics(uuid, uuid, timestamptz, timestamptz) OWNER TO postgres;
+REVOKE ALL ON FUNCTION public.get_admin_sponsor_analytics(uuid, uuid, timestamptz, timestamptz) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.get_admin_sponsor_analytics(uuid, uuid, timestamptz, timestamptz) TO service_role;
+
+CREATE OR REPLACE FUNCTION public.get_sponsor_campaign_analytics(
+  p_actor_user_id uuid,
+  p_sponsor_id uuid,
+  p_from date DEFAULT ((timezone('UTC'::text, statement_timestamp()))::date - 29),
+  p_to date DEFAULT (timezone('UTC'::text, statement_timestamp()))::date
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO ''
+AS $function$
+DECLARE v_result jsonb;
+BEGIN
+  IF p_actor_user_id IS NULL OR NOT EXISTS (
+    SELECT 1 FROM public.sponsor_memberships AS membership
+    WHERE membership.sponsor_id = p_sponsor_id
+      AND membership.user_id = p_actor_user_id
+      AND membership.status = 'active'
+  ) THEN
+    RAISE EXCEPTION 'Sponsor dashboard access required' USING ERRCODE = '42501';
+  END IF;
+  IF p_from IS NULL OR p_to IS NULL OR p_to < p_from OR p_to - p_from > 179 THEN
+    RAISE EXCEPTION 'Invalid sponsor analytics date range' USING ERRCODE = '22023';
+  END IF;
+
+  WITH campaigns AS (
+    SELECT campaign.id, campaign.campaign_name, campaign.status
+    FROM public.sponsor_campaigns AS campaign
+    WHERE campaign.sponsor_id = p_sponsor_id
+  ),
+  metrics AS (
+    SELECT campaign.id AS campaign_id, campaign.campaign_name, campaign.status,
+      coalesce(sum(daily.viewable_impressions), 0) AS viewable_impressions,
+      coalesce(sum(daily.clicks), 0) AS clicks
+    FROM campaigns AS campaign
+    LEFT JOIN catho_private.sponsor_campaign_daily AS daily
+      ON daily.campaign_id = campaign.id AND daily.event_date BETWEEN p_from AND p_to
+    GROUP BY campaign.id, campaign.campaign_name, campaign.status
+  )
+  SELECT jsonb_build_object(
+    'from', p_from,
+    'to', p_to,
+    'campaigns', coalesce(jsonb_agg(jsonb_build_object(
+      'campaign_id', metrics.campaign_id,
+      'campaign_name', metrics.campaign_name,
+      'status', metrics.status,
+      'viewable_impressions', metrics.viewable_impressions,
+      'clicks', metrics.clicks,
+      'click_through_rate', CASE WHEN metrics.viewable_impressions > 0
+        THEN round(metrics.clicks::numeric * 100 / metrics.viewable_impressions, 2) ELSE 0 END
+    ) ORDER BY metrics.viewable_impressions DESC, metrics.campaign_name), '[]'::jsonb)
+  ) INTO v_result
+  FROM metrics;
+  RETURN v_result;
+END;
+$function$;
+ALTER FUNCTION public.get_sponsor_campaign_analytics(uuid, uuid, date, date) OWNER TO postgres;
+REVOKE ALL ON FUNCTION public.get_sponsor_campaign_analytics(uuid, uuid, date, date) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.get_sponsor_campaign_analytics(uuid, uuid, date, date) TO service_role;
+
+-- Remove all legacy anonymous analytics storage and entry points.
+DROP FUNCTION IF EXISTS public.get_admin_anonymous_analytics(uuid, timestamptz, timestamptz, text, text);
+DROP FUNCTION IF EXISTS public.record_anonymous_feed_analytics(jsonb);
+DROP FUNCTION IF EXISTS catho_private.prune_anonymous_analytics();
+DROP TABLE IF EXISTS catho_private.anonymous_sponsor_session_frequency;
+DROP TABLE IF EXISTS catho_private.anonymous_sponsor_events;
+DROP TABLE IF EXISTS catho_private.anonymous_sponsor_campaign_daily;
+DROP TABLE IF EXISTS catho_private.anonymous_feed_event_receipts;
+DROP TABLE IF EXISTS catho_private.anonymous_feed_analytics_daily;
+
+-- No delivery counters or served events are retained. Frequency is measured only
+-- from viewable events for users who opted into Sponsor measurement.
+DELETE FROM catho_private.sponsor_campaign_events WHERE event_type = 'served';
+ALTER TABLE catho_private.sponsor_campaign_events
+  DROP CONSTRAINT IF EXISTS sponsor_campaign_events_event_type_check;
+ALTER TABLE catho_private.sponsor_campaign_events
+  ADD CONSTRAINT sponsor_campaign_events_event_type_check
+  CHECK (event_type IN ('viewable_impression', 'click'));
+UPDATE public.sponsor_campaigns SET served_count = 0;
+UPDATE catho_private.sponsor_campaign_daily SET served_count = 0;
+DROP TABLE IF EXISTS catho_private.sponsor_campaign_user_frequency;
+
+DO $anonymous_cron_cleanup$
+BEGIN
+  IF to_regclass('cron.job') IS NOT NULL THEN
+    PERFORM cron.unschedule(jobid)
+    FROM cron.job
+    WHERE jobname = 'cathoscroll-anonymous-analytics-prune';
+  END IF;
+END;
+$anonymous_cron_cleanup$;
+
+NOTIFY pgrst, 'reload schema';
+
