@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-const [bootstrap, sponsorOptOutUpgrade, feedCore, cardRegistry, placementRegistry, sponsorCard, campaignManager, campaignAdminRoute, deliveryRoute, eventRoute, campaignLib, campaignPage] = await Promise.all([
+const [bootstrap, sponsorOptOutUpgrade, feedCore, cardRegistry, placementRegistry, sponsorCard, campaignManager, campaignAdminRoute, deliveryRoute, eventRoute, campaignLib, campaignPage, sponsorClient] = await Promise.all([
   readFile(new URL('../docs/cathoscroll-database-bootstrap.sql', import.meta.url), 'utf8'),
   readFile(new URL('../docs/analytics-consent-and-sponsor-opt-out-upgrade.sql', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/TopicFeedCore.tsx', import.meta.url), 'utf8'),
@@ -15,6 +15,7 @@ const [bootstrap, sponsorOptOutUpgrade, feedCore, cardRegistry, placementRegistr
   readFile(new URL('../src/app/api/content/sponsor-campaign-events/route.ts', import.meta.url), 'utf8'),
   readFile(new URL('../src/lib/sponsor-campaigns.ts', import.meta.url), 'utf8'),
   readFile(new URL('../src/app/admin/sponsor-campaigns/page.tsx', import.meta.url), 'utf8'),
+  readFile(new URL('../src/lib/sponsor-analytics-client.ts', import.meta.url), 'utf8'),
 ]);
 
 function functionBody(name) {
@@ -131,6 +132,11 @@ test('sponsor event recording requires explicit consent and only records viewabi
   assert.match(eventRoute, /isSameOriginOrNativeRequest/);
   assert.match(eventRoute, /checkApiRateLimit/);
   assert.match(eventRoute, /if \(!consent\.sponsorMeasurement\) return respond/);
+  assert.match(eventRoute, /code: 'CONSENT_REQUIRED'/);
+  assert.match(eventRoute, /\}, 403\)/);
+  assert.ok(sponsorClient.includes("denyAnalyticsConsentInMemory('sponsorMeasurement', userId)"));
+  assert.ok(sponsorClient.includes('requestAnalyticsConsentSync()'));
+  assert.ok(sponsorClient.includes('clearSponsorAnalyticsOutbox(userId)'));
   assert.match(eventRoute, /placementReceipt/);
   assert.match(eventRoute, /p_placement_receipt: placementReceipt/);
 });
