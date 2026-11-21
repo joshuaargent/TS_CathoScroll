@@ -68,7 +68,7 @@ test('sponsor delivery is available without consent and creates no delivery coun
     read('../docs/cathoscroll-database-bootstrap.sql'),
     read('../docs/analytics-consent-and-sponsor-opt-out-upgrade.sql'),
   ]);
-  assert.match(route, /!sponsorMeasurementEnabled[\s\S]*?get_anonymous_sponsor_campaigns/);
+  assert.match(route, /!sponsorMeasurementEnabled[\s\S]*?get_unmeasured_sponsor_campaigns/);
   assert.match(route, /get_weighted_sponsor_campaigns/);
   assert.match(card, /if \(previewMode \|\| !sponsorMeasurementEnabled \|\| !userId\) return false/);
   assert.match(card, /recordSponsorCampaignEvent\(userId/);
@@ -78,7 +78,7 @@ test('sponsor delivery is available without consent and creates no delivery coun
     assert.match(finalModel, /DROP TABLE IF EXISTS catho_private\.anonymous_feed_analytics_daily/);
     assert.match(finalModel, /DROP TABLE IF EXISTS catho_private\.anonymous_sponsor_campaign_daily/);
     assert.match(finalModel, /DROP FUNCTION IF EXISTS public\.record_anonymous_feed_analytics/);
-    const selectorStart = finalModel.lastIndexOf('CREATE OR REPLACE FUNCTION public.get_anonymous_sponsor_campaigns');
+    const selectorStart = finalModel.lastIndexOf('CREATE OR REPLACE FUNCTION public.get_unmeasured_sponsor_campaigns');
     const selectorEnd = finalModel.indexOf('$function$;', selectorStart);
     const selector = finalModel.slice(selectorStart, selectorEnd);
     assert.doesNotMatch(selector, /INSERT INTO|served_count|anonymous_sponsor_campaign_daily/);
