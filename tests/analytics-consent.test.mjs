@@ -45,7 +45,7 @@ test('optional analytics consent is explicit, purpose-specific and off by defaul
 });
 
 test('account consent sync is identity-bound, retryable and enforced server-side', async () => {
-  const [manager, route, serverConsent, topicRoute, commentRoute, sponsorRoute, migration, lockOrderMigration, bootstrap, security] = await Promise.all([
+  const [manager, route, serverConsent, topicRoute, commentRoute, sponsorRoute, migration, personalizationUpgrade, bootstrap, security] = await Promise.all([
     read('../src/components/privacy/AnalyticsConsentManager.tsx'),
     read('../src/app/api/privacy/analytics-consent/route.ts'),
     read('../src/lib/analytics-consent-server.ts'),
@@ -96,7 +96,7 @@ test('account consent sync is identity-bound, retryable and enforced server-side
   assert.ok(sponsorRoute.includes('getStoredAnalyticsConsent(auth.user.id)'));
   assert.ok(migration.includes('user_analytics_consents'));
   assert.ok(migration.includes('user_analytics_consent_history'));
-  const setter = lockOrderMigration.slice(lockOrderMigration.indexOf('CREATE OR REPLACE FUNCTION public.set_user_analytics_consent'));
+  const setter = migration.slice(migration.indexOf('CREATE OR REPLACE FUNCTION public.set_user_analytics_consent'));
   assert.ok(setter.indexOf('FROM auth.users AS account WHERE account.id = p_user_id FOR UPDATE') < setter.indexOf('FROM catho_private.user_analytics_consents'));
   for (const sql of [migration, bootstrap]) {
     for (const name of ['public.record_feed_analytics_events', 'public.record_sponsor_campaign_event', 'public.get_weighted_sponsor_campaigns']) {
