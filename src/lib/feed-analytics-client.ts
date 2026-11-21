@@ -1,7 +1,7 @@
 'use client';
 
 import type { SignedInAnalyticsOutbox } from './offline/signed-in-analytics-store';
-import { analyticsConsentChangeEvent, createConsentBoundAbortSignal, hasAnalyticsConsent, hasSyncedAnalyticsConsent } from './analytics-consent';
+import { analyticsConsentChangeEvent, createConsentBoundAbortSignal, denyAnalyticsConsentInMemory, hasAnalyticsConsent, hasSyncedAnalyticsConsent, requestAnalyticsConsentSync } from './analytics-consent';
 
 export type FeedAnalyticsEventType =
   | 'impression'
@@ -252,7 +252,19 @@ export async function flushFeedAnalytics(userId: string, keepalive = false): Pro
         if (persistentOutbox) await persistentOutbox.clearStream(userId, 'topic');
         break;
       }
-      if (!response.ok) break;
+      if (!response.ok) {
+        if (response.status === 403) {
+          const rejection = await response.clone().json().catch(() => null) as { code?: string } | null;
+          if (rejection?.code === 'CONSENT_REQUIRED') {
+            denyAnalyticsConsentInMemory('serviceImprovement', userId);
+            await clearFeedAnalyticsOutbox(userId).catch((cause: unknown) => {
+              console.error('Unable to clear analytics after server-side consent withdrawal:', cause);
+            });
+            requestAnalyticsConsentSync();
+          }
+        }
+        break;
+      }
 
       const acceptedIds = new Set(batch.map((event) => event.event_id));
       if (persistentOutbox) {
