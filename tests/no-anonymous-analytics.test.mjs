@@ -4,6 +4,22 @@ import test from 'node:test';
 
 const read = (path) => readFile(new URL(path, import.meta.url), 'utf8');
 
+test('retired anonymous analytics implementation files are physically absent', async () => {
+  const retiredFiles = [
+    '../src/app/api/analytics/anonymous-events/route.ts',
+    '../src/lib/anonymous-feed-analytics-client.ts',
+    '../src/lib/offline/anonymous-analytics-store.ts',
+    '../src/components/privacy/AnonymousAnalyticsPreference.tsx',
+  ];
+  for (const path of retiredFiles) {
+    await assert.rejects(
+      readFile(new URL(path, import.meta.url), 'utf8'),
+      { code: 'ENOENT' },
+      path + ' must remain deleted'
+    );
+  }
+});
+
 test('anonymous analytics clients, APIs, controls and native queues are absent', async () => {
   const [native, privacy, cookies, manager, sponsorClient, apiDirectory, topicPage, categoryPage, contentDashboard, adminHub, entityPage] = await Promise.all([
     read('../native/main.tsx'),
