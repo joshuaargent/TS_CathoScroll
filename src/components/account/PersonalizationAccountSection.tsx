@@ -346,7 +346,7 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
                   ? 'rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300'
                   : 'rounded-full bg-bg-secondary px-3 py-1 text-xs font-semibold text-text-secondary'}
               >
-                {loading ? 'Loading status…' : !personalizationStatusKnown ? 'Status unavailable' : status.enabled ? 'Enabled' : 'Disabled'}
+                {loading ? 'Loading status…' : !personalizationStatusKnown ? 'Status unavailable' : status.enabled ? 'Enabled' : status.updated_at ? 'Disabled' : 'Not chosen'}
               </span>
             </div>
             <p className="text-text-secondary mt-2 text-sm leading-relaxed">
