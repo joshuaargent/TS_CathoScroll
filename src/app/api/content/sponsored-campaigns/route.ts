@@ -111,13 +111,10 @@ export async function POST(request: Request) {
   }
 
   try {
-    const sponsorMeasurementConsent = (parsed.value as Record<string, unknown>).sponsorMeasurementConsent === true;
-    // Detailed anonymous viewability, click and frequency measurement is opt-in.
-    // Without consent, no session token is passed and only campaign/day served
-    // aggregates are recorded while sponsor delivery remains enabled.
-    let sponsorMeasurementEnabled = isAnonymous
-      ? sponsorMeasurementConsent && parsed.value.sessionId !== null
-      : parsed.value.sessionId !== null;
+    // Detailed Sponsor measurement is account-only. Never trust a client
+    // consent flag or accept a signed-out session token: signed-out delivery
+    // records campaign/day served totals only.
+    let sponsorMeasurementEnabled = false;
     if (auth.user) {
       try {
         const consent = await getStoredAnalyticsConsent(auth.user.id);
@@ -129,7 +126,7 @@ export async function POST(request: Request) {
         sponsorMeasurementEnabled = false;
       }
     }
-    const measurementSessionId: string | null = sponsorMeasurementEnabled && typeof parsed.value.sessionId === 'string'
+    const measurementSessionId: string | null = !isAnonymous && sponsorMeasurementEnabled && typeof parsed.value.sessionId === 'string'
       ? parsed.value.sessionId
       : null;
     const { data, error } = isAnonymous
