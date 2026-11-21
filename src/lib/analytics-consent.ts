@@ -127,14 +127,28 @@ export function readAnalyticsConsent(userId?: string | null): AnalyticsConsent |
   }
 }
 
+export function clearLegacyAnonymousAnalyticsConsent(): void {
+  if (typeof window === 'undefined') return;
+  const key = storageKeyForUser(null);
+  try {
+    window.localStorage.removeItem(key);
+  } catch {
+    // The signed-out consent gate still returns false if storage is unavailable.
+  }
+  for (const choice of ['serviceImprovement', 'sponsorMeasurement'] as const) {
+    deniedOverrides.add(overrideKey(choice, null));
+    getConsentChannel()?.postMessage({ type: 'deny', choice, userId: null });
+  }
+  window.dispatchEvent(new CustomEvent(analyticsConsentChangeEvent, { detail: { userId: null } }));
+}
+
 export function getAnalyticsConsent(userId?: string | null): AnalyticsConsent {
   return readAnalyticsConsent(userId) ?? emptyConsent();
 }
 
 export function hasAnalyticsConsent(choice: AnalyticsConsentChoice, userId?: string | null): boolean {
-  // Detailed account-linked analytics are no longer offered to signed-out
-  // visitors. Their separate anonymous aggregate topic/comment stream has its
-  // own objection control and never uses this consent gate.
+  // Optional analytics are account-only. Signed-out visitors have no
+  // anonymous analytics or sponsor delivery measurement.
   if (!userId) return false;
   if (deniedOverrides.has(overrideKey(choice, userId))) return false;
   return getAnalyticsConsent(userId)[choice] === true;
