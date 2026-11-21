@@ -745,8 +745,16 @@ declare
   v_event_id_text text;
   v_session_id_text text;
   v_duration_text text;
+  v_service_consent boolean := false;
 begin
   if v_user_id is null then raise exception 'authentication required' using errcode='42501'; end if;
+    PERFORM 1 FROM auth.users AS account WHERE account.id = v_user_id FOR KEY SHARE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Authentication required' USING ERRCODE = '42501'; END IF;
+  select consent.service_improvement into v_service_consent
+  from catho_private.user_analytics_consents as consent
+  where consent.user_id = v_user_id
+  for share;
+  if coalesce(v_service_consent, false) is not true then return 0; end if;
   if jsonb_typeof(p_events) <> 'array' or jsonb_array_length(p_events) < 1 or jsonb_array_length(p_events) > 50 then
     raise exception 'invalid event batch' using errcode='22023';
   end if;
