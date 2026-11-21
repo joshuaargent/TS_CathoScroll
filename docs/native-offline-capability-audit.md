@@ -70,6 +70,8 @@ The release is not yet verified. Exact-head CI, Android/Electron force-close/rec
 
 ## Important sync distinction
 
+Personalisation does not need a third, separate recommendation-event outbox. Its eligible explicit account actions already use the signed-in activity synchronisation queue, while passive reading signals use the consent-gated signed-in Service improvement analytics queue. The recommendation profile and ranking remain server-computed; native stores only previously downloaded personalised pages in encrypted private storage for offline reading while the cached consent check is fresh. New offline reading signals must not be treated as an active local recommendation model; they are uploaded through the existing analytics queue when permitted and processed by the server.
+
 The signed-in *activity* outbox for likes, bookmarks and completion remains the revision-aware, account-linked synchronisation system. The signed-in *analytics* outbox for topic, Top Comments and sponsor events is a separate encrypted, account-scoped queue on Android and Electron. It has a 2,000-event per-stream cap, seven-day expiry, server-acknowledgement deletion and sign-out/account-switch cleanup. It does not use activity revisions or cross-device reconciliation. The website retains bounded in-memory analytics queues. Signed-out analytics remain separate and contain no account, visitor or session identifiers. Sponsor analytics remain separate from both analytics outboxes.
 
 
