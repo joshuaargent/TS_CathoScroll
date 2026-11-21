@@ -51,7 +51,7 @@ test('privacy and analytics surfaces explicitly exclude anonymous engagement mea
     read('../src/components/privacy/AnalyticsConsentManager.tsx'),
   ]);
   for (const source of [privacy, cookies]) {
-    assert.match(source, /do not collect anonymous/i);
+    assert.match(source, /(?:do not collect|does not collect) anonymous/i);
     assert.doesNotMatch(source, /AnonymousAnalyticsPreference|signed-out topic\/comment daily aggregates|campaign\/day served totals/i);
   }
   for (const source of [hub, detail, sponsorPortal, adminPage]) {
