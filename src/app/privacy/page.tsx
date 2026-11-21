@@ -272,7 +272,7 @@ export default function PrivacyPage() {
             measurement is off. Detailed sponsor viewability, clicks and frequency are available
             only to signed-in users who explicitly enable Sponsor measurement. Their events are
             account-linked; a temporary session token supports frequency controls, and raw event
-            records are eligible for deletion after 30 days. Signed-out visitors are not measured
+            records are eligible for deletion after 180 days. Signed-out visitors are not measured
             individually: only campaign/day served totals are retained for delivery and pacing.
             The statistical-purpose exception is not used to justify sponsor viewability or click
             measurement; those technologies require the separate Sponsor measurement choice.
