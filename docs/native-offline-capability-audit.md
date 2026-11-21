@@ -23,6 +23,8 @@ On consent withdrawal:
 - Synchronise the denial to the server when connectivity returns.
 - Clear the prior account's queues on account change or sign-out.
 
+When a user grants an optional purpose offline, newly queued events remain on-device and are not uploaded until the server has acknowledged the account consent. A successful consent sync triggers the pending streams to resume. This prevents an offline opt-in from racing the event upload against the server-side consent record.
+
 The native analytics outbox is encrypted and account-scoped. It is not a generic telemetry store. No anonymous native queue or anonymous local preference exists.
 
 ## Offline personalisation
