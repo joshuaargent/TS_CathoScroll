@@ -1279,7 +1279,7 @@ $personalization_consent_regrant$;
 
 -- Release-wide analytics and personalisation reset.
 -- No existing account has an active choice under the new disclosures.
--- Deleting the current-state rows makes the choice genuinely unset (not a
+-- Deleting current-state rows makes the choice genuinely unset (not a
 -- recorded refusal). Historical consent evidence remains in the audit table,
 -- but it is never consulted as current permission and cannot authorize new
 -- processing under this release.
@@ -1287,6 +1287,18 @@ $personalization_consent_regrant$;
 -- Clear all old engagement measurements and derived analytics so the new
 -- dashboards start from zero. Product data (likes, bookmarks, progress,
 -- comments, notes and account activity) is deliberately untouched.
+--
+-- Lock both consent ledgers and remove current grants first. Event ingestion
+-- functions take row-share locks on these rows, so once this transaction
+-- commits, old grants cannot write into the freshly cleared analytics tables.
+BEGIN;
+LOCK TABLE catho_private.user_analytics_consents,
+           catho_private.user_personalization_consents
+  IN ACCESS EXCLUSIVE MODE;
+
+DELETE FROM catho_private.user_analytics_consents;
+DELETE FROM catho_private.user_personalization_consents;
+
 DELETE FROM catho_private.sponsor_campaign_placement_receipts;
 DELETE FROM catho_private.sponsor_campaign_events;
 DELETE FROM catho_private.sponsor_campaign_daily;
@@ -1301,20 +1313,12 @@ DELETE FROM catho_private.feed_analytics_event_limits;
 DELETE FROM catho_private.feed_analytics_daily_viewers;
 DELETE FROM catho_private.feed_analytics_daily;
 
--- Remove every derived or explicitly selected personalisation record and its
--- current consent state. The profile will be rebuilt only after a fresh,
--- explicit opt-in under the new wording. Existing account actions remain
--- product records, but the profile builder's new grant timestamp prevents
--- pre-consent actions from being imported into the new profile.
+-- Remove every derived or explicitly selected personalisation record. The
+-- profile will be rebuilt only after a fresh explicit opt-in. Existing
+-- account actions remain product records, but the profile builder's new
+-- grant timestamp prevents pre-consent actions from entering the new profile.
 DELETE FROM catho_private.user_topic_interest_scores;
 DELETE FROM catho_private.user_explicit_category_interests;
-DELETE FROM catho_private.user_personalization_consents;
 
--- Remove active Service improvement and Sponsor measurement grants. A missing
--- row is the not-yet-decided state returned by get_user_analytics_consent.
--- Old local browser grants are invalidated by the v2 client storage namespace;
--- native personalisation grants and cached personalised pages are invalidated
--- by the v6 consent-cache version.
-DELETE FROM catho_private.user_analytics_consents;
-
+COMMIT;
 NOTIFY pgrst, 'reload schema';
