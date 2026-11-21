@@ -130,14 +130,13 @@ export function SignupFormView({
                   checked={personalizationConsent}
                   onChange={(event) => {
                     setPersonalizationConsent(event.target.checked);
-                    if (event.target.checked) setServiceImprovementConsent(true);
                   }}
                   disabled={loading || !online}
                   className="accent-accent mt-0.5 h-4 w-4 shrink-0"
                 />
                 <span className="text-text-secondary text-xs leading-relaxed">
                   <span className="text-text-primary font-semibold">Personalised recommendations — I explicitly consent</span>
-                  {' '}to using my account actions, chosen interests and reading activity to build a private recommendation profile. This may reveal religious or philosophical beliefs. Turning this on also enables Service improvement analytics. It is optional and can be withdrawn in Account settings.
+                  {' '}to using my account actions and chosen interests to build a private recommendation profile. This may reveal religious or philosophical beliefs. Passive reading signals are used for recommendations only if you separately enable Service improvement analytics. It is optional and can be withdrawn in Account settings.
                 </span>
               </label>
 
@@ -147,14 +146,14 @@ export function SignupFormView({
                   name="serviceImprovementConsent"
                   type="checkbox"
                   value="true"
-                  checked={personalizationConsent || serviceImprovementConsent}
+                  checked={serviceImprovementConsent}
                   onChange={(event) => setServiceImprovementConsent(event.target.checked)}
-                  disabled={loading || !online || personalizationConsent}
+                  disabled={loading || !online}
                   className="accent-accent mt-0.5 h-4 w-4 shrink-0"
                 />
                 <span className="text-text-secondary text-xs leading-relaxed">
                   <span className="text-text-primary font-semibold">Service improvement analytics — I explicitly consent</span>
-                  {' '}— optional account-linked measurement of signed-in topic/comment engagement and site performance. Activity may reveal religious or philosophical interests. Required while personalisation is enabled.
+                  {' '}— optional account-linked measurement of signed-in topic/comment engagement and site performance. Activity may reveal religious or philosophical interests. Independent optional choice. Reading signals inform recommendations only if Personalisation is also enabled.
                 </span>
               </label>
 
