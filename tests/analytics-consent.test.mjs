@@ -41,6 +41,7 @@ test('optional analytics consent is explicit, purpose-specific and off by defaul
   assert.ok(account.includes('offlinePersonalizationWithdrawal'));
   assert.ok(account.includes('persistOfflinePersonalizationWithdrawal'));
   assert.ok(account.includes('pendingSync: true'));
+  assert.ok(account.includes('window.dispatchEvent(new Event(analyticsConsentSyncEvent))'));
   assert.ok(signup.includes('name="personalizationConsent"'));
   assert.ok(signup.includes('name="serviceImprovementConsent"'));
   assert.ok(signup.includes('name="sponsorMeasurementConsent"'));
