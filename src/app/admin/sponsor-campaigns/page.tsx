@@ -26,7 +26,7 @@ export default async function AdminSponsorCampaignsPage() {
       adminClient
         .from('sponsor_campaigns')
         .select(
-          'id,sponsor_id,campaign_name,headline,body,image_url,destination_url,cta_label,starts_on,ends_on,target_category_slugs,placement_weight,frequency_cap_per_user_24h,frequency_cap_per_user_total,daily_impression_cap,total_impression_cap,served_count,status,approved_at,created_at'
+          'id,sponsor_id,campaign_name,headline,body,image_url,destination_url,cta_label,starts_on,ends_on,target_category_slugs,placement_weight,frequency_cap_per_user_24h,frequency_cap_per_user_total,daily_impression_cap,total_impression_cap,status,approved_at,created_at'
         )
         .order('created_at', { ascending: false })
         .limit(100),
