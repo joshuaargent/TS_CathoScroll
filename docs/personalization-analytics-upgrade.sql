@@ -1223,15 +1223,8 @@ END;
 $feed_card_analytics_cron$;
 
 
--- Remove recommendation profiles built from the former analytics-event inputs.
--- The next opted-in feed request rebuilds each profile from eligible account actions and reading signals.
-DELETE FROM catho_private.user_topic_interest_scores;
-
-UPDATE catho_private.user_personalization_consents
-SET profile_refreshed_at = NULL,
-    updated_at = statement_timestamp()
-WHERE enabled = true;
-
+-- The one-time profile and analytics reset is performed at the end of this
+-- script under a durable marker, so rerunning the upgrade preserves new data.
 
 -- Personalisation is now a separate choice. Existing v3 opt-ins must be
 -- re-confirmed against the updated purpose wording before recommendations resume.
