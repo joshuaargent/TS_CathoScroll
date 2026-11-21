@@ -43,7 +43,7 @@ export function NativeSignup({ onSignedUp }: { onSignedUp: () => void }) {
     const password = String(data.get('password') ?? '');
     const confirmPassword = String(data.get('confirmPassword') ?? '');
     const personalizationConsent = data.get('personalizationConsent') === 'true';
-    const serviceImprovementConsent = personalizationConsent || data.get('serviceImprovementConsent') === 'true';
+    const serviceImprovementConsent = data.get('serviceImprovementConsent') === 'true';
     const sponsorMeasurementConsent = data.get('sponsorMeasurementConsent') === 'true';
     const invalidUsername = usernameError(username);
     if (invalidUsername) {
