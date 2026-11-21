@@ -4,7 +4,7 @@
 
 CathoScroll has three distinct content-ordering modes:
 
-1. **General feed:** a shared site-wide ranking for signed-in and signed-out readers. It uses public interaction signals (likes, bookmarks and top-level comments), curated topic order, recency and category-exposure balancing. It does not use anonymous engagement analytics or sponsor activity.
+1. **General feed:** a shared site-wide ranking for signed-in and signed-out readers. It uses public interaction signals (likes, bookmarks and top-level comments), curated topic order, recency, category-exposure balancing and only the signed-in Service improvement aggregates permitted by consent. It does not use anonymous engagement analytics or sponsor activity.
 2. **Category pages:** curated `order_index, id` order within the selected published category.
 3. **Personalised feed:** available only after the account holder explicitly enables Personalisation. A private account profile schedules categories; topics within each category remain in curated order.
 
@@ -12,7 +12,7 @@ Sponsor selection is a separate placement system. Sponsor delivery and sponsor m
 
 ## General ranking implementation
 
-The production selector is `public.get_public_general_topic_page(jsonb, integer)`. Its score uses public interaction counts and the signed-in feed analytics daily rollup, where that account-linked analytics stream has been enabled. The query does not read anonymous topic/comment tables, visitor IDs, session IDs, sponsor events or sponsor delivery counts.
+The production selector is `public.get_public_general_topic_page(jsonb, integer)`. Its score uses public interaction counts and the signed-in feed analytics daily rollup, which receives only events from users who enabled Service improvement analytics. The query does not read anonymous topic/comment tables, visitor IDs, session IDs, sponsor events or sponsor delivery counts.
 
 The selector computes topic scores once per page, then chooses the next topic from the least-served eligible category. Its opaque cursor preserves category offsets and exposure counts and avoids a third consecutive topic from the same category when another eligible category exists. These cursor values are local pagination state, not analytics records.
 
