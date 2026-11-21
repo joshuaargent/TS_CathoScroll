@@ -126,7 +126,7 @@ test('signed-out sponsor delivery is aggregate-only and detailed events require 
   // and must not be disabled by the signed-out topic/comment objection.
   const privacy = read('../src/app/privacy/page.tsx');
   const anonymousPreference = read('../src/components/privacy/AnonymousAnalyticsPreference.tsx');
-  assert.match(privacy, /Campaign\/day served totals include\\s+all eligible deliveries/);
+  assert.match(privacy, /Campaign\/day served totals include\s+all eligible deliveries/);
   assert.match(privacy, /Sponsor delivery is separate from Sponsor measurement/);
   assert.match(privacy, /only campaign\/day served totals are retained for delivery and pacing/);
   assert.match(anonymousPreference, /signed-out topic and comment activity/);
