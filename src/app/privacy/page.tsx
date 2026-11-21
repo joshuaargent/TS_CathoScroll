@@ -188,7 +188,7 @@ export default function PrivacyPage() {
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            You may turn off personalisation in Account settings. This deletes your derived recommendation profile and stops reading signals being used to rank your feed. Service improvement analytics remains enabled until you turn it off separately after personalisation is disabled. You can manage sponsor measurement and object to signed-out aggregate statistics through Manage choices on the Cookie Policy page. Changes stop future collection for the relevant purpose, clear matching pending queues and synchronise signed-in choices when the device reconnects.
+            You may turn off personalisation in Account settings. This deletes your derived recommendation profile and stops reading signals being used to rank your feed. Service improvement analytics remains enabled until you turn it off separately after personalisation is disabled. You can manage Sponsor measurement in Account settings. You can object to signed-out aggregate statistics using the control on this page or the Cookie Policy page. Changes stop future collection for the relevant purpose, clear matching pending queues and synchronise signed-in choices when the device reconnects.
           </p>
         </section>
 
