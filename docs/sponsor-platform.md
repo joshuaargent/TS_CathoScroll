@@ -19,7 +19,7 @@ Sponsor/admin reports contain only viewable impressions, clicks on viewable plac
 
 ## Frequency and caps
 
-Per-account frequency limits are derived from opted-in viewable-impression events. Daily and lifetime campaign impression caps, where configured, are evaluated only against opted-in viewable impressions. They do not count unmeasured deliveries and must not be described as all-visitor delivery caps.
+Per-account frequency limits are derived from opted-in viewable-impression events. The per-user campaign cap is rolling 180 days, matching raw-event retention. Daily and lifetime campaign-wide impression caps, where configured, are evaluated only against opted-in viewable impressions and use non-identifying daily aggregates. They do not count unmeasured deliveries and must not be described as all-visitor delivery caps.
 
 ## Consent and offline
 
