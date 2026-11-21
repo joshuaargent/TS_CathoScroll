@@ -2,7 +2,7 @@
 
 **Controller:** Joshua Argent, trading as CathoScroll (sole trader, United Kingdom)  
 **Controller contact:** argentjackjoshua@gmail.com  
-**Controller correspondence address:** To be confirmed before approval; use the business/alternative address selected for ICO registration.  
+**Controller correspondence address:** To be confirmed before approval; use the business/alternative address selected for the ICO public register, if registration is required.  
 **Last reviewed:** 21 November 2026  
 **Status:** Working controller record — confirm every marked item against the live service and provider accounts before approval.
 
