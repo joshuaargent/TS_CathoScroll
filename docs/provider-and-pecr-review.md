@@ -59,7 +59,7 @@ These checks verify account configuration and public terms only. They do not pro
 
 The Vercel project has a configured `NEXT_PUBLIC_FORMSPREE_FORM_ID` for both Production and Preview. The contact form is therefore active and sends the submitter's name, email address, subject and message to Formspree. It is not merely an optional integration.
 
-Formspree's [security page](https://formspree.io/security/) states that it acts as a data processor and relies on Standard Contractual Clauses for international transfers. Its public privacy information directs customers to obtain the DPA, subprocessor list, processing locations and retention details through its privacy portal. The controller must obtain and retain the actual DPA and current vendor records, confirm the applicable transfer mechanism and review Formspree's spam-filtering subprocessors. Until this is completed, Formspree's Article 28 and transfer arrangements remain unverified.
+Formspree's [security page](https://formspree.io/security/) states that its services are hosted on AWS in the United States, that it acts as a data processor and that it relies on Standard Contractual Clauses for international transfers. Its public privacy information directs customers to obtain the DPA, subprocessor list, processing locations and retention details through its privacy portal. The controller must obtain and retain the actual DPA and current vendor records, confirm the applicable transfer mechanism and review Formspree's spam-filtering subprocessors. Until this is completed, Formspree's Article 28 and transfer arrangements remain unverified.
 
 ## Provider checks still required
 
