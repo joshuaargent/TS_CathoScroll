@@ -112,7 +112,14 @@ test('signed-out sponsor delivery is aggregate-only and detailed events require 
   assert.match(sql, /REVOKE ALL PRIVILEGES ON TABLE catho_private\.anonymous_feed_analytics_daily,[\s\S]*FROM PUBLIC,anon,authenticated,service_role/);
   assert.doesNotMatch(sql, /GRANT ALL ON TABLE catho_private\.anonymous_feed_analytics_daily/);
   assert.match(sql, /CREATE TABLE catho_private\.anonymous_sponsor_campaign_daily/);
-  assert.match(sql, /least\(campaign\.frequency_cap_per_user_total,5\)/);
+  const anonymousSelectorStart = sql.indexOf('CREATE OR REPLACE FUNCTION public.get_anonymous_sponsor_campaigns');
+  const anonymousSelectorEnd = sql.indexOf('$function$;', anonymousSelectorStart);
+  assert.ok(anonymousSelectorStart >= 0 && anonymousSelectorEnd > anonymousSelectorStart);
+  const anonymousSelector = sql.slice(anonymousSelectorStart, anonymousSelectorEnd);
+  assert.match(anonymousSelector, /p_session_token remains in the RPC signature but is intentionally ignored/);
+  assert.doesNotMatch(anonymousSelector, /frequency_cap_per_user_total|anonymous_sponsor_session_frequency/);
+  assert.match(anonymousSelector, /INSERT INTO catho_private\.anonymous_sponsor_campaign_daily\(event_date,campaign_id,served_count\)/);
+  assert.doesNotMatch(sql, /CREATE OR REPLACE FUNCTION public\.record_anonymous_sponsor_campaign_event/);
   assert.match(sql, /cathoscroll-anonymous-analytics-prune/);
 });
 
