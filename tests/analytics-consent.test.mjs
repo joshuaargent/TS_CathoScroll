@@ -202,8 +202,10 @@ test('signed-out visitors can receive public Top Comments and eligible sponsor c
   assert.ok(commentsRoute.includes('get_top_feed_comments'));
   assert.ok(!commentsRoute.includes('getAuthenticatedUserFromRequest'));
   assert.ok(commentCard.includes('userId: string | null'));
-  assert.ok(sponsorRoute.includes('const isAnonymous = !auth.user'));
-  assert.ok(sponsorRoute.includes('p_session_token: measurementSessionId'));
+  assert.ok(sponsorRoute.includes('const measurementSessionId: string | null = auth.user && sponsorMeasurementEnabled'));
+  assert.ok(sponsorRoute.includes("rpc('get_unmeasured_sponsor_campaigns'"));
+  assert.ok(!sponsorRoute.includes('p_session_token'));
+  assert.ok(!sponsorRoute.includes('get_anonymous_sponsor_campaigns'));
   assert.ok(sponsorRoute.includes('campaigns: data.campaigns'));
 });
 
