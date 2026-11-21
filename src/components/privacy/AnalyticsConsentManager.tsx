@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import {
   analyticsConsentChangeEvent,
   analyticsConsentManageEvent,
@@ -665,9 +666,9 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
 
 export function AnalyticsConsentSettingsButton() {
   return (
-    <a href="/account#analytics-choices" className="text-accent underline underline-offset-4 hover:no-underline">
+    <Link href="/account#analytics-choices" className="text-accent underline underline-offset-4 hover:no-underline">
       Manage analytics choices in Account settings
-    </a>
+    </Link>
   );
 }
 
