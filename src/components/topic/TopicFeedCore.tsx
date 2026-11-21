@@ -197,8 +197,8 @@ export function TopicFeedCore({
     async (topic: Topic): Promise<{ campaigns: SponsorFeedCampaign[]; sessionId: string | null; retryable?: boolean }> => {
 
       // Detailed Sponsor measurement is account-only. Signed-out placements
-      // always use aggregate campaign/day delivery and never send an identifier.
-      // Signed-in opted-in placements use a per-placement ID for event validation.
+      // use the token-free selector and create no measurement record.
+      // Signed-in opted-in placements receive a server-issued receipt for event validation.
       const measurementEnabled = Boolean(userId && hasAnalyticsConsent('sponsorMeasurement', userId));
       const sessionId = measurementEnabled ? createSponsorPlacementId() : null;
       if (measurementEnabled && !sessionId) return { campaigns: [], sessionId: null, retryable: true };
@@ -398,8 +398,8 @@ export function TopicFeedCore({
       if ((detail?.userId ?? null) !== (userId ?? null)) return;
       if (hasAnalyticsConsent('sponsorMeasurement', userId)) return;
 
-      // Remove placement IDs created before withdrawal from the feed cache and
-      // currently mounted card. Campaign delivery remains in the queue.
+      // Remove measurement receipts created before withdrawal from the feed cache
+      // and currently mounted card. Sponsor delivery remains available.
       sponsorResultsByTopicId.current.clear();
       sponsorCardsByTopicId.current.clear();
 
