@@ -8159,6 +8159,16 @@ ALTER FUNCTION public.get_sponsor_campaign_analytics(uuid, uuid, date, date) OWN
 REVOKE ALL ON FUNCTION public.get_sponsor_campaign_analytics(uuid, uuid, date, date) FROM PUBLIC, anon, authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.get_sponsor_campaign_analytics(uuid, uuid, date, date) TO service_role;
 
+-- Stop the scheduled job before removing its function or tables.
+DO $anonymous_cron_cleanup$
+BEGIN
+  IF to_regclass('cron.job') IS NOT NULL THEN
+    EXECUTE 'SELECT cron.unschedule(jobid) FROM cron.job WHERE jobname = $1'
+      USING 'cathoscroll-anonymous-analytics-prune';
+  END IF;
+END;
+$anonymous_cron_cleanup$;
+
 -- Remove all legacy anonymous analytics storage and entry points.
 DROP FUNCTION IF EXISTS public.get_admin_anonymous_analytics(uuid, timestamptz, timestamptz, text, text);
 DROP FUNCTION IF EXISTS public.record_anonymous_feed_analytics(jsonb);
@@ -8171,15 +8181,6 @@ DROP TABLE IF EXISTS catho_private.anonymous_feed_analytics_daily;
 
 -- No delivery counters or served events are retained. Frequency is measured only
 -- from viewable events for users who opted into Sponsor measurement.
-
-DO $anonymous_cron_cleanup$
-BEGIN
-  IF to_regclass('cron.job') IS NOT NULL THEN
-    EXECUTE 'SELECT cron.unschedule(jobid) FROM cron.job WHERE jobname = $1'
-      USING 'cathoscroll-anonymous-analytics-prune';
-  END IF;
-END;
-$anonymous_cron_cleanup$;
 
 NOTIFY pgrst, 'reload schema';
 
