@@ -195,7 +195,10 @@ test('declining sponsor measurement preserves delivery and campaign-day totals w
   assert.ok(selectRoute.includes('p_session_token: measurementSessionId'));
   assert.ok(selectRoute.includes('sponsorMeasurementEnabled = consent.sponsorMeasurement && parsed.value.sessionId !== null;'));
   assert.ok(selectRoute.includes('// Detailed Sponsor measurement is account-only.'));
-  assert.ok(eventRoute.includes('eventPayload.sponsorMeasurementConsent !== true'));
+  assert.ok(eventRoute.includes('if (!auth.user) return respond(request, { recorded: false }, 403);'));
+  assert.ok(eventRoute.includes('const consent = await getStoredAnalyticsConsent(auth.user.id);'));
+  assert.ok(eventRoute.includes('if (!consent.sponsorMeasurement) return respond(request, { recorded: false });'));
+  assert.doesNotMatch(eventRoute, /sponsorMeasurementConsent/);
   assert.ok(selectRoute.includes('p_session_id: measurementSessionId'));
   assert.ok(eventRoute.includes('if (!consent.sponsorMeasurement) return respond(request, { recorded: false });'));
 
