@@ -60,3 +60,6 @@ The code review does not prove that provider contracts and transfers are complia
 Signed-in raw analytics events and the restricted viewer bridge are retained for up to 180 days under the current implementation. Native pending events are capped at 2,000 per stream and seven days, deleted after acknowledgement, and cleared on withdrawal/account change. Consent history is retained as needed to demonstrate the choice. Apply the published account deletion and legal-retention rules consistently.
 
 Withdrawal must take effect locally immediately, stop new collection and uploads, clear the matching pending queue, and synchronise the denial to the server when connectivity returns. Do not silently switch to another lawful basis for the same optional purpose after consent is withdrawn.
+
+
+On withdrawal, the server removes the account-linked raw event records and placement receipts for the withdrawn purpose and rebuilds recent aggregate tables from the remaining opted-in event ledger. Native pending queues are cleared locally; historical daily aggregates older than the raw-event retention window may remain only as non-identifying totals.
