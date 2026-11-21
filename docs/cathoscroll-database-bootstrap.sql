@@ -4646,7 +4646,6 @@ CREATE TABLE public.sponsor_campaigns (
   frequency_cap_per_user_total integer NOT NULL DEFAULT 3 CHECK (frequency_cap_per_user_total BETWEEN 1 AND 50),
   daily_impression_cap bigint CHECK (daily_impression_cap IS NULL OR daily_impression_cap BETWEEN 1 AND 1000000000),
   total_impression_cap bigint CHECK (total_impression_cap IS NULL OR total_impression_cap BETWEEN 1 AND 100000000000),
-  served_count bigint NOT NULL DEFAULT 0 CHECK (served_count >= 0),
   status text NOT NULL DEFAULT 'draft'
     CHECK (status IN ('draft', 'pending_approval', 'approved', 'paused', 'completed', 'rejected')),
   created_by uuid REFERENCES auth.users(id) ON DELETE SET NULL,
@@ -4674,7 +4673,7 @@ CREATE TABLE catho_private.sponsor_campaign_events (
   event_id uuid NOT NULL,
   user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   session_id uuid NOT NULL,
-  event_type text NOT NULL CHECK (event_type IN ('served', 'viewable_impression', 'click')),
+  event_type text NOT NULL CHECK (event_type IN ('viewable_impression', 'click')),
   received_at timestamptz NOT NULL DEFAULT statement_timestamp(),
   PRIMARY KEY (campaign_id, event_id)
 );
@@ -4698,21 +4697,10 @@ CREATE TABLE catho_private.sponsor_campaign_daily (
 );
 CREATE INDEX sponsor_campaign_daily_campaign_date_idx ON catho_private.sponsor_campaign_daily (campaign_id, event_date DESC);
 
-CREATE TABLE catho_private.sponsor_campaign_user_frequency (
-  campaign_id uuid NOT NULL REFERENCES public.sponsor_campaigns(id) ON DELETE CASCADE,
-  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  served_count integer NOT NULL DEFAULT 0 CHECK (served_count >= 0),
-  last_served_at timestamptz NOT NULL,
-  PRIMARY KEY (campaign_id, user_id)
-);
-CREATE INDEX sponsor_campaign_user_frequency_user_idx ON catho_private.sponsor_campaign_user_frequency (user_id, campaign_id);
-
 ALTER TABLE catho_private.sponsor_campaign_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE catho_private.sponsor_campaign_daily ENABLE ROW LEVEL SECURITY;
-ALTER TABLE catho_private.sponsor_campaign_user_frequency ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON TABLE catho_private.sponsor_campaign_events FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON TABLE catho_private.sponsor_campaign_daily FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON TABLE catho_private.sponsor_campaign_user_frequency FROM PUBLIC, anon, authenticated, service_role;
 
 CREATE OR REPLACE FUNCTION public.admin_create_sponsor_campaign(p_actor_user_id uuid, p_sponsor_id uuid, p_campaign_name text, p_headline text, p_body text, p_image_url text, p_destination_url text, p_cta_label text, p_starts_on date, p_ends_on date, p_target_category_slugs text[], p_target_topic_ids text[], p_placement_weight integer, p_frequency_cap_per_user_24h integer, p_frequency_cap_per_user_total integer, p_daily_impression_cap bigint, p_total_impression_cap bigint)
  RETURNS jsonb
@@ -8209,13 +8197,6 @@ DROP TABLE IF EXISTS catho_private.anonymous_feed_analytics_daily;
 
 -- No delivery counters or served events are retained. Frequency is measured only
 -- from viewable events for users who opted into Sponsor measurement.
-DELETE FROM catho_private.sponsor_campaign_events WHERE event_type = 'served';
-ALTER TABLE catho_private.sponsor_campaign_events
-  DROP CONSTRAINT IF EXISTS sponsor_campaign_events_event_type_check;
-ALTER TABLE catho_private.sponsor_campaign_events
-  ADD CONSTRAINT sponsor_campaign_events_event_type_check
-  CHECK (event_type IN ('viewable_impression', 'click'));
-DROP TABLE IF EXISTS catho_private.sponsor_campaign_user_frequency;
 
 DO $anonymous_cron_cleanup$
 BEGIN
