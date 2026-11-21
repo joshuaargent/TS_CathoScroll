@@ -242,7 +242,6 @@ export function TopicFeedCore({
             signal: controller.signal,
             body: JSON.stringify({
               sessionId,
-              sponsorMeasurementConsent: measurementEnabled,
               categorySlug: topic.categorySlug ?? null,
               topicId: topic.id,
             }),
