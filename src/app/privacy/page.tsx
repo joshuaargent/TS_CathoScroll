@@ -167,31 +167,6 @@ export default function PrivacyPage() {
         </section>
 
         <section>
-          <h2 className="mb-4 text-3xl font-bold">Lawful Bases for Processing</h2>
-
-          <p className="text-text-secondary leading-relaxed">
-            Where UK data protection law applies, the lawful basis depends on the purpose:
-          </p>
-
-          <ul className="text-text-secondary mt-4 list-disc space-y-2 pl-6">
-            <li>Contract: to create and operate your account and provide features you request.</li>
-            <li>Legitimate interests: to secure, maintain, troubleshoot, moderate and prevent abuse, where a documented assessment shows that our interests are not overridden by your rights.</li>
-            <li>Consent: for optional signed-in Service improvement analytics, Personalisation and Sponsor measurement. These are separate purpose choices. Passive reading signals inform recommendations only when both Service improvement analytics and Personalisation are enabled.</li>
-            <li>Explicit consent under Article 6(1)(a) and, where processing reveals or permits inference of religious or philosophical beliefs, Article 9(2)(a) UK GDPR: for the relevant reading/activity data and derived recommendation or analytics processing.</li>
-            <li>PECR: prior consent for optional analytics or advertising storage/access technologies wherever required. Sponsor measurement is not collected before its explicit opt-in.</li>
-            <li>Legal obligation: to keep or disclose information where applicable law requires it.</li>
-          </ul>
-
-          <p className="text-text-secondary mt-4 leading-relaxed">
-            Service improvement analytics, Personalisation and Sponsor measurement can each be enabled or withdrawn independently. Personalisation uses direct account actions and selected interests when enabled. Passive reading signals are collected only with Service improvement consent and contribute to recommendations only when Personalisation is also enabled. Turning off Service improvement stops new passive analytics and removes those signals from recommendations while direct-action Personalisation can remain enabled. Turning off Personalisation deletes the derived profile and selected category interests; Service improvement may remain enabled for service reporting if separately selected. Sponsor measurement remains separate. Topic and comment engagement may reveal religious or philosophical beliefs. We do not create a religious-affiliation label or share private recommendation profiles with sponsors.
-          </p>
-
-          <p className="text-text-secondary mt-4 leading-relaxed">
-            You can manage Service improvement analytics, Personalisation and Sponsor measurement independently in Account settings. Turning off Personalisation deletes your derived recommendation profile and selected category interests. Turning off Service improvement stops new passive reading analytics and removes passive signals from recommendations, without disabling direct-action Personalisation if that choice remains enabled. Changes stop future collection for the relevant purpose, clear matching pending queues and synchronise signed-in choices when the device reconnects.
-          </p>
-        </section>
-
-        <section>
           <h2 className="mb-4 text-3xl font-bold">Automated Recommendations</h2>
 
           <p className="text-text-secondary leading-relaxed">
