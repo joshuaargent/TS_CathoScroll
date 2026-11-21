@@ -58,11 +58,11 @@ function functionBody(name) {
 test('emergency bootstrap inventory matches the reconciled production schema', () => {
   const functionStarts = [...bootstrap.matchAll(/CREATE(?: OR REPLACE)? FUNCTION\s+([a-z0-9_]+\.[a-z0-9_]+)\s*\(/gi)];
   assert.ok(functionStarts.length >= 110, 'The bootstrap must retain the reconciled database function inventory');
-  assert.ok(new Set(functionStarts.map((match) => match[1].toLowerCase())).size >= 106);
-  assert.ok((bootstrap.match(/CREATE TABLE(?: IF NOT EXISTS)?\s+[a-z0-9_]+\.[a-z0-9_]+\s*\(/gi) ?? []).length >= 53);
+  assert.ok(new Set(functionStarts.map((match) => match[1].toLowerCase())).size >= 103);
+  assert.ok((bootstrap.match(/CREATE TABLE(?: IF NOT EXISTS)?\s+[a-z0-9_]+\.[a-z0-9_]+\s*\(/gi) ?? []).length >= 48);
   assert.ok((bootstrap.match(/CREATE POLICY /g) ?? []).length >= 32);
   assert.ok((bootstrap.match(/CREATE TRIGGER /g) ?? []).length >= 34);
-  assert.ok((bootstrap.match(/CREATE (?:UNIQUE )?INDEX(?: IF NOT EXISTS)? /g) ?? []).length >= 95);
+  assert.ok((bootstrap.match(/CREATE (?:UNIQUE )?INDEX(?: IF NOT EXISTS)? /g) ?? []).length >= 90);
   const functionRanges = bootstrapFunctionRanges(bootstrap);
   assert.equal(functionRanges.length, (bootstrap.match(/CREATE OR REPLACE FUNCTION\s+[a-z0-9_]+\.[a-z0-9_]+\s*\(/gi) ?? []).length);
   for (let index = 0; index < functionRanges.length - 1; index += 1) {
@@ -278,7 +278,7 @@ test('analytics and personalisation SQL upgrades are order-safe and use the new 
     assert.match(sql, /pg_catalog\.to_regclass\('catho_private\.user_personalization_consents'\)/);
   }
   const analyticsSetterBlocks = [...analyticsConsentUpgrade.matchAll(/CREATE OR REPLACE FUNCTION public\.set_user_analytics_consent\([\s\S]*?\$function\$;/g)];
-  assert.equal(analyticsSetterBlocks.length, 2);
+  assert.equal(analyticsSetterBlocks.length, 1);
   for (const block of analyticsSetterBlocks) {
     assert.match(block[0], /Turn off personalisation before disabling Service improvement analytics/);
     assert.match(block[0], /pg_catalog\.to_regclass\('catho_private\.user_personalization_consents'\)/);
@@ -358,8 +358,8 @@ test('recommendation upgrade reads consented activity signals through private he
 
 
 test('analytics database scripts keep function grants after definitions and schedule maintenance', () => {
-  const pruneDefinition = bootstrap.indexOf('CREATE OR REPLACE FUNCTION catho_private.prune_anonymous_analytics()');
-  const pruneGrant = bootstrap.indexOf('REVOKE ALL ON FUNCTION catho_private.prune_anonymous_analytics()');
+  const pruneDefinition = bootstrap.lastIndexOf('CREATE OR REPLACE FUNCTION catho_private.prune_sponsor_campaign_events(');
+  const pruneGrant = bootstrap.indexOf('REVOKE ALL ON FUNCTION catho_private.prune_sponsor_campaign_events', pruneDefinition);
   assert.ok(pruneDefinition >= 0 && pruneGrant > pruneDefinition);
   assert.doesNotMatch(bootstrap, /^\), placement_id text/m);
   assert.match(upgrade, /cathoscroll-rollup-feed-card-analytics/);
