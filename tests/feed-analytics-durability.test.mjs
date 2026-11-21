@@ -77,7 +77,7 @@ test('anonymous analytics queues are removed while opted-in signed-in queues rem
   const finalModel = bootstrap.slice(bootstrap.lastIndexOf('-- FINAL ANALYTICS MODEL'));
   assert.match(finalModel, /DROP TABLE IF EXISTS catho_private\.anonymous_feed_analytics_daily/);
   assert.match(finalModel, /DROP TABLE IF EXISTS catho_private\.anonymous_sponsor_campaign_daily/);
-  assert.match(finalModel, /DROP TABLE IF EXISTS catho_private\.sponsor_campaign_user_frequency/);
+  assert.doesNotMatch(bootstrap, /CREATE TABLE catho_private\.sponsor_campaign_user_frequency/);
 });
 
 test('signed-in feed and sponsor raw-event retention remains 180 days', () => {
