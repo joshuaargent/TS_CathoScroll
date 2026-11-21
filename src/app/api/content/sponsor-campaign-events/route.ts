@@ -81,7 +81,7 @@ export async function POST(request: Request) {
 
   try {
     const consent = await getStoredAnalyticsConsent(auth.user.id);
-    if (!consent.sponsorMeasurement) return respond(request, { recorded: false });
+    if (!consent.sponsorMeasurement) return respond(request, { error: 'Sponsor measurement consent is not active.', code: 'CONSENT_REQUIRED' }, 403);
   } catch (cause) {
     console.error('Unable to verify sponsor measurement consent:', cause);
     return respond(request, { error: 'Sponsor measurement preferences are temporarily unavailable.' }, 503);
