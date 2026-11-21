@@ -1,9 +1,9 @@
 'use client';
 
-import { useCallback, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useSyncExternalStore } from 'react';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { Analytics, type BeforeSendEvent } from '@vercel/analytics/react';
-import { analyticsConsentChangeEvent, hasAnalyticsConsent } from '@/lib/analytics-consent';
+import { analyticsConsentChangeEvent, clearLegacyAnonymousAnalyticsConsent, hasAnalyticsConsent } from '@/lib/analytics-consent';
 
 function sanitisePageUrl(rawUrl: string): string {
   const url = new URL(rawUrl);
@@ -39,6 +39,9 @@ function subscribe(onChange: () => void) {
 
 export function PrivacySafeAnalytics() {
   const { user, loading } = useAuth();
+  useEffect(() => {
+    if (!loading && !user) clearLegacyAnonymousAnalyticsConsent();
+  }, [loading, user?.id]);
   const getSnapshot = useCallback(
     () => hasAnalyticsConsent('serviceImprovement', user?.id ?? null),
     [user?.id]
