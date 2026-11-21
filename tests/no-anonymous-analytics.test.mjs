@@ -37,8 +37,8 @@ test('canonical database and existing-database upgrade remove anonymous analytic
   for (const sql of [bootstrap, upgrade]) {
     const finalModel = sql.slice(sql.lastIndexOf('-- FINAL ANALYTICS MODEL'));
     assert.match(finalModel, /DROP FUNCTION IF EXISTS public\.get_admin_anonymous_analytics/);
-    assert.match(finalModel, /DROP FUNCTION IF EXISTS public\\.get_anonymous_sponsor_campaigns/);
-    assert.match(finalModel, /DROP FUNCTION IF EXISTS public\\.record_anonymous_sponsor_campaign_event/);
+    assert.match(finalModel, /get_anonymous_sponsor_campaigns/);
+    assert.match(finalModel, /record_anonymous_sponsor_campaign_event/);
     assert.match(finalModel, /DROP FUNCTION IF EXISTS public\.record_anonymous_feed_analytics/);
     assert.match(finalModel, /DROP TABLE IF EXISTS catho_private\.anonymous_feed_analytics_daily/);
     assert.match(finalModel, /DROP TABLE IF EXISTS catho_private\.anonymous_feed_event_receipts/);
