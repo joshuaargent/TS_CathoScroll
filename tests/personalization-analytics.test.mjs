@@ -236,7 +236,7 @@ test('signup collects separate, unchecked explicit consent on web and native', (
 test('all recommendation history signals are opt-in and withdrawal neutralises active cursors', () => {
   const body = functionBody('public.get_my_recommendation_page');
   const helper = functionBody('catho_private.get_user_recommendation_category_weights');
-  assert.match(body, /SELECT coalesce\(enabled,false\) INTO personalization_enabled/);
+  assert.match(body, /SELECT coalesce\(bool_or\(enabled\),false\) INTO personalization_enabled/);
   assert.match(body, /IF personalization_enabled THEN/);
   assert.match(helper, /get_user_feed_preference_signals/);
   assert.match(body, /ELSE[\s\S]*?SELECT coalesce/);
