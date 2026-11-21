@@ -290,7 +290,7 @@ export function SponsorCampaignManager({
                 <input name="frequencyCapPerUserTotal" type="number" min="1" max="50" step="1" defaultValue="3" required className="border-border bg-bg-primary mt-2 w-full rounded-lg border px-3 py-2.5" />
               </label>
               <label className="block text-sm font-medium">
-                Lifetime opted-in viewable-impression cap
+                Campaign-wide lifetime opted-in viewable-impression cap
                 <input name="totalImpressionCap" type="number" min="1" max="100000000000" step="1" className="border-border bg-bg-primary mt-2 w-full rounded-lg border px-3 py-2.5" placeholder="Unlimited" />
               </label>
             </div>
@@ -362,7 +362,7 @@ export function SponsorCampaignManager({
                         {campaign.frequency_cap_per_user_24h} / 24h · {campaign.frequency_cap_per_user_total} / 180 days per signed-in user
                       </p>
                       <p className="text-text-muted mt-1 text-xs">
-                        Opted-in viewable cap — daily: {campaign.daily_impression_cap ?? 'Unlimited'} · total: {campaign.total_impression_cap ?? 'Unlimited'}
+                        Opted-in campaign-wide viewable cap — daily: {campaign.daily_impression_cap ?? 'Unlimited'} · total: {campaign.total_impression_cap ?? 'Unlimited'}
                       </p>
                     </td>
                     <td className="px-4 py-4 tabular-nums">
