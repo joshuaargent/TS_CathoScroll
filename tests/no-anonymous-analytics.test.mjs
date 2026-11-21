@@ -24,6 +24,10 @@ test('canonical database and existing-database upgrade remove anonymous analytic
     read('../docs/cathoscroll-database-bootstrap.sql'),
     read('../docs/analytics-consent-and-sponsor-opt-out-upgrade.sql'),
   ]);
+  const upgradeRankingStart = upgrade.lastIndexOf('CREATE OR REPLACE FUNCTION public.get_public_general_topic_page');
+  const upgradeRankingEnd = upgrade.indexOf('$function$;', upgradeRankingStart);
+  assert.ok(upgradeRankingStart >= 0 && upgradeRankingEnd > upgradeRankingStart);
+  assert.doesNotMatch(upgrade.slice(upgradeRankingStart, upgradeRankingEnd), /anonymous_feed_analytics_daily|anonymous_feed_event_receipts/);
   for (const sql of [bootstrap, upgrade]) {
     const finalModel = sql.slice(sql.lastIndexOf('-- FINAL ANALYTICS MODEL'));
     assert.match(finalModel, /DROP FUNCTION IF EXISTS public\.get_admin_anonymous_analytics/);
