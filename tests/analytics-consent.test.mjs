@@ -146,6 +146,13 @@ test('withdrawal immediately blocks and clears the matching web and native analy
   ]);
 
   assert.ok(consent.includes('denyAnalyticsConsentInMemory'));
+  assert.match(consent, /hasSyncedAnalyticsConsent[\s\S]*?consent\?\.syncPending !== true/);
+  assert.ok(feed.includes("hasSyncedAnalyticsConsent('serviceImprovement', userId)"));
+  assert.ok(comments.includes("hasSyncedAnalyticsConsent('serviceImprovement', userId)"));
+  assert.ok(sponsor.includes("hasSyncedAnalyticsConsent('sponsorMeasurement', userId)"));
+  assert.ok(feed.includes('window.addEventListener(analyticsConsentChangeEvent, onConsentChange)'));
+  assert.ok(comments.includes('window.addEventListener(analyticsConsentChangeEvent, onConsentChange)'));
+  assert.ok(sponsor.includes('window.addEventListener(analyticsConsentChangeEvent, onConsentChange)'));
   assert.ok(consent.includes('deniedOverrides.add'));
   assert.ok(consent.includes('new BroadcastChannel'));
   assert.ok(consent.includes("window.addEventListener('storage', onStorageChange)"));
