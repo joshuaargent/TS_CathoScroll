@@ -84,3 +84,8 @@ Verify current Article 28 processor terms, subprocessors, processing locations, 
 - Confirm no sponsor targeting or organic ranking uses religious-interest profiles or sponsor activity.
 - Run full tests, type-check, lint, production build and Android/Electron builds; obtain fresh independent code review.
 - Obtain controller and solicitor sign-off before applying production SQL or deploying.
+
+
+## Withdrawal behaviour
+
+A withdrawal stops collection immediately, clears the relevant local queue, deletes the account's raw event records and receipts for that purpose, and rebuilds recent aggregate reporting without those records. Service improvement withdrawal also removes the user's viewer-bridge rows and refreshes any private recommendation profile without passive reading signals. Sponsor measurement withdrawal removes account-linked sponsor events and placement receipts and rebuilds recent campaign aggregates from the remaining opted-in event ledger. Older aggregate totals may remain only where they no longer identify or link to an individual.
