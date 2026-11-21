@@ -130,7 +130,8 @@ test('README distinguishes aggregate general ranking from consented personalisat
   assert.ok(readme.includes('direct account actions and selected categories'));
   assert.ok(readme.includes('passive reading signals'));
   assert.ok(readme.includes('two choices can be enabled and withdrawn independently'));
-  assert.ok(readme.includes('reading signals recorded after consent'));
+  assert.ok(readme.includes('collected only under the separate Service improvement opt-in'));
+  assert.ok(readme.includes('inform recommendations only while Personalisation is also enabled'));
   assert.ok(readme.includes('inform recommendations only while Personalisation is also enabled'));
   assert.ok(readme.includes('Sponsor measurement remains independent'));
   assert.doesNotMatch(readme, /Operational analytics are never used to personalise an individual/);
