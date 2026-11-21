@@ -5,17 +5,23 @@ import test from 'node:test';
 const read = (path) => readFile(new URL(path, import.meta.url), 'utf8');
 
 test('anonymous analytics clients, APIs, controls and native queues are absent', async () => {
-  const [native, privacy, cookies, manager, sponsorClient, apiDirectory] = await Promise.all([
+  const [native, privacy, cookies, manager, sponsorClient, apiDirectory, topicPage, categoryPage, contentDashboard, adminHub, entityPage] = await Promise.all([
     read('../native/main.tsx'),
     read('../src/app/privacy/page.tsx'),
     read('../src/app/cookies/page.tsx'),
     read('../src/components/privacy/AnalyticsConsentManager.tsx'),
     read('../src/lib/sponsor-analytics-client.ts'),
     read('../src/app/api/content/sponsor-campaign-events/route.ts'),
+    read('../src/app/topic/[slug]/analytics/page.tsx'),
+    read('../src/app/categories/[category]/analytics/page.tsx'),
+    read('../src/components/admin/ContentAnalyticsDashboard.tsx'),
+    read('../src/app/admin/analytics/page.tsx'),
+    read('../src/app/admin/analytics/[kind]/[id]/page.tsx'),
   ]);
   assert.doesNotMatch(native, /NativeAnonymousAnalyticsOutbox|configureAnonymousFeedAnalyticsOutbox/);
   assert.doesNotMatch(privacy + cookies + manager, /AnonymousAnalyticsPreference|anonymous-feed-analytics-client/);
   assert.doesNotMatch(sponsorClient, /recordAnonymousSponsorCampaignEvent|anonymousQueue|AnonymousQueuedSponsor/);
+  assert.doesNotMatch(topicPage + categoryPage + contentDashboard + adminHub + entityPage, /get_admin_anonymous_analytics|anonymousAnalytics|anonymous_served|anonymous_viewable/);
   assert.match(apiDirectory, /if \(!auth\.user\) return respond\(request, \{ recorded: false \}, 403\)/);
 });
 
