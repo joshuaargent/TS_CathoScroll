@@ -49,6 +49,8 @@ test('canonical database and existing-database upgrade remove anonymous analytic
     assert.match(finalModel, /DROP FUNCTION IF EXISTS public\.get_anonymous_sponsor_campaigns/);
     assert.match(finalModel, /DROP FUNCTION IF EXISTS public\.record_anonymous_sponsor_campaign_event/);
     assert.match(finalModel, /DROP FUNCTION IF EXISTS catho_private\.prune_anonymous_analytics/);
+    assert.match(finalModel, /cathoscroll-anonymous-analytics-prune/);
+    assert.match(finalModel, /cron\.unschedule/);
     assert.match(finalModel, /ALTER TABLE public\.sponsor_campaigns DROP COLUMN IF EXISTS served_count/);
     assert.match(finalModel, /ALTER TABLE catho_private\.sponsor_campaign_daily DROP COLUMN IF EXISTS served_count/);
     assert.match(finalModel, /DROP TABLE IF EXISTS catho_private\.sponsor_campaign_user_frequency/);
