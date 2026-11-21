@@ -42,7 +42,7 @@ export function AnonymousAnalyticsPreference() {
     <div className="border-border bg-bg-card mt-5 rounded-xl border p-4">
       <p className="text-text-primary text-sm font-semibold">Signed-out aggregate measurement</p>
       <p className="text-text-secondary mt-1 text-sm leading-relaxed">
-        CathoScroll counts signed-out topic and comment activity in daily totals without visitor or session IDs. This does not create a visitor profile. Your objection applies to this browser or app installation and does not change account-linked choices.
+        CathoScroll counts signed-out topic and comment activity in daily totals without visitor or session IDs. This does not create a visitor profile. Your objection applies to this browser or app installation, stops new collection and clears pending events. Past daily totals cannot be linked back to you or removed.
       </p>
       <button
         type="button"
