@@ -219,3 +219,21 @@ Direct bank transfers are recorded against issued invoices. The private ledger s
 ## Bounded feed ranking work
 
 The Top Comments selector first materializes at most the newest 5,000 eligible root comments from its 90-day window, using the existing partial index on visible top-level comment creation time. Like/reply aggregation and ranking then run only across that bounded candidate set. The endpoint retains its shared 30-second cache. This avoids a full 90-day engagement aggregation scan as comment volume grows; if the candidate pool regularly reaches its cap, the next scaling step is a maintained engagement-counter table rather than increasing the limit without bounds.
+
+
+## Canonical analytics architecture (21 November 2026)
+
+The product has four separate systems. They must not be collapsed into one consent purpose or one ranking algorithm:
+
+- **Anonymous sponsor measurement:** one aggregate campaign/day pipeline for served placements, viewable impressions, clicks, total and average visible duration, and aggregate delivery frequency/pacing. It must not retain account IDs, visitor IDs, persistent session IDs, cross-site identifiers or individual browsing histories. Any temporary placement/event token is memory-only, short-lived and discarded after aggregation. Signed-in and signed-out sponsor measurement must converge on the same aggregate reporting model; do not preserve a separate account-linked event ledger as the reporting source of truth.
+- **Service improvement analytics:** platform-wide topic impressions/completions, reading duration/skips, comment exposure/engagement, and category/topic performance. Signed-out topic/comment events are daily entity aggregates and have their own Privacy-page objection.
+- **Personalisation:** a private recommendation profile built from permitted account activity and reading signals only while enabled. It controls organic recommendation ranking, never sponsor targeting. Withdrawal stops new signals and removes the derived profile.
+- **General feed ranking:** the non-personalised baseline for signed-out and non-personalised signed-in users. It uses site-wide engagement statistics, public interactions, recency and exposure balancing, not an individual's private reading history. Sponsors never influence organic ranking.
+
+The Privacy page has two independent anonymous measurement controls: **Anonymous topic and comment statistics** and **Anonymous sponsor measurement**. Each objection disables only its corresponding optional measurement; neither removes sponsor placements. Signed-in users retain separate account settings for Service improvement analytics, Sponsor measurement and Personalisation.
+
+### Native queue policy
+
+The native app-private outbox for anonymous topic/comment service-improvement analytics remains intentional. It supports offline event capture and later upload as daily aggregates. It is bounded (2,000 events), expires after seven days, deletes acknowledged events, and must be cleared immediately when the anonymous topic/comment objection is enabled. It must not contain account IDs or persistent visitor/session identifiers.
+
+Anonymous sponsor measurement must not use a persistent native queue. Sponsor measurement events are transient and memory-only; events that cannot be delivered during the current app process may be dropped rather than replayed after restart. This avoids retaining an individual sponsor interaction history on-device. The existing signed-in sponsor event outbox (which persists event, session and campaign identifiers) is not compatible with the target aggregate-only sponsor architecture and is to be removed as part of unifying sponsor measurement. Sponsor delivery remains independent of both anonymous objections.
