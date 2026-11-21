@@ -59,3 +59,8 @@ Withdrawal must immediately deny new local collection, clear the matching queue,
 The subject matter and account-linked profiling create a material risk of special-category inference. A proportionate DPIA is prudent. Whether a full DPIA is legally mandatory depends on the scale and whether the processing is likely to result in high risk; assess this formally rather than assuming the small current user base settles the question.
 
 Before release, the controller must approve the Article 6/9 position, verify the independent Personalisation/Service improvement consent flows, inspect PECR storage/access, verify provider processor terms and international transfer safeguards, confirm ICO fee-registration status, maintain a record of processing activities and obtain specialist legal review.
+
+
+### Withdrawal safeguards
+
+The consent RPC removes account-linked raw event records and viewer bridges for a withdrawn purpose, deletes sponsor placement receipts where relevant, and rebuilds recent aggregate tables without the withdrawn account's events. The Personalisation profile is refreshed without passive reading signals when Service improvement is withdrawn. Local website/native pending queues are cleared. Historical aggregates beyond the raw-event retention window may remain only as non-identifying totals.
