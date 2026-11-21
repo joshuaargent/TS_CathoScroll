@@ -134,7 +134,7 @@ export function AnalyticsConsentSettingsPanel({
           <span className="min-w-0">
             <span className="text-text-primary block text-sm font-semibold">I explicitly consent to Sponsor measurement</span>
             <span className="text-text-secondary mt-1 block text-sm leading-relaxed">
-              Measures account-linked sponsor viewability, clicks and frequency using a temporary session token. Placement context may reveal religious or philosophical interests. Sponsor placements still appear when this is off.
+              Measures account-linked sponsor viewability, clicks and frequency. Placement context may reveal religious or philosophical interests. Sponsor placements still appear when this is off.
             </span>
           </span>
         </label>
