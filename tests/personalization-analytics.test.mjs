@@ -84,7 +84,8 @@ test('personalisation consent is opt-in and versioned', () => {
   assert.match(bootstrap, /user_personalization_consents[\s\S]*enabled boolean NOT NULL DEFAULT false/);
   assert.match(bootstrap, /consent_version/);
   assert.match(settings, /This is optional and off until you enable it/);
-  assert.match(settings, /account actions and reading signals recorded after you opt in/);
+  assert.match(settings, /your account actions and selected categories are used/);
+  assert.match(settings, /Passive reading signals are added only if you separately enable Service improvement analytics/);
   assert.match(bootstrap, /capture_signup_personalization_consent/);
   assert.match(bootstrap, /NEW\.raw_user_meta_data ->> 'personalization_consent' = 'true'/);
   assert.match(bootstrap, /AFTER INSERT ON auth\.users/);
@@ -100,7 +101,7 @@ test('withdrawal deletes both inferred and explicitly selected interests', () =>
 test('recommendation profile signals are gated by consent', () => {
   const body = functionBody('catho_private.get_user_feed_preference_signals');
   assert.match(body, /pc\.enabled = true/);
-  assert.match(body, /ac\.service_improvement = true/);
+  assert.doesNotMatch(body, /ac\.service_improvement = true/);
   assert.match(body, /refresh_user_interest_profile/);
   assert.match(body, /user_explicit_category_interests/);
 });
@@ -217,7 +218,8 @@ test('signup collects separate, unchecked explicit consent on web and native', (
   assert.match(signupForm, /name="personalizationConsent"/);
   assert.match(signupForm, /type="checkbox"/);
   assert.ok(signupForm.includes('Personalised recommendations — I explicitly consent'));
-  assert.match(signupForm, /Turning this on also enables Service improvement analytics/);
+  assert.match(signupForm, /Passive reading signals are used for recommendations only if you separately enable Service improvement analytics/);
+  assert.doesNotMatch(signupForm, /if \(event\.target\.checked\) setServiceImprovementConsent\(true\)/);
   assert.match(signupForm, /name="serviceImprovementConsent"/);
   assert.match(signupForm, /name="sponsorMeasurementConsent"/);
   assert.match(signupForm, /const \[personalizationConsent, setPersonalizationConsent\] = useState\(false\)/);
@@ -245,7 +247,8 @@ test('all recommendation history signals are opt-in and withdrawal neutralises a
 test('web and native account/settings screens reuse the same components', () => {
   assert.match(accountView, /PersonalizationAccountSection/);
   assert.match(accountSection, /set_my_personalization_consent/);
-  assert.match(accountSection, /I explicitly consent to CathoScroll using my account actions, selected interests and reading analytics/);
+  assert.match(accountSection, /I explicitly consent to CathoScroll using my account actions and selected interests to personalise my recommendations/);
+  assert.match(accountSection, /Passive reading signals are added only if you separately enable Service improvement analytics/);
   assert.match(accountSection, /p_consent_version: '2026-11-21-v5'/);
   assert.match(accountSection, /analyticsConsentSyncEvent/);
   assert.match(accountSection, /AnalyticsConsentSettingsPanel/);
