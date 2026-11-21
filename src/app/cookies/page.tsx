@@ -102,9 +102,7 @@ export default function CookiesPage() {
             the last successful consent check. You can turn personalisation off and delete the derived profile
             in Account settings. Recommendation profiles use eligible account actions and reading signals recorded
             after personalisation consent, including impressions, reading duration, swipe depth,
-            skips, completions and return visits. Enabling personalisation also enables Service
-            improvement analytics while it remains on; turn off personalisation before disabling
-            that analytics choice. Sponsor measurement remains separate.
+            skips, completions and return visits. Personalisation and Service improvement analytics are separate optional choices. Passive reading signals inform recommendations only when both are enabled. Either choice can be withdrawn independently. Sponsor measurement remains separate.
           </p>
         </section>
 
