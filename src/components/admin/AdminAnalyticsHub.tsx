@@ -22,12 +22,12 @@ type Overview = {
     topic_likes: number; bookmarks: number; completed_topics: number; comments_created: number; replies: number; comment_likes: number;
     unique_topic_viewers: number; unique_sponsor_viewers: number; unique_comment_viewers: number; unique_feed_viewers: number;
     anonymous_topic_impressions: number; anonymous_topic_viewable_impressions: number; anonymous_topic_active_duration_ms: number; anonymous_topic_skips: number; anonymous_topic_completions: number;
-    anonymous_sponsor_served: number; anonymous_sponsor_viewable_impressions: number; anonymous_sponsor_clicks: number;
+    anonymous_sponsor_served: number;
     anonymous_comment_card_impressions: number; anonymous_comment_card_viewable_impressions: number; anonymous_comment_card_active_duration_ms: number; anonymous_comment_card_skips: number; anonymous_comment_card_opens: number;
   };
   categories: { slug: string; name: string; topic_count: number; impressions: number; viewable_impressions: number; anonymous_impressions?: number; anonymous_viewable_impressions?: number }[];
   topics: { id: string; slug: string; question: string; category_slug: string; impressions: number; viewable_impressions: number; active_duration_ms: number; anonymous_impressions?: number; anonymous_viewable_impressions?: number }[];
-  sponsors: { id: string; sponsor_name: string; status: string; campaign_count: number; served: number; viewable_impressions: number; clicks: number; anonymous_served?: number; anonymous_viewable_impressions?: number; anonymous_clicks?: number }[];
+  sponsors: { id: string; sponsor_name: string; status: string; campaign_count: number; served: number; viewable_impressions: number; clicks: number; anonymous_served?: number }[];
   comments: { id: number; topic_id: string; topic_question: string | null; created_at: string; impressions: number; viewable_impressions: number; active_duration_ms: number; skips: number; opens: number; likes: number; replies: number; anonymous_impressions?: number; anonymous_viewable_impressions?: number; anonymous_opens?: number }[];
 };
 
