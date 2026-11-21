@@ -5,12 +5,15 @@ import test from 'node:test';
 const read = (path) => readFile(new URL(path, import.meta.url), 'utf8');
 
 test('optional analytics consent is explicit, purpose-specific and off by default', async () => {
-  const [consent, manager, layout, native, cookies] = await Promise.all([
+  const [consent, manager, layout, native, cookies, account, signup, anonymous] = await Promise.all([
     read('../src/lib/analytics-consent.ts'),
     read('../src/components/privacy/AnalyticsConsentManager.tsx'),
     read('../src/app/layout.tsx'),
     read('../native/main.tsx'),
     read('../src/app/cookies/page.tsx'),
+    read('../src/components/account/AnalyticsConsentSettingsPanel.tsx'),
+    read('../src/components/auth/SignupFormView.tsx'),
+    read('../src/components/privacy/AnonymousAnalyticsPreference.tsx'),
   ]);
 
   assert.ok(consent.includes('serviceImprovement: false'));
@@ -18,37 +21,24 @@ test('optional analytics consent is explicit, purpose-specific and off by defaul
   assert.ok(consent.includes('analyticsConsentVersion = 1'));
   assert.ok(consent.includes('syncPending: options.syncPending ?? Boolean(userId)'));
   assert.ok(consent.includes('deniedOverrides'));
-  assert.ok(manager.includes('Accept all'));
-  assert.ok(manager.includes('Decline optional'));
-  assert.ok(manager.includes('Manage choices'));
-  assert.ok(manager.includes("document.addEventListener('keydown', handleKeyDown, true)"));
-  assert.ok(manager.includes('element.inert = true'));
-  assert.ok(manager.includes('previousFocus.focus()'));
-  assert.ok(manager.includes('I explicitly agree to Service improvement analytics'));
-  assert.ok(manager.includes('Sponsor measurement'));
-  assert.ok(manager.includes('I explicitly agree to Sponsor measurement'));
-  assert.ok(manager.includes('While personalisation is enabled, reading signals also inform your private recommendations.'));
-  assert.ok(manager.includes('Optional analytics improve CathoScroll and measure sponsor views/clicks/frequency/placement.'));
-  assert.ok(manager.includes('Personalisation enables Service improvement analytics and reading-signal recommendations.'));
-  assert.ok(manager.includes('Without Sponsor consent, delivery continues with campaign/day served totals only.'));
-  assert.ok(manager.includes('Signed-out topic/comment totals are daily aggregates without visitor IDs'));
-  assert.ok(manager.includes('you can object in Manage choices'));
-  assert.ok(manager.includes('Turn off anonymous aggregate measurement'));
-  assert.ok(manager.includes('max-h-[min(75vh,420px)] max-w-md p-4 sm:p-5'));
-
-  assert.ok(manager.includes('may reveal religious or philosophical beliefs'));
-
-  assert.ok(manager.includes('topic placement where a sponsor appeared'));
-  assert.ok(manager.includes('may involve special-category data under UK GDPR'));
-  assert.ok(manager.includes('Personalisation requires Service improvement analytics; Sponsor measurement remains independent.'));
-  assert.ok(manager.includes('personalizationEnabled'));
-  assert.ok(manager.includes('Required while personalisation is enabled'));
-  assert.ok(manager.includes('Turn off personalisation before disabling Service improvement analytics'));
+  assert.doesNotMatch(manager, /setVisible\(true\)/);
+  assert.ok(manager.includes('if (loading || !visible) return null;'));
+  assert.ok(account.includes('Service improvement analytics'));
+  assert.ok(account.includes('Sponsor measurement'));
+  assert.ok(account.includes('Required while personalisation is on'));
+  assert.ok(account.includes('clearAnalyticsConsentQueues(userId, previous, next)'));
+  assert.ok(signup.includes('name="personalizationConsent"'));
+  assert.ok(signup.includes('name="serviceImprovementConsent"'));
+  assert.ok(signup.includes('name="sponsorMeasurementConsent"'));
+  assert.ok(signup.includes('I explicitly consent'));
+  assert.ok(signup.includes('Required while personalisation is enabled.'));
+  assert.ok(anonymous.includes('Turn off aggregate measurement'));
+  assert.ok(anonymous.includes('daily totals without visitor or session IDs'));
   assert.ok(layout.includes('<WebAnalyticsConsentManager />'));
   assert.ok(native.includes('<AnalyticsConsentManager'));
   assert.ok(native.includes("loading={authStatus === 'loading' || checkingAccount}"));
-  assert.ok(manager.includes('if (loading) return;'));
   assert.ok(cookies.includes('AnalyticsConsentSettingsButton'));
+  assert.ok(cookies.includes('<AnonymousAnalyticsPreference />'));
 });
 
 test('account consent sync is identity-bound, retryable and enforced server-side', async () => {
@@ -156,7 +146,7 @@ test('withdrawal immediately blocks and clears the matching web and native analy
   assert.ok(feed.includes("hasAnalyticsConsent('serviceImprovement', userId)"));
   assert.ok(comments.includes("hasAnalyticsConsent('serviceImprovement', userId)"));
   assert.ok(anonymous.includes("localStorage.getItem(anonymousAnalyticsPreferenceKey) === 'false'"));
-  assert.ok(manager.includes('Turn off anonymous aggregate measurement'));
+  assert.ok(manager.includes('clearAnonymousSponsorAnalyticsQueue()'));
 
   assert.ok(sponsor.includes("hasAnalyticsConsent('sponsorMeasurement', userId)"));
   assert.ok(sponsor.includes("hasAnalyticsConsent('sponsorMeasurement', null)"));
@@ -261,5 +251,5 @@ test('privacy assessment distinguishes special-category risk and keeps personali
   assert.ok(account.includes('personalization'));
   assert.ok(account.includes('I explicitly consent to CathoScroll using my account actions, selected interests and reading analytics'));
   assert.ok(account.includes('Service improvement analytics is required while personalisation is enabled'));
-  assert.ok(account.includes('AnalyticsConsentSettingsButton'));
+  assert.ok(account.includes('AnalyticsConsentSettingsPanel'));
 });
