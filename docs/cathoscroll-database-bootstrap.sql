@@ -7963,7 +7963,7 @@ BEGIN
       AND (cardinality(campaign.target_topic_ids) = 0 OR p_topic_id = ANY(campaign.target_topic_ids))
       AND NOT campaign.id = ANY(v_campaign_ids)
     ORDER BY -ln(greatest(pg_catalog.random(), 0.000000000001)) / campaign.placement_weight::numeric ASC, campaign.id
-    LIMIT 1 FOR UPDATE OF campaign SKIP LOCKED;
+    LIMIT 1;
 
     IF NOT FOUND THEN EXIT; END IF;
 
@@ -8670,7 +8670,7 @@ BEGIN
             AND daily.event_date >= v_today - 29 AND daily.event_date <= v_today
         ), 0))) ASC,
       campaign.id
-    LIMIT 1 FOR UPDATE OF campaign SKIP LOCKED;
+    LIMIT 1;
 
     IF NOT FOUND THEN EXIT; END IF;
 
