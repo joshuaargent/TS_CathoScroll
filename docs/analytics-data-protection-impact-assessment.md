@@ -145,7 +145,7 @@ Operational topic/comment analytics are used for engagement measurement, reliabi
 A source review of the current clients found:
 
 - website signed-in and signed-out topic/comment event batches are held in module memory only; Android and Electron persist signed-in topic/comment/sponsor events in the encrypted private activity database (2,000 per stream, seven-day expiry, account-scoped and cleared on sign-out/account change); native apps separately persist signed-out events in app-private catalogue SQLite for up to seven days, with a 2,000-event cap and a free opt-out that clears pending rows;
-- the signed-out sponsor frequency token is held in page memory; only its SHA-256 hash is stored server-side;
+- signed-out sponsor measurement is disabled; campaign/day served aggregates continue without session tokens or event-level viewability/click/frequency records;
 - Vercel Web Analytics is documented by Vercel as not using third-party cookies and as discarding its request-derived visitor hash after 24 hours;
 - Web Analytics and Speed Insights beforeSend handlers remove query strings/fragments and replace topic, category and search paths with generic labels.
 
