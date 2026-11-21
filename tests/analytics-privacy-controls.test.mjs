@@ -79,3 +79,36 @@ test('admin sponsor analytics reports signed-out served totals only', async () =
   assert.ok(!detail.includes('fmt(row.anonymous_viewable_impressions)'));
   assert.ok(!detail.includes('fmt(row.anonymous_clicks)'));
 });
+
+
+test('sponsor portal and RPC do not report signed-out viewability or clicks', async () => {
+  const portal = await read('../src/components/sponsor/SponsorPortal.tsx');
+  const bootstrap = await read('../docs/cathoscroll-database-bootstrap.sql');
+  const upgrade = await read('../docs/analytics-consent-and-sponsor-opt-out-upgrade.sql');
+  const extract = (sql) => {
+    const start = sql.lastIndexOf('CREATE OR REPLACE FUNCTION public.get_sponsor_campaign_analytics');
+    const end = sql.indexOf('$function$;', start);
+    return start >= 0 && end > start ? sql.slice(start, end) : '';
+  };
+  const bootstrapFunction = extract(bootstrap);
+  const upgradeFunction = extract(upgrade);
+
+  assert.ok(portal.includes('Signed-out served'));
+  assert.ok(portal.includes('Signed-in CTR'));
+  assert.ok(portal.includes('Signed-out delivery is reported as served totals only'));
+  assert.ok(!portal.includes('Anonymous viewable'));
+  assert.ok(!portal.includes('Anonymous clicks'));
+  assert.ok(!portal.includes('Combined CTR'));
+
+  for (const [label, definition] of [
+    ['canonical bootstrap', bootstrapFunction],
+    ['existing-database upgrade', upgradeFunction],
+  ]) {
+    assert.ok(definition, label + ' must define get_sponsor_campaign_analytics');
+    assert.ok(definition.includes("'anonymous_served'"));
+    assert.ok(definition.includes("'click_through_rate'"));
+    assert.ok(definition.includes('m.clicks::numeric * 100 / m.viewable_impressions'));
+    assert.ok(!/anonymous_viewable_impressions|anonymous_clicks|total_viewable_impressions|total_clicks/.test(definition));
+  }
+  assert.ok(upgrade.includes('GRANT EXECUTE ON FUNCTION public.get_sponsor_campaign_analytics(uuid, uuid, date, date) TO service_role'));
+});
