@@ -2297,3 +2297,52 @@ END;
 $consent_cleanup$;
 
 NOTIFY pgrst, 'reload schema';
+
+
+-- Return the current analytics-consent disclosure version, including the
+-- explicit undecided state after the one-time release reset.
+CREATE OR REPLACE FUNCTION public.get_user_analytics_consent(p_user_id uuid)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO ''
+AS $function$
+DECLARE
+  v_consent catho_private.user_analytics_consents%ROWTYPE;
+  v_personalization_enabled boolean := false;
+BEGIN
+  IF p_user_id IS NULL OR NOT EXISTS (SELECT 1 FROM auth.users AS account WHERE account.id = p_user_id) THEN
+    RAISE EXCEPTION 'Invalid account for analytics consent lookup' USING ERRCODE = '22023';
+  END IF;
+  IF pg_catalog.to_regclass('catho_private.user_personalization_consents') IS NOT NULL THEN
+    SELECT coalesce(pc.enabled, false) INTO v_personalization_enabled
+    FROM (SELECT p_user_id AS user_id) AS actor
+    LEFT JOIN catho_private.user_personalization_consents AS pc ON pc.user_id = actor.user_id;
+  END IF;
+  SELECT * INTO v_consent
+  FROM catho_private.user_analytics_consents AS consent
+  WHERE consent.user_id = p_user_id;
+  IF NOT FOUND THEN
+    RETURN pg_catalog.jsonb_build_object(
+      'serviceImprovement', false,
+      'sponsorMeasurement', false,
+      'updatedAt', NULL,
+      'version', 2,
+      'exists', false,
+      'personalizationEnabled', v_personalization_enabled
+    );
+  END IF;
+  RETURN pg_catalog.jsonb_build_object(
+    'serviceImprovement', v_consent.service_improvement,
+    'sponsorMeasurement', v_consent.sponsor_measurement,
+    'updatedAt', v_consent.updated_at,
+    'version', v_consent.consent_version,
+    'exists', true,
+    'personalizationEnabled', v_personalization_enabled
+  );
+END;
+$function$;
+ALTER FUNCTION public.get_user_analytics_consent(uuid) OWNER TO postgres;
+REVOKE ALL ON FUNCTION public.get_user_analytics_consent(uuid) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.get_user_analytics_consent(uuid) TO service_role;
+NOTIFY pgrst, 'reload schema';
