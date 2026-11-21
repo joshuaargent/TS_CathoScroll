@@ -41,7 +41,7 @@
 ### First-party CathoScroll analytics
 
 - Website signed-out topic/comment events are held in a bounded module-memory queue. Native events are persisted in a bounded seven-day SQLite outbox; a free opt-out clears pending rows.
-- The signed-out sponsor session token is generated and held in memory only. Only a SHA-256 hash is stored server-side for frequency control.
+- Signed-out sponsor selection no longer creates a session token or hash; it records campaign/day served totals only. Opted-in signed-in Sponsor measurement uses account-linked event records and a temporary session token for frequency control.
 - The web analytics retry queue remains in memory and is not written to browser localStorage, sessionStorage or IndexedDB. Native anonymous topic/comment analytics uses a separate app-private SQLite outbox, limited to 2,000 events and seven days, with a user-facing opt-out that clears pending rows. Sponsor frequency tokens remain memory-only.
 - Vercel Web Analytics and Speed Insights use beforeSend handlers to replace sensitive topic/category/search routes with generic labels and strip query strings/fragments.
 - The code review is not a substitute for deployed browser inspection. Verify that no SDK or future change writes/accesses terminal storage for analytics.
