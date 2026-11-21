@@ -12,7 +12,7 @@ function getLastFunctionDefinition(sql, name) {
 }
 
 test('optional analytics consent is explicit, purpose-specific and off by default', async () => {
-  const [consent, manager, layout, native, cookies, account, signup] = await Promise.all([
+  const [consent, manager, layout, native, cookies, account, signup, personalization] = await Promise.all([
     read('../src/lib/analytics-consent.ts'),
     read('../src/components/privacy/AnalyticsConsentManager.tsx'),
     read('../src/app/layout.tsx'),
@@ -20,6 +20,7 @@ test('optional analytics consent is explicit, purpose-specific and off by defaul
     read('../src/app/cookies/page.tsx'),
     read('../src/components/account/AnalyticsConsentSettingsPanel.tsx'),
     read('../src/components/auth/SignupFormView.tsx'),
+    read('../src/components/account/PersonalizationAccountSection.tsx'),
   ]);
 
   assert.ok(consent.includes('serviceImprovement: false'));
@@ -36,10 +37,10 @@ test('optional analytics consent is explicit, purpose-specific and off by defaul
   assert.ok(account.includes('Sponsor measurement'));
   assert.ok(account.includes('Personalisation is independent. Passive reading signals inform recommendations only when both Personalisation and Service improvement analytics are enabled.'));
   assert.ok(account.includes('clearAnalyticsConsentQueues(userId, previous, next)'));
-  assert.ok(account.includes('offlineCacheAvailable: boolean'));
-  assert.ok(account.includes('offlinePersonalizationWithdrawal'));
-  assert.ok(account.includes('persistOfflinePersonalizationWithdrawal'));
-  assert.ok(account.includes('pendingSync: true'));
+  assert.ok(personalization.includes('offlineCacheAvailable'));
+  assert.ok(personalization.includes('offlinePersonalizationWithdrawal'));
+  assert.ok(personalization.includes('persistOfflinePersonalizationWithdrawal'));
+  assert.ok(personalization.includes('pendingSync: true'));
   assert.ok(account.includes('window.dispatchEvent(new Event(analyticsConsentSyncEvent))'));
   assert.ok(signup.includes('name="personalizationConsent"'));
   assert.ok(signup.includes('name="serviceImprovementConsent"'));
@@ -242,7 +243,8 @@ test('privacy assessment distinguishes special-category risk and keeps personali
   assert.ok(assessment.includes('not a legal opinion'));
   assert.ok(manager.includes('Personalisation is independent; passive reading signals inform recommendations only when both Personalisation and Service improvement analytics are enabled. Sponsor measurement remains independent.'));
   assert.ok(account.includes('personalization'));
-  assert.ok(account.includes('I explicitly consent to CathoScroll using my account actions, selected interests and reading analytics'));
-  assert.ok(analyticsSettings.includes('Required while personalisation is on.'));
   assert.ok(account.includes('AnalyticsConsentSettingsPanel'));
+  assert.ok(personalization.includes('I explicitly consent to CathoScroll using my account actions and selected interests to personalise my recommendations'));
+  assert.ok(analyticsSettings.includes('Passive reading signals inform recommendations only if Personalisation is separately enabled too.'));
+  assert.ok(analyticsSettings.includes('Required while personalisation is on.'));
 });
