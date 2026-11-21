@@ -41,7 +41,7 @@ export async function POST(request: Request) {
   }
 
   // Detailed sponsor viewability/click measurement is offered only to signed-in
-  // users. Signed-out sponsor delivery is campaign/day aggregate-only.
+  // users who explicitly opted in. Unmeasured sponsor delivery is not counted.
   if (!auth.user) return respond(request, { recorded: false }, 403);
 
   const rateLimit = await checkApiRateLimit({
@@ -72,6 +72,7 @@ export async function POST(request: Request) {
   const campaignId = eventPayload.campaignId;
   const eventId = eventPayload.eventId;
   const sessionId = eventPayload.sessionId;
+  const placementReceipt = eventPayload.placementReceipt;
   const eventType = eventPayload.eventType;
 
   // Drop legacy anonymous-queue payloads rather than attributing them to the
@@ -90,6 +91,7 @@ export async function POST(request: Request) {
     !isValidUuid(campaignId) ||
     !isValidUuid(eventId) ||
     !isValidUuid(sessionId) ||
+    !isValidUuid(placementReceipt) ||
     typeof eventType !== 'string' ||
     !eventTypes.includes(eventType as (typeof eventTypes)[number])
   ) {
@@ -102,6 +104,7 @@ export async function POST(request: Request) {
       p_campaign_id: campaignId,
       p_event_id: eventId,
       p_session_id: sessionId,
+      p_placement_receipt: placementReceipt,
       p_event_type: eventType,
     });
     if (error) {
