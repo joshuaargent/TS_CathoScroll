@@ -39,11 +39,7 @@ interface CampaignMetric {
   clicks: number;
   click_through_rate: number;
   anonymous_served: number;
-  anonymous_viewable_impressions: number;
-  anonymous_clicks: number;
   total_served: number;
-  total_viewable_impressions: number;
-  total_clicks: number;
 }
 
 export interface SponsorAnalytics {
