@@ -399,6 +399,15 @@ test('passive recommendation signals are capped independently before combination
 });
 
 
+test('the reset shows personalisation as not chosen until a current choice is recorded', () => {
+  const account = readFileSync(new URL('../src/components/account/PersonalizationAccountSection.tsx', import.meta.url), 'utf8');
+  assert.match(account, /status\.updated_at \? 'Disabled' : 'Not chosen'/);
+  for (const sql of [bootstrap, upgrade]) {
+    const status = getLastFunctionDefinition(sql, 'public.get_my_personalization_status') ?? '';
+    assert.match(status, /consent_version='2026-11-21-v6'/);
+  }
+});
+
 test('all profile reads and rebuilds require the new explicit personalisation consent version', () => {
   for (const sql of [bootstrap, upgrade]) {
     assert.match(sql, /WHERE c\.user_id=p_user_id AND c\.enabled=true\s+AND c\.consent_version='2026-11-21-v6'/);
