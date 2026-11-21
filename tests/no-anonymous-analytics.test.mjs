@@ -58,10 +58,10 @@ test('canonical database and existing-database upgrade remove anonymous analytic
       'get_admin_analytics_deep_dive',
       'record_sponsor_campaign_event',
     ]) {
-      const start = finalModel.lastIndexOf('CREATE OR REPLACE FUNCTION public.' + name);
-      const end = finalModel.indexOf('$function$;', start);
+      const start = sql.lastIndexOf('CREATE OR REPLACE FUNCTION public.' + name);
+      const end = sql.indexOf('$function$;', start);
       assert.ok(start >= 0 && end > start, name + ' must exist in the final database model');
-      assert.doesNotMatch(finalModel.slice(start, end), /served_count|sponsor_served/);
+      assert.doesNotMatch(sql.slice(start, end), /served_count|sponsor_served/);
     }
   }
 });
