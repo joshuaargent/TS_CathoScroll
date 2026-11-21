@@ -11,9 +11,9 @@ A UK privacy professional must review and complete this assessment before broad 
 
 ### Optional personalisation
 
-Users may separately opt in at signup or later in Account settings. The checkbox is unticked by default and is not required to use CathoScroll. The recorded consent version is `2026-11-20-v4`.
+Users may separately opt in at signup or later in Account settings. The checkbox is unticked by default and is not required to use CathoScroll. The recorded consent version is `2026-11-21-v6`.
 
-When enabled, the v4 model uses eligible direct account actions and explicitly selected categories. Passive reading signals are included only when the user separately enables Service improvement analytics:
+When enabled, the v6 model uses eligible direct account actions and explicitly selected categories. Passive reading signals are included only when the user separately enables Service improvement analytics:
 - progress and completed topics;
 - bookmarks and topic likes;
 - comments written, comment likes and replies written;
