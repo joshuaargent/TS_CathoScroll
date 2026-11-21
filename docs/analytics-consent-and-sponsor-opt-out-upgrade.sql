@@ -1,8 +1,6 @@
--- CathoScroll optional analytics consent and sponsor-measurement opt-out.
--- Validate this migration against clean and existing CathoScroll PostgreSQL schemas
--- before production. No event history or user data is deleted by this migration.
--- Declined sponsor measurement retains campaign/day served totals only; it does
--- not create visitor/session frequency rows or viewability/click measurements.
+-- CathoScroll account-only analytics consent and sponsor measurement upgrade.
+-- No anonymous engagement analytics, sponsor delivery counts or served counters
+-- are created or retained. Only explicit signed-in opt-ins produce measurements.
 
 CREATE TABLE IF NOT EXISTS catho_private.user_analytics_consents (
   user_id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -629,6 +627,11 @@ BEGIN
     p_user_id, v_previous_service, v_previous_sponsor,
     p_service_improvement, p_sponsor_measurement, p_consent_version, v_now
   );
+
+  IF p_sponsor_measurement IS NOT TRUE THEN
+    DELETE FROM catho_private.sponsor_campaign_placement_receipts
+    WHERE user_id = p_user_id;
+  END IF;
 
   RETURN pg_catalog.jsonb_build_object(
     'serviceImprovement', v_consent.service_improvement,
