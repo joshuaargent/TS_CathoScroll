@@ -399,6 +399,16 @@ test('passive recommendation signals are capped independently before combination
 });
 
 
+test('all profile reads and rebuilds require the new explicit personalisation consent version', () => {
+  for (const sql of [bootstrap, upgrade]) {
+    assert.match(sql, /WHERE c\.user_id=p_user_id AND c\.enabled=true\s+AND c\.consent_version='2026-11-21-v6'/);
+    assert.match(sql, /AND pc\.consent_version = '2026-11-21-v6'/);
+    assert.match(sql, /WHERE user_id=v_user_id AND consent_version='2026-11-21-v6'/);
+    assert.match(sql, /WHERE user_id=current_user_id AND consent_version='2026-11-21-v6'/);
+    assert.match(sql, /WHERE c\.user_id=v_user_id AND c\.enabled=true\s+AND c\.consent_version='2026-11-21-v6'/);
+  }
+});
+
 test('release reset leaves every account undecided and clears analytics and personalisation state', () => {
   const resetStart = upgrade.lastIndexOf('-- Release-wide analytics and personalisation reset.');
   assert.notEqual(resetStart, -1, 'existing-database upgrade must include the release reset');
