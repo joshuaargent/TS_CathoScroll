@@ -2,6 +2,8 @@
 
 **Controller working assessment — 21 November 2026**
 
+This is not a legal opinion.
+
 This document records the intended CathoScroll analytics model and the issues the controller must verify. It is not formal legal advice and must not be treated as completed solicitor sign-off.
 
 ## 1. Final product decision
