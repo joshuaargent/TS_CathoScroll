@@ -317,10 +317,11 @@ export default function PrivacyPage() {
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            Supabase and Vercel may also process service metadata, support requests, security
-            logs, and other information through their own operations and subprocessors in
-            additional countries, including the United States and Singapore. This means some
-            personal data may be transferred outside the UK and EEA.
+            Supabase may process account information, support requests, telemetry and logs
+            through its own operations and subprocessors in additional locations, including the
+            United States and Singapore. Vercel's primary processing facilities are in the
+            United States, and its subprocessors may process information in other countries.
+            This means some personal data may be transferred outside the UK and EEA.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
