@@ -58,6 +58,11 @@ test('privacy and analytics surfaces explicitly exclude anonymous engagement mea
     assert.doesNotMatch(source, /anonymous_served|anonymous_impressions|Signed-out served|Campaign deliveries|served totals/i);
   }
   assert.doesNotMatch(consentManager, /anonymous-feed-analytics-client|AnonymousAnalyticsPreference|clearAnonymousSponsorAnalyticsQueue/);
+  const consentStore = await read('../src/lib/analytics-consent.ts');
+  const safeAnalytics = await read('../src/components/providers/PrivacySafeAnalytics.tsx');
+  assert.match(consentStore, /if \(!userId\) return false/);
+  assert.match(consentStore, /clearLegacyAnonymousAnalyticsConsent/);
+  assert.match(safeAnalytics, /clearLegacyAnonymousAnalyticsConsent\(\)/);
 });
 
 test('sponsor delivery is available without consent and creates no delivery counter', async () => {
