@@ -8516,7 +8516,7 @@ BEGIN
       AND (
         campaign.ends_on < (pg_catalog.timezone('UTC', statement_timestamp()))::date
         OR sponsor.status = 'completed'
-        OR (sponsor.ends_on IS NOT NULL AND sponsor.ends_on < (pg_catalog.timezone('UTC', statement_timestamp()))::date)
+        OR (sponsor.ends_on IS NOT NULL AND sponsor.ends_on < (p_before AT TIME ZONE 'UTC')::date)
       )
     ORDER BY campaign.ends_on, campaign.id
     LIMIT p_limit
