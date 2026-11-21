@@ -73,7 +73,9 @@ CathoScroll does not provide sponsors with user identities, raw user-level analy
 | Derived Personalisation profile and selected category interests | Deleted on Personalisation withdrawal; pre-v6 grants are invalidated by the v6 upgrade and affected profiles/interests are deleted pending fresh consent |
 | Analytics consent records | Retained as needed to administer and demonstrate the user's choice, subject to account deletion and legal requirements |
 | Core account, user-generated content and sponsor accounting records | Retention depends on service operation, moderation, account deletion, dispute and statutory requirements; controller to confirm detailed periods |
-| Contact form submissions | Delete when the request is resolved and the information is no longer needed; confirm Formspree archive and email-mailbox retention and deletion controls |\n| Provider security/access logs and request metadata | Provider-specific; obtain current retention periods from provider accounts and contracts |
+| Contact form submissions | Delete when the request is resolved and the information is no longer needed; confirm Formspree archive and email-mailbox retention and deletion controls |
+| API rate-limit records | HMAC-protected endpoint/account-or-client key, request count and time-window timestamps; stale rows are opportunistically deleted after two days in batches of up to 100 when the rate-limit RPC runs. These are security controls, not engagement analytics, and are not cleared by analytics-consent withdrawal |
+| Provider security/access logs and request metadata | Provider-specific; obtain current retention periods from provider accounts and contracts |
 
 No anonymous topic/comment analytics, anonymous sponsor engagement, anonymous queues, anonymous event receipts, sponsor delivery counters, served totals or anonymous frequency records are collected or retained.
 
