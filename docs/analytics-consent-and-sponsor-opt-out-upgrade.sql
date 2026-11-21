@@ -1958,3 +1958,338 @@ GRANT EXECUTE ON FUNCTION public.get_admin_analytics_overview(uuid, timestamp wi
 DROP FUNCTION IF EXISTS public.get_admin_analytics_overview(timestamp with time zone, timestamp with time zone);
 
 NOTIFY pgrst, 'reload schema';
+
+
+-- Withdrawal cleanup: remove account-linked event records for a withdrawn
+-- purpose, then rebuild the affected daily aggregates from the remaining
+-- currently-consented event ledger. Historical aggregates outside the raw
+-- retention window remain non-identifying campaign/content totals.
+
+CREATE OR REPLACE FUNCTION catho_private.purge_user_service_improvement_events(p_user_id uuid)
+RETURNS integer
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO ''
+AS $function$
+DECLARE
+  v_from date;
+  v_to date;
+  v_deleted integer := 0;
+  v_rows integer := 0;
+BEGIN
+  IF p_user_id IS NULL THEN
+    RETURN 0;
+  END IF;
+
+  SELECT min(event_date), max(event_date)
+  INTO v_from, v_to
+  FROM (
+    SELECT (event.received_at AT TIME ZONE 'UTC')::date AS event_date
+    FROM catho_private.feed_analytics_events AS event
+    WHERE event.user_id = p_user_id
+    UNION ALL
+    SELECT (event.received_at AT TIME ZONE 'UTC')::date AS event_date
+    FROM catho_private.feed_card_analytics_events AS event
+    WHERE event.user_id = p_user_id
+  ) AS affected_dates;
+
+  DELETE FROM catho_private.feed_analytics_events WHERE user_id = p_user_id;
+  GET DIAGNOSTICS v_rows = ROW_COUNT;
+  v_deleted := v_deleted + v_rows;
+
+  DELETE FROM catho_private.feed_card_analytics_events WHERE user_id = p_user_id;
+  GET DIAGNOSTICS v_rows = ROW_COUNT;
+  v_deleted := v_deleted + v_rows;
+
+  DELETE FROM catho_private.feed_analytics_event_limits WHERE user_id = p_user_id;
+  DELETE FROM catho_private.feed_card_analytics_event_limits WHERE user_id = p_user_id;
+  DELETE FROM catho_private.feed_analytics_daily_viewers WHERE user_id = p_user_id;
+  DELETE FROM catho_private.feed_card_analytics_daily_viewers WHERE user_id = p_user_id;
+
+  IF v_from IS NULL OR v_to IS NULL THEN
+    RETURN v_deleted;
+  END IF;
+
+  DELETE FROM catho_private.feed_analytics_daily
+  WHERE event_date BETWEEN v_from AND v_to;
+
+  INSERT INTO catho_private.feed_analytics_daily (
+    event_date, entity_id, impressions, viewable_impressions,
+    active_duration_ms, skips, completions, return_visits, refreshed_at
+  )
+  SELECT
+    (event.received_at AT TIME ZONE 'UTC')::date,
+    event.entity_id,
+    count(*) FILTER (WHERE event.event_type = 'impression'),
+    count(*) FILTER (WHERE event.event_type = 'viewable_impression'),
+    coalesce(sum((event.metadata ->> 'duration_ms')::bigint)
+      FILTER (WHERE event.event_type = 'active_duration'), 0),
+    count(*) FILTER (WHERE event.event_type = 'skip'),
+    count(*) FILTER (WHERE event.event_type = 'completion'),
+    count(*) FILTER (WHERE event.event_type = 'return_visit'),
+    pg_catalog.statement_timestamp()
+  FROM catho_private.feed_analytics_events AS event
+  WHERE (event.received_at AT TIME ZONE 'UTC')::date BETWEEN v_from AND v_to
+  GROUP BY (event.received_at AT TIME ZONE 'UTC')::date, event.entity_id;
+
+  DELETE FROM catho_private.feed_analytics_daily_viewers
+  WHERE event_date BETWEEN v_from AND v_to;
+
+  INSERT INTO catho_private.feed_analytics_daily_viewers (event_date, entity_id, user_id)
+  SELECT DISTINCT
+    (event.received_at AT TIME ZONE 'UTC')::date,
+    event.entity_id,
+    event.user_id
+  FROM catho_private.feed_analytics_events AS event
+  WHERE event.event_type = 'viewable_impression'
+    AND (event.received_at AT TIME ZONE 'UTC')::date BETWEEN v_from AND v_to
+  ON CONFLICT DO NOTHING;
+
+  DELETE FROM catho_private.feed_card_analytics_daily
+  WHERE event_date BETWEEN v_from AND v_to;
+
+  DELETE FROM catho_private.feed_card_analytics_daily_viewers
+  WHERE event_date BETWEEN v_from AND v_to;
+
+  INSERT INTO catho_private.feed_card_analytics_daily_viewers (
+    event_date, card_type, card_id, user_id
+  )
+  SELECT DISTINCT
+    (event.received_at AT TIME ZONE 'UTC')::date,
+    event.card_type,
+    event.card_id,
+    event.user_id
+  FROM catho_private.feed_card_analytics_events AS event
+  WHERE event.event_type IN ('impression', 'viewable_impression')
+    AND (event.received_at AT TIME ZONE 'UTC')::date BETWEEN v_from AND v_to
+  ON CONFLICT DO NOTHING;
+
+  WITH event_totals AS (
+    SELECT
+      (event.received_at AT TIME ZONE 'UTC')::date AS event_date,
+      event.card_type,
+      event.card_id,
+      count(*) FILTER (WHERE event.event_type = 'impression') AS impressions,
+      count(*) FILTER (WHERE event.event_type = 'viewable_impression') AS viewable_impressions,
+      coalesce(sum(event.duration_ms) FILTER (WHERE event.event_type = 'active_duration'), 0) AS active_duration_ms,
+      count(*) FILTER (WHERE event.event_type = 'skip') AS skips,
+      count(*) FILTER (WHERE event.event_type = 'completion') AS completions,
+      count(*) FILTER (WHERE event.event_type = 'open') AS opens
+    FROM catho_private.feed_card_analytics_events AS event
+    WHERE (event.received_at AT TIME ZONE 'UTC')::date BETWEEN v_from AND v_to
+    GROUP BY (event.received_at AT TIME ZONE 'UTC')::date, event.card_type, event.card_id
+  ),
+  viewer_totals AS (
+    SELECT event_date, card_type, card_id, count(*) AS unique_viewers
+    FROM catho_private.feed_card_analytics_daily_viewers
+    WHERE event_date BETWEEN v_from AND v_to
+    GROUP BY event_date, card_type, card_id
+  )
+  INSERT INTO catho_private.feed_card_analytics_daily (
+    event_date, card_type, card_id, impressions, viewable_impressions,
+    active_duration_ms, skips, completions, opens, unique_viewers, refreshed_at
+  )
+  SELECT
+    event_totals.event_date,
+    event_totals.card_type,
+    event_totals.card_id,
+    event_totals.impressions,
+    event_totals.viewable_impressions,
+    event_totals.active_duration_ms,
+    event_totals.skips,
+    event_totals.completions,
+    event_totals.opens,
+    coalesce(viewer_totals.unique_viewers, 0),
+    pg_catalog.statement_timestamp()
+  FROM event_totals
+  LEFT JOIN viewer_totals USING (event_date, card_type, card_id);
+
+  RETURN v_deleted;
+END;
+$function$;
+ALTER FUNCTION catho_private.purge_user_service_improvement_events(uuid) OWNER TO postgres;
+REVOKE ALL ON FUNCTION catho_private.purge_user_service_improvement_events(uuid) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION catho_private.purge_user_service_improvement_events(uuid) TO service_role;
+
+CREATE OR REPLACE FUNCTION catho_private.purge_user_sponsor_measurement_events(p_user_id uuid)
+RETURNS integer
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO ''
+AS $function$
+DECLARE
+  v_from date;
+  v_to date;
+  v_deleted integer := 0;
+BEGIN
+  IF p_user_id IS NULL THEN
+    RETURN 0;
+  END IF;
+
+  SELECT min((event.received_at AT TIME ZONE 'UTC')::date),
+         max((event.received_at AT TIME ZONE 'UTC')::date)
+  INTO v_from, v_to
+  FROM catho_private.sponsor_campaign_events AS event
+  WHERE event.user_id = p_user_id;
+
+  DELETE FROM catho_private.sponsor_campaign_events WHERE user_id = p_user_id;
+  GET DIAGNOSTICS v_deleted = ROW_COUNT;
+
+  DELETE FROM catho_private.sponsor_campaign_placement_receipts WHERE user_id = p_user_id;
+
+  IF v_from IS NOT NULL AND v_to IS NOT NULL THEN
+    DELETE FROM catho_private.sponsor_campaign_daily
+    WHERE event_date BETWEEN v_from AND v_to;
+
+    INSERT INTO catho_private.sponsor_campaign_daily (
+      event_date, campaign_id, viewable_impressions, clicks, updated_at
+    )
+    SELECT
+      (event.received_at AT TIME ZONE 'UTC')::date,
+      event.campaign_id,
+      count(*) FILTER (WHERE event.event_type = 'viewable_impression'),
+      count(*) FILTER (WHERE event.event_type = 'click'),
+      pg_catalog.statement_timestamp()
+    FROM catho_private.sponsor_campaign_events AS event
+    WHERE (event.received_at AT TIME ZONE 'UTC')::date BETWEEN v_from AND v_to
+    GROUP BY (event.received_at AT TIME ZONE 'UTC')::date, event.campaign_id;
+  END IF;
+
+  RETURN v_deleted;
+END;
+$function$;
+ALTER FUNCTION catho_private.purge_user_sponsor_measurement_events(uuid) OWNER TO postgres;
+REVOKE ALL ON FUNCTION catho_private.purge_user_sponsor_measurement_events(uuid) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION catho_private.purge_user_sponsor_measurement_events(uuid) TO service_role;
+
+CREATE OR REPLACE FUNCTION public.set_user_analytics_consent(
+  p_user_id uuid,
+  p_service_improvement boolean,
+  p_sponsor_measurement boolean,
+  p_consent_version integer
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO ''
+AS $function$
+DECLARE
+  v_previous_service boolean;
+  v_previous_sponsor boolean;
+  v_consent catho_private.user_analytics_consents%ROWTYPE;
+  v_now timestamptz := pg_catalog.statement_timestamp();
+BEGIN
+  IF p_user_id IS NULL OR p_service_improvement IS NULL OR p_sponsor_measurement IS NULL
+     OR p_consent_version IS DISTINCT FROM 1
+     OR NOT EXISTS (SELECT 1 FROM auth.users AS account WHERE account.id = p_user_id) THEN
+    RAISE EXCEPTION 'Invalid analytics consent update' USING ERRCODE = '22023';
+  END IF;
+  PERFORM 1 FROM auth.users AS account WHERE account.id = p_user_id FOR UPDATE;
+
+  SELECT service_improvement, sponsor_measurement
+  INTO v_previous_service, v_previous_sponsor
+  FROM catho_private.user_analytics_consents
+  WHERE user_id = p_user_id
+  FOR UPDATE;
+
+  IF v_previous_service IS NOT NULL
+     AND v_previous_service = p_service_improvement
+     AND v_previous_sponsor = p_sponsor_measurement THEN
+    IF p_service_improvement IS NOT TRUE THEN
+      PERFORM catho_private.purge_user_service_improvement_events(p_user_id);
+    END IF;
+    IF p_sponsor_measurement IS NOT TRUE THEN
+      PERFORM catho_private.purge_user_sponsor_measurement_events(p_user_id);
+    END IF;
+    RETURN public.get_user_analytics_consent(p_user_id);
+  END IF;
+
+  INSERT INTO catho_private.user_analytics_consents (
+    user_id, service_improvement, sponsor_measurement, consent_version,
+    service_improvement_updated_at, sponsor_measurement_updated_at, created_at, updated_at
+  ) VALUES (
+    p_user_id, p_service_improvement, p_sponsor_measurement, p_consent_version,
+    v_now, v_now, v_now, v_now
+  )
+  ON CONFLICT (user_id) DO UPDATE SET
+    service_improvement = EXCLUDED.service_improvement,
+    sponsor_measurement = EXCLUDED.sponsor_measurement,
+    consent_version = EXCLUDED.consent_version,
+    service_improvement_updated_at = CASE
+      WHEN catho_private.user_analytics_consents.service_improvement IS DISTINCT FROM EXCLUDED.service_improvement
+      THEN v_now ELSE catho_private.user_analytics_consents.service_improvement_updated_at END,
+    sponsor_measurement_updated_at = CASE
+      WHEN catho_private.user_analytics_consents.sponsor_measurement IS DISTINCT FROM EXCLUDED.sponsor_measurement
+      THEN v_now ELSE catho_private.user_analytics_consents.sponsor_measurement_updated_at END,
+    updated_at = v_now
+  RETURNING * INTO v_consent;
+
+  INSERT INTO catho_private.user_analytics_consent_history (
+    user_id, previous_service_improvement, previous_sponsor_measurement,
+    service_improvement, sponsor_measurement, consent_version, recorded_at
+  ) VALUES (
+    p_user_id, v_previous_service, v_previous_sponsor,
+    p_service_improvement, p_sponsor_measurement, p_consent_version, v_now
+  );
+
+  IF v_previous_service IS DISTINCT FROM p_service_improvement
+     AND pg_catalog.to_regclass('catho_private.user_personalization_consents') IS NOT NULL THEN
+    UPDATE catho_private.user_personalization_consents
+    SET profile_refreshed_at = NULL
+    WHERE user_id = p_user_id AND enabled = true;
+  END IF;
+
+  IF p_service_improvement IS NOT TRUE THEN
+    PERFORM catho_private.purge_user_service_improvement_events(p_user_id);
+    IF pg_catalog.to_regprocedure('catho_private.refresh_user_interest_profile(uuid)') IS NOT NULL THEN
+      EXECUTE 'SELECT catho_private.refresh_user_interest_profile($1)' USING p_user_id;
+    END IF;
+  END IF;
+
+  IF p_sponsor_measurement IS NOT TRUE THEN
+    PERFORM catho_private.purge_user_sponsor_measurement_events(p_user_id);
+  END IF;
+
+  RETURN pg_catalog.jsonb_build_object(
+    'serviceImprovement', v_consent.service_improvement,
+    'sponsorMeasurement', v_consent.sponsor_measurement,
+    'updatedAt', v_consent.updated_at,
+    'version', v_consent.consent_version,
+    'exists', true,
+    'personalizationEnabled', EXISTS (
+      SELECT 1 FROM catho_private.user_personalization_consents AS pc
+      WHERE pc.user_id = p_user_id AND pc.enabled = true
+    )
+  );
+END;
+$function$;
+ALTER FUNCTION public.set_user_analytics_consent(uuid, boolean, boolean, integer) OWNER TO postgres;
+REVOKE ALL ON FUNCTION public.set_user_analytics_consent(uuid, boolean, boolean, integer) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.set_user_analytics_consent(uuid, boolean, boolean, integer) TO service_role;
+
+DO $consent_cleanup$
+DECLARE
+  v_user record;
+BEGIN
+  FOR v_user IN
+    SELECT user_id
+    FROM catho_private.user_analytics_consents
+    WHERE service_improvement IS NOT TRUE OR sponsor_measurement IS NOT TRUE
+  LOOP
+    IF NOT EXISTS (
+      SELECT 1 FROM catho_private.user_analytics_consents
+      WHERE user_id = v_user.user_id AND service_improvement IS TRUE
+    ) THEN
+      PERFORM catho_private.purge_user_service_improvement_events(v_user.user_id);
+    END IF;
+    IF NOT EXISTS (
+      SELECT 1 FROM catho_private.user_analytics_consents
+      WHERE user_id = v_user.user_id AND sponsor_measurement IS TRUE
+    ) THEN
+      PERFORM catho_private.purge_user_sponsor_measurement_events(v_user.user_id);
+    END IF;
+  END LOOP;
+END;
+$consent_cleanup$;
+
+NOTIFY pgrst, 'reload schema';
