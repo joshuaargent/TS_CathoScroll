@@ -63,7 +63,7 @@ export default function PrivacyPage() {
             <li>Quiz progress and quiz results.</li>
             <li>Learning path progress.</li>
             <li>Technical, device, and security data.</li>
-            <li>Optional account-linked analytics events and aggregates only where you have enabled the relevant analytics choice; signed-out topic/comment daily aggregates are described separately below.</li>
+            <li>Optional account-linked analytics events and aggregates only where you have enabled the relevant analytics choice.</li>
             <li>Optional analytics consent choices and timestamps for signed-in accounts.</li>
             <li>Optional personalisation consent records, selected category interests, and derived topic-interest scores when you opt in.</li>
             <li>For sponsor representatives: organisation membership, campaign submissions, invoice details, and payment references.</li>
@@ -122,10 +122,9 @@ export default function PrivacyPage() {
             <li>Provide learning paths, quizzes, audio, and other platform features without charging individual users.</li>
             <li>Personalise topic recommendations only where you have explicitly opted in.</li>
             <li>Administer paid sponsor campaigns, invoices, and sponsor account access.</li>
-            <li>Measure sponsored campaign delivery and provide sponsors with aggregate campaign reports.</li>
+            <li>Provide aggregate sponsor reports based only on signed-in users who explicitly enable Sponsor measurement.</li>
             <li>Improve performance and reliability.</li>
             <li>Measure account-linked topic and Top Comments engagement where Service improvement analytics is enabled; when personalisation is enabled, eligible reading signals also inform that user's recommendations.</li>
-            <li>Collect signed-out topic/comment daily aggregate statistics by default, with a simple free objection and no visitor-level profile.</li>
             <li>Measure sponsor viewability, clicks and frequency only where Sponsor measurement is enabled.</li>
             <li>Monitor abuse, spam, fraud, and security issues.</li>
             <li>Comply with legal obligations.</li>
@@ -345,7 +344,7 @@ export default function PrivacyPage() {
           <h2 className="mb-4 text-3xl font-bold">Data Retention</h2>
 
           <p className="text-text-secondary leading-relaxed">
-            We retain information only for as long as reasonably necessary for the purpose for which it was collected, subject to legal, security, moderation, and accounting requirements. Raw signed-in feed, community-card and sponsor-campaign analytics events, together with the user/day viewer bridge used for unique-viewer reporting, are retained for up to 180 days. Signed-in sponsor frequency-cap records are removed after campaigns have completed or been rejected and the applicable 180-day cutoff has passed. Signed-out sponsor session-frequency and event records are not created; campaign/day served totals without visitor/session identifiers are retained longer. Signed-in analytics consent choices and their change history are retained for as long as needed to demonstrate and administer your choice, subject to account deletion and applicable legal requirements.
+            We retain information only for as long as reasonably necessary for the purpose for which it was collected, subject to legal, security, moderation, and accounting requirements. Raw signed-in feed, community-card and sponsor-campaign analytics events, together with the user/day viewer bridge used for unique-viewer reporting, are retained for up to 180 days. Signed-in sponsor frequency-cap records are removed after campaigns have completed or been rejected and the applicable 180-day cutoff has passed. No anonymous sponsor engagement or delivery counters are created or retained. Signed-in analytics consent choices and their change history are retained for as long as needed to demonstrate and administer your choice, subject to account deletion and applicable legal requirements.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
