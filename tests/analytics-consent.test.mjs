@@ -108,6 +108,9 @@ test('account consent sync is identity-bound, retryable and enforced server-side
   assert.ok(security.includes('new URL(referer).origin === requestOrigin'));
   assert.ok(serverConsent.includes('get_user_analytics_consent'));
   assert.ok(serverConsent.includes('personalizationEnabled'));
+  assert.match(serverConsent, /const currentConsent = value\.version === 2 && value\.exists === true/);
+  assert.match(serverConsent, /serviceImprovement: currentConsent && value\.serviceImprovement/);
+  assert.match(serverConsent, /sponsorMeasurement: currentConsent && value\.sponsorMeasurement/);
   assert.doesNotMatch(manager, /effectivePersonalization|personalizationEnabled/);
   assert.doesNotMatch(bootstrap, /Turn off personalisation before disabling Service improvement analytics/);
   assert.match(bootstrap, /profile_refreshed_at = NULL/);
