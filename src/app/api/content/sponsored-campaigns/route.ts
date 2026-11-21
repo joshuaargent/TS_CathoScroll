@@ -159,7 +159,7 @@ export async function POST(request: Request) {
       return respond(request, { error: 'Sponsored content is temporarily unavailable.' }, 503);
     }
 
-    if (sponsorMeasurementEnabled && data.campaigns.some((campaign) =>
+    if (sponsorMeasurementEnabled && data.campaigns.some((campaign: Record<string, unknown>) =>
       typeof campaign.measurement_receipt !== 'string' || !isValidUuid(campaign.measurement_receipt))) {
       console.error('Consented sponsor selector omitted a valid placement receipt.');
       return respond(request, { error: 'Sponsored content is temporarily unavailable.' }, 503);
