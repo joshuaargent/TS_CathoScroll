@@ -127,15 +127,32 @@ export function readAnalyticsConsent(userId?: string | null): AnalyticsConsent |
   }
 }
 
+export function clearLegacyAnalyticsConsentStorage(): void {
+  if (typeof window === 'undefined') return;
+  const legacyPrefix = 'cathoscroll.analytics-consent.v1';
+  try {
+    window.localStorage.removeItem(legacyPrefix);
+    window.localStorage.removeItem(legacyPrefix + '.anonymous');
+    for (let index = window.localStorage.length - 1; index >= 0; index -= 1) {
+      const key = window.localStorage.key(index);
+      if (key?.startsWith(legacyPrefix + '.account.')) {
+        window.localStorage.removeItem(key);
+      }
+    }
+    window.localStorage.removeItem('cathoscroll.anonymous-analytics.enabled.v1');
+  } catch {
+    // The v2 namespace is authoritative and old values are never read.
+  }
+}
+
 export function clearLegacyAnonymousAnalyticsConsent(): void {
   if (typeof window === 'undefined') return;
-  const key = storageKeyForUser(null);
   try {
-    window.localStorage.removeItem(key);
-    window.localStorage.removeItem('cathoscroll.anonymous-analytics.enabled.v1');
+    window.localStorage.removeItem(storageKeyForUser(null));
   } catch {
     // The signed-out consent gate still returns false if storage is unavailable.
   }
+  clearLegacyAnalyticsConsentStorage();
   for (const choice of ['serviceImprovement', 'sponsorMeasurement'] as const) {
     deniedOverrides.add(overrideKey(choice, null));
     getConsentChannel()?.postMessage({ type: 'deny', choice, userId: null });
