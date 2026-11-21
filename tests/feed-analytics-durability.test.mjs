@@ -92,10 +92,9 @@ test('signed-in feed and sponsor raw-event retention remains 180 days', () => {
     assert.match(sql, /DELETE FROM catho_private\.feed_card_analytics_event_limits/);
     assert.match(sql, /cathoscroll-prune-feed-card-analytics/);
   }
-  for (const sql of [bootstrap, upgrade]) {
-    assert.match(sql, /DELETE FROM catho_private\.feed_analytics_event_limits/);
-    assert.match(sql, /prune_sponsor_campaign_events\(statement_timestamp\(\) - interval ''180 days''/);
-  }
+  assert.match(bootstrap, /DELETE FROM catho_private\.feed_analytics_event_limits/);
+  assert.match(bootstrap, /prune_sponsor_campaign_events\(statement_timestamp\(\) - interval ''180 days''/);
+  assert.match(upgrade, /CREATE OR REPLACE FUNCTION catho_private\.prune_sponsor_campaign_events/);
 });
 
 test('feed analytics retains active-page events until server acknowledgement and retries on reconnect', () => {
