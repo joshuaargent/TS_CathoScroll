@@ -472,9 +472,6 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
 
         <AnalyticsConsentSettingsPanel
           userId={accountUserId}
-          personalizationEnabled={status.enabled}
-          personalizationStatusKnown={personalizationStatusKnown}
-          offlineCacheAvailable={offlineCacheAvailable}
           disabled={loading || !accountUserId}
         />
 
