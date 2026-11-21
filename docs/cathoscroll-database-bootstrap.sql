@@ -7844,6 +7844,7 @@ REVOKE ALL ON FUNCTION public.get_weighted_sponsor_campaigns(uuid, uuid, text, t
 GRANT EXECUTE ON FUNCTION public.get_weighted_sponsor_campaigns(uuid, uuid, text, text, integer) TO service_role;
 
 DROP FUNCTION IF EXISTS public.get_anonymous_sponsor_campaigns(text, text, text, integer);
+DROP FUNCTION IF EXISTS public.record_anonymous_sponsor_campaign_event(text, uuid, text, uuid, text);
 
 NOTIFY pgrst, 'reload schema';
 -- End of CathoScroll application-schema and catalogue bootstrap.
