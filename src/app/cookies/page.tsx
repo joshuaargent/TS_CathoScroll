@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { createPageMetadata } from '@/lib/seo';
 import { AnalyticsConsentSettingsButton } from '@/components/privacy/AnalyticsConsentManager';
+import { AnonymousAnalyticsPreference } from '@/components/privacy/AnonymousAnalyticsPreference';
 
 export const metadata = createPageMetadata({
   title: "Cookies",
@@ -97,9 +98,10 @@ export default function CookiesPage() {
         <section>
           <h2 className="mb-4 text-3xl font-bold">Manage optional analytics</h2>
           <p className="text-text-secondary mb-4 leading-relaxed">
-            Service improvement analytics is optional when personalisation is off and is automatically enabled and locked on while personalisation is enabled. Sponsor measurement is a separate optional choice. Signed-out topic/comment daily aggregates run by default under the statistical-purposes approach and are not controlled by the optional analytics choices; a simple free objection is available in Manage choices. Declining optional analytics does not affect sign-in, account synchronisation, bookmarks, likes, progress, notes, sponsor delivery or general feed ranking.
+            Service improvement analytics is optional when personalisation is off and is automatically enabled and locked on while personalisation is enabled. Sponsor measurement is a separate optional choice. Signed-out topic/comment daily aggregates run by default under the statistical-purposes approach and are not controlled by the optional analytics choices; a simple free objection is available below. Signed-in users can manage optional account-linked choices at signup and in Account settings. Declining optional analytics does not affect sign-in, account synchronisation, bookmarks, likes, progress, notes, sponsor delivery or general feed ranking.
           </p>
           <AnalyticsConsentSettingsButton />
+          <AnonymousAnalyticsPreference />
         </section>
 
         <section>
