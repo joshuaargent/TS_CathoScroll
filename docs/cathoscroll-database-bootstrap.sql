@@ -8202,7 +8202,7 @@ BEGIN
      OR NOT EXISTS (SELECT 1 FROM auth.users AS account WHERE account.id = p_user_id) THEN
     RAISE EXCEPTION 'Invalid analytics consent update' USING ERRCODE = '22023';
   END IF;
-  PERFORM 1 FROM auth.users AS account WHERE account.id = p_user_id FOR UPDATE;
+  PERFORM 1 FROM auth.users AS account WHERE account.id = p_user_id FOR KEY SHARE;
 
   IF p_service_improvement IS NOT TRUE
      AND pg_catalog.to_regclass('catho_private.user_personalization_consents') IS NOT NULL
