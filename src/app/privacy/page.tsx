@@ -262,6 +262,40 @@ export default function PrivacyPage() {
         </section>
 
         <section>
+          <h2 className="mb-4 text-3xl font-bold">Lawful Bases and Special Category Data</h2>
+
+          <p className="text-text-secondary leading-relaxed">
+            We process account information and provide features you request, such as sign-in,
+            bookmarks, learning progress, notes and community participation, where necessary to
+            perform our contract with you or take steps at your request before entering a contract
+            (UK GDPR Article 6(1)(b)). We use legitimate interests under Article 6(1)(f), where
+            appropriate and after considering your rights, for service security, abuse prevention,
+            fraud prevention and protecting the integrity of CathoScroll. We process information
+            where necessary to comply with legal obligations under Article 6(1)(c), including
+            applicable accounting and legal requirements.
+          </p>
+
+          <p className="text-text-secondary mt-4 leading-relaxed">
+            Service improvement analytics, Personalisation and Sponsor measurement are optional,
+            separate choices. We rely on your consent under Article 6(1)(a) for these purposes.
+            CathoScroll focuses on Catholic theology and related subjects, so account-linked
+            reading activity, selected interests and sponsor placement context may reveal or allow
+            an inference about religious or philosophical beliefs. Where this is special-category
+            personal data, we process it only with your explicit consent under Article 9(2)(a).
+            The relevant choice is off until you actively enable it, and you can withdraw it in
+            Account settings. Withdrawal stops future processing for that purpose and triggers the
+            queue and deletion steps described above.
+          </p>
+
+          <p className="text-text-secondary mt-4 leading-relaxed">
+            Where a browser or app storage/access technology is used for optional analytics or
+            sponsor measurement, we also obtain prior consent under the Privacy and Electronic
+            Communications Regulations (PECR) where required. A UK GDPR lawful basis or explicit
+            consent does not by itself remove a separate PECR consent requirement.
+          </p>
+        </section>
+
+        <section>
           <h2 className="mb-4 text-3xl font-bold">Cookies and Authentication</h2>
 
           <p className="text-text-secondary leading-relaxed">
