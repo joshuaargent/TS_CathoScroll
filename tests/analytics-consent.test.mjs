@@ -111,6 +111,11 @@ test('account consent sync is identity-bound, retryable and enforced server-side
   assert.ok(security.includes('new URL(referer).origin === requestOrigin'));
   assert.ok(serverConsent.includes('get_user_analytics_consent'));
   assert.ok(serverConsent.includes('personalizationEnabled'));
+  const signupConsent = getLastFunctionDefinition(bootstrap, 'catho_private.capture_signup_personalization_consent') ?? '';
+  assert.ok(signupConsent.includes('INSERT INTO catho_private.user_analytics_consents'));
+  assert.doesNotMatch(signupConsent, /IF v_service_improvement OR v_sponsor_measurement THEN/);
+  assert.match(signupConsent, /NEW\.id, v_service_improvement, v_sponsor_measurement, 2/);
+
   assert.match(serverConsent, /const currentConsent = value\.version === 2 && value\.exists === true/);
   assert.match(serverConsent, /serviceImprovement: currentConsent && value\.serviceImprovement/);
   assert.match(serverConsent, /sponsorMeasurement: currentConsent && value\.sponsorMeasurement/);
