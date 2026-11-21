@@ -66,9 +66,10 @@ export default async function AdminSponsorCampaignsPage() {
       <div className="mt-8">
         <h1 className="mt-2 text-4xl font-extrabold md:text-5xl">Sponsor campaigns</h1>
         <p className="text-text-secondary mt-4 max-w-3xl">
-          Create campaigns, set targeting and paid delivery weight, configure frequency and
-          impression caps, and approve or pause placements. Approval requires an active sponsor
-          with a bank transfer recorded as received.
+          Create campaigns, set targeting and paid delivery weight, and configure frequency and
+          viewable-impression caps. These caps apply only to opted-in Sponsor measurement events,
+          not to all sponsor deliveries. Approval requires an active sponsor with payment recorded
+          as received.
         </p>
       </div>
       <div className="mt-8">
