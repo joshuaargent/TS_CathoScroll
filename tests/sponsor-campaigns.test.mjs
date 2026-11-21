@@ -53,10 +53,9 @@ test('weighted campaign selector enforces payment, dates, targeting, caps and co
   assert.match(selector, /daily_impression_cap/);
   assert.match(selector, /total_impression_cap/);
   assert.match(selector, /frequency_cap_per_user_24h/);
-  assert.match(selector, /recent_viewable\.event_type = 'viewable_impression'/);
-  assert.doesNotMatch(selector, /recent_served\.event_type = 'served'/);
-  assert.match(selector, /recent_viewable\.event_type = 'viewable_impression'/);
-  assert.doesNotMatch(selector, /recent_served\.event_type = 'served'/);
+  assert.match(selector, /recent\.event_type = 'viewable_impression'/);
+  assert.match(selector, /lifetime\.event_type = 'viewable_impression'/);
+  assert.doesNotMatch(selector, /event_type = 'served'/);
   assert.match(selector, /frequency_cap_per_user_total/);
   assert.match(selector, /FOR UPDATE OF campaign SKIP LOCKED/);
   assert.match(selector, /campaign\.placement_weight/);
