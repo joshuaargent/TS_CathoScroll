@@ -8659,7 +8659,8 @@ BEGIN
           AND recent.received_at >= statement_timestamp() - interval '24 hours') < campaign.frequency_cap_per_user_24h
       AND (SELECT count(*) FROM catho_private.sponsor_campaign_events AS lifetime
         WHERE lifetime.user_id = p_user_id AND lifetime.campaign_id = campaign.id
-          AND lifetime.event_type = 'viewable_impression') < campaign.frequency_cap_per_user_total
+          AND lifetime.event_type = 'viewable_impression'
+          AND lifetime.received_at >= statement_timestamp() - interval '180 days') < campaign.frequency_cap_per_user_total
       AND NOT campaign.id = ANY(v_campaign_ids)
     ORDER BY
       -ln(greatest(pg_catalog.random(), 0.000000000001))
