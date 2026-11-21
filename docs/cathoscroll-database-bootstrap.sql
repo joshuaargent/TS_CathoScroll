@@ -6951,14 +6951,14 @@ DECLARE
 BEGIN
   IF v_user_id IS NULL THEN RAISE EXCEPTION 'Authentication required' USING ERRCODE='42501'; END IF;
   IF p_enabled IS NULL THEN RAISE EXCEPTION 'A consent choice is required' USING ERRCODE='22023'; END IF;
-  IF p_enabled IS TRUE AND p_consent_version IS DISTINCT FROM '2026-11-21-v5' THEN
+  IF p_enabled IS TRUE AND p_consent_version IS DISTINCT FROM '2026-11-21-v6' THEN
     RAISE EXCEPTION 'Update CathoScroll and review the current personalisation notice before enabling recommendations' USING ERRCODE='42501';
   END IF;
   PERFORM 1 FROM auth.users WHERE id = v_user_id FOR UPDATE;
   IF p_enabled THEN
     INSERT INTO catho_private.user_personalization_consents
       (user_id,enabled,consent_version,granted_at,withdrawn_at,updated_at)
-    VALUES (v_user_id,true,'2026-11-21-v5',v_now,NULL,v_now)
+    VALUES (v_user_id,true,'2026-11-21-v6',v_now,NULL,v_now)
     ON CONFLICT(user_id) DO UPDATE SET
       enabled=true,consent_version=EXCLUDED.consent_version,
       granted_at=CASE WHEN catho_private.user_personalization_consents.enabled
@@ -6994,7 +6994,7 @@ BEGIN
   IF p_enabled IS TRUE THEN
     RAISE EXCEPTION 'Update CathoScroll and review the current personalisation notice before enabling recommendations' USING ERRCODE='42501';
   END IF;
-  RETURN public.set_my_personalization_consent(false, '2026-11-21-v5');
+  RETURN public.set_my_personalization_consent(false, '2026-11-21-v6');
 END;
 $function$;
 
@@ -7046,7 +7046,7 @@ AS $function$
 DECLARE
   v_now timestamptz := statement_timestamp();
   v_personalization boolean := NEW.raw_user_meta_data ->> 'personalization_consent' = 'true'
-    AND NEW.raw_user_meta_data ->> 'personalization_consent_version' = '2026-11-21-v5';
+    AND NEW.raw_user_meta_data ->> 'personalization_consent_version' = '2026-11-21-v6';
   v_service_improvement boolean := NEW.raw_user_meta_data ->> 'service_improvement_consent' = 'true';
   v_sponsor_measurement boolean := NEW.raw_user_meta_data ->> 'sponsor_measurement_consent' = 'true';
 BEGIN
@@ -7057,7 +7057,7 @@ BEGIN
     INSERT INTO catho_private.user_personalization_consents
       (user_id,enabled,consent_version,granted_at,withdrawn_at,updated_at)
     VALUES
-      (NEW.id,true,'2026-11-21-v5',v_now,NULL,v_now)
+      (NEW.id,true,'2026-11-21-v6',v_now,NULL,v_now)
     ON CONFLICT(user_id) DO NOTHING;
   END IF;
 
