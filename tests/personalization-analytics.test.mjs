@@ -216,8 +216,10 @@ test('personalisation settings disclose the profile purpose and sponsor isolatio
 test('signup collects separate, unchecked explicit consent on web and native', () => {
   assert.match(signupForm, /name="personalizationConsent"/);
   assert.match(signupForm, /type="checkbox"/);
-  assert.ok(signupForm.includes('I explicitly consent to CathoScroll using my account actions, chosen interests and reading analytics (views, reading time, swipes, skips and completions)'));
-  assert.match(signupForm, /This also enables Service improvement analytics while personalisation is on/);
+  assert.ok(signupForm.includes('Personalised recommendations — I explicitly consent'));
+  assert.match(signupForm, /Turning this on also enables Service improvement analytics/);
+  assert.match(signupForm, /name="serviceImprovementConsent"/);
+  assert.match(signupForm, /name="sponsorMeasurementConsent"/);
   assert.doesNotMatch(signupForm, /name="personalizationConsent"[\s\S]{0,180}checked/);
   assert.match(webSignup, /personalization_consent: personalizationConsent/);
   assert.match(nativeSignup, /personalization_consent: personalizationConsent/);
@@ -247,7 +249,7 @@ test('web and native account/settings screens reuse the same components', () => 
   assert.match(accountSection, /analyticsConsentSyncEvent/);
   assert.match(accountSection, /Analytics choices/);
   assert.match(accountSection, /Service improvement analytics is required while personalisation is enabled/);
-  assert.match(accountSection, /AnalyticsConsentSettingsButton/);
+  assert.match(accountSection, /AnalyticsConsentSettingsPanel/);
   assert.match(accountSection, /Sponsor measurement/);
   assert.ok(nativeMain.includes("pathname === '/account/personalization'"));
   assert.ok(nativeMain.includes("kind: 'account'"));
@@ -298,8 +300,14 @@ test('personalisation explicitly enables service analytics and prevents disablin
   assert.match(analyticsSetter, /Turn off personalisation before disabling Service improvement analytics/);
   assert.match(signupTrigger, /INSERT INTO catho_private\.user_analytics_consents/);
   assert.match(signupTrigger, /personalization_consent_version/);
+  assert.match(signupTrigger, /service_improvement_consent/);
+  assert.match(signupTrigger, /sponsor_measurement_consent/);
   assert.match(webSignup, /personalization_consent_version: personalizationConsent \? '2026-11-20-v4' : null/);
+  assert.match(webSignup, /service_improvement_consent: serviceImprovementConsent/);
+  assert.match(webSignup, /sponsor_measurement_consent: sponsorMeasurementConsent/);
   assert.match(nativeSignup, /personalization_consent_version: personalizationConsent \? '2026-11-20-v4' : null/);
+  assert.match(nativeSignup, /service_improvement_consent: serviceImprovementConsent/);
+  assert.match(nativeSignup, /sponsor_measurement_consent: sponsorMeasurementConsent/);
   assert.match(accountSection, /p_consent_version: '2026-11-20-v4'/);
   assert.match(signupTrigger, /service_improvement/);
   const manager = readFileSync(new URL('../src/components/privacy/AnalyticsConsentManager.tsx', import.meta.url), 'utf8');
