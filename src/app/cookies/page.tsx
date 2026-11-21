@@ -78,11 +78,12 @@ export default function CookiesPage() {
           <p className="text-text-secondary mt-4 leading-relaxed">
             Enabling personalisation also enables Service improvement analytics because eligible
             reading signals inform your private recommendations. This analytics choice is locked
-            on until personalisation is turned off. Sponsor measurement is separate: if enabled,
-            a random token exists only in active memory and its hash supports frequency controls;
-            raw event/frequency records are deleted after 30 days. If declined, no token, hash,
-            per-session frequency, viewability or click record is created; campaign/day served
-            totals still support delivery and pacing. Sponsor placement context may reveal
+            on until personalisation is turned off. Sponsor measurement is a separate explicit
+            choice for signed-in users only. If enabled, account-linked viewability and click events
+            use a temporary session token for frequency controls; raw event/frequency records are
+            retained for up to 180 days. Signed-out visitors are not individually measured: no
+            token, hash, viewability, click or frequency record is created, while campaign/day
+            served totals still support delivery and pacing. Sponsor placement context may reveal
             religious or philosophical interests, so measurement requires explicit consent.
           </p>
 
