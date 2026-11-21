@@ -491,14 +491,14 @@ DECLARE
 BEGIN
   IF v_user_id IS NULL THEN RAISE EXCEPTION 'Authentication required' USING ERRCODE='42501'; END IF;
   IF p_enabled IS NULL THEN RAISE EXCEPTION 'A consent choice is required' USING ERRCODE='22023'; END IF;
-  IF p_enabled IS TRUE AND p_consent_version IS DISTINCT FROM '2026-11-21-v5' THEN
+  IF p_enabled IS TRUE AND p_consent_version IS DISTINCT FROM '2026-11-21-v6' THEN
     RAISE EXCEPTION 'Update CathoScroll and review the current personalisation notice before enabling recommendations' USING ERRCODE='42501';
   END IF;
   PERFORM 1 FROM auth.users WHERE id = v_user_id FOR UPDATE;
   IF p_enabled THEN
     INSERT INTO catho_private.user_personalization_consents
       (user_id,enabled,consent_version,granted_at,withdrawn_at,updated_at)
-    VALUES (v_user_id,true,'2026-11-21-v5',v_now,NULL,v_now)
+    VALUES (v_user_id,true,'2026-11-21-v6',v_now,NULL,v_now)
     ON CONFLICT(user_id) DO UPDATE SET
       enabled=true,consent_version=EXCLUDED.consent_version,
       granted_at=CASE WHEN catho_private.user_personalization_consents.enabled
@@ -534,7 +534,7 @@ BEGIN
   IF p_enabled IS TRUE THEN
     RAISE EXCEPTION 'Update CathoScroll and review the current personalisation notice before enabling recommendations' USING ERRCODE='42501';
   END IF;
-  RETURN public.set_my_personalization_consent(false, '2026-11-21-v5');
+  RETURN public.set_my_personalization_consent(false, '2026-11-21-v6');
 END;
 $function$;
 
@@ -601,7 +601,7 @@ AS $function$
 DECLARE
   v_now timestamptz := statement_timestamp();
   v_personalization boolean := NEW.raw_user_meta_data ->> 'personalization_consent' = 'true'
-    AND NEW.raw_user_meta_data ->> 'personalization_consent_version' = '2026-11-21-v5';
+    AND NEW.raw_user_meta_data ->> 'personalization_consent_version' = '2026-11-21-v6';
   v_service_improvement boolean := NEW.raw_user_meta_data ->> 'service_improvement_consent' = 'true';
   v_sponsor_measurement boolean := NEW.raw_user_meta_data ->> 'sponsor_measurement_consent' = 'true';
 BEGIN
@@ -612,7 +612,7 @@ BEGIN
     INSERT INTO catho_private.user_personalization_consents
       (user_id,enabled,consent_version,granted_at,withdrawn_at,updated_at)
     VALUES
-      (NEW.id,true,'2026-11-21-v5',v_now,NULL,v_now)
+      (NEW.id,true,'2026-11-21-v6',v_now,NULL,v_now)
     ON CONFLICT(user_id) DO NOTHING;
   END IF;
 
@@ -1240,7 +1240,7 @@ BEGIN
   FROM catho_private.user_personalization_consents AS c
   WHERE c.enabled = true
     AND (
-      c.consent_version IS DISTINCT FROM '2026-11-21-v5'
+      c.consent_version IS DISTINCT FROM '2026-11-21-v6'
     );
 
   UPDATE catho_private.user_personalization_consents
@@ -1263,7 +1263,7 @@ BEGIN
     FROM catho_private.user_personalization_consents AS c
     WHERE c.user_id = s.user_id
       AND c.enabled = true
-      AND c.consent_version = '2026-11-21-v5'
+      AND c.consent_version = '2026-11-21-v6'
   );
   DELETE FROM catho_private.user_explicit_category_interests AS i
   WHERE NOT EXISTS (
@@ -1271,7 +1271,50 @@ BEGIN
     FROM catho_private.user_personalization_consents AS c
     WHERE c.user_id = i.user_id
       AND c.enabled = true
-      AND c.consent_version = '2026-11-21-v5'
+      AND c.consent_version = '2026-11-21-v6'
   );
 END;
 $personalization_consent_regrant$;
+
+
+-- Release-wide analytics and personalisation reset.
+-- No existing account has an active choice under the new disclosures.
+-- Deleting the current-state rows makes the choice genuinely unset (not a
+-- recorded refusal). Historical consent evidence remains in the audit table,
+-- but it is never consulted as current permission and cannot authorize new
+-- processing under this release.
+--
+-- Clear all old engagement measurements and derived analytics so the new
+-- dashboards start from zero. Product data (likes, bookmarks, progress,
+-- comments, notes and account activity) is deliberately untouched.
+DELETE FROM catho_private.sponsor_campaign_placement_receipts;
+DELETE FROM catho_private.sponsor_campaign_events;
+DELETE FROM catho_private.sponsor_campaign_daily;
+
+DELETE FROM catho_private.feed_card_analytics_events;
+DELETE FROM catho_private.feed_card_analytics_event_limits;
+DELETE FROM catho_private.feed_card_analytics_daily_viewers;
+DELETE FROM catho_private.feed_card_analytics_daily;
+
+DELETE FROM catho_private.feed_analytics_events;
+DELETE FROM catho_private.feed_analytics_event_limits;
+DELETE FROM catho_private.feed_analytics_daily_viewers;
+DELETE FROM catho_private.feed_analytics_daily;
+
+-- Remove every derived or explicitly selected personalisation record and its
+-- current consent state. The profile will be rebuilt only after a fresh,
+-- explicit opt-in under the new wording. Existing account actions remain
+-- product records, but the profile builder's new grant timestamp prevents
+-- pre-consent actions from being imported into the new profile.
+DELETE FROM catho_private.user_topic_interest_scores;
+DELETE FROM catho_private.user_explicit_category_interests;
+DELETE FROM catho_private.user_personalization_consents;
+
+-- Remove active Service improvement and Sponsor measurement grants. A missing
+-- row is the not-yet-decided state returned by get_user_analytics_consent.
+-- Old local browser grants are invalidated by the v2 client storage namespace;
+-- native personalisation grants and cached personalised pages are invalidated
+-- by the v6 consent-cache version.
+DELETE FROM catho_private.user_analytics_consents;
+
+NOTIFY pgrst, 'reload schema';
