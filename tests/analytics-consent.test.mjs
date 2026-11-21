@@ -99,6 +99,10 @@ test('account consent sync is identity-bound, retryable and enforced server-side
   assert.ok(route.includes('Account changed during consent synchronisation.'));
   assert.ok(route.includes('X-Catho-Expected-User-Id'));
   assert.ok(route.includes('set_user_analytics_consent'));
+  assert.match(route, /parsed\.value\.version !== 2/);
+  assert.match(route, /p_consent_version: 2/);
+  assert.match(manager, /remote\.version !== 2/);
+  assert.match(manager, /saved\.version !== 2/);
   assert.ok(security.includes('if (origin !== null) return origin === requestOrigin;'));
   assert.ok(security.includes("request.headers.get('sec-fetch-site') === 'same-origin'"));
   assert.ok(security.includes('new URL(referer).origin === requestOrigin'));
