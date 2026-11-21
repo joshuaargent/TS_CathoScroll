@@ -81,7 +81,7 @@ test('native anonymous analytics uses the configured server origin and trusted C
   assert.match(native, /generalRanked=\{feedGeneralRanked\}/);
 });
 
-test('anonymous sponsor selection and event recording are separate from account-linked delivery', () => {
+test('signed-out sponsor delivery is aggregate-only and detailed events require account consent', () => {
   const selectRoute = read('../src/app/api/content/sponsored-campaigns/route.ts');
   const eventRoute = read('../src/app/api/content/sponsor-campaign-events/route.ts');
   const card = read('../src/components/topic/SponsorFeedCard.tsx');
@@ -89,16 +89,19 @@ test('anonymous sponsor selection and event recording are separate from account-
   const sql = read('../docs/cathoscroll-database-bootstrap.sql');
   assert.match(selectRoute, /get_anonymous_sponsor_campaigns/);
   assert.match(selectRoute, /isSameOriginOrNativeRequest\(request, true\)/);
-  assert.match(eventRoute, /record_anonymous_sponsor_campaign_event/);
-  assert.match(eventRoute, /const isAnonymous = !auth\.user \|\| typeof placementKey === 'string'/);
-  assert.match(eventRoute, /p_placement_id: placementKey/);
+  assert.match(selectRoute, /const measurementSessionId: string \| null = !isAnonymous/);
+  assert.match(selectRoute, /p_session_token: measurementSessionId/);
+  assert.doesNotMatch(selectRoute, /sponsorMeasurementConsent === true/);
+  assert.match(eventRoute, /if \(!auth\.user\) return respond\(request, \{ recorded: false \}, 403\)/);
+  assert.match(eventRoute, /getStoredAnalyticsConsent\(auth\.user\.id\)/);
+  assert.doesNotMatch(eventRoute, /record_anonymous_sponsor_campaign_event/);
   assert.match(eventRoute, /placementKey/);
   assert.match(card, /recordAnonymousSponsorCampaignEvent/);
   assert.match(card, /const sponsorMeasurementEnabled = hasAnalyticsConsent\('sponsorMeasurement', userId\)/);
   assert.match(card, /const viewablePlacementKey = campaignId && sponsorMeasurementEnabled/);
   assert.match(card, /if \(previewMode \|\| !sponsorMeasurementEnabled\) return false/);
   assert.match(feedCore, /const measurementEnabled = hasAnalyticsConsent\('sponsorMeasurement', userId\)/);
-  assert.match(feedCore, /sponsorMeasurementConsent: measurementEnabled/);
+  assert.doesNotMatch(feedCore, /sponsorMeasurementConsent/);
   assert.match(feedCore, /const sessionId = measurementEnabled/);
   assert.match(feedCore, /: null;/);
   assert.match(feedCore, /ephemeralSponsorSessionId = null/);
