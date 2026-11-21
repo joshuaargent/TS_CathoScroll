@@ -43,7 +43,7 @@ test('optional analytics consent is explicit, purpose-specific and off by defaul
   assert.ok(personalization.includes('pendingSync,'));
   assert.ok(personalization.includes('Turn off personalisation offline'));
   assert.ok(personalization.includes('setPersonalizationStatusKnown(true)'));
-  assert.ok(personalization.includes('pendingSync: true'));
+  assert.ok(personalization.includes('syncNativeConsent(accountUserId, false, true)'));
   assert.ok(account.includes('window.dispatchEvent(new Event(analyticsConsentSyncEvent))'));
   assert.ok(signup.includes('name="personalizationConsent"'));
   assert.ok(signup.includes('name="serviceImprovementConsent"'));
