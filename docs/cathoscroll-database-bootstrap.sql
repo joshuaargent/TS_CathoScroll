@@ -8292,9 +8292,10 @@ ALTER FUNCTION public.get_weighted_sponsor_campaigns(uuid, uuid, text, text, int
 REVOKE ALL ON FUNCTION public.get_weighted_sponsor_campaigns(uuid, uuid, text, text, integer) FROM PUBLIC, anon, authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.get_weighted_sponsor_campaigns(uuid, uuid, text, text, integer) TO service_role;
 
-ALTER FUNCTION public.get_anonymous_sponsor_campaigns(text, text, text, integer) OWNER TO postgres;
-REVOKE ALL ON FUNCTION public.get_anonymous_sponsor_campaigns(text, text, text, integer) FROM PUBLIC, anon, authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.get_anonymous_sponsor_campaigns(text, text, text, integer) TO service_role;
+ALTER FUNCTION public.get_unmeasured_sponsor_campaigns(text, text, integer) OWNER TO postgres;
+REVOKE ALL ON FUNCTION public.get_unmeasured_sponsor_campaigns(text, text, integer) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.get_unmeasured_sponsor_campaigns(text, text, integer) TO service_role;
+DROP FUNCTION IF EXISTS public.get_anonymous_sponsor_campaigns(text, text, text, integer);
 
 NOTIFY pgrst, 'reload schema';
 -- End of CathoScroll application-schema and catalogue bootstrap.
@@ -8302,8 +8303,7 @@ NOTIFY pgrst, 'reload schema';
 
 -- FINAL ANALYTICS MODEL: NO ANONYMOUS MEASUREMENT AND NO SPONSOR DELIVERY COUNTERS.
 -- Sponsor selection is still available to every visitor. Selection itself is not recorded.
-CREATE OR REPLACE FUNCTION public.get_anonymous_sponsor_campaigns(
-  p_session_token text,
+CREATE OR REPLACE FUNCTION public.get_unmeasured_sponsor_campaigns(
   p_category_slug text DEFAULT NULL::text,
   p_topic_id text DEFAULT NULL::text,
   p_limit integer DEFAULT 1
@@ -8321,8 +8321,6 @@ DECLARE
   v_topic_category_slug text;
   v_slot integer;
 BEGIN
-  -- The legacy session-token argument is deliberately ignored. It is not stored,
-  -- hashed, used for frequency, or included in any analytics event.
   IF p_limit IS NULL OR p_limit < 1 OR p_limit > 1
      OR (p_category_slug IS NOT NULL AND p_category_slug !~ '^[a-z0-9]+(-[a-z0-9]+)*$')
      OR p_topic_id IS NULL
