@@ -71,3 +71,12 @@ The release is not yet verified. Exact-head CI, Android/Electron force-close/rec
 ## Important sync distinction
 
 The signed-in *activity* outbox for likes, bookmarks and completion remains the revision-aware, account-linked synchronisation system. The signed-in *analytics* outbox for topic, Top Comments and sponsor events is a separate encrypted, account-scoped queue on Android and Electron. It has a 2,000-event per-stream cap, seven-day expiry, server-acknowledgement deletion and sign-out/account-switch cleanup. It does not use activity revisions or cross-device reconciliation. The website retains bounded in-memory analytics queues. Signed-out analytics remain separate and contain no account, visitor or session identifiers. Sponsor analytics remain separate from both analytics outboxes.
+
+
+## Analytics outbox decisions (21 November 2026)
+
+Keep the native app-private SQLite outbox for anonymous topic/comment service-improvement analytics. It is the offline transport for aggregate topic/comment statistics, not an identity or profile store. It must remain bounded to 2,000 pending events, expire after seven days, delete acknowledged rows, contain no account or persistent visitor/session identifiers, and clear immediately when the user objects through the Privacy page. The client must not upload queued events after an objection, including across tabs/process restarts or after a rapid re-enable race.
+
+Do not persist sponsor measurement events in a native queue. Anonymous sponsor measurement is transient/in-memory and unacknowledged events may be lost when the app process exits. The existing signed-in sponsor queue persists account/event/session/campaign-linked payloads in the encrypted activity database; that is legacy behaviour and must be removed when the unified aggregate-only sponsor pipeline replaces the separate signed-in event ledger. Sponsor placements continue independently of measurement preferences and either anonymous objection.
+
+This is the approved target architecture. The current branch still wires `configureSponsorAnalyticsOutbox` into native startup and retains signed-in sponsor event persistence; this must not be mistaken for completed removal.
