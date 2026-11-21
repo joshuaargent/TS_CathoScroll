@@ -302,7 +302,7 @@ export default function PrivacyPage() {
           <ul className="text-text-secondary mt-4 list-disc space-y-2 pl-6">
             <li>Supabase for authentication and database services.</li>
             <li>Vercel for hosting, deployment, and site analytics.</li>
-            <li>Formspree for contact-form delivery when the optional form integration is configured.</li>
+            <li>Formspree for contact-form delivery (name, email, subject and message).</li>
           </ul>
         </section>
 
@@ -321,7 +321,9 @@ export default function PrivacyPage() {
             through its own operations and subprocessors in additional locations, including the
             United States and Singapore. Vercel's primary processing facilities are in the
             United States, and its subprocessors may process information in other countries.
-            This means some personal data may be transferred outside the UK and EEA.
+            Formspree states that its services are hosted on AWS in the United States and that
+            it relies on Standard Contractual Clauses when acting as a data processor. This means
+            some personal data may be transferred outside the UK and EEA.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
@@ -330,7 +332,8 @@ export default function PrivacyPage() {
             Data Transfer Addendum or approved Standard Contractual Clauses where applicable.
             Provider information: <Link href="https://supabase.com/legal/customer-resources/data-processing-addendum" className="text-accent underline">Supabase DPA</Link>,
             {' '}<Link href="https://supabase.com/legal/privacy-resources/data-residency-and-transfers-faq" className="text-accent underline">Supabase data residency and transfers</Link>,
-            {' '}and <Link href="https://vercel.com/legal/dpa" className="text-accent underline">Vercel DPA</Link>.
+            {' '}and <Link href="https://vercel.com/legal/dpa" className="text-accent underline">Vercel DPA</Link>,
+            {' '}and <Link href="https://formspree.io/security/" className="text-accent underline">Formspree security and transfer information</Link>.
           </p>
         </section>
 
