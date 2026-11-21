@@ -135,10 +135,14 @@ export default function PrivacyPage() {
 
           <p className="text-text-secondary leading-relaxed">
             Personalisation is optional and is off by default. If you explicitly opt in,
-            CathoScroll uses your topic-reading activity (including viewable impressions, reading
-            duration, swipe depth, skips, completions and return visits), your likes and
-            bookmarks, relevant community interactions, and categories you choose to create
-            a private profile and personalise recommendations. Personalisation and Service improvement analytics are separate optional choices. Passive reading signals are collected only when Service improvement analytics is enabled and inform recommendations only while Personalisation is also enabled. Either choice can be withdrawn independently. Sponsor measurement remains separate and optional.
+            CathoScroll uses your direct account actions, such as progress, likes, bookmarks and
+            relevant community interactions, together with the categories you choose, to create a
+            private recommendation profile. If you separately enable Service improvement
+            analytics, eligible reading signals (including viewable impressions, reading
+            duration, swipe depth, skips, completions and return visits) may also be collected
+            for service reporting. Those passive signals inform recommendations only while
+            Personalisation is also enabled. The choices are independent and can be withdrawn
+            separately. Sponsor measurement remains separate and optional.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
@@ -155,10 +159,10 @@ export default function PrivacyPage() {
             You can review the categories and topics influencing your recommendations,
             change your selected interests, or withdraw consent at any time in
             <Link href="/account/personalization" className="text-accent mx-1 hover:underline">Account → Personalisation</Link>.
-            Withdrawing consent stops recommendation weighting and deletes derived topic-interest
-            scores and selected category interests. Service improvement analytics then becomes
-            independently manageable; records already collected remain subject to the stated
-            retention period.
+            Withdrawing Personalisation stops recommendation weighting and deletes the derived
+            profile and selected category interests. Service improvement analytics remains enabled
+            only if you separately opted into it; it may continue for service reporting, but its
+            passive signals are no longer used for recommendations when Personalisation is off.
           </p>
         </section>
 
@@ -172,18 +176,18 @@ export default function PrivacyPage() {
           <ul className="text-text-secondary mt-4 list-disc space-y-2 pl-6">
             <li>Contract: to create and operate your account and provide features you request.</li>
             <li>Legitimate interests: to secure, maintain, troubleshoot, moderate and prevent abuse, where a documented assessment shows that our interests are not overridden by your rights.</li>
-            <li>Consent: for optional signed-in Service improvement analytics, Personalisation and Sponsor measurement. These are separate purpose choices, subject to the stated Personalisation dependency.</li>
+            <li>Consent: for optional signed-in Service improvement analytics, Personalisation and Sponsor measurement. These are separate purpose choices. Passive reading signals inform recommendations only when both Service improvement analytics and Personalisation are enabled.</li>
             <li>Explicit consent under Article 6(1)(a) and, where processing reveals or permits inference of religious or philosophical beliefs, Article 9(2)(a) UK GDPR: for the relevant reading/activity data and derived recommendation or analytics processing.</li>
             <li>PECR: prior consent for optional analytics or advertising storage/access technologies wherever required. Sponsor measurement is not collected before its explicit opt-in.</li>
             <li>Legal obligation: to keep or disclose information where applicable law requires it.</li>
           </ul>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            Service improvement analytics and Sponsor measurement are separate choices. Service improvement analytics is enabled when you opt into personalisation because reading signals also inform your recommendations; it cannot be disabled until personalisation is turned off. Sponsor measurement remains optional and independent. Topic and comment engagement may reveal religious or philosophical beliefs. We do not create a religious-affiliation label or share private recommendation profiles with sponsors.
+            Service improvement analytics, Personalisation and Sponsor measurement can each be enabled or withdrawn independently. Personalisation uses direct account actions and selected interests when enabled. Passive reading signals are collected only with Service improvement consent and contribute to recommendations only when Personalisation is also enabled. Turning off Service improvement stops new passive analytics and removes those signals from recommendations while direct-action Personalisation can remain enabled. Turning off Personalisation deletes the derived profile and selected category interests; Service improvement may remain enabled for service reporting if separately selected. Sponsor measurement remains separate. Topic and comment engagement may reveal religious or philosophical beliefs. We do not create a religious-affiliation label or share private recommendation profiles with sponsors.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            You may turn off personalisation in Account settings. This deletes your derived recommendation profile and stops reading signals being used to rank your feed. Service improvement analytics remains enabled until you turn it off separately after personalisation is disabled. You can manage Service improvement analytics, Personalisation and Sponsor measurement in Account settings. Changes stop future collection for the relevant purpose, clear matching pending queues and synchronise signed-in choices when the device reconnects.
+            You can manage Service improvement analytics, Personalisation and Sponsor measurement independently in Account settings. Turning off Personalisation deletes your derived recommendation profile and selected category interests. Turning off Service improvement stops new passive reading analytics and removes passive signals from recommendations, without disabling direct-action Personalisation if that choice remains enabled. Changes stop future collection for the relevant purpose, clear matching pending queues and synchronise signed-in choices when the device reconnects.
           </p>
         </section>
 
@@ -195,7 +199,8 @@ export default function PrivacyPage() {
             account actions (progress, bookmarks, likes, comments, comment likes and replies), your
             selected categories, and reading signals recorded after consent (viewable impressions,
             reading duration, swipe depth, skips, completions, return visits and Top Comments
-            exposure). This also enables Service improvement analytics while personalisation is on.
+            exposure). Passive reading signals contribute only if you separately enable Service
+            improvement analytics; Personalisation does not automatically enable analytics.
             It orders educational topics in your own feed and does not determine access to
             essential services, prices, employment, credit, insurance, or other decisions with
             legal or similarly significant effects. You can turn off personalisation and delete
