@@ -71,8 +71,12 @@ test('weighted campaign selector enforces payment, dates, targeting, caps and co
 test('signed-in and anonymous selectors derive category from the published topic and share campaign caps', () => {
   const signedIn = functionBody('public.get_weighted_sponsor_campaigns');
   const anonymous = functionBody('public.get_anonymous_sponsor_campaigns');
+  const upgradeStart = sponsorOptOutUpgrade.lastIndexOf('CREATE OR REPLACE FUNCTION public.get_anonymous_sponsor_campaigns');
+  const upgradeEnd = sponsorOptOutUpgrade.indexOf('$function$;', upgradeStart);
+  const anonymousUpgrade = sponsorOptOutUpgrade.slice(upgradeStart, upgradeEnd + '$function$;'.length);
   assert.ok(signedIn.endsWith('$function$;'));
   assert.ok(anonymous.endsWith('$function$;'));
+  assert.equal(anonymousUpgrade, anonymous, 'bootstrap and upgrade sponsor selectors must match');
   for (const selector of [signedIn, anonymous]) {
     assert.match(selector, /SELECT (?:topic|t)\.category_slug INTO v_topic_category_slug/);
     assert.match(selector, /v_topic_category_slug = ANY\(campaign\.target_category_slugs\)|v_topic_category_slug=ANY\(campaign\.target_category_slugs\)/);
