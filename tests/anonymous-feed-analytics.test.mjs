@@ -116,7 +116,7 @@ test('signed-out sponsor delivery is aggregate-only and detailed events require 
   const anonymousSelectorEnd = sql.indexOf('$function$;', anonymousSelectorStart);
   assert.ok(anonymousSelectorStart >= 0 && anonymousSelectorEnd > anonymousSelectorStart);
   const anonymousSelector = sql.slice(anonymousSelectorStart, anonymousSelectorEnd);
-  assert.match(anonymousSelector, /p_session_token remains in the RPC signature but is intentionally ignored/);
+  assert.match(anonymousSelector, /p_session_token remains in the RPC signature for compatibility but is intentionally ignored/);
   assert.doesNotMatch(anonymousSelector, /frequency_cap_per_user_total|anonymous_sponsor_session_frequency/);
   assert.match(anonymousSelector, /INSERT INTO catho_private\.anonymous_sponsor_campaign_daily\(event_date,campaign_id,served_count\)/);
   assert.doesNotMatch(sql, /CREATE OR REPLACE FUNCTION public\.record_anonymous_sponsor_campaign_event/);
