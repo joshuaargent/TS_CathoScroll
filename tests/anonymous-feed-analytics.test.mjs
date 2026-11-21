@@ -104,8 +104,8 @@ test('signed-out sponsor delivery is aggregate-only and detailed events require 
   assert.doesNotMatch(feedCore, /sponsorMeasurementConsent/);
   assert.match(feedCore, /const sessionId = measurementEnabled/);
   assert.match(feedCore, /: null;/);
-  assert.match(feedCore, /ephemeralSponsorSessionId = null/);
-  assert.match(feedCore, /Never reuse an anonymous sponsor session token across sign-in\/account changes/);
+  assert.match(feedCore, /sponsorResultsByTopicId\.current\.clear\(\)/);
+  assert.match(feedCore, /Clear sponsor placement IDs and cached selections across account changes/);
   assert.match(eventRoute, /isSameOriginOrNativeRequest\(request, true\)/);
   assert.match(card, /userId: string \| null/);
   assert.match(sql, /CREATE TABLE catho_private\.anonymous_sponsor_session_frequency/);
