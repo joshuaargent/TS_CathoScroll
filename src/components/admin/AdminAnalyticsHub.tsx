@@ -102,10 +102,10 @@ function DailyOverviewChart({ series }: { series: AnalyticsDay[] }) {
   return <Card padding="lg" className="mt-6">
     <div><h2 className="text-xl font-bold">Daily opted-in activity</h2><p className="text-text-muted mt-1 text-sm">Signed-in topic and Top Comments engagement. Sponsor viewability and clicks are reported separately.</p></div>
     <div className="mt-5 flex flex-wrap gap-4 text-xs">
-      <span className="text-text-secondary inline-flex items-center gap-2"><span className="bg-accent h-2.5 w-2.5 rounded-full" /> Topic impressions</span>
-      <span className="text-text-secondary inline-flex items-center gap-2"><span className="bg-sky-600 h-2.5 w-2.5 rounded-full" /> Comment-card impressions</span>
+      <span className="text-text-secondary inline-flex items-center gap-2"><span className="bg-accent h-2.5 w-2.5 rounded-full" /> Opted-in topic impressions</span>
+      <span className="text-text-secondary inline-flex items-center gap-2"><span className="bg-sky-600 h-2.5 w-2.5 rounded-full" /> Opted-in comment-card impressions</span>
     </div>
-    {series.length ? <svg viewBox={'0 0 ' + width + ' ' + height} className="mt-3 h-auto w-full" role="img" aria-label="Daily signed-in topic and comment activity">
+    {series.length ? <svg viewBox={'0 0 ' + width + ' ' + height} className="mt-3 h-auto w-full" role="img" aria-label="Daily opted-in signed-in topic and comment activity">
       {[0, 0.5, 1].map((fraction) => <g key={fraction}><line x1={padding.left} y1={padding.top + chartHeight * (1 - fraction)} x2={width - padding.right} y2={padding.top + chartHeight * (1 - fraction)} className="stroke-border" strokeDasharray="4 5" /><text x={padding.left - 9} y={padding.top + chartHeight * (1 - fraction) + 4} textAnchor="end" className="fill-text-muted" fontSize="11">{number(Math.round(max * fraction))}</text></g>)}
       <polyline points={topics} fill="none" className="stroke-accent" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
       <polyline points={comments} fill="none" className="stroke-sky-600" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
