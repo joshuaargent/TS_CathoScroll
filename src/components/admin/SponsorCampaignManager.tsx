@@ -326,7 +326,7 @@ export function SponsorCampaignManager({
           </div>
         ) : (
           <div className="border-border overflow-x-auto rounded-xl border">
-            <table className="w-full min-w-[1040px] text-left text-sm">
+            <table className="w-full min-w-[900px] text-left text-sm">
               <thead className="bg-bg-secondary text-text-secondary">
                 <tr>
                   <th className="px-4 py-3 font-semibold">Campaign</th>
@@ -334,7 +334,6 @@ export function SponsorCampaignManager({
                   <th className="px-4 py-3 font-semibold">Schedule</th>
                   <th className="px-4 py-3 font-semibold">Weight / caps</th>
                   <th className="px-4 py-3 font-semibold">Performance (30 days)</th>
-                  <th className="px-4 py-3 font-semibold">Lifetime delivery</th>
                   <th className="px-4 py-3 font-semibold">Status / actions</th>
                 </tr>
               </thead>
