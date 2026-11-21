@@ -266,7 +266,7 @@ test('existing v3 personalisation consent is withdrawn and requires v4 re-consen
   assert.match(upgrade, /consent_version IS DISTINCT FROM '2026-11-20-v4'/);
   assert.match(upgrade, /SET enabled = false,[\s\S]*withdrawn_at = v_now/);
   assert.match(upgrade, /DELETE FROM catho_private\.user_topic_interest_scores[\s\S]*v_affected_user_ids/);
-  assert.match(upgrade, /OR NOT EXISTS \([\s\S]*service_improvement = true/);
+  assert.doesNotMatch(upgrade, /service_improvement = true/);
   assert.match(upgrade, /DELETE FROM catho_private\.user_topic_interest_scores AS s[\s\S]*NOT EXISTS/);
   assert.match(upgrade, /DELETE FROM catho_private\.user_explicit_category_interests AS i[\s\S]*NOT EXISTS/);
   assert.match(upgrade, /DELETE FROM catho_private\.user_explicit_category_interests[\s\S]*v_affected_user_ids/);
@@ -280,7 +280,8 @@ test('analytics and personalisation SQL upgrades are order-safe and use the new 
   const analyticsSetterBlocks = [...analyticsConsentUpgrade.matchAll(/CREATE OR REPLACE FUNCTION public\.set_user_analytics_consent\([\s\S]*?\$function\$;/g)];
   assert.equal(analyticsSetterBlocks.length, 1);
   for (const block of analyticsSetterBlocks) {
-    assert.match(block[0], /Turn off personalisation before disabling Service improvement analytics/);
+    assert.doesNotMatch(block[0], /Turn off personalisation before disabling Service improvement analytics/);
+    assert.match(block[0], /profile_refreshed_at = NULL/);
     assert.match(block[0], /pg_catalog\.to_regclass\('catho_private\.user_personalization_consents'\)/);
   }
   for (const sql of [bootstrap, upgrade]) {
@@ -289,19 +290,20 @@ test('analytics and personalisation SQL upgrades are order-safe and use the new 
   }
 });
 
-test('personalisation explicitly enables service analytics and prevents disabling it until withdrawal', () => {
+test('personalisation and service improvement are independent explicit purposes', () => {
   const personalisationSetter = functionBody('public.set_my_personalization_consent(\n  p_enabled boolean,\n  p_consent_version text\n)');
   const legacySetter = functionBody('public.set_my_personalization_consent(p_enabled boolean)');
   const analyticsSetter = functionBody('public.set_user_analytics_consent');
   const signupTrigger = functionBody('catho_private.capture_signup_personalization_consent');
-  assert.match(personalisationSetter, /INSERT INTO catho_private\.user_analytics_consents/);
+  assert.doesNotMatch(personalisationSetter, /INSERT INTO catho_private\.user_analytics_consents/);
   assert.match(personalisationSetter, /p_consent_version IS DISTINCT FROM '2026-11-20-v4'/);
   assert.match(legacySetter, /IF p_enabled IS TRUE THEN[\s\S]*RAISE EXCEPTION/);
   assert.match(legacySetter, /set_my_personalization_consent\(false, '2026-11-20-v4'\)/);
   assert.match(personalisationSetter, /FROM auth\.users WHERE id = v_user_id FOR UPDATE/);
-  assert.match(personalisationSetter, /service_improvement = true/);
-  assert.match(personalisationSetter, /user_analytics_consent_history/);
-  assert.match(analyticsSetter, /Turn off personalisation before disabling Service improvement analytics/);
+  assert.doesNotMatch(personalisationSetter, /service_improvement = true/);
+  assert.match(personalisationSetter, /refresh_user_interest_profile\(v_user_id\)/);
+  assert.doesNotMatch(analyticsSetter, /Turn off personalisation before disabling Service improvement analytics/);
+  assert.match(analyticsSetter, /profile_refreshed_at = NULL/);
   assert.match(signupTrigger, /INSERT INTO catho_private\.user_analytics_consents/);
   assert.match(signupTrigger, /personalization_consent_version/);
   assert.match(signupTrigger, /service_improvement_consent/);
@@ -315,12 +317,11 @@ test('personalisation explicitly enables service analytics and prevents disablin
   assert.match(accountSection, /p_consent_version: '2026-11-20-v4'/);
   assert.match(signupTrigger, /service_improvement/);
   const manager = readFileSync(new URL('../src/components/privacy/AnalyticsConsentManager.tsx', import.meta.url), 'utf8');
-  assert.match(manager, /disabled=\{saving \|\| effectivePersonalizationEnabled \|\| \(!effectivePersonalizationStatusKnown && !serviceImprovement\)\}/);
+  assert.match(manager, /disabled=\{saving\}/);
   assert.match(manager, /saveAnalyticsConsent\(interim, userId, \{ syncPending: Boolean\(userId\) \}\)/);
   assert.match(manager, /serviceImprovement: local\.serviceImprovement/);
   assert.doesNotMatch(manager, /serviceImprovement: remote\.personalizationEnabled \? true/);
-  assert.match(manager, /Turn off personalisation before disabling it/);
-  assert.match(manager, /isServiceImprovementWithdrawal && effectivePersonalizationStatusKnown && effectivePersonalizationEnabled/);
+  assert.doesNotMatch(manager, /Turn off personalisation before disabling it|effectivePersonalization/);
 });
 
 test('retired user subscription tier is absent from the bootstrap', () => {
@@ -349,7 +350,8 @@ test('recommendation upgrade reads consented activity signals through private he
     assert.match(profile, signal);
   }
   assert.match(helper, /pc\.enabled = true/);
-  assert.match(helper, /ac\.service_improvement = true/);
+  assert.doesNotMatch(helper, /ac\.service_improvement = true/);
+  assert.match(profile, /v_service_improvement IS TRUE/);
   assert.match(profile, /feed_analytics_events/);
   assert.match(profile, /feed_card_analytics_events/);
   assert.match(upgrade, /REVOKE ALL ON FUNCTION public\.get_my_recommendation_page\(jsonb, integer\) FROM PUBLIC, anon, authenticated, service_role/);
