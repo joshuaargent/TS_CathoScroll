@@ -1,7 +1,7 @@
 'use client';
 
 import type { SignedInAnalyticsOutbox } from './offline/signed-in-analytics-store';
-import { createConsentBoundAbortSignal, hasAnalyticsConsent } from './analytics-consent';
+import { analyticsConsentChangeEvent, createConsentBoundAbortSignal, hasAnalyticsConsent, hasSyncedAnalyticsConsent } from './analytics-consent';
 
 export type SponsorCampaignEventType = 'viewable_impression' | 'click';
 
@@ -115,6 +115,9 @@ export async function flushSponsorCampaignEvents(
     }
     return;
   }
+  // Retain newly queued events until the server has acknowledged an offline
+  // Sponsor measurement opt-in.
+  if (!hasSyncedAnalyticsConsent('sponsorMeasurement', userId)) return;
   if (typeof navigator === 'undefined' || !navigator.onLine || flushingUsers.has(userId)) return;
 
   flushingUsers.add(userId);
@@ -204,7 +207,12 @@ export function installSponsorAnalyticsListeners(
     if (document.visibilityState === 'visible') flush();
   };
 
+  const onConsentChange = (event: Event) => {
+    const detail = (event as CustomEvent<{ userId?: string | null }>).detail;
+    if ((detail?.userId ?? null) === userId) flush();
+  };
   window.addEventListener('online', flush);
+  window.addEventListener(analyticsConsentChangeEvent, onConsentChange);
   window.addEventListener('pageshow', flush);
   document.addEventListener('visibilitychange', onVisibilityChange);
   // Drain any events left by a previous sponsor placement or app session.
@@ -212,6 +220,7 @@ export function installSponsorAnalyticsListeners(
 
   return () => {
     window.removeEventListener('online', flush);
+    window.removeEventListener(analyticsConsentChangeEvent, onConsentChange);
     window.removeEventListener('pageshow', flush);
     document.removeEventListener('visibilitychange', onVisibilityChange);
     if (activeSponsorTransports.get(userId) === installedTransport) activeSponsorTransports.delete(userId);
