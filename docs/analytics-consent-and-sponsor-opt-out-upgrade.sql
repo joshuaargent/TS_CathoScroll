@@ -1252,6 +1252,157 @@ DROP FUNCTION IF EXISTS public.get_anonymous_sponsor_campaigns(text, text, text,
 DROP FUNCTION IF EXISTS public.record_anonymous_sponsor_campaign_event(text, uuid, text, uuid, text);
 DROP FUNCTION IF EXISTS public.record_anonymous_feed_analytics(jsonb);
 DROP FUNCTION IF EXISTS catho_private.prune_anonymous_analytics();
+
+CREATE OR REPLACE FUNCTION catho_private.prune_feed_analytics_events(
+  p_before timestamp with time zone DEFAULT (statement_timestamp() - interval '180 days'),
+  p_limit integer DEFAULT 5000
+)
+RETURNS integer
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'pg_catalog', 'catho_private'
+AS $function$
+DECLARE
+  v_deleted integer := 0;
+  v_viewers_deleted integer := 0;
+  v_limits_deleted integer := 0;
+BEGIN
+  IF p_before IS NULL
+     OR p_before > statement_timestamp() - interval '180 days'
+     OR p_limit IS NULL OR p_limit < 1 OR p_limit > 10000 THEN
+    RAISE EXCEPTION 'Invalid feed analytics retention parameters' USING ERRCODE = '22023';
+  END IF;
+
+  WITH expired AS (
+    SELECT event.ctid
+    FROM catho_private.feed_analytics_events AS event
+    WHERE event.received_at < p_before
+    ORDER BY event.received_at
+    LIMIT p_limit
+  )
+  DELETE FROM catho_private.feed_analytics_events AS event
+  USING expired
+  WHERE event.ctid = expired.ctid;
+  GET DIAGNOSTICS v_deleted = ROW_COUNT;
+
+  WITH expired_viewers AS (
+    SELECT viewer.ctid
+    FROM catho_private.feed_analytics_daily_viewers AS viewer
+    WHERE viewer.event_date < (p_before AT TIME ZONE 'UTC')::date
+    ORDER BY viewer.event_date
+    LIMIT p_limit
+  )
+  DELETE FROM catho_private.feed_analytics_daily_viewers AS viewer
+  USING expired_viewers
+  WHERE viewer.ctid = expired_viewers.ctid;
+  GET DIAGNOSTICS v_viewers_deleted = ROW_COUNT;
+
+  WITH expired_limits AS (
+    SELECT event_limit.ctid
+    FROM catho_private.feed_analytics_event_limits AS event_limit
+    WHERE event_limit.window_started_at < p_before
+    ORDER BY event_limit.window_started_at
+    LIMIT p_limit
+  )
+  DELETE FROM catho_private.feed_analytics_event_limits AS event_limit
+  USING expired_limits
+  WHERE event_limit.ctid = expired_limits.ctid;
+  GET DIAGNOSTICS v_limits_deleted = ROW_COUNT;
+
+  RETURN v_deleted + v_viewers_deleted + v_limits_deleted;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION catho_private.prune_feed_card_analytics_events(
+  p_before timestamp with time zone,
+  p_batch_size integer DEFAULT 5000
+)
+RETURNS integer
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO ''
+AS $function$
+DECLARE
+  v_deleted integer := 0;
+  v_viewers_deleted integer := 0;
+  v_limits_deleted integer := 0;
+BEGIN
+  IF p_before IS NULL
+     OR p_before > statement_timestamp() - interval '180 days'
+     OR p_batch_size IS NULL OR p_batch_size NOT BETWEEN 1 AND 5000 THEN
+    RAISE EXCEPTION 'Invalid retention boundary or batch size' USING ERRCODE = '22023';
+  END IF;
+
+  WITH expired_viewers AS (
+    SELECT viewer.ctid
+    FROM catho_private.feed_card_analytics_daily_viewers AS viewer
+    WHERE viewer.event_date < (p_before AT TIME ZONE 'UTC')::date
+    ORDER BY viewer.event_date
+    LIMIT p_batch_size
+  )
+  DELETE FROM catho_private.feed_card_analytics_daily_viewers AS viewer
+  USING expired_viewers
+  WHERE viewer.ctid = expired_viewers.ctid;
+  GET DIAGNOSTICS v_viewers_deleted = ROW_COUNT;
+
+  WITH expired_events AS (
+    SELECT event.ctid
+    FROM catho_private.feed_card_analytics_events AS event
+    WHERE event.received_at < p_before
+    ORDER BY event.received_at
+    LIMIT p_batch_size
+  )
+  DELETE FROM catho_private.feed_card_analytics_events AS event
+  USING expired_events
+  WHERE event.ctid = expired_events.ctid;
+  GET DIAGNOSTICS v_deleted = ROW_COUNT;
+
+  WITH expired_limits AS (
+    SELECT event_limit.ctid
+    FROM catho_private.feed_card_analytics_event_limits AS event_limit
+    WHERE event_limit.window_started_at < p_before
+    ORDER BY event_limit.window_started_at
+    LIMIT p_batch_size
+  )
+  DELETE FROM catho_private.feed_card_analytics_event_limits AS event_limit
+  USING expired_limits
+  WHERE event_limit.ctid = expired_limits.ctid;
+  GET DIAGNOSTICS v_limits_deleted = ROW_COUNT;
+
+  RETURN v_deleted + v_viewers_deleted + v_limits_deleted;
+END;
+$function$;
+
+DO $feed_analytics_retention_cron$
+DECLARE
+  existing_job record;
+BEGIN
+  IF to_regclass('cron.job') IS NOT NULL THEN
+    FOR existing_job IN
+      SELECT jobid FROM cron.job
+      WHERE jobname IN (
+        'cathoscroll-prune-feed-analytics-events',
+        'cathoscroll-prune-feed-card-analytics-events'
+      )
+    LOOP
+      PERFORM cron.unschedule(existing_job.jobid);
+    END LOOP;
+
+    PERFORM cron.schedule(
+      'cathoscroll-prune-feed-analytics-events',
+      '45 2 * * *',
+      'SELECT catho_private.prune_feed_analytics_events(statement_timestamp() - interval ''180 days'', 5000);'
+    );
+    PERFORM cron.schedule(
+      'cathoscroll-prune-feed-card-analytics-events',
+      '0 3 * * *',
+      'SELECT catho_private.prune_feed_card_analytics_events(statement_timestamp() - interval ''180 days'', 5000);'
+    );
+  END IF;
+END;
+$feed_analytics_retention_cron$;
+
+
 DROP TABLE IF EXISTS catho_private.anonymous_sponsor_session_frequency;
 DROP TABLE IF EXISTS catho_private.anonymous_sponsor_events;
 DROP TABLE IF EXISTS catho_private.anonymous_sponsor_campaign_daily;
