@@ -33,7 +33,7 @@ When personalisation is disabled, the recommendation RPC does not read account-h
 
 ### Operational analytics
 
-Separate operational analytics records authenticated feed, comment-card, and sponsor events for admin reporting, content-performance measurement, reliability, and frequency-cap enforcement. Raw events and user/day viewer bridges are retained for up to 180 days; non-identifying daily aggregates are retained longer.
+Separate operational analytics records authenticated feed, comment-card, and sponsor events for admin reporting, content-performance measurement, reliability, and frequency-cap enforcement. Raw events, user/day viewer bridges and associated event-rate-limit records are retained for up to 180 days; non-identifying daily aggregates are retained longer.
 
 Service improvement analytics is independently optional. If both Service improvement and Personalisation are enabled, eligible passive reading signals may inform private recommendations; if only Service improvement is enabled, those signals are used for service reporting, not recommendations. Account-linked topic/card events may reveal sensitive interests; the controller must document the applicable Article 6 basis and, where the data reveals beliefs, an Article 9 condition. Sponsor measurement remains a separate optional purpose.
 
@@ -73,7 +73,7 @@ The product's current minimum age is 13. This does not settle whether a particul
 | Consent is bundled or preselected | Separate unticked Personalisation and Service improvement choices; each can be withdrawn independently; Sponsor measurement is a third choice | Low; verify on web and native builds |
 | Withdrawal leaves a personalised cursor active | Recommendation RPC re-normalises category weights and completion handling | Low; regression-tested |
 | Profile or raw event data exposed to sponsors | Separate sponsor pipeline; aggregate campaign reports only | Low; verify admin/export permissions |
-| Excessive retention | 90-day behavioural window, 180-day explicit evidence and raw-event/viewer bridge retention | Medium; verify all scheduled jobs and sponsor records |
+| Excessive retention | 90-day behavioural window, 180-day explicit evidence and raw-event/viewer bridge retention | Medium; verify the daily feed/Top Comments retention jobs and sponsor-event pruning job |
 | Unauthorised access to profiles or raw events | Private schema, restricted RPCs, RLS, service-role-only admin reports | Medium; complete independent permission review |
 | Operational analytics itself reveals special-category interests | 180-day raw retention and access restrictions; reading signals inform recommendations only when both independent choices are active; Article 6/Article 9 basis still requires controller approval | High/unresolved until Article 9 assessment |
 | Processor/international transfer exposure | Supabase and Vercel are identified processors | Medium/unresolved until regions, DPAs, and transfers verified |
@@ -84,7 +84,7 @@ The product's current minimum age is 13. This does not settle whether a particul
 - Consent record: private, versioned, timestamped; signup trigger records only an affirmative choice.
 - Derived profile: private tables; created/refreshed only while consent is enabled.
 - Withdrawal: derived topic scores and explicit category selections deleted; active cursor normalised.
-- Raw feed/community/sponsor events and user/day viewer bridge: up to 180 days.
+- Raw feed/community/sponsor events, user/day viewer bridge and associated event-rate-limit records: up to 180 days.
 - Daily aggregates without user/session identifiers: retained longer.
 - Sponsor frequency-cap rows: pruned after campaign completion/rejection and the applicable 180-day cutoff.
 - Sponsor invoices and financial records: accounting retention period still needs to be set with the accountant.
