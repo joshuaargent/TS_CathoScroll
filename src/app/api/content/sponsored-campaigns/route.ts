@@ -111,9 +111,8 @@ export async function POST(request: Request) {
   }
 
   try {
-    // Detailed Sponsor measurement is account-only. Never trust a client
-    // consent flag or accept a signed-out session token: signed-out delivery
-    // records campaign/day served totals only.
+    // Sponsor measurement is account-only. Sponsor delivery remains available
+    // without consent, but delivery itself is never counted or stored.
     let sponsorMeasurementEnabled = false;
     if (auth.user) {
       try {
@@ -129,7 +128,7 @@ export async function POST(request: Request) {
     const measurementSessionId: string | null = !isAnonymous && sponsorMeasurementEnabled && typeof parsed.value.sessionId === 'string'
       ? parsed.value.sessionId
       : null;
-    const { data, error } = isAnonymous
+    const { data, error } = !sponsorMeasurementEnabled
       ? await createServiceRoleClient().rpc('get_anonymous_sponsor_campaigns', {
           p_session_token: measurementSessionId,
           p_category_slug: parsed.value.categorySlug,
