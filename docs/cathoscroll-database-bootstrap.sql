@@ -7943,7 +7943,7 @@ BEGIN
   SELECT topic.category_slug INTO v_topic_category_slug
   FROM public.topics AS topic
   WHERE topic.id = p_topic_id AND topic.is_published;
-  IF NOT FOUND THEN
+  IF NOT FOUND OR (p_category_slug IS NOT NULL AND p_category_slug <> v_topic_category_slug) THEN
     RAISE EXCEPTION 'Sponsor placement topic is unavailable' USING ERRCODE = '22023';
   END IF;
 
