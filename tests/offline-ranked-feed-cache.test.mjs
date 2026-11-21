@@ -100,14 +100,15 @@ test('withdrawal clears the stale personalised page before the replacement feed 
   assert.doesNotMatch(native, /setFeedPersonalized\(detail\.enabled\)/);
 });
 
-test('old native personalisation grants are invalidated when the explicit-consent version changes', () => {
-  assert.match(cache, /personalizationConsentVersion = '2026-11-21-v5'/);
+test('all pre-release native personalisation choices and pages are invalidated', () => {
+  assert.match(cache, /personalizationConsentVersion = '2026-11-21-v6'/);
   assert.match(cache, /personalization_consent_version/);
-  assert.match(cache, /DELETE FROM offline_personalization_consent_cache WHERE enabled = 1 OR pending_sync = 0/);
+  assert.match(cache, /DELETE FROM offline_personalization_consent_cache/);
+  assert.doesNotMatch(cache, /WHERE enabled = 1 OR pending_sync = 0/);
   assert.match(cache, /DELETE FROM offline_ranked_feed_pages WHERE mode = \?/);
   const tableCreate = cache.indexOf('CREATE TABLE IF NOT EXISTS offline_personalization_consent_cache');
   const versionCheck = cache.indexOf('SELECT cache_value FROM offline_ranked_feed_cache_meta WHERE cache_key = ?', tableCreate);
-  const staleGrantDelete = cache.indexOf('DELETE FROM offline_personalization_consent_cache WHERE enabled = 1 OR pending_sync = 0', versionCheck);
+  const staleGrantDelete = cache.indexOf('DELETE FROM offline_personalization_consent_cache', versionCheck);
   assert.ok(tableCreate >= 0 && versionCheck > tableCreate && staleGrantDelete > versionCheck);
 });
 
