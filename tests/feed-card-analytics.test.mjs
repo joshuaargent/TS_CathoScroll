@@ -130,7 +130,7 @@ test('Top Comments viewability requires half visibility for one continuous secon
   assert.ok(hub.includes('Discussion open rate'));
   assert.ok(hub.includes('Comment active time'));
   assert.ok(hub.includes('Sponsor click-through'));
-  assert.ok(hub.includes('Unique signed-in viewers'));
+  assert.ok(hub.includes('Topic active time'));
   assert.ok(hub.includes('Topic likes'));
   assert.ok(hub.includes('Completed topics'));
   const bootstrap = await readFile(new URL('../docs/cathoscroll-database-bootstrap.sql', import.meta.url), 'utf8');
