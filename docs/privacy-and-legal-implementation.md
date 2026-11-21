@@ -32,7 +32,7 @@ Sponsor viewability, clicks and frequency are advertising measurement and are ga
 
 ## Data minimisation and retention
 
-Signed-in raw analytics events and the restricted viewer bridge are retained for up to 180 days under the current implementation. Native pending events are encrypted, account-scoped, capped at 2,000 per stream and seven days, deleted after acknowledgement and cleared on withdrawal/account change. Website queues are memory-only. Sponsor events contain no topic/category IDs or reading-history fields.
+Signed-in raw analytics events, the restricted viewer bridge and associated event-rate-limit records are retained for up to 180 days under the current implementation. Native pending events are encrypted, account-scoped, capped at 2,000 per stream and seven days, deleted after acknowledgement and cleared on withdrawal/account change. Website queues are memory-only. Sponsor events contain no topic/category IDs or reading-history fields.
 
 Keep recommendation profiles private and delete the derived profile and selected interests when Personalisation is withdrawn. Keep consent history only as long as needed to evidence and administer the choice, subject to account deletion and legal obligations.
 
