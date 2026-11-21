@@ -433,6 +433,14 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
     // Retire old signed-out grants from the former consent popup. Optional
     // Service improvement and Sponsor measurement are account-only choices;
     // signed-out visitors have no optional analytics collection or controls.
+    // Remove the retired anonymous analytics preference from existing browsers.
+    // No current code reads this key or collects anonymous engagement.
+    try {
+      window.localStorage.removeItem('cathoscroll.anonymous-analytics.enabled.v1');
+    } catch (cause) {
+      console.warn('Unable to clear the retired anonymous analytics preference:', cause);
+    }
+
     const legacySignedOutConsent = readAnalyticsConsent(null);
     if (legacySignedOutConsent?.serviceImprovement || legacySignedOutConsent?.sponsorMeasurement) {
       denyAnalyticsConsentInMemory('serviceImprovement', null);
