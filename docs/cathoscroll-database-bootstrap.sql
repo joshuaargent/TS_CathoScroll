@@ -8789,6 +8789,15 @@ BEGIN
   DELETE FROM catho_private.feed_analytics_daily_viewers WHERE user_id = p_user_id;
   DELETE FROM catho_private.feed_card_analytics_daily_viewers WHERE user_id = p_user_id;
 
+  IF pg_catalog.to_regclass('catho_private.user_personalization_consents') IS NOT NULL THEN
+    UPDATE catho_private.user_personalization_consents
+    SET profile_refreshed_at = NULL
+    WHERE user_id = p_user_id AND enabled = true;
+    IF pg_catalog.to_regprocedure('catho_private.refresh_user_interest_profile(uuid)') IS NOT NULL THEN
+      EXECUTE 'SELECT catho_private.refresh_user_interest_profile($1)' USING p_user_id;
+    END IF;
+  END IF;
+
   IF v_from IS NULL OR v_to IS NULL THEN
     RETURN v_deleted;
   END IF;
@@ -8886,15 +8895,6 @@ BEGIN
     pg_catalog.statement_timestamp()
   FROM event_totals
   LEFT JOIN viewer_totals USING (event_date, card_type, card_id);
-
-  IF pg_catalog.to_regclass('catho_private.user_personalization_consents') IS NOT NULL THEN
-    UPDATE catho_private.user_personalization_consents
-    SET profile_refreshed_at = NULL
-    WHERE user_id = p_user_id AND enabled = true;
-    IF pg_catalog.to_regprocedure('catho_private.refresh_user_interest_profile(uuid)') IS NOT NULL THEN
-      EXECUTE 'SELECT catho_private.refresh_user_interest_profile($1)' USING p_user_id;
-    END IF;
-  END IF;
 
   RETURN v_deleted;
 END;
