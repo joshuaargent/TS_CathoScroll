@@ -21,6 +21,9 @@ test('optional analytics consent is explicit, purpose-specific and off by defaul
   assert.ok(consent.includes('analyticsConsentVersion = 1'));
   assert.ok(consent.includes('syncPending: options.syncPending ?? Boolean(userId)'));
   assert.ok(consent.includes('deniedOverrides'));
+  assert.match(consent, /if \(!userId\) return false/);
+  assert.match(manager, /legacySignedOutConsent = readAnalyticsConsent\(null\)/);
+  assert.match(manager, /saveAnalyticsConsent\(\{ serviceImprovement: false, sponsorMeasurement: false \}, null/);
   assert.doesNotMatch(manager, /setVisible\(true\)/);
   assert.ok(manager.includes('if (loading || !visible) return null;'));
   assert.ok(account.includes('Service improvement analytics'));
