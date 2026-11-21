@@ -268,13 +268,14 @@ export default function PrivacyPage() {
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            Sponsor delivery is separate from Sponsor measurement. Sponsor cards may appear even
-            when measurement is declined. If enabled, a random session token exists only in active
-            page/app memory and its SHA-256 hash supports frequency controls; raw event and
-            frequency records become eligible for deletion after 30 days. If declined, no visitor
-            token, frequency record, viewability or click event is created; CathoScroll retains
-            campaign/day served totals for delivery and pacing. Sponsor reports therefore measure
-            only opted-in placements, not every card shown. The statistical-purpose exception is not used to justify sponsor viewability or click measurement; those measurements require the separate Sponsor measurement choice.
+            Sponsor delivery is separate from Sponsor measurement. Sponsor cards appear even when
+            measurement is off. Detailed sponsor viewability, clicks and frequency are available
+            only to signed-in users who explicitly enable Sponsor measurement. Their events are
+            account-linked; a temporary session token supports frequency controls, and raw event
+            records are eligible for deletion after 30 days. Signed-out visitors are not measured
+            individually: only campaign/day served totals are retained for delivery and pacing.
+            The statistical-purpose exception is not used to justify sponsor viewability or click
+            measurement; those technologies require the separate Sponsor measurement choice.
           </p>
           <AnonymousAnalyticsPreference />
         </section>
