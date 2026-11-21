@@ -258,7 +258,8 @@ test('web and native account/settings screens reuse the same components', () => 
   assert.match(accountSection, /categoryInterestsLoaded/);
   assert.match(accountSection, /!categoryInterestsLoaded \|\| selectedCategories\.length > 20/);
   assert.match(accountSection, /window\.addEventListener\(analyticsConsentSyncEvent, refresh\)/);
-  assert.match(accountSection, /offlineCacheAvailable=\{offlineCacheAvailable\}/);
+  assert.match(accountSection, /offlineCacheAvailable/);
+  assert.match(accountSection, /Saved category interests are not available offline/);
   assert.match(nativeMain, /window\.dispatchEvent\(new Event\(analyticsConsentSyncEvent\)\)/);
   assert.ok(nativeMain.includes("pathname === '/account/personalization'"));
   assert.ok(nativeMain.includes("kind: 'account'"));
