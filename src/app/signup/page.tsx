@@ -37,6 +37,8 @@ export default function SignupPage() {
 
     const confirmPassword = String(formData.get('confirmPassword') ?? '');
     const personalizationConsent = formData.get('personalizationConsent') === 'true';
+    const serviceImprovementConsent = personalizationConsent || formData.get('serviceImprovementConsent') === 'true';
+    const sponsorMeasurementConsent = formData.get('sponsorMeasurementConsent') === 'true';
 
     const invalidUsername = usernameError(username);
     if (invalidUsername) {
@@ -71,6 +73,8 @@ export default function SignupPage() {
             display_name: username,
             personalization_consent: personalizationConsent,
             personalization_consent_version: personalizationConsent ? '2026-11-20-v4' : null,
+            service_improvement_consent: serviceImprovementConsent,
+            sponsor_measurement_consent: sponsorMeasurementConsent,
           },
         },
       });
