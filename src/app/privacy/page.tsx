@@ -271,7 +271,7 @@ export default function PrivacyPage() {
             Sponsor delivery is separate from Sponsor measurement. Sponsor cards appear even when
             measurement is off. Detailed sponsor viewability, clicks and frequency are available
             only to signed-in users who explicitly enable Sponsor measurement. Their events are
-            account-linked; a temporary session token supports frequency controls, and raw event
+            account-linked; per-placement IDs validate events and account-level frequency records support caps. Raw event
             records are eligible for deletion after 180 days. Signed-out visitors are not measured
             individually: only campaign/day served totals are retained for delivery and pacing.
             The statistical-purpose exception is not used to justify sponsor viewability or click
