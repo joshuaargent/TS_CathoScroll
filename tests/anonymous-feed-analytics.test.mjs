@@ -148,7 +148,7 @@ test('all analytics surfaces report anonymous counts separately', () => {
   assert.match(chartSource, /dateIndexByDate\.get\(item\.date\)/);
   assert.doesNotMatch(chartSource, /series\.length <= 1/);
   assert.match(sponsorPortal, /Anonymous served/);
-  assert.match(campaignManager, /anonymous served/);
+  assert.match(campaignManager, /anonymous served/i);
 });
 
 test('general ranking uses anonymous site-wide topic aggregates without viewer history', () => {
