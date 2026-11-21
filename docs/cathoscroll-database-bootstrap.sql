@@ -8514,7 +8514,7 @@ BEGIN
     LEFT JOIN public.sponsors AS sponsor ON sponsor.id = campaign.sponsor_id
     WHERE campaign.status IN ('approved', 'paused')
       AND (
-        campaign.ends_on < (pg_catalog.timezone('UTC', statement_timestamp()))::date
+        campaign.ends_on < (p_before AT TIME ZONE 'UTC')::date
         OR sponsor.status = 'completed'
         OR (sponsor.ends_on IS NOT NULL AND sponsor.ends_on < (p_before AT TIME ZONE 'UTC')::date)
       )
