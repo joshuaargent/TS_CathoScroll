@@ -833,9 +833,6 @@ ALTER FUNCTION public.get_unmeasured_sponsor_campaigns(text, text, integer) OWNE
 REVOKE ALL ON FUNCTION public.get_unmeasured_sponsor_campaigns(text, text, integer) FROM PUBLIC, anon, authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.get_unmeasured_sponsor_campaigns(text, text, integer) TO service_role;
 
-ALTER FUNCTION public.get_anonymous_sponsor_campaigns(text, text, text, integer) OWNER TO postgres;
-REVOKE ALL ON FUNCTION public.get_anonymous_sponsor_campaigns(text, text, text, integer) FROM PUBLIC, anon, authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.get_anonymous_sponsor_campaigns(text, text, text, integer) TO service_role;
 
 CREATE OR REPLACE FUNCTION public.get_weighted_sponsor_campaigns(
   p_user_id uuid,
