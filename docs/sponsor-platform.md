@@ -139,3 +139,24 @@ Only signed-in account holders who explicitly enable Sponsor measurement generat
 Signed-in and signed-out campaign delivery metrics remain separately labelled in the Admin Analytics hub, admin campaign manager and sponsor portal. Signed-out metrics include campaign/day served totals only; viewability, clicks and CTR are based on opted-in signed-in events. The dashboard does not calculate anonymous unique people or sessions. Sponsors receive campaign-level aggregate counts only, not session hashes, raw event rows or organic topic/comment browsing histories.
 
 The shared SponsorFeedCard and its API calls are used by both web and native feed implementations. Native requests use the configured CathoScroll API origin and allowlisted native CORS origins; anonymous requests do not require a signed-in access token. Physical Android/Electron acceptance tests remain a release gate.
+
+
+## Unified sponsor measurement target (21 November 2026)
+
+The target reporting architecture is one aggregate campaign measurement pipeline for all audiences. It reports:
+
+| Metric | Meaning |
+| --- | --- |
+| Served | Campaign placements delivered |
+| Viewable impressions | Placements actually visible |
+| Clicks | Interactions with sponsor links |
+| Viewing duration | Total and average visible time |
+| Frequency | Aggregate campaign delivery frequency and pacing |
+
+The pipeline must not retain account IDs, visitor IDs, persistent session IDs, cross-site identifiers or individual browsing histories. Any temporary event/placement token needed to deduplicate or time a placement must remain in memory, be short-lived, and be discarded after aggregation. Raw pseudonymous event records must not be described as anonymous.
+
+Signed-in and signed-out events feed the same aggregate reporting model. Signed-in Sponsor measurement remains an explicit account preference; the anonymous Privacy-page Sponsor measurement control governs signed-out/non-account-linked optional measurement. Neither control removes sponsor placements. The separate Anonymous topic and comment statistics objection does not affect sponsor measurement or sponsor delivery.
+
+The current account-linked sponsor event ledger, account-level frequency records and native persistent sponsor event outbox are legacy implementation details to be replaced by this aggregate-only model. Do not treat the existing signed-in event/session/campaign queue as the target design. Native sponsor events must be transient and memory-only; unacknowledged events may be lost on process exit rather than persisted for later replay. Campaign-wide caps and pacing must operate from aggregate campaign/day data, not visitor-level frequency histories.
+
+The portal and administrator dashboards must report the unified aggregate metrics consistently. CTR must be calculated from aggregate clicks and viewable impressions using the same population and clearly labelled. No unique people, unique sessions or person-level frequency claims may be inferred from this dataset. Implementation remains subject to the PECR/UK GDPR assessment and controller sign-off; aggregate output alone does not establish that collection is legally anonymous or exempt.
