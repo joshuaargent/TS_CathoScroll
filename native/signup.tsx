@@ -64,7 +64,7 @@ export function NativeSignup({ onSignedUp }: { onSignedUp: () => void }) {
       const { data: result, error: signupError } = await createClient().auth.signUp({
         email,
         password,
-        options: { data: { username, display_name: username, personalization_consent: personalizationConsent, personalization_consent_version: personalizationConsent ? '2026-11-21-v5' : null, service_improvement_consent: serviceImprovementConsent, sponsor_measurement_consent: sponsorMeasurementConsent } },
+        options: { data: { username, display_name: username, personalization_consent: personalizationConsent, personalization_consent_version: personalizationConsent ? '2026-11-21-v6' : null, service_improvement_consent: serviceImprovementConsent, sponsor_measurement_consent: sponsorMeasurementConsent } },
       });
       if (signupError) throw signupError;
       if (result.session) {
