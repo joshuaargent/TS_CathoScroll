@@ -34,7 +34,7 @@ test('optional analytics consent is explicit, purpose-specific and off by defaul
   assert.ok(manager.includes('if (loading || !visible) return null;'));
   assert.ok(account.includes('Service improvement analytics'));
   assert.ok(account.includes('Sponsor measurement'));
-  assert.ok(account.includes('Required while personalisation is on'));
+  assert.ok(account.includes('Personalisation is independent. Passive reading signals inform recommendations only when both Personalisation and Service improvement analytics are enabled.'));
   assert.ok(account.includes('clearAnalyticsConsentQueues(userId, previous, next)'));
   assert.ok(account.includes('offlineCacheAvailable: boolean'));
   assert.ok(account.includes('offlinePersonalizationWithdrawal'));
@@ -240,7 +240,7 @@ test('privacy assessment distinguishes special-category risk and keeps personali
   assert.ok(assessment.includes('Article 9'));
   assert.ok(assessment.includes('religious or philosophical beliefs'));
   assert.ok(assessment.includes('not a legal opinion'));
-  assert.ok(manager.includes('Personalisation requires Service improvement analytics; Sponsor measurement remains independent.'));
+  assert.ok(manager.includes('Personalisation is independent; passive reading signals inform recommendations only when both Personalisation and Service improvement analytics are enabled. Sponsor measurement remains independent.'));
   assert.ok(account.includes('personalization'));
   assert.ok(account.includes('I explicitly consent to CathoScroll using my account actions, selected interests and reading analytics'));
   assert.ok(analyticsSettings.includes('Required while personalisation is on.'));
