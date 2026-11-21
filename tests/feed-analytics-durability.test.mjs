@@ -134,7 +134,7 @@ test('README distinguishes aggregate general ranking from consented personalisat
   assert.ok(readme.includes('Sponsor measurement remains independent'));
   assert.doesNotMatch(readme, /Operational analytics are never used to personalise an individual/);
   assert.match(readme, /Native apps use the same shared feed components and API endpoints as the website/);
-  assert.match(readme, /CathoScroll does not collect anonymous analytics/i);
+  assert.match(readme, /No anonymous topic\/comment\/sponsor analytics and no sponsor delivery counters are collected/i);
   assert.doesNotMatch(readme, /Anonymous sponsor viewable\/click events use a bounded in-memory retry queue/);
 });
 
