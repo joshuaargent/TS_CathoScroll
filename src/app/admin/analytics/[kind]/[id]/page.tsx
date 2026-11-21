@@ -31,9 +31,7 @@ function TrendChart({ kind, series }: { kind: 'sponsors' | 'comments'; series: R
         { key: 'viewable_impressions', label: 'Viewable', color: 'stroke-emerald-600 dark:stroke-emerald-400', dot: 'bg-emerald-600 dark:bg-emerald-400', dash: undefined },
         { key: 'clicks', label: 'Clicks', color: 'stroke-sky-600 dark:stroke-sky-400', dot: 'bg-sky-600 dark:bg-sky-400', dash: undefined },
         { key: 'anonymous_served', label: 'Anonymous served', color: 'stroke-accent', dot: 'bg-accent', dash: '5 5' },
-        { key: 'anonymous_viewable_impressions', label: 'Anonymous viewable', color: 'stroke-emerald-600 dark:stroke-emerald-400', dot: 'bg-emerald-600 dark:bg-emerald-400', dash: '5 5' },
-        { key: 'anonymous_clicks', label: 'Anonymous clicks', color: 'stroke-sky-600 dark:stroke-sky-400', dot: 'bg-sky-600 dark:bg-sky-400', dash: '5 5' },
-      ]
+              ]
     : [
         { key: 'impressions', label: 'Signed-in impressions', color: 'stroke-accent', dot: 'bg-accent', dash: undefined },
         { key: 'viewable_impressions', label: 'Signed-in viewable', color: 'stroke-emerald-600 dark:stroke-emerald-400', dot: 'bg-emerald-600 dark:bg-emerald-400', dash: undefined },
@@ -89,7 +87,7 @@ export default async function AdminAnalyticsEntityPage({ params, searchParams }:
     if (sponsorError || error || anonymousError) throw new Error('Unable to load sponsor analytics.');
     if (!sponsor) notFound();
     title = sponsor.sponsor_name;
-    description = 'Served totals include all eligible placements. Viewability and clicks include only visits where Sponsor measurement was enabled.';
+    description = 'Served totals include all eligible placements. Viewability and clicks are measured only for signed-in accounts that enabled Sponsor measurement; signed-out placements have served totals only.';
     const payload = data as { totals?: Record<string, unknown>; series?: Record<string, unknown>[]; campaigns?: { id: string; name: string; status: string }[] } | null;
     totals = payload?.totals ?? {};
     const anonymousPayload = anonymousData as { totals?: Record<string, unknown>; series?: Record<string, unknown>[] } | null;
@@ -101,7 +99,7 @@ export default async function AdminAnalyticsEntityPage({ params, searchParams }:
     series = dates.map((date) => {
       const row = signedByDate.get(date) ?? {};
       const anon = anonymousByDate.get(date) ?? {};
-      return { event_date: date, ...row, anonymous_served: anon.sponsor_served ?? 0, anonymous_viewable_impressions: anon.sponsor_viewable_impressions ?? 0, anonymous_clicks: anon.sponsor_clicks ?? 0 };
+      return { event_date: date, ...row, anonymous_served: anon.sponsor_served ?? 0 };
     });
     campaigns = payload?.campaigns ?? [];
   } else {
@@ -145,7 +143,7 @@ export default async function AdminAnalyticsEntityPage({ params, searchParams }:
         <Metric label="Campaign deliveries" value={fmt(totals.served)} signedOutValue={Number(anonymousTotals.sponsor_served ?? 0) > 0 ? fmt(anonymousTotals.sponsor_served) : undefined} detail="Signed-in served sponsor placements" />
         <Metric label="Anonymous deliveries" value={fmt(anonymousTotals.sponsor_served)} detail="Signed-out served placements, including visitors who declined Sponsor measurement" />
         <Metric label="Signed-in viewable / clicks" value={fmt(totals.viewable_impressions) + ' / ' + fmt(totals.clicks)} detail="Authenticated events recorded only where Sponsor measurement was enabled" />
-        <Metric label="Anonymous viewable / clicks" value={fmt(anonymousTotals.sponsor_viewable_impressions) + ' / ' + fmt(anonymousTotals.sponsor_clicks)} detail="Measured signed-out events only; excludes visitors who declined Sponsor measurement" />
+        <Metric label="Anonymous measurement" value="Served totals only" detail="No signed-out viewability, clicks, CTR or per-visitor frequency are collected" />
         <Metric label="Active campaigns" value={fmt(totals.active_campaigns)} detail="Campaigns with signed-in delivery in this period" />
       </> : <>
         <Metric label="Signed-in card impressions" value={fmt(totals.impressions)} signedOutValue={Number(anonymousTotals.comment_card_impressions ?? 0) > 0 ? fmt(anonymousTotals.comment_card_impressions) : undefined} detail="Top Comments cards displayed to signed-in users" />
@@ -163,7 +161,7 @@ export default async function AdminAnalyticsEntityPage({ params, searchParams }:
     {kind === 'sponsors' && <Card padding="lg" className="mt-8"><h2 className="text-xl font-bold">Campaigns</h2><p className="text-text-muted mt-1 text-sm">Campaigns belonging to this sponsor.</p><div className="mt-4 divide-border divide-y">{campaigns.map((campaign) => <div key={campaign.id} className="flex flex-wrap items-center justify-between gap-3 py-3"><span className="text-text-primary text-sm font-semibold">{campaign.name}</span><Badge variant="outline">{campaign.status}</Badge></div>)}</div>{campaigns.length === 0 && <p className="text-text-muted mt-4 text-sm">No campaigns are associated with this sponsor.</p>}</Card>}
     <Card padding="lg" className="mt-8"><h2 className="text-xl font-bold">Daily activity</h2>
       <p className="text-text-muted mt-1 text-sm">Daily aggregate rows for the selected reporting period.</p>
-      {series.length ? <div className="mt-4 divide-border divide-y">{series.map((row, index) => <div key={String(row.event_date ?? index)} className="flex flex-wrap justify-between gap-3 py-3 text-sm"><span className="text-text-secondary">{String(row.event_date ?? '')}</span><span className="text-text-primary tabular-nums">{kind === 'sponsors' ? fmt(row.served) + ' signed-in served · ' + fmt(row.anonymous_served) + ' anonymous served · ' + fmt(row.viewable_impressions) + ' signed-in viewable · ' + fmt(row.anonymous_viewable_impressions) + ' anonymous viewable · ' + fmt(row.clicks) + ' signed-in clicks · ' + fmt(row.anonymous_clicks) + ' anonymous clicks' : fmt(row.impressions) + ' signed-in impressions · ' + fmt(row.anonymous_impressions) + ' anonymous impressions · ' + fmt(row.viewable_impressions) + ' signed-in viewable · ' + fmt(row.anonymous_viewable_impressions) + ' anonymous viewable'}</span></div>)}</div> : <p className="text-text-muted mt-5 text-sm">No analytics have been recorded for this item in the selected period.</p>}
+      {series.length ? <div className="mt-4 divide-border divide-y">{series.map((row, index) => <div key={String(row.event_date ?? index)} className="flex flex-wrap justify-between gap-3 py-3 text-sm"><span className="text-text-secondary">{String(row.event_date ?? '')}</span><span className="text-text-primary tabular-nums">{kind === 'sponsors' ? fmt(row.served) + ' signed-in served · ' + fmt(row.anonymous_served) + ' signed-out served · ' + fmt(row.viewable_impressions) + ' opted-in signed-in viewable · ' + fmt(row.clicks) + ' opted-in signed-in clicks' : fmt(row.impressions) + ' signed-in impressions · ' + fmt(row.anonymous_impressions) + ' anonymous impressions · ' + fmt(row.viewable_impressions) + ' signed-in viewable · ' + fmt(row.anonymous_viewable_impressions) + ' anonymous viewable'}</span></div>)}</div> : <p className="text-text-muted mt-5 text-sm">No analytics have been recorded for this item in the selected period.</p>}
     </Card>
     <p className="text-text-muted mt-6 text-xs">No user identifiers or raw event records are exposed on this page.</p>
   </main>;
