@@ -1,6 +1,6 @@
 'use client';
 
-export const analyticsConsentStorageKey = 'cathoscroll.analytics-consent.v1';
+export const analyticsConsentStorageKey = 'cathoscroll.analytics-consent.v2';
 export const analyticsConsentChangeEvent = 'cathoscroll:analytics-consent-change';
 export const analyticsConsentManageEvent = 'cathoscroll:analytics-consent-manage';
 export const analyticsConsentSyncEvent = 'cathoscroll:analytics-consent-sync';
