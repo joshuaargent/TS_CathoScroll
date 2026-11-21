@@ -12,15 +12,7 @@ import {
   saveAnalyticsConsent,
   type AnalyticsConsent,
 } from '@/lib/analytics-consent';
-import {
-  isAnonymousFeedAnalyticsEnabled,
-  setAnonymousFeedAnalyticsEnabled,
-  anonymousAnalyticsPreferenceChangeEvent,
-} from '@/lib/anonymous-feed-analytics-client';
-import {
-  clearAnonymousSponsorAnalyticsQueue,
-  clearSponsorAnalyticsOutbox,
-} from '@/lib/sponsor-analytics-client';
+import { clearSponsorAnalyticsOutbox } from '@/lib/sponsor-analytics-client';
 import {
   clearFeedAnalyticsOutbox,
 } from '@/lib/feed-analytics-client';
@@ -44,7 +36,6 @@ export async function clearAnalyticsConsentQueues(
   }
   if (clearSponsor) {
     if (userId) tasks.push(clearSponsorAnalyticsOutbox(userId));
-    tasks.push(Promise.resolve(clearAnonymousSponsorAnalyticsQueue()));
   }
   await Promise.all(tasks);
 }
@@ -61,8 +52,6 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
   const [managing, setManaging] = useState(false);
   const [serviceImprovement, setServiceImprovement] = useState(false);
   const [sponsorMeasurement, setSponsorMeasurement] = useState(false);
-  const [anonymousAggregateEnabled, setAnonymousAggregateEnabled] = useState(true);
-  const [anonymousAggregateSaving, setAnonymousAggregateSaving] = useState(false);
   const [personalizationEnabled, setPersonalizationEnabled] = useState(false);
   const [personalizationStatusKnown, setPersonalizationStatusKnown] = useState(!userId);
   const [personalizationStateUserId, setPersonalizationStateUserId] = useState<string | null>(userId);
@@ -76,13 +65,6 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
   const dialogRef = useRef<HTMLElement | null>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
   const managingRef = useRef(false);
-
-  useEffect(() => {
-    const refreshAnonymousChoice = () => setAnonymousAggregateEnabled(isAnonymousFeedAnalyticsEnabled());
-    refreshAnonymousChoice();
-    window.addEventListener(anonymousAnalyticsPreferenceChangeEvent, refreshAnonymousChoice);
-    return () => window.removeEventListener(anonymousAnalyticsPreferenceChangeEvent, refreshAnonymousChoice);
-  }, []);
 
   useEffect(() => {
     activeUserIdRef.current = userId;
@@ -481,7 +463,6 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
       } catch (cause) {
         console.error('Unable to clear legacy signed-out analytics choices:', cause);
       }
-      clearAnonymousSponsorAnalyticsQueue();
     }
 
     const existing = readAnalyticsConsent(userId);
@@ -504,7 +485,6 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
       }
       if (!existing.sponsorMeasurement) {
         if (userId) tasks.push(clearSponsorAnalyticsOutbox(userId));
-        tasks.push(Promise.resolve(clearAnonymousSponsorAnalyticsQueue()));
       }
       void Promise.all(tasks).catch((cause) => {
         console.error('Unable to clear disabled analytics queues:', cause);
@@ -577,7 +557,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
             ? 'Choose optional analytics. Service improvement analytics is required while personalisation is enabled; sponsor measurement remains separate.'
             : effectivePersonalizationEnabled
               ? 'Personalisation is on, so Service improvement analytics is required. Turn off personalisation before disabling it.'
-              : 'Optional analytics improve CathoScroll and measure sponsor views/clicks/frequency/placement. Catholic-content activity may reveal religious or philosophical beliefs. Personalisation enables Service improvement analytics and reading-signal recommendations. Without Sponsor consent, delivery continues with campaign/day served totals only. Signed-out topic/comment totals are daily aggregates without visitor IDs; you can object in Manage choices.'}
+              : 'Optional analytics measure signed-in topic/comment engagement and sponsor viewability, clicks and frequency. Catholic-content activity may reveal religious or philosophical beliefs. Personalisation uses eligible reading signals for private recommendations. Sponsor placements remain visible when measurement is off; no delivery or anonymous engagement counters are retained.'}
         </p>
 
         {!managing ? (
@@ -638,30 +618,10 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
               <span className="min-w-0">
                 <span className="text-text-primary block font-semibold">I explicitly agree to Sponsor measurement</span>
                 <span className="text-text-secondary mt-1 block text-sm leading-relaxed">
-                  Measures sponsor viewability, clicks and frequency. When enabled, signed-in events are account-linked; signed-out frequency uses a random in-memory session token whose hash is stored for up to 30 days. Anonymous event attribution can include the topic placement where a sponsor appeared. In a Catholic-content service, that context may reveal religious or philosophical interests and may involve special-category data under UK GDPR. If you decline, sponsor placements still appear and we retain only campaign/day served totals, without visitor/session frequency records or viewability/click events for your visit.
+                  Measures sponsor viewability, clicks and frequency only for signed-in users who explicitly opt in. Events are account-linked and may reveal religious or philosophical interests. If you decline, sponsor placements still appear, but no sponsor engagement or delivery counters are retained.
                 </span>
               </span>
             </label>
-            <div className="border-border rounded-xl border p-4">
-              <p className="text-text-primary text-sm font-semibold">Signed-out aggregate measurement</p>
-              <p className="text-text-secondary mt-1 text-sm leading-relaxed">
-                By default, signed-out topic and comment activity is counted as daily totals without account, visitor or session identifiers. This is separate from optional account-linked analytics and does not create individual profiles. You can object at any time.
-              </p>
-              <button
-                type="button"
-                disabled={saving || anonymousAggregateSaving}
-                onClick={() => {
-                  const next = !anonymousAggregateEnabled;
-                  setAnonymousAggregateSaving(true);
-                  void setAnonymousFeedAnalyticsEnabled(next).then(() => setAnonymousAggregateEnabled(next)).catch(() => {
-                    setError('Your anonymous aggregate measurement preference could not be saved.');
-                  }).finally(() => setAnonymousAggregateSaving(false));
-                }}
-                className="text-accent mt-2 text-sm font-semibold underline underline-offset-2 disabled:opacity-50"
-              >
-                {anonymousAggregateEnabled ? 'Turn off anonymous aggregate measurement' : 'Turn on anonymous aggregate measurement'}
-              </button>
-            </div>
             <p className="text-text-muted text-xs leading-relaxed">
               Essential operation, sign-in, account synchronisation, bookmarks, likes, progress, notes and general feed ranking continue regardless of these choices. Personalisation requires Service improvement analytics; Sponsor measurement remains independent.
             </p>
