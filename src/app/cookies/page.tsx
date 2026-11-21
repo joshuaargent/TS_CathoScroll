@@ -69,7 +69,7 @@ export default function CookiesPage() {
             account and may reveal religious or philosophical interests. Separately, signed-out
             topic and comment activity is counted by default as daily totals without account,
             visitor or session identifiers; the request also sends no account cookies or bearer token. Declining optional analytics does not disable these
-            aggregates. You can object at any time through Manage choices; objecting stops new
+            aggregates. You can object at any time using the control below; objecting stops new
             events and clears pending anonymous events. Deduplication receipts are deleted after
             30 days. Website retry batches stay in memory; Android and Electron store pending
             signed-out events in app-private storage for up to seven days, capped at 2,000 events.
