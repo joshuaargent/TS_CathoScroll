@@ -826,31 +826,64 @@ begin
 end;
 $function$;
 ALTER FUNCTION catho_private.refresh_feed_card_analytics_daily() OWNER TO postgres;
-CREATE OR REPLACE FUNCTION catho_private.prune_feed_card_analytics_events(p_before timestamp with time zone, p_batch_size integer DEFAULT 5000)
- RETURNS integer
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO ''
+CREATE OR REPLACE FUNCTION catho_private.prune_feed_card_analytics_events(
+  p_before timestamp with time zone,
+  p_batch_size integer DEFAULT 5000
+)
+RETURNS integer
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO ''
 AS $function$
-declare v_deleted integer; v_viewers_deleted integer;
-begin
-  if p_before>statement_timestamp()-interval '180 days' or p_batch_size not between 1 and 5000 then
-    raise exception 'invalid retention boundary or batch size' using errcode='22023';
-  end if;
-  with doomed as (
-    select ctid from catho_private.feed_card_analytics_daily_viewers
-    where event_date<p_before::date order by event_date limit p_batch_size
+DECLARE
+  v_deleted integer := 0;
+  v_viewers_deleted integer := 0;
+  v_limits_deleted integer := 0;
+BEGIN
+  IF p_before IS NULL
+     OR p_before > statement_timestamp() - interval '180 days'
+     OR p_batch_size IS NULL OR p_batch_size NOT BETWEEN 1 AND 5000 THEN
+    RAISE EXCEPTION 'Invalid retention boundary or batch size' USING ERRCODE = '22023';
+  END IF;
+
+  WITH expired_viewers AS (
+    SELECT viewer.ctid
+    FROM catho_private.feed_card_analytics_daily_viewers AS viewer
+    WHERE viewer.event_date < (p_before AT TIME ZONE 'UTC')::date
+    ORDER BY viewer.event_date
+    LIMIT p_batch_size
   )
-  delete from catho_private.feed_card_analytics_daily_viewers v using doomed d where v.ctid=d.ctid;
-  get diagnostics v_viewers_deleted=row_count;
-  with doomed as (
-    select ctid from catho_private.feed_card_analytics_events
-    where received_at<p_before order by received_at limit p_batch_size
+  DELETE FROM catho_private.feed_card_analytics_daily_viewers AS viewer
+  USING expired_viewers
+  WHERE viewer.ctid = expired_viewers.ctid;
+  GET DIAGNOSTICS v_viewers_deleted = ROW_COUNT;
+
+  WITH expired_events AS (
+    SELECT event.ctid
+    FROM catho_private.feed_card_analytics_events AS event
+    WHERE event.received_at < p_before
+    ORDER BY event.received_at
+    LIMIT p_batch_size
   )
-  delete from catho_private.feed_card_analytics_events e using doomed d where e.ctid=d.ctid;
-  get diagnostics v_deleted=row_count;
-  return v_deleted+v_viewers_deleted;
-end;
+  DELETE FROM catho_private.feed_card_analytics_events AS event
+  USING expired_events
+  WHERE event.ctid = expired_events.ctid;
+  GET DIAGNOSTICS v_deleted = ROW_COUNT;
+
+  WITH expired_limits AS (
+    SELECT event_limit.ctid
+    FROM catho_private.feed_card_analytics_event_limits AS event_limit
+    WHERE event_limit.window_started_at < p_before
+    ORDER BY event_limit.window_started_at
+    LIMIT p_batch_size
+  )
+  DELETE FROM catho_private.feed_card_analytics_event_limits AS event_limit
+  USING expired_limits
+  WHERE event_limit.ctid = expired_limits.ctid;
+  GET DIAGNOSTICS v_limits_deleted = ROW_COUNT;
+
+  RETURN v_deleted + v_viewers_deleted + v_limits_deleted;
+END;
 $function$;
 ALTER FUNCTION catho_private.prune_feed_card_analytics_events(timestamptz,integer) OWNER TO postgres;
 
