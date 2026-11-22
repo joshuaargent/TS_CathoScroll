@@ -2,6 +2,8 @@
 -- No anonymous engagement analytics, sponsor delivery counts or served counters
 -- are created or retained. Only explicit signed-in opt-ins produce measurements.
 
+BEGIN;
+
 CREATE TABLE IF NOT EXISTS catho_private.user_analytics_consents (
   user_id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   service_improvement boolean NOT NULL DEFAULT false,
@@ -2156,6 +2158,12 @@ BEGIN
     WHERE event.user_id = p_user_id
   ) AS affected_dates;
 
+  -- Preserve older non-identifying daily totals after raw events are pruned.
+  IF v_from IS NOT NULL AND v_to IS NOT NULL THEN
+    v_from := greatest(v_from, (pg_catalog.timezone('UTC', pg_catalog.statement_timestamp()))::date - 179);
+    v_to := least(v_to, (pg_catalog.timezone('UTC', pg_catalog.statement_timestamp()))::date);
+  END IF;
+
   DELETE FROM catho_private.feed_analytics_events WHERE user_id = p_user_id;
   GET DIAGNOSTICS v_rows = ROW_COUNT;
   v_deleted := v_deleted + v_rows;
@@ -2302,6 +2310,12 @@ BEGIN
   INTO v_from, v_to
   FROM catho_private.sponsor_campaign_events AS event
   WHERE event.user_id = p_user_id;
+
+  -- Only rebuild dates whose complete raw-event ledger is still retained.
+  IF v_from IS NOT NULL AND v_to IS NOT NULL THEN
+    v_from := greatest(v_from, (pg_catalog.timezone('UTC', pg_catalog.statement_timestamp()))::date - 179);
+    v_to := least(v_to, (pg_catalog.timezone('UTC', pg_catalog.statement_timestamp()))::date);
+  END IF;
 
   DELETE FROM catho_private.sponsor_campaign_events WHERE user_id = p_user_id;
   GET DIAGNOSTICS v_deleted = ROW_COUNT;
@@ -2510,3 +2524,5 @@ ALTER FUNCTION public.get_user_analytics_consent(uuid) OWNER TO postgres;
 REVOKE ALL ON FUNCTION public.get_user_analytics_consent(uuid) FROM PUBLIC, anon, authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.get_user_analytics_consent(uuid) TO service_role;
 NOTIFY pgrst, 'reload schema';
+
+COMMIT;
