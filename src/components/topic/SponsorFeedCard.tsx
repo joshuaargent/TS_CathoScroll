@@ -5,8 +5,7 @@ import { DoorOpen, Share2 } from 'lucide-react';
 
 import type { SponsorFeedCampaign } from '@/lib/sponsor-campaigns';
 import { hasAnalyticsConsent } from '@/lib/analytics-consent';
-import { isAnonymousAnalyticsAllowed } from '@/lib/anonymous-analytics-preferences';
-import { recordAnonymousSponsorCampaignEvent, recordSponsorCampaignEvent } from '@/lib/sponsor-analytics-client';
+import { recordSponsorCampaignEvent } from '@/lib/sponsor-analytics-client';
 import { FeedInterstitialMotion } from './FeedInterstitialMotion';
 import { BaseFeedCard } from './BaseFeedCard';
 
@@ -42,27 +41,6 @@ function getSponsorPlacementKey(userId: string, sessionId: string, campaignId: s
   return JSON.stringify([userId, sessionId, placementKey, campaignId, receipt]);
 }
 
-const anonymousSponsorFrequencyBySession = new Map<string, number>();
-const anonymousSponsorServedPlacements = new Set<string>();
-
-function allocateAnonymousFrequencyIndex(sessionId: string, campaignId: string, placementKey: string, receipt: string): number | null {
-  const placement = JSON.stringify([sessionId, campaignId, placementKey, receipt]);
-  if (anonymousSponsorServedPlacements.has(placement)) return null;
-  anonymousSponsorServedPlacements.add(placement);
-  const sessionCampaign = JSON.stringify([sessionId, campaignId]);
-  const next = (anonymousSponsorFrequencyBySession.get(sessionCampaign) ?? 0) + 1;
-  anonymousSponsorFrequencyBySession.set(sessionCampaign, next);
-  if (anonymousSponsorServedPlacements.size > 5000) {
-    const oldest = anonymousSponsorServedPlacements.values().next().value;
-    if (oldest !== undefined) anonymousSponsorServedPlacements.delete(oldest);
-  }
-  if (anonymousSponsorFrequencyBySession.size > 5000) {
-    const oldest = anonymousSponsorFrequencyBySession.keys().next().value;
-    if (oldest !== undefined) anonymousSponsorFrequencyBySession.delete(oldest);
-  }
-  return next;
-}
-
 function rememberViewableSponsorPlacement(key: string) {
   viewableSponsorPlacements.delete(key);
   viewableSponsorPlacements.add(key);
@@ -93,11 +71,9 @@ export function SponsorFeedCard({
   const campaign = campaigns[safeIndex];
   const campaignId = campaign?.campaign_id;
   const placementReceipt = campaign?.measurement_receipt ?? null;
-  const sponsorMeasurementEnabled = userId
-    ? hasAnalyticsConsent('sponsorMeasurement', userId)
-    : isAnonymousAnalyticsAllowed('sponsorMeasurement');
-  const viewablePlacementKey = campaignId && sponsorMeasurementEnabled && placementReceipt
-    ? getSponsorPlacementKey(userId ?? 'anonymous', sessionId, campaignId, placementKey, placementReceipt)
+  const sponsorMeasurementEnabled = Boolean(userId && hasAnalyticsConsent('sponsorMeasurement', userId));
+  const viewablePlacementKey = campaignId && userId && sponsorMeasurementEnabled && placementReceipt
+    ? getSponsorPlacementKey(userId, sessionId, campaignId, placementKey, placementReceipt)
     : null;
 
   useEffect(() => {
@@ -107,31 +83,19 @@ export function SponsorFeedCard({
   const recordEvent = useCallback(
     async (
       targetCampaignId: string,
-      eventType: 'served' | 'viewable_impression' | 'click' | 'active_duration',
+      eventType: 'viewable_impression' | 'click' | 'active_duration',
       durationMs?: number,
-      frequencyIndex?: number,
     ) => {
-      if (previewMode || !sponsorMeasurementEnabled || !placementReceipt) return false;
+      if (previewMode || !userId || !sponsorMeasurementEnabled || !placementReceipt) return false;
       const eventId = createEventId();
-      if (userId) {
-        if (eventType === 'served') return false;
-        return recordSponsorCampaignEvent(userId, {
-          campaignId: targetCampaignId,
-          eventId,
-          sessionId,
-          placementReceipt,
-          eventType,
-          ...(durationMs === undefined ? {} : { durationMs }),
-        }, getAccessToken, sponsorApiBaseUrl);
-      }
-      return recordAnonymousSponsorCampaignEvent({
+      return recordSponsorCampaignEvent(userId, {
         campaignId: targetCampaignId,
         eventId,
+        sessionId,
         placementReceipt,
         eventType,
         ...(durationMs === undefined ? {} : { durationMs }),
-        ...(frequencyIndex === undefined ? {} : { frequencyIndex }),
-      }, sponsorApiBaseUrl);
+      }, getAccessToken, sponsorApiBaseUrl);
     },
     [getAccessToken, placementReceipt, previewMode, sessionId, sponsorApiBaseUrl, sponsorMeasurementEnabled, userId]
   );
