@@ -206,6 +206,7 @@ test('recommendation profiles use explicit actions and consented passive analyti
   assert.doesNotMatch(body, /explicit-only/);
   assert.match(body, /s\.updated_at < v_now/);
   assert.match(body, /v_last_refresh >= v_now-interval '5 minutes'/);
+  assert.ok(body.indexOf('FROM auth.users AS account WHERE account.id = p_user_id FOR KEY SHARE') < body.indexOf('FROM catho_private.user_personalization_consents c'), 'profile refresh must serialize with consent withdrawal before reading the grant');
   const upgradeStart = upgrade.lastIndexOf('CREATE OR REPLACE FUNCTION catho_private.refresh_user_interest_profile');
   const upgradeEnd = upgrade.indexOf('$function$;', upgradeStart);
   assert.ok(upgradeStart >= 0 && upgradeEnd > upgradeStart);
