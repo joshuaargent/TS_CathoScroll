@@ -42,6 +42,23 @@ test('anonymous analytics clients, APIs, controls and native queues are absent',
   assert.match(apiDirectory, /if \(!auth\.user\) return respond\(request, \{ recorded: false \}, 403\)/);
 });
 
+test('admin deep-dive reports only opted-in signed-in events', async () => {
+  const [bootstrap, panel] = await Promise.all([
+    read('../docs/cathoscroll-database-bootstrap.sql'),
+    read('../src/components/admin/AnalyticsDeepDivePanel.tsx'),
+  ]);
+  const start = bootstrap.lastIndexOf('CREATE OR REPLACE FUNCTION public.get_admin_analytics_deep_dive');
+  const end = bootstrap.indexOf('$function$;', start);
+  assert.ok(start >= 0 && end > start);
+  const deepDiveSql = bootstrap.slice(start, end);
+  assert.doesNotMatch(deepDiveSql, /anonymous_feed_analytics_daily|anonymous_feed_event_receipts|anonymous_sponsor_/);
+  assert.match(deepDiveSql, /FROM catho_private\.feed_analytics_events/);
+  assert.match(panel, /signed-in, opted-in topic-feed behaviour/);
+  assert.doesNotMatch(panel, /Signed-out topic\/comment events are shown as aggregate counts/);
+  assert.match(panel, /Opted-in feed impressions/);
+  assert.match(panel, /Opted-in category discovery/);
+});
+
 test('canonical database and existing-database upgrade remove anonymous analytics storage', async () => {
   const [bootstrap, upgrade] = await Promise.all([
     read('../docs/cathoscroll-database-bootstrap.sql'),
