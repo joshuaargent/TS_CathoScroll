@@ -998,6 +998,8 @@ function App() {
       let failure = 'Unable to open app storage. Please try again.';
       try {
         const databases = await openNativeDatabases(secureAuthStorage);
+        // Remove the retired signed-out analytics queue and its stored events from existing installs.
+        await databases.catalogue.execute('DROP TABLE IF EXISTS offline_anonymous_analytics_outbox');
         const localCatalogue = new OfflineCatalogue(databases.catalogue);
         try {
           const generalCache = new OfflineRankedFeedCache(databases.catalogue, localCatalogue);
