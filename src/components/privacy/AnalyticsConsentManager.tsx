@@ -263,10 +263,10 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
 
       const local = readAnalyticsConsent(expectedUserId);
       if (local?.syncPending === true) {
-        // Preserve the user's local denial. If the server confirms that
-        // personalisation is still enabled, its consent rule rejects this
-        // pending Service improvement withdrawal; never silently re-enable
-        // local collection. The user can disable personalisation separately.
+        // Preserve the user's local denial and synchronise it. Service
+        // improvement is independent of Personalisation: disabling it purges
+        // passive reading events and stops their recommendation use, while
+        // direct account actions remain available under Personalisation consent.
         const pendingChoices = {
           serviceImprovement: local.serviceImprovement,
           sponsorMeasurement: local.sponsorMeasurement,
