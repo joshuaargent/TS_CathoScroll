@@ -262,6 +262,15 @@ test('explicit category interests are bounded and validated', () => {
   assert.match(body, /is_published=true/);
 });
 
+test('Personalisation remains independently optional when Service improvement is withdrawn', () => {
+  const consent = finalFunctionDefinition(analyticsConsentUpgrade, 'public.set_user_analytics_consent');
+  const refresh = finalFunctionDefinition(upgrade, 'catho_private.refresh_user_interest_profile');
+  assert.match(consent, /IF p_service_improvement IS NOT TRUE THEN[\s\S]*?purge_user_service_improvement_events/);
+  assert.doesNotMatch(consent, /UPDATE catho_private\.user_personalization_consents[\s\S]*?SET enabled=false/);
+  assert.match(refresh, /v_service_improvement IS TRUE/);
+  assert.match(settings, /Passive reading signals are added only if you separately enable Service improvement analytics/);
+});
+
 test('personalisation settings disclose the profile purpose and sponsor isolation', () => {
   assert.match(settings, /not shown on your public profile or used for sponsor targeting/);
   assert.match(settings, /Turn off and delete profile/);
