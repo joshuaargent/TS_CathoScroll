@@ -1,5 +1,7 @@
 'use client';
 
+import { migrateLegacyAnonymousAnalyticsPreferences } from './anonymous-analytics-preferences';
+
 export const analyticsConsentStorageKey = 'cathoscroll.analytics-consent.v2';
 export const analyticsConsentChangeEvent = 'cathoscroll:analytics-consent-change';
 export const analyticsConsentManageEvent = 'cathoscroll:analytics-consent-manage';
@@ -146,6 +148,7 @@ export function readAnalyticsConsent(userId?: string | null): AnalyticsConsent |
 
 export function clearLegacyAnalyticsConsentStorage(): void {
   if (typeof window === 'undefined') return;
+  migrateLegacyAnonymousAnalyticsPreferences();
   const legacyPrefix = 'cathoscroll.analytics-consent.v1';
   try {
     window.localStorage.removeItem(legacyPrefix);
