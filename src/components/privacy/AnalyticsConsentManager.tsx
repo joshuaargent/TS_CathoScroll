@@ -317,7 +317,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
         if (
           typeof saved.serviceImprovement !== 'boolean' ||
           typeof saved.sponsorMeasurement !== 'boolean' ||
-          saved.version !== 2 ||
+          saved.version !== 3 ||
           typeof saved.exists !== 'boolean' ||
           !(saved.updatedAt === null || typeof saved.updatedAt === 'string')
         ) return;
