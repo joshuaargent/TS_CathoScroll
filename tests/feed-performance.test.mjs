@@ -31,7 +31,7 @@ function createTestWindow() {
       getItem(key) {
         if (key.includes('.account.')) {
           return JSON.stringify({
-            version: 1,
+            version: 2,
             serviceImprovement: true,
             sponsorMeasurement: true,
             updatedAt: '2026-11-20T12:00:00.000Z',
