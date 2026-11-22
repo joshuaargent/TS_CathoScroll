@@ -2,8 +2,9 @@
 
 import type { SignedInAnalyticsOutbox } from './offline/signed-in-analytics-store';
 import { analyticsConsentChangeEvent, createConsentBoundAbortSignal, denyAnalyticsConsentInMemory, hasAnalyticsConsent, hasSyncedAnalyticsConsent, requestAnalyticsConsentSync } from './analytics-consent';
+import { anonymousAnalyticsPreferenceChangeEvent, createAnonymousAnalyticsAbortSignal, isAnonymousAnalyticsAllowed } from './anonymous-analytics-preferences';
 
-export type SponsorCampaignEventType = 'viewable_impression' | 'click';
+export type SponsorCampaignEventType = 'viewable_impression' | 'click' | 'active_duration';
 
 export interface QueuedSponsorCampaignEvent {
   campaignId: string;
@@ -11,6 +12,7 @@ export interface QueuedSponsorCampaignEvent {
   sessionId: string;
   placementReceipt: string;
   eventType: SponsorCampaignEventType;
+  durationMs?: number;
 }
 
 type AccessTokenProvider = () => Promise<string | null>;
@@ -40,11 +42,21 @@ export async function clearSponsorAnalyticsOutbox(userId: string): Promise<void>
   if (persistentOutbox) await persistentOutbox.clearStream(userId, 'sponsor');
 }
 
-function sponsorEventFromPayload(payload: { event_id: string; session_id: string; event_type: string; campaign_id?: unknown; placement_receipt?: unknown }): QueuedSponsorCampaignEvent | null {
+function sponsorEventFromPayload(payload: { event_id: string; session_id: string; event_type: string; campaign_id?: unknown; placement_receipt?: unknown; duration_ms?: unknown }): QueuedSponsorCampaignEvent | null {
   if (typeof payload.campaign_id !== 'string' || !payload.campaign_id ||
       typeof payload.placement_receipt !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(payload.placement_receipt) ||
-      (payload.event_type !== 'viewable_impression' && payload.event_type !== 'click')) return null;
-  return { campaignId: payload.campaign_id, eventId: payload.event_id, sessionId: payload.session_id, placementReceipt: payload.placement_receipt, eventType: payload.event_type };
+      !['viewable_impression', 'click', 'active_duration'].includes(payload.event_type) ||
+      (payload.event_type === 'active_duration'
+        ? !Number.isSafeInteger(payload.duration_ms) || Number(payload.duration_ms) < 1 || Number(payload.duration_ms) > 60000
+        : payload.duration_ms !== undefined && payload.duration_ms !== null)) return null;
+  return {
+    campaignId: payload.campaign_id,
+    eventId: payload.event_id,
+    sessionId: payload.session_id,
+    placementReceipt: payload.placement_receipt,
+    eventType: payload.event_type as SponsorCampaignEventType,
+    ...(payload.event_type === 'active_duration' ? { durationMs: Number(payload.duration_ms) } : {}),
+  };
 }
 
 function readQueue(userId: string): QueuedSponsorCampaignEvent[] {
@@ -66,10 +78,11 @@ export function recordSponsorCampaignEvent(
 ): boolean {
   if (typeof window === 'undefined' || !userId || !hasAnalyticsConsent('sponsorMeasurement', userId)) return false;
   const queue = readQueue(userId);
-  const alreadyQueued = queue.some(
+  const alreadyQueued = event.eventType !== 'active_duration' && queue.some(
     (queued) =>
       queued.campaignId === event.campaignId &&
       queued.sessionId === event.sessionId &&
+      queued.placementReceipt === event.placementReceipt &&
       queued.eventType === event.eventType
   );
   if (alreadyQueued) {
@@ -83,6 +96,7 @@ export function recordSponsorCampaignEvent(
       event_type: event.eventType,
       campaign_id: event.campaignId,
       placement_receipt: event.placementReceipt,
+      duration_ms: event.durationMs ?? null,
     }).then(() => flushSponsorCampaignEvents(userId, getAccessToken, apiBaseUrl)).catch((error: unknown) => {
       console.error('Unable to persist signed-in sponsor analytics:', error);
       if (queue.length < queueLimit) {
@@ -233,5 +247,159 @@ export function installSponsorAnalyticsListeners(
     window.removeEventListener('pageshow', flush);
     document.removeEventListener('visibilitychange', onVisibilityChange);
     if (activeSponsorTransports.get(userId) === installedTransport) activeSponsorTransports.delete(userId);
+  };
+}
+
+
+export type AnonymousSponsorCampaignEventType =
+  | 'served'
+  | 'viewable_impression'
+  | 'click'
+  | 'active_duration';
+
+export interface AnonymousSponsorCampaignEvent {
+  campaignId: string;
+  eventId: string;
+  placementReceipt: string;
+  eventType: AnonymousSponsorCampaignEventType;
+  durationMs?: number;
+  frequencyIndex?: number;
+}
+
+const anonymousSponsorQueue: AnonymousSponsorCampaignEvent[] = [];
+const anonymousSponsorQueueLimit = 100;
+let anonymousSponsorFlushPromise: Promise<void> | null = null;
+let anonymousSponsorListenersInstalled = false;
+
+function validSponsorUuid(value: unknown): value is string {
+  return typeof value === 'string' &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+export function clearAnonymousSponsorAnalyticsQueue(): void {
+  anonymousSponsorQueue.splice(0, anonymousSponsorQueue.length);
+}
+
+export function recordAnonymousSponsorCampaignEvent(
+  event: AnonymousSponsorCampaignEvent,
+  apiBaseUrl?: string,
+): boolean {
+  if (
+    typeof window === 'undefined' ||
+    !isAnonymousAnalyticsAllowed('sponsorMeasurement') ||
+    !validSponsorUuid(event.campaignId) ||
+    !validSponsorUuid(event.eventId) ||
+    !validSponsorUuid(event.placementReceipt) ||
+    !['served', 'viewable_impression', 'click', 'active_duration'].includes(event.eventType) ||
+    (event.eventType === 'active_duration'
+      ? !Number.isSafeInteger(event.durationMs) || Number(event.durationMs) < 1 || Number(event.durationMs) > 60000
+      : event.durationMs !== undefined) ||
+    (event.eventType === 'served'
+      ? !Number.isSafeInteger(event.frequencyIndex) || Number(event.frequencyIndex) < 1 || Number(event.frequencyIndex) > 100
+      : event.frequencyIndex !== undefined)
+  ) return false;
+
+  if (event.eventType !== 'active_duration' && anonymousSponsorQueue.some((queued) =>
+    queued.placementReceipt === event.placementReceipt && queued.eventType === event.eventType
+  )) return true;
+
+  if (anonymousSponsorQueue.length >= anonymousSponsorQueueLimit) return false;
+  anonymousSponsorQueue.push({ ...event });
+  installAnonymousSponsorAnalyticsListeners();
+  void flushAnonymousSponsorCampaignEvents(apiBaseUrl);
+  return true;
+}
+
+export async function flushAnonymousSponsorCampaignEvents(apiBaseUrl?: string): Promise<void> {
+  if (typeof window === 'undefined' || anonymousSponsorFlushPromise) return;
+  if (!isAnonymousAnalyticsAllowed('sponsorMeasurement')) {
+    clearAnonymousSponsorAnalyticsQueue();
+    return;
+  }
+  if (typeof navigator === 'undefined' || !navigator.onLine || anonymousSponsorQueue.length === 0) return;
+
+  const consentRequest = createAnonymousAnalyticsAbortSignal('sponsorMeasurement');
+  anonymousSponsorFlushPromise = (async () => {
+    while (anonymousSponsorQueue.length > 0) {
+      if (!isAnonymousAnalyticsAllowed('sponsorMeasurement') || consentRequest.signal.aborted) {
+        clearAnonymousSponsorAnalyticsQueue();
+        return;
+      }
+      const event = anonymousSponsorQueue[0];
+      let response: Response;
+      try {
+        response = await fetch(eventEndpoint(apiBaseUrl), {
+          method: 'POST',
+          credentials: 'same-origin',
+          cache: 'no-store',
+          keepalive: true,
+          signal: consentRequest.signal,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...event, measurementScope: 'anonymous' }),
+        });
+      } catch {
+        return;
+      }
+      if (!isAnonymousAnalyticsAllowed('sponsorMeasurement') || consentRequest.signal.aborted) {
+        clearAnonymousSponsorAnalyticsQueue();
+        return;
+      }
+      if (response.ok) {
+        anonymousSponsorQueue.shift();
+        continue;
+      }
+      if (response.status >= 400 && response.status < 500 && response.status !== 429) {
+        anonymousSponsorQueue.shift();
+        continue;
+      }
+      return;
+    }
+  })().finally(() => {
+    consentRequest.dispose();
+    anonymousSponsorFlushPromise = null;
+  });
+
+  await anonymousSponsorFlushPromise;
+}
+
+export function installAnonymousSponsorAnalyticsListeners(): () => void {
+  if (typeof window === 'undefined') return () => undefined;
+  if (anonymousSponsorListenersInstalled) return () => undefined;
+  anonymousSponsorListenersInstalled = true;
+
+  const flush = () => void flushAnonymousSponsorCampaignEvents();
+  const onPreferenceChange = (event: Event) => {
+    const detail = (event as CustomEvent<{ purpose?: string; objected?: boolean }>).detail;
+    if (detail?.purpose !== 'sponsorMeasurement') return;
+    if (detail.objected === true || !isAnonymousAnalyticsAllowed('sponsorMeasurement')) {
+      clearAnonymousSponsorAnalyticsQueue();
+      return;
+    }
+    flush();
+  };
+  const onStorage = () => {
+    if (!isAnonymousAnalyticsAllowed('sponsorMeasurement')) clearAnonymousSponsorAnalyticsQueue();
+    else flush();
+  };
+  const onVisibility = () => {
+    if (document.visibilityState === 'visible') flush();
+  };
+
+  window.addEventListener('online', flush);
+  window.addEventListener('pageshow', flush);
+  window.addEventListener('pagehide', flush);
+  window.addEventListener(anonymousAnalyticsPreferenceChangeEvent, onPreferenceChange);
+  window.addEventListener('storage', onStorage);
+  document.addEventListener('visibilitychange', onVisibility);
+  flush();
+
+  return () => {
+    window.removeEventListener('online', flush);
+    window.removeEventListener('pageshow', flush);
+    window.removeEventListener('pagehide', flush);
+    window.removeEventListener(anonymousAnalyticsPreferenceChangeEvent, onPreferenceChange);
+    window.removeEventListener('storage', onStorage);
+    document.removeEventListener('visibilitychange', onVisibility);
+    anonymousSponsorListenersInstalled = false;
   };
 }
