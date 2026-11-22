@@ -131,6 +131,8 @@ test('emergency bootstrap inventory matches the reconciled production schema', (
   assert.match(bootstrap, /public\.get_admin_feed_analytics/);
   assert.match(bootstrap, /public\.get_admin_sponsor_analytics/);
   assert.match(bootstrap, /public\.admin_create_sponsor/);
+  assert.match(analyticsConsentUpgrade, /REVOKE ALL ON FUNCTION public\.get_admin_analytics_series\(uuid, timestamp with time zone, timestamp with time zone\) FROM PUBLIC, anon, authenticated, service_role/);
+  assert.match(analyticsConsentUpgrade, /GRANT EXECUTE ON FUNCTION public\.get_admin_analytics_series\(uuid, timestamp with time zone, timestamp with time zone\) TO service_role/);
 });
 
 test('admin analytics keeps consented charts, deep dives and aggregate engagement metrics', () => {
