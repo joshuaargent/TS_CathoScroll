@@ -579,7 +579,7 @@ DECLARE
   v_now timestamptz := pg_catalog.statement_timestamp();
 BEGIN
   IF p_user_id IS NULL OR p_service_improvement IS NULL OR p_sponsor_measurement IS NULL
-     OR p_consent_version IS DISTINCT FROM 2
+     OR p_consent_version IS DISTINCT FROM 3
      OR NOT EXISTS (SELECT 1 FROM auth.users AS account WHERE account.id = p_user_id) THEN
     RAISE EXCEPTION 'Invalid analytics consent update' USING ERRCODE = '22023';
   END IF;
@@ -2465,7 +2465,7 @@ DECLARE
   v_now timestamptz := pg_catalog.statement_timestamp();
 BEGIN
   IF p_user_id IS NULL OR p_service_improvement IS NULL OR p_sponsor_measurement IS NULL
-     OR p_consent_version IS DISTINCT FROM 2
+     OR p_consent_version IS DISTINCT FROM 3
      OR NOT EXISTS (SELECT 1 FROM auth.users AS account WHERE account.id = p_user_id) THEN
     RAISE EXCEPTION 'Invalid analytics consent update' USING ERRCODE = '22023';
   END IF;
