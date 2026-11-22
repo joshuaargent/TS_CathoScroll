@@ -316,6 +316,9 @@ test('web and native account/settings screens reuse the same components', () => 
   assert.match(accountSection, /analyticsConsentSyncEvent/);
   assert.match(accountSection, /AnalyticsConsentSettingsPanel/);
   assert.match(analyticsSettingsPanel, /checked=\{serviceImprovement\}[\s\S]*?disabled=\{disabled \|\| saving \|\| !personalizationStatusKnown \|\| personalizationEnabled\}/);
+  assert.match(analyticsSettingsPanel, /pendingPurposeSet/);
+  assert.match(analyticsSettingsPanel, /pendingPurposes/);
+  assert.match(analyticsSettingsPanel, /onChange=\{\(event\) => \{/);
   assert.match(analyticsSettingsPanel, /checked=\{sponsorMeasurement\}[\s\S]*?disabled=\{disabled \|\| saving\}/);
   assert.match(accountSection, /window\.addEventListener\('online', refresh\)/);
   assert.match(accountSection, /categoryInterestsLoaded/);
