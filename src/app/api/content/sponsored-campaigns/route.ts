@@ -122,7 +122,8 @@ export async function POST(request: Request) {
       }
     }
 
-    const { data, error } = auth.user && accountMeasurementEnabled
+    const sponsorMeasurementEnabled = Boolean(auth.user && accountMeasurementEnabled);
+    const { data, error } = sponsorMeasurementEnabled
       ? await createServiceRoleClient().rpc('get_weighted_sponsor_campaigns', {
           p_user_id: auth.user.id,
           p_session_id: parsed.value.sessionId,
@@ -154,7 +155,7 @@ export async function POST(request: Request) {
       return respond(request, { error: 'Sponsored content is temporarily unavailable.' }, 503);
     }
 
-    if (accountMeasurementEnabled && data.campaigns.some((campaign: Record<string, unknown>) =>
+    if (sponsorMeasurementEnabled && data.campaigns.some((campaign: Record<string, unknown>) =>
       typeof campaign.measurement_receipt !== 'string' || !isValidUuid(campaign.measurement_receipt))) {
       console.error('Consented sponsor selector omitted a valid placement receipt.');
       return respond(request, { error: 'Sponsored content is temporarily unavailable.' }, 503);
