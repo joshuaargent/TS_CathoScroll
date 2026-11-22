@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useSyncExternalStore } from 'react';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { Analytics, type BeforeSendEvent } from '@vercel/analytics/react';
-import { analyticsConsentChangeEvent, clearLegacyAnonymousAnalyticsConsent, hasAnalyticsConsent } from '@/lib/analytics-consent';
+import { analyticsConsentChangeEvent, clearLegacyAnonymousAnalyticsConsent, hasSyncedAnalyticsConsent } from '@/lib/analytics-consent';
 
 function sanitisePageUrl(rawUrl: string): string {
   const url = new URL(rawUrl);
@@ -44,7 +44,7 @@ export function PrivacySafeAnalytics() {
     if (!loading && userId === null) clearLegacyAnonymousAnalyticsConsent();
   }, [loading, userId]);
   const getSnapshot = useCallback(
-    () => hasAnalyticsConsent('serviceImprovement', userId),
+    () => hasSyncedAnalyticsConsent('serviceImprovement', userId),
     [userId]
   );
   const enabled = useSyncExternalStore(subscribe, getSnapshot, () => false);
