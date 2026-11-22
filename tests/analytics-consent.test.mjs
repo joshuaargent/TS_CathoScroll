@@ -41,7 +41,7 @@ test('optional analytics consent is explicit, purpose-specific and off by defaul
   assert.ok(manager.includes('if (loading || !visible) return null;'));
   assert.ok(account.includes('Service improvement analytics'));
   assert.ok(account.includes('Sponsor measurement'));
-  assert.ok(account.includes('Personalisation is independent. Passive reading signals inform recommendations only when both Personalisation and Service improvement analytics are enabled.'));
+  assert.ok(account.includes('Personalisation requires Service improvement analytics. Enable Service improvement before Personalisation, and turn off Personalisation before withdrawing it. Sponsor measurement remains separate.'));
   assert.ok(account.includes('clearAnalyticsConsentQueues(userId, previous, next)'));
   assert.ok(personalization.includes('offlineCacheAvailable'));
   assert.ok(personalization.includes('const forcedOfflineWithdrawal = !enabled && !personalizationStatusKnown && offlineCacheAvailable'));
@@ -55,8 +55,8 @@ test('optional analytics consent is explicit, purpose-specific and off by defaul
   assert.ok(signup.includes('name="serviceImprovementConsent"'));
   assert.ok(signup.includes('name="sponsorMeasurementConsent"'));
   assert.ok(signup.includes('I explicitly consent'));
-  assert.ok(signup.includes('Passive reading signals are used for recommendations only if you separately enable Service improvement analytics.'));
-  assert.doesNotMatch(signup, /Required while personalisation is enabled/);
+  assert.ok(signup.includes('Personalisation requires Service improvement analytics. Select that choice first and keep it enabled while Personalisation is active.'));
+  assert.match(signup, /disabled=\{loading \|\| !online \|\| !serviceImprovementConsent\}/);\n  assert.match(signup, /disabled=\{loading \|\| !online \|\| personalizationConsent\}/);
   assert.ok(layout.includes('<WebAnalyticsConsentManager />'));
   assert.ok(native.includes('<AnalyticsConsentManager'));
   assert.ok(native.includes("loading={authStatus === 'loading' || checkingAccount}"));
@@ -123,7 +123,7 @@ test('account consent sync is identity-bound, retryable and enforced server-side
   assert.match(serverConsent, /serviceImprovement: currentConsent && value\.serviceImprovement/);
   assert.match(serverConsent, /sponsorMeasurement: currentConsent && value\.sponsorMeasurement/);
   assert.doesNotMatch(manager, /effectivePersonalization|personalizationEnabled/);
-  assert.doesNotMatch(bootstrap, /Turn off personalisation before disabling Service improvement analytics/);
+  assert.match(bootstrap, /Turn off Personalisation before withdrawing Service improvement analytics/);
   assert.match(bootstrap, /profile_refreshed_at = NULL/);
   assert.ok(manager.includes('clearAnalyticsConsentQueues'));
   assert.ok(topicRoute.includes('getStoredAnalyticsConsent(user.id)'));
@@ -260,7 +260,7 @@ test('Vercel analytics and performance telemetry are gated by service-improvemen
   assert.ok(speed.includes('sanitiseSpeedInsightsEvent(event)'));
 });
 
-test('privacy assessment distinguishes special-category risk and keeps personalisation separate', async () => {
+test('privacy assessment distinguishes special-category risk and enforces the personalisation dependency', async () => {
   const [assessment, manager, account, analyticsSettings] = await Promise.all([
     read('../docs/analytics-data-protection-impact-assessment.md'),
     read('../src/components/privacy/AnalyticsConsentManager.tsx'),
@@ -272,9 +272,9 @@ test('privacy assessment distinguishes special-category risk and keeps personali
   assert.ok(assessment.includes('Article 9'));
   assert.ok(assessment.includes('religious or philosophical beliefs'));
   assert.ok(assessment.includes('not a legal opinion'));
-  assert.ok(manager.includes('Personalisation is independent; passive reading signals inform recommendations only when both Personalisation and Service improvement analytics are enabled. Sponsor measurement remains independent.'));
+  assert.ok(manager.includes('Personalisation requires Service improvement analytics; turn off Personalisation before withdrawing Service improvement. Sponsor measurement remains separate.'));
   assert.ok(account.includes('personalization'));
   assert.ok(account.includes('AnalyticsConsentSettingsPanel'));
   assert.ok(account.includes('I explicitly consent to CathoScroll using my account actions and selected interests to personalise my recommendations'));
-  assert.ok(analyticsSettings.includes('Passive reading signals inform recommendations only if Personalisation is separately enabled too.'));
+  assert.ok(analyticsSettings.includes('This choice must remain enabled while Personalisation is active; turn off Personalisation first to withdraw it.'));
 });
