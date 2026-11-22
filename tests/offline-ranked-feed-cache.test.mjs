@@ -59,6 +59,7 @@ test('withdrawing Service improvement clears cached passive-signal recommendatio
   assert.match(native, /analyticsConsentChangeEvent/);
   assert.match(native, /detail\.choice === 'serviceImprovement'/);
   assert.match(native, /detail\.consent\?\.serviceImprovement === false/);
+  assert.match(native, /detail\.consent\?\.serviceImprovement === true && detail\.consent\.syncPending === false/);
   assert.match(native, /cache\.clearPersonalizedPages\(user\.id\)/);
   assert.match(native, /offline reading falls back to the general feed/);
 });
