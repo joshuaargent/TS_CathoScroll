@@ -416,7 +416,7 @@ export function TopicFeedCore({
       setFeedEntryMap(nextMap);
     };
     const handleAccountConsentChange = (event: Event) => {
-      if (!userId) return;
+      if (userId === null) return;
       const detail = (event as CustomEvent<{ userId?: string | null }>).detail;
       if (detail?.userId !== userId) return;
       clearMeasuredPlacements();
