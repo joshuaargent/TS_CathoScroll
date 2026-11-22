@@ -54,7 +54,6 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
   const [managing, setManaging] = useState(false);
   const [serviceImprovement, setServiceImprovement] = useState(false);
   const [sponsorMeasurement, setSponsorMeasurement] = useState(false);
-  const [personalizationEnabled, setPersonalizationEnabled] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const activeUserIdRef = useRef<string | null>(userId);
@@ -264,8 +263,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
         !(remote.updatedAt === null || typeof remote.updatedAt === 'string')
       ) return;
 
-      setPersonalizationEnabled(remote.personalizationEnabled);
-      let local = readAnalyticsConsent(expectedUserId);
+      const local = readAnalyticsConsent(expectedUserId);
       if (local?.syncPending === true) {
         // Synchronise the local choices after reconciling any stale Service
         // improvement denial against an active server-side Personalisation grant.
