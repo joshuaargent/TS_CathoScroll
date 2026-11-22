@@ -78,7 +78,7 @@ export async function POST(request: Request) {
     !('sponsorMeasurement' in parsed.value) ||
     typeof parsed.value.sponsorMeasurement !== 'boolean' ||
     !('version' in parsed.value) ||
-    parsed.value.version !== 2
+    parsed.value.version !== 3
   ) return respond(request, { error: 'Invalid analytics consent preferences.' }, 400);
 
   const { data, error } = await createServiceRoleClient().rpc('set_user_analytics_consent', {
