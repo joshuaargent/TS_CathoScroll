@@ -16,7 +16,7 @@ Sponsor cards continue to be delivered when measurement is disabled. The act of 
 
 The retained optional streams are:
 
-- Signed-in Service improvement analytics, requiring explicit account opt-in.
+- Signed-in Service improvement analytics, requiring explicit account opt-in; non-identifying aggregates from this stream may also inform the shared general topic ranking for all readers, without using an individual reader's account history.
 - Signed-in Sponsor measurement, requiring a separate explicit account opt-in.
 - Personalisation, requiring explicit account opt-in and used only for private recommendations.
 
