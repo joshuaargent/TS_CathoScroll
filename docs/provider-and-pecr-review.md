@@ -17,7 +17,7 @@ Sponsor cards remain eligible for delivery regardless of consent. Delivery itsel
 ## Signed-in analytics
 
 - **Service improvement analytics:** account-linked topic and Top Comments engagement only while the account holder has explicitly enabled the choice. Topic/comment identifiers and bounded event measurements may reveal or permit inference of religious or philosophical interests.
-- **Sponsor measurement:** separate account-linked viewability, click and frequency measurement only while explicitly enabled. Event payloads use account, campaign, event, session and event-type fields. They must not contain topic IDs, category IDs, reading history or recommendation-profile data.
+- **Sponsor measurement:** separate account-linked viewability, click, bounded active-duration and frequency measurement only while explicitly enabled. Event payloads use account, campaign, event, session and event-type fields. They must not contain topic IDs, category IDs, reading history or recommendation-profile data.
 - **Personalisation:** separate account-level recommendation purpose. The derived profile is private and must not be used for sponsor targeting.
 - **General feed ranking:** does not use anonymous analytics or sponsor delivery/measurement events.
 
