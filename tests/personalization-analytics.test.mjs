@@ -145,7 +145,7 @@ test('personalisation consent is opt-in and versioned', () => {
 
 test('withdrawal deletes both inferred and explicitly selected interests', () => {
   const body = functionBody('public.set_my_personalization_consent(\n  p_enabled boolean,\n  p_consent_version text\n)');
-  assert.match(body, /DELETE FROM catho_private\.user_topic_interest_scores WHERE user_id=v_user_id/);
+    assert.match(setter, /DELETE FROM catho_private\.user_analytics_consents WHERE user_id = p_user_id/);
   assert.match(body, /DELETE FROM catho_private\.user_explicit_category_interests WHERE user_id=v_user_id/);
   assert.match(body, /withdrawn_at=EXCLUDED\.withdrawn_at/);
 });
@@ -541,8 +541,8 @@ test('all-unchecked analytics choices remain undecided while explicit withdrawal
   for (const sql of [analyticsConsentUpgrade, bootstrap]) {
     const setter = finalFunctionDefinition(sql, 'public.set_user_analytics_consent');
     assert.match(setter, /IF p_service_improvement IS FALSE AND p_sponsor_measurement IS FALSE THEN/);
-    assert.match(setter, /IF v_previous_service IS TRUE OR v_previous_sponsor IS TRUE THEN[\\s\\S]*?INSERT INTO catho_private\\.user_analytics_consent_history/);
+    assert.match(setter, /IF v_previous_service IS TRUE OR v_previous_sponsor IS TRUE THEN[\s\S]*?INSERT INTO catho_private\.user_analytics_consent_history/);
     assert.match(setter, /DELETE FROM catho_private\\.user_analytics_consents WHERE user_id = p_user_id/);
-    assert.match(setter, /RETURN public\\.get_user_analytics_consent\\(p_user_id\\)/);
+    assert.match(setter, /RETURN public\.get_user_analytics_consent\(p_user_id\)/);
   }
 });
