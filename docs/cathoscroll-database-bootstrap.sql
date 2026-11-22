@@ -9107,7 +9107,6 @@ BEGIN
     SELECT 1 FROM catho_private.user_personalization_consents AS personalization
     WHERE personalization.user_id = p_user_id
       AND personalization.enabled IS TRUE
-      AND personalization.consent_version = '2026-11-21-v6'
   ) THEN
     RAISE EXCEPTION 'Turn off Personalisation before withdrawing Service improvement analytics'
       USING ERRCODE = '42501';
