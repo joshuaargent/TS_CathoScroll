@@ -436,7 +436,7 @@ export function SponsorPortal({
                   </div>
                   <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
 
-                    <div><p className="text-text-muted text-xs">Opted-in viewable</p><p className="mt-1 font-semibold tabular-nums">{(metric?.viewable_impressions ?? 0).toLocaleString('en-GB')}</p></div>
+                    <div><p className="text-text-muted text-xs">Opted-in viewable impressions</p><p className="mt-1 font-semibold tabular-nums">{(metric?.viewable_impressions ?? 0).toLocaleString('en-GB')}</p></div>
                     <div><p className="text-text-muted text-xs">Opted-in clicks on viewable placements</p><p className="mt-1 font-semibold tabular-nums">{(metric?.clicks ?? 0).toLocaleString('en-GB')}</p></div>
                     <div><p className="text-text-muted text-xs">Opted-in CTR</p><p className="mt-1 font-semibold tabular-nums">{(metric?.click_through_rate ?? 0).toFixed(2)}%</p></div>
                   </div>
