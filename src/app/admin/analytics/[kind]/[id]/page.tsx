@@ -116,6 +116,7 @@ export default async function AdminAnalyticsEntityPage({ params, searchParams }:
       {kind === 'sponsors' ? <>
         <Metric label="Opted-in viewable impressions" value={fmt(totals.viewable_impressions)} detail="Signed-in users who enabled Sponsor measurement" />
         <Metric label="Opted-in clicks" value={fmt(totals.clicks)} detail="Clicks on opted-in viewable sponsor placements" />
+        <Metric label="Opted-in active time" value={Math.round(Number(totals.active_duration_ms ?? 0) / 1000) + ' sec'} detail="Time on viewable sponsor placements" />
         <Metric label="Active campaigns" value={fmt(totals.active_campaigns)} detail="Campaigns with opted-in measured activity" />
       </> : <>
         <Metric label="Opted-in card impressions" value={fmt(totals.impressions)} detail="Top Comments cards shown to opted-in signed-in users" />
