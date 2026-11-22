@@ -58,7 +58,7 @@ export default async function AdminAnalyticsEntityPage({ params, searchParams }:
   const query = (await searchParams) ?? {};
   if (kind !== 'sponsors' && kind !== 'comments') notFound();
   if (kind === 'sponsors' && !isValidUuid(id)) notFound();
-  if (kind === 'comments' && (!/^\\d{1,18}$/.test(id) || !Number.isSafeInteger(Number(id)) || Number(id) < 1)) notFound();
+  if (kind === 'comments' && (!/^\d{1,18}$/.test(id) || !Number.isSafeInteger(Number(id)) || Number(id) < 1)) notFound();
 
   const period: AnalyticsPeriod = isAnalyticsPeriod(query.period) ? query.period : '30d';
   const { from, to } = getAnalyticsRange(period);
