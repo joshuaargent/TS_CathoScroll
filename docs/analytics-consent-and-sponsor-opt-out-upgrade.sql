@@ -2406,6 +2406,16 @@ BEGIN
   END IF;
   PERFORM 1 FROM auth.users AS account WHERE account.id = p_user_id FOR UPDATE;
 
+  IF p_service_improvement IS NOT TRUE AND EXISTS (
+    SELECT 1 FROM catho_private.user_personalization_consents AS personalization
+    WHERE personalization.user_id = p_user_id
+      AND personalization.enabled IS TRUE
+      AND personalization.consent_version = '2026-11-21-v6'
+  ) THEN
+    RAISE EXCEPTION 'Turn off Personalisation before withdrawing Service improvement analytics'
+      USING ERRCODE = '42501';
+  END IF;
+
   SELECT service_improvement, sponsor_measurement
   INTO v_previous_service, v_previous_sponsor
   FROM catho_private.user_analytics_consents
