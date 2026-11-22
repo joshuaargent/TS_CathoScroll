@@ -270,6 +270,15 @@ export class OfflineRankedFeedCache {
     });
   }
 
+  async clearPersonalizedPages(userId: string): Promise<void> {
+    assertOwner('personalized', userId);
+    if (!this.allowPersonalizedCache) throw new Error('Personalised pages require encrypted private storage.');
+    await this.database.transaction((db) => db.execute(
+      'DELETE FROM offline_ranked_feed_pages WHERE mode = ? AND owner_id = ?',
+      ['personalized', userId]
+    ));
+  }
+
   async clearUser(userId: string): Promise<void> {
     assertOwner('personalized', userId);
     if (!this.allowPersonalizedCache) throw new Error('Personalised pages require encrypted private storage.');
