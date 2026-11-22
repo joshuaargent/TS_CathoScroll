@@ -9,12 +9,12 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardDescription, CardTitle } from '@/components/ui/Card';
 import type { AnalyticsPeriod } from '@/lib/analytics/content-analytics';
 
-type AnalyticsDay = { event_date: string; topic_impressions: number; sponsor_served: number; comment_impressions: number; topic_viewable_impressions: number; sponsor_viewable_impressions: number; sponsor_clicks: number; comment_viewable_impressions: number };
+type AnalyticsDay = { event_date: string; topic_impressions: number; sponsor_viewable_impressions: number; comment_impressions: number; topic_viewable_impressions: number; sponsor_viewable_impressions: number; sponsor_clicks: number; comment_viewable_impressions: number };
 
 type Overview = {
   totals: {
     topic_impressions: number; topic_viewable_impressions: number; topic_active_duration_ms: number;
-    topic_skips: number; topic_completions: number; sponsor_served: number;
+    topic_skips: number; topic_completions: number; sponsor_viewable_impressions: number;
     sponsor_viewable_impressions: number; sponsor_clicks: number;
     comment_card_impressions: number; comment_card_viewable_impressions: number;
     comment_card_active_duration_ms: number; comment_card_skips: number; comment_card_opens: number;
@@ -74,7 +74,7 @@ function DailyOverviewChart({ series }: { series: AnalyticsDay[] }) {
   const padding = { left: 42, right: 18, top: 18, bottom: 36 };
   const chartWidth = width - padding.left - padding.right;
   const chartHeight = height - padding.top - padding.bottom;
-  const values = series.flatMap((day) => [day.topic_impressions, day.sponsor_served, day.comment_impressions]);
+  const values = series.flatMap((day) => [day.topic_impressions, day.sponsor_viewable_impressions, day.comment_impressions]);
   const max = Math.max(1, ...values);
   const point = (value: number, index: number) => {
     const x = padding.left + (series.length <= 1 ? chartWidth / 2 : index / (series.length - 1) * chartWidth);
@@ -82,13 +82,13 @@ function DailyOverviewChart({ series }: { series: AnalyticsDay[] }) {
     return x.toFixed(1) + ',' + y.toFixed(1);
   };
   const topic = series.map((day, index) => point(day.topic_impressions, index)).join(' ');
-  const sponsor = series.map((day, index) => point(day.sponsor_served, index)).join(' ');
+  const sponsor = series.map((day, index) => point(day.sponsor_viewable_impressions, index)).join(' ');
   const comments = series.map((day, index) => point(day.comment_impressions, index)).join(' ');
   return <Card padding="lg" className="mt-6">
     <div><h2 className="text-xl font-bold">Daily feed activity</h2><p className="text-text-muted mt-1 text-sm">Separate daily trends for learning topics, paid sponsor delivery and Top Comments.</p></div>
     <div className="mt-5 flex flex-wrap gap-4 text-xs">
       <span className="text-text-secondary inline-flex items-center gap-2"><span className="bg-accent h-2.5 w-2.5 rounded-full" /> Signed-in topic impressions</span>
-      <span className="text-text-secondary inline-flex items-center gap-2"><span className="bg-emerald-600 h-2.5 w-2.5 rounded-full" /> Signed-in sponsor deliveries</span>
+      <span className="text-text-secondary inline-flex items-center gap-2"><span className="bg-emerald-600 h-2.5 w-2.5 rounded-full" /> Opted-in sponsor viewable impressions</span>
       <span className="text-text-secondary inline-flex items-center gap-2"><span className="bg-sky-600 h-2.5 w-2.5 rounded-full" /> Signed-in comment-card impressions</span>
     </div>
     {series.length ? <svg viewBox={'0 0 ' + width + ' ' + height} className="mt-3 h-auto w-full" role="img" aria-label="Daily topic, sponsor and comment card activity">
@@ -103,7 +103,7 @@ function DailyOverviewChart({ series }: { series: AnalyticsDay[] }) {
 
 export function AdminAnalyticsHub({ overview, period, section = 'overview', series, deepDive }: { overview: Overview; period: AnalyticsPeriod; section?: string; series: AnalyticsDay[]; deepDive: AnalyticsDeepDiveData }) {
   const t = overview.totals;
-  const totalExposures = t.topic_impressions + t.sponsor_served + t.comment_card_impressions;
+  const totalExposures = t.topic_impressions + t.sponsor_viewable_impressions + t.comment_card_impressions;
   const sectionHref = (value: string) => `/admin/analytics?period=${period}&section=${value}`;
   const showAll = section === 'overview';
   const categories = showAll ? overview.categories.slice(0, 5) : overview.categories;
@@ -145,9 +145,9 @@ export function AdminAnalyticsHub({ overview, period, section = 'overview', seri
     </nav>
 
     <section className="mt-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-      <Metric label="Total feed placements" value={number(totalExposures)} detail="Topic, sponsor and Top Comments placements; stream metrics remain separate below" icon={Activity} />
+      <Metric label="Tracked feed exposures" value={number(totalExposures)} detail="Topic and Top Comments impressions plus opted-in sponsor viewability; no delivery totals are collected" icon={Activity} />
       <Metric label="Topic impressions" value={number(t.topic_impressions)} detail={number(t.topic_viewable_impressions) + ' viewable · ' + duration(t.topic_active_duration_ms) + ' active time'} icon={BookOpen} />
-      <Metric label="Sponsored delivery" value={number(t.sponsor_served)} detail={number(t.sponsor_viewable_impressions) + ' viewable · ' + number(t.sponsor_clicks) + ' clicks'} icon={Megaphone} />
+      <Metric label="Sponsor viewable impressions" value={number(t.sponsor_viewable_impressions)} detail={number(t.sponsor_clicks) + " clicks from opted-in viewable placements"} icon={Megaphone} />
       <Metric label="Top Comments exposure" value={number(t.comment_card_impressions)} detail={number(t.comment_card_viewable_impressions) + ' viewable · ' + number(t.comment_card_opens) + ' discussion opens'} icon={MessageCircle} />
     </section>
 
