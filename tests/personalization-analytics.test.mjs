@@ -440,6 +440,10 @@ test('personalisation and service improvement consent dependency is enforced', (
   assert.match(webSignup, /service_improvement_consent: serviceImprovementConsent/);
   assert.match(webSignup, /sponsor_measurement_consent: sponsorMeasurementConsent/);
   assert.match(nativeSignup, /personalization_consent_version: personalizationConsent \? '2026-11-22-v7' : null/);
+  assert.match(webSignup, /analytics_consent_version: '3'/);
+  assert.match(nativeSignup, /analytics_consent_version: '3'/);
+  assert.match(upgrade, /analytics_consent_version' = '3'[\s\S]*?service_improvement_consent/);
+  assert.match(upgrade, /analytics_consent_version' = '3'[\s\S]*?sponsor_measurement_consent/);
   assert.match(nativeSignup, /service_improvement_consent: serviceImprovementConsent/);
   assert.match(nativeSignup, /sponsor_measurement_consent: sponsorMeasurementConsent/);
   assert.match(accountSection, /p_consent_version: '2026-11-22-v7'/);
