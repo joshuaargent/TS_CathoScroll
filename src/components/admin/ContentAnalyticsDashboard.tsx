@@ -105,7 +105,7 @@ function LineChart({ series }: { series: DailyContentAnalytics[] }) {
     <div className="w-full">
       <div className="mb-4 flex flex-wrap gap-4 text-sm">
         <span className="text-text-secondary inline-flex items-center gap-2">
-          <span className="bg-accent h-2.5 w-2.5 rounded-full" /> Impressions
+          <span className="bg-accent h-2.5 w-2.5 rounded-full" /> Opted-in impressions
         </span>
         <span className="text-text-secondary inline-flex items-center gap-2">
           <span className="bg-emerald-600 dark:bg-emerald-400 h-2.5 w-2.5 rounded-full" /> Opted-in viewable impressions
