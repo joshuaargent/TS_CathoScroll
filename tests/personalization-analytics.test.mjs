@@ -15,6 +15,7 @@ const nativeSignup = readFileSync(new URL('../native/signup.tsx', import.meta.ur
 const accountView = readFileSync(new URL('../src/components/account/AccountPageView.tsx', import.meta.url), 'utf8');
 const accountSection = readFileSync(new URL('../src/components/account/PersonalizationAccountSection.tsx', import.meta.url), 'utf8');
 const analyticsSettingsPanel = readFileSync(new URL('../src/components/account/AnalyticsConsentSettingsPanel.tsx', import.meta.url), 'utf8');
+const manager = readFileSync(new URL('../src/components/privacy/AnalyticsConsentManager.tsx', import.meta.url), 'utf8');
 const nativeMain = readFileSync(new URL('../native/main.tsx', import.meta.url), 'utf8');
 const nativeAccount = readFileSync(new URL('../native/account.tsx', import.meta.url), 'utf8');
 const privacyPage = readFileSync(new URL('../src/app/privacy/page.tsx', import.meta.url), 'utf8');
