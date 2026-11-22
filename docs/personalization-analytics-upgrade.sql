@@ -210,7 +210,7 @@ BEGIN
   SELECT coalesce(bool_or(enabled),false),max(updated_at)
     INTO v_enabled,v_updated_at
   FROM catho_private.user_personalization_consents
-  WHERE user_id=v_user_id AND consent_version='2026-11-21-v6';
+  WHERE user_id=v_user_id AND consent_version='2026-11-22-v7';
   IF coalesce(v_enabled,false) THEN
     SELECT count(*),count(DISTINCT category_slug) INTO v_topics,v_categories
     FROM (
@@ -261,7 +261,7 @@ BEGIN
     FROM catho_private.user_personalization_consents AS pc
     WHERE pc.user_id = p_user_id
       AND pc.enabled = true
-      AND pc.consent_version = '2026-11-21-v6'
+      AND pc.consent_version = '2026-11-22-v7'
   ) THEN
     RETURN;
   END IF;
@@ -310,7 +310,7 @@ BEGIN
   FROM catho_private.user_personalization_consents c
   LEFT JOIN catho_private.user_analytics_consents a ON a.user_id=c.user_id
   WHERE c.user_id=p_user_id AND c.enabled=true
-    AND c.consent_version='2026-11-21-v6';
+    AND c.consent_version='2026-11-22-v7';
   IF v_consent_at IS NULL THEN RETURN 0; END IF;
   IF v_last_refresh IS NOT NULL AND v_last_refresh >= v_now-interval '5 minutes' THEN
     SELECT count(*)::integer INTO v_count FROM catho_private.user_topic_interest_scores WHERE user_id=p_user_id;
@@ -503,7 +503,7 @@ DECLARE
 BEGIN
   IF v_user_id IS NULL THEN RAISE EXCEPTION 'Authentication required' USING ERRCODE='42501'; END IF;
   IF p_enabled IS NULL THEN RAISE EXCEPTION 'A consent choice is required' USING ERRCODE='22023'; END IF;
-  IF p_enabled IS TRUE AND p_consent_version IS DISTINCT FROM '2026-11-21-v6' THEN
+  IF p_enabled IS TRUE AND p_consent_version IS DISTINCT FROM '2026-11-22-v7' THEN
     RAISE EXCEPTION 'Update CathoScroll and review the current personalisation notice before enabling recommendations' USING ERRCODE='42501';
   END IF;
   PERFORM 1 FROM auth.users WHERE id = v_user_id FOR UPDATE;
@@ -517,7 +517,7 @@ BEGIN
   IF p_enabled THEN
     INSERT INTO catho_private.user_personalization_consents
       (user_id,enabled,consent_version,granted_at,withdrawn_at,updated_at)
-    VALUES (v_user_id,true,'2026-11-21-v6',v_now,NULL,v_now)
+    VALUES (v_user_id,true,'2026-11-22-v7',v_now,NULL,v_now)
     ON CONFLICT(user_id) DO UPDATE SET
       enabled=true,consent_version=EXCLUDED.consent_version,
       granted_at=CASE WHEN catho_private.user_personalization_consents.enabled
@@ -530,8 +530,8 @@ BEGIN
   ELSE
     INSERT INTO catho_private.user_personalization_consents
       (user_id,enabled,consent_version,granted_at,withdrawn_at,updated_at)
-    VALUES(v_user_id,false,'2026-11-21-v6',NULL,v_now,v_now)
-    ON CONFLICT(user_id) DO UPDATE SET enabled=false,consent_version='2026-11-21-v6',granted_at=NULL,
+    VALUES(v_user_id,false,'2026-11-22-v7',NULL,v_now,v_now)
+    ON CONFLICT(user_id) DO UPDATE SET enabled=false,consent_version='2026-11-22-v7',granted_at=NULL,
       withdrawn_at=EXCLUDED.withdrawn_at,profile_refreshed_at=NULL,updated_at=EXCLUDED.updated_at;
     DELETE FROM catho_private.user_topic_interest_scores WHERE user_id=v_user_id;
     DELETE FROM catho_private.user_explicit_category_interests WHERE user_id=v_user_id;
@@ -553,7 +553,7 @@ BEGIN
   IF p_enabled IS TRUE THEN
     RAISE EXCEPTION 'Update CathoScroll and review the current personalisation notice before enabling recommendations' USING ERRCODE='42501';
   END IF;
-  RETURN public.set_my_personalization_consent(false, '2026-11-21-v6');
+  RETURN public.set_my_personalization_consent(false, '2026-11-22-v7');
 END;
 $function$;
 
@@ -577,7 +577,7 @@ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM catho_private.user_personalization_consents c
     WHERE c.user_id=v_user_id AND c.enabled=true
-      AND c.consent_version='2026-11-21-v6'
+      AND c.consent_version='2026-11-22-v7'
   ) THEN
     RAISE EXCEPTION 'Enable personalisation before saving interests' USING ERRCODE='42501';
   END IF;
@@ -621,7 +621,7 @@ AS $function$
 DECLARE
   v_now timestamptz := statement_timestamp();
   v_personalization boolean := NEW.raw_user_meta_data ->> 'personalization_consent' = 'true'
-    AND NEW.raw_user_meta_data ->> 'personalization_consent_version' = '2026-11-21-v6';
+    AND NEW.raw_user_meta_data ->> 'personalization_consent_version' = '2026-11-22-v7';
   v_service_improvement boolean := NEW.raw_user_meta_data ->> 'service_improvement_consent' = 'true';
   v_sponsor_measurement boolean := NEW.raw_user_meta_data ->> 'sponsor_measurement_consent' = 'true';
 BEGIN
@@ -636,7 +636,7 @@ BEGIN
     INSERT INTO catho_private.user_personalization_consents
       (user_id,enabled,consent_version,granted_at,withdrawn_at,updated_at)
     VALUES (
-      NEW.id, true, '2026-11-21-v6', v_now, NULL, v_now
+      NEW.id, true, '2026-11-22-v7', v_now, NULL, v_now
     )
     ON CONFLICT(user_id) DO NOTHING;
   END IF;
@@ -913,7 +913,7 @@ BEGIN
     FROM catho_private.user_personalization_consents AS pc
     WHERE pc.user_id = p_user_id
       AND pc.enabled = true
-      AND pc.consent_version = '2026-11-21-v6'
+      AND pc.consent_version = '2026-11-22-v7'
   ) THEN
     RETURN;
   END IF;
@@ -963,7 +963,7 @@ BEGIN
   -- explicitly false rather than NULL, so the initial baseline cursor remains valid.
   SELECT coalesce(bool_or(enabled),false) INTO personalization_enabled
   FROM catho_private.user_personalization_consents
-  WHERE user_id=current_user_id AND consent_version='2026-11-21-v6';
+  WHERE user_id=current_user_id AND consent_version='2026-11-22-v7';
 
   IF initial_page THEN
     include_completed := NOT personalization_enabled;
@@ -1285,7 +1285,7 @@ BEGIN
   FROM catho_private.user_personalization_consents AS c
   WHERE c.enabled = true
     AND (
-      c.consent_version IS DISTINCT FROM '2026-11-21-v6'
+      c.consent_version IS DISTINCT FROM '2026-11-22-v7'
     );
 
   UPDATE catho_private.user_personalization_consents
@@ -1308,7 +1308,7 @@ BEGIN
     FROM catho_private.user_personalization_consents AS c
     WHERE c.user_id = s.user_id
       AND c.enabled = true
-      AND c.consent_version = '2026-11-21-v6'
+      AND c.consent_version = '2026-11-22-v7'
   );
   DELETE FROM catho_private.user_explicit_category_interests AS i
   WHERE NOT EXISTS (
@@ -1316,7 +1316,7 @@ BEGIN
     FROM catho_private.user_personalization_consents AS c
     WHERE c.user_id = i.user_id
       AND c.enabled = true
-      AND c.consent_version = '2026-11-21-v6'
+      AND c.consent_version = '2026-11-22-v7'
   );
 END;
 $personalization_consent_regrant$;
