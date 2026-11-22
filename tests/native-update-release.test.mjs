@@ -25,7 +25,7 @@ test('2.4.0 native release versions remain aligned across package, lockfiles and
   assert.match(releaseWorkflow, /root\.version !== tagVersion/);
   assert.match(releaseWorkflow, /electron\.version !== tagVersion/);
   assert.match(releaseWorkflow, /major \* 1000000 \+ minor \* 1000 \+ patch/);
-  assert.match(releaseWorkflow, /CathoScroll-\$\{version\}\.apk/);
+  assert.match(releaseWorkflow, /CathoScroll-\$\{RELEASE_TAG#v\}\.apk/);
 });
 
 test('desktop updates use automatic delivery only on supported package formats', async () => {
