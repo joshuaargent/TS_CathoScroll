@@ -625,24 +625,21 @@ BEGIN
       USING ERRCODE = '42501';
   END IF;
 
-  -- Personalisation is a separate explicit choice but requires Service
-  -- improvement analytics to remain enabled while it is active.
-  INSERT INTO catho_private.user_personalization_consents
-    (user_id,enabled,consent_version,granted_at,withdrawn_at,updated_at)
-  VALUES (
-    NEW.id,
-    v_personalization,
-    '2026-11-21-v6',
-    CASE WHEN v_personalization THEN v_now ELSE NULL END,
-    CASE WHEN v_personalization THEN NULL ELSE v_now END,
-    v_now
-  )
-  ON CONFLICT(user_id) DO NOTHING;
+  -- An unchecked Personalisation box is not a recorded refusal. Create a
+  -- current-state row only when the user actively opted in.
+  IF v_personalization IS TRUE THEN
+    INSERT INTO catho_private.user_personalization_consents
+      (user_id,enabled,consent_version,granted_at,withdrawn_at,updated_at)
+    VALUES (
+      NEW.id, true, '2026-11-21-v6', v_now, NULL, v_now
+    )
+    ON CONFLICT(user_id) DO NOTHING;
+  END IF;
 
-  -- Service improvement is required while Personalisation is enabled.
-  -- Sponsor measurement remains a separate optional choice; each stays off
-  -- unless its corresponding unticked signup choice was explicitly selected.
-  INSERT INTO catho_private.user_analytics_consents (
+  -- No analytics row or consent-history entry is created when both optional
+  -- analytics choices remain unticked. A missing row means not yet decided.
+  IF v_service_improvement IS TRUE OR v_sponsor_measurement IS TRUE THEN
+    INSERT INTO catho_private.user_analytics_consents (
       user_id, service_improvement, sponsor_measurement, consent_version,
       service_improvement_updated_at, sponsor_measurement_updated_at, created_at, updated_at
     ) VALUES (
@@ -651,22 +648,14 @@ BEGIN
       CASE WHEN v_sponsor_measurement THEN v_now ELSE NULL END,
       v_now, v_now
     )
-    ON CONFLICT (user_id) DO UPDATE SET
-      service_improvement = EXCLUDED.service_improvement,
-      sponsor_measurement = EXCLUDED.sponsor_measurement,
-      service_improvement_updated_at = CASE
-        WHEN catho_private.user_analytics_consents.service_improvement IS DISTINCT FROM EXCLUDED.service_improvement
-        THEN v_now ELSE catho_private.user_analytics_consents.service_improvement_updated_at END,
-      sponsor_measurement_updated_at = CASE
-        WHEN catho_private.user_analytics_consents.sponsor_measurement IS DISTINCT FROM EXCLUDED.sponsor_measurement
-        THEN v_now ELSE catho_private.user_analytics_consents.sponsor_measurement_updated_at END,
-      updated_at = v_now;
+    ON CONFLICT (user_id) DO NOTHING;
 
     INSERT INTO catho_private.user_analytics_consent_history (
       user_id, previous_service_improvement, previous_sponsor_measurement,
       service_improvement, sponsor_measurement, consent_version, recorded_at
     )
     VALUES (NEW.id, NULL, NULL, v_service_improvement, v_sponsor_measurement, 2, v_now);
+  END IF;
   RETURN NEW;
 END;
 $function$;
