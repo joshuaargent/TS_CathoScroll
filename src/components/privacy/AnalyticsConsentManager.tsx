@@ -278,9 +278,8 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
         local = readAnalyticsConsent(expectedUserId);
       }
       if (local?.syncPending === true) {
-        // Preserve the user's local denial and synchronise it. The server
-        // rejects Service improvement withdrawal while Personalisation is
-        // enabled; users must withdraw Personalisation first.
+        // Synchronise the local choices after reconciling any stale Service
+        // improvement denial against an active server-side Personalisation grant.
         const pendingChoices = {
           serviceImprovement: local.serviceImprovement,
           sponsorMeasurement: local.sponsorMeasurement,
