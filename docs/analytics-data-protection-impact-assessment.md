@@ -8,13 +8,13 @@ This assessment covers signed-in Service improvement analytics, signed-in Sponso
 
 ## 1. Processing purpose
 
-Service improvement analytics measures signed-in topic-feed and Top Comments engagement after explicit opt-in. Sponsor measurement separately measures signed-in sponsor viewability, clicks and frequency after explicit opt-in. Personalisation creates a private account-level recommendation profile after explicit opt-in. General feed ranking uses public interaction signals, curated content order and exposure balancing; it does not use anonymous analytics or sponsor events.
+Service improvement analytics measures signed-in topic-feed and Top Comments engagement after explicit opt-in. Sponsor measurement separately measures signed-in sponsor viewability, clicks, bounded active viewing duration and frequency after explicit opt-in. Personalisation creates a private account-level recommendation profile after explicit opt-in. General feed ranking uses public interaction signals, curated content order and exposure balancing; it does not use anonymous analytics or sponsor events.
 
 Sponsor delivery remains available without measurement. Sponsor selection/display does not create a delivery counter or analytics record.
 
 ## 2. Data and people
 
-The relevant data may include account identifiers, topic/comment identifiers, event/session identifiers, event type, bounded durations and server receipt timestamps. Sponsor events contain campaign/event/session identifiers, a server-issued placement receipt and event type. The receipt is created only for opted-in accounts, stored in the encrypted native outbox when pending, and expires server-side after seven days. Recommendation profiles contain selected category interests and derived topic/category scores.
+The relevant data may include account identifiers, topic/comment identifiers, event/session identifiers, event type, bounded durations and server receipt timestamps. Sponsor events contain campaign/event/session identifiers, a server-issued placement receipt, event type and bounded duration values for active-duration events. The receipt is created only for opted-in accounts, stored in the encrypted native outbox when pending, and expires server-side after seven days. Recommendation profiles contain selected category interests and derived topic/category scores.
 
 Users of a Catholic theology service may disclose or permit inference of religious or philosophical beliefs through their reading activity. Treat account-linked reading signals and derived recommendation profiles as potentially special-category data where the processing intentionally reveals, infers or uses those beliefs.
 
