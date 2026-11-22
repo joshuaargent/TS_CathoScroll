@@ -5068,7 +5068,7 @@ BEGIN
     SELECT 1 FROM catho_private.sponsor_campaign_events AS viewed
     WHERE viewed.user_id=p_user_id AND viewed.campaign_id=p_campaign_id
       AND viewed.session_id=p_session_id AND viewed.event_type='viewable_impression'
-  ) THEN RAISE EXCEPTION 'Sponsor campaign must be viewable before a click is recorded' USING ERRCODE = '42501'; END IF;
+  ) THEN RAISE EXCEPTION 'Sponsor campaign must be viewable before a click or active-duration event is recorded' USING ERRCODE = '42501'; END IF;
   IF EXISTS (
     SELECT 1 FROM catho_private.sponsor_campaign_events AS existing
     WHERE existing.user_id=p_user_id AND existing.campaign_id=p_campaign_id
