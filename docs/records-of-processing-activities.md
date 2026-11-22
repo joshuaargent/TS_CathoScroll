@@ -38,7 +38,7 @@ The Article 6 bases below are the intended mapping for controller approval. Wher
 | Sponsor administration and reconciliation | Business contact details, organisation membership/roles, campaign submissions, agreed amounts, invoice balances, payment dates and bank/payment references | Sponsor representatives | Article 6(1)(b) for requested sponsor services and/or Article 6(1)(f) for account administration; controller to confirm per activity | Normally none; assess any unusual content separately |
 | Legal, tax and accounting compliance | Invoice and transaction records, correspondence and records required by law | Sponsor representatives and relevant account holders | Article 6(1)(c), legal obligation | None unless special-category data is included |
 
-**Consent separation:** Service improvement analytics, Sponsor measurement and Personalisation are separate, optional choices. Neither analytics choice is enabled for signed-out visitors. Passive reading signals are used for recommendations only when both Service improvement analytics and Personalisation are enabled. Sponsor measurement is never used for recommendations or individual belief-based sponsor targeting.
+**Consent separation:** Service improvement analytics, Sponsor measurement and Personalisation are separately presented, optional choices. Personalisation requires Service improvement analytics to remain enabled; users must turn off Personalisation before withdrawing Service improvement. Neither analytics choice is enabled for signed-out visitors. Passive reading signals are used for recommendations while Personalisation is enabled. Sponsor measurement is never used for recommendations or individual belief-based sponsor targeting.
 
 ## 4. Categories of recipients and processors
 
