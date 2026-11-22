@@ -130,7 +130,7 @@ test('account consent sync is identity-bound, retryable and enforced server-side
   assert.match(signupConsent, /Personalisation requires Service improvement analytics/);
   assert.match(signupConsent, /NEW\.id, v_service_improvement, v_sponsor_measurement, 2/);
 
-  assert.match(serverConsent, /const currentConsent = value\.version === 2 && value\.exists === true/);
+  assert.match(serverConsent, /const currentConsent = value\.version === 3 && value\.exists === true/);
   assert.match(serverConsent, /serviceImprovement: currentConsent && value\.serviceImprovement/);
   assert.match(serverConsent, /sponsorMeasurement: currentConsent && value\.sponsorMeasurement/);
   assert.match(consentClient, /pendingPurposes: options\.pendingPurposes/);
