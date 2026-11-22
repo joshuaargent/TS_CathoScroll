@@ -15,6 +15,7 @@ import {
 import { createFeedRefreshCoordinator } from '@/lib/feed-refresh-coordinator';
 import { siteConfig } from '@/lib/constants';
 import { analyticsConsentChangeEvent, hasAnalyticsConsent } from '@/lib/analytics-consent';
+import { anonymousAnalyticsPreferenceChangeEvent, isAnonymousAnalyticsAllowed } from '@/lib/anonymous-analytics-preferences';
 import { buildFeedEntryMap, collectReservedCommentIds, flattenFeedEntryMap, reconcileFeedBoundary, type FeedEntry, type FeedEntryMap } from '@/lib/feed-entry-map';
 import {
   invokeRegisteredFeedEntryLifecycle,
@@ -196,10 +197,13 @@ export function TopicFeedCore({
   const loadSponsorCampaigns = useCallback(
     async (topic: Topic): Promise<{ campaigns: SponsorFeedCampaign[]; sessionId: string | null; retryable?: boolean }> => {
 
-      // Detailed Sponsor measurement is account-only. Signed-out placements
-      // use the token-free selector and create no measurement record.
-      // Signed-in opted-in placements receive a server-issued receipt for event validation.
-      const measurementEnabled = Boolean(userId && hasAnalyticsConsent('sponsorMeasurement', userId));
+      // Signed-in Sponsor measurement requires account consent. Signed-out
+      // Sponsor measurement uses the separate local objection preference and
+      // a session token held only in memory; the server stores no session hash.
+      const anonymousMeasurementEnabled = !userId && isAnonymousAnalyticsAllowed('sponsorMeasurement');
+      const measurementEnabled = userId
+        ? hasAnalyticsConsent('sponsorMeasurement', userId)
+        : anonymousMeasurementEnabled;
       const sessionId = measurementEnabled ? createSponsorPlacementId() : null;
       if (measurementEnabled && !sessionId) return { campaigns: [], sessionId: null, retryable: true };
 
@@ -233,6 +237,7 @@ export function TopicFeedCore({
               sessionId,
               categorySlug: topic.categorySlug ?? null,
               topicId: topic.id,
+              anonymousSponsorMeasurementEnabled: anonymousMeasurementEnabled,
             }),
           });
           if (!response.ok) {
@@ -351,13 +356,18 @@ export function TopicFeedCore({
       if (inFlight) return inFlight;
 
       const requestedUserId = userId;
-      const requestedMeasurementEnabled = hasAnalyticsConsent('sponsorMeasurement', requestedUserId);
+      const requestedMeasurementEnabled = requestedUserId
+        ? hasAnalyticsConsent('sponsorMeasurement', requestedUserId)
+        : isAnonymousAnalyticsAllowed('sponsorMeasurement');
       const request = loadSponsorCampaigns(topic)
         .then((result) => {
           // A consent change while the request is in flight invalidates its
           // visitor/session token. Keep the sponsor placement, but never cache
           // or expose the token after the user withdraws measurement.
-          if (hasAnalyticsConsent('sponsorMeasurement', requestedUserId) !== requestedMeasurementEnabled) {
+          const measurementStillEnabled = requestedUserId
+            ? hasAnalyticsConsent('sponsorMeasurement', requestedUserId)
+            : isAnonymousAnalyticsAllowed('sponsorMeasurement');
+          if (measurementStillEnabled !== requestedMeasurementEnabled) {
             return { ...result, sessionId: null };
           }
           // Cache both successful and empty results. A missing placement is a
@@ -393,13 +403,14 @@ export function TopicFeedCore({
   );
 
   useEffect(() => {
-    const handleConsentChange = (event: Event) => {
-      const detail = (event as CustomEvent<{ userId?: string | null }>).detail;
-      if ((detail?.userId ?? null) !== (userId ?? null)) return;
-      if (hasAnalyticsConsent('sponsorMeasurement', userId)) return;
+    const clearMeasuredPlacements = () => {
+      const measurementEnabled = userId
+        ? hasAnalyticsConsent('sponsorMeasurement', userId)
+        : isAnonymousAnalyticsAllowed('sponsorMeasurement');
+      if (measurementEnabled) return;
 
-      // Remove measurement receipts created before withdrawal from the feed cache
-      // and currently mounted card. Sponsor delivery remains available.
+      // Remove measurement receipts created before withdrawal/objection from
+      // the feed cache and currently mounted card. Sponsor delivery remains available.
       sponsorResultsByTopicId.current.clear();
       sponsorCardsByTopicId.current.clear();
 
@@ -416,8 +427,24 @@ export function TopicFeedCore({
       feedEntryMapRef.current = nextMap;
       setFeedEntryMap(nextMap);
     };
-    window.addEventListener(analyticsConsentChangeEvent, handleConsentChange);
-    return () => window.removeEventListener(analyticsConsentChangeEvent, handleConsentChange);
+    const handleAccountConsentChange = (event: Event) => {
+      if (!userId) return;
+      const detail = (event as CustomEvent<{ userId?: string | null }>).detail;
+      if (detail?.userId !== userId) return;
+      clearMeasuredPlacements();
+    };
+    const handleAnonymousPreferenceChange = (event: Event) => {
+      if (userId) return;
+      const detail = (event as CustomEvent<{ purpose?: string; objected?: boolean }>).detail;
+      if (detail?.purpose !== 'sponsorMeasurement' || detail.objected !== true) return;
+      clearMeasuredPlacements();
+    };
+    window.addEventListener(analyticsConsentChangeEvent, handleAccountConsentChange);
+    window.addEventListener(anonymousAnalyticsPreferenceChangeEvent, handleAnonymousPreferenceChange);
+    return () => {
+      window.removeEventListener(analyticsConsentChangeEvent, handleAccountConsentChange);
+      window.removeEventListener(anonymousAnalyticsPreferenceChangeEvent, handleAnonymousPreferenceChange);
+    };
   }, [setFeedEntryMap, userId]);
 
   const loadMoreTopComments = useCallback(async () => {
