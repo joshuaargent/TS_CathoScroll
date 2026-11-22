@@ -1354,7 +1354,7 @@ DO $release_analytics_reset$
 BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM catho_private.analytics_release_resets
-    WHERE reset_key = '2026-11-21-no-anonymous-analytics-v1'
+    WHERE reset_key = '2026-11-22-analytics-consent-reset-v2'
   ) THEN
     DELETE FROM catho_private.user_analytics_consents;
     DELETE FROM catho_private.user_personalization_consents;
@@ -1380,7 +1380,7 @@ BEGIN
     DELETE FROM catho_private.user_explicit_category_interests;
 
     INSERT INTO catho_private.analytics_release_resets(reset_key)
-    VALUES ('2026-11-21-no-anonymous-analytics-v1');
+    VALUES ('2026-11-22-analytics-consent-reset-v2');
   END IF;
 END;
 $release_analytics_reset$;
