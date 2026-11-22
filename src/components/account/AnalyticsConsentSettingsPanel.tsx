@@ -14,11 +14,15 @@ import { clearAnalyticsConsentQueues } from '@/components/privacy/AnalyticsConse
 type AnalyticsConsentSettingsPanelProps = {
   userId: string | null;
   disabled?: boolean;
+  personalizationStatusKnown: boolean;
+  personalizationEnabled: boolean;
 };
 
 export function AnalyticsConsentSettingsPanel({
   userId,
   disabled = false,
+  personalizationStatusKnown,
+  personalizationEnabled,
 }: AnalyticsConsentSettingsPanelProps) {
   const [serviceImprovement, setServiceImprovement] = useState(false);
   const [sponsorMeasurement, setSponsorMeasurement] = useState(false);
@@ -28,9 +32,9 @@ export function AnalyticsConsentSettingsPanel({
 
   const hydrate = useCallback(() => {
     const consent = readAnalyticsConsent(userId);
-    setServiceImprovement(consent?.serviceImprovement === true);
+    setServiceImprovement(personalizationEnabled || consent?.serviceImprovement === true);
     setSponsorMeasurement(consent?.sponsorMeasurement === true);
-  }, [userId]);
+  }, [personalizationEnabled, userId]);
 
   useEffect(() => {
     let active = true;
@@ -56,7 +60,10 @@ export function AnalyticsConsentSettingsPanel({
   async function saveChoices() {
     if (saving || !userId) return;
     const previous = readAnalyticsConsent(userId);
-    const next = { serviceImprovement, sponsorMeasurement };
+    const nextServiceImprovement = !personalizationStatusKnown
+      ? previous?.serviceImprovement === true
+      : personalizationEnabled || serviceImprovement;
+    const next = { serviceImprovement: nextServiceImprovement, sponsorMeasurement };
     const interim = {
       serviceImprovement: previous?.serviceImprovement === true && next.serviceImprovement,
       sponsorMeasurement: previous?.sponsorMeasurement === true && next.sponsorMeasurement,
@@ -76,17 +83,22 @@ export function AnalyticsConsentSettingsPanel({
         : 'Saved on this device. Your account settings will synchronise when you reconnect.');
     } catch (cause) {
       console.error('Unable to save analytics settings:', cause);
-      denyAnalyticsConsentInMemory('serviceImprovement', userId);
+      const safeServiceImprovement = personalizationEnabled
+        || (!personalizationStatusKnown && previous?.serviceImprovement === true);
+      if (!safeServiceImprovement) denyAnalyticsConsentInMemory('serviceImprovement', userId);
       denyAnalyticsConsentInMemory('sponsorMeasurement', userId);
       let denialPersisted = false;
       try {
-        saveAnalyticsConsent({ serviceImprovement: false, sponsorMeasurement: false }, userId, { syncPending: true });
+        saveAnalyticsConsent({
+          serviceImprovement: safeServiceImprovement,
+          sponsorMeasurement: false,
+        }, userId, { syncPending: true });
         denialPersisted = true;
       } catch {
-        // In-memory denials remain active if local storage is unavailable.
+        // In-memory denials remain active for any stream that is safe to deny.
       }
       if (denialPersisted) window.dispatchEvent(new Event(analyticsConsentSyncEvent));
-      setServiceImprovement(false);
+      setServiceImprovement(safeServiceImprovement);
       setSponsorMeasurement(false);
       setError('Could not safely save these settings. Optional analytics remain disabled on this device.');
     } finally {
@@ -106,14 +118,14 @@ export function AnalyticsConsentSettingsPanel({
           <input
             type="checkbox"
             checked={serviceImprovement}
-            disabled={disabled || saving}
+            disabled={disabled || saving || !personalizationStatusKnown || personalizationEnabled}
             onChange={(event) => setServiceImprovement(event.target.checked)}
             className="accent-accent mt-1 h-4 w-4 shrink-0"
           />
           <span className="min-w-0">
             <span className="text-text-primary block text-sm font-semibold">I explicitly consent to Service improvement analytics</span>
             <span className="text-text-secondary mt-1 block text-sm leading-relaxed">
-              Measures account-linked topic/comment engagement and site performance. Activity may reveal religious or philosophical interests. Passive reading signals inform recommendations only if Personalisation is separately enabled too.
+              Measures account-linked topic/comment engagement and site performance. Activity may reveal religious or philosophical interests. This choice must remain enabled while Personalisation is active; turn off Personalisation first to withdraw it. Passive reading signals inform recommendations while Personalisation is enabled.
             </span>
           </span>
         </label>
@@ -137,7 +149,7 @@ export function AnalyticsConsentSettingsPanel({
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
         <p className="text-text-muted text-xs">
-          Personalisation is independent. Passive reading signals inform recommendations only when both Personalisation and Service improvement analytics are enabled. Sponsor measurement is separate and never affects recommendations.
+          {!personalizationStatusKnown ? 'Service improvement can be changed only after Personalisation status is confirmed. Sponsor measurement can still be changed.' : 'Personalisation requires Service improvement analytics. Enable Service improvement before Personalisation, and turn off Personalisation before withdrawing it. Sponsor measurement remains separate.'}
         </p>
         <button
           type="button"
