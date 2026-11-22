@@ -381,6 +381,14 @@ test('personalisation and service improvement consent dependency is enforced', (
   assert.match(signupTrigger, /personalization_consent_version/);
   assert.match(signupTrigger, /service_improvement_consent/);
   assert.match(signupTrigger, /sponsor_measurement_consent/);
+  assert.match(signupTrigger, /IF v_personalization IS TRUE THEN[\\s\\S]*?INSERT INTO catho_private\\.user_personalization_consents/);
+  assert.match(signupTrigger, /IF v_service_improvement IS TRUE OR v_sponsor_measurement IS TRUE THEN[\\s\\S]*?INSERT INTO catho_private\\.user_analytics_consents[\\s\\S]*?INSERT INTO catho_private\\.user_analytics_consent_history/);
+  assert.match(signupTrigger, /A missing row means not yet decided/);
+  assert.equal(
+    finalFunctionDefinition(bootstrap, 'catho_private.capture_signup_personalization_consent'),
+    finalFunctionDefinition(upgrade, 'catho_private.capture_signup_personalization_consent'),
+    'signup consent trigger differs between clean-install bootstrap and existing-database upgrade'
+  );
   assert.match(webSignup, /personalization_consent_version: personalizationConsent \? '2026-11-21-v6' : null/);
   assert.match(webSignup, /service_improvement_consent: serviceImprovementConsent/);
   assert.match(webSignup, /sponsor_measurement_consent: sponsorMeasurementConsent/);
