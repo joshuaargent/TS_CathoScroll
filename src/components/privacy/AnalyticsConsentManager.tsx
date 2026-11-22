@@ -266,24 +266,25 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
 
       setPersonalizationEnabled(remote.personalizationEnabled);
       let local = readAnalyticsConsent(expectedUserId);
-      if (local?.syncPending === true && remote.personalizationEnabled && !local.serviceImprovement) {
-        // A stale device cannot withdraw Service improvement while the server
-        // still has active Personalisation. Restore the server-required grant
-        // locally, but preserve the independent Sponsor measurement choice.
-        saveAnalyticsConsent({
-          serviceImprovement: true,
-          sponsorMeasurement: local.sponsorMeasurement,
-        }, expectedUserId, { syncPending: true });
-        markOwnChoiceWrite();
-        local = readAnalyticsConsent(expectedUserId);
-      }
       if (local?.syncPending === true) {
         // Synchronise the local choices after reconciling any stale Service
         // improvement denial against an active server-side Personalisation grant.
+        const pendingPurposeSet = new Set(local.pendingPurposes);
         const pendingChoices = {
-          serviceImprovement: local.serviceImprovement,
-          sponsorMeasurement: local.sponsorMeasurement,
+          serviceImprovement: pendingPurposeSet.has('serviceImprovement')
+            ? local.serviceImprovement
+            : remote.serviceImprovement,
+          sponsorMeasurement: pendingPurposeSet.has('sponsorMeasurement')
+            ? local.sponsorMeasurement
+            : remote.sponsorMeasurement,
         };
+        if (remote.personalizationEnabled && !pendingChoices.serviceImprovement) {
+          // The server will not accept Service improvement withdrawal while
+          // Personalisation is active. Keep the authoritative grant and still
+          // synchronise any independent Sponsor measurement change.
+          pendingChoices.serviceImprovement = remote.serviceImprovement;
+          pendingPurposeSet.delete('serviceImprovement');
+        }
         const saveResponse = await fetch(endpoint, {
           method: 'POST',
           credentials,
