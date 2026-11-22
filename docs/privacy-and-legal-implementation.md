@@ -13,7 +13,7 @@ Sponsor placements remain available when measurement is off. Delivery selection 
 ## Optional signed-in purposes
 
 - **Service improvement analytics:** account-linked topic and Top Comments engagement, only after explicit opt-in.
-- **Sponsor measurement:** account-linked sponsor viewability, clicks and frequency, only after a separate explicit opt-in.
+- **Sponsor measurement:** account-linked sponsor viewability, clicks, bounded active viewing duration and frequency, only after a separate explicit opt-in.
 - **Personalisation:** a private recommendation profile, only after explicit opt-in. It must not be used for sponsor targeting.
 
 The Catholic theology context means reading signals may reveal or permit inference of religious/philosophical beliefs. Where processing intentionally reveals, infers or uses those beliefs, document both the Article 6 lawful basis and Article 9 condition. Explicit consent under Article 9(2)(a) may be suitable if it is specific, informed, freely given, affirmative, recorded and easy to withdraw.
@@ -28,7 +28,7 @@ Personalisation and Service improvement analytics are separately presented choic
 
 The anonymous statistical pipelines have been removed rather than relying on a statistical-purposes exception. This does not settle PECR for signed-in analytics. Inspect the actual browser and native storage/access behaviour of all analytics SDKs, WebViews, SQLite stores and identifiers. Obtain prior consent where required. Do not assume first-party, account-linked, memory-only or short-lived processing is exempt.
 
-Sponsor viewability, clicks and frequency are advertising measurement and are gated behind prior Sponsor measurement consent. For opted-in accounts, a short-lived server-issued placement receipt validates that the campaign was selected; it expires after seven days and is deleted on withdrawal. No sponsor delivery count is collected for users who decline.
+Sponsor viewability, clicks, bounded active viewing duration and frequency are advertising measurement and are gated behind prior Sponsor measurement consent. For opted-in accounts, a short-lived server-issued placement receipt validates that the campaign was selected; it expires after seven days and is deleted on withdrawal. No sponsor delivery count is collected for users who decline.
 
 ## Data minimisation and retention
 
@@ -52,4 +52,4 @@ This document is not a legal opinion and does not certify provider contracts, tr
 
 ## Consent withdrawal and data removal
 
-Withdrawing Service improvement deletes the account-linked raw topic and Top Comments event records and user/day viewer bridges. The affected recent daily aggregates are rebuilt from the remaining opted-in event records, and the private recommendation profile is refreshed without passive reading signals. Withdrawing Sponsor measurement deletes that account's sponsor event records and placement receipts, then rebuilds recent campaign/day viewability and click aggregates from the remaining opted-in records. Local pending queues are cleared immediately. Aggregates older than the raw-event retention window may remain only as non-identifying totals with no user-level event or viewer bridge.
+Withdrawing Service improvement deletes the account-linked raw topic and Top Comments event records and user/day viewer bridges. The affected recent daily aggregates are rebuilt from the remaining opted-in event records, and the private recommendation profile is refreshed without passive reading signals. Withdrawing Sponsor measurement deletes that account's sponsor event records and placement receipts, then rebuilds recent campaign/day viewability, click and active-duration aggregates from the remaining opted-in records. Local pending queues are cleared immediately. Aggregates older than the raw-event retention window may remain only as non-identifying totals with no user-level event or viewer bridge.
