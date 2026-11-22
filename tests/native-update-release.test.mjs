@@ -31,6 +31,8 @@ test('2.4.0 native release versions remain aligned across package, lockfiles and
   assert.match(releaseWorkflow, /releases\/latest/);
   assert.match(releaseWorkflow, /Signer #1 certificate SHA-256 digest/);
   assert.match(releaseWorkflow, /previous_certificate[\s\S]*?current_certificate/);
+  assert.match(releaseWorkflow, /allow_android_signing_key_transition:[\s\S]*?default: false/);
+  assert.match(releaseWorkflow, /Existing Android installs signed with the previous certificate cannot update in place/);
   assert.match(releaseWorkflow, /git merge-base --is-ancestor/);
   assert.match(releaseWorkflow, /fetch-depth: 0/);
   assert.match(releaseWorkflow, /refs\/remotes\/origin\/main/);
