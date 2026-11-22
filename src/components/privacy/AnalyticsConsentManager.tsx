@@ -362,8 +362,10 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
         if (!isCurrentAccount()) return;
         hydrate(null);
         if (!managingRef.current) {
+          // No first-visit consent modal. Optional collection remains off
+          // until the user makes explicit choices in Account settings.
           setManaging(false);
-          setVisible(true);
+          setVisible(false);
         }
         return;
       }
