@@ -222,7 +222,9 @@ test('declining sponsor measurement preserves sponsor delivery without recording
     read('../docs/cathoscroll-database-bootstrap.sql'),
     read('../docs/analytics-consent-and-sponsor-opt-out-upgrade.sql'),
   ]);
-  assert.match(feed, /const measurementEnabled = Boolean\(userId && hasAnalyticsConsent\('sponsorMeasurement', userId\)\)/);
+  assert.match(feed, /const measurementEnabled = Boolean\(userId && hasSyncedAnalyticsConsent\('sponsorMeasurement', userId\)\)/);
+  assert.match(card, /hasSyncedAnalyticsConsent\('sponsorMeasurement', userId\)/);
+  assert.match(sponsorClient, /!hasSyncedAnalyticsConsent\('sponsorMeasurement', userId\)\) return false/);
   assert.match(selectRoute, /!sponsorMeasurementEnabled[\s\S]*?get_unmeasured_sponsor_campaigns/);
   assert.match(selectRoute, /get_weighted_sponsor_campaigns/);
   assert.match(eventRoute, /if \(!auth\.user\) return respond\(request, \{ recorded: false \}, 403\)/);
