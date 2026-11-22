@@ -14,7 +14,7 @@ export default function CookiesPage() {
       <div className="mt-16 mb-16">
         <h1 className="text-5xl font-extrabold md:text-7xl">Cookie Policy</h1>
 
-        <p className="text-text-secondary mt-4 text-lg">Last updated: 20 November 2026</p>
+        <p className="text-text-secondary mt-4 text-lg">Last updated: 22 November 2026</p>
       </div>
 
       <div className="space-y-12">
@@ -98,11 +98,9 @@ export default function CookiesPage() {
             record, selected interests, and private topic-interest profile are stored server-side
             in CathoScroll's database; they are not stored in advertising cookies or used for
             cross-site tracking. On Android and Electron, previously downloaded server-ranked
-            personalised pages may be cached in encrypted private storage for up to 12 hours after
-            the last successful consent check. You can turn personalisation off and delete the derived profile
-            in Account settings. Recommendation profiles use eligible account actions and reading signals recorded
-            after personalisation consent, including impressions, reading duration, swipe depth,
-            skips, completions and return visits. Personalisation and Service improvement analytics are separate optional choices. Passive reading signals inform recommendations only when both are enabled. Either choice can be withdrawn independently. Sponsor measurement remains separate.
+            personalised pages may be retained in encrypted private storage for up to 14 days, but
+            are available offline only while the last successful consent check is no more than 12 hours old. You can turn personalisation off and delete the derived profile
+            in Account settings. Recommendation profiles use eligible direct account actions after Personalisation consent. Passive reading signals (including impressions, reading duration, swipe depth, skips, completions and return visits) are used only when Service improvement analytics is separately enabled too, and only while both choices are active. Either choice can be withdrawn independently. Sponsor measurement remains separate.
           </p>
         </section>
 
@@ -122,7 +120,7 @@ export default function CookiesPage() {
           <h2 className="mb-4 text-3xl font-bold">Local Storage and Offline Apps</h2>
 
           <p className="text-text-secondary leading-relaxed">
-            CathoScroll uses browser local storage, IndexedDB and app-private storage for sign-in, offline content and pending synchronisation. Android and Electron persist only opted-in signed-in analytics in encrypted, account-scoped queues, capped at 2,000 events per stream and seven days. Website analytics retries remain in memory. No anonymous analytics queue or sponsor delivery counter is created. Personalised feed pages are cached in encrypted private storage for up to 12 hours after the last consent check and pruned after 14 days; general feed pages use a separate cache. These are device-storage technologies, not browser cookies. Clearing them may remove offline data, require sign-in again or lose pending activity.
+            CathoScroll uses browser local storage, IndexedDB and app-private storage for sign-in, offline content and pending synchronisation. Android and Electron persist only opted-in signed-in analytics in encrypted, account-scoped queues, capped at 2,000 events per stream and seven days. Website analytics retries remain in memory. No anonymous analytics queue or sponsor delivery counter is created. Personalised feed pages are retained in encrypted private storage for up to 14 days, but are available offline only while the last successful consent check is no more than 12 hours old; general feed pages use a separate cache. These are device-storage technologies, not browser cookies. Clearing them may remove offline data, require sign-in again or lose pending activity.
           </p>
         </section>
 
