@@ -8,7 +8,7 @@ export const analyticsConsentSyncEvent = 'cathoscroll:analytics-consent-sync';
 export function requestAnalyticsConsentSync(): void {
   if (typeof window !== 'undefined') window.dispatchEvent(new Event(analyticsConsentSyncEvent));
 }
-export const analyticsConsentVersion = 2 as const;
+export const analyticsConsentVersion = 3 as const;
 
 function storageKeyForUser(userId?: string | null): string {
   return userId
