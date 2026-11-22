@@ -923,13 +923,14 @@ function App() {
       const detail = (event as CustomEvent<{
         userId?: unknown;
         choice?: unknown;
-        consent?: { serviceImprovement?: unknown };
+        consent?: { serviceImprovement?: unknown; syncPending?: unknown };
       }>).detail;
       if (!user?.id || detail?.userId !== user.id) return;
-      const serviceImprovementDisabled =
+      const serviceImprovementNeedsRefresh =
         detail.choice === 'serviceImprovement' ||
-        detail.consent?.serviceImprovement === false;
-      if (!serviceImprovementDisabled) return;
+        detail.consent?.serviceImprovement === false ||
+        (detail.consent?.serviceImprovement === true && detail.consent.syncPending === false);
+      if (!serviceImprovementNeedsRefresh) return;
 
       const cache = personalizedFeedCacheRef.current;
       if (!cache) return;
