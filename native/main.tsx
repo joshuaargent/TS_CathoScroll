@@ -51,7 +51,7 @@ import { OfflineCommentCache } from '@/lib/offline/comment-cache';
 import { OfflineTopicCountCache, type CachedTopicCounts } from '@/lib/offline/topic-count-cache';
 import { loadTopicActivity } from '@/lib/topic-activity';
 import { siteConfig } from '@/lib/constants';
-import { analyticsConsentChangeEvent, analyticsConsentSyncEvent } from '@/lib/analytics-consent';
+import { analyticsConsentChangeEvent, analyticsConsentSyncEvent, readAnalyticsConsent } from '@/lib/analytics-consent';
 import { configureFeedAnalyticsOutbox, clearFeedAnalyticsOutbox } from '@/lib/feed-analytics-client';
 import { configureFeedCardAnalyticsOutbox, clearFeedCardAnalyticsOutbox } from '@/lib/feed-card-analytics-client';
 import { configureSponsorAnalyticsOutbox, clearSponsorAnalyticsOutbox } from '@/lib/sponsor-analytics-client';
@@ -715,11 +715,15 @@ function App() {
           pendingServiceImprovementCacheRefreshUserIdRef.current = null;
         }
 
+        const localAnalyticsConsent = user?.id ? readAnalyticsConsent(user.id) : null;
+        const serviceImprovementWithdrawalPending =
+          localAnalyticsConsent?.serviceImprovement === false && localAnalyticsConsent.syncPending === true;
+
         if (!navigator.onLine) {
           let page: CataloguePage | null = null;
           let offlinePersonalized = false;
           let offlineGeneralRanked = false;
-          if (user?.id && personalizedFeedCacheRef.current &&
+          if (!serviceImprovementWithdrawalPending && user?.id && personalizedFeedCacheRef.current &&
               await personalizedFeedCacheRef.current.hasFreshConsent(user.id)) {
             page = await personalizedFeedCacheRef.current.load('personalized', user.id, null) as CataloguePage | null;
             offlinePersonalized = Boolean(page);
@@ -754,6 +758,7 @@ function App() {
           const { data: status, error: statusError } =
             await createClient().rpc('get_my_personalization_status');
           personalizedEnabled =
+            !serviceImprovementWithdrawalPending &&
             pendingConsent !== false &&
             !statusError &&
             typeof status === 'object' &&
