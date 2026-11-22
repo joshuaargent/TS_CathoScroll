@@ -165,7 +165,7 @@ export function AdminAnalyticsHub({ overview, period, section = 'overview', seri
         {categories.length === 0 && <p className="text-text-muted text-sm">No categories available.</p>}
       </SectionCard>}
       {(section === 'overview' || section === 'topics') && <SectionCard title="Topics" description="Inspect individual learning content and reading behaviour." count={number(t.topic_count)} href={sectionHref('topics')} icon={BookOpen}>
-        {topics.map((item) => <EntityLink key={item.id} href={`/topic/${encodeURIComponent(item.slug)}/analytics?period=${period}`} title={item.question} detail={item.category_slug} metric={number(item.impressions) + ' signed-in · ' + number(item.anonymous_impressions ?? 0) + ' anonymous'} />)}
+        {topics.map((item) => <EntityLink key={item.id} href={`/topic/${encodeURIComponent(item.slug)}/analytics?period=${period}`} title={item.question} detail={item.category_slug} metric={number(item.impressions) + ' opted-in impressions'} />)}
         {topics.length === 0 && <p className="text-text-muted text-sm">No topics available.</p>}
       </SectionCard>}
       {(section === 'overview' || section === 'sponsors') && <SectionCard title="Sponsors" description="Track paid delivery, viewability and campaign clicks." count={number(t.sponsor_count)} href={sectionHref('sponsors')} icon={Megaphone}>
@@ -173,7 +173,7 @@ export function AdminAnalyticsHub({ overview, period, section = 'overview', seri
         {sponsors.length === 0 && <p className="text-text-muted text-sm">No sponsors available.</p>}
       </SectionCard>}
       {(section === 'overview' || section === 'comments') && <SectionCard title="Comments" description="Measure Top Comments card exposure separately from likes and replies." count={number(t.comment_count)} href={sectionHref('comments')} icon={MessageCircle}>
-        {comments.map((item) => <EntityLink key={item.id} href={`/admin/analytics/comments/${item.id}?period=${period}`} title={item.topic_question ?? 'Comment #' + item.id} detail={number(item.likes) + ' likes · ' + number(item.replies) + ' replies'} metric={number(item.impressions) + ' signed-in · ' + number(item.anonymous_impressions ?? 0) + ' anonymous'} />)}
+        {comments.map((item) => <EntityLink key={item.id} href={`/admin/analytics/comments/${item.id}?period=${period}`} title={item.topic_question ?? 'Comment #' + item.id} detail={number(item.likes) + ' likes · ' + number(item.replies) + ' replies'} metric={number(item.impressions) + ' opted-in impressions'} />)}
         {comments.length === 0 && <p className="text-text-muted text-sm">No comments available.</p>}
       </SectionCard>}
     </section>
