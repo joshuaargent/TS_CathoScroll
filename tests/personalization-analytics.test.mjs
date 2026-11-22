@@ -536,3 +536,13 @@ test('release reset leaves every account undecided and clears analytics and pers
   const analyticsConsent = readFileSync(new URL('../src/lib/analytics-consent.ts', import.meta.url), 'utf8');
   assert.match(analyticsConsent, /cathoscroll\.analytics-consent\.v2/);
 });
+
+test('all-unchecked analytics choices remain undecided while explicit withdrawals retain history', () => {
+  for (const sql of [analyticsConsentUpgrade, bootstrap]) {
+    const setter = finalFunctionDefinition(sql, 'public.set_user_analytics_consent');
+    assert.match(setter, /IF p_service_improvement IS FALSE AND p_sponsor_measurement IS FALSE THEN/);
+    assert.match(setter, /IF v_previous_service IS TRUE OR v_previous_sponsor IS TRUE THEN[\\s\\S]*?INSERT INTO catho_private\\.user_analytics_consent_history/);
+    assert.match(setter, /DELETE FROM catho_private\\.user_analytics_consents WHERE user_id = p_user_id/);
+    assert.match(setter, /RETURN public\\.get_user_analytics_consent\\(p_user_id\\)/);
+  }
+});
