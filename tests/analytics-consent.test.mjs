@@ -267,11 +267,11 @@ test('Vercel analytics and performance telemetry are gated by service-improvemen
   assert.ok(layout.includes('<PrivacySafeAnalytics />'));
   assert.ok(layout.includes('<PrivacySafeSpeedInsights />'));
   assert.ok(analytics.includes('beforeSend={beforeSend}'));
-  assert.ok(analytics.includes("hasAnalyticsConsent('serviceImprovement', userId)"));
+  assert.ok(analytics.includes("hasSyncedAnalyticsConsent('serviceImprovement', userId)"));
   assert.ok(analytics.includes('if (loading || !enabled) return null;'));
   assert.ok(analytics.includes('redactAnalyticsEvent(event)'));
   assert.ok(speed.includes('<SpeedInsights beforeSend={beforeSend} />'));
-  assert.ok(speed.includes("hasAnalyticsConsent('serviceImprovement', user?.id ?? null)"));
+  assert.ok(speed.includes("hasSyncedAnalyticsConsent('serviceImprovement', user?.id ?? null)"));
   assert.ok(speed.includes('if (loading || !enabled) return null;'));
   assert.ok(speed.includes('sanitiseSpeedInsightsEvent(event)'));
 });
