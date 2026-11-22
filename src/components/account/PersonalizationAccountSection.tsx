@@ -277,7 +277,7 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
 
       const { data, error: rpcError } = await client.rpc('set_my_personalization_consent', {
         p_enabled: enabled,
-        p_consent_version: '2026-11-21-v6',
+        p_consent_version: '2026-11-22-v7',
       });
       if (rpcError) throw rpcError;
       if (!isRecord(data) || data.enabled !== enabled) {
