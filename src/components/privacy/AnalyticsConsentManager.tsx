@@ -620,7 +620,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
         <p id="analytics-consent-description" className="text-text-secondary mt-3 text-sm leading-relaxed">
           {managing
             ? 'Choose optional analytics. Personalisation requires Service improvement analytics; Sponsor measurement is separate.'
-            : 'Optional analytics measure signed-in topic/comment engagement, site performance, and sponsor viewability, clicks on viewable placements and frequency. Catholic-content activity may reveal religious or philosophical beliefs. Personalisation requires Service improvement analytics to remain enabled. Passive reading signals can inform private recommendations while Personalisation is active. Sponsor placements remain visible when measurement is off; no delivery or anonymous engagement counters are retained.'}
+            : 'Optional analytics measure signed-in topic/comment engagement and site performance; opted-in aggregates may inform shared topic ordering without profiling individual readers. Sponsor measurement separately records viewability, clicks on viewable placements and frequency. Catholic-content activity may reveal religious or philosophical beliefs. Personalisation requires Service improvement analytics to remain enabled. Passive reading signals can inform private recommendations while Personalisation is active. Sponsor placements remain visible when measurement is off; no delivery or anonymous engagement counters are retained.'}
         </p>
 
         {!managing ? (
