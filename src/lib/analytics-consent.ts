@@ -124,13 +124,20 @@ export function readAnalyticsConsent(userId?: string | null): AnalyticsConsent |
       (serviceDenied && parsed.serviceImprovement) ||
       (sponsorDenied && parsed.sponsorMeasurement)
     );
+    const effectivePendingPurposes = storageWriteFailedForDenial
+      ? Array.from(new Set([
+          ...pendingPurposes,
+          ...(serviceDenied && parsed.serviceImprovement ? ['serviceImprovement' as const] : []),
+          ...(sponsorDenied && parsed.sponsorMeasurement ? ['sponsorMeasurement' as const] : []),
+        ]))
+      : pendingPurposes;
     return {
       version: analyticsConsentVersion,
       serviceImprovement: parsed.serviceImprovement && !serviceDenied,
       sponsorMeasurement: parsed.sponsorMeasurement && !sponsorDenied,
       updatedAt: parsed.updatedAt,
       syncPending: parsedSyncPending || storageWriteFailedForDenial,
-      pendingPurposes,
+      pendingPurposes: effectivePendingPurposes,
     };
   } catch {
     return null;
