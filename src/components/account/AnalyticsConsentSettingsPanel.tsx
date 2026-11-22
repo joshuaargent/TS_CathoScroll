@@ -8,6 +8,7 @@ import {
   getAnalyticsConsentStorageKey,
   readAnalyticsConsent,
   saveAnalyticsConsent,
+  type AnalyticsConsentChoice,
 } from '@/lib/analytics-consent';
 import { clearAnalyticsConsentQueues } from '@/components/privacy/AnalyticsConsentManager';
 
@@ -26,16 +27,16 @@ export function AnalyticsConsentSettingsPanel({
 }: AnalyticsConsentSettingsPanelProps) {
   const [serviceImprovement, setServiceImprovement] = useState(false);
   const [sponsorMeasurement, setSponsorMeasurement] = useState(false);
-  const [hasStoredConsent, setHasStoredConsent] = useState(false);
+  const [changedPurposes, setChangedPurposes] = useState<AnalyticsConsentChoice[]>([]);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
   const hydrate = useCallback(() => {
     const consent = readAnalyticsConsent(userId);
-    setHasStoredConsent(Boolean(consent));
     setServiceImprovement(personalizationEnabled || consent?.serviceImprovement === true);
     setSponsorMeasurement(consent?.sponsorMeasurement === true);
+    setChangedPurposes(consent?.syncPending ? consent.pendingPurposes : []);
   }, [personalizationEnabled, userId]);
 
   useEffect(() => {
@@ -62,7 +63,10 @@ export function AnalyticsConsentSettingsPanel({
   async function saveChoices() {
     if (saving || !userId) return;
     const previous = readAnalyticsConsent(userId);
-    if (!personalizationStatusKnown && !previous) return;
+    const pendingPurposeSet = new Set<AnalyticsConsentChoice>(previous?.pendingPurposes ?? []);
+    for (const purpose of changedPurposes) pendingPurposeSet.add(purpose);
+    const pendingPurposes = Array.from(pendingPurposeSet);
+    if (pendingPurposes.length === 0) return;
     const nextServiceImprovement = !personalizationStatusKnown
       ? previous?.serviceImprovement === true
       : personalizationEnabled || serviceImprovement;
@@ -77,9 +81,10 @@ export function AnalyticsConsentSettingsPanel({
     try {
       if (!interim.serviceImprovement) denyAnalyticsConsentInMemory('serviceImprovement', userId);
       if (!interim.sponsorMeasurement) denyAnalyticsConsentInMemory('sponsorMeasurement', userId);
-      saveAnalyticsConsent(interim, userId, { syncPending: true });
+      saveAnalyticsConsent(interim, userId, { syncPending: true, pendingPurposes });
       await clearAnalyticsConsentQueues(userId, previous, next);
-      saveAnalyticsConsent(next, userId, { syncPending: true });
+      saveAnalyticsConsent(next, userId, { syncPending: true, pendingPurposes });
+      setChangedPurposes([]);
       window.dispatchEvent(new Event(analyticsConsentSyncEvent));
       setMessage(typeof navigator !== 'undefined' && navigator.onLine
         ? 'Saved. Your account settings are synchronising.'
@@ -97,9 +102,8 @@ export function AnalyticsConsentSettingsPanel({
           saveAnalyticsConsent({
             serviceImprovement: safeServiceImprovement,
             sponsorMeasurement: safeSponsorMeasurement,
-          }, userId, { syncPending: true });
+          }, userId, { syncPending: true, pendingPurposes });
           denialPersisted = true;
-          setHasStoredConsent(true);
         }
       } catch {
         // Existing grants are preserved only when they were not withdrawn;
@@ -127,7 +131,10 @@ export function AnalyticsConsentSettingsPanel({
             type="checkbox"
             checked={serviceImprovement}
             disabled={disabled || saving || !personalizationStatusKnown || personalizationEnabled}
-            onChange={(event) => setServiceImprovement(event.target.checked)}
+            onChange={(event) => {
+              setServiceImprovement(event.target.checked);
+              setChangedPurposes((current) => current.includes('serviceImprovement') ? current : [...current, 'serviceImprovement']);
+            }}
             className="accent-accent mt-1 h-4 w-4 shrink-0"
           />
           <span className="min-w-0">
@@ -142,8 +149,11 @@ export function AnalyticsConsentSettingsPanel({
           <input
             type="checkbox"
             checked={sponsorMeasurement}
-            disabled={disabled || saving || (!personalizationStatusKnown && !hasStoredConsent)}
-            onChange={(event) => setSponsorMeasurement(event.target.checked)}
+            disabled={disabled || saving}
+            onChange={(event) => {
+              setSponsorMeasurement(event.target.checked);
+              setChangedPurposes((current) => current.includes('sponsorMeasurement') ? current : [...current, 'sponsorMeasurement']);
+            }}
             className="accent-accent mt-1 h-4 w-4 shrink-0"
           />
           <span className="min-w-0">
@@ -157,7 +167,7 @@ export function AnalyticsConsentSettingsPanel({
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
         <p className="text-text-muted text-xs">
-          {!personalizationStatusKnown ? 'Service improvement can be changed only after Personalisation status is confirmed. An existing Sponsor measurement choice can still be withdrawn.' : 'Personalisation requires Service improvement analytics. Enable Service improvement before Personalisation, and turn off Personalisation before withdrawing it. Sponsor measurement remains separate.'}
+          {!personalizationStatusKnown ? 'Service improvement can be changed only after Personalisation status is confirmed. Sponsor measurement can still be changed or withdrawn.' : 'Personalisation requires Service improvement analytics. Enable Service improvement before Personalisation, and turn off Personalisation before withdrawing it. Sponsor measurement remains separate.'}
         </p>
         <button
           type="button"
