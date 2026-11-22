@@ -4,6 +4,24 @@ import test from 'node:test';
 
 const read = (path) => readFile(new URL(path, import.meta.url), 'utf8');
 
+test('canonical bootstrap and existing-database upgrades are atomic', async () => {
+  const [bootstrap, analyticsUpgrade, personalizationUpgrade] = await Promise.all([
+    read('../docs/cathoscroll-database-bootstrap.sql'),
+    read('../docs/analytics-consent-and-sponsor-opt-out-upgrade.sql'),
+    read('../docs/personalization-analytics-upgrade.sql'),
+  ]);
+  for (const [name, sql] of [
+    ['bootstrap', bootstrap],
+    ['analytics upgrade', analyticsUpgrade],
+    ['personalisation upgrade', personalizationUpgrade],
+  ]) {
+    assert.equal((sql.match(/(^|\\n)BEGIN;/g) ?? []).length, 1, name + ' must have one explicit transaction');
+    assert.equal((sql.match(/(^|\\n)COMMIT;/g) ?? []).length, 1, name + ' must commit its transaction');
+    assert.ok(sql.indexOf('BEGIN;') < sql.indexOf('COMMIT;'), name + ' transaction order');
+    assert.ok(sql.trimEnd().endsWith('COMMIT;'), name + ' must commit only after all work succeeds');
+  }
+});
+
 test('retired anonymous analytics implementation files are physically absent', async () => {
   const retiredFiles = [
     '../src/app/api/analytics/anonymous-events/route.ts',
@@ -163,11 +181,13 @@ test('withdrawing analytics consent deletes account-linked events and rebuilds o
     assert.match(servicePurge, /DELETE FROM catho_private\.feed_card_analytics_daily_viewers WHERE user_id = p_user_id/);
     assert.match(servicePurge, /INSERT INTO catho_private\.feed_analytics_daily/);
     assert.match(servicePurge, /INSERT INTO catho_private\.feed_card_analytics_daily/);
+    assert.match(servicePurge, /v_from := greatest\\(v_from,[\\s\\S]*?- 179\\)/);
     assert.match(servicePurge, /refresh_user_interest_profile/);
 
     assert.match(sponsorPurge, /DELETE FROM catho_private\.sponsor_campaign_events WHERE user_id = p_user_id/);
     assert.match(sponsorPurge, /DELETE FROM catho_private\.sponsor_campaign_placement_receipts WHERE user_id = p_user_id/);
     assert.match(sponsorPurge, /INSERT INTO catho_private\.sponsor_campaign_daily/);
+    assert.match(sponsorPurge, /v_from := greatest\\(v_from,[\\s\\S]*?- 179\\)/);
 
     assert.match(consent, /purge_user_service_improvement_events\(p_user_id\)/);
     assert.match(consent, /purge_user_sponsor_measurement_events\(p_user_id\)/);
