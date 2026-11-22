@@ -8459,6 +8459,7 @@ begin
       coalesce((select sum(completions) from topic_daily),0) topic_completions,
       coalesce((select sum(viewable_impressions) from sponsor_daily),0) sponsor_viewable_impressions,
       coalesce((select sum(clicks) from sponsor_daily),0) sponsor_clicks,
+      coalesce((select sum(active_duration_ms) from sponsor_daily),0) sponsor_active_duration_ms,
       coalesce((select sum(impressions) from comment_daily),0) comment_card_impressions,
       coalesce((select sum(viewable_impressions) from comment_daily),0) comment_card_viewable_impressions,
       coalesce((select sum(active_duration_ms) from comment_daily),0) comment_card_active_duration_ms,
