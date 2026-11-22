@@ -570,7 +570,7 @@ test('release reset leaves every account undecided and clears analytics and pers
   assert.doesNotMatch(reset, /DELETE FROM catho_private\.user_analytics_consent_history/);
   assert.match(reset, /missing\s+row\s+is\s+the\s+not-yet-decided\s+state/i);
   assert.match(reset, /analytics_release_resets/);
-  assert.match(reset, /2026-11-21-no-anonymous-analytics-v1/);
+  assert.match(reset, /2026-11-22-analytics-consent-reset-v2/);
 
   const cache = readFileSync(new URL('../src/lib/offline/ranked-feed-cache.ts', import.meta.url), 'utf8');
   assert.match(cache, /personalizationConsentVersion = '2026-11-22-v7'/);
