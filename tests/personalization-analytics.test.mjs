@@ -343,6 +343,9 @@ test('web and native account/settings screens reuse the same components', () => 
   assert.match(analyticsSettingsPanel, /window\.addEventListener\(analyticsConsentSyncEvent, onConsentSync\)/);
   assert.match(analyticsSettingsPanel, /readAnalyticsConsent\(userId\)\?\.syncPending !== true/);
   assert.match(analyticsSettingsPanel, /window\.removeEventListener\(analyticsConsentSyncEvent, onConsentSync\)/);
+  assert.match(manager, /saved\.exists !== 'boolean'/);
+  assert.match(manager, /saved\.updatedAt === null \|\| typeof saved\.updatedAt === 'string'/);
+  assert.match(manager, /window\.dispatchEvent\(new CustomEvent\(analyticsConsentChangeEvent/);
   assert.match(analyticsSettingsPanel, /onChange=\{\(event\) => \{/);
   assert.match(analyticsSettingsPanel, /checked=\{sponsorMeasurement\}[\s\S]*?disabled=\{disabled \|\| saving\}/);
   assert.match(accountSection, /window\.addEventListener\('online', refresh\)/);
