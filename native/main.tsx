@@ -52,6 +52,8 @@ import { OfflineTopicCountCache, type CachedTopicCounts } from '@/lib/offline/to
 import { loadTopicActivity } from '@/lib/topic-activity';
 import { siteConfig } from '@/lib/constants';
 import { analyticsConsentChangeEvent, analyticsConsentSyncEvent, readAnalyticsConsent } from '@/lib/analytics-consent';
+import { configureAnonymousFeedAnalyticsOutbox } from '@/lib/anonymous-feed-analytics-client';
+import { NativeAnonymousAnalyticsOutbox } from '@/lib/offline/anonymous-analytics-store';
 import { configureFeedAnalyticsOutbox, clearFeedAnalyticsOutbox } from '@/lib/feed-analytics-client';
 import { configureFeedCardAnalyticsOutbox, clearFeedCardAnalyticsOutbox } from '@/lib/feed-card-analytics-client';
 import { configureSponsorAnalyticsOutbox, clearSponsorAnalyticsOutbox } from '@/lib/sponsor-analytics-client';
@@ -998,17 +1000,14 @@ function App() {
       let failure = 'Unable to open app storage. Please try again.';
       try {
         const databases = await openNativeDatabases(secureAuthStorage);
-        // Remove the obsolete signed-out analytics outbox from existing installs.
-        // It is no longer read, queued or uploaded by this version.
         try {
-          await databases.catalogue.transaction((db) => db.execute(
-            'DROP TABLE IF EXISTS offline_anonymous_analytics_outbox'
-          ));
-          clearNativeStatusNotice('legacy-anonymous-analytics-cleanup');
+          const anonymousOutbox = new NativeAnonymousAnalyticsOutbox(databases.catalogue);
+          await configureAnonymousFeedAnalyticsOutbox(anonymousOutbox);
+          clearNativeStatusNotice('anonymous-analytics-outbox');
         } catch (cause) {
-          console.error('Unable to clear the retired anonymous analytics outbox:', cause);
-          notifyNativeStatus('Legacy anonymous analytics data could not be cleared from local storage yet.', {
-            id: 'legacy-anonymous-analytics-cleanup',
+          console.error('Anonymous topic and comment analytics outbox is unavailable:', cause);
+          notifyNativeStatus('Anonymous topic and comment analytics may not be retained while this app is offline.', {
+            id: 'anonymous-analytics-outbox',
           });
         }
         const localCatalogue = new OfflineCatalogue(databases.catalogue);
