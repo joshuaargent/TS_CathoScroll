@@ -29,7 +29,7 @@ The native analytics outbox is encrypted and account-scoped. It is not a generic
 
 ## Offline personalisation
 
-Native clients use previously downloaded server-ranked pages from encrypted storage, subject to the existing cache expiry and consent-freshness rules. They do not learn a recommendation profile locally while offline. When the cached consent state is stale or withdrawal is pending, personalisation is denied until the server state is refreshed.
+Native clients use previously downloaded server-ranked pages from encrypted storage, subject to the existing cache expiry and consent-freshness rules. They do not learn a recommendation profile locally while offline. When the cached consent state is stale or withdrawal is pending, personalisation is denied until the server state is refreshed. Withdrawing Service improvement also clears cached personalised pages that may have used passive reading signals while preserving the separate Personalisation choice; offline reading falls back to the general ranked feed until fresh pages can be downloaded.
 
 ## Release checks
 
