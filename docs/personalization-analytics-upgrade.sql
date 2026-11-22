@@ -597,8 +597,8 @@ $function$;
 
 
 REVOKE ALL ON FUNCTION public.set_my_personalization_consent(boolean) FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION public.get_my_personalization_status() FROM PUBLIC,anon;
-REVOKE ALL ON FUNCTION public.set_my_personalization_interests(text[]) FROM PUBLIC,anon;
+REVOKE ALL ON FUNCTION public.get_my_personalization_status() FROM PUBLIC,anon,authenticated,service_role;
+REVOKE ALL ON FUNCTION public.set_my_personalization_interests(text[]) FROM PUBLIC,anon,authenticated,service_role;
 GRANT EXECUTE ON FUNCTION public.set_my_personalization_consent(boolean) TO authenticated;
 REVOKE ALL ON FUNCTION public.set_my_personalization_consent(boolean, text) FROM PUBLIC, anon, authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.set_my_personalization_consent(boolean, text) TO authenticated;
@@ -607,7 +607,7 @@ GRANT EXECUTE ON FUNCTION public.set_my_personalization_interests(text[]) TO aut
 REVOKE ALL ON FUNCTION catho_private.refresh_user_interest_profile(uuid) FROM PUBLIC,anon,authenticated,service_role;
 REVOKE ALL ON FUNCTION catho_private.get_user_feed_preference_signals(uuid) FROM PUBLIC,anon;
 GRANT EXECUTE ON FUNCTION catho_private.get_user_feed_preference_signals(uuid) TO authenticated;
-REVOKE ALL ON FUNCTION public.get_admin_analytics_deep_dive(uuid,timestamptz,timestamptz) FROM PUBLIC,anon,authenticated;
+REVOKE ALL ON FUNCTION public.get_admin_analytics_deep_dive(uuid,timestamptz,timestamptz) FROM PUBLIC,anon,authenticated,service_role;
 GRANT EXECUTE ON FUNCTION public.get_admin_analytics_deep_dive(uuid,timestamptz,timestamptz) TO service_role;
 
 
