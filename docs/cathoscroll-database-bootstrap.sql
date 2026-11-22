@@ -6384,6 +6384,7 @@ begin
       coalesce((select sum(clicks) from sponsor_daily),0) sponsor_clicks,
       coalesce((select sum(active_duration_ms) from sponsor_daily),0) sponsor_active_duration_ms,
       coalesce((select sum(active_duration_ms) from sponsor_daily),0) sponsor_active_duration_ms,
+      coalesce((select sum(active_duration_ms) from sponsor_daily),0) sponsor_active_duration_ms,
       coalesce((select sum(impressions) from comment_daily),0) comment_card_impressions,
       coalesce((select sum(viewable_impressions) from comment_daily),0) comment_card_viewable_impressions,
       coalesce((select sum(active_duration_ms) from comment_daily),0) comment_card_active_duration_ms,
@@ -6418,7 +6419,8 @@ begin
     group by t.id,t.slug,t.question,t.category_slug order by impressions desc,t.question
   ), sponsors as (
     select s.id,s.sponsor_name,s.status,count(distinct sc.id) campaign_count,
-      coalesce(sum(sd.served_count),0) served,coalesce(sum(sd.viewable_impressions),0) viewable_impressions,coalesce(sum(sd.clicks),0) clicks
+      coalesce(sum(sd.served_count),0) served,coalesce(sum(sd.viewable_impressions),0) viewable_impressions,coalesce(sum(sd.clicks),0) clicks,
+      coalesce(sum(sd.active_duration_ms),0) active_duration_ms
     from public.sponsors s left join public.sponsor_campaigns sc on sc.sponsor_id=s.id
     left join sponsor_daily sd on sd.campaign_id=sc.id group by s.id,s.sponsor_name,s.status order by served desc,s.sponsor_name
   ), comments as (
