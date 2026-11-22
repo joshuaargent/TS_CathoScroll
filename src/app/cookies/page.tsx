@@ -36,7 +36,7 @@ export default function CookiesPage() {
 
           <p className="text-text-secondary leading-relaxed">
             CathoScroll uses cookies and similar technologies for core functionality, authentication,
-            security, essential preferences, and offline support. Account-linked first-party site and server-side product analytics are off by default unless you enable the relevant optional choice. Personalisation and Service improvement analytics are separate choices. CathoScroll does not collect anonymous topic, comment or sponsor engagement statistics, and does not count sponsor deliveries. These analytics are not used for cross-site advertising or sponsor targeting profiles.
+            security, essential preferences, and offline support. Account-linked first-party site and server-side product analytics are off by default unless you enable the relevant optional choice. Personalisation is a separate optional choice that requires Service improvement analytics to remain enabled. CathoScroll does not collect anonymous topic, comment or sponsor engagement statistics, and does not count sponsor deliveries. These analytics are not used for cross-site advertising or sponsor targeting profiles.
           </p>
         </section>
 
@@ -70,7 +70,7 @@ export default function CookiesPage() {
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            Personalisation and Service improvement analytics are separate optional choices. Passive reading signals inform private recommendations only while both are enabled. You can withdraw either choice independently. Withdrawing Service improvement clears cached personalised pages that may have used passive signals; offline reading falls back to cached general content or the local catalogue until fresh personalised pages can be downloaded. Sponsor measurement is a separate explicit choice for signed-in users only. If enabled, account-linked viewability and click events are used to derive opted-in frequency. A server-issued placement receipt validates that the campaign was selected; it expires after seven days and is deleted on withdrawal. Sponsor event records are also deleted and recent campaign aggregates are rebuilt without the withdrawn account's events. Sponsor placements remain available when measurement is off, but no delivery, served, anonymous frequency or anonymous engagement counters are created.
+            Personalisation is a separate optional choice but requires Service improvement analytics to remain enabled. Passive reading signals inform private recommendations while Personalisation is active. Turn off Personalisation before withdrawing Service improvement. Withdrawing Service improvement clears cached personalised pages that may have used passive signals; offline reading falls back to cached general content or the local catalogue until fresh personalised pages can be downloaded. Sponsor measurement is a separate explicit choice for signed-in users only. If enabled, account-linked viewability and click events are used to derive opted-in frequency. A server-issued placement receipt validates that the campaign was selected; it expires after seven days and is deleted on withdrawal. Sponsor event records are also deleted and recent campaign aggregates are rebuilt without the withdrawn account's events. Sponsor placements remain available when measurement is off, but no delivery, served, anonymous frequency or anonymous engagement counters are created.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
@@ -85,7 +85,7 @@ export default function CookiesPage() {
         <section>
           <h2 className="mb-4 text-3xl font-bold">Manage optional analytics</h2>
           <p className="text-text-secondary mb-4 leading-relaxed">
-            Service improvement analytics and Personalisation are separate optional choices. Passive reading signals inform recommendations only when both are enabled. Sponsor measurement is a separate optional choice. Signed-in users can manage optional account-linked choices at signup and in Account settings. Declining optional analytics does not affect sign-in, account synchronisation, bookmarks, likes, progress, notes, sponsor delivery or general feed ranking.
+            Personalisation requires Service improvement analytics to remain enabled. Turn off Personalisation before withdrawing Service improvement; Sponsor measurement is separate. Sponsor measurement is a separate optional choice. Signed-in users can manage optional account-linked choices at signup and in Account settings. Declining optional analytics does not affect sign-in, account synchronisation, bookmarks, likes, progress, notes, sponsor delivery or general feed ranking.
           </p>
           <AnalyticsConsentSettingsButton />
         </section>
@@ -100,7 +100,7 @@ export default function CookiesPage() {
             cross-site tracking. On Android and Electron, previously downloaded server-ranked
             personalised pages may be retained in encrypted private storage for up to 14 days, but
             are available offline only while the last successful consent check is no more than 12 hours old. You can turn personalisation off and delete the derived profile
-            in Account settings. Recommendation profiles use eligible direct account actions after Personalisation consent. Passive reading signals (including impressions, reading duration, swipe depth, skips, completions and return visits) are used only when Service improvement analytics is separately enabled too, and only while both choices are active. Either choice can be withdrawn independently. Sponsor measurement remains separate.
+            in Account settings. Recommendation profiles use eligible direct account actions after Personalisation consent. Passive reading signals (including impressions, reading duration, swipe depth, skips, completions and return visits) are collected under Service improvement analytics and inform recommendations while Personalisation is active. Turn off Personalisation before withdrawing Service improvement. Sponsor measurement remains separate.
           </p>
         </section>
 
