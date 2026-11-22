@@ -1748,6 +1748,9 @@ begin
   return v_result;
 end;
 $function$;
+ALTER FUNCTION public.get_admin_analytics_series(uuid, timestamp with time zone, timestamp with time zone) OWNER TO postgres;
+REVOKE ALL ON FUNCTION public.get_admin_analytics_series(uuid, timestamp with time zone, timestamp with time zone) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.get_admin_analytics_series(uuid, timestamp with time zone, timestamp with time zone) TO service_role;
 
 CREATE TABLE IF NOT EXISTS catho_private.sponsor_campaign_placement_receipts (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
