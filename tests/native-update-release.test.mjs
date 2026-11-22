@@ -22,8 +22,8 @@ test('2.4.0 native release versions remain aligned across package, lockfiles and
   assert.equal(electronLock.packages[''].version, '2.4.0');
   assert.match(gradle, /versionCode \(System\.getenv\("ANDROID_VERSION_CODE"\)\?\.toInteger\(\) \?: 2004000\)/);
   assert.match(gradle, /versionName \(System\.getenv\("CATHOSCROLL_VERSION"\)\?\.replaceFirst\(\/\^v\/, ''\) \?: "2\.4\.0"\)/);
-  assert.match(releaseWorkflow, /tagVersion !== root\.version/);
-  assert.match(releaseWorkflow, /tagVersion !== electron\.version/);
+  assert.match(releaseWorkflow, /root\.version !== tagVersion/);
+  assert.match(releaseWorkflow, /electron\.version !== tagVersion/);
   assert.match(releaseWorkflow, /major \* 1000000 \+ minor \* 1000 \+ patch/);
   assert.match(releaseWorkflow, /CathoScroll-\$\{version\}\.apk/);
 });
