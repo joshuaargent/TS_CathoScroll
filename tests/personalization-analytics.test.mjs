@@ -396,7 +396,7 @@ test('personalisation and service improvement consent dependency is enforced', (
   assert.match(manager, /personalizationEnabled\?: unknown/);
   assert.match(manager, /if \(remote\.personalizationEnabled && !pendingChoices\.serviceImprovement\)/);
   assert.match(manager, /pendingPurposeSet\.has\('sponsorMeasurement'\)[\s\S]*?remote\.sponsorMeasurement/);
-  assert.match(manager, /Turn off Personalisation before withdrawing Service improvement/);
+  assert.match(analyticsSetter, /Turn off Personalisation before withdrawing Service improvement analytics/);
   assert.match(privacyPage, /Personalisation is optional and is off by default[\s\S]*?Service improvement analytics is a prerequisite for Personalisation/);
   assert.match(privacyPage, /keep it enabled while Personalisation is active/);
   assert.match(privacyPage, /turn off Personalisation before withdrawing Service improvement/);
