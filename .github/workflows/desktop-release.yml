@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: Existing version tag to build and publish (for example v2.2.0)
+        description: Existing version tag to build and publish (for example v2.4.0)
         required: true
         type: string
 
@@ -210,7 +210,6 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           CATHOSCROLL_VERSION: ${{ env.RELEASE_TAG }}
-          ANDROID_VERSION_CODE: ${{ env.ANDROID_VERSION_CODE }}
         run: |
           npm run native:build
           npx cap sync android
@@ -234,7 +233,6 @@ jobs:
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
           CATHOSCROLL_VERSION: ${{ env.RELEASE_TAG }}
-          ANDROID_VERSION_CODE: ${{ env.ANDROID_VERSION_CODE }}
         run: bash ./gradlew --no-daemon --stacktrace testReleaseUnitTest assembleRelease
 
       - name: Verify APK output and signing certificate
