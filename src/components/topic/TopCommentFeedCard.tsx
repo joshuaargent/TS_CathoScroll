@@ -11,7 +11,6 @@ import { cn } from '@/lib/utils';
 import { FeedInterstitialMotion } from './FeedInterstitialMotion';
 import { BaseFeedCard } from './BaseFeedCard';
 import { flushFeedCardAnalytics, installFeedCardAnalyticsListeners, recordFeedCardAnalyticsEvent } from '@/lib/feed-card-analytics-client';
-import { recordAnonymousFeedEvent } from '@/lib/anonymous-feed-analytics-client';
 
 interface TopCommentFeedCardProps {
   comments: TopFeedComment[];
@@ -181,83 +180,6 @@ export function TopCommentFeedCard({
   useEffect(() => {
     if (active && !previewMode && activeCommentId !== undefined) onCommentViewed(activeCommentId);
   }, [active, activeCommentId, onCommentViewed, previewMode]);
-
-  useEffect(() => {
-    if (!active || previewMode || userId || activeCommentId === undefined) return;
-    recordAnonymousFeedEvent('comment', activeCommentId, 'impression');
-    let isIntersecting = false;
-    let viewable = false;
-    let viewTimer: ReturnType<typeof setTimeout> | null = null;
-    let durationTimer: ReturnType<typeof setInterval> | null = null;
-    let startedAt: number | null = null;
-    let activeMilliseconds = 0;
-
-    const flushDuration = (resume = true) => {
-      if (startedAt !== null) {
-        const elapsed = Math.max(0, Math.round(Date.now() - startedAt));
-        startedAt = null;
-        if (elapsed > 0) {
-          activeMilliseconds += elapsed;
-          recordAnonymousFeedEvent('comment', activeCommentId, 'active_duration', elapsed);
-        }
-      }
-      if (resume && viewable && isIntersecting && document.visibilityState === 'visible') {
-        startedAt = Date.now();
-      }
-    };
-    const startDuration = () => {
-      if (!viewable || document.visibilityState !== 'visible' || startedAt !== null) return;
-      startedAt = Date.now();
-      if (durationTimer === null) durationTimer = setInterval(() => flushDuration(true), 5000);
-    };
-    const scheduleViewability = () => {
-      if (!isIntersecting || viewable || viewTimer !== null || document.visibilityState !== 'visible') return;
-      viewTimer = setTimeout(() => {
-        viewTimer = null;
-        if (!isIntersecting || document.visibilityState !== 'visible') return;
-        viewable = true;
-        recordAnonymousFeedEvent('comment', activeCommentId, 'viewable_impression');
-        startDuration();
-      }, 1000);
-    };
-    const observer = typeof IntersectionObserver !== 'undefined' && commentArticleRef.current
-      ? new IntersectionObserver((entries) => {
-          const entry = entries[0];
-          isIntersecting = Boolean(entry?.isIntersecting && entry.intersectionRatio >= 0.5);
-          if (isIntersecting) scheduleViewability();
-          else {
-            if (viewTimer !== null) clearTimeout(viewTimer);
-            viewTimer = null;
-            flushDuration(false);
-          }
-        }, { threshold: [0, 0.5, 1] })
-      : null;
-    if (commentArticleRef.current && observer) observer.observe(commentArticleRef.current);
-    else {
-      isIntersecting = true;
-      scheduleViewability();
-    }
-    const onVisibility = () => {
-      if (document.visibilityState === 'hidden') {
-        if (viewTimer !== null) clearTimeout(viewTimer);
-        viewTimer = null;
-        flushDuration(false);
-      } else if (isIntersecting) {
-        if (viewable) startDuration();
-        else scheduleViewability();
-      }
-    };
-    document.addEventListener('visibilitychange', onVisibility);
-    return () => {
-      if (viewTimer !== null) clearTimeout(viewTimer);
-      flushDuration(false);
-      if (durationTimer !== null) clearInterval(durationTimer);
-      observer?.disconnect();
-      document.removeEventListener('visibilitychange', onVisibility);
-      if (activeMilliseconds < 3000) recordAnonymousFeedEvent('comment', activeCommentId, 'skip');
-      else recordAnonymousFeedEvent('comment', activeCommentId, 'completion');
-    };
-  }, [active, activeCommentId, previewMode, userId]);
 
   useEffect(() => {
     if (!active || previewMode || !userId || activeCommentId === undefined) return;
