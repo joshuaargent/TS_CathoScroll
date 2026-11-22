@@ -32,7 +32,7 @@ type QueuedFeedAnalyticsEvent = {
 const batchLimit = 50;
 const queueLimit = 200;
 const pendingQueues = new Map<string, QueuedFeedAnalyticsEvent[]>();
-const sessionId = createUuid();
+const sessionIdsByUser = new Map<string, string>();
 const flushingUsers = new Set<string>();
 type FeedAnalyticsTransport = {
   endpoint?: string;
@@ -50,6 +50,10 @@ export async function configureFeedAnalyticsOutbox(outbox: SignedInAnalyticsOutb
 
 export async function clearFeedAnalyticsOutbox(userId: string): Promise<void> {
   pendingQueues.delete(userId);
+  sessionIdsByUser.delete(userId);
+  for (const key of recentTopicVisitAt.keys()) {
+    if (key.startsWith(userId + '\u0000')) recentTopicVisitAt.delete(key);
+  }
   visitedTopicsByUser.delete(userId);
   completedTopicsByUser.delete(userId);
   if (persistentOutbox) await persistentOutbox.clearStream(userId, 'topic');
@@ -114,7 +118,7 @@ export function recordFeedTopicCompletion(
   topicId: string,
   slideIndex?: number
 ): void {
-  if (!userId || !topicId || !rememberTopic(completedTopicsByUser, userId, topicId)) return;
+  if (!userId || !topicId || !hasAnalyticsConsent('serviceImprovement', userId) || !rememberTopic(completedTopicsByUser, userId, topicId)) return;
   recordFeedAnalyticsEvent(userId, 'completion', topicId, {
     ...(slideIndex !== undefined ? { slide_index: slideIndex } : {}),
     completion_percent: 100,
@@ -140,6 +144,14 @@ function createUuid(): string | null {
   ].join('-');
 }
 
+function getSessionId(userId: string): string | null {
+  const existing = sessionIdsByUser.get(userId);
+  if (existing) return existing;
+  const created = createUuid();
+  if (created) sessionIdsByUser.set(userId, created);
+  return created;
+}
+
 function readQueue(userId: string): QueuedFeedAnalyticsEvent[] {
   return pendingQueues.get(userId) ?? [];
 }
@@ -155,14 +167,15 @@ export function recordFeedAnalyticsEvent(
   topicId: string,
   metadata: FeedAnalyticsMetadata = {}
 ): void {
-  if (!userId || !sessionId || typeof window === 'undefined' || !topicId || topicId.length > 100 || !hasAnalyticsConsent('serviceImprovement', userId)) return;
+  if (!userId || typeof window === 'undefined' || !topicId || topicId.length > 100 || !hasAnalyticsConsent('serviceImprovement', userId)) return;
 
+  const currentSessionId = getSessionId(userId);
   const eventId = createUuid();
-  if (!eventId) return;
+  if (!currentSessionId || !eventId) return;
 
   const event: QueuedFeedAnalyticsEvent = {
     event_id: eventId,
-    session_id: sessionId,
+    session_id: currentSessionId,
     event_type: eventType,
     entity_type: 'topic',
     entity_id: topicId,
