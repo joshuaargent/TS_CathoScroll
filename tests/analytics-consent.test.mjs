@@ -106,6 +106,9 @@ test('account consent sync is identity-bound, retryable and enforced server-side
   assert.ok(route.includes('Account changed during consent synchronisation.'));
   assert.ok(route.includes('X-Catho-Expected-User-Id'));
   assert.ok(route.includes('set_user_analytics_consent'));
+  assert.match(route, /PERSONALISATION_REQUIRES_SERVICE_IMPROVEMENT/);
+  assert.match(route, /error\.code === '42501'[\s\S]*?}, 409/);
+  assert.match(consent, /pendingPurposes: options\.pendingPurposes/);
   assert.match(route, /parsed\.value\.version !== 2/);
   assert.match(route, /p_consent_version: 2/);
   assert.match(manager, /remote\.version !== 2/);
