@@ -222,7 +222,7 @@ The workflow verifies and publishes:
 - **macOS:** universal DMG and ZIP. macOS builds are unsigned; users may need to follow the documented macOS first-launch security steps.
 - **Android:** signed versioned APK (`CathoScroll-<version>.apk`).
 
-Desktop builds also publish the update metadata used by the desktop auto-updaters, including `latest.yml` and `latest-linux.yml`. Windows and Linux AppImage updates download in the background and install on app exit. Linux DEB downloads automatically but requires system authorization to apply. macOS updates remain manual download-and-reinstall.
+Desktop builds also publish update metadata, including `latest.yml` and `latest-linux.yml`. Windows and Linux AppImage builds use `electron-updater` to download updates in the background and install on app exit. Linux DEB installations and unsigned macOS builds show a version-check notice and require manual download and installation.
 
 After the workflow completes, inspect the [GitHub Releases](https://github.com/joshuaargent/TS_CathoScroll/releases) page and confirm that every expected installer, the Android APK, release notes, and desktop update metadata are present. Do not distribute a release if any platform job or required asset-verification step failed.
 
@@ -500,10 +500,9 @@ measured saturation, not estimated user counts.
 Real-device upgrades, reconnects, long-offline recovery, account switching,
 and packaged desktop releases still need end-to-end verification before
 distribution. Windows NSIS and Linux AppImage updates download in the
-background and install on app exit. Linux DEB updates also download
-automatically, but applying them requires system authorization through the
-package installer. macOS remains unsigned and uses a manual
-download-and-reinstall update flow.
+background and install on app exit. Linux DEB installations and unsigned
+macOS builds display a version-check notice and require manual download and
+installation.
 
 Signed-in feed recommendations require the `get_my_recommendation_page` RPC and supporting indexes supplied separately for Supabase. It aggregates each user's completed topics (weight 5), bookmarks (4), likes (3), and distinct commented topics (3) across the published catalogue into category preferences. For each category, a weight of `1 + sqrt(preference)` reduces the effect of very large histories while allowing every category to be explored. The RPC takes the next unfinished topic from indexed category streams, selecting the category with the smallest `served / weight` and avoiding three consecutive topics from the same category when alternatives exist. This approximates a globally personalized ranking without loading or sorting the whole catalogue. The per-category cursor and preference snapshot are carried across pages; a refresh picks up changed preferences. Progress is checked as pages load, and content edits or unpublishing can change subsequent results. If every topic is complete, the initial page falls back to completed topics. The cursor is limited to 200 published categories and 64 KiB; the RPC rejects larger catalogues explicitly. Recommendation responses are private and uncached. Signed-out visitors and signed-in users who have not enabled personalisation use the general analytics-ranked feed. That ranking uses only daily aggregates from signed-in users who enabled Service improvement analytics, plus public engagement, recency decay, exploration and category balancing; it does not read the current viewer's account history or build an individual profile. No signed-out engagement data contributes to ranking.
 
