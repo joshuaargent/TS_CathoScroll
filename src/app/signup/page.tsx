@@ -73,6 +73,7 @@ export default function SignupPage() {
             display_name: username,
             personalization_consent: personalizationConsent,
             personalization_consent_version: personalizationConsent ? '2026-11-22-v7' : null,
+            analytics_consent_version: '3',
             service_improvement_consent: serviceImprovementConsent,
             sponsor_measurement_consent: sponsorMeasurementConsent,
           },
