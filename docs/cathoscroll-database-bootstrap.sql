@@ -4694,7 +4694,11 @@ CREATE TABLE catho_private.sponsor_campaign_events (
   user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   session_id uuid NOT NULL,
   event_type text NOT NULL CHECK (event_type IN ('viewable_impression', 'click', 'active_duration')),
-  duration_ms integer NOT NULL DEFAULT 0 CHECK (duration_ms BETWEEN 0 AND 60000),
+  duration_ms integer NOT NULL DEFAULT 0,
+  CONSTRAINT sponsor_campaign_event_duration_check CHECK (
+    (event_type = 'active_duration' AND duration_ms BETWEEN 1 AND 60000)
+    OR (event_type IN ('viewable_impression', 'click') AND duration_ms = 0)
+  ),
   received_at timestamptz NOT NULL DEFAULT statement_timestamp(),
   PRIMARY KEY (campaign_id, event_id)
 );
