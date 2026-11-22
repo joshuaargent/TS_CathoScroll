@@ -978,6 +978,7 @@ BEGIN
     SELECT coalesce(sum(d.viewable_impressions), 0) AS viewable_impressions,
       coalesce(sum(d.clicks), 0) AS clicks,
       coalesce(sum(d.active_duration_ms), 0) AS active_duration_ms,
+      coalesce(sum(d.active_duration_ms), 0) AS active_duration_ms,
       count(DISTINCT d.campaign_id) FILTER (WHERE d.viewable_impressions > 0) AS active_campaigns
     FROM catho_private.sponsor_campaign_daily AS d
     JOIN campaigns AS c ON c.id = d.campaign_id
@@ -1642,6 +1643,7 @@ begin
       coalesce((select sum(viewable_impressions) from sponsor_daily),0) sponsor_viewable_impressions,
       coalesce((select sum(clicks) from sponsor_daily),0) sponsor_clicks,
       coalesce((select sum(active_duration_ms) from sponsor_daily),0) sponsor_active_duration_ms,
+      coalesce((select sum(active_duration_ms) from sponsor_daily),0) sponsor_active_duration_ms,
       coalesce((select sum(impressions) from comment_daily),0) comment_card_impressions,
       coalesce((select sum(viewable_impressions) from comment_daily),0) comment_card_viewable_impressions,
       coalesce((select sum(active_duration_ms) from comment_daily),0) comment_card_active_duration_ms,
@@ -1670,7 +1672,8 @@ begin
   ), sponsors as (
     select s.id,s.sponsor_name,s.status,count(distinct sc.id) campaign_count,
       coalesce(sum(sd.viewable_impressions),0) viewable_impressions,
-      coalesce(sum(sd.clicks),0) clicks
+      coalesce(sum(sd.clicks),0) clicks,
+      coalesce(sum(sd.active_duration_ms),0) active_duration_ms
     from public.sponsors s left join public.sponsor_campaigns sc on sc.sponsor_id=s.id
     left join sponsor_daily sd on sd.campaign_id=sc.id
     group by s.id,s.sponsor_name,s.status
@@ -2104,7 +2107,7 @@ begin
     select d.entity_id,d.event_date,d.impressions,d.viewable_impressions,d.active_duration_ms,d.skips,d.completions,d.return_visits
     from catho_private.feed_analytics_daily d where d.event_date >= p_from::date and d.event_date <= p_to::date
   ), sponsor_daily as (
-    select d.campaign_id,d.event_date,d.viewable_impressions,d.clicks
+    select d.campaign_id,d.event_date,d.viewable_impressions,d.clicks,d.active_duration_ms
     from catho_private.sponsor_campaign_daily d where d.event_date >= p_from::date and d.event_date <= p_to::date
   ), comment_daily as (
     select d.card_id,d.event_date,d.impressions,d.viewable_impressions,d.active_duration_ms,d.skips,d.completions,d.opens,d.unique_viewers
@@ -2387,13 +2390,14 @@ BEGIN
     WHERE event_date BETWEEN v_from AND v_to;
 
     INSERT INTO catho_private.sponsor_campaign_daily (
-      event_date, campaign_id, viewable_impressions, clicks, updated_at
+      event_date, campaign_id, viewable_impressions, clicks, active_duration_ms, updated_at
     )
     SELECT
       (event.received_at AT TIME ZONE 'UTC')::date,
       event.campaign_id,
       count(*) FILTER (WHERE event.event_type = 'viewable_impression'),
       count(*) FILTER (WHERE event.event_type = 'click'),
+      coalesce(sum(event.duration_ms) FILTER (WHERE event.event_type = 'active_duration'), 0),
       pg_catalog.statement_timestamp()
     FROM catho_private.sponsor_campaign_events AS event
     WHERE (event.received_at AT TIME ZONE 'UTC')::date BETWEEN v_from AND v_to
