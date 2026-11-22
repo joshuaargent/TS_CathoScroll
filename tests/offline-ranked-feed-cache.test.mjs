@@ -20,7 +20,8 @@ test('fresh native Account loads can read encrypted personalisation consent and 
   assert.match(account, /forcedOfflineWithdrawal/);
   assert.match(account, /syncNativeConsent\(accountUserId, false, true\)/);
   assert.match(account, /personalizationStatusKnown/);
-  assert.doesNotMatch(panel, /personalizationStatusKnown/);
+  assert.match(panel, /disabled=\{disabled \|\| saving \|\| !personalizationStatusKnown \|\| personalizationEnabled\}/);
+  assert.match(panel, /disabled=\{disabled \|\| saving\}/);
   assert.match(panel, /previous\?\.serviceImprovement === true/);
 });
 
@@ -49,7 +50,7 @@ test('offline personalisation only reuses encrypted cached server pages with fre
   assert.match(privacy, /cleared when[\s\S]*?personalisation is withdrawn or the account changes/);
 });
 
-test('withdrawing Service improvement clears cached passive-signal recommendations without disabling Personalisation', () => {
+test('Service improvement is locked during Personalisation and stale withdrawals clear cached passive-signal pages', () => {
   const start = cache.indexOf('async clearPersonalizedPages(userId: string)');
   const end = cache.indexOf('async clearUser(userId: string)', start);
   assert.ok(start >= 0 && end > start);
