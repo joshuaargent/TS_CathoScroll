@@ -648,7 +648,7 @@ BEGIN
     'personalizationEnabled', EXISTS (
       SELECT 1 FROM catho_private.user_personalization_consents AS pc
       WHERE pc.user_id = p_user_id AND pc.enabled = true
-      AND pc.consent_version = '2026-11-21-v6'
+      AND pc.consent_version = '2026-11-22-v7'
     )
   );
 END;
@@ -2570,7 +2570,7 @@ BEGIN
     'personalizationEnabled', EXISTS (
       SELECT 1 FROM catho_private.user_personalization_consents AS pc
       WHERE pc.user_id = p_user_id AND pc.enabled = true
-      AND pc.consent_version = '2026-11-21-v6'
+      AND pc.consent_version = '2026-11-22-v7'
     )
   );
 END;
