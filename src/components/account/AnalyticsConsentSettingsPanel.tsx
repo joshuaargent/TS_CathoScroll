@@ -48,14 +48,19 @@ export function AnalyticsConsentSettingsPanel({
       const detail = (event as CustomEvent<{ userId?: string | null }>).detail;
       if (active && (detail?.userId ?? null) === userId) hydrate();
     };
+    const onConsentSync = () => {
+      if (active) hydrate();
+    };
     const onStorageChange = (event: StorageEvent) => {
       if (active && event.key === getAnalyticsConsentStorageKey(userId)) hydrate();
     };
     window.addEventListener(analyticsConsentChangeEvent, onConsentChange);
+    window.addEventListener(analyticsConsentSyncEvent, onConsentSync);
     window.addEventListener('storage', onStorageChange);
     return () => {
       active = false;
       window.removeEventListener(analyticsConsentChangeEvent, onConsentChange);
+      window.removeEventListener(analyticsConsentSyncEvent, onConsentSync);
       window.removeEventListener('storage', onStorageChange);
     };
   }, [hydrate, userId]);
