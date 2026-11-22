@@ -8724,6 +8724,7 @@ DECLARE
   v_inserted integer := 0;
   v_sponsor_consent boolean := false;
   v_receipt catho_private.sponsor_campaign_placement_receipts%ROWTYPE;
+  v_campaign public.sponsor_campaigns%ROWTYPE;
 BEGIN
   IF p_user_id IS NULL OR p_campaign_id IS NULL OR p_event_id IS NULL OR p_session_id IS NULL
      OR p_placement_receipt IS NULL OR p_event_type IS NULL
@@ -8736,7 +8737,9 @@ BEGIN
   SELECT consent.sponsor_measurement INTO v_sponsor_consent
   FROM catho_private.user_analytics_consents AS consent
   WHERE consent.user_id = p_user_id FOR SHARE;
-  IF coalesce(v_sponsor_consent, false) IS NOT TRUE THEN RETURN false; END IF;
+  IF coalesce(v_sponsor_consent, false) IS NOT TRUE THEN
+    RAISE EXCEPTION 'Sponsor measurement consent is not active' USING ERRCODE = '42501';
+  END IF;
 
   SELECT * INTO v_receipt
   FROM catho_private.sponsor_campaign_placement_receipts AS receipt
@@ -8765,6 +8768,39 @@ BEGIN
       WHERE id = p_placement_receipt;
     END IF;
     RETURN true;
+  END IF;
+
+  IF p_event_type = 'viewable_impression' THEN
+    -- Serialize viewability recording per campaign so simultaneous placements
+    -- cannot pass the same impression/frequency caps before either is counted.
+    SELECT campaign.* INTO v_campaign
+    FROM public.sponsor_campaigns AS campaign
+    WHERE campaign.id = p_campaign_id
+    FOR UPDATE;
+    IF NOT FOUND THEN RETURN false; END IF;
+
+    IF (v_campaign.daily_impression_cap IS NOT NULL AND coalesce((
+          SELECT sum(daily.viewable_impressions)
+          FROM catho_private.sponsor_campaign_daily AS daily
+          WHERE daily.campaign_id = p_campaign_id AND daily.event_date = v_today
+        ), 0) >= v_campaign.daily_impression_cap)
+       OR (v_campaign.total_impression_cap IS NOT NULL AND coalesce((
+          SELECT sum(daily.viewable_impressions)
+          FROM catho_private.sponsor_campaign_daily AS daily
+          WHERE daily.campaign_id = p_campaign_id
+        ), 0) >= v_campaign.total_impression_cap)
+       OR (SELECT count(*) FROM catho_private.sponsor_campaign_events AS recent
+          WHERE recent.user_id = p_user_id AND recent.campaign_id = p_campaign_id
+            AND recent.event_type = 'viewable_impression'
+            AND recent.received_at >= pg_catalog.statement_timestamp() - interval '24 hours')
+          >= v_campaign.frequency_cap_per_user_24h
+       OR (SELECT count(*) FROM catho_private.sponsor_campaign_events AS lifetime
+          WHERE lifetime.user_id = p_user_id AND lifetime.campaign_id = p_campaign_id
+            AND lifetime.event_type = 'viewable_impression'
+            AND lifetime.received_at >= pg_catalog.statement_timestamp() - interval '180 days')
+          >= v_campaign.frequency_cap_per_user_total THEN
+      RETURN false;
+    END IF;
   END IF;
 
   INSERT INTO catho_private.sponsor_campaign_events
