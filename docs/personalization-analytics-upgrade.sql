@@ -639,8 +639,9 @@ BEGIN
   )
   ON CONFLICT(user_id) DO NOTHING;
 
-  -- The other analytics purposes are independent and remain off unless the
-  -- corresponding unticked signup choice was explicitly selected.
+  -- Service improvement is required while Personalisation is enabled.
+  -- Sponsor measurement remains a separate optional choice; each stays off
+  -- unless its corresponding unticked signup choice was explicitly selected.
   INSERT INTO catho_private.user_analytics_consents (
       user_id, service_improvement, sponsor_measurement, consent_version,
       service_improvement_updated_at, sponsor_measurement_updated_at, created_at, updated_at
