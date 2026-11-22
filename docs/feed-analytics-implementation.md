@@ -6,7 +6,7 @@ CathoScroll does not collect anonymous analytics. Signed-out visitors and signed
 
 The optional streams are:
 - **Service improvement analytics:** signed-in topic and Top Comments engagement, only while the account holder has explicitly enabled it.
-- **Sponsor measurement:** signed-in sponsor viewability, clicks and frequency, only while the account holder has separately and explicitly enabled it.
+- **Sponsor measurement:** signed-in sponsor viewability, clicks, active viewing duration and frequency, only while the account holder has separately and explicitly enabled it.
 - **Personalisation:** a separate private recommendation purpose, subject to its own explicit opt-in.
 
 Sponsor delivery is independent of Sponsor measurement. Campaign selection and display remain available to all eligible visitors, but unmeasured delivery is not recorded or counted.
@@ -29,7 +29,7 @@ SponsorFeedCard records a viewable impression only after the configured Intersec
 
 Sponsor event payloads contain campaign ID, event ID, session/placement ID and event type. They must not include topic IDs, category IDs, reading histories or recommendation-profile fields. Sponsor measurement is never used for organic ranking or sponsor targeting based on religious interests.
 
-Only opted-in viewable impressions and clicks are aggregated for sponsor/admin reporting. Frequency limits for measured users are derived from their opted-in viewable-impression event history. No served event is created. For visitors without consent, delivery selection does not create a count, session token, frequency row, event receipt or daily aggregate.
+Only opted-in viewable impressions, clicks and bounded active viewing duration are aggregated for sponsor/admin reporting. Frequency limits for measured users are derived from their opted-in viewable-impression event history. No served event is created. For visitors without consent, delivery selection does not create a count, session token, frequency row, event receipt or daily aggregate.
 
 Campaign daily/total impression caps, where configured, apply only to opted-in viewable impressions. They do not measure or limit all sponsor deliveries. The user-facing campaign-management copy must state this limitation.
 
@@ -45,6 +45,6 @@ Native apps do not persist anonymous analytics because none is collected. The si
 
 ## 7. Database and release checks
 
-The canonical database bootstrap and existing-database upgrade remove anonymous analytics functions, tables, receipts, cron jobs and sponsor delivery aggregates. The sponsor selectors do not write served counters. The event ledger accepts only consented viewable-impression and click events.
+The canonical database bootstrap and existing-database upgrade remove anonymous analytics functions, tables, receipts, cron jobs and sponsor delivery aggregates. The sponsor selectors do not write served counters. The event ledger accepts only consented viewable-impression, click and bounded active-duration events.
 
 Before release, run the full unit/integration suite, type-check, lint, production build, Android/Electron builds, SQL review and independent code review. Verify that no anonymous API, client import, native store, admin metric, sponsor portal metric or ranking query remains.
