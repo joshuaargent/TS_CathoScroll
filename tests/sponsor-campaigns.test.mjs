@@ -145,6 +145,21 @@ test('sponsor event recording requires explicit consent and only records viewabi
   assert.match(eventRoute, /p_placement_receipt: placementReceipt/);
 });
 
+test('viewability caps are rechecked under a campaign lock when events are recorded', () => {
+  const recorder = functionBody('public.record_sponsor_campaign_event');
+  const upgradeStart = sponsorOptOutUpgrade.lastIndexOf('CREATE OR REPLACE FUNCTION public.record_sponsor_campaign_event');
+  const upgradeEnd = sponsorOptOutUpgrade.indexOf('$function$;', upgradeStart);
+  const upgradeRecorder = sponsorOptOutUpgrade.slice(upgradeStart, upgradeEnd + '$function$;'.length);
+  assert.equal(recorder, upgradeRecorder, 'bootstrap and upgrade event recorders must match');
+  assert.match(recorder, /SELECT campaign\\.\\* INTO v_campaign[\\s\\S]*?FOR UPDATE/);
+  for (const cap of ['daily_impression_cap', 'total_impression_cap', 'frequency_cap_per_user_24h', 'frequency_cap_per_user_total']) {
+    assert.ok(recorder.includes(cap), cap + ' must be enforced when recording viewability');
+  }
+  assert.match(recorder, /IF p_event_type = 'viewable_impression' THEN[\\s\\S]*?RETURN false/);
+  assert.match(eventRoute, /data !== true[\\s\\S]*?409/);
+  assert.match(sponsorClient, /response\\.status === 400 \\|\\| response\\.status === 403 \\|\\| response\\.status === 409/);
+});
+
 test('sponsored feed cards are disclosed and inserted separately from organic recommendations', () => {
   assert.match(campaignLib, /SPONSOR_CARD_CADENCE = 10/);
   assert.match(feedCore, /buildFeedEntryMap/);
