@@ -334,6 +334,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
           ...next,
           updatedAt: saved.updatedAt,
           syncPending: false,
+          pendingPurposes: [],
         });
         if (!managingRef.current) {
           setVisible(false);
@@ -403,6 +404,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
           ...next,
           updatedAt: remoteUpdatedAt,
           syncPending: false,
+          pendingPurposes: [],
         });
         if (!managingRef.current) {
           setVisible(false);
