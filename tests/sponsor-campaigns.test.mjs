@@ -123,7 +123,7 @@ test('sponsor event recording requires explicit consent and records viewability,
     'public.record_sponsor_campaign_event',
     'ALTER FUNCTION public.record_sponsor_campaign_event'
   );
-  assert.match(recorder, /p_event_type NOT IN \\('viewable_impression', 'click', 'active_duration'\\)/);
+  assert.match(recorder, /p_event_type NOT IN \('viewable_impression', 'click', 'active_duration'\)/);
   assert.match(recorder, /sponsor_measurement/);
   assert.match(recorder, /event_type = 'viewable_impression'/);
   assert.doesNotMatch(recorder, /event_type\s*=\s*'served'/);
