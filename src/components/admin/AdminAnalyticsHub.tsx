@@ -157,6 +157,7 @@ export function AdminAnalyticsHub({ overview, period, section = 'overview', seri
       <Metric label="Sponsor click-through" value={t.sponsor_viewable_impressions ? ((t.sponsor_clicks / t.sponsor_viewable_impressions) * 100).toFixed(2) + '%' : '—'} detail="Clicks ÷ opted-in viewable impressions" icon={Megaphone} />
       <Metric label="Sponsor active time" value={duration(t.sponsor_active_duration_ms)} detail="Measured time on opted-in viewable sponsor cards" icon={Megaphone} />
       <Metric label="Comment-card viewability" value={t.comment_card_impressions ? ((t.comment_card_viewable_impressions / t.comment_card_impressions) * 100).toFixed(1) + '%' : '—'} detail="Viewable impressions ÷ opted-in impressions" icon={MessageCircle} />
+      <Metric label="Comment active time" value={t.comment_card_viewable_impressions ? duration(t.comment_card_active_duration_ms / t.comment_card_viewable_impressions) : '—'} detail="Average active time per opted-in viewable card" icon={MessageCircle} />
       <Metric label="Discussion open rate" value={t.comment_card_impressions ? ((t.comment_card_opens / t.comment_card_impressions) * 100).toFixed(1) + '%' : '—'} detail="Opens ÷ opted-in Top Comments impressions" icon={MessageCircle} />
     </section>
 
