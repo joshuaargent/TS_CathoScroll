@@ -123,6 +123,7 @@ export async function POST(request: Request) {
     }
 
     // Sponsor measurement is account-only; every other visitor uses unmeasured selection.
+    // Sponsor delivery remains available to signed-out visitors and non-consenting accounts; these placements are never counted or stored.
     const sponsorMeasurementEnabled = Boolean(auth.user && accountMeasurementEnabled);
     const { data, error } = !sponsorMeasurementEnabled
       ? await createServiceRoleClient().rpc('get_unmeasured_sponsor_campaigns', {
