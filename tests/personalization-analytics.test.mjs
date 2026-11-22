@@ -135,6 +135,8 @@ test('emergency bootstrap inventory matches the reconciled production schema', (
   assert.match(analyticsConsentUpgrade, /GRANT EXECUTE ON FUNCTION public\.get_admin_analytics_series\(uuid, timestamp with time zone, timestamp with time zone\) TO service_role/);
   assert.match(analyticsConsentUpgrade, /REVOKE ALL ON FUNCTION public\.get_admin_feed_card_analytics\(uuid,timestamptz,timestamptz,text,text\) FROM PUBLIC, anon, authenticated, service_role/);
   assert.match(analyticsConsentUpgrade, /GRANT EXECUTE ON FUNCTION public\.get_admin_feed_card_analytics\(uuid,timestamptz,timestamptz,text,text\) TO service_role/);
+  assert.match(analyticsConsentUpgrade, /REVOKE ALL ON FUNCTION public\.get_admin_content_analytics\(text, text, timestamptz, timestamptz\) FROM PUBLIC, anon, authenticated, service_role/);
+  assert.match(analyticsConsentUpgrade, /GRANT EXECUTE ON FUNCTION public\.get_admin_content_analytics\(text, text, timestamptz, timestamptz\) TO service_role/);
   assert.match(upgrade, /REVOKE ALL ON FUNCTION public\.get_my_personalization_status\(\) FROM PUBLIC,anon,authenticated,service_role/);
   assert.match(upgrade, /REVOKE ALL ON FUNCTION public\.set_my_personalization_interests\(text\[\]\) FROM PUBLIC,anon,authenticated,service_role/);
   assert.match(upgrade, /REVOKE ALL ON FUNCTION public\.get_admin_analytics_deep_dive\(uuid,timestamptz,timestamptz\) FROM PUBLIC,anon,authenticated,service_role/);
@@ -143,6 +145,10 @@ test('emergency bootstrap inventory matches the reconciled production schema', (
 test('admin analytics keeps consented charts, deep dives and aggregate engagement metrics', () => {
   const overview = finalFunctionDefinition(analyticsConsentUpgrade, 'public.get_admin_analytics_overview');
   const bootstrapOverview = finalFunctionDefinition(bootstrap, 'public.get_admin_analytics_overview');
+  const contentAnalytics = finalFunctionDefinition(analyticsConsentUpgrade, 'public.get_admin_content_analytics');
+  const bootstrapContentAnalytics = finalFunctionDefinition(bootstrap, 'public.get_admin_content_analytics');
+  assert.match(contentAnalytics, /p\.completed_at IS NOT NULL/);
+  assert.match(bootstrapContentAnalytics, /p\.completed_at IS NOT NULL/);
   const commentAnalytics = finalFunctionDefinition(analyticsConsentUpgrade, 'public.get_admin_feed_card_analytics');
   const bootstrapCommentAnalytics = finalFunctionDefinition(bootstrap, 'public.get_admin_feed_card_analytics');
   for (const body of [commentAnalytics, bootstrapCommentAnalytics]) {
