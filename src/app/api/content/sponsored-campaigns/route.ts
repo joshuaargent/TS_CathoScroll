@@ -125,6 +125,7 @@ export async function POST(request: Request) {
     // Sponsor measurement is account-only; every other visitor uses unmeasured selection.
     // Sponsor delivery remains available to signed-out visitors and non-consenting accounts; these placements are never counted or stored.
     const sponsorMeasurementEnabled = Boolean(auth.user && accountMeasurementEnabled);
+    const measurementSessionId: string | null = auth.user && sponsorMeasurementEnabled ? parsed.value.sessionId : null;
     const { data, error } = !sponsorMeasurementEnabled
       ? await createServiceRoleClient().rpc('get_unmeasured_sponsor_campaigns', {
           p_category_slug: parsed.value.categorySlug,
@@ -132,8 +133,8 @@ export async function POST(request: Request) {
           p_limit: 1,
         })
       : await createServiceRoleClient().rpc('get_weighted_sponsor_campaigns', {
-          p_user_id: auth.user.id,
-          p_session_id: parsed.value.sessionId,
+          p_user_id: auth.user!.id,
+          p_session_id: measurementSessionId as string,
           p_category_slug: parsed.value.categorySlug,
           p_topic_id: parsed.value.topicId,
           p_limit: 1,
