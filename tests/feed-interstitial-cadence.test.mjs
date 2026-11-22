@@ -163,6 +163,8 @@ test('topic, comment and sponsor cards use the same shared base card', () => {
   assert.match(cardRegistry, /onEnter: \(entry/);
   assert.match(cardRegistry, /void cardContext\.loadSponsorEntry\(entry, direction, entries\)/);
   assert.match(feedCore, /sponsorResultsByTopicId = useRef\(new Map/);
+  assert.match(feedCore, /campaigns: entry\.campaigns\.map\(\(campaign\) => \(\{[\s\S]*?measurement_receipt: null/);
+  assert.match(feedCore, /campaigns: result\.campaigns\.map\(\(campaign\) => \(\{[\s\S]*?measurement_receipt: null/);
   assert.match(feedCore, /sponsorRequestsByTopicId = useRef\(new Map/);
   assert.match(cardRegistry, /userId=\{context\.userId\}/);
   assert.match(sponsorLoadingCard, /role="status" aria-live="polite" aria-busy=\{!error\}/);
