@@ -328,6 +328,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
         saveAnalyticsConsent(next, expectedUserId, {
           updatedAt: saved.updatedAt,
           syncPending: false,
+          pendingPurposes: [],
         });
         markOwnChoiceWrite();
         hydrate({
@@ -396,6 +397,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
         saveAnalyticsConsent(next, expectedUserId, {
           updatedAt: remoteUpdatedAt,
           syncPending: false,
+          pendingPurposes: [],
         });
         markOwnChoiceWrite();
         hydrate({
