@@ -31,6 +31,17 @@ jobs:
         with:
           ref: refs/tags/${{ inputs.release_tag || github.ref_name }}
 
+      - name: Verify release tag is already merged into main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main:refs/remotes/origin/main
+          tag_commit="$(git rev-parse "refs/tags/${RELEASE_TAG}^{commit}")"
+          if ! git merge-base --is-ancestor "$tag_commit" refs/remotes/origin/main; then
+            echo "Release tag must point to a commit already merged into main."
+            exit 1
+          fi
+
       - name: Set up Node.js
         uses: actions/setup-node@v7
         with:
