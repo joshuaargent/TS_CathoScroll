@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   analyticsConsentChangeEvent,
+  analyticsConsentVersion,
   analyticsConsentManageEvent,
   analyticsConsentSyncEvent,
   clearLegacyAnalyticsConsentStorage,
@@ -316,7 +317,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
         });
         markOwnChoiceWrite();
         hydrate({
-          version: 1,
+          version: analyticsConsentVersion,
           ...next,
           updatedAt: saved.updatedAt,
           syncPending: false,
@@ -382,7 +383,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
         });
         markOwnChoiceWrite();
         hydrate({
-          version: 1,
+          version: analyticsConsentVersion,
           ...next,
           updatedAt: remoteUpdatedAt,
           syncPending: false,
