@@ -648,7 +648,7 @@ BEGIN
       user_id, service_improvement, sponsor_measurement, consent_version,
       service_improvement_updated_at, sponsor_measurement_updated_at, created_at, updated_at
     ) VALUES (
-      NEW.id, v_service_improvement, v_sponsor_measurement, 2,
+      NEW.id, v_service_improvement, v_sponsor_measurement, 3,
       CASE WHEN v_service_improvement THEN v_now ELSE NULL END,
       CASE WHEN v_sponsor_measurement THEN v_now ELSE NULL END,
       v_now, v_now
@@ -659,7 +659,7 @@ BEGIN
       user_id, previous_service_improvement, previous_sponsor_measurement,
       service_improvement, sponsor_measurement, consent_version, recorded_at
     )
-    VALUES (NEW.id, NULL, NULL, v_service_improvement, v_sponsor_measurement, 2, v_now);
+    VALUES (NEW.id, NULL, NULL, v_service_improvement, v_sponsor_measurement, 3, v_now);
   END IF;
   RETURN NEW;
 END;
