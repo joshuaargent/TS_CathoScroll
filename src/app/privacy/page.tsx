@@ -137,12 +137,7 @@ export default function PrivacyPage() {
             Personalisation is optional and is off by default. If you explicitly opt in,
             CathoScroll uses your direct account actions, such as progress, likes, bookmarks and
             relevant community interactions, together with the categories you choose, to create a
-            private recommendation profile. If you separately enable Service improvement
-            analytics, eligible reading signals (including viewable impressions, reading
-            duration, swipe depth, skips, completions and return visits) may also be collected
-            for service reporting. Those passive signals inform recommendations only while
-            Personalisation is also enabled. The choices are independent and can be withdrawn
-            separately. Sponsor measurement remains separate and optional.
+            private recommendation profile. Service improvement analytics is a prerequisite for Personalisation. You must enable it first and keep it enabled while Personalisation is active; turn off Personalisation before withdrawing Service improvement. Eligible reading signals (including viewable impressions, reading duration, swipe depth, skips, completions and return visits) may then be collected for service reporting and inform recommendations while Personalisation is enabled. Sponsor measurement remains separate and optional.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
@@ -160,9 +155,7 @@ export default function PrivacyPage() {
             change your selected interests, or withdraw consent at any time in
             <Link href="/account/personalization" className="text-accent mx-1 hover:underline">Account → Personalisation</Link>.
             Withdrawing Personalisation stops recommendation weighting and deletes the derived
-            profile and selected category interests. Service improvement analytics remains enabled
-            only if you separately opted into it; it may continue for service reporting, but its
-            passive signals are no longer used for recommendations when Personalisation is off.
+            profile and selected category interests. Service improvement analytics remains enabled for service reporting unless you withdraw it after turning off Personalisation. Its passive signals are no longer used for recommendations when Personalisation is off.
           </p>
         </section>
 
@@ -174,8 +167,7 @@ export default function PrivacyPage() {
             account actions (progress, bookmarks, likes, comments, comment likes and replies), and your
             selected categories. Eligible passive reading signals (viewable impressions, reading
             duration, swipe depth, skips, completions, return visits and Top Comments exposure)
-            are included only if you separately enable Service improvement analytics; they inform
-            recommendations only while Personalisation is also enabled.
+            are included under Service improvement analytics, which must remain enabled while Personalisation is active; they inform recommendations only while Personalisation is also enabled.
             It orders educational topics in your own feed and does not determine access to
             essential services, prices, employment, credit, insurance, or other decisions with
             legal or similarly significant effects. You can turn off personalisation and delete
@@ -222,11 +214,7 @@ export default function PrivacyPage() {
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            Personalisation and Service improvement analytics are separate optional choices.
-            Passive reading signals—such as impressions, reading duration, swipe depth, skips,
-            completions, return visits and Top Comments exposure—are collected only when Service
-            improvement analytics is enabled. They inform private recommendations only while
-            Personalisation is also enabled. Either choice can be withdrawn independently.
+            Personalisation and Service improvement analytics are separately presented optional choices, but Personalisation requires Service improvement to remain enabled. Passive reading signals—such as impressions, reading duration, swipe depth, skips, completions, return visits and Top Comments exposure—are collected under Service improvement analytics and inform private recommendations while Personalisation is enabled. Turn off Personalisation before withdrawing Service improvement.
             Withdrawing Personalisation deletes the derived profile; withdrawing Service improvement
             removes passive reading signals from recommendations. Sponsor measurement is never used
             for recommendations. Account-linked choices are available at signup and in Account settings.
@@ -345,7 +333,7 @@ export default function PrivacyPage() {
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            While Personalisation is enabled, the private profile uses direct account actions and selected interests. Eligible passive reading signals (including viewable impressions, reading duration, swipe depth, skips, completions, return visits and Top Comments exposure) are used only when Service improvement analytics is separately enabled, and inform recommendations only while both choices are enabled. The passive-signal evidence window is limited to 180 days, with 14-day and 90-day decay horizons. Withdrawing Service improvement stops new passive analytics, removes passive signals from recommendations and clears cached personalised pages that may have used those signals. Withdrawing Personalisation deletes the derived profile and selected category interests. Sponsor measurement remains separate and is never used for recommendation ranking.
+            While Personalisation is enabled, the private profile uses direct account actions, selected interests and eligible passive reading signals collected under the required Service improvement analytics choice. The passive-signal evidence window is limited to 180 days, with 14-day and 90-day decay horizons. Turn off Personalisation before withdrawing Service improvement. Withdrawing Service improvement then stops new passive analytics, removes passive signals from recommendations and clears cached personalised pages that may have used those signals. Withdrawing Personalisation deletes the derived profile and selected category interests; Service improvement remains enabled for service reporting unless you withdraw it afterward. Sponsor measurement remains separate and is never used for recommendation ranking.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
