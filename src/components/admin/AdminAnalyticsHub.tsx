@@ -15,7 +15,7 @@ type Overview = {
   totals: {
     topic_impressions: number; topic_viewable_impressions: number; topic_active_duration_ms: number;
     topic_skips: number; topic_completions: number;
-    sponsor_viewable_impressions: number; sponsor_clicks: number;
+    sponsor_viewable_impressions: number; sponsor_clicks: number; sponsor_active_duration_ms: number;
     comment_card_impressions: number; comment_card_viewable_impressions: number;
     comment_card_active_duration_ms: number; comment_card_skips: number; comment_card_opens: number;
     category_count: number; topic_count: number; sponsor_count: number; comment_count: number;
@@ -155,6 +155,7 @@ export function AdminAnalyticsHub({ overview, period, section = 'overview', seri
       <Metric label="Topic viewability" value={t.topic_impressions ? ((t.topic_viewable_impressions / t.topic_impressions) * 100).toFixed(1) + '%' : '—'} detail="Viewable impressions ÷ opted-in impressions" icon={Activity} />
       <Metric label="Topic completion rate" value={t.topic_impressions ? ((t.topic_completions / t.topic_impressions) * 100).toFixed(1) + '%' : '—'} detail="Completions ÷ opted-in impressions" icon={BookOpen} />
       <Metric label="Sponsor click-through" value={t.sponsor_viewable_impressions ? ((t.sponsor_clicks / t.sponsor_viewable_impressions) * 100).toFixed(2) + '%' : '—'} detail="Clicks ÷ opted-in viewable impressions" icon={Megaphone} />
+      <Metric label="Sponsor active time" value={duration(t.sponsor_active_duration_ms)} detail="Measured time on opted-in viewable sponsor cards" icon={Megaphone} />
       <Metric label="Comment-card viewability" value={t.comment_card_impressions ? ((t.comment_card_viewable_impressions / t.comment_card_impressions) * 100).toFixed(1) + '%' : '—'} detail="Viewable impressions ÷ opted-in impressions" icon={MessageCircle} />
     </section>
 
