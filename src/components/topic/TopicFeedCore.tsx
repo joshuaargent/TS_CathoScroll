@@ -198,6 +198,7 @@ export function TopicFeedCore({
 
       // Sponsor measurement is account-linked and requires explicit consent.
       // Signed-out visitors and accounts without consent receive unmeasured placements.
+      const measurementEnabled = Boolean(userId && hasAnalyticsConsent('sponsorMeasurement', userId));
       const sessionId = measurementEnabled ? createSponsorPlacementId() : null;
       if (measurementEnabled && !sessionId) return { campaigns: [], sessionId: null, retryable: true };
 
