@@ -124,6 +124,9 @@ test('account consent sync is identity-bound, retryable and enforced server-side
   assert.match(serverConsent, /const currentConsent = value\.version === 2 && value\.exists === true/);
   assert.match(serverConsent, /serviceImprovement: currentConsent && value\.serviceImprovement/);
   assert.match(serverConsent, /sponsorMeasurement: currentConsent && value\.sponsorMeasurement/);
+  assert.match(serverConsent, /pendingPurposes/);
+  assert.match(manager, /pendingPurposeSet\.has\('serviceImprovement'\)[\s\S]*?remote\.serviceImprovement/);
+  assert.match(manager, /pendingPurposeSet\.has\('sponsorMeasurement'\)[\s\S]*?remote\.sponsorMeasurement/);
   assert.match(manager, /personalizationEnabled\?: unknown/);
   assert.match(manager, /setPersonalizationEnabled\(remote\.personalizationEnabled\)/);
   assert.match(bootstrap, /Turn off Personalisation before withdrawing Service improvement analytics/);
