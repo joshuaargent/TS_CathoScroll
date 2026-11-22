@@ -85,7 +85,7 @@ export async function POST(request: Request) {
     p_user_id: authenticated.user.id,
     p_service_improvement: parsed.value.serviceImprovement,
     p_sponsor_measurement: parsed.value.sponsorMeasurement,
-    p_consent_version: 2,
+    p_consent_version: 3,
   });
   if (error) {
     if (error.code === '42501' && error.message.includes('Turn off Personalisation before withdrawing Service improvement analytics')) {
