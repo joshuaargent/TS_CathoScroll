@@ -56,7 +56,8 @@ test('optional analytics consent is explicit, purpose-specific and off by defaul
   assert.ok(signup.includes('name="sponsorMeasurementConsent"'));
   assert.ok(signup.includes('I explicitly consent'));
   assert.ok(signup.includes('Personalisation requires Service improvement analytics. Select that choice first and keep it enabled while Personalisation is active.'));
-  assert.match(signup, /disabled=\{loading \|\| !online \|\| !serviceImprovementConsent\}/);\n  assert.match(signup, /disabled=\{loading \|\| !online \|\| personalizationConsent\}/);
+  assert.match(signup, /disabled=\{loading \|\| !online \|\| !serviceImprovementConsent\}/);
+  assert.match(signup, /disabled=\{loading \|\| !online \|\| personalizationConsent\}/);
   assert.ok(layout.includes('<WebAnalyticsConsentManager />'));
   assert.ok(native.includes('<AnalyticsConsentManager'));
   assert.ok(native.includes("loading={authStatus === 'loading' || checkingAccount}"));
