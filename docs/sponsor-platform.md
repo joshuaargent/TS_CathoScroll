@@ -9,7 +9,7 @@ Sponsor selection and display are not measured for users without Sponsor measure
 ## Sponsor measurement
 
 Detailed measurement is a separate explicit opt-in for signed-in accounts. When enabled, the system records only:
-- A viewable impression after the card meets the configured visibility and time threshold.
+- A viewable impression after at least 50% of the card remains visible for one continuous second while the page is visible.
 - A click after a valid viewable impression.
 - Account-level frequency derived from those consented viewable-impression events.
 
