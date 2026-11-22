@@ -70,6 +70,8 @@ test('the tenth-topic collision is planned as comment then sponsor before naviga
 test('sponsor fetches cannot race feed navigation or account changes', () => {
   assert.match(feedCore, /sponsorRequestVersion/);
   assert.match(feedCore, /sponsorRequestVersion\.current !== requestVersion/);
+  assert.match(feedCore, /sponsorConsentRevision\.current !== requestedConsentRevision/);
+  assert.match(feedCore, /sponsorMeasurementState\.current = measurementEnabled/);
   assert.match(feedCore, /const cancelSponsorRequest = \(\) =>/);
   assert.match(feedCore, /sponsorRequestVersion\.current \+= 1/);
   assert.match(cardRegistry, /onExit: \(entry, direction, cardContext\)/);
