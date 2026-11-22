@@ -28,6 +28,7 @@ test('optional analytics consent is explicit, purpose-specific and off by defaul
   assert.ok(consent.includes('analyticsConsentVersion = 3'));
   assert.match(consent, /cathoscroll\.analytics-consent\.v2/);
   assert.match(consent, /parsed\.version !== analyticsConsentVersion/);
+  assert.match(consent, /parsed\.version !== analyticsConsentVersion[\s\S]*?removeItem\(storageKey\)/);
   assert.match(manager, /version: analyticsConsentVersion/);
   assert.doesNotMatch(manager, /version: 1,/);
   assert.match(consent, /startsWith\(legacyPrefix \+ '\.account\.'/);
