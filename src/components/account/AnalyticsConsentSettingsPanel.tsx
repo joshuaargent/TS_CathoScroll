@@ -26,12 +26,14 @@ export function AnalyticsConsentSettingsPanel({
 }: AnalyticsConsentSettingsPanelProps) {
   const [serviceImprovement, setServiceImprovement] = useState(false);
   const [sponsorMeasurement, setSponsorMeasurement] = useState(false);
+  const [hasStoredConsent, setHasStoredConsent] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
   const hydrate = useCallback(() => {
     const consent = readAnalyticsConsent(userId);
+    setHasStoredConsent(Boolean(consent));
     setServiceImprovement(personalizationEnabled || consent?.serviceImprovement === true);
     setSponsorMeasurement(consent?.sponsorMeasurement === true);
   }, [personalizationEnabled, userId]);
@@ -97,6 +99,7 @@ export function AnalyticsConsentSettingsPanel({
             sponsorMeasurement: safeSponsorMeasurement,
           }, userId, { syncPending: true });
           denialPersisted = true;
+          setHasStoredConsent(true);
         }
       } catch {
         // Existing grants are preserved only when they were not withdrawn;
@@ -139,7 +142,7 @@ export function AnalyticsConsentSettingsPanel({
           <input
             type="checkbox"
             checked={sponsorMeasurement}
-            disabled={disabled || saving}
+            disabled={disabled || saving || (!personalizationStatusKnown && !hasStoredConsent)}
             onChange={(event) => setSponsorMeasurement(event.target.checked)}
             className="accent-accent mt-1 h-4 w-4 shrink-0"
           />
@@ -154,7 +157,7 @@ export function AnalyticsConsentSettingsPanel({
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
         <p className="text-text-muted text-xs">
-          {!personalizationStatusKnown ? 'Service improvement can be changed only after Personalisation status is confirmed. Sponsor measurement can still be changed.' : 'Personalisation requires Service improvement analytics. Enable Service improvement before Personalisation, and turn off Personalisation before withdrawing it. Sponsor measurement remains separate.'}
+          {!personalizationStatusKnown ? 'Service improvement can be changed only after Personalisation status is confirmed. An existing Sponsor measurement choice can still be withdrawn.' : 'Personalisation requires Service improvement analytics. Enable Service improvement before Personalisation, and turn off Personalisation before withdrawing it. Sponsor measurement remains separate.'}
         </p>
         <button
           type="button"
