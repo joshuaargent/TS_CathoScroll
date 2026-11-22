@@ -75,7 +75,7 @@ export function recordSponsorCampaignEvent(
   getAccessToken: AccessTokenProvider,
   apiBaseUrl?: string
 ): boolean {
-  if (typeof window === 'undefined' || !userId || !hasAnalyticsConsent('sponsorMeasurement', userId)) return false;
+  if (typeof window === 'undefined' || !userId || !hasSyncedAnalyticsConsent('sponsorMeasurement', userId)) return false;
   const queue = readQueue(userId);
   const alreadyQueued = event.eventType !== 'active_duration' && queue.some(
     (queued) =>
