@@ -320,7 +320,7 @@ export function ContentAnalyticsDashboard({
           <CardHeader>
             <CardTitle>Daily feed activity</CardTitle>
             <CardDescription>
-              event telemetry is retained for 180 days. Anonymous daily aggregates are shown separately and do not include unique-person counts.
+              event telemetry is retained for 180 days and includes only opted-in account-linked activity.
             </CardDescription>
           </CardHeader>
           <CardContent className="pt-6">
