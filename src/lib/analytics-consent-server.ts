@@ -33,7 +33,7 @@ export async function getStoredAnalyticsConsent(userId: string): Promise<StoredA
     serviceImprovement: currentConsent && value.serviceImprovement,
     sponsorMeasurement: currentConsent && value.sponsorMeasurement,
     updatedAt: currentConsent ? value.updatedAt : null,
-    version: 2,
+    version: 3,
     exists: currentConsent,
     personalizationEnabled: value.personalizationEnabled,
   };
