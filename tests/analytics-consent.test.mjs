@@ -115,7 +115,7 @@ test('account consent sync is identity-bound, retryable and enforced server-side
   assert.match(route, /p_consent_version: 2/);
   assert.match(manager, /remote\.version !== 2/);
   assert.match(manager, /saved\.version !== 2/);
-  assert.match(manager, /saved\.exists !== 'boolean'/);
+  assert.match(manager, /typeof saved\.exists !== 'boolean'/);
   assert.match(manager, /saved\.updatedAt === null \|\| typeof saved\.updatedAt === 'string'/);
   assert.match(manager, /if \(!saved\.exists\)[\s\S]*?removeItem\(getAnalyticsConsentStorageKey\(expectedUserId\)\)[\s\S]*?hydrate\(null\)/);
   assert.ok(security.includes('if (origin !== null) return origin === requestOrigin;'));
