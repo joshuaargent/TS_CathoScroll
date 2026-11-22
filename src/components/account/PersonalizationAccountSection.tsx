@@ -5,7 +5,11 @@ import { ShieldCheck, Sparkles } from 'lucide-react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { AnalyticsConsentSettingsPanel } from '@/components/account/AnalyticsConsentSettingsPanel';
-import { analyticsConsentSyncEvent } from '@/lib/analytics-consent';
+import {
+  analyticsConsentChangeEvent,
+  analyticsConsentSyncEvent,
+  hasSyncedAnalyticsConsent,
+} from '@/lib/analytics-consent';
 import { Button } from '@/components/ui/Button';
 import type { CachedPersonalizationConsent } from '@/lib/offline/ranked-feed-cache';
 
@@ -107,6 +111,7 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [accountUserId, setAccountUserId] = useState<string | null>(null);
+  const [serviceImprovementEnabled, setServiceImprovementEnabled] = useState(false);
   const [personalizationStatusKnown, setPersonalizationStatusKnown] = useState(false);
   const [categoryInterestsLoaded, setCategoryInterestsLoaded] = useState(false);
   const [offlineCacheAvailable, setOfflineCacheAvailable] = useState(false);
@@ -123,6 +128,7 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
       const sessionUser = sessionData.session?.user;
       if (!sessionUser) throw new Error('Authentication required.');
       setAccountUserId(sessionUser.id);
+      setServiceImprovementEnabled(hasSyncedAnalyticsConsent('serviceImprovement', sessionUser.id));
       setError('');
       setMessage('');
 
@@ -211,17 +217,26 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
 
   useEffect(() => {
     const refresh = () => {
+      if (accountUserId) {
+        setServiceImprovementEnabled(hasSyncedAnalyticsConsent('serviceImprovement', accountUserId));
+      }
       void load();
     };
     window.addEventListener('online', refresh);
     window.addEventListener(analyticsConsentSyncEvent, refresh);
+    window.addEventListener(analyticsConsentChangeEvent, refresh);
     return () => {
       window.removeEventListener('online', refresh);
       window.removeEventListener(analyticsConsentSyncEvent, refresh);
+      window.removeEventListener(analyticsConsentChangeEvent, refresh);
     };
-  }, [load]);
+  }, [accountUserId, load]);
 
   async function updateConsent(enabled: boolean) {
+    if (enabled && (!accountUserId || !hasSyncedAnalyticsConsent('serviceImprovement', accountUserId))) {
+      setError('Enable and synchronise Service improvement analytics before enabling Personalisation.');
+      return;
+    }
     const forcedOfflineWithdrawal = !enabled && !personalizationStatusKnown && offlineCacheAvailable;
     if (saving || savingInterests || loading || (enabled === status.enabled && !forcedOfflineWithdrawal)) return;
     setSaving(true);
@@ -350,23 +365,28 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
               </span>
             </div>
             <p className="text-text-secondary mt-2 text-sm leading-relaxed">
-              Build a private interest profile to tailor your topic recommendations. This is optional and off until you enable it; your account actions and selected categories are used. Passive reading signals are added only if you separately enable Service improvement analytics.
+              Build a private interest profile to tailor your topic recommendations. This is optional and off until you enable it; your account actions and selected categories are used. Personalisation requires Service improvement analytics to be enabled first and kept enabled while Personalisation is active. Turn off Personalisation before withdrawing Service improvement.
             </p>
           </div>
         </div>
 
         <div className="border-border bg-bg-secondary/30 mt-6 rounded-xl border p-4">
           <p className="font-semibold text-sm leading-relaxed">
-            I explicitly consent to CathoScroll using my account actions and selected interests to personalise my recommendations. If I separately enable Service improvement analytics, passive reading signals (including views, reading duration, swipes and skips) may also inform recommendations. These signals may reveal religious or philosophical beliefs; they are used to rank content, not to label my beliefs.
+            I explicitly consent to CathoScroll using my account actions and selected interests to personalise my recommendations. Personalisation requires Service improvement analytics to remain enabled; turn off Personalisation before withdrawing that choice. While Personalisation is active, eligible reading signals (including views, reading duration, swipes and skips) may also inform recommendations. These signals may reveal religious or philosophical beliefs; they are used to rank content, not to label my beliefs.
           </p>
           <p className="text-text-muted mt-2 text-sm leading-relaxed">
             Your recommendations use your explicit account actions and selected categories. Passive reading signals such as viewable impressions, reading time, swipes, skips and completions contribute only while Service improvement analytics is separately enabled too. The profile is private, never used for sponsor targeting, and can be deleted by withdrawing Personalisation consent.
           </p>
           <div className="mt-4 flex flex-wrap gap-3">
+            {!serviceImprovementEnabled && !status.enabled && (
+              <p className="text-text-muted text-xs leading-relaxed">
+                Enable Service improvement analytics in Analytics choices below before enabling Personalisation. It remains enabled while Personalisation is active.
+              </p>
+            )}
             <Button
               type="button"
               size="sm"
-              disabled={loading || saving || savingInterests || !personalizationStatusKnown || status.enabled || Boolean(error)}
+              disabled={loading || saving || savingInterests || !personalizationStatusKnown || status.enabled || !serviceImprovementEnabled || Boolean(error)}
               onClick={() => void updateConsent(true)}
             >
               {saving && !status.enabled ? 'Saving…' : 'I explicitly consent — enable personalisation'}
@@ -473,6 +493,8 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
         <AnalyticsConsentSettingsPanel
           userId={accountUserId}
           disabled={loading || !accountUserId}
+          personalizationStatusKnown={personalizationStatusKnown}
+          personalizationEnabled={status.enabled}
         />
 
         {error && (
