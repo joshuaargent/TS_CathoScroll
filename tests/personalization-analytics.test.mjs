@@ -137,7 +137,7 @@ test('personalisation consent is opt-in and versioned', () => {
   assert.match(bootstrap, /consent_version/);
   assert.match(settings, /This is optional and off until you enable it/);
   assert.match(settings, /your account actions and selected categories are used/);
-  assert.match(settings, /Passive reading signals are added only if you separately enable Service improvement analytics/);
+  assert.match(settings, /Personalisation requires Service improvement analytics to be enabled first and kept enabled while Personalisation is active/);
   assert.match(bootstrap, /capture_signup_personalization_consent/);
   assert.match(bootstrap, /NEW\.raw_user_meta_data ->> 'personalization_consent' = 'true'/);
   assert.match(bootstrap, /AFTER INSERT ON auth\.users/);
@@ -262,13 +262,13 @@ test('explicit category interests are bounded and validated', () => {
   assert.match(body, /is_published=true/);
 });
 
-test('Personalisation remains independently optional when Service improvement is withdrawn', () => {
+test('Service improvement cannot be withdrawn while Personalisation is enabled', () => {
   const consent = finalFunctionDefinition(analyticsConsentUpgrade, 'public.set_user_analytics_consent');
   const refresh = finalFunctionDefinition(upgrade, 'catho_private.refresh_user_interest_profile');
-  assert.match(consent, /IF p_service_improvement IS NOT TRUE THEN[\s\S]*?purge_user_service_improvement_events/);
-  assert.doesNotMatch(consent, /UPDATE catho_private\.user_personalization_consents[\s\S]*?SET enabled=false/);
+  assert.match(consent, /p_service_improvement IS NOT TRUE AND EXISTS[\s\S]*?user_personalization_consents/);
+  assert.match(consent, /Turn off Personalisation before withdrawing Service improvement analytics/);
   assert.match(refresh, /v_service_improvement IS TRUE/);
-  assert.match(settings, /Passive reading signals are added only if you separately enable Service improvement analytics/);
+  assert.match(settings, /Personalisation requires Service improvement analytics to be enabled first and kept enabled while Personalisation is active/);
 });
 
 test('personalisation settings disclose the profile purpose and sponsor isolation', () => {
@@ -281,7 +281,7 @@ test('signup collects separate, unchecked explicit consent on web and native', (
   assert.match(signupForm, /name="personalizationConsent"/);
   assert.match(signupForm, /type="checkbox"/);
   assert.ok(signupForm.includes('Personalised recommendations — I explicitly consent'));
-  assert.match(signupForm, /Passive reading signals are used for recommendations only if you separately enable Service improvement analytics/);
+  assert.match(signupForm, /Personalisation requires Service improvement analytics/);
   assert.doesNotMatch(signupForm, /if \(event\.target\.checked\) setServiceImprovementConsent\(true\)/);
   assert.match(signupForm, /name="serviceImprovementConsent"/);
   assert.match(signupForm, /name="sponsorMeasurementConsent"/);
@@ -311,11 +311,11 @@ test('web and native account/settings screens reuse the same components', () => 
   assert.match(accountView, /PersonalizationAccountSection/);
   assert.match(accountSection, /set_my_personalization_consent/);
   assert.match(accountSection, /I explicitly consent to CathoScroll using my account actions and selected interests to personalise my recommendations/);
-  assert.match(accountSection, /Passive reading signals are added only if you separately enable Service improvement analytics/);
+  assert.match(accountSection, /Personalisation requires Service improvement analytics to be enabled first and kept enabled while Personalisation is active/);
   assert.match(accountSection, /p_consent_version: '2026-11-21-v6'/);
   assert.match(accountSection, /analyticsConsentSyncEvent/);
   assert.match(accountSection, /AnalyticsConsentSettingsPanel/);
-  assert.match(analyticsSettingsPanel, /checked=\{serviceImprovement\}[\s\S]*?disabled=\{disabled \|\| saving\}/);
+  assert.match(analyticsSettingsPanel, /checked=\{serviceImprovement\}[\s\S]*?disabled=\{disabled \|\| saving \|\| !personalizationStatusKnown \|\| personalizationEnabled\}/);
   assert.match(analyticsSettingsPanel, /checked=\{sponsorMeasurement\}[\s\S]*?disabled=\{disabled \|\| saving\}/);
   assert.match(accountSection, /window\.addEventListener\('online', refresh\)/);
   assert.match(accountSection, /categoryInterestsLoaded/);
@@ -349,7 +349,7 @@ test('analytics and personalisation SQL upgrades are order-safe and use the new 
   const analyticsSetterBlocks = [...analyticsConsentUpgrade.matchAll(/CREATE OR REPLACE FUNCTION public\.set_user_analytics_consent\([\s\S]*?\$function\$;/g)];
   assert.ok(analyticsSetterBlocks.length >= 1);
   const finalAnalyticsSetter = analyticsSetterBlocks.at(-1)[0];
-  assert.doesNotMatch(finalAnalyticsSetter, /Turn off personalisation before disabling Service improvement analytics/);
+  assert.match(finalAnalyticsSetter, /Turn off Personalisation before withdrawing Service improvement analytics/);
   assert.match(finalAnalyticsSetter, /profile_refreshed_at = NULL/);
   assert.match(finalAnalyticsSetter, /pg_catalog\.to_regclass\('catho_private\.user_personalization_consents'\)/);
   assert.match(finalAnalyticsSetter, /purge_user_service_improvement_events\(p_user_id\)/);
@@ -360,7 +360,7 @@ test('analytics and personalisation SQL upgrades are order-safe and use the new 
   }
 });
 
-test('personalisation and service improvement are independent explicit purposes', () => {
+test('personalisation and service improvement consent dependency is enforced', () => {
   const personalisationSetter = functionBody('public.set_my_personalization_consent(\n  p_enabled boolean,\n  p_consent_version text\n)');
   const legacySetter = functionBody('public.set_my_personalization_consent(p_enabled boolean)');
   const analyticsSetter = functionBody('public.set_user_analytics_consent');
@@ -370,9 +370,9 @@ test('personalisation and service improvement are independent explicit purposes'
   assert.match(legacySetter, /IF p_enabled IS TRUE THEN[\s\S]*RAISE EXCEPTION/);
   assert.match(legacySetter, /set_my_personalization_consent\(false, '2026-11-21-v6'\)/);
   assert.match(personalisationSetter, /FROM auth\.users WHERE id = v_user_id FOR UPDATE/);
-  assert.doesNotMatch(personalisationSetter, /service_improvement = true/);
+  assert.match(personalisationSetter, /Enable Service improvement analytics before enabling Personalisation/);
   assert.match(personalisationSetter, /refresh_user_interest_profile\(v_user_id\)/);
-  assert.doesNotMatch(analyticsSetter, /Turn off personalisation before disabling Service improvement analytics/);
+  assert.match(analyticsSetter, /Turn off Personalisation before withdrawing Service improvement analytics/);
   assert.match(analyticsSetter, /profile_refreshed_at = NULL/);
   assert.match(signupTrigger, /INSERT INTO catho_private\.user_analytics_consents/);
   assert.match(signupTrigger, /personalization_consent_version/);
@@ -390,12 +390,12 @@ test('personalisation and service improvement are independent explicit purposes'
   assert.match(manager, /disabled=\{saving\}/);
   assert.match(manager, /saveAnalyticsConsent\(interim, userId, \{ syncPending: Boolean\(userId\) \}\)/);
   assert.match(manager, /serviceImprovement: local\.serviceImprovement/);
-  assert.doesNotMatch(manager, /serviceImprovement: remote\.personalizationEnabled \? true/);
-  assert.doesNotMatch(manager, /Turn off personalisation before disabling it|effectivePersonalization/);
-  assert.match(privacyPage, /Service improvement analytics, Personalisation and Sponsor measurement are optional,[\s\S]*?separate choices/);
-  assert.match(privacyPage, /If you separately enable Service improvement\s+analytics, eligible reading signals/);
-  assert.doesNotMatch(privacyPage, /Service improvement analytics is enabled when you opt into personalisation|remains enabled until you turn it off separately/);
-  assert.match(cookiePage, /Personalisation and Service improvement analytics are separate optional choices/);
+  assert.match(manager, /personalizationEnabled\?: unknown/);
+  assert.match(manager, /Turn off Personalisation before withdrawing Service improvement/);
+  assert.match(privacyPage, /Personalisation is optional and is off by default[\s\S]*?Service improvement analytics is a prerequisite for Personalisation/);
+  assert.match(privacyPage, /keep it enabled while Personalisation is active/);
+  assert.match(privacyPage, /turn off Personalisation before withdrawing Service improvement/);
+  assert.match(cookiePage, /Personalisation is a separate optional choice that requires Service improvement analytics to remain enabled/);
 });
 
 test('retired user subscription tier is absent from the bootstrap', () => {
