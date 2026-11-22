@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardDescription, CardTitle } from '@/components/ui/Card';
 import type { AnalyticsPeriod } from '@/lib/analytics/content-analytics';
 
-type AnalyticsDay = { event_date: string; topic_impressions: number; sponsor_viewable_impressions: number; comment_impressions: number; topic_viewable_impressions: number; sponsor_clicks: number; comment_viewable_impressions: number };
+type AnalyticsDay = { event_date: string; topic_impressions: number; sponsor_viewable_impressions: number; comment_impressions: number; topic_viewable_impressions: number; sponsor_clicks: number; sponsor_active_duration_ms: number; comment_viewable_impressions: number };
 
 type Overview = {
   totals: {
