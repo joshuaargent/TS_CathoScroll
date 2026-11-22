@@ -8,6 +8,7 @@ const analyticsConsentUpgrade = readFileSync(new URL('../docs/analytics-consent-
 const documentation = readFileSync(new URL('../docs/personalization-analytics-implementation.md', import.meta.url), 'utf8');
 const settings = readFileSync(new URL('../src/components/account/PersonalizationAccountSection.tsx', import.meta.url), 'utf8');
 const deepDive = readFileSync(new URL('../src/components/admin/AnalyticsDeepDivePanel.tsx', import.meta.url), 'utf8');
+const adminAnalyticsHub = readFileSync(new URL('../src/components/admin/AdminAnalyticsHub.tsx', import.meta.url), 'utf8');
 const signupForm = readFileSync(new URL('../src/components/auth/SignupFormView.tsx', import.meta.url), 'utf8');
 const webSignup = readFileSync(new URL('../src/app/signup/page.tsx', import.meta.url), 'utf8');
 const nativeSignup = readFileSync(new URL('../native/signup.tsx', import.meta.url), 'utf8');
@@ -130,6 +131,26 @@ test('emergency bootstrap inventory matches the reconciled production schema', (
   assert.match(bootstrap, /public\.get_admin_feed_analytics/);
   assert.match(bootstrap, /public\.get_admin_sponsor_analytics/);
   assert.match(bootstrap, /public\.admin_create_sponsor/);
+});
+
+test('admin analytics keeps consented charts, deep dives and aggregate engagement metrics', () => {
+  const overview = finalFunctionDefinition(analyticsConsentUpgrade, 'public.get_admin_analytics_overview');
+  const bootstrapOverview = finalFunctionDefinition(bootstrap, 'public.get_admin_analytics_overview');
+  for (const body of [overview, bootstrapOverview]) {
+    assert.match(body, /unique_topic_viewers/);
+    assert.match(body, /unique_sponsor_viewers/);
+    assert.match(body, /unique_comment_viewers/);
+    assert.match(body, /unique_feed_viewers/);
+    assert.match(body, /public\.topic_likes/);
+    assert.match(body, /public\.bookmarks/);
+    assert.match(body, /public\.progress/);
+    assert.match(body, /public\.comment_likes/);
+  }
+  assert.match(adminAnalyticsHub, /<DailyOverviewChart series=\{series\} \/>/);
+  assert.match(adminAnalyticsHub, /<AnalyticsDeepDivePanel data=\{deepDive\} \/>/);
+  assert.match(adminAnalyticsHub, /Unique signed-in viewers/);
+  assert.match(adminAnalyticsHub, /New top-level comments/);
+  assert.doesNotMatch(adminAnalyticsHub, /served_count|anonymous_/);
 });
 
 test('personalisation consent is opt-in and versioned', () => {
