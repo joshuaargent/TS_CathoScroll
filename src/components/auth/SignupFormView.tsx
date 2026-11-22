@@ -153,7 +153,7 @@ export function SignupFormView({
                 />
                 <span className="text-text-secondary text-xs leading-relaxed">
                   <span className="text-text-primary font-semibold">Service improvement analytics — I explicitly consent</span>
-                  {' '}— optional account-linked measurement of signed-in topic/comment engagement and site performance. Activity may reveal religious or philosophical interests. This choice must remain enabled while Personalisation is active. Reading signals inform recommendations only while Personalisation is enabled too.
+                  {' '}— optional account-linked measurement of signed-in topic/comment engagement and site performance. Aggregated results may inform shared topic ordering for all readers, without profiling you individually. Activity may reveal religious or philosophical interests. This choice must remain enabled while Personalisation is active. Reading signals inform recommendations only while Personalisation is enabled too.
                 </span>
               </label>
 
