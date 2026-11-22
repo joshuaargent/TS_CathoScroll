@@ -7016,6 +7016,13 @@ BEGIN
     RAISE EXCEPTION 'Update CathoScroll and review the current personalisation notice before enabling recommendations' USING ERRCODE='42501';
   END IF;
   PERFORM 1 FROM auth.users WHERE id = v_user_id FOR UPDATE;
+  IF p_enabled IS TRUE AND NOT EXISTS (
+    SELECT 1 FROM catho_private.user_analytics_consents AS consent
+    WHERE consent.user_id = v_user_id AND consent.service_improvement IS TRUE
+  ) THEN
+    RAISE EXCEPTION 'Enable Service improvement analytics before enabling Personalisation'
+      USING ERRCODE = '42501';
+  END IF;
   IF p_enabled THEN
     INSERT INTO catho_private.user_personalization_consents
       (user_id,enabled,consent_version,granted_at,withdrawn_at,updated_at)
@@ -7112,9 +7119,13 @@ DECLARE
   v_service_improvement boolean := NEW.raw_user_meta_data ->> 'service_improvement_consent' = 'true';
   v_sponsor_measurement boolean := NEW.raw_user_meta_data ->> 'sponsor_measurement_consent' = 'true';
 BEGIN
-  -- Personalisation is an independent explicit consent. Passive reading
-  -- signals are used for recommendations only when Service improvement is
-  -- separately enabled as well.
+  IF v_personalization IS TRUE AND v_service_improvement IS NOT TRUE THEN
+    RAISE EXCEPTION 'Personalisation requires Service improvement analytics'
+      USING ERRCODE = '42501';
+  END IF;
+
+  -- Personalisation is a separate explicit choice but requires Service
+  -- improvement analytics to remain enabled while it is active.
   INSERT INTO catho_private.user_personalization_consents
     (user_id,enabled,consent_version,granted_at,withdrawn_at,updated_at)
   VALUES (
