@@ -131,7 +131,7 @@ test('sponsor event recording requires explicit consent and records viewability,
   assert.match(recorder, /p_placement_receipt/);
   assert.match(recorder, /p_duration_ms/);
   assert.match(recorder, /duration_ms/);
-  assert.match(recorder, /event_type = 'active_duration'/);
+  assert.match(recorder, /p_event_type = 'active_duration'/);
   assert.match(recorder, /active_duration_ms/);
   assert.match(recorder, /receipt\.id = p_placement_receipt/);
   assert.match(recorder, /ON CONFLICT DO NOTHING/);
