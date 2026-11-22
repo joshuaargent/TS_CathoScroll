@@ -19,6 +19,8 @@
 -- 34 application/Auth triggers, 32 policies, 95 explicit indexes,
 -- 15 categories and 86 topics. Constraint-backed indexes are additional.
 --
+BEGIN;
+
 DO $bootstrap_guard$
 BEGIN
   IF to_regclass('auth.users') IS NULL THEN
@@ -8841,6 +8843,12 @@ BEGIN
     WHERE event.user_id = p_user_id
   ) AS affected_dates;
 
+  -- Preserve older non-identifying daily totals after raw events are pruned.
+  IF v_from IS NOT NULL AND v_to IS NOT NULL THEN
+    v_from := greatest(v_from, (pg_catalog.timezone('UTC', pg_catalog.statement_timestamp()))::date - 179);
+    v_to := least(v_to, (pg_catalog.timezone('UTC', pg_catalog.statement_timestamp()))::date);
+  END IF;
+
   DELETE FROM catho_private.feed_analytics_events WHERE user_id = p_user_id;
   GET DIAGNOSTICS v_rows = ROW_COUNT;
   v_deleted := v_deleted + v_rows;
@@ -8987,6 +8995,12 @@ BEGIN
   INTO v_from, v_to
   FROM catho_private.sponsor_campaign_events AS event
   WHERE event.user_id = p_user_id;
+
+  -- Only rebuild dates whose complete raw-event ledger is still retained.
+  IF v_from IS NOT NULL AND v_to IS NOT NULL THEN
+    v_from := greatest(v_from, (pg_catalog.timezone('UTC', pg_catalog.statement_timestamp()))::date - 179);
+    v_to := least(v_to, (pg_catalog.timezone('UTC', pg_catalog.statement_timestamp()))::date);
+  END IF;
 
   DELETE FROM catho_private.sponsor_campaign_events WHERE user_id = p_user_id;
   GET DIAGNOSTICS v_deleted = ROW_COUNT;
@@ -9146,3 +9160,5 @@ END;
 $consent_cleanup$;
 
 NOTIFY pgrst, 'reload schema';
+
+COMMIT;
