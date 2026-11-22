@@ -4047,7 +4047,7 @@ BEGIN
       'comments', (SELECT pg_catalog.count(*) FROM public.comments c WHERE c.topic_id = ANY(v_topic_ids) AND c.parent_id IS NULL AND c.is_deleted = false),
       'replies', (SELECT pg_catalog.count(*) FROM public.comments c WHERE c.topic_id = ANY(v_topic_ids) AND c.parent_id IS NOT NULL AND c.is_deleted = false),
       'comment_likes', (SELECT pg_catalog.count(*) FROM public.comment_likes cl JOIN public.comments c ON c.id = cl.comment_id WHERE c.topic_id = ANY(v_topic_ids) AND c.is_deleted = false),
-      'completed_topics', (SELECT pg_catalog.count(*) FROM public.progress p WHERE p.topic_id = ANY(v_topic_ids))
+      'completed_topics', (SELECT pg_catalog.count(*) FROM public.progress p WHERE p.topic_id = ANY(v_topic_ids) AND p.completed_at IS NOT NULL)
     )
   ) INTO v_interactions;
 
