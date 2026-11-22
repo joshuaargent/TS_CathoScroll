@@ -85,27 +85,27 @@ export function AnalyticsConsentSettingsPanel({
     } catch (cause) {
       console.error('Unable to save analytics settings:', cause);
       const safeServiceImprovement = personalizationEnabled
-        || (!personalizationStatusKnown && previous?.serviceImprovement === true);
-      if (!safeServiceImprovement && personalizationStatusKnown) {
-        denyAnalyticsConsentInMemory('serviceImprovement', userId);
-      }
-      denyAnalyticsConsentInMemory('sponsorMeasurement', userId);
+        || (previous?.serviceImprovement === true && (!personalizationStatusKnown || serviceImprovement));
+      const safeSponsorMeasurement = previous?.sponsorMeasurement === true && sponsorMeasurement;
+      if (!safeServiceImprovement) denyAnalyticsConsentInMemory('serviceImprovement', userId);
+      if (!safeSponsorMeasurement) denyAnalyticsConsentInMemory('sponsorMeasurement', userId);
       let denialPersisted = false;
       try {
         if (personalizationStatusKnown || previous) {
           saveAnalyticsConsent({
             serviceImprovement: safeServiceImprovement,
-            sponsorMeasurement: false,
+            sponsorMeasurement: safeSponsorMeasurement,
           }, userId, { syncPending: true });
           denialPersisted = true;
         }
       } catch {
-        // In-memory denials remain active for any stream that is safe to deny.
+        // Existing grants are preserved only when they were not withdrawn;
+        // in-memory denials remain active for withdrawn or ungranted streams.
       }
       if (denialPersisted) window.dispatchEvent(new Event(analyticsConsentSyncEvent));
       if (personalizationStatusKnown || previous) setServiceImprovement(safeServiceImprovement);
-      setSponsorMeasurement(false);
-      setError('Could not safely save these settings. Optional analytics remain disabled on this device.');
+      setSponsorMeasurement(safeSponsorMeasurement);
+      setError('Changes could not be saved. Withdrawals are applied locally; new grants were not activated.');
     } finally {
       setSaving(false);
     }
