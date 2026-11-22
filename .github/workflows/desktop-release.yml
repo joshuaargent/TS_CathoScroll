@@ -11,6 +11,12 @@ on:
         required: true
         type: string
 
+      allow_android_signing_key_transition:
+        description: Allow a one-time signer change; existing Android installs will need uninstall/reinstall
+        required: false
+        default: false
+        type: boolean
+
 permissions:
   contents: write
 
@@ -277,9 +283,14 @@ jobs:
             echo "Android signing certificate differs from the previous production release."
             echo "Previous: $previous_certificate"
             echo "Current:  $current_certificate"
-            exit 1
+            if [[ "${{ inputs.allow_android_signing_key_transition }}" != "true" ]]; then
+              echo "Refusing publication. Only enable allow_android_signing_key_transition for an intentional first production-signed release."
+              exit 1
+            fi
+            echo "::warning::Existing Android installs signed with the previous certificate cannot update in place and must uninstall/reinstall."
+          else
+            echo "Android update signing certificate matches the previous production release."
           fi
-          echo "Android update signing certificate matches the previous production release."
 
       - name: Upload Android APK
         uses: actions/upload-artifact@v7
