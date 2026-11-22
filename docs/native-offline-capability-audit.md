@@ -9,7 +9,7 @@
 | Likes, bookmarks and progress | Account-scoped activity sync | Existing revision-aware activity outbox queues changes and syncs on reconnect |
 | Signed-in Service improvement analytics | Encrypted account-scoped SQLite outbox | Only events created while explicit consent is active are queued; max 2,000 per stream, seven-day expiry, acknowledgement deletion |
 | Signed-in Sponsor measurement | Separate encrypted account-scoped SQLite stream | Only opted-in viewability, click and bounded active-duration events are queued; max 2,000 per stream, seven-day expiry, acknowledgement deletion |
-| Anonymous analytics | Not implemented | No anonymous event creation, queue, storage or upload. Existing installs drop the legacy `offline_anonymous_analytics_outbox` SQLite table during native startup and clear the retired browser/WebView anonymous-analytics preference; failed local cleanup is logged and retried on a later startup. |
+| Anonymous analytics | Not implemented | No anonymous event creation, queue, storage or upload. Existing installs drop the legacy `offline_anonymous_analytics_outbox` table, purge pre-release signed-in analytics events once because the release resets consent, and clear the retired browser/WebView anonymous-analytics preference. Newly opted-in events remain durable on subsequent launches; failed local cleanup is logged and retried on a later startup. |
 | Sponsor delivery without measurement | Campaign selection through the shared API | Sponsor cards remain available; no served counter, session token, event or frequency record is created |
 
 ## Consent and queue lifecycle
