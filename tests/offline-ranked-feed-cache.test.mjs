@@ -62,6 +62,9 @@ test('withdrawing Service improvement clears cached passive-signal recommendatio
   assert.match(native, /detail\.consent\?\.serviceImprovement === true && detail\.consent\.syncPending === false/);
   assert.match(native, /cache\.clearPersonalizedPages\(user\.id\)/);
   assert.match(native, /pendingServiceImprovementCacheRefreshUserIdRef/);
+  assert.match(native, /readAnalyticsConsent\(user\.id\)/);
+  assert.match(native, /serviceImprovementWithdrawalPending/);
+  assert.match(native, /!serviceImprovementWithdrawalPending && user\?\.id && personalizedFeedCacheRef/);
   assert.match(native, /await personalizedFeedCacheRef\.current\.clearPersonalizedPages\(user\.id\)/);
   assert.match(native, /offline reading falls back to the general feed/);
 });
