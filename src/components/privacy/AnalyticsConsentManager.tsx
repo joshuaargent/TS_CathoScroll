@@ -312,13 +312,36 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
           sponsorMeasurement?: unknown;
           updatedAt?: unknown;
           version?: unknown;
+          exists?: unknown;
         };
         if (
           typeof saved.serviceImprovement !== 'boolean' ||
           typeof saved.sponsorMeasurement !== 'boolean' ||
           saved.version !== 2 ||
-          typeof saved.updatedAt !== 'string'
+          typeof saved.exists !== 'boolean' ||
+          !(saved.updatedAt === null || typeof saved.updatedAt === 'string')
         ) return;
+        if (!saved.exists) {
+          // Withdrawing the final enabled purpose deliberately removes the
+          // current consent row. The server therefore confirms an undecided
+          // state with updatedAt=null rather than a persisted false/false row.
+          if (saved.serviceImprovement || saved.sponsorMeasurement || saved.updatedAt !== null) return;
+          denyAnalyticsConsentInMemory('serviceImprovement', expectedUserId);
+          denyAnalyticsConsentInMemory('sponsorMeasurement', expectedUserId);
+          try {
+            window.localStorage.removeItem(getAnalyticsConsentStorageKey(expectedUserId));
+          } catch (cause) {
+            console.warn('Unable to clear the local analytics consent cache:', cause);
+          }
+          markOwnChoiceWrite();
+          hydrate(null);
+          if (!managingRef.current) {
+            setVisible(false);
+            setManaging(false);
+          }
+          return;
+        }
+        if (typeof saved.updatedAt !== 'string') return;
         const next = {
           serviceImprovement: saved.serviceImprovement,
           sponsorMeasurement: saved.sponsorMeasurement,
