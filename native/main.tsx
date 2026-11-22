@@ -645,6 +645,7 @@ function App() {
   const [catalogue, setCatalogue] = useState<OfflineCatalogue | null>(null);
   const generalFeedCacheRef = useRef<OfflineRankedFeedCache | null>(null);
   const personalizedFeedCacheRef = useRef<OfflineRankedFeedCache | null>(null);
+  const pendingServiceImprovementCacheRefreshUserIdRef = useRef<string | null>(null);
   const [firstPage, setFirstPage] = useState<CataloguePage | null>(null);
   const [feedPersonalized, setFeedPersonalized] = useState(false);
   const [feedGeneralRanked, setFeedGeneralRanked] = useState(false);
@@ -705,6 +706,15 @@ function App() {
     async function loadFeed() {
       controller = new AbortController();
       try {
+        if (
+          user?.id &&
+          pendingServiceImprovementCacheRefreshUserIdRef.current === user.id &&
+          personalizedFeedCacheRef.current
+        ) {
+          await personalizedFeedCacheRef.current.clearPersonalizedPages(user.id);
+          pendingServiceImprovementCacheRefreshUserIdRef.current = null;
+        }
+
         if (!navigator.onLine) {
           let page: CataloguePage | null = null;
           let offlinePersonalized = false;
@@ -925,7 +935,7 @@ function App() {
         choice?: unknown;
         consent?: { serviceImprovement?: unknown; syncPending?: unknown };
       }>).detail;
-      if (!user?.id || detail?.userId !== user.id) return;
+      if (!detail || typeof detail.userId !== 'string') return;
       const serviceImprovementNeedsRefresh =
         detail.choice === 'serviceImprovement' ||
         detail.consent?.serviceImprovement === false ||
@@ -933,7 +943,11 @@ function App() {
       if (!serviceImprovementNeedsRefresh) return;
 
       const cache = personalizedFeedCacheRef.current;
-      if (!cache) return;
+      if (!user?.id || detail.userId !== user.id || !cache) {
+        pendingServiceImprovementCacheRefreshUserIdRef.current = detail.userId;
+        return;
+      }
+      pendingServiceImprovementCacheRefreshUserIdRef.current = null;
       void cache.clearPersonalizedPages(user.id).then(() => {
         // Cached personalised pages may have been ranked using passive reading
         // signals. Remove them immediately while preserving the separate
