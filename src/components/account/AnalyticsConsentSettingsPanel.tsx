@@ -49,7 +49,7 @@ export function AnalyticsConsentSettingsPanel({
       if (active && (detail?.userId ?? null) === userId) hydrate();
     };
     const onConsentSync = () => {
-      if (active) hydrate();
+      if (active && readAnalyticsConsent(userId)?.syncPending !== true) hydrate();
     };
     const onStorageChange = (event: StorageEvent) => {
       if (active && event.key === getAnalyticsConsentStorageKey(userId)) hydrate();
