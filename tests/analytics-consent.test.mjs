@@ -68,10 +68,11 @@ test('optional analytics consent is explicit, purpose-specific and off by defaul
 });
 
 test('account consent sync is identity-bound, retryable and enforced server-side', async () => {
-  const [manager, route, serverConsent, topicRoute, commentRoute, sponsorRoute, migration, personalizationUpgrade, bootstrap, security] = await Promise.all([
+  const [manager, route, serverConsent, consentClient, topicRoute, commentRoute, sponsorRoute, migration, personalizationUpgrade, bootstrap, security] = await Promise.all([
     read('../src/components/privacy/AnalyticsConsentManager.tsx'),
     read('../src/app/api/privacy/analytics-consent/route.ts'),
     read('../src/lib/analytics-consent-server.ts'),
+    read('../src/lib/analytics-consent.ts'),
     read('../src/app/api/analytics/feed-events/route.ts'),
     read('../src/app/api/analytics/feed-card-events/route.ts'),
     read('../src/app/api/content/sponsor-campaign-events/route.ts'),
@@ -129,7 +130,8 @@ test('account consent sync is identity-bound, retryable and enforced server-side
   assert.match(serverConsent, /const currentConsent = value\.version === 2 && value\.exists === true/);
   assert.match(serverConsent, /serviceImprovement: currentConsent && value\.serviceImprovement/);
   assert.match(serverConsent, /sponsorMeasurement: currentConsent && value\.sponsorMeasurement/);
-  assert.match(serverConsent, /pendingPurposes/);
+  assert.match(consentClient, /pendingPurposes: options\.pendingPurposes/);
+  assert.match(consentClient, /pendingPurposes/);
   assert.match(manager, /pendingPurposeSet\.has\('serviceImprovement'\)[\s\S]*?remote\.serviceImprovement/);
   assert.match(manager, /pendingPurposeSet\.has\('sponsorMeasurement'\)[\s\S]*?remote\.sponsorMeasurement/);
   assert.match(manager, /personalizationEnabled\?: unknown/);
