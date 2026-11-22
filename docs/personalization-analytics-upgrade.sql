@@ -1,10 +1,13 @@
 -- EXISTING DATABASE UPGRADE ONLY.
+-- Run as one transaction so a failure cannot leave a partial schema or reset.
 -- Apply docs/analytics-consent-and-sponsor-opt-out-upgrade.sql first: this
 -- upgrade depends on its consent ledger and history tables. It does not create
 -- new SQL migration files or alter sponsor measurement. The clean-install
 -- equivalent is maintained in docs/cathoscroll-database-bootstrap.sql.
 
 -- Consented, private recommendation personalisation (model 2026-11-20-v4).
+BEGIN;
+
 CREATE TABLE IF NOT EXISTS catho_private.user_personalization_consents (
   user_id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   enabled boolean NOT NULL DEFAULT false,
@@ -1337,7 +1340,6 @@ REVOKE ALL ON catho_private.analytics_release_resets FROM PUBLIC, anon, authenti
 -- Lock both consent ledgers and remove current grants first. Event ingestion
 -- functions take row-share locks on these rows, so once this transaction
 -- commits, old grants cannot write into the freshly cleared analytics tables.
-BEGIN;
 LOCK TABLE catho_private.user_analytics_consents,
            catho_private.user_personalization_consents
   IN ACCESS EXCLUSIVE MODE;
