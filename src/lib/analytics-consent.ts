@@ -94,9 +94,21 @@ function emptyConsent(): AnalyticsConsent {
 export function readAnalyticsConsent(userId?: string | null): AnalyticsConsent | null {
   if (typeof window === 'undefined') return null;
   try {
-    const raw = window.localStorage.getItem(storageKeyForUser(userId));
+    const storageKey = storageKeyForUser(userId);
+    const raw = window.localStorage.getItem(storageKey);
     if (!raw) return null;
     const parsed: unknown = JSON.parse(raw);
+    if (
+      typeof parsed === 'object' &&
+      parsed !== null &&
+      'version' in parsed &&
+      parsed.version !== analyticsConsentVersion
+    ) {
+      // Release consent-version changes invalidate old local grants even
+      // when a native device has not reconnected to the server yet.
+      window.localStorage.removeItem(storageKey);
+      return null;
+    }
     if (
       typeof parsed !== 'object' ||
       parsed === null ||
