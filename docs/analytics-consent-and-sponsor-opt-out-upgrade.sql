@@ -2451,6 +2451,24 @@ BEGIN
   WHERE user_id = p_user_id
   FOR UPDATE;
 
+  -- An all-unchecked state is undecided, not a persisted refusal.
+  -- Preserve evidence only when this call revokes a previously granted purpose.
+  IF p_service_improvement IS FALSE AND p_sponsor_measurement IS FALSE THEN
+    IF v_previous_service IS TRUE OR v_previous_sponsor IS TRUE THEN
+      INSERT INTO catho_private.user_analytics_consent_history (
+        user_id, previous_service_improvement, previous_sponsor_measurement,
+        service_improvement, sponsor_measurement, consent_version, recorded_at
+      ) VALUES (
+        p_user_id, v_previous_service, v_previous_sponsor,
+        false, false, p_consent_version, v_now
+      );
+    END IF;
+    DELETE FROM catho_private.user_analytics_consents WHERE user_id = p_user_id;
+    PERFORM catho_private.purge_user_service_improvement_events(p_user_id);
+    PERFORM catho_private.purge_user_sponsor_measurement_events(p_user_id);
+    RETURN public.get_user_analytics_consent(p_user_id);
+  END IF;
+
   IF v_previous_service IS NOT NULL
      AND v_previous_service = p_service_improvement
      AND v_previous_sponsor = p_sponsor_measurement THEN
