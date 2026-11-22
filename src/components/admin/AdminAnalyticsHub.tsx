@@ -49,7 +49,6 @@ function Metric({ label, value, detail, icon: Icon }: { label: string; value: st
     <p className="text-text-muted mt-2 text-xs">{detail}</p>
   </div><span className="bg-accent-light text-accent rounded-xl p-2.5"><Icon className="h-5 w-5" aria-hidden="true" /></span></div></Card>;
 }
-}
 
 function SectionCard({ title, description, count, href, icon: Icon, children }: {
   title: string; description: string; count: string; href: string; icon: typeof Activity; children: ReactNode;
