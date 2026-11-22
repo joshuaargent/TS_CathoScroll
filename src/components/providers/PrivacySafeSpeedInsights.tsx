@@ -3,7 +3,7 @@
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import { useCallback, useSyncExternalStore, type ComponentProps } from 'react';
 import { useAuth } from '@/components/providers/AuthProvider';
-import { analyticsConsentChangeEvent, hasAnalyticsConsent } from '@/lib/analytics-consent';
+import { analyticsConsentChangeEvent, hasSyncedAnalyticsConsent } from '@/lib/analytics-consent';
 
 type SpeedInsightsEvent = Parameters<NonNullable<ComponentProps<typeof SpeedInsights>['beforeSend']>>[0];
 
@@ -38,7 +38,7 @@ function subscribe(onChange: () => void) {
 export function PrivacySafeSpeedInsights() {
   const { user, loading } = useAuth();
   const getSnapshot = useCallback(
-    () => hasAnalyticsConsent('serviceImprovement', user?.id ?? null),
+    () => hasSyncedAnalyticsConsent('serviceImprovement', user?.id ?? null),
     [user?.id]
   );
   const enabled = useSyncExternalStore(subscribe, getSnapshot, () => false);
