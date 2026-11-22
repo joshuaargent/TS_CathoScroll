@@ -125,6 +125,8 @@ export function TopicFeedCore({
   const sponsorSessionUserId = useRef(userId);
   const sponsorLoadingRef = useRef(false);
   const sponsorRequestVersion = useRef(0);
+  const sponsorConsentRevision = useRef(0);
+  const sponsorMeasurementState = useRef(Boolean(userId && hasSyncedAnalyticsConsent('sponsorMeasurement', userId)));
   const sponsorDueByTopicId = useRef(new Set<string>());
   const sponsorDirectionByTopicId = useRef(new Map<string, FeedEntryDirection>());
   const [activeTopCommentIndex, setActiveTopCommentIndex] = useState(0);
@@ -167,6 +169,8 @@ export function TopicFeedCore({
   useEffect(() => {
     if (sponsorSessionUserId.current === userId) return;
     sponsorSessionUserId.current = userId;
+    sponsorMeasurementState.current = Boolean(userId && hasSyncedAnalyticsConsent('sponsorMeasurement', userId));
+    sponsorConsentRevision.current += 1;
     // Clear sponsor placement IDs and cached selections across account changes.
     seenTopCommentUserId.current = userId;
     topCommentCadenceUserId.current = userId;
@@ -351,13 +355,16 @@ export function TopicFeedCore({
 
       const requestedUserId = userId;
       const requestedMeasurementEnabled = Boolean(requestedUserId && hasSyncedAnalyticsConsent('sponsorMeasurement', requestedUserId));
+      const requestedConsentRevision = sponsorConsentRevision.current;
       const request = loadSponsorCampaigns(topic)
         .then((result) => {
-          // A consent change while the request is in flight invalidates its
-          // visitor/session token. Keep the sponsor placement, but never cache
-          // or expose the token after the user withdraws measurement.
+          // Any sponsor-consent transition invalidates receipts issued while
+          // the request was in flight, including withdraw-and-regrant races.
           const measurementStillEnabled = Boolean(requestedUserId && hasSyncedAnalyticsConsent('sponsorMeasurement', requestedUserId));
-          if (measurementStillEnabled !== requestedMeasurementEnabled) {
+          if (
+            sponsorConsentRevision.current !== requestedConsentRevision ||
+            measurementStillEnabled !== requestedMeasurementEnabled
+          ) {
             return {
               ...result,
               campaigns: result.campaigns.map((campaign) => ({
@@ -402,6 +409,10 @@ export function TopicFeedCore({
   useEffect(() => {
     const clearMeasuredPlacements = () => {
       const measurementEnabled = Boolean(userId && hasSyncedAnalyticsConsent('sponsorMeasurement', userId));
+      if (measurementEnabled !== sponsorMeasurementState.current) {
+        sponsorMeasurementState.current = measurementEnabled;
+        sponsorConsentRevision.current += 1;
+      }
       if (measurementEnabled) return;
 
       // Remove measurement receipts created before withdrawal/objection from
