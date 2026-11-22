@@ -1,7 +1,6 @@
 import Link from 'next/link';
 import { createPageMetadata } from '@/lib/seo';
 import { AnalyticsConsentSettingsButton } from '@/components/privacy/AnalyticsConsentManager';
-import { AnonymousAnalyticsPreference } from '@/components/privacy/AnonymousAnalyticsPreference';
 
 export const metadata = createPageMetadata({
   title: "Cookies",
@@ -67,11 +66,11 @@ export default function CookiesPage() {
           <h2 className="mb-4 text-3xl font-bold">Analytics and Performance Measurement</h2>
 
           <p className="text-text-secondary leading-relaxed">
-            When signed in, Service improvement analytics measures account-linked topic and Top Comments engagement only after explicit opt-in. When signed out, topic and Top Comments engagement is measured as daily aggregate statistics without account, visitor or session identifiers unless you object below. Website anonymous retries remain in memory; Android and Electron may retain a separate app-private anonymous topic/comment queue capped at 2,000 events and seven days. Objecting clears pending anonymous events immediately. Signed-in native events are stored separately in encrypted app-private storage and are deleted after acknowledgement or withdrawal.
+            Service improvement analytics measures account-linked topic and Top Comments engagement only for signed-in users who explicitly opt in. No anonymous topic or comment engagement events or queues are collected. Signed-in native events are stored in encrypted app-private storage and are deleted after acknowledgement or withdrawal.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            Personalisation is a separate optional choice but requires Service improvement analytics to remain enabled. Passive reading signals inform private recommendations while Personalisation is active. Turn off Personalisation before withdrawing Service improvement. Withdrawing Service improvement clears cached personalised pages that may have used passive signals; offline reading falls back to cached general content or the local catalogue until fresh personalised pages can be downloaded. Sponsor measurement is separate. Signed-in users can explicitly opt in to account-linked viewability, clicks and viewing duration; frequency is derived from those opted-in events. Signed-out users have a separate anonymous sponsor measurement preference. Unless they object below, only aggregate served placements, viewable impressions, clicks, viewing duration and frequency are recorded. The anonymous sponsor queue is memory-only and does not persist visitor/session identifiers or event history. Objecting stops new sponsor measurement and clears pending in-memory events, but sponsor placements continue.
+            Personalisation is a separate optional choice but requires Service improvement analytics to remain enabled. Passive reading signals inform private recommendations while Personalisation is active. Turn off Personalisation before withdrawing Service improvement. Withdrawing Service improvement clears cached personalised pages that may have used passive signals; offline reading falls back to cached general content or the local catalogue until fresh personalised pages can be downloaded. Sponsor measurement is separate and applies only to signed-in users who explicitly opt in. It records account-linked viewable impressions, clicks and viewing duration; frequency is derived from those opted-in events. Signed-out sponsor placements remain available but are not measured. No sponsor delivery counters are recorded.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
@@ -89,9 +88,6 @@ export default function CookiesPage() {
             Personalisation requires Service improvement analytics to remain enabled. Turn off Personalisation before withdrawing Service improvement; Sponsor measurement is separate. Sponsor measurement is a separate optional choice. Signed-in users can manage optional account-linked choices at signup and in Account settings. Declining optional analytics does not affect sign-in, account synchronisation, bookmarks, likes, progress, notes, sponsor delivery or general feed ranking.
           </p>
           <AnalyticsConsentSettingsButton />
-          <div className="mt-6">
-            <AnonymousAnalyticsPreference />
-          </div>
         </section>
 
         <section>
@@ -124,7 +120,7 @@ export default function CookiesPage() {
           <h2 className="mb-4 text-3xl font-bold">Local Storage and Offline Apps</h2>
 
           <p className="text-text-secondary leading-relaxed">
-            CathoScroll uses browser local storage, IndexedDB and app-private storage for sign-in, offline content and pending synchronisation. Android and Electron persist signed-in opted-in analytics in encrypted, account-scoped queues and may retain anonymous topic/comment events in a separate app-private queue capped at 2,000 events and seven days. Anonymous sponsor events are never queued in persistent storage; their retry queue exists only in memory. Objecting to either anonymous purpose clears the corresponding pending events. Personalised feed pages are retained in encrypted private storage for up to 14 days, but are available offline only while the last successful consent check is no more than 12 hours old; general feed pages use a separate cache. These are device-storage technologies, not browser cookies. Clearing them may remove offline data, require sign-in again or lose pending activity.
+            CathoScroll uses browser local storage, IndexedDB and app-private storage for sign-in, offline content and pending synchronisation. Android and Electron persist only signed-in, explicitly opted-in analytics in encrypted, account-scoped queues. No anonymous topic, comment or sponsor analytics queues exist. Personalised feed pages are retained in encrypted private storage for up to 14 days, but are available offline only while the last successful consent check is no more than 12 hours old; general feed pages use a separate cache. These are device-storage technologies, not browser cookies. Clearing them may remove offline data, require sign-in again or lose pending activity.
           </p>
         </section>
 
