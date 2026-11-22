@@ -259,7 +259,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
         typeof remote.sponsorMeasurement !== 'boolean' ||
         typeof remote.exists !== 'boolean' ||
         typeof remote.personalizationEnabled !== 'boolean' ||
-        remote.version !== 2 ||
+        remote.version !== 3 ||
         !(remote.updatedAt === null || typeof remote.updatedAt === 'string')
       ) return;
 
