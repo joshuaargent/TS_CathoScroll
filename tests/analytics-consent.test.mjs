@@ -33,6 +33,7 @@ test('optional analytics consent is explicit, purpose-specific and off by defaul
   assert.match(consent, /startsWith\(legacyPrefix \+ '\.account\.'/);
   assert.ok(manager.includes('clearLegacyAnalyticsConsentStorage()'));
   assert.match(consent, /const syncPending = options\.syncPending \?\? Boolean\(userId\)/);
+  assert.match(consent, /pendingPurposes: options\.pendingPurposes/);
   assert.ok(consent.includes('deniedOverrides'));
   assert.match(consent, /if \(!userId\) return false/);
   assert.match(manager, /legacySignedOutConsent = readAnalyticsConsent\(null\)/);
@@ -56,7 +57,7 @@ test('optional analytics consent is explicit, purpose-specific and off by defaul
   assert.ok(signup.includes('name="serviceImprovementConsent"'));
   assert.ok(signup.includes('name="sponsorMeasurementConsent"'));
   assert.ok(signup.includes('I explicitly consent'));
-  assert.ok(signup.includes('Personalisation requires Service improvement analytics. Select that choice first and keep it enabled while Personalisation is active.'));
+  assert.ok(signup.includes('Personalisation requires Service improvement analytics: select that choice first, and keep it enabled while Personalisation is active.'));
   assert.match(signup, /disabled=\{loading \|\| !online \|\| !serviceImprovementConsent\}/);
   assert.match(signup, /disabled=\{loading \|\| !online \|\| personalizationConsent\}/);
   assert.ok(layout.includes('<WebAnalyticsConsentManager />'));
@@ -109,7 +110,6 @@ test('account consent sync is identity-bound, retryable and enforced server-side
   assert.ok(route.includes('set_user_analytics_consent'));
   assert.match(route, /PERSONALISATION_REQUIRES_SERVICE_IMPROVEMENT/);
   assert.match(route, /error\.code === '42501'[\s\S]*?}, 409/);
-  assert.match(consent, /pendingPurposes: options\.pendingPurposes/);
   assert.match(route, /parsed\.value\.version !== 2/);
   assert.match(route, /p_consent_version: 2/);
   assert.match(manager, /remote\.version !== 2/);
