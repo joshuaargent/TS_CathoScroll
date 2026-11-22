@@ -151,12 +151,13 @@ export function AdminAnalyticsHub({ overview, period, section = 'overview', seri
       <Metric label="Top Comments exposure" value={number(t.comment_card_impressions)} detail={number(t.comment_card_viewable_impressions) + ' viewable · ' + number(t.comment_card_opens) + ' discussion opens'} icon={MessageCircle} />
     </section>
 
-    <section className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <section className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
       <Metric label="Topic viewability" value={t.topic_impressions ? ((t.topic_viewable_impressions / t.topic_impressions) * 100).toFixed(1) + '%' : '—'} detail="Viewable impressions ÷ opted-in impressions" icon={Activity} />
       <Metric label="Topic completion rate" value={t.topic_impressions ? ((t.topic_completions / t.topic_impressions) * 100).toFixed(1) + '%' : '—'} detail="Completions ÷ opted-in impressions" icon={BookOpen} />
       <Metric label="Sponsor click-through" value={t.sponsor_viewable_impressions ? ((t.sponsor_clicks / t.sponsor_viewable_impressions) * 100).toFixed(2) + '%' : '—'} detail="Clicks ÷ opted-in viewable impressions" icon={Megaphone} />
       <Metric label="Sponsor active time" value={duration(t.sponsor_active_duration_ms)} detail="Measured time on opted-in viewable sponsor cards" icon={Megaphone} />
       <Metric label="Comment-card viewability" value={t.comment_card_impressions ? ((t.comment_card_viewable_impressions / t.comment_card_impressions) * 100).toFixed(1) + '%' : '—'} detail="Viewable impressions ÷ opted-in impressions" icon={MessageCircle} />
+      <Metric label="Discussion open rate" value={t.comment_card_impressions ? ((t.comment_card_opens / t.comment_card_impressions) * 100).toFixed(1) + '%' : '—'} detail="Opens ÷ opted-in Top Comments impressions" icon={MessageCircle} />
     </section>
 
 
