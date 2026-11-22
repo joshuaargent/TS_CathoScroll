@@ -66,7 +66,7 @@ test('withdrawing Service improvement clears cached passive-signal recommendatio
   assert.match(native, /serviceImprovementWithdrawalPending/);
   assert.match(native, /!serviceImprovementWithdrawalPending && user\?\.id && personalizedFeedCacheRef/);
   assert.match(native, /await personalizedFeedCacheRef\.current\.clearPersonalizedPages\(user\.id\)/);
-  assert.match(native, /offline reading falls back to the general feed/);
+  assert.match(native, /offline reading falls back to the cached general feed or local catalogue/);
 });
 
 test('personalised page cache is initialised only after the encrypted private database opens', () => {
