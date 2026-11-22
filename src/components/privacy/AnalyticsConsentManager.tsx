@@ -295,7 +295,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
           body: JSON.stringify({
             serviceImprovement: pendingChoices.serviceImprovement,
             sponsorMeasurement: pendingChoices.sponsorMeasurement,
-            version: 2,
+            version: analyticsConsentVersion,
           }),
           signal: controller.signal,
         });
