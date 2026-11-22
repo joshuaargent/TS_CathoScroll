@@ -11,11 +11,12 @@ Sponsor selection and display are not measured for users without Sponsor measure
 Detailed measurement is a separate explicit opt-in for signed-in accounts. When enabled, the system records only:
 - A viewable impression after at least 50% of the card remains visible for one continuous second while the page is visible.
 - A click after a valid viewable impression.
+- Bounded active viewing duration while the card is visible and the page is active.
 - Account-level frequency derived from those consented viewable-impression events.
 
-Events are account-linked and use campaign, event, session and server-issued placement-receipt identifiers. The receipt is created only for opted-in selection, stored for up to seven days, and deleted when consent is withdrawn. Events do not include topic IDs, category IDs or reading history. Sponsor measurement must not be used for organic feed ranking, recommendation profiles or belief-based sponsor targeting.
+Events are account-linked and use campaign, event, session and server-issued placement-receipt identifiers. Active-duration events carry a bounded `duration_ms` value and require a prior qualifying viewable impression. The receipt is created only for opted-in selection, stored for up to seven days, and deleted when consent is withdrawn. Events do not include topic IDs, category IDs or reading history. Sponsor measurement must not be used for organic feed ranking, recommendation profiles or belief-based sponsor targeting.
 
-Sponsor/admin reports contain only viewable impressions, clicks on viewable placements and click-through rate from the opted-in population. They must not be labelled as total campaign deliveries, total reach or total-platform performance. CTR uses clicks divided by viewable impressions from the same opted-in population.
+Sponsor/admin reports contain only viewable impressions, clicks on viewable placements, bounded active viewing duration and click-through rate from the opted-in population. They must not be labelled as total campaign deliveries, total reach or total-platform performance. CTR uses clicks divided by viewable impressions from the same opted-in population.
 
 ## Frequency and caps
 
