@@ -60,6 +60,7 @@ export function AnalyticsConsentSettingsPanel({
   async function saveChoices() {
     if (saving || !userId) return;
     const previous = readAnalyticsConsent(userId);
+    if (!personalizationStatusKnown && !previous) return;
     const nextServiceImprovement = !personalizationStatusKnown
       ? previous?.serviceImprovement === true
       : personalizationEnabled || serviceImprovement;
@@ -85,20 +86,24 @@ export function AnalyticsConsentSettingsPanel({
       console.error('Unable to save analytics settings:', cause);
       const safeServiceImprovement = personalizationEnabled
         || (!personalizationStatusKnown && previous?.serviceImprovement === true);
-      if (!safeServiceImprovement) denyAnalyticsConsentInMemory('serviceImprovement', userId);
+      if (!safeServiceImprovement && personalizationStatusKnown) {
+        denyAnalyticsConsentInMemory('serviceImprovement', userId);
+      }
       denyAnalyticsConsentInMemory('sponsorMeasurement', userId);
       let denialPersisted = false;
       try {
-        saveAnalyticsConsent({
-          serviceImprovement: safeServiceImprovement,
-          sponsorMeasurement: false,
-        }, userId, { syncPending: true });
-        denialPersisted = true;
+        if (personalizationStatusKnown || previous) {
+          saveAnalyticsConsent({
+            serviceImprovement: safeServiceImprovement,
+            sponsorMeasurement: false,
+          }, userId, { syncPending: true });
+          denialPersisted = true;
+        }
       } catch {
         // In-memory denials remain active for any stream that is safe to deny.
       }
       if (denialPersisted) window.dispatchEvent(new Event(analyticsConsentSyncEvent));
-      setServiceImprovement(safeServiceImprovement);
+      if (personalizationStatusKnown || previous) setServiceImprovement(safeServiceImprovement);
       setSponsorMeasurement(false);
       setError('Could not safely save these settings. Optional analytics remain disabled on this device.');
     } finally {
