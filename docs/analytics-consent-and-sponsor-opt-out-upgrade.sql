@@ -2651,6 +2651,41 @@ $function$;
 ALTER FUNCTION public.get_user_analytics_consent(uuid) OWNER TO postgres;
 REVOKE ALL ON FUNCTION public.get_user_analytics_consent(uuid) FROM PUBLIC, anon, authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.get_user_analytics_consent(uuid) TO service_role;
+CREATE OR REPLACE FUNCTION public.get_admin_feed_card_analytics(p_actor_user_id uuid, p_from timestamp with time zone, p_to timestamp with time zone, p_card_type text, p_card_id text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare v_result jsonb;
+begin
+  if p_actor_user_id is null or not exists(select 1 from public.admin_users where user_id=p_actor_user_id) then
+    raise exception 'administrator access required' using errcode='42501';
+  end if;
+  if p_from is null or p_to is null or p_to<=p_from or p_to-p_from>interval '180 days'
+    or p_card_type<>'top-comment' or p_card_id is null or length(p_card_id) not between 1 and 64 then
+    raise exception 'invalid comment analytics range or filter' using errcode='22023';
+  end if;
+  with daily as (
+    select * from catho_private.feed_card_analytics_daily
+    where card_type=p_card_type and card_id=p_card_id and event_date>=p_from::date and event_date<=p_to::date
+  ), totals as (
+    select coalesce(sum(impressions),0) impressions,coalesce(sum(viewable_impressions),0) viewable_impressions,
+      coalesce(sum(active_duration_ms),0) active_duration_ms,coalesce(sum(skips),0) skips,
+      coalesce(sum(completions),0) completions,coalesce(sum(opens),0) opens,
+      coalesce((select count(distinct e.user_id) from catho_private.feed_card_analytics_events e where e.card_type=p_card_type and e.card_id=p_card_id and e.event_type='viewable_impression' and e.received_at>=p_from and e.received_at<p_to),0) unique_viewers from daily
+  ), series as (
+    select event_date,impressions,viewable_impressions,active_duration_ms,skips,opens from daily order by event_date
+  )
+  select jsonb_build_object('totals',(select to_jsonb(totals) from totals),
+    'series',(select coalesce(jsonb_agg(to_jsonb(series)),'[]'::jsonb) from series)) into v_result;
+  return v_result;
+end;
+$function$;
+ALTER FUNCTION public.get_admin_feed_card_analytics(uuid,timestamptz,timestamptz,text,text) OWNER TO postgres;
+REVOKE ALL ON FUNCTION public.get_admin_feed_card_analytics(uuid,timestamptz,timestamptz,text,text) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.get_admin_feed_card_analytics(uuid,timestamptz,timestamptz,text,text) TO service_role;
+
 NOTIFY pgrst, 'reload schema';
 
 COMMIT;
