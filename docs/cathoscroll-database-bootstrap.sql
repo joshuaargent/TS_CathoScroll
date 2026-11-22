@@ -7132,8 +7132,10 @@ DECLARE
   v_now timestamptz := statement_timestamp();
   v_personalization boolean := NEW.raw_user_meta_data ->> 'personalization_consent' = 'true'
     AND NEW.raw_user_meta_data ->> 'personalization_consent_version' = '2026-11-22-v7';
-  v_service_improvement boolean := NEW.raw_user_meta_data ->> 'service_improvement_consent' = 'true';
-  v_sponsor_measurement boolean := NEW.raw_user_meta_data ->> 'sponsor_measurement_consent' = 'true';
+  v_service_improvement boolean := NEW.raw_user_meta_data ->> 'analytics_consent_version' = '3'
+    AND NEW.raw_user_meta_data ->> 'service_improvement_consent' = 'true';
+  v_sponsor_measurement boolean := NEW.raw_user_meta_data ->> 'analytics_consent_version' = '3'
+    AND NEW.raw_user_meta_data ->> 'sponsor_measurement_consent' = 'true';
 BEGIN
   IF v_personalization IS TRUE AND v_service_improvement IS NOT TRUE THEN
     RAISE EXCEPTION 'Personalisation requires Service improvement analytics'
