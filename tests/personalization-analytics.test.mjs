@@ -352,7 +352,7 @@ test('web and native account/settings screens reuse the same components', () => 
   assert.match(accountSection, /set_my_personalization_consent/);
   assert.match(accountSection, /I explicitly consent to CathoScroll using my account actions and selected interests to personalise my recommendations/);
   assert.match(accountSection, /Personalisation requires Service improvement analytics to be enabled first and kept enabled while Personalisation is active/);
-  assert.match(accountSection, /p_consent_version: '2026-11-21-v6'/);
+  assert.match(accountSection, /p_consent_version: '2026-11-22-v7'/);
   assert.match(accountSection, /analyticsConsentSyncEvent/);
   assert.match(accountSection, /AnalyticsConsentSettingsPanel/);
   assert.match(analyticsSettingsPanel, /checked=\{serviceImprovement\}[\s\S]*?disabled=\{disabled \|\| saving \|\| !personalizationStatusKnown \|\| personalizationEnabled\}/);
@@ -381,7 +381,7 @@ test('web and native account/settings screens reuse the same components', () => 
 
 
 test('existing v3 personalisation consent is withdrawn and requires v4 re-consent', () => {
-  assert.match(upgrade, /consent_version IS DISTINCT FROM '2026-11-21-v6'/);
+  assert.match(upgrade, /consent_version IS DISTINCT FROM '2026-11-22-v7'/);
   assert.match(upgrade, /SET enabled = false,[\s\S]*withdrawn_at = v_now/);
   assert.match(upgrade, /DELETE FROM catho_private\.user_topic_interest_scores[\s\S]*v_affected_user_ids/);
   assert.doesNotMatch(upgrade, /service_improvement = true/);
@@ -415,9 +415,9 @@ test('personalisation and service improvement consent dependency is enforced', (
   const analyticsSetter = functionBody('public.set_user_analytics_consent');
   const signupTrigger = functionBody('catho_private.capture_signup_personalization_consent');
   assert.doesNotMatch(personalisationSetter, /INSERT INTO catho_private\.user_analytics_consents/);
-  assert.match(personalisationSetter, /p_consent_version IS DISTINCT FROM '2026-11-21-v6'/);
+  assert.match(personalisationSetter, /p_consent_version IS DISTINCT FROM '2026-11-22-v7'/);
   assert.match(legacySetter, /IF p_enabled IS TRUE THEN[\s\S]*RAISE EXCEPTION/);
-  assert.match(legacySetter, /set_my_personalization_consent\(false, '2026-11-21-v6'\)/);
+  assert.match(legacySetter, /set_my_personalization_consent\(false, '2026-11-22-v7'\)/);
   assert.match(personalisationSetter, /FROM auth\.users WHERE id = v_user_id FOR UPDATE/);
   assert.match(personalisationSetter, /Enable Service improvement analytics before enabling Personalisation/);
   assert.match(personalisationSetter, /refresh_user_interest_profile\(v_user_id\)/);
@@ -435,13 +435,13 @@ test('personalisation and service improvement consent dependency is enforced', (
     finalFunctionDefinition(upgrade, 'catho_private.capture_signup_personalization_consent'),
     'signup consent trigger differs between clean-install bootstrap and existing-database upgrade'
   );
-  assert.match(webSignup, /personalization_consent_version: personalizationConsent \? '2026-11-21-v6' : null/);
+  assert.match(webSignup, /personalization_consent_version: personalizationConsent \? '2026-11-22-v7' : null/);
   assert.match(webSignup, /service_improvement_consent: serviceImprovementConsent/);
   assert.match(webSignup, /sponsor_measurement_consent: sponsorMeasurementConsent/);
-  assert.match(nativeSignup, /personalization_consent_version: personalizationConsent \? '2026-11-21-v6' : null/);
+  assert.match(nativeSignup, /personalization_consent_version: personalizationConsent \? '2026-11-22-v7' : null/);
   assert.match(nativeSignup, /service_improvement_consent: serviceImprovementConsent/);
   assert.match(nativeSignup, /sponsor_measurement_consent: sponsorMeasurementConsent/);
-  assert.match(accountSection, /p_consent_version: '2026-11-21-v6'/);
+  assert.match(accountSection, /p_consent_version: '2026-11-22-v7'/);
   assert.match(signupTrigger, /service_improvement/);
   const manager = readFileSync(new URL('../src/components/privacy/AnalyticsConsentManager.tsx', import.meta.url), 'utf8');
   assert.match(manager, /disabled=\{saving\}/);
@@ -523,7 +523,7 @@ test('the reset shows personalisation as not chosen until a current choice is re
     const start = sql.lastIndexOf('CREATE OR REPLACE FUNCTION public.get_my_personalization_status');
     const end = sql.indexOf('$function$;', start);
     const status = start >= 0 && end >= 0 ? sql.slice(start, end + '$function$;'.length) : '';
-    assert.match(status, /consent_version='2026-11-21-v6'/);
+    assert.match(status, /consent_version='2026-11-22-v7'/);
   }
 });
 
@@ -535,11 +535,11 @@ test('the initial signed-in baseline feed treats a missing personalisation row a
 
 test('all profile reads and rebuilds require the new explicit personalisation consent version', () => {
   for (const sql of [bootstrap, upgrade]) {
-    assert.match(sql, /WHERE c\.user_id=p_user_id AND c\.enabled=true\s+AND c\.consent_version='2026-11-21-v6'/);
-    assert.match(sql, /AND pc\.consent_version = '2026-11-21-v6'/);
-    assert.match(sql, /WHERE user_id=v_user_id AND consent_version='2026-11-21-v6'/);
-    assert.match(sql, /WHERE user_id=current_user_id AND consent_version='2026-11-21-v6'/);
-    assert.match(sql, /WHERE c\.user_id=v_user_id AND c\.enabled=true\s+AND c\.consent_version='2026-11-21-v6'/);
+    assert.match(sql, /WHERE c\.user_id=p_user_id AND c\.enabled=true\s+AND c\.consent_version='2026-11-22-v7'/);
+    assert.match(sql, /AND pc\.consent_version = '2026-11-22-v7'/);
+    assert.match(sql, /WHERE user_id=v_user_id AND consent_version='2026-11-22-v7'/);
+    assert.match(sql, /WHERE user_id=current_user_id AND consent_version='2026-11-22-v7'/);
+    assert.match(sql, /WHERE c\.user_id=v_user_id AND c\.enabled=true\s+AND c\.consent_version='2026-11-22-v7'/);
   }
 });
 
@@ -572,7 +572,7 @@ test('release reset leaves every account undecided and clears analytics and pers
   assert.match(reset, /2026-11-21-no-anonymous-analytics-v1/);
 
   const cache = readFileSync(new URL('../src/lib/offline/ranked-feed-cache.ts', import.meta.url), 'utf8');
-  assert.match(cache, /personalizationConsentVersion = '2026-11-21-v6'/);
+  assert.match(cache, /personalizationConsentVersion = '2026-11-22-v7'/);
   assert.match(cache, /DELETE FROM offline_personalization_consent_cache/);
   assert.doesNotMatch(cache, /WHERE enabled = 1 OR pending_sync = 0/);
 
