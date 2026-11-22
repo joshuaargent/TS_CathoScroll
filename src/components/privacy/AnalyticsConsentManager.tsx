@@ -54,6 +54,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
   const [managing, setManaging] = useState(false);
   const [serviceImprovement, setServiceImprovement] = useState(false);
   const [sponsorMeasurement, setSponsorMeasurement] = useState(false);
+  const [personalizationEnabled, setPersonalizationEnabled] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const activeUserIdRef = useRef<string | null>(userId);
@@ -252,21 +253,23 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
         updatedAt?: unknown;
         version?: unknown;
         exists?: unknown;
+        personalizationEnabled?: unknown;
       };
       if (
         typeof remote.serviceImprovement !== 'boolean' ||
         typeof remote.sponsorMeasurement !== 'boolean' ||
         typeof remote.exists !== 'boolean' ||
+        typeof remote.personalizationEnabled !== 'boolean' ||
         remote.version !== 2 ||
         !(remote.updatedAt === null || typeof remote.updatedAt === 'string')
       ) return;
 
+      setPersonalizationEnabled(remote.personalizationEnabled);
       const local = readAnalyticsConsent(expectedUserId);
       if (local?.syncPending === true) {
-        // Preserve the user's local denial and synchronise it. Service
-        // improvement is independent of Personalisation: disabling it purges
-        // passive reading events and stops their recommendation use, while
-        // direct account actions remain available under Personalisation consent.
+        // Preserve the user's local denial and synchronise it. The server
+        // rejects Service improvement withdrawal while Personalisation is
+        // enabled; users must withdraw Personalisation first.
         const pendingChoices = {
           serviceImprovement: local.serviceImprovement,
           sponsorMeasurement: local.sponsorMeasurement,
@@ -575,8 +578,8 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
         </h2>
         <p id="analytics-consent-description" className="text-text-secondary mt-3 text-sm leading-relaxed">
           {managing
-            ? 'Choose optional analytics. Service improvement and Sponsor measurement are separate from Personalisation.'
-            : 'Optional analytics measure signed-in topic/comment engagement, site performance, and sponsor viewability, clicks on viewable placements and frequency. Catholic-content activity may reveal religious or philosophical beliefs. Passive reading signals inform private recommendations only when Personalisation and Service improvement analytics are both enabled. Sponsor placements remain visible when measurement is off; no delivery or anonymous engagement counters are retained.'}
+            ? 'Choose optional analytics. Personalisation requires Service improvement analytics; Sponsor measurement is separate.'
+            : 'Optional analytics measure signed-in topic/comment engagement, site performance, and sponsor viewability, clicks on viewable placements and frequency. Catholic-content activity may reveal religious or philosophical beliefs. Personalisation requires Service improvement analytics to remain enabled. Passive reading signals can inform private recommendations while Personalisation is active. Sponsor placements remain visible when measurement is off; no delivery or anonymous engagement counters are retained.'}
         </p>
 
         {!managing ? (
@@ -621,7 +624,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
               <span className="min-w-0">
                 <span className="text-text-primary block font-semibold">I explicitly consent to Service improvement analytics</span>
                 <span className="text-text-secondary mt-1 block text-sm leading-relaxed">
-                  Measures signed-in topic and Top Comments engagement plus Vercel site/performance analytics. Account-linked activity may reveal religious or philosophical beliefs. These signals inform private recommendations only when Personalisation is separately enabled as well. You can enable or withdraw Service improvement analytics independently.
+                  Measures signed-in topic and Top Comments engagement plus Vercel site/performance analytics. Account-linked activity may reveal religious or philosophical beliefs. These signals may inform private recommendations while Personalisation is active. This choice must remain enabled until you turn off Personalisation.
                 </span>
               </span>
             </label>
@@ -641,7 +644,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
               </span>
             </label>
             <p className="text-text-muted text-xs leading-relaxed">
-              Essential operation, sign-in, account synchronisation, bookmarks, likes, progress, notes and general feed ranking continue regardless of these choices. Personalisation is independent; passive reading signals inform recommendations only when both Personalisation and Service improvement analytics are enabled. Sponsor measurement remains independent.
+              Essential operation, sign-in, account synchronisation, bookmarks, likes, progress, notes and general feed ranking continue regardless of these choices. Personalisation requires Service improvement analytics; turn off Personalisation before withdrawing Service improvement. Sponsor measurement remains separate.
             </p>
             <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
               <button
