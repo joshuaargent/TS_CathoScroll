@@ -8,7 +8,7 @@ This assessment covers signed-in Service improvement analytics, signed-in Sponso
 
 ## 1. Processing purpose
 
-Service improvement analytics measures signed-in topic-feed and Top Comments engagement after explicit opt-in. Sponsor measurement separately measures signed-in sponsor viewability, clicks, bounded active viewing duration and frequency after explicit opt-in. Personalisation creates a private account-level recommendation profile after explicit opt-in. General feed ranking uses public interaction signals, curated content order and exposure balancing; it does not use anonymous analytics or sponsor events.
+Service improvement analytics measures signed-in topic-feed and Top Comments engagement after explicit opt-in. Sponsor measurement separately measures signed-in sponsor viewability, clicks, bounded active viewing duration and frequency after explicit opt-in. Personalisation creates a private account-level recommendation profile after explicit opt-in. General feed ranking uses public interaction signals, curated content order, exposure balancing and non-identifying aggregates derived only from opted-in signed-in Service improvement events. It does not use anonymous analytics, the current reader's account history or sponsor events.
 
 Sponsor delivery remains available without measurement. Sponsor selection/display does not create a delivery counter or analytics record.
 
