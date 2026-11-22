@@ -50,7 +50,7 @@ CREATE TABLE IF NOT EXISTS catho_private.user_analytics_consents (
   user_id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   service_improvement boolean NOT NULL DEFAULT false,
   sponsor_measurement boolean NOT NULL DEFAULT false,
-  consent_version integer NOT NULL DEFAULT 2 CHECK (consent_version >= 1),
+  consent_version integer NOT NULL DEFAULT 3 CHECK (consent_version >= 1),
   service_improvement_updated_at timestamptz,
   sponsor_measurement_updated_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT statement_timestamp(),
@@ -7158,7 +7158,7 @@ BEGIN
       user_id, service_improvement, sponsor_measurement, consent_version,
       service_improvement_updated_at, sponsor_measurement_updated_at, created_at, updated_at
     ) VALUES (
-      NEW.id, v_service_improvement, v_sponsor_measurement, 2,
+      NEW.id, v_service_improvement, v_sponsor_measurement, 3,
       CASE WHEN v_service_improvement THEN v_now ELSE NULL END,
       CASE WHEN v_sponsor_measurement THEN v_now ELSE NULL END,
       v_now, v_now
@@ -7169,7 +7169,7 @@ BEGIN
       user_id, previous_service_improvement, previous_sponsor_measurement,
       service_improvement, sponsor_measurement, consent_version, recorded_at
     )
-    VALUES (NEW.id, NULL, NULL, v_service_improvement, v_sponsor_measurement, 2, v_now);
+    VALUES (NEW.id, NULL, NULL, v_service_improvement, v_sponsor_measurement, 3, v_now);
   END IF;
   RETURN NEW;
 END;
@@ -7794,7 +7794,7 @@ BEGIN
       'serviceImprovement', false,
       'sponsorMeasurement', false,
       'updatedAt', NULL,
-      'version', 2,
+      'version', 3,
       'exists', false,
       'personalizationEnabled', v_personalization_enabled
     );
@@ -7828,7 +7828,7 @@ DECLARE
   v_now timestamptz := pg_catalog.statement_timestamp();
 BEGIN
   IF p_user_id IS NULL OR p_service_improvement IS NULL OR p_sponsor_measurement IS NULL
-     OR p_consent_version IS DISTINCT FROM 2
+     OR p_consent_version IS DISTINCT FROM 3
      OR NOT EXISTS (SELECT 1 FROM auth.users AS account WHERE account.id = p_user_id) THEN
     RAISE EXCEPTION 'Invalid analytics consent update' USING ERRCODE = '22023';
   END IF;
@@ -9145,7 +9145,7 @@ DECLARE
   v_now timestamptz := pg_catalog.statement_timestamp();
 BEGIN
   IF p_user_id IS NULL OR p_service_improvement IS NULL OR p_sponsor_measurement IS NULL
-     OR p_consent_version IS DISTINCT FROM 2
+     OR p_consent_version IS DISTINCT FROM 3
      OR NOT EXISTS (SELECT 1 FROM auth.users AS account WHERE account.id = p_user_id) THEN
     RAISE EXCEPTION 'Invalid analytics consent update' USING ERRCODE = '22023';
   END IF;
