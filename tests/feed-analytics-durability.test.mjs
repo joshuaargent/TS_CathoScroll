@@ -308,6 +308,10 @@ test('Top Comments refresh uses the tested coordinator with an explicit reconnec
 
 test('native signed-in topic and comment analytics use the encrypted private database outbox', () => {
   assert.match(signedInOutbox, /offline_signed_in_analytics_outbox/);
+  assert.match(signedInOutbox, /analytics-consent-v2-release-reset/);
+  assert.match(signedInOutbox, /DROP TABLE IF EXISTS offline_signed_in_analytics_outbox/);
+  assert.match(nativeMain, /resetLegacySignedInAnalyticsOutbox\(cacheDatabase\)/);
+  assert.match(nativeMain, /DROP TABLE IF EXISTS offline_anonymous_analytics_outbox/);
   assert.match(signedInOutbox, /maximumEventsPerStream = 2000/);
   assert.match(signedInOutbox, /maximumAgeMs = 7 \* 24 \* 60 \* 60 \* 1000/);
   assert.match(signedInOutbox, /stream IN \('topic', 'comment', 'sponsor'\)/);
