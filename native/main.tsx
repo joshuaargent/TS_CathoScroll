@@ -52,8 +52,6 @@ import { OfflineTopicCountCache, type CachedTopicCounts } from '@/lib/offline/to
 import { loadTopicActivity } from '@/lib/topic-activity';
 import { siteConfig } from '@/lib/constants';
 import { analyticsConsentChangeEvent, analyticsConsentSyncEvent, readAnalyticsConsent } from '@/lib/analytics-consent';
-import { configureAnonymousFeedAnalyticsOutbox } from '@/lib/anonymous-feed-analytics-client';
-import { NativeAnonymousAnalyticsOutbox } from '@/lib/offline/anonymous-analytics-store';
 import { configureFeedAnalyticsOutbox, clearFeedAnalyticsOutbox } from '@/lib/feed-analytics-client';
 import { configureFeedCardAnalyticsOutbox, clearFeedCardAnalyticsOutbox } from '@/lib/feed-card-analytics-client';
 import { configureSponsorAnalyticsOutbox, clearSponsorAnalyticsOutbox } from '@/lib/sponsor-analytics-client';
@@ -1000,16 +998,6 @@ function App() {
       let failure = 'Unable to open app storage. Please try again.';
       try {
         const databases = await openNativeDatabases(secureAuthStorage);
-        try {
-          const anonymousOutbox = new NativeAnonymousAnalyticsOutbox(databases.catalogue);
-          await configureAnonymousFeedAnalyticsOutbox(anonymousOutbox);
-          clearNativeStatusNotice('anonymous-analytics-outbox');
-        } catch (cause) {
-          console.error('Anonymous topic and comment analytics outbox is unavailable:', cause);
-          notifyNativeStatus('Anonymous topic and comment analytics may not be retained while this app is offline.', {
-            id: 'anonymous-analytics-outbox',
-          });
-        }
         const localCatalogue = new OfflineCatalogue(databases.catalogue);
         try {
           const generalCache = new OfflineRankedFeedCache(databases.catalogue, localCatalogue);
