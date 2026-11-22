@@ -32,7 +32,7 @@ test('optional analytics consent is explicit, purpose-specific and off by defaul
   assert.doesNotMatch(manager, /version: 1,/);
   assert.match(consent, /startsWith\(legacyPrefix \+ '\.account\.'/);
   assert.ok(manager.includes('clearLegacyAnalyticsConsentStorage()'));
-  assert.ok(consent.includes('syncPending: options.syncPending ?? Boolean(userId)'));
+  assert.match(consent, /const syncPending = options\.syncPending \?\? Boolean\(userId\)/);
   assert.ok(consent.includes('deniedOverrides'));
   assert.match(consent, /if \(!userId\) return false/);
   assert.match(manager, /legacySignedOutConsent = readAnalyticsConsent\(null\)/);
@@ -85,8 +85,8 @@ test('account consent sync is identity-bound, retryable and enforced server-side
   assert.match(manager, /if \(!remote\.exists\)[\s\S]*?removeItem\(getAnalyticsConsentStorageKey\(expectedUserId\)\)/);
   assert.match(manager, /if \(!remote\.exists\)[\s\S]*?clearAnalyticsConsentQueues\(expectedUserId, null/);
   assert.ok(manager.includes('pendingChoices'));
-  assert.ok(manager.includes('serviceImprovement: local.serviceImprovement'));
-  assert.ok(manager.includes('sponsorMeasurement: local.sponsorMeasurement'));
+  assert.match(manager, /serviceImprovement: pendingPurposeSet\.has\('serviceImprovement'\)[\s\S]*?local\.serviceImprovement/);
+  assert.match(manager, /sponsorMeasurement: pendingPurposeSet\.has\('sponsorMeasurement'\)[\s\S]*?local\.sponsorMeasurement/);
   assert.ok(manager.includes('if (!managingRef.current)'));
   assert.ok(manager.includes('managingRef.current = true'));
   assert.ok(manager.includes('previous?.serviceImprovement === true && next.serviceImprovement'));
