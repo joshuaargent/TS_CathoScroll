@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { DoorOpen, Share2 } from 'lucide-react';
 
 import type { SponsorFeedCampaign } from '@/lib/sponsor-campaigns';
-import { hasAnalyticsConsent } from '@/lib/analytics-consent';
+import { hasSyncedAnalyticsConsent } from '@/lib/analytics-consent';
 import { recordSponsorCampaignEvent } from '@/lib/sponsor-analytics-client';
 import { FeedInterstitialMotion } from './FeedInterstitialMotion';
 import { BaseFeedCard } from './BaseFeedCard';
@@ -71,7 +71,7 @@ export function SponsorFeedCard({
   const campaign = campaigns[safeIndex];
   const campaignId = campaign?.campaign_id;
   const placementReceipt = campaign?.measurement_receipt ?? null;
-  const sponsorMeasurementEnabled = Boolean(userId && hasAnalyticsConsent('sponsorMeasurement', userId));
+  const sponsorMeasurementEnabled = Boolean(userId && hasSyncedAnalyticsConsent('sponsorMeasurement', userId));
   const viewablePlacementKey = campaignId && userId && sponsorMeasurementEnabled && placementReceipt
     ? getSponsorPlacementKey(userId, sessionId, campaignId, placementKey, placementReceipt)
     : null;
