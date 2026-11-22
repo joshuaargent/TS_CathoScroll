@@ -47,7 +47,7 @@ function isNewerVersion(latest: string, current: string): boolean {
   return false;
 }
 
-async function checkForMacOSUpdate(): Promise<void> {
+async function checkForManualUpdate(): Promise<void> {
   try {
     const response = await fetch(GITHUB_LATEST_RELEASE_URL, {
       headers: {
@@ -91,7 +91,7 @@ async function checkForMacOSUpdate(): Promise<void> {
       await shell.openExternal(DOWNLOAD_PAGE_URL);
     }
   } catch (error) {
-    console.error('Unable to check for CathoScroll macOS updates:', error);
+    console.error('Unable to check for CathoScroll manual updates:', error);
   }
 }
 
@@ -99,8 +99,11 @@ if (app.requestSingleInstanceLock()) {
   app.whenReady().then(() => {
     if (!app.isPackaged) return;
 
-    if (process.platform === 'darwin') {
-      void checkForMacOSUpdate();
+    // AppImage supports electron-updater. A Linux DEB installation does not
+    // provide the APPIMAGE runtime path, so offer the same manual download
+    // flow as unsigned macOS builds instead of silently failing auto-update.
+    if (process.platform === 'darwin' || (process.platform === 'linux' && !process.env.APPIMAGE)) {
+      void checkForManualUpdate();
       return;
     }
 
