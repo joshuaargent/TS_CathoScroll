@@ -392,7 +392,7 @@ test('personalisation and service improvement consent dependency is enforced', (
   const manager = readFileSync(new URL('../src/components/privacy/AnalyticsConsentManager.tsx', import.meta.url), 'utf8');
   assert.match(manager, /disabled=\{saving\}/);
   assert.match(manager, /saveAnalyticsConsent\(interim, userId, \{ syncPending: Boolean\(userId\) \}\)/);
-  assert.match(manager, /serviceImprovement: local\.serviceImprovement/);
+  assert.match(manager, /serviceImprovement: pendingPurposeSet\.has\('serviceImprovement'\)[\s\S]*?local\.serviceImprovement/);
   assert.match(manager, /personalizationEnabled\?: unknown/);
   assert.match(manager, /if \(remote\.personalizationEnabled && !pendingChoices\.serviceImprovement\)/);
   assert.match(manager, /pendingPurposeSet\.has\('sponsorMeasurement'\)[\s\S]*?remote\.sponsorMeasurement/);
