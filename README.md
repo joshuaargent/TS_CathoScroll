@@ -150,8 +150,10 @@ update the bundled interface. Sign upgrades with the same Android signing key
 as the installed app. The GitHub release workflow uses the long-lived
 keystore stored in the `ANDROID_KEYSTORE_BASE64` Actions secret. Before
 publishing, the release workflow compares the new APK's signing-certificate
-SHA-256 fingerprint with the latest published APK and blocks a mismatch. Back
-up the original keystore and its passwords securely and never regenerate it. Losing
+SHA-256 fingerprint with the latest published APK and blocks a mismatch. A
+one-time workflow override is available only for an intentional signer
+transition; existing installs with the old signer must uninstall/reinstall.
+Back up the original keystore and its passwords securely and never regenerate it. Losing
 or replacing this key prevents in-place updates and requires users to
 uninstall and reinstall the app. The first production-signed release also
 cannot update an older debug-signed installation: sync queued account
