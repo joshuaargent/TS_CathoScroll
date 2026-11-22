@@ -1441,6 +1441,13 @@ ALTER TABLE catho_private.sponsor_campaign_events
 ALTER TABLE catho_private.sponsor_campaign_events
   ADD CONSTRAINT sponsor_campaign_events_event_type_check
   CHECK (event_type IN ('viewable_impression', 'click', 'active_duration'));
+ALTER TABLE catho_private.sponsor_campaign_events
+  DROP CONSTRAINT IF EXISTS sponsor_campaign_event_duration_check;
+ALTER TABLE catho_private.sponsor_campaign_events
+  ADD CONSTRAINT sponsor_campaign_event_duration_check CHECK (
+    (event_type = 'active_duration' AND duration_ms BETWEEN 1 AND 60000)
+    OR (event_type IN ('viewable_impression', 'click') AND duration_ms = 0)
+  );
 DROP TABLE IF EXISTS catho_private.sponsor_campaign_user_frequency;
 
 NOTIFY pgrst, 'reload schema';
