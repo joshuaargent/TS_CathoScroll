@@ -60,7 +60,7 @@ export function AnonymousAnalyticsPreference() {
             Do not collect anonymous topic and Top Comments statistics
           </span>
           <span className="mt-1 block text-sm leading-6 text-text-secondary">
-            When enabled, we aggregate impressions, viewability, reading duration, skips, completions and comment opens without account, visitor or session identifiers. If you object, new events stop and pending anonymous events on this device are cleared.
+            Unless you object, we aggregate impressions, viewability, reading duration, skips, completions and comment opens without account, visitor or session identifiers. If you object, new events stop and pending anonymous events on this device are cleared.
           </span>
         </span>
       </label>
@@ -80,7 +80,7 @@ export function AnonymousAnalyticsPreference() {
             Do not collect anonymous sponsor measurement
           </span>
           <span className="mt-1 block text-sm leading-6 text-text-secondary">
-            When enabled, we aggregate sponsor placements, viewable impressions, clicks, viewing duration and frequency without account, visitor or persistent session identifiers. If you object, sponsor placements continue but no new sponsor measurement is recorded; pending in-memory events are discarded.
+            Unless you object, we aggregate sponsor placements, viewable impressions, clicks, viewing duration and frequency without account, visitor or persistent session identifiers. If you object, sponsor placements continue but no new sponsor measurement is recorded; pending in-memory events are discarded.
           </span>
         </span>
       </label>
@@ -90,7 +90,7 @@ export function AnonymousAnalyticsPreference() {
           Preferences could not be read from this device. Anonymous measurement is paused until the settings can be saved.
         </p>
       )}
-      {error && <p role="alert" className="text-sm text-danger">{error}</p>}
+      {error && <p role="alert" className="text-sm text-text-secondary">{error}</p>}
     </section>
   );
 }
