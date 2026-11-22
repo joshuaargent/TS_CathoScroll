@@ -6382,6 +6382,7 @@ begin
       coalesce((select sum(served_count) from sponsor_daily),0) sponsor_served,
       coalesce((select sum(viewable_impressions) from sponsor_daily),0) sponsor_viewable_impressions,
       coalesce((select sum(clicks) from sponsor_daily),0) sponsor_clicks,
+      coalesce((select sum(active_duration_ms) from sponsor_daily),0) sponsor_active_duration_ms,
       coalesce((select sum(impressions) from comment_daily),0) comment_card_impressions,
       coalesce((select sum(viewable_impressions) from comment_daily),0) comment_card_viewable_impressions,
       coalesce((select sum(active_duration_ms) from comment_daily),0) comment_card_active_duration_ms,
@@ -6524,7 +6525,7 @@ begin
     select event_date,sum(impressions) impressions,sum(viewable_impressions) viewable_impressions
     from catho_private.feed_analytics_daily where event_date>=p_from::date and event_date<=p_to::date group by event_date
   ), sponsor as (
-    select event_date,sum(viewable_impressions) viewable_impressions,sum(clicks) clicks
+    select event_date,sum(viewable_impressions) viewable_impressions,sum(clicks) clicks,sum(active_duration_ms) active_duration_ms
     from catho_private.sponsor_campaign_daily where event_date>=p_from::date and event_date<=p_to::date group by event_date
   ), comments as (
     select event_date,sum(impressions) impressions,sum(viewable_impressions) viewable_impressions
@@ -6533,7 +6534,7 @@ begin
   select coalesce(jsonb_agg(jsonb_build_object('event_date',d.event_date,
     'topic_impressions',coalesce(t.impressions,0),'topic_viewable_impressions',coalesce(t.viewable_impressions,0),
     'sponsor_viewable_impressions',coalesce(s.viewable_impressions,0),
-    'sponsor_clicks',coalesce(s.clicks,0),'comment_impressions',coalesce(c.impressions,0),
+    'sponsor_clicks',coalesce(s.clicks,0),'sponsor_active_duration_ms',coalesce(s.active_duration_ms,0),'comment_impressions',coalesce(c.impressions,0),
     'comment_viewable_impressions',coalesce(c.viewable_impressions,0)) order by d.event_date),'[]'::jsonb)
   into v_result from days d left join topic t using(event_date) left join sponsor s using(event_date) left join comments c using(event_date);
   return v_result;
@@ -7209,7 +7210,7 @@ begin
     select d.entity_id,d.event_date,d.impressions,d.viewable_impressions,d.active_duration_ms,d.skips,d.completions,d.return_visits
     from catho_private.feed_analytics_daily d where d.event_date >= p_from::date and d.event_date <= p_to::date
   ), sponsor_daily as (
-    select d.campaign_id,d.event_date,d.viewable_impressions,d.clicks
+    select d.campaign_id,d.event_date,d.viewable_impressions,d.clicks,d.active_duration_ms
     from catho_private.sponsor_campaign_daily d where d.event_date >= p_from::date and d.event_date <= p_to::date
   ), comment_daily as (
     select d.card_id,d.event_date,d.impressions,d.viewable_impressions,d.active_duration_ms,d.skips,d.completions,d.opens,d.unique_viewers
@@ -8132,6 +8133,7 @@ BEGIN
   metrics AS (
     SELECT coalesce(sum(d.viewable_impressions), 0) AS viewable_impressions,
       coalesce(sum(d.clicks), 0) AS clicks,
+      coalesce(sum(d.active_duration_ms), 0) AS active_duration_ms,
       count(DISTINCT d.campaign_id) FILTER (WHERE d.viewable_impressions > 0) AS active_campaigns
     FROM catho_private.sponsor_campaign_daily AS d
     JOIN campaigns AS c ON c.id = d.campaign_id
@@ -8140,7 +8142,8 @@ BEGIN
   series AS (
     SELECT d.event_date,
       coalesce(sum(d.viewable_impressions), 0) AS viewable_impressions,
-      coalesce(sum(d.clicks), 0) AS clicks
+      coalesce(sum(d.clicks), 0) AS clicks,
+      coalesce(sum(d.active_duration_ms), 0) AS active_duration_ms
     FROM catho_private.sponsor_campaign_daily AS d
     JOIN campaigns AS c ON c.id = d.campaign_id
     WHERE d.event_date >= p_from::date AND d.event_date <= p_to::date
