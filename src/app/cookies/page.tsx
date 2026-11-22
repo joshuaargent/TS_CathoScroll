@@ -66,7 +66,7 @@ export default function CookiesPage() {
           <h2 className="mb-4 text-3xl font-bold">Analytics and Performance Measurement</h2>
 
           <p className="text-text-secondary leading-relaxed">
-            Service improvement analytics measures account-linked topic and Top Comments engagement only for signed-in users who explicitly opt in. No anonymous topic or comment engagement events or queues are collected. Signed-in native events are stored in encrypted app-private storage and are deleted after acknowledgement or withdrawal.
+            Service improvement analytics measures account-linked topic and Top Comments engagement only for signed-in users who explicitly opt in. Daily aggregates from consenting accounts may contribute to the shared general topic ranking for all readers; this does not use the current reader's account history or create an individual profile. Private Personalisation remains separate and uses passive reading signals for your recommendations only while enabled. No anonymous topic or comment engagement events or queues are collected. Signed-in native events are stored in encrypted app-private storage and are deleted after acknowledgement or withdrawal.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
