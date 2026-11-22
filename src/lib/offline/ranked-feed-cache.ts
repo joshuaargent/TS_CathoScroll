@@ -22,7 +22,7 @@ const maximumPagesPerOwner = 30;
 const maximumPageAgeMs = 14 * 24 * 60 * 60 * 1000;
 const consentFreshnessMs = 12 * 60 * 60 * 1000;
 const personalizedModelVersion = 'activity-signals-v4';
-const personalizationConsentVersion = '2026-11-21-v6';
+const personalizationConsentVersion = '2026-11-22-v7';
 
 function assertOwner(mode: RankedFeedMode, userId: string | null): string {
   if (mode === 'general') return 'public';
