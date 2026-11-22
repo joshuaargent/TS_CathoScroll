@@ -15,7 +15,6 @@ import {
 import { createFeedRefreshCoordinator } from '@/lib/feed-refresh-coordinator';
 import { siteConfig } from '@/lib/constants';
 import { analyticsConsentChangeEvent, hasAnalyticsConsent } from '@/lib/analytics-consent';
-import { anonymousAnalyticsPreferenceChangeEvent, isAnonymousAnalyticsAllowed } from '@/lib/anonymous-analytics-preferences';
 import { buildFeedEntryMap, collectReservedCommentIds, flattenFeedEntryMap, reconcileFeedBoundary, type FeedEntry, type FeedEntryMap } from '@/lib/feed-entry-map';
 import {
   invokeRegisteredFeedEntryLifecycle,
@@ -197,13 +196,8 @@ export function TopicFeedCore({
   const loadSponsorCampaigns = useCallback(
     async (topic: Topic): Promise<{ campaigns: SponsorFeedCampaign[]; sessionId: string | null; retryable?: boolean }> => {
 
-      // Signed-in Sponsor measurement requires account consent. Signed-out
-      // Sponsor measurement uses the separate local objection preference and
-      // a session token held only in memory; the server stores no session hash.
-      const anonymousMeasurementEnabled = !userId && isAnonymousAnalyticsAllowed('sponsorMeasurement');
-      const measurementEnabled = userId
-        ? hasAnalyticsConsent('sponsorMeasurement', userId)
-        : anonymousMeasurementEnabled;
+      // Sponsor measurement is account-linked and requires explicit consent.
+      // Signed-out visitors and accounts without consent receive unmeasured placements.
       const sessionId = measurementEnabled ? createSponsorPlacementId() : null;
       if (measurementEnabled && !sessionId) return { campaigns: [], sessionId: null, retryable: true };
 
@@ -237,7 +231,6 @@ export function TopicFeedCore({
               sessionId,
               categorySlug: topic.categorySlug ?? null,
               topicId: topic.id,
-              anonymousSponsorMeasurementEnabled: anonymousMeasurementEnabled,
             }),
           });
           if (!response.ok) {
@@ -356,17 +349,13 @@ export function TopicFeedCore({
       if (inFlight) return inFlight;
 
       const requestedUserId = userId;
-      const requestedMeasurementEnabled = requestedUserId
-        ? hasAnalyticsConsent('sponsorMeasurement', requestedUserId)
-        : isAnonymousAnalyticsAllowed('sponsorMeasurement');
+      const requestedMeasurementEnabled = Boolean(requestedUserId && hasAnalyticsConsent('sponsorMeasurement', requestedUserId));
       const request = loadSponsorCampaigns(topic)
         .then((result) => {
           // A consent change while the request is in flight invalidates its
           // visitor/session token. Keep the sponsor placement, but never cache
           // or expose the token after the user withdraws measurement.
-          const measurementStillEnabled = requestedUserId
-            ? hasAnalyticsConsent('sponsorMeasurement', requestedUserId)
-            : isAnonymousAnalyticsAllowed('sponsorMeasurement');
+          const measurementStillEnabled = Boolean(requestedUserId && hasAnalyticsConsent('sponsorMeasurement', requestedUserId));
           if (measurementStillEnabled !== requestedMeasurementEnabled) {
             return { ...result, sessionId: null };
           }
@@ -404,9 +393,7 @@ export function TopicFeedCore({
 
   useEffect(() => {
     const clearMeasuredPlacements = () => {
-      const measurementEnabled = userId
-        ? hasAnalyticsConsent('sponsorMeasurement', userId)
-        : isAnonymousAnalyticsAllowed('sponsorMeasurement');
+      const measurementEnabled = Boolean(userId && hasAnalyticsConsent('sponsorMeasurement', userId));
       if (measurementEnabled) return;
 
       // Remove measurement receipts created before withdrawal/objection from
@@ -433,17 +420,9 @@ export function TopicFeedCore({
       if (detail?.userId !== userId) return;
       clearMeasuredPlacements();
     };
-    const handleAnonymousPreferenceChange = (event: Event) => {
-      if (userId) return;
-      const detail = (event as CustomEvent<{ purpose?: string; objected?: boolean }>).detail;
-      if (detail?.purpose !== 'sponsorMeasurement' || detail.objected !== true) return;
-      clearMeasuredPlacements();
-    };
     window.addEventListener(analyticsConsentChangeEvent, handleAccountConsentChange);
-    window.addEventListener(anonymousAnalyticsPreferenceChangeEvent, handleAnonymousPreferenceChange);
     return () => {
       window.removeEventListener(analyticsConsentChangeEvent, handleAccountConsentChange);
-      window.removeEventListener(anonymousAnalyticsPreferenceChangeEvent, handleAnonymousPreferenceChange);
     };
   }, [setFeedEntryMap, userId]);
 
