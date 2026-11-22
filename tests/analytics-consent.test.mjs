@@ -37,7 +37,8 @@ test('optional analytics consent is explicit, purpose-specific and off by defaul
   assert.match(consent, /if \(!userId\) return false/);
   assert.match(manager, /legacySignedOutConsent = readAnalyticsConsent\(null\)/);
   assert.match(manager, /saveAnalyticsConsent\(\{ serviceImprovement: false, sponsorMeasurement: false \}, null/);
-  assert.match(manager, /if \(!remote\.exists\)[\s\S]*?setVisible\(true\)/);
+  assert.doesNotMatch(manager, /setVisible\(true\)/);
+  assert.match(manager, /No first-visit consent modal/);
   assert.ok(manager.includes('if (loading || !visible) return null;'));
   assert.ok(account.includes('Service improvement analytics'));
   assert.ok(account.includes('Sponsor measurement'));
