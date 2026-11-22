@@ -104,54 +104,37 @@ export async function POST(request: Request) {
         !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(parsed.value.categorySlug))) ||
     !('topicId' in parsed.value) ||
     typeof parsed.value.topicId !== 'string' ||
-    ('anonymousSponsorMeasurementEnabled' in parsed.value && typeof parsed.value.anonymousSponsorMeasurementEnabled !== 'boolean') ||
     !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(parsed.value.topicId)
   ) {
     return respond(request, { error: 'Invalid sponsored-content request.' }, 400);
   }
 
   try {
-    const anonymousMeasurementEnabled = !auth.user &&
-      (parsed.value as Record<string, unknown>).anonymousSponsorMeasurementEnabled === true &&
-      typeof parsed.value.sessionId === 'string';
     let accountMeasurementEnabled = false;
     if (auth.user) {
       try {
         const consent = await getStoredAnalyticsConsent(auth.user.id);
         accountMeasurementEnabled = consent.sponsorMeasurement && typeof parsed.value.sessionId === 'string';
       } catch (cause) {
-        // Fail closed for measurement, but never suppress an otherwise eligible
-        // sponsor placement because the optional consent service is unavailable.
+        // Consent lookup failure disables measurement but does not suppress
+        // otherwise eligible sponsor delivery.
         console.error('Unable to verify sponsor measurement consent; serving without measurement:', cause);
       }
     }
 
-    const { data, error } = auth.user
-      ? accountMeasurementEnabled
-        ? await createServiceRoleClient().rpc('get_weighted_sponsor_campaigns', {
-            p_user_id: auth.user.id,
-            p_session_id: parsed.value.sessionId,
-            p_category_slug: parsed.value.categorySlug,
-            p_topic_id: parsed.value.topicId,
-            p_limit: 1,
-          })
-        : await createServiceRoleClient().rpc('get_unmeasured_sponsor_campaigns', {
-            p_category_slug: parsed.value.categorySlug,
-            p_topic_id: parsed.value.topicId,
-            p_limit: 1,
-          })
-      : anonymousMeasurementEnabled
-        ? await createServiceRoleClient().rpc('get_anonymous_sponsor_campaigns', {
-            p_category_slug: parsed.value.categorySlug,
-            p_topic_id: parsed.value.topicId,
-            p_limit: 1,
-          })
-        : await createServiceRoleClient().rpc('get_unmeasured_sponsor_campaigns', {
-            p_category_slug: parsed.value.categorySlug,
-            p_topic_id: parsed.value.topicId,
-            p_limit: 1,
-          });
-    const sponsorMeasurementEnabled = accountMeasurementEnabled || anonymousMeasurementEnabled;
+    const { data, error } = auth.user && accountMeasurementEnabled
+      ? await createServiceRoleClient().rpc('get_weighted_sponsor_campaigns', {
+          p_user_id: auth.user.id,
+          p_session_id: parsed.value.sessionId,
+          p_category_slug: parsed.value.categorySlug,
+          p_topic_id: parsed.value.topicId,
+          p_limit: 1,
+        })
+      : await createServiceRoleClient().rpc('get_unmeasured_sponsor_campaigns', {
+          p_category_slug: parsed.value.categorySlug,
+          p_topic_id: parsed.value.topicId,
+          p_limit: 1,
+        });
     if (error) {
       console.error('Unable to select sponsor campaigns:', error.message);
       return respond(request, { error: 'Sponsored content is temporarily unavailable.' }, 503);
@@ -171,7 +154,7 @@ export async function POST(request: Request) {
       return respond(request, { error: 'Sponsored content is temporarily unavailable.' }, 503);
     }
 
-    if ((accountMeasurementEnabled || anonymousMeasurementEnabled) && data.campaigns.some((campaign: Record<string, unknown>) =>
+    if (accountMeasurementEnabled && data.campaigns.some((campaign: Record<string, unknown>) =>
       typeof campaign.measurement_receipt !== 'string' || !isValidUuid(campaign.measurement_receipt))) {
       console.error('Consented sponsor selector omitted a valid placement receipt.');
       return respond(request, { error: 'Sponsored content is temporarily unavailable.' }, 503);
