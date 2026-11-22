@@ -1379,5 +1379,5 @@ BEGIN
 END;
 $release_analytics_reset$;
 
-COMMIT;
 NOTIFY pgrst, 'reload schema';
+COMMIT;
