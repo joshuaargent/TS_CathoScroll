@@ -49,6 +49,20 @@ test('offline personalisation only reuses encrypted cached server pages with fre
   assert.match(privacy, /cleared when[\s\S]*?personalisation is withdrawn or the account changes/);
 });
 
+test('withdrawing Service improvement clears cached passive-signal recommendations without disabling Personalisation', () => {
+  const start = cache.indexOf('async clearPersonalizedPages(userId: string)');
+  const end = cache.indexOf('async clearUser(userId: string)', start);
+  assert.ok(start >= 0 && end > start);
+  const clearPages = cache.slice(start, end);
+  assert.match(clearPages, /DELETE FROM offline_ranked_feed_pages/);
+  assert.doesNotMatch(clearPages, /offline_personalization_consent_cache/);
+  assert.match(native, /analyticsConsentChangeEvent/);
+  assert.match(native, /detail\.choice === 'serviceImprovement'/);
+  assert.match(native, /detail\.consent\?\.serviceImprovement === false/);
+  assert.match(native, /cache\.clearPersonalizedPages\(user\.id\)/);
+  assert.match(native, /offline reading falls back to the general feed/);
+});
+
 test('personalised page cache is initialised only after the encrypted private database opens', () => {
   const openPrivate = native.indexOf('cacheDatabase = await openPrivateActivityDatabase(secureAuthStorage)');
   const personalizedInit = native.indexOf('new OfflineRankedFeedCache(cacheDatabase, localCatalogue, true)');
