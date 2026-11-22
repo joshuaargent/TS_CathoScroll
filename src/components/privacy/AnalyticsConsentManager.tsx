@@ -265,7 +265,18 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
       ) return;
 
       setPersonalizationEnabled(remote.personalizationEnabled);
-      const local = readAnalyticsConsent(expectedUserId);
+      let local = readAnalyticsConsent(expectedUserId);
+      if (local?.syncPending === true && remote.personalizationEnabled && !local.serviceImprovement) {
+        // A stale device cannot withdraw Service improvement while the server
+        // still has active Personalisation. Restore the server-required grant
+        // locally, but preserve the independent Sponsor measurement choice.
+        saveAnalyticsConsent({
+          serviceImprovement: true,
+          sponsorMeasurement: local.sponsorMeasurement,
+        }, expectedUserId, { syncPending: true });
+        markOwnChoiceWrite();
+        local = readAnalyticsConsent(expectedUserId);
+      }
       if (local?.syncPending === true) {
         // Preserve the user's local denial and synchronise it. The server
         // rejects Service improvement withdrawal while Personalisation is
