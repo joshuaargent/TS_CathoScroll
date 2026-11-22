@@ -87,12 +87,7 @@ export async function POST(request: Request) {
 
   try {
     const consent = await getStoredAnalyticsConsent(auth.user.id);
-    if (!consent.sponsorMeasurement) {
-      return respond(request, {
-        error: 'Sponsor measurement consent is not active.',
-        code: 'CONSENT_REQUIRED',
-      }, 403);
-    }
+    if (!consent.sponsorMeasurement) return respond(request, { error: 'Sponsor measurement consent is not active.', code: 'CONSENT_REQUIRED' }, 403);
 
     const { data, error } = await createServiceRoleClient().rpc('record_sponsor_campaign_event', {
       p_user_id: auth.user.id,
