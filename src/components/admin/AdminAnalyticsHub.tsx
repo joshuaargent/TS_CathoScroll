@@ -25,7 +25,7 @@ type Overview = {
   };
   categories: { slug: string; name: string; topic_count: number; impressions: number; viewable_impressions: number }[];
   topics: { id: string; slug: string; question: string; category_slug: string; impressions: number; viewable_impressions: number; active_duration_ms: number }[];
-  sponsors: { id: string; sponsor_name: string; status: string; campaign_count: number; served: number; viewable_impressions: number; clicks: number }[];
+  sponsors: { id: string; sponsor_name: string; status: string; campaign_count: number; viewable_impressions: number; clicks: number }[];
   comments: { id: number; topic_id: string; topic_question: string | null; created_at: string; impressions: number; viewable_impressions: number; active_duration_ms: number; skips: number; opens: number; likes: number; replies: number }[];
 };
 
@@ -160,6 +160,26 @@ export function AdminAnalyticsHub({ overview, period, section = 'overview', seri
       <Metric label="Discussion open rate" value={t.comment_card_impressions ? ((t.comment_card_opens / t.comment_card_impressions) * 100).toFixed(1) + '%' : '—'} detail="Opens ÷ opted-in Top Comments impressions" icon={MessageCircle} />
     </section>
 
+    <DailyOverviewChart series={series} />
+    <AnalyticsDeepDivePanel data={deepDive} />
+
+    <section className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <Metric label="Unique signed-in viewers" value={number(t.unique_feed_viewers)} detail={'Distinct opted-in accounts · ' + number(t.unique_topic_viewers) + ' topic · ' + number(t.unique_sponsor_viewers) + ' sponsor · ' + number(t.unique_comment_viewers) + ' comment viewers'} icon={Users} />
+      <Metric label="Topic likes" value={number(t.topic_likes)} detail="Topic likes created in this period" icon={Heart} />
+      <Metric label="Bookmarks" value={number(t.bookmarks)} detail="Topic bookmarks created in this period" icon={BookOpen} />
+      <Metric label="Completed topics" value={number(t.completed_topics)} detail="Topic completions recorded in this period" icon={CheckCircle2} />
+    </section>
+    <section className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <Metric label="New top-level comments" value={number(t.comments_created)} detail="Comments created in this period" icon={MessageCircle} />
+      <Metric label="Replies" value={number(t.replies)} detail="Replies created in this period" icon={MessageCircle} />
+      <Metric label="Comment likes" value={number(t.comment_likes)} detail="Comment likes recorded in this period" icon={Heart} />
+      <Metric label="Top Comments opens" value={number(t.comment_card_opens)} detail="Discussion opens from a feed comment card" icon={MessageCircle} />
+    </section>
+    <section className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <Metric label="Topic skip rate" value={t.topic_impressions ? ((t.topic_skips / t.topic_impressions) * 100).toFixed(1) + '%' : '—'} detail="Opted-in skips ÷ topic impressions" icon={Activity} />
+      <Metric label="Comment active time" value={t.comment_card_viewable_impressions ? duration(t.comment_card_active_duration_ms / t.comment_card_viewable_impressions) : '—'} detail="Average active time per opted-in viewable card" icon={MessageCircle} />
+      <Metric label="Discussion open rate" value={t.comment_card_impressions ? ((t.comment_card_opens / t.comment_card_impressions) * 100).toFixed(1) + '%' : '—'} detail="Opens ÷ opted-in Top Comments impressions" icon={MessageCircle} />
+    </section>
 
     <section className="mt-10 grid gap-5 lg:grid-cols-2">
       {(section === 'overview' || section === 'categories') && <SectionCard title="Categories" description="Compare category reach and topic coverage." count={number(t.category_count)} href={sectionHref('categories')} icon={BarChart3}>
