@@ -6824,6 +6824,11 @@ DECLARE
   v_last_refresh timestamptz;
 BEGIN
   IF p_user_id IS NULL THEN RETURN 0; END IF;
+  -- Serialize profile refresh with consent withdrawal. A withdrawal takes an
+  -- exclusive lock on auth.users before deleting the derived profile; this
+  -- shared lock prevents an in-flight refresh from recreating scores afterward.
+  PERFORM 1 FROM auth.users AS account WHERE account.id = p_user_id FOR KEY SHARE;
+  IF NOT FOUND THEN RETURN 0; END IF;
   SELECT c.granted_at,c.profile_refreshed_at,
     coalesce(a.service_improvement,false),a.service_improvement_updated_at
   INTO v_consent_at,v_last_refresh,v_service_improvement,v_service_consent_at
