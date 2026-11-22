@@ -25,7 +25,7 @@ test('optional analytics consent is explicit, purpose-specific and off by defaul
 
   assert.ok(consent.includes('serviceImprovement: false'));
   assert.ok(consent.includes('sponsorMeasurement: false'));
-  assert.ok(consent.includes('analyticsConsentVersion = 2'));
+  assert.ok(consent.includes('analyticsConsentVersion = 3'));
   assert.match(consent, /cathoscroll\.analytics-consent\.v2/);
   assert.match(consent, /parsed\.version !== analyticsConsentVersion/);
   assert.match(manager, /version: analyticsConsentVersion/);
@@ -112,7 +112,7 @@ test('account consent sync is identity-bound, retryable and enforced server-side
   assert.match(route, /PERSONALISATION_REQUIRES_SERVICE_IMPROVEMENT/);
   assert.match(route, /error\.code === '42501'[\s\S]*?}, 409/);
   assert.match(route, /parsed\.value\.version !== 2/);
-  assert.match(route, /p_consent_version: 2/);
+  assert.match(route, /p_consent_version: 3/);
   assert.match(manager, /remote\.version !== 2/);
   assert.match(manager, /saved\.version !== 2/);
   assert.match(manager, /typeof saved\.exists !== 'boolean'/);
