@@ -86,7 +86,7 @@ export function SponsorFeedCard({
       eventType: 'viewable_impression' | 'click' | 'active_duration',
       durationMs?: number,
     ) => {
-      if (previewMode || !userId || !sponsorMeasurementEnabled || !placementReceipt) return false;
+      if (previewMode || !sponsorMeasurementEnabled || !userId || !placementReceipt) return false;
       const eventId = createEventId();
       return recordSponsorCampaignEvent(userId, {
         campaignId: targetCampaignId,
