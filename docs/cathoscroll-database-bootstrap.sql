@@ -8468,7 +8468,29 @@ begin
       (select count(*) from public.categories) category_count,
       (select count(*) from public.topics) topic_count,
       (select count(*) from public.sponsors) sponsor_count,
-      (select count(*) from public.comments where is_deleted=false and parent_id is null) comment_count
+      (select count(*) from public.comments where is_deleted=false and parent_id is null) comment_count,
+      coalesce((select count(distinct user_id) from catho_private.feed_analytics_daily_viewers
+        where event_date >= p_from::date and event_date <= p_to::date),0) unique_topic_viewers,
+      coalesce((select count(distinct user_id) from catho_private.sponsor_campaign_events
+        where event_type='viewable_impression' and received_at >= p_from and received_at < p_to),0) unique_sponsor_viewers,
+      coalesce((select count(distinct user_id) from catho_private.feed_card_analytics_daily_viewers
+        where event_date >= p_from::date and event_date <= p_to::date),0) unique_comment_viewers,
+      coalesce((select count(distinct user_id) from (
+        select user_id from catho_private.feed_analytics_daily_viewers
+          where event_date >= p_from::date and event_date <= p_to::date
+        union
+        select user_id from catho_private.sponsor_campaign_events
+          where event_type='viewable_impression' and received_at >= p_from and received_at < p_to
+        union
+        select user_id from catho_private.feed_card_analytics_daily_viewers
+          where event_date >= p_from::date and event_date <= p_to::date
+      ) AS opted_in_viewers),0) unique_feed_viewers,
+      (select count(*) from public.topic_likes where created_at >= p_from and created_at < p_to) topic_likes,
+      (select count(*) from public.bookmarks where created_at >= p_from and created_at < p_to) bookmarks,
+      (select count(*) from public.progress where completed_at >= p_from and completed_at < p_to) completed_topics,
+      (select count(*) from public.comments where parent_id is null and is_deleted=false and created_at >= p_from and created_at < p_to) comments_created,
+      (select count(*) from public.comments where parent_id is not null and is_deleted=false and created_at >= p_from and created_at < p_to) replies,
+      (select count(*) from public.comment_likes where created_at >= p_from and created_at < p_to) comment_likes
   ), categories as (
     select c.slug,c.name,count(t.id) topic_count,
       coalesce(sum(td.impressions),0) impressions,coalesce(sum(td.viewable_impressions),0) viewable_impressions
