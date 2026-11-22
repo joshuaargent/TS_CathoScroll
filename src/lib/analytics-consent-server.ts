@@ -28,7 +28,7 @@ export async function getStoredAnalyticsConsent(userId: string): Promise<StoredA
   ) throw new Error('The account analytics consent response is invalid.');
   // Old consent versions do not authorise collection under the revised
   // disclosures. Treat them as undecided until the account makes a new choice.
-  const currentConsent = value.version === 2 && value.exists === true;
+  const currentConsent = value.version === 3 && value.exists === true;
   return {
     serviceImprovement: currentConsent && value.serviceImprovement,
     sponsorMeasurement: currentConsent && value.sponsorMeasurement,
