@@ -319,6 +319,7 @@ test('web and native account/settings screens reuse the same components', () => 
   assert.match(analyticsSettingsPanel, /pendingPurposeSet/);
   assert.match(analyticsSettingsPanel, /pendingPurposes/);
   assert.match(analyticsSettingsPanel, /window\.addEventListener\(analyticsConsentSyncEvent, onConsentSync\)/);
+  assert.match(analyticsSettingsPanel, /readAnalyticsConsent\(userId\)\?\.syncPending !== true/);
   assert.match(analyticsSettingsPanel, /window\.removeEventListener\(analyticsConsentSyncEvent, onConsentSync\)/);
   assert.match(analyticsSettingsPanel, /onChange=\{\(event\) => \{/);
   assert.match(analyticsSettingsPanel, /checked=\{sponsorMeasurement\}[\s\S]*?disabled=\{disabled \|\| saving\}/);
