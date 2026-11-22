@@ -335,6 +335,9 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
           }
           markOwnChoiceWrite();
           hydrate(null);
+          window.dispatchEvent(new CustomEvent(analyticsConsentChangeEvent, {
+            detail: { userId: expectedUserId },
+          }));
           if (!managingRef.current) {
             setVisible(false);
             setManaging(false);
