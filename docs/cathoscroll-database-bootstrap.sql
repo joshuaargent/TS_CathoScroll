@@ -6504,7 +6504,7 @@ begin
     select coalesce(sum(impressions),0) impressions,coalesce(sum(viewable_impressions),0) viewable_impressions,
       coalesce(sum(active_duration_ms),0) active_duration_ms,coalesce(sum(skips),0) skips,
       coalesce(sum(completions),0) completions,coalesce(sum(opens),0) opens,
-      coalesce(sum(unique_viewers),0) unique_viewers from daily
+      coalesce((select count(distinct e.user_id) from catho_private.feed_card_analytics_events e where e.card_type=p_card_type and e.card_id=p_card_id and e.event_type='viewable_impression' and e.received_at>=p_from and e.received_at<p_to),0) unique_viewers from daily
   ), series as (
     select event_date,impressions,viewable_impressions,active_duration_ms,skips,opens from daily order by event_date
   )
