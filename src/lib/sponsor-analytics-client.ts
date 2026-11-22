@@ -362,12 +362,12 @@ export async function flushAnonymousSponsorCampaignEvents(apiBaseUrl?: string): 
   await anonymousSponsorFlushPromise;
 }
 
-export function installAnonymousSponsorAnalyticsListeners(): () => void {
+export function installAnonymousSponsorAnalyticsListeners(apiBaseUrl?: string): () => void {
   if (typeof window === 'undefined') return () => undefined;
   if (anonymousSponsorListenersInstalled) return () => undefined;
   anonymousSponsorListenersInstalled = true;
 
-  const flush = () => void flushAnonymousSponsorCampaignEvents();
+  const flush = () => void flushAnonymousSponsorCampaignEvents(apiBaseUrl);
   const onPreferenceChange = (event: Event) => {
     const detail = (event as CustomEvent<{ purpose?: string; objected?: boolean }>).detail;
     if (detail?.purpose !== 'sponsorMeasurement') return;
