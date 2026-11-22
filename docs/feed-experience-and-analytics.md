@@ -31,7 +31,7 @@ The existing topic viewer and interstitial cards use the same vertical gesture c
 
 Topic pagination starts before the final loaded entries. New pages append only unseen topic IDs; an in-flight page can satisfy a pending forward gesture exactly once. A reverse gesture cancels that pending advance. If a page fails, the existing topic remains visible and the user can retry; the feed never appends duplicate topics or changes already visited topic positions. Web server-prop updates and native background catalogue updates use the same deduplicating append rule and preserve the active topic.
 
-Sponsor placements are available to signed-in and signed-out visitors, but the selection of an unmeasured placement is not recorded. There are no anonymous sponsor events, visitor/session tokens, delivery counters, campaign/day served totals, or unmeasured frequency records. Signed-in users who explicitly enable Sponsor measurement receive a server-issued placement receipt; only qualifying viewable-impression and click events are recorded. Website retries remain in memory; Android and Electron persist only the opted-in signed-in event stream in encrypted account-scoped storage for up to seven days. Event IDs make retries idempotent, and the receipt is checked before an event is accepted. Sponsor reports show only the opted-in population and must not be described as total delivery, reach, or all-visitor CTR. Sponsor activity never feeds organic topic ranking.
+Sponsor placements are available to signed-in and signed-out visitors, but the selection of an unmeasured placement is not recorded. There are no anonymous sponsor events, visitor/session tokens, delivery counters, campaign/day served totals, or unmeasured frequency records. Signed-in users who explicitly enable Sponsor measurement receive a server-issued placement receipt; only qualifying viewable-impression, click and bounded active-duration events are recorded. Website retries remain in memory; Android and Electron persist only the opted-in signed-in event stream in encrypted account-scoped storage for up to seven days. Event IDs make retries idempotent, and the receipt is checked before an event is accepted. Sponsor reports show only the opted-in population and must not be described as total delivery, reach, or all-visitor CTR. Sponsor activity never feeds organic topic ranking.
 
 Unmeasured sponsor selection uses weighted random allocation based on campaign placement weight and eligibility. It does not write a served event or counter. For opted-in users, the selector uses consented viewable-impression aggregates for pacing and applies per-account frequency limits from the opted-in event ledger. Clicks are accepted only after a qualifying viewable impression. Sponsor analytics remain separate from organic recommendation signals.
 
@@ -53,8 +53,8 @@ The scheduler must:
 - Apply per-user and global frequency caps.
 - Avoid immediate repetition where alternatives exist.
 - Keep category targeting and brand-suitability rules.
-- Record only consented viewable impressions and clicks. Do not record unmeasured placements or eligibility decisions.
-- Use only deduplicated opted-in `viewable_impression` events for measured pacing and frequency limits. No served counter exists.
+- Record only consented viewable impressions, clicks after viewability and bounded active-duration events. Do not record unmeasured placements or eligibility decisions.
+- Use only deduplicated opted-in `viewable_impression` events for measured pacing and frequency limits. Bounded `active_duration` events contribute to time-on-card reporting only. No served counter exists.
 - Never count a sponsor impression until the placement meets a defined viewability threshold.
 - Keep sponsor events separate from organic topic recommendation signals.
 
@@ -137,7 +137,7 @@ Topic analytics should cover, where data exists:
 
 Category analytics aggregate topic-level metrics and show topic leaders, topic distribution, growth, engagement, completion, and areas with limited content. Distinguish historical metrics that are unavailable from true zero values. Do not fabricate historical impressions or viewing time from existing likes/comments.
 
-Sponsor analytics are separate and show only opted-in viewable impressions, clicks, click-through rate and frequency. Sponsor dashboards expose aggregate metrics for their own sponsor and never user identities or raw events. They do not report total delivery or reach across all visitors.
+Sponsor analytics are separate and show only opted-in viewable impressions, clicks, bounded active viewing duration, click-through rate and frequency. Sponsor dashboards expose aggregate metrics for their own sponsor and never user identities or raw events. They do not report total delivery or reach across all visitors.
 
 ## Sponsor placement eligibility and retry behaviour
 
@@ -230,7 +230,7 @@ The product has four separate systems. They must not be collapsed into one conse
 CathoScroll does not collect anonymous topic/comment engagement, anonymous sponsor measurement or sponsor delivery counters. Signed-out visitors and signed-in users without the relevant opt-in create no analytics events, delivery totals, anonymous identifiers, retry queues or database aggregates.
 
 - **Service improvement analytics:** optional signed-in account-linked topic and Top Comments engagement.
-- **Sponsor measurement:** separate optional signed-in viewability, clicks and frequency, derived only from consented viewable-impression events.
+- **Sponsor measurement:** separate optional signed-in viewability, clicks, active viewing duration and frequency, derived only from consented events.
 - **Personalisation:** separate optional private recommendation profile.
 - **General ranking:** public interactions, curated order, recency and category exposure balancing; no anonymous analytics or sponsor activity.
 
