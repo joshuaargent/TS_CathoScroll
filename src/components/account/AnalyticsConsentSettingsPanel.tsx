@@ -145,7 +145,7 @@ export function AnalyticsConsentSettingsPanel({
           <span className="min-w-0">
             <span className="text-text-primary block text-sm font-semibold">I explicitly consent to Service improvement analytics</span>
             <span className="text-text-secondary mt-1 block text-sm leading-relaxed">
-              Measures account-linked topic/comment engagement and site performance. Activity may reveal religious or philosophical interests. This choice must remain enabled while Personalisation is active; turn off Personalisation first to withdraw it. Passive reading signals inform recommendations while Personalisation is enabled.
+              Measures account-linked topic/comment engagement and site performance. Aggregated results may inform shared topic ordering for all readers, without profiling you individually. Activity may reveal religious or philosophical interests. This choice must remain enabled while Personalisation is active; turn off Personalisation first to withdraw it. Passive reading signals inform recommendations while Personalisation is enabled.
             </span>
           </span>
         </label>
