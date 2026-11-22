@@ -105,7 +105,8 @@ export async function POST(request: Request) {
       console.error('Unable to record sponsor event:', error.message);
       return respond(request, { error: 'Sponsor analytics are temporarily unavailable.' }, 503);
     }
-    return respond(request, { recorded: data === true });
+    if (data !== true) return respond(request, { recorded: false, error: 'Sponsor placement is no longer eligible.' }, 409);
+    return respond(request, { recorded: true });
   } catch (cause) {
     console.error('Sponsor event recording failed:', cause);
     return respond(request, { error: 'Sponsor analytics are temporarily unavailable.' }, 503);
