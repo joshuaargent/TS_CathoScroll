@@ -111,7 +111,7 @@ export function readAnalyticsConsent(userId?: string | null): AnalyticsConsent |
       ('syncPending' in parsed && typeof parsed.syncPending !== 'boolean') ||
       ('pendingPurposes' in parsed && (
         !Array.isArray(parsed.pendingPurposes) ||
-        !parsed.pendingPurposes.every((choice) => choice === 'serviceImprovement' || choice === 'sponsorMeasurement')
+        !parsed.pendingPurposes.every((choice: unknown) => choice === 'serviceImprovement' || choice === 'sponsorMeasurement')
       ))
     ) return null;
     const parsedSyncPending = 'syncPending' in parsed && parsed.syncPending === true;
