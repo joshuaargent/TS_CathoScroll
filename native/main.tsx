@@ -956,7 +956,7 @@ function App() {
       void cache.clearPersonalizedPages(user.id).then(() => {
         // Cached personalised pages may have been ranked using passive reading
         // signals. Remove them immediately while preserving the separate
-        // Personalisation grant; offline reading falls back to the general feed.
+        // Personalisation grant; offline reading falls back to the cached general feed or local catalogue.
         setFirstPage(null);
         setFeedAttempt((attempt) => attempt + 1);
       }).catch((cause: unknown) => {
