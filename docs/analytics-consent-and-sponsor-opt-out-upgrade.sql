@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS catho_private.user_analytics_consents (
   user_id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   service_improvement boolean NOT NULL DEFAULT false,
   sponsor_measurement boolean NOT NULL DEFAULT false,
-  consent_version integer NOT NULL DEFAULT 2 CHECK (consent_version >= 1),
+  consent_version integer NOT NULL DEFAULT 3 CHECK (consent_version >= 1),
   service_improvement_updated_at timestamptz,
   sponsor_measurement_updated_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT statement_timestamp(),
