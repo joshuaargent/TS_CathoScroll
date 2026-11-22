@@ -65,7 +65,7 @@ export async function POST(request: Request) {
     !isValidUuid(sessionId) ||
     (eventType === 'active_duration'
       ? !Number.isSafeInteger(durationMs) || Number(durationMs) < 1 || Number(durationMs) > 60000
-      : durationMs !== undefined) ||
+      : durationMs !== undefined)
   ) {
     return respond(request, { error: 'Invalid sponsor event.' }, 400);
   }
@@ -86,14 +86,12 @@ export async function POST(request: Request) {
   }
 
   try {
-    if (!isAnonymous) {
-      const consent = await getStoredAnalyticsConsent(auth.user!.id);
-      if (!consent.sponsorMeasurement) {
-        return respond(request, {
-          error: 'Sponsor measurement consent is not active.',
-          code: 'CONSENT_REQUIRED',
-        }, 403);
-      }
+    const consent = await getStoredAnalyticsConsent(auth.user.id);
+    if (!consent.sponsorMeasurement) {
+      return respond(request, {
+        error: 'Sponsor measurement consent is not active.',
+        code: 'CONSENT_REQUIRED',
+      }, 403);
     }
 
     const { data, error } = await createServiceRoleClient().rpc('record_sponsor_campaign_event', {
