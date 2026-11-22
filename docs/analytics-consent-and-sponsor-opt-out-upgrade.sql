@@ -2633,7 +2633,7 @@ BEGIN
       'serviceImprovement', false,
       'sponsorMeasurement', false,
       'updatedAt', NULL,
-      'version', 2,
+      'version', 3,
       'exists', false,
       'personalizationEnabled', v_personalization_enabled
     );
