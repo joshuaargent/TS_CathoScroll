@@ -1330,9 +1330,9 @@ $personalization_consent_regrant$;
 
 -- Release-wide analytics and personalisation reset.
 -- No existing account has an active choice under the new disclosures.
--- Deleting current-state rows makes the choice genuinely unset (not a
+-- Deleting current-state rows makes the choice genuinely unset.
 -- A missing row is the not-yet-decided state, not a recorded refusal.
--- recorded refusal). Historical consent evidence remains in the audit table,
+-- Historical consent evidence remains in the audit table,
 -- but it is never consulted as current permission and cannot authorize new
 -- processing under this release.
 --
