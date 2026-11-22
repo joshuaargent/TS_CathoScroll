@@ -100,12 +100,7 @@ export function SponsorFeedCard({
     [getAccessToken, placementReceipt, previewMode, sessionId, sponsorApiBaseUrl, sponsorMeasurementEnabled, userId]
   );
 
-  useEffect(() => {
-    if (previewMode || userId || !campaignId || !placementReceipt || !sponsorMeasurementEnabled || !sessionId) return;
-    const frequencyIndex = allocateAnonymousFrequencyIndex(sessionId, campaignId, placementKey, placementReceipt);
-    if (frequencyIndex === null) return;
-    void recordEvent(campaignId, 'served', undefined, frequencyIndex);
-  }, [campaignId, placementKey, placementReceipt, previewMode, recordEvent, sessionId, sponsorMeasurementEnabled, userId]);
+
 
   useEffect(() => {
     const node = cardRef.current;
