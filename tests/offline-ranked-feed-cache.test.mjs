@@ -122,7 +122,7 @@ test('withdrawal clears the stale personalised page before the replacement feed 
 });
 
 test('all pre-release native personalisation choices and pages are invalidated', () => {
-  assert.match(cache, /personalizationConsentVersion = '2026-11-21-v6'/);
+  assert.match(cache, /personalizationConsentVersion = '2026-11-22-v7'/);
   assert.match(cache, /personalization_consent_version/);
   assert.match(cache, /DELETE FROM offline_personalization_consent_cache/);
   assert.doesNotMatch(cache, /WHERE enabled = 1 OR pending_sync = 0/);
