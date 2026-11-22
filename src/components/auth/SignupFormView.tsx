@@ -131,12 +131,12 @@ export function SignupFormView({
                   onChange={(event) => {
                     setPersonalizationConsent(event.target.checked);
                   }}
-                  disabled={loading || !online}
+                  disabled={loading || !online || !serviceImprovementConsent}
                   className="accent-accent mt-0.5 h-4 w-4 shrink-0"
                 />
                 <span className="text-text-secondary text-xs leading-relaxed">
                   <span className="text-text-primary font-semibold">Personalised recommendations — I explicitly consent</span>
-                  {' '}to using my account actions and chosen interests to build a private recommendation profile. This may reveal religious or philosophical beliefs. Passive reading signals are used for recommendations only if you separately enable Service improvement analytics. It is optional and can be withdrawn in Account settings.
+                  {' '}to using my account actions and chosen interests to build a private recommendation profile. This may reveal religious or philosophical beliefs. Personalisation requires Service improvement analytics: select that choice first, and keep it enabled while Personalisation is active. Turn off Personalisation before withdrawing Service improvement. It is optional and can be withdrawn in Account settings.
                 </span>
               </label>
 
@@ -148,12 +148,12 @@ export function SignupFormView({
                   value="true"
                   checked={serviceImprovementConsent}
                   onChange={(event) => setServiceImprovementConsent(event.target.checked)}
-                  disabled={loading || !online}
+                  disabled={loading || !online || personalizationConsent}
                   className="accent-accent mt-0.5 h-4 w-4 shrink-0"
                 />
                 <span className="text-text-secondary text-xs leading-relaxed">
                   <span className="text-text-primary font-semibold">Service improvement analytics — I explicitly consent</span>
-                  {' '}— optional account-linked measurement of signed-in topic/comment engagement and site performance. Activity may reveal religious or philosophical interests. Independent optional choice. Reading signals inform recommendations only if Personalisation is also enabled.
+                  {' '}— optional account-linked measurement of signed-in topic/comment engagement and site performance. Activity may reveal religious or philosophical interests. This choice must remain enabled while Personalisation is active. Reading signals inform recommendations only while Personalisation is enabled too.
                 </span>
               </label>
 
@@ -175,7 +175,7 @@ export function SignupFormView({
               </label>
 
               <p className="text-text-muted text-xs leading-relaxed">
-                All choices are optional and can be changed later. See the{' '}
+                All choices are optional and can be changed later. Personalisation requires Service improvement analytics; turn off Personalisation before withdrawing Service improvement. Sponsor measurement remains separate. See the{' '}
                 <Link href="/privacy" className="text-accent font-medium underline">Privacy Policy</Link>.
               </p>
             </div>
