@@ -18,6 +18,32 @@ export interface SignedInAnalyticsOutbox {
   clearStream(userId: string, stream: SignedInAnalyticsStream): Promise<void>;
 }
 
+const releaseConsentResetMigration = 'analytics-consent-v2-release-reset';
+
+export async function resetLegacySignedInAnalyticsOutbox(database: OfflineDatabase): Promise<void> {
+  await database.transaction(async (db) => {
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS offline_native_migrations (
+        migration_key TEXT PRIMARY KEY,
+        applied_at TEXT NOT NULL
+      )
+    `);
+    const rows = await db.query(
+      'SELECT migration_key FROM offline_native_migrations WHERE migration_key = ?',
+      [releaseConsentResetMigration]
+    );
+    if (rows.length > 0) return;
+    // The 2.4.0 consent reset invalidates every pre-release analytics grant.
+    // Discard pending encrypted events once; subsequent newly consented events
+    // remain durable across normal application restarts.
+    await db.execute('DROP TABLE IF EXISTS offline_signed_in_analytics_outbox');
+    await db.execute(
+      'INSERT INTO offline_native_migrations (migration_key, applied_at) VALUES (?, ?)',
+      [releaseConsentResetMigration, new Date().toISOString()]
+    );
+  });
+}
+
 const maximumEventsPerStream = 2000;
 const maximumAgeMs = 7 * 24 * 60 * 60 * 1000;
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
