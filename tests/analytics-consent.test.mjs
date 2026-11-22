@@ -117,12 +117,15 @@ test('account consent sync is identity-bound, retryable and enforced server-side
   const signupConsent = getLastFunctionDefinition(bootstrap, 'catho_private.capture_signup_personalization_consent') ?? '';
   assert.ok(signupConsent.includes('INSERT INTO catho_private.user_analytics_consents'));
   assert.doesNotMatch(signupConsent, /IF v_service_improvement OR v_sponsor_measurement THEN/);
+  assert.match(signupConsent, /v_personalization IS TRUE AND v_service_improvement IS NOT TRUE/);
+  assert.match(signupConsent, /Personalisation requires Service improvement analytics/);
   assert.match(signupConsent, /NEW\.id, v_service_improvement, v_sponsor_measurement, 2/);
 
   assert.match(serverConsent, /const currentConsent = value\.version === 2 && value\.exists === true/);
   assert.match(serverConsent, /serviceImprovement: currentConsent && value\.serviceImprovement/);
   assert.match(serverConsent, /sponsorMeasurement: currentConsent && value\.sponsorMeasurement/);
-  assert.doesNotMatch(manager, /effectivePersonalization|personalizationEnabled/);
+  assert.match(manager, /personalizationEnabled\?: unknown/);
+  assert.match(manager, /setPersonalizationEnabled\(remote\.personalizationEnabled\)/);
   assert.match(bootstrap, /Turn off Personalisation before withdrawing Service improvement analytics/);
   assert.match(bootstrap, /profile_refreshed_at = NULL/);
   assert.ok(manager.includes('clearAnalyticsConsentQueues'));
