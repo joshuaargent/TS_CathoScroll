@@ -51,7 +51,7 @@ import { OfflineCommentCache } from '@/lib/offline/comment-cache';
 import { OfflineTopicCountCache, type CachedTopicCounts } from '@/lib/offline/topic-count-cache';
 import { loadTopicActivity } from '@/lib/topic-activity';
 import { siteConfig } from '@/lib/constants';
-import { analyticsConsentSyncEvent } from '@/lib/analytics-consent';
+import { analyticsConsentChangeEvent, analyticsConsentSyncEvent } from '@/lib/analytics-consent';
 import { configureFeedAnalyticsOutbox, clearFeedAnalyticsOutbox } from '@/lib/feed-analytics-client';
 import { configureFeedCardAnalyticsOutbox, clearFeedCardAnalyticsOutbox } from '@/lib/feed-card-analytics-client';
 import { configureSponsorAnalyticsOutbox, clearSponsorAnalyticsOutbox } from '@/lib/sponsor-analytics-client';
@@ -917,6 +917,39 @@ function App() {
     window.addEventListener('cathoscroll:personalization-consent-changed', syncPersonalizationConsent);
     return () => window.removeEventListener('cathoscroll:personalization-consent-changed', syncPersonalizationConsent);
   }, []);
+
+  useEffect(() => {
+    function clearPassiveSignalRecommendations(event: Event) {
+      const detail = (event as CustomEvent<{
+        userId?: unknown;
+        choice?: unknown;
+        consent?: { serviceImprovement?: unknown };
+      }>).detail;
+      if (!user?.id || detail?.userId !== user.id) return;
+      const serviceImprovementDisabled =
+        detail.choice === 'serviceImprovement' ||
+        detail.consent?.serviceImprovement === false;
+      if (!serviceImprovementDisabled) return;
+
+      const cache = personalizedFeedCacheRef.current;
+      if (!cache) return;
+      void cache.clearPersonalizedPages(user.id).then(() => {
+        // Cached personalised pages may have been ranked using passive reading
+        // signals. Remove them immediately while preserving the separate
+        // Personalisation grant; offline reading falls back to the general feed.
+        setFirstPage(null);
+        setFeedAttempt((attempt) => attempt + 1);
+      }).catch((cause: unknown) => {
+        console.error('Unable to clear passive-signal personalised feed pages:', cause);
+        notifyNativeStatus('Saved personalised pages could not be refreshed after analytics consent changed.', {
+          id: 'personalized-feed-cache',
+        });
+      });
+    }
+
+    window.addEventListener(analyticsConsentChangeEvent, clearPassiveSignalRecommendations);
+    return () => window.removeEventListener(analyticsConsentChangeEvent, clearPassiveSignalRecommendations);
+  }, [user?.id]);
 
   useEffect(() => {
     const message = activityStatus && activityStatus.userId === user?.id ? activityStatus.error : '';
