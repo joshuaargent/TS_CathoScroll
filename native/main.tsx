@@ -55,7 +55,7 @@ import { analyticsConsentChangeEvent, analyticsConsentSyncEvent, readAnalyticsCo
 import { configureFeedAnalyticsOutbox, clearFeedAnalyticsOutbox } from '@/lib/feed-analytics-client';
 import { configureFeedCardAnalyticsOutbox, clearFeedCardAnalyticsOutbox } from '@/lib/feed-card-analytics-client';
 import { configureSponsorAnalyticsOutbox, clearSponsorAnalyticsOutbox } from '@/lib/sponsor-analytics-client';
-import { NativeSignedInAnalyticsOutbox } from '@/lib/offline/signed-in-analytics-store';
+import { NativeSignedInAnalyticsOutbox, resetLegacySignedInAnalyticsOutbox } from '@/lib/offline/signed-in-analytics-store';
 import { OfflineRankedFeedCache, type CachedPersonalizationConsent } from '@/lib/offline/ranked-feed-cache';
 import type { TopFeedComment } from '@/lib/feed-comments';
 import type { RecommendationCursor } from '@/lib/recommendations';
@@ -1037,6 +1037,7 @@ function App() {
             });
           }
           try {
+            await resetLegacySignedInAnalyticsOutbox(cacheDatabase);
             const signedInOutbox = new NativeSignedInAnalyticsOutbox(cacheDatabase);
             await Promise.all([
               configureFeedAnalyticsOutbox(signedInOutbox),
