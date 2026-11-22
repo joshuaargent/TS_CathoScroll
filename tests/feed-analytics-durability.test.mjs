@@ -154,7 +154,7 @@ test('README distinguishes aggregate general ranking from consented personalisat
   assert.ok(readme.includes('Personalised ranking'));
   assert.ok(readme.includes('direct account actions and selected categories'));
   assert.ok(readme.includes('passive reading signals'));
-  assert.ok(readme.includes('two choices can be enabled and withdrawn independently'));
+  assert.ok(readme.includes('Personalisation requires Service improvement analytics to remain enabled; turn off Personalisation before withdrawing Service improvement.'));
   assert.ok(readme.includes('collected only under the separate Service improvement opt-in'));
   assert.ok(readme.includes('inform recommendations only while Personalisation is also enabled'));
   assert.ok(readme.includes('inform recommendations only while Personalisation is also enabled'));
