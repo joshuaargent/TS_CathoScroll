@@ -29,6 +29,7 @@ test('2.4.0 native release versions remain aligned across package, lockfiles and
   assert.doesNotMatch(releaseWorkflow, /ANDROID_VERSION_CODE: \$\{\{ env\.ANDROID_VERSION_CODE \}\}/);
   assert.match(releaseWorkflow, /CathoScroll-\$\{RELEASE_TAG#v\}\.apk/);
   assert.match(releaseWorkflow, /git merge-base --is-ancestor/);
+  assert.match(releaseWorkflow, /fetch-depth: 0/);
   assert.match(releaseWorkflow, /refs\/remotes\/origin\/main/);
 });
 
