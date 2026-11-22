@@ -30,7 +30,7 @@ When enabled, signed-in topic-feed and Top Comments events are linked to the acc
 
 ### Sponsor measurement
 
-When enabled, signed-in sponsor viewability, click and frequency events are account-linked. Event payloads are limited to campaign/event/session identifiers, the server-issued placement receipt and event type. The receipt proves that the campaign was selected for this opted-in account and expires after seven days. Do not add topic IDs, category IDs, reading histories or recommendation profile fields. Sponsor reports are aggregated and restricted to the consented population; they must not be presented as total platform delivery or total audience reach.
+When enabled, signed-in sponsor viewability, click, bounded active-duration and frequency events are account-linked. Event payloads are limited to campaign/event/session identifiers, the server-issued placement receipt, event type and a bounded duration value for active-duration events. The receipt proves that the campaign was selected for this opted-in account and expires after seven days. Do not add topic IDs, category IDs, reading histories or recommendation profile fields. Sponsor reports are aggregated and restricted to the consented population; they must not be presented as total platform delivery or total audience reach.
 
 ### Personalisation
 
@@ -90,7 +90,7 @@ Verify current Article 28 processor terms, subprocessors, processing locations, 
 
 - Confirm all anonymous analytics clients, APIs, controls, native queues, SQL tables/functions, cron jobs and admin/sponsor reporting paths are removed.
 - Confirm sponsor delivery creates no served counter, event receipt, session token, frequency record or aggregate delivery row when measurement is off.
-- Confirm opted-in signed-in Sponsor measurement still records only viewable impressions and clicks, with frequency derived from those consented viewability events.
+- Confirm opted-in signed-in Sponsor measurement records only qualifying viewable impressions, clicks after viewability and bounded active-duration events, with frequency derived from consented viewability events.
 - Confirm signed-in Service improvement analytics and Personalisation remain properly gated and withdrawal-safe on web, Android and Electron.
 - Confirm no sponsor targeting or organic ranking uses religious-interest profiles or sponsor activity.
 - Run full tests, type-check, lint, production build and Android/Electron builds; obtain fresh independent code review.
