@@ -85,7 +85,7 @@ export default function CookiesPage() {
         <section>
           <h2 className="mb-4 text-3xl font-bold">Manage optional analytics</h2>
           <p className="text-text-secondary mb-4 leading-relaxed">
-            Personalisation requires Service improvement analytics to remain enabled. Turn off Personalisation before withdrawing Service improvement; Sponsor measurement is separate. Sponsor measurement is a separate optional choice. Signed-in users can manage optional account-linked choices at signup and in Account settings. Declining optional analytics does not affect sign-in, account synchronisation, bookmarks, likes, progress, notes, sponsor delivery or general feed ranking.
+            Personalisation requires Service improvement analytics to remain enabled. Turn off Personalisation before withdrawing Service improvement; Sponsor measurement is separate. Sponsor measurement is a separate optional choice. Signed-in users can manage optional account-linked choices at signup and in Account settings. Declining optional analytics does not affect sign-in, account synchronisation, bookmarks, likes, progress, notes, sponsor delivery or general feed ranking. Withdrawing a purpose clears its local queue and deletes its account-linked server event records.
           </p>
           <AnalyticsConsentSettingsButton />
         </section>
