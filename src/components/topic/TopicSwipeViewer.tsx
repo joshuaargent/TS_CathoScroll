@@ -99,68 +99,6 @@ export function TopicSwipeViewer({
   const topicViewableRef = useRef(false);
 
   useEffect(() => {
-    if (userId || !active) return;
-    recordAnonymousFeedEvent('topic', currentTopicId, 'impression');
-    let intersecting = false;
-    let viewable = false;
-    let viewTimer: number | null = null;
-    let durationTimer: number | null = null;
-    let activeSince = 0;
-    topicActiveDurationRef.current = 0;
-    topicActiveSinceRef.current = null;
-    const flushDuration = (resume = true) => {
-      if (activeSince) {
-        const elapsed = Math.max(0, Math.round(performance.now() - activeSince));
-        activeSince = 0;
-        topicActiveSinceRef.current = null;
-        topicActiveDurationRef.current += elapsed;
-        if (elapsed > 0) recordAnonymousFeedEvent('topic', currentTopicId, 'active_duration', elapsed);
-      }
-      if (resume && viewable && intersecting && document.visibilityState === 'visible') {
-        activeSince = performance.now();
-        topicActiveSinceRef.current = activeSince;
-      }
-    };
-    const startDuration = () => {
-      if (!viewable || document.visibilityState !== 'visible' || activeSince) return;
-      activeSince = performance.now();
-      topicActiveSinceRef.current = activeSince;
-      if (durationTimer === null) durationTimer = window.setInterval(() => flushDuration(true), 30000);
-    };
-    const scheduleView = () => {
-      if (!intersecting || viewable || viewTimer !== null || document.visibilityState !== 'visible') return;
-      viewTimer = window.setTimeout(() => {
-        viewTimer = null;
-        if (!intersecting || document.visibilityState !== 'visible') return;
-        viewable = true;
-        recordAnonymousFeedEvent('topic', currentTopicId, 'viewable_impression');
-        startDuration();
-      }, 1000);
-    };
-    const observer = typeof IntersectionObserver !== 'undefined' && containerRef.current
-      ? new IntersectionObserver((entries) => {
-          intersecting = Boolean(entries[0]?.isIntersecting && entries[0].intersectionRatio >= 0.5);
-          if (intersecting) scheduleView();
-          else { if (viewTimer !== null) window.clearTimeout(viewTimer); viewTimer = null; flushDuration(false); }
-        }, { threshold: [0, 0.5, 1] })
-      : null;
-    if (containerRef.current && observer) observer.observe(containerRef.current);
-    else { intersecting = true; scheduleView(); }
-    const onVisibility = () => {
-      if (document.visibilityState === 'hidden') { if (viewTimer !== null) window.clearTimeout(viewTimer); viewTimer = null; flushDuration(false); }
-      else if (intersecting) { if (viewable) startDuration(); else scheduleView(); }
-    };
-    document.addEventListener('visibilitychange', onVisibility);
-    return () => {
-      flushDuration(false);
-      if (durationTimer !== null) window.clearInterval(durationTimer);
-      if (viewTimer !== null) window.clearTimeout(viewTimer);
-      observer?.disconnect();
-      document.removeEventListener('visibilitychange', onVisibility);
-    };
-  }, [active, currentTopicId, userId]);
-
-  useEffect(() => {
     if (!userId || !active) return;
     return installFeedAnalyticsListeners(userId, {
       endpoint: analyticsEndpoint,
