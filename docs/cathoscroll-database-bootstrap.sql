@@ -4693,7 +4693,8 @@ CREATE TABLE catho_private.sponsor_campaign_events (
   event_id uuid NOT NULL,
   user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   session_id uuid NOT NULL,
-  event_type text NOT NULL CHECK (event_type IN ('viewable_impression', 'click')),
+  event_type text NOT NULL CHECK (event_type IN ('viewable_impression', 'click', 'active_duration')),
+  duration_ms integer NOT NULL DEFAULT 0 CHECK (duration_ms BETWEEN 0 AND 60000),
   received_at timestamptz NOT NULL DEFAULT statement_timestamp(),
   PRIMARY KEY (campaign_id, event_id)
 );
@@ -4711,6 +4712,7 @@ CREATE TABLE catho_private.sponsor_campaign_daily (
   campaign_id uuid NOT NULL REFERENCES public.sponsor_campaigns(id) ON DELETE CASCADE,
   viewable_impressions bigint NOT NULL DEFAULT 0 CHECK (viewable_impressions >= 0),
   clicks bigint NOT NULL DEFAULT 0 CHECK (clicks >= 0),
+  active_duration_ms bigint NOT NULL DEFAULT 0 CHECK (active_duration_ms >= 0),
   updated_at timestamptz NOT NULL DEFAULT statement_timestamp(),
   PRIMARY KEY (event_date, campaign_id)
 );
@@ -8243,6 +8245,8 @@ DROP TABLE IF EXISTS catho_private.anonymous_feed_analytics_daily;
 NOTIFY pgrst, 'reload schema';
 
 
+DROP FUNCTION IF EXISTS public.record_sponsor_campaign_event(uuid, uuid, uuid, uuid, uuid, text);
+
 -- Corrected consented sponsor event ingestion. A delivery is never recorded:
 -- only an opted-in viewable impression or click creates an event row.
 CREATE OR REPLACE FUNCTION public.record_sponsor_campaign_event(
@@ -8712,8 +8716,9 @@ CREATE OR REPLACE FUNCTION public.record_sponsor_campaign_event(
   p_campaign_id uuid,
   p_event_id uuid,
   p_session_id uuid,
-  p_placement_receipt uuid,
-  p_event_type text
+  p_event_type text,
+  p_duration_ms integer,
+  p_placement_receipt uuid
 )
 RETURNS boolean
 LANGUAGE plpgsql
@@ -8729,7 +8734,9 @@ DECLARE
 BEGIN
   IF p_user_id IS NULL OR p_campaign_id IS NULL OR p_event_id IS NULL OR p_session_id IS NULL
      OR p_placement_receipt IS NULL OR p_event_type IS NULL
-     OR p_event_type NOT IN ('viewable_impression', 'click')
+     OR p_event_type NOT IN ('viewable_impression', 'click', 'active_duration')
+     OR (p_event_type = 'active_duration' AND (p_duration_ms IS NULL OR p_duration_ms NOT BETWEEN 1 AND 60000))
+     OR (p_event_type <> 'active_duration' AND coalesce(p_duration_ms, 0) <> 0)
      OR NOT EXISTS (SELECT 1 FROM auth.users AS account WHERE account.id = p_user_id) THEN
     RAISE EXCEPTION 'Invalid sponsor campaign event' USING ERRCODE = '22023';
   END IF;
@@ -8754,11 +8761,18 @@ BEGIN
     RAISE EXCEPTION 'Sponsor placement receipt is invalid or expired' USING ERRCODE = '42501';
   END IF;
 
-  IF p_event_type = 'click' AND v_receipt.viewable_at IS NULL THEN
+  IF p_event_type IN ('click', 'active_duration') AND v_receipt.viewable_at IS NULL THEN
     RAISE EXCEPTION 'Sponsor campaign must be viewable before a click is recorded' USING ERRCODE = '42501';
   END IF;
 
   IF EXISTS (
+    SELECT 1 FROM catho_private.sponsor_campaign_events AS existing
+    WHERE existing.campaign_id = p_campaign_id AND existing.event_id = p_event_id
+  ) THEN
+    RETURN true;
+  END IF;
+
+  IF p_event_type IN ('viewable_impression', 'click') AND EXISTS (
     SELECT 1 FROM catho_private.sponsor_campaign_events AS existing
     WHERE existing.user_id = p_user_id AND existing.campaign_id = p_campaign_id
       AND existing.session_id = p_session_id AND existing.event_type = p_event_type
@@ -8805,8 +8819,8 @@ BEGIN
   END IF;
 
   INSERT INTO catho_private.sponsor_campaign_events
-    (campaign_id, event_id, user_id, session_id, event_type, received_at)
-  VALUES (p_campaign_id, p_event_id, p_user_id, p_session_id, p_event_type, pg_catalog.statement_timestamp())
+    (campaign_id, event_id, user_id, session_id, event_type, duration_ms, received_at)
+  VALUES (p_campaign_id, p_event_id, p_user_id, p_session_id, p_event_type, coalesce(p_duration_ms, 0), pg_catalog.statement_timestamp())
   ON CONFLICT DO NOTHING;
   GET DIAGNOSTICS v_inserted = ROW_COUNT;
   IF v_inserted = 0 THEN
@@ -8824,23 +8838,25 @@ BEGIN
   END IF;
 
   INSERT INTO catho_private.sponsor_campaign_daily
-    (event_date, campaign_id, viewable_impressions, clicks, updated_at)
+    (event_date, campaign_id, viewable_impressions, clicks, active_duration_ms, updated_at)
   VALUES (
     v_today, p_campaign_id,
     CASE WHEN p_event_type = 'viewable_impression' THEN 1 ELSE 0 END,
     CASE WHEN p_event_type = 'click' THEN 1 ELSE 0 END,
+    CASE WHEN p_event_type = 'active_duration' THEN coalesce(p_duration_ms, 0) ELSE 0 END,
     pg_catalog.statement_timestamp()
   )
   ON CONFLICT (event_date, campaign_id) DO UPDATE
   SET viewable_impressions = catho_private.sponsor_campaign_daily.viewable_impressions + EXCLUDED.viewable_impressions,
       clicks = catho_private.sponsor_campaign_daily.clicks + EXCLUDED.clicks,
+      active_duration_ms = catho_private.sponsor_campaign_daily.active_duration_ms + EXCLUDED.active_duration_ms,
       updated_at = EXCLUDED.updated_at;
   RETURN true;
 END;
 $function$;
-ALTER FUNCTION public.record_sponsor_campaign_event(uuid, uuid, uuid, uuid, uuid, text) OWNER TO postgres;
-REVOKE ALL ON FUNCTION public.record_sponsor_campaign_event(uuid, uuid, uuid, uuid, uuid, text) FROM PUBLIC, anon, authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.record_sponsor_campaign_event(uuid, uuid, uuid, uuid, uuid, text) TO service_role;
+ALTER FUNCTION public.record_sponsor_campaign_event(uuid, uuid, uuid, uuid, text, integer, uuid) OWNER TO postgres;
+REVOKE ALL ON FUNCTION public.record_sponsor_campaign_event(uuid, uuid, uuid, uuid, text, integer, uuid) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.record_sponsor_campaign_event(uuid, uuid, uuid, uuid, text, integer, uuid) TO service_role;
 
 -- Remove the former per-user served-frequency table. Frequency limits are
 -- derived only from the opted-in sponsor viewability event ledger.
