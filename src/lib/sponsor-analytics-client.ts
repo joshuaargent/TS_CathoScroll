@@ -183,7 +183,7 @@ export async function flushSponsorCampaignEvents(
         // errors are terminal for that event; do not let one stale item block
         // every newer sponsor event behind it. Transient auth/rate/server
         // failures remain queued for a later retry.
-        if (response.status === 400 || response.status === 403) {
+        if (response.status === 400 || response.status === 403 || response.status === 409) {
           if (persistedEvent && persistentOutbox) await persistentOutbox.acknowledge(userId, 'sponsor', [event.eventId]);
           else acknowledgeEvent(userId, event.eventId);
           continue;
