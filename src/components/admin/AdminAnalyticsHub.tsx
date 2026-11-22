@@ -9,12 +9,12 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardDescription, CardTitle } from '@/components/ui/Card';
 import type { AnalyticsPeriod } from '@/lib/analytics/content-analytics';
 
-type AnalyticsDay = { event_date: string; topic_impressions: number; sponsor_viewable_impressions: number; comment_impressions: number; topic_viewable_impressions: number; sponsor_viewable_impressions: number; sponsor_clicks: number; comment_viewable_impressions: number };
+type AnalyticsDay = { event_date: string; topic_impressions: number; sponsor_viewable_impressions: number; comment_impressions: number; topic_viewable_impressions: number; sponsor_clicks: number; comment_viewable_impressions: number };
 
 type Overview = {
   totals: {
     topic_impressions: number; topic_viewable_impressions: number; topic_active_duration_ms: number;
-    topic_skips: number; topic_completions: number; sponsor_viewable_impressions: number;
+    topic_skips: number; topic_completions: number;
     sponsor_viewable_impressions: number; sponsor_clicks: number;
     comment_card_impressions: number; comment_card_viewable_impressions: number;
     comment_card_active_duration_ms: number; comment_card_skips: number; comment_card_opens: number;
