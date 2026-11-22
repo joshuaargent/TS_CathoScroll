@@ -14,7 +14,7 @@ import {
 } from '@/lib/sponsor-campaigns';
 import { createFeedRefreshCoordinator } from '@/lib/feed-refresh-coordinator';
 import { siteConfig } from '@/lib/constants';
-import { analyticsConsentChangeEvent, hasAnalyticsConsent } from '@/lib/analytics-consent';
+import { analyticsConsentChangeEvent, hasSyncedAnalyticsConsent } from '@/lib/analytics-consent';
 import { buildFeedEntryMap, collectReservedCommentIds, flattenFeedEntryMap, reconcileFeedBoundary, type FeedEntry, type FeedEntryMap } from '@/lib/feed-entry-map';
 import {
   invokeRegisteredFeedEntryLifecycle,
@@ -198,7 +198,7 @@ export function TopicFeedCore({
 
       // Sponsor measurement is account-linked and requires explicit consent.
       // Signed-out visitors and accounts without consent receive unmeasured placements.
-      const measurementEnabled = Boolean(userId && hasAnalyticsConsent('sponsorMeasurement', userId));
+      const measurementEnabled = Boolean(userId && hasSyncedAnalyticsConsent('sponsorMeasurement', userId));
       const sessionId = measurementEnabled ? createSponsorPlacementId() : null;
       if (measurementEnabled && !sessionId) return { campaigns: [], sessionId: null, retryable: true };
 
@@ -350,13 +350,13 @@ export function TopicFeedCore({
       if (inFlight) return inFlight;
 
       const requestedUserId = userId;
-      const requestedMeasurementEnabled = Boolean(requestedUserId && hasAnalyticsConsent('sponsorMeasurement', requestedUserId));
+      const requestedMeasurementEnabled = Boolean(requestedUserId && hasSyncedAnalyticsConsent('sponsorMeasurement', requestedUserId));
       const request = loadSponsorCampaigns(topic)
         .then((result) => {
           // A consent change while the request is in flight invalidates its
           // visitor/session token. Keep the sponsor placement, but never cache
           // or expose the token after the user withdraws measurement.
-          const measurementStillEnabled = Boolean(requestedUserId && hasAnalyticsConsent('sponsorMeasurement', requestedUserId));
+          const measurementStillEnabled = Boolean(requestedUserId && hasSyncedAnalyticsConsent('sponsorMeasurement', requestedUserId));
           if (measurementStillEnabled !== requestedMeasurementEnabled) {
             return { ...result, sessionId: null };
           }
@@ -394,7 +394,7 @@ export function TopicFeedCore({
 
   useEffect(() => {
     const clearMeasuredPlacements = () => {
-      const measurementEnabled = Boolean(userId && hasAnalyticsConsent('sponsorMeasurement', userId));
+      const measurementEnabled = Boolean(userId && hasSyncedAnalyticsConsent('sponsorMeasurement', userId));
       if (measurementEnabled) return;
 
       // Remove measurement receipts created before withdrawal/objection from
