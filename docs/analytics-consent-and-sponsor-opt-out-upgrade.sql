@@ -15,6 +15,8 @@ CREATE TABLE IF NOT EXISTS catho_private.user_analytics_consents (
   updated_at timestamptz NOT NULL DEFAULT statement_timestamp()
 );
 
+ALTER TABLE catho_private.user_analytics_consents ALTER COLUMN consent_version SET DEFAULT 3;
+
 CREATE TABLE IF NOT EXISTS catho_private.user_analytics_consent_history (
   id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
