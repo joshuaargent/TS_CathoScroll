@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { createPageMetadata } from '@/lib/seo';
+import { AnonymousAnalyticsPreference } from '@/components/privacy/AnonymousAnalyticsPreference';
 
 export const metadata = createPageMetadata({
   title: "Privacy",
@@ -221,12 +222,15 @@ export default function PrivacyPage() {
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            On Android and Electron, pending opted-in signed-in analytics are stored in encrypted private storage, capped at 2,000 events per stream and seven days, and deleted after server acknowledgement or consent withdrawal. Website queues remain in memory. Vercel Web Analytics and Speed Insights load only while Service improvement analytics is enabled. CathoScroll removes query strings and fragments and replaces topic, category and search identifiers with generic route labels before sending performance data; Vercel may separately process route, device, browser, country and web-vital information under its own privacy terms.
+            When signed out, topic and Top Comments engagement is measured as daily aggregate statistics without account, visitor or session identifiers, unless you object using the controls below. Website events remain in memory; Android and Electron may retain a separate app-private anonymous topic/comment outbox capped at 2,000 events and seven days, which is cleared immediately when you object. Signed-in Service improvement events are account-linked only after explicit opt-in and use encrypted native storage, capped at 2,000 events per stream and seven days. Website signed-in queues remain in memory. Vercel Web Analytics and Speed Insights load only while signed-in Service improvement analytics is enabled. CathoScroll removes query strings and fragments and replaces topic, category and search identifiers with generic route labels before sending performance data; Vercel may separately process route, device, browser, country and web-vital information under its own privacy terms.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            Sponsor delivery is separate from Sponsor measurement. Sponsor cards remain available when measurement is off. Detailed sponsor viewability, clicks on viewable placements and frequency are measured only for signed-in users who explicitly enable Sponsor measurement. A placement is viewable when at least 50% of its card remains visible for one continuous second while the page is visible. These events are account-linked and may reveal religious or philosophical interests. A server-issued placement receipt verifies that a measured campaign was selected; it expires after seven days and is deleted when Sponsor measurement is withdrawn. Withdrawing Sponsor measurement also deletes your account-linked sponsor event records and rebuilds recent campaign totals without your events; older aggregate totals may remain without user-level records. No anonymous sponsor engagement events, delivery counters, served totals or anonymous frequency records are collected. Campaign eligibility may use the category or topic of the page currently being viewed; it does not use a stored account-level interest profile or prior reading history. Sponsor event payloads contain no topic or category IDs, although a campaign's configured context may be apparent from its campaign ID. Sponsor measurement is never used for recommendations or individual belief-based targeting.
+            Sponsor delivery is separate from Sponsor measurement. Sponsor cards remain available when measurement is off or you object to anonymous sponsor measurement. Signed-in Sponsor measurement is a separate explicit opt-in and records account-linked viewable impressions, clicks and viewing duration; signed-in frequency is derived from the opted-in event ledger. When signed out, one separate anonymous sponsor measurement system aggregates served placements, viewable impressions, clicks, viewing duration and frequency only while you have not objected using the controls below. The anonymous sponsor retry queue is memory-only: it does not use persistent native storage, account IDs, visitor IDs, session hashes or individual visitor histories. Anonymous frequency is calculated from an in-memory session counter and only aggregate frequency totals are retained. A placement is viewable when at least 50% of its card remains visible for one continuous second while the page is visible. Signed-in event payloads contain no topic or category IDs, although a campaign's configured context may be apparent from its campaign ID. Sponsor measurement is never used for recommendations or individual belief-based targeting.
           </p>
+          <div className="mt-6">
+            <AnonymousAnalyticsPreference />
+          </div>
         </section>
 
         <section>
