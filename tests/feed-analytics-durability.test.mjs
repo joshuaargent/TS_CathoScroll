@@ -82,6 +82,15 @@ test('anonymous analytics queues are removed while opted-in signed-in queues rem
   assert.doesNotMatch(bootstrap, /CREATE TABLE catho_private\.sponsor_campaign_user_frequency/);
 });
 
+test('topic analytics sessions are account-scoped and reset when consent queues are cleared', () => {
+  assert.match(analytics, /const sessionIdsByUser = new Map<string, string>\(\)/);
+  assert.match(analytics, /function getSessionId\(userId: string\): string \| null/);
+  assert.match(analytics, /sessionIdsByUser\.delete\(userId\)/);
+  assert.match(analytics, /session_id: currentSessionId/);
+  assert.doesNotMatch(analytics, /const sessionId = createUuid\(\)/);
+  assert.match(analytics, /!hasAnalyticsConsent\('serviceImprovement', userId\) \|\| !rememberTopic\(completedTopicsByUser/);
+});
+
 test('signed-in feed and sponsor raw-event retention remains 180 days', () => {
   for (const sql of [bootstrap, upgrade]) {
     assert.match(sql, /prune_feed_analytics_events\(statement_timestamp\(\) - interval ''180 days''/);
