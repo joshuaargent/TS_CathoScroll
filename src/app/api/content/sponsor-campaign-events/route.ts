@@ -108,12 +108,36 @@ export async function POST(request: Request) {
       p_event_type: eventType,
     });
     if (error) {
-      if (error.code === '42501') return respond(request, { error: 'Sponsor placement was not eligible.' }, 403);
+      if (error.code === '42501') {
+        try {
+          const latestConsent = await getStoredAnalyticsConsent(auth.user.id);
+          if (!latestConsent.sponsorMeasurement) {
+            return respond(request, {
+              error: 'Sponsor measurement consent is not active.',
+              code: 'CONSENT_REQUIRED',
+            }, 403);
+          }
+        } catch (cause) {
+          console.error('Unable to recheck sponsor measurement consent:', cause);
+          return respond(request, { error: 'Sponsor measurement preferences are temporarily unavailable.' }, 503);
+        }
+        return respond(request, {
+          error: 'Sponsor placement was not eligible.',
+          code: 'PLACEMENT_NOT_ELIGIBLE',
+        }, 403);
+      }
       if (error.code === '22023') return respond(request, { error: 'Invalid sponsor event.' }, 400);
       console.error('Unable to record sponsor event:', error.message);
       return respond(request, { error: 'Sponsor analytics are temporarily unavailable.' }, 503);
     }
-    return respond(request, { recorded: data === true });
+    if (data !== true) {
+      return respond(request, {
+        recorded: false,
+        error: 'The sponsor measurement cap has been reached.',
+        code: 'PLACEMENT_CAP_REACHED',
+      }, 409);
+    }
+    return respond(request, { recorded: true });
   } catch (cause) {
     console.error('Sponsor event recording failed:', cause);
     return respond(request, { error: 'Sponsor analytics are temporarily unavailable.' }, 503);
