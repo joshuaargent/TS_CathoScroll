@@ -133,6 +133,8 @@ test('emergency bootstrap inventory matches the reconciled production schema', (
   assert.match(bootstrap, /public\.admin_create_sponsor/);
   assert.match(analyticsConsentUpgrade, /REVOKE ALL ON FUNCTION public\.get_admin_analytics_series\(uuid, timestamp with time zone, timestamp with time zone\) FROM PUBLIC, anon, authenticated, service_role/);
   assert.match(analyticsConsentUpgrade, /GRANT EXECUTE ON FUNCTION public\.get_admin_analytics_series\(uuid, timestamp with time zone, timestamp with time zone\) TO service_role/);
+  assert.match(analyticsConsentUpgrade, /REVOKE ALL ON FUNCTION public\.get_admin_feed_card_analytics\(uuid,timestamptz,timestamptz,text,text\) FROM PUBLIC, anon, authenticated, service_role/);
+  assert.match(analyticsConsentUpgrade, /GRANT EXECUTE ON FUNCTION public\.get_admin_feed_card_analytics\(uuid,timestamptz,timestamptz,text,text\) TO service_role/);
   assert.match(upgrade, /REVOKE ALL ON FUNCTION public\.get_my_personalization_status\(\) FROM PUBLIC,anon,authenticated,service_role/);
   assert.match(upgrade, /REVOKE ALL ON FUNCTION public\.set_my_personalization_interests\(text\[\]\) FROM PUBLIC,anon,authenticated,service_role/);
   assert.match(upgrade, /REVOKE ALL ON FUNCTION public\.get_admin_analytics_deep_dive\(uuid,timestamptz,timestamptz\) FROM PUBLIC,anon,authenticated,service_role/);
@@ -141,6 +143,12 @@ test('emergency bootstrap inventory matches the reconciled production schema', (
 test('admin analytics keeps consented charts, deep dives and aggregate engagement metrics', () => {
   const overview = finalFunctionDefinition(analyticsConsentUpgrade, 'public.get_admin_analytics_overview');
   const bootstrapOverview = finalFunctionDefinition(bootstrap, 'public.get_admin_analytics_overview');
+  const commentAnalytics = finalFunctionDefinition(analyticsConsentUpgrade, 'public.get_admin_feed_card_analytics');
+  const bootstrapCommentAnalytics = finalFunctionDefinition(bootstrap, 'public.get_admin_feed_card_analytics');
+  for (const body of [commentAnalytics, bootstrapCommentAnalytics]) {
+    assert.match(body, /count\(distinct e\.user_id\)/);
+    assert.doesNotMatch(body, /sum\(unique_viewers\)/);
+  }
   for (const body of [overview, bootstrapOverview]) {
     assert.match(body, /unique_topic_viewers/);
     assert.match(body, /unique_sponsor_viewers/);
