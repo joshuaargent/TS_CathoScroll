@@ -358,7 +358,14 @@ export function TopicFeedCore({
           // or expose the token after the user withdraws measurement.
           const measurementStillEnabled = Boolean(requestedUserId && hasSyncedAnalyticsConsent('sponsorMeasurement', requestedUserId));
           if (measurementStillEnabled !== requestedMeasurementEnabled) {
-            return { ...result, sessionId: null };
+            return {
+              ...result,
+              campaigns: result.campaigns.map((campaign) => ({
+                ...campaign,
+                measurement_receipt: null,
+              })),
+              sessionId: null,
+            };
           }
           // Cache both successful and empty results. A missing placement is a
           // stable decision for this topic during the current feed session.
@@ -407,7 +414,16 @@ export function TopicFeedCore({
       const boundaries = currentMap.boundaries.map((boundary) => ({
         ...boundary,
         entries: boundary.entries.map((entry) =>
-          entry.type === 'sponsor' ? { ...entry, sessionId: '' } : entry
+          entry.type === 'sponsor'
+            ? {
+                ...entry,
+                sessionId: '',
+                campaigns: entry.campaigns.map((campaign) => ({
+                  ...campaign,
+                  measurement_receipt: null,
+                })),
+              }
+            : entry
         ),
       }));
       const byTopicId = new Map(boundaries.map((boundary) => [boundary.topicId, boundary] as const));
