@@ -8,7 +8,7 @@ CathoScroll has three separate signed-in optional purposes:
 - Personalisation uses eligible account activity and selected category interests to build a private recommendation profile.
 - Sponsor measurement measures signed-in sponsor viewability, clicks, bounded active viewing duration and frequency for campaign reporting.
 
-These are separately presented, unticked choices, but Personalisation requires Service improvement analytics to be enabled first and kept enabled while Personalisation is active. Personalisation uses direct account actions and selected categories under its own explicit consent. Passive reading signals are collected under Service improvement analytics and inform recommendations while Personalisation is enabled. Users must turn off Personalisation before withdrawing Service improvement; Sponsor measurement remains a third separate choice.
+Personalisation and Service improvement analytics are separately presented choices. Selecting Personalisation automatically enables Service improvement analytics and keeps it enabled while Personalisation is active; users may also enable Service improvement independently. Personalisation uses direct account actions and selected categories under its own explicit consent. Passive reading signals are collected under Service improvement analytics and inform recommendations while Personalisation is enabled. Users must turn off Personalisation before withdrawing Service improvement; Sponsor measurement remains a third separate choice.
 
 ## Signal limits
 
