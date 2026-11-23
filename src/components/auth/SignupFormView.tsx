@@ -158,6 +158,9 @@ export function SignupFormView({
                   {' '}— optional account-linked measurement of signed-in topic/comment engagement and site performance. Aggregated results may inform shared topic ordering for all readers, without profiling you individually. Activity may reveal religious or philosophical interests. This choice must remain enabled while Personalisation is active. Reading signals inform recommendations only while Personalisation is enabled too.
                 </span>
               </label>
+              {personalizationConsent && (
+                <input type="hidden" name="serviceImprovementConsent" value="true" />
+              )}
 
               <label htmlFor="signup-sponsor-measurement-consent" className="flex cursor-pointer items-start gap-2.5">
                 <input
@@ -177,7 +180,7 @@ export function SignupFormView({
               </label>
 
               <p className="text-text-muted text-xs leading-relaxed">
-                All choices are optional and can be changed later. Personalisation requires Service improvement analytics; turn off Personalisation before withdrawing Service improvement. Sponsor measurement remains separate. See the{' '}
+                All choices are optional and can be changed later. Enabling Personalisation also enables Service improvement analytics; turn off Personalisation before withdrawing Service improvement. Sponsor measurement remains separate. See the{' '}
                 <Link href="/privacy" className="text-accent font-medium underline">Privacy Policy</Link>.
               </p>
             </div>
