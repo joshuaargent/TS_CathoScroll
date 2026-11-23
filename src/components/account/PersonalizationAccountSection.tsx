@@ -233,8 +233,8 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
   }, [accountUserId, load]);
 
   async function updateConsent(enabled: boolean) {
-    if (enabled && (!accountUserId || !hasSyncedAnalyticsConsent('serviceImprovement', accountUserId))) {
-      setError('Enable and synchronise Service improvement analytics before enabling Personalisation.');
+    if (enabled && !accountUserId) {
+      setError('Sign in again before enabling Personalisation.');
       return;
     }
     const forcedOfflineWithdrawal = !enabled && !personalizationStatusKnown && offlineCacheAvailable;
@@ -365,7 +365,7 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
               </span>
             </div>
             <p className="text-text-secondary mt-2 text-sm leading-relaxed">
-              Build a private interest profile to tailor your topic recommendations. This is optional and off until you enable it; your account actions and selected categories are used. Personalisation requires Service improvement analytics to be enabled first and kept enabled while Personalisation is active. Turn off Personalisation before withdrawing Service improvement.
+              Build a private interest profile to tailor your topic recommendations. This is optional and off until you enable it; your account actions and selected categories are used. Enabling Personalisation also enables Service improvement analytics, which remains enabled while Personalisation is active. Turn off Personalisation before withdrawing Service improvement.
             </p>
           </div>
         </div>
@@ -380,13 +380,13 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
           <div className="mt-4 flex flex-wrap gap-3">
             {!serviceImprovementEnabled && !status.enabled && (
               <p className="text-text-muted text-xs leading-relaxed">
-                Enable Service improvement analytics in Analytics choices below before enabling Personalisation. It remains enabled while Personalisation is active.
+                Enabling Personalisation also enables Service improvement analytics. It remains enabled while Personalisation is active.
               </p>
             )}
             <Button
               type="button"
               size="sm"
-              disabled={loading || saving || savingInterests || !personalizationStatusKnown || status.enabled || !serviceImprovementEnabled || Boolean(error)}
+              disabled={loading || saving || savingInterests || !personalizationStatusKnown || status.enabled || Boolean(error)}
               onClick={() => void updateConsent(true)}
             >
               {saving && !status.enabled ? 'Saving…' : 'I explicitly consent — enable personalisation'}
