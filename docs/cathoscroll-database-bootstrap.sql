@@ -7040,6 +7040,9 @@ BEGIN
     INTO v_sponsor_measurement
     FROM catho_private.user_analytics_consents AS consent
     WHERE consent.user_id = v_user_id;
+    IF NOT FOUND THEN
+      v_sponsor_measurement := false;
+    END IF;
 
     IF NOT EXISTS (
       SELECT 1 FROM catho_private.user_analytics_consents AS consent
