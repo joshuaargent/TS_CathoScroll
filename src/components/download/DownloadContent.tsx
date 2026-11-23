@@ -461,8 +461,13 @@ export default function DownloadContent({
                 <li>
                   <strong>Linux AppImage:</strong> Checks for and downloads
                   updates automatically, then applies them after the app is
-                  closed. The DEB package downloads updates separately and
-                  requires system authentication when its installer runs.
+                  closed.
+                </li>
+                <li>
+                  <strong>Linux DEB:</strong> Checks for a newer release and
+                  displays a notice linking to this download page. Download
+                  and install the DEB manually; your package manager may
+                  request system authorisation.
                 </li>
                 <li>
                   <strong>macOS:</strong> Checks for a newer release when the
