@@ -621,7 +621,15 @@ test('release reset leaves every account undecided and clears analytics and pers
   assert.match(reset, /analytics_release_resets/);
   assert.match(reset, /2026-11-22-analytics-consent-reset-v2/);
   const resetMarkerDefinition = upgrade.indexOf('CREATE TABLE IF NOT EXISTS catho_private.analytics_release_resets');
-  const consentRegrantStart = upgrade.indexOf('DO $personalization_consent_regrant
+  const consentRegrantStart = upgrade.indexOf("DO $personalization_consent_regrant$");
+  const consentRegrantEnd = upgrade.indexOf("$personalization_consent_regrant$;", consentRegrantStart);
+  assert.ok(resetMarkerDefinition >= 0 && resetMarkerDefinition < consentRegrantStart,
+    'the durable reset marker must exist before the older consent-version cleanup');
+  assert.ok(consentRegrantStart >= 0 && consentRegrantEnd > consentRegrantStart,
+    'the pre-reset personalisation cleanup must be present');
+  const consentRegrant = upgrade.slice(consentRegrantStart, consentRegrantEnd);
+  assert.match(consentRegrant, /IF NOT EXISTS \([\s\S]*?analytics_release_resets[\s\S]*?2026-11-22-analytics-consent-reset-v2[\s\S]*?\) THEN/,
+    'rerunning this upgrade must not invalidate personalisation grants made by a later release');
 
   const cache = readFileSync(new URL('../src/lib/offline/ranked-feed-cache.ts', import.meta.url), 'utf8');
   assert.match(cache, /personalizationConsentVersion = '2026-11-22-v7'/);
