@@ -22,7 +22,7 @@ The Catholic theology context means reading signals may reveal or permit inferen
 
 Consent choices must be separate by purpose, presented in clear language, off by default and separate from terms of service. Withdrawal must be as easy as giving consent. It must immediately block new local collection, clear the matching pending web/native queue, abort active uploads and synchronise the denial to the server when connectivity returns.
 
-Personalisation and Service improvement analytics are separately presented choices, but Personalisation requires Service improvement to remain enabled. Personalisation covers direct account actions and selected categories used for recommendations. Passive reading signals are processed under Service improvement and inform recommendations while Personalisation is enabled. Users must turn off Personalisation before withdrawing Service improvement.
+Personalisation and Service improvement analytics are separately presented choices. Enabling Personalisation automatically enables Service improvement, which remains enabled while Personalisation is active; Service improvement may also be enabled independently. Personalisation covers direct account actions and selected categories used for recommendations. Passive reading signals are processed under Service improvement and inform recommendations while Personalisation is enabled. Users must turn off Personalisation before withdrawing Service improvement.
 
 ## PECR
 
