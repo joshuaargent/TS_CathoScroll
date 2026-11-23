@@ -303,7 +303,7 @@ export function PersonalizationAccountSection({ client }: { client: SupabaseClie
       } else {
         setError(enabled
           ? 'Your setting could not be changed. No change has been assumed; try again.'
-          : 'Personalisation is disabled locally, but the server could not confirm the change. Reconnect and refresh to synchronise it.');
+          : 'The withdrawal could not be confirmed on this device. Reconnect and refresh your Personalisation status before relying on the change.');
       }
     } finally {
       setSaving(false);
