@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs';
 const bootstrap = readFileSync(new URL('../docs/cathoscroll-database-bootstrap.sql', import.meta.url), 'utf8');
 const upgrade = readFileSync(new URL('../docs/personalization-analytics-upgrade.sql', import.meta.url), 'utf8');
 const analyticsConsentUpgrade = readFileSync(new URL('../docs/analytics-consent-and-sponsor-opt-out-upgrade.sql', import.meta.url), 'utf8');
+const combinedUpgrade = readFileSync(new URL('../docs/cathoscroll-production-upgrade-2.4.0.sql', import.meta.url), 'utf8');
 const documentation = readFileSync(new URL('../docs/personalization-analytics-implementation.md', import.meta.url), 'utf8');
 const settings = readFileSync(new URL('../src/components/account/PersonalizationAccountSection.tsx', import.meta.url), 'utf8');
 const deepDive = readFileSync(new URL('../src/components/admin/AnalyticsDeepDivePanel.tsx', import.meta.url), 'utf8');
@@ -564,6 +565,32 @@ test('all profile reads and rebuilds require the new explicit personalisation co
     assert.match(sql, /WHERE user_id=current_user_id AND consent_version='2026-11-22-v7'/);
     assert.match(sql, /WHERE c\.user_id=v_user_id AND c\.enabled=true\s+AND c\.consent_version='2026-11-22-v7'/);
   }
+});
+
+test('production upgrade bundle executes both SQL components in one atomic transaction', () => {
+  const stripComponentTransaction = (source) => source
+    .replace(/(^|\\n)BEGIN;\\s*\\n/, '$1')
+    .replace(/\\nCOMMIT;\\s*$/, '')
+    .trim();
+  const expected = `-- CathoScroll existing-production upgrade for release 2.4.0.
+-- Canonical atomic runner: execute this entire file once, as one SQL script.
+-- It combines the analytics/sponsor consent upgrade followed by the
+-- personalisation upgrade. Both parts run in ONE transaction. On any error,
+-- the transaction is rolled back and the previous production schema remains.
+-- Do not run the two component files separately for this release.
+-- Never run docs/cathoscroll-database-bootstrap.sql against an existing DB.
+
+BEGIN;
+
+${stripComponentTransaction(analyticsConsentUpgrade)}
+
+${stripComponentTransaction(upgrade)}
+
+COMMIT;
+`;
+  assert.equal(combinedUpgrade, expected, 'the runnable bundle must exactly match the reviewed component SQL');
+  assert.equal((combinedUpgrade.match(/^BEGIN;$/gm) ?? []).length, 1);
+  assert.equal((combinedUpgrade.match(/^COMMIT;$/gm) ?? []).length, 1);
 });
 
 test('release reset leaves every account undecided and clears analytics and personalisation state', () => {
