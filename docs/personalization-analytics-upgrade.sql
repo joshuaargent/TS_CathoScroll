@@ -517,6 +517,9 @@ DECLARE
   v_user_id uuid := auth.uid();
   v_now timestamptz := statement_timestamp();
   v_sponsor_measurement boolean := false;
+  v_previous_enabled boolean;
+  v_previous_version text;
+  v_previous_granted_at timestamptz;
 BEGIN
   IF v_user_id IS NULL THEN RAISE EXCEPTION 'Authentication required' USING ERRCODE='42501'; END IF;
   IF p_enabled IS NULL THEN RAISE EXCEPTION 'A consent choice is required' USING ERRCODE='22023'; END IF;
@@ -524,6 +527,16 @@ BEGIN
     RAISE EXCEPTION 'Update CathoScroll and review the current personalisation notice before enabling recommendations' USING ERRCODE='42501';
   END IF;
   PERFORM 1 FROM auth.users WHERE id = v_user_id FOR UPDATE;
+  SELECT enabled, consent_version, granted_at
+    INTO v_previous_enabled, v_previous_version, v_previous_granted_at
+    FROM catho_private.user_personalization_consents
+    WHERE user_id = v_user_id
+    FOR UPDATE;
+  IF NOT FOUND THEN
+    v_previous_enabled := NULL;
+    v_previous_version := NULL;
+    v_previous_granted_at := NULL;
+  END IF;
   IF p_enabled IS TRUE THEN
     SELECT CASE WHEN consent.consent_version = 3
       THEN coalesce(consent.sponsor_measurement, false)
@@ -552,10 +565,15 @@ BEGIN
     VALUES (v_user_id,true,'2026-11-22-v7',v_now,NULL,v_now)
     ON CONFLICT(user_id) DO UPDATE SET
       enabled=true,consent_version=EXCLUDED.consent_version,
-      granted_at=CASE WHEN catho_private.user_personalization_consents.enabled
+      granted_at=CASE
+        WHEN catho_private.user_personalization_consents.enabled
+          AND catho_private.user_personalization_consents.consent_version=EXCLUDED.consent_version
         THEN catho_private.user_personalization_consents.granted_at ELSE EXCLUDED.granted_at END,
       withdrawn_at=NULL,
-      profile_refreshed_at=CASE WHEN catho_private.user_personalization_consents.enabled THEN catho_private.user_personalization_consents.profile_refreshed_at ELSE NULL END,
+      profile_refreshed_at=CASE
+        WHEN catho_private.user_personalization_consents.enabled
+          AND catho_private.user_personalization_consents.consent_version=EXCLUDED.consent_version
+        THEN catho_private.user_personalization_consents.profile_refreshed_at ELSE NULL END,
       updated_at=EXCLUDED.updated_at;
 
     PERFORM catho_private.refresh_user_interest_profile(v_user_id);
@@ -568,6 +586,20 @@ BEGIN
     DELETE FROM catho_private.user_topic_interest_scores WHERE user_id=v_user_id;
     DELETE FROM catho_private.user_explicit_category_interests WHERE user_id=v_user_id;
   END IF;
+
+  IF v_previous_enabled IS DISTINCT FROM p_enabled
+     OR v_previous_version IS DISTINCT FROM '2026-11-22-v7' THEN
+    INSERT INTO catho_private.user_personalization_consent_history (
+      user_id, previous_enabled, enabled, consent_version,
+      granted_at, withdrawn_at, recorded_at, source
+    ) VALUES (
+      v_user_id, v_previous_enabled, p_enabled, '2026-11-22-v7',
+      CASE WHEN p_enabled THEN v_now ELSE v_previous_granted_at END,
+      CASE WHEN p_enabled THEN NULL ELSE v_now END,
+      v_now, 'account'
+    );
+  END IF;
+
   RETURN jsonb_build_object('enabled',p_enabled,'updated_at',v_now);
 END;
 $function$;
