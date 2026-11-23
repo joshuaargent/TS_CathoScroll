@@ -7844,6 +7844,7 @@ AS $function$
 DECLARE
   v_previous_service boolean;
   v_previous_sponsor boolean;
+  v_previous_version integer;
   v_consent catho_private.user_analytics_consents%ROWTYPE;
   v_now timestamptz := pg_catalog.statement_timestamp();
 BEGIN
@@ -7854,15 +7855,16 @@ BEGIN
   END IF;
   PERFORM 1 FROM auth.users AS account WHERE account.id = p_user_id FOR UPDATE;
 
-  SELECT service_improvement, sponsor_measurement
-  INTO v_previous_service, v_previous_sponsor
+  SELECT service_improvement, sponsor_measurement, consent_version
+  INTO v_previous_service, v_previous_sponsor, v_previous_version
   FROM catho_private.user_analytics_consents
   WHERE user_id = p_user_id
   FOR UPDATE;
 
   IF v_previous_service IS NOT NULL
      AND v_previous_service = p_service_improvement
-     AND v_previous_sponsor = p_sponsor_measurement THEN
+     AND v_previous_sponsor = p_sponsor_measurement
+     AND v_previous_version = p_consent_version THEN
     RETURN public.get_user_analytics_consent(p_user_id);
   END IF;
 
@@ -9162,6 +9164,7 @@ AS $function$
 DECLARE
   v_previous_service boolean;
   v_previous_sponsor boolean;
+  v_previous_version integer;
   v_consent catho_private.user_analytics_consents%ROWTYPE;
   v_now timestamptz := pg_catalog.statement_timestamp();
 BEGIN
@@ -9181,8 +9184,8 @@ BEGIN
       USING ERRCODE = '42501';
   END IF;
 
-  SELECT service_improvement, sponsor_measurement
-  INTO v_previous_service, v_previous_sponsor
+  SELECT service_improvement, sponsor_measurement, consent_version
+  INTO v_previous_service, v_previous_sponsor, v_previous_version
   FROM catho_private.user_analytics_consents
   WHERE user_id = p_user_id
   FOR UPDATE;
@@ -9207,7 +9210,8 @@ BEGIN
 
   IF v_previous_service IS NOT NULL
      AND v_previous_service = p_service_improvement
-     AND v_previous_sponsor = p_sponsor_measurement THEN
+     AND v_previous_sponsor = p_sponsor_measurement
+     AND v_previous_version = p_consent_version THEN
     IF p_service_improvement IS NOT TRUE THEN
       PERFORM catho_private.purge_user_service_improvement_events(p_user_id);
     END IF;
