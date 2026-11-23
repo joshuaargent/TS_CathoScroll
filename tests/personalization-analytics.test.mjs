@@ -608,3 +608,16 @@ test('native privacy cleanup and analytics providers remain type-safe', () => {
   assert.match(speedProvider, /import \{[^}]*hasAnalyticsConsent[^}]*hasSyncedAnalyticsConsent[^}]*\} from '@\/lib\/analytics-consent'/);
   assert.match(outbox, /duration_ms\?: number \| null/);
 });
+
+
+test('explicit-interest writes serialize with Personalisation withdrawal', () => {
+  for (const sql of [bootstrap, upgrade]) {
+    const interests = finalFunctionDefinition(sql, 'public.set_my_personalization_interests');
+    const accountLock = interests.indexOf('FROM auth.users AS account WHERE account.id = v_user_id FOR KEY SHARE');
+    const consentCheck = interests.indexOf('FROM catho_private.user_personalization_consents');
+    const interestDelete = interests.indexOf('DELETE FROM catho_private.user_explicit_category_interests');
+    assert.ok(accountLock >= 0);
+    assert.ok(consentCheck > accountLock);
+    assert.ok(interestDelete > consentCheck);
+  }
+});
