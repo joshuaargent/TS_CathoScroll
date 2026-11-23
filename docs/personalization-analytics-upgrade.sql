@@ -1340,8 +1340,15 @@ END;
 $feed_card_analytics_cron$;
 
 
--- The one-time profile and analytics reset is performed at the end of this
--- script under a durable marker, so rerunning the upgrade preserves new data.
+-- Create the release marker before any one-time consent/profile reset.
+-- Every destructive reset step is gated by this marker so rerunning this
+-- historical upgrade cannot invalidate choices made by a later app version.
+CREATE TABLE IF NOT EXISTS catho_private.analytics_release_resets (
+  reset_key text PRIMARY KEY,
+  applied_at timestamptz NOT NULL DEFAULT statement_timestamp()
+);
+ALTER TABLE catho_private.analytics_release_resets ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON catho_private.analytics_release_resets FROM PUBLIC, anon, authenticated, service_role;
 
 -- Personalisation is now a separate choice. Existing v3 opt-ins must be
 -- re-confirmed against the updated purpose wording before recommendations resume.
@@ -1350,44 +1357,50 @@ DECLARE
   v_affected_user_ids uuid[];
   v_now timestamptz := statement_timestamp();
 BEGIN
-  SELECT coalesce(array_agg(c.user_id), ARRAY[]::uuid[])
-  INTO v_affected_user_ids
-  FROM catho_private.user_personalization_consents AS c
-  WHERE c.enabled = true
-    AND (
-      c.consent_version IS DISTINCT FROM '2026-11-22-v7'
+  -- The release reset deletes every existing consent/profile once. Do not
+  -- re-run this older disclosure-version cleanup after the marker exists:
+  -- a later release may legitimately have issued a newer consent version.
+  IF NOT EXISTS (
+    SELECT 1 FROM catho_private.analytics_release_resets
+    WHERE reset_key = '2026-11-22-analytics-consent-reset-v2'
+  ) THEN
+    SELECT coalesce(array_agg(c.user_id), ARRAY[]::uuid[])
+    INTO v_affected_user_ids
+    FROM catho_private.user_personalization_consents AS c
+    WHERE c.enabled = true
+      AND c.consent_version IS DISTINCT FROM '2026-11-22-v7';
+
+    UPDATE catho_private.user_personalization_consents
+    SET enabled = false,
+        consent_version = NULL,
+        granted_at = NULL,
+        withdrawn_at = v_now,
+        profile_refreshed_at = NULL,
+        updated_at = v_now
+    WHERE user_id = ANY(v_affected_user_ids);
+
+    DELETE FROM catho_private.user_topic_interest_scores
+    WHERE user_id = ANY(v_affected_user_ids);
+    DELETE FROM catho_private.user_explicit_category_interests
+    WHERE user_id = ANY(v_affected_user_ids);
+
+    DELETE FROM catho_private.user_topic_interest_scores AS s
+    WHERE NOT EXISTS (
+      SELECT 1
+      FROM catho_private.user_personalization_consents AS consent
+      WHERE consent.user_id = s.user_id
+        AND consent.enabled = true
+        AND consent.consent_version = '2026-11-22-v7'
     );
-
-  UPDATE catho_private.user_personalization_consents
-  SET enabled = false,
-      consent_version = NULL,
-      granted_at = NULL,
-      withdrawn_at = v_now,
-      profile_refreshed_at = NULL,
-      updated_at = v_now
-  WHERE user_id = ANY(v_affected_user_ids);
-
-  DELETE FROM catho_private.user_topic_interest_scores
-  WHERE user_id = ANY(v_affected_user_ids);
-  DELETE FROM catho_private.user_explicit_category_interests
-  WHERE user_id = ANY(v_affected_user_ids);
-
-  DELETE FROM catho_private.user_topic_interest_scores AS s
-  WHERE NOT EXISTS (
-    SELECT 1
-    FROM catho_private.user_personalization_consents AS c
-    WHERE c.user_id = s.user_id
-      AND c.enabled = true
-      AND c.consent_version = '2026-11-22-v7'
-  );
-  DELETE FROM catho_private.user_explicit_category_interests AS i
-  WHERE NOT EXISTS (
-    SELECT 1
-    FROM catho_private.user_personalization_consents AS c
-    WHERE c.user_id = i.user_id
-      AND c.enabled = true
-      AND c.consent_version = '2026-11-22-v7'
-  );
+    DELETE FROM catho_private.user_explicit_category_interests AS i
+    WHERE NOT EXISTS (
+      SELECT 1
+      FROM catho_private.user_personalization_consents AS consent
+      WHERE consent.user_id = i.user_id
+        AND consent.enabled = true
+        AND consent.consent_version = '2026-11-22-v7'
+    );
+  END IF;
 END;
 $personalization_consent_regrant$;
 
@@ -1406,13 +1419,6 @@ $personalization_consent_regrant$;
 --
 -- A durable marker makes the reset safe to rerun: subsequent executions
 -- leave choices and analytics collected after the reset untouched.
-CREATE TABLE IF NOT EXISTS catho_private.analytics_release_resets (
-  reset_key text PRIMARY KEY,
-  applied_at timestamptz NOT NULL DEFAULT statement_timestamp()
-);
-ALTER TABLE catho_private.analytics_release_resets ENABLE ROW LEVEL SECURITY;
-REVOKE ALL ON catho_private.analytics_release_resets FROM PUBLIC, anon, authenticated, service_role;
-
 -- Lock both consent ledgers and remove current grants first. Event ingestion
 -- functions take row-share locks on these rows, so once this transaction
 -- commits, old grants cannot write into the freshly cleared analytics tables.
