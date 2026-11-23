@@ -214,7 +214,7 @@ export default function PrivacyPage() {
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            Personalisation and Service improvement analytics are separately presented optional choices, but Personalisation requires Service improvement to remain enabled. Passive reading signals—such as impressions, reading duration, swipe depth, skips, completions, return visits and Top Comments exposure—are collected under Service improvement analytics and inform private recommendations while Personalisation is enabled. Turn off Personalisation before withdrawing Service improvement.
+            Personalisation and Service improvement analytics are separately presented optional choices. Enabling Personalisation automatically enables Service improvement, which remains enabled while Personalisation is active. Passive reading signals—such as impressions, reading duration, swipe depth, skips, completions, return visits and Top Comments exposure—are collected under Service improvement analytics and inform private recommendations while Personalisation is enabled. Turn off Personalisation before withdrawing Service improvement.
             Withdrawing Personalisation deletes the derived profile; withdrawing Service improvement
             removes passive reading signals from recommendations. Sponsor measurement is never used
             for recommendations. Account-linked choices are available at signup and in Account settings.
