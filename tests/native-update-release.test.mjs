@@ -70,9 +70,14 @@ test('Android update checker only offers a matching stable APK from the latest p
   assert.match(manifest, /REQUEST_INSTALL_PACKAGES/);
 });
 
-test('release notes document platform-specific update behaviour and manual acceptance', async () => {
-  const notes = await read('../docs/releases/2.4.0.md');
+test('release notes and download page document platform-specific update behaviour', async () => {
+  const [notes, downloadContent] = await Promise.all([
+    read('../docs/releases/2.4.0.md'),
+    read('../src/components/download/DownloadContent.tsx'),
+  ]);
   assert.match(notes, /Windows and Linux AppImage Electron builds use `electron-updater`/);
   assert.match(notes, /Linux DEB installations and unsigned macOS builds use a version-check notice/);
   assert.match(notes, /Verify Android update detection, download, resume and installation on a physical device/);
+  assert.match(downloadContent, /Linux DEB:[\\s\\S]*?Download and install the DEB manually/);
+  assert.doesNotMatch(downloadContent, /The DEB package downloads updates separately/);
 });
