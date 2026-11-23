@@ -78,6 +78,6 @@ test('release notes and download page document platform-specific update behaviou
   assert.match(notes, /Windows and Linux AppImage Electron builds use `electron-updater`/);
   assert.match(notes, /Linux DEB installations and unsigned macOS builds use a version-check notice/);
   assert.match(notes, /Verify Android update detection, download, resume and installation on a physical device/);
-  assert.match(downloadContent, /Linux DEB:[\s\S]*?Download and install the DEB manually/);
+  assert.match(downloadContent, /Linux DEB:[\s\S]*?Download\s+and install the DEB manually/);
   assert.doesNotMatch(downloadContent, /The DEB package downloads updates separately/);
 });
