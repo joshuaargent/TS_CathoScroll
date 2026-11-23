@@ -129,7 +129,7 @@ test('account consent sync is identity-bound, retryable and enforced server-side
   assert.ok(signupConsent.includes('INSERT INTO catho_private.user_analytics_consents'));
   assert.doesNotMatch(signupConsent, /IF v_service_improvement OR v_sponsor_measurement THEN/);
   assert.match(signupConsent, /v_personalization IS TRUE AND v_service_improvement IS NOT TRUE/);
-  assert.match(signupConsent, /Personalisation requires Service improvement analytics/);
+  assert.match(signupConsent, /Personalisation must also enable Service improvement analytics/);
   assert.match(signupConsent, /NEW\.id, v_service_improvement, v_sponsor_measurement, 3/);
 
   assert.match(serverConsent, /const currentConsent = value\.version === 3 && value\.exists === true/);
@@ -292,7 +292,7 @@ test('privacy assessment distinguishes special-category risk and enforces the pe
   assert.ok(assessment.includes('Article 9'));
   assert.ok(assessment.includes('religious or philosophical beliefs'));
   assert.ok(assessment.includes('not a legal opinion'));
-  assert.ok(manager.includes('Personalisation requires Service improvement analytics; turn off Personalisation before withdrawing Service improvement. Sponsor measurement remains separate.'));
+  assert.ok(manager.includes('Enabling Personalisation automatically enables Service improvement analytics; turn off Personalisation before withdrawing Service improvement. Sponsor measurement remains separate.'));
   assert.ok(account.includes('personalization'));
   assert.ok(account.includes('AnalyticsConsentSettingsPanel'));
   assert.ok(account.includes('I explicitly consent to CathoScroll using my account actions and selected interests to personalise my recommendations'));
