@@ -1,4 +1,6 @@
--- CathoScroll account-only analytics consent and sponsor measurement upgrade.
+-- COMPONENT 1/2: CathoScroll account-only analytics consent and sponsor measurement upgrade.
+-- Do not execute this component by itself for release 2.4.0. Run the single-transaction
+-- docs/cathoscroll-production-upgrade-2.4.0.sql bundle instead.
 -- No anonymous engagement analytics, sponsor delivery counts or served counters
 -- are created or retained. Only explicit signed-in opt-ins produce measurements.
 
