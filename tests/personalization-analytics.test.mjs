@@ -187,6 +187,8 @@ test('personalisation consent is opt-in and versioned', () => {
   assert.match(bootstrap, /user_personalization_consents[\s\S]*enabled boolean NOT NULL DEFAULT false/);
   assert.match(bootstrap, /consent_version/);
   assert.match(settings, /This is optional and off until you enable it/);
+  assert.match(settings, /The withdrawal could not be confirmed on this device/);
+  assert.doesNotMatch(settings, /Personalisation is disabled locally, but the server could not confirm/);
   assert.match(settings, /your account actions and selected categories are used/);
   assert.match(settings, /Enabling Personalisation also enables Service improvement analytics, which remains enabled while Personalisation is active/);
   assert.match(bootstrap, /capture_signup_personalization_consent/);
