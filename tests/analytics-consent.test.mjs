@@ -44,7 +44,7 @@ test('optional analytics consent is explicit, purpose-specific and off by defaul
   assert.ok(manager.includes('if (loading || !visible) return null;'));
   assert.ok(account.includes('Service improvement analytics'));
   assert.ok(account.includes('Sponsor measurement'));
-  assert.ok(account.includes('Personalisation requires Service improvement analytics. Enable Service improvement before Personalisation, and turn off Personalisation before withdrawing it. Sponsor measurement remains separate.'));
+  assert.ok(account.includes('Enabling Personalisation automatically enables Service improvement analytics, which remains enabled while Personalisation is active. Turn off Personalisation before withdrawing it. Sponsor measurement remains separate.'));
   assert.ok(account.includes('clearAnalyticsConsentQueues(userId, previous, next)'));
   assert.ok(personalization.includes('offlineCacheAvailable'));
   assert.ok(personalization.includes('const forcedOfflineWithdrawal = !enabled && !personalizationStatusKnown && offlineCacheAvailable'));
@@ -57,9 +57,10 @@ test('optional analytics consent is explicit, purpose-specific and off by defaul
   assert.ok(signup.includes('name="personalizationConsent"'));
   assert.ok(signup.includes('name="serviceImprovementConsent"'));
   assert.ok(signup.includes('name="sponsorMeasurementConsent"'));
+  assert.ok(signup.includes('<input type="hidden" name="serviceImprovementConsent" value="true" />'));
   assert.ok(signup.includes('I explicitly consent'));
-  assert.ok(signup.includes('Personalisation requires Service improvement analytics: select that choice first, and keep it enabled while Personalisation is active.'));
-  assert.match(signup, /disabled=\{loading \|\| !online \|\| !serviceImprovementConsent\}/);
+  assert.ok(signup.includes('Selecting Personalisation also enables Service improvement analytics, which remains enabled while Personalisation is active.'));
+  assert.match(signup, /disabled=\{loading \|\| !online\}/);
   assert.match(signup, /disabled=\{loading \|\| !online \|\| personalizationConsent\}/);
   assert.ok(layout.includes('<WebAnalyticsConsentManager />'));
   assert.ok(native.includes('<AnalyticsConsentManager'));
