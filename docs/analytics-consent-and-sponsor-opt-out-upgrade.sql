@@ -612,9 +612,11 @@ BEGIN
     consent_version = EXCLUDED.consent_version,
     service_improvement_updated_at = CASE
       WHEN catho_private.user_analytics_consents.service_improvement IS DISTINCT FROM EXCLUDED.service_improvement
+        OR catho_private.user_analytics_consents.consent_version IS DISTINCT FROM EXCLUDED.consent_version
       THEN v_now ELSE catho_private.user_analytics_consents.service_improvement_updated_at END,
     sponsor_measurement_updated_at = CASE
       WHEN catho_private.user_analytics_consents.sponsor_measurement IS DISTINCT FROM EXCLUDED.sponsor_measurement
+        OR catho_private.user_analytics_consents.consent_version IS DISTINCT FROM EXCLUDED.consent_version
       THEN v_now ELSE catho_private.user_analytics_consents.sponsor_measurement_updated_at END,
     updated_at = v_now
   RETURNING * INTO v_consent;
@@ -2530,9 +2532,11 @@ BEGIN
     consent_version = EXCLUDED.consent_version,
     service_improvement_updated_at = CASE
       WHEN catho_private.user_analytics_consents.service_improvement IS DISTINCT FROM EXCLUDED.service_improvement
+        OR catho_private.user_analytics_consents.consent_version IS DISTINCT FROM EXCLUDED.consent_version
       THEN v_now ELSE catho_private.user_analytics_consents.service_improvement_updated_at END,
     sponsor_measurement_updated_at = CASE
       WHEN catho_private.user_analytics_consents.sponsor_measurement IS DISTINCT FROM EXCLUDED.sponsor_measurement
+        OR catho_private.user_analytics_consents.consent_version IS DISTINCT FROM EXCLUDED.consent_version
       THEN v_now ELSE catho_private.user_analytics_consents.sponsor_measurement_updated_at END,
     updated_at = v_now
   RETURNING * INTO v_consent;
