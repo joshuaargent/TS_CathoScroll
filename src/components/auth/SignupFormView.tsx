@@ -129,14 +129,16 @@ export function SignupFormView({
                   value="true"
                   checked={personalizationConsent}
                   onChange={(event) => {
-                    setPersonalizationConsent(event.target.checked);
+                    const enabled = event.target.checked;
+                    setPersonalizationConsent(enabled);
+                    if (enabled) setServiceImprovementConsent(true);
                   }}
-                  disabled={loading || !online || !serviceImprovementConsent}
+                  disabled={loading || !online}
                   className="accent-accent mt-0.5 h-4 w-4 shrink-0"
                 />
                 <span className="text-text-secondary text-xs leading-relaxed">
                   <span className="text-text-primary font-semibold">Personalised recommendations — I explicitly consent</span>
-                  {' '}to using my account actions and chosen interests to build a private recommendation profile. This may reveal religious or philosophical beliefs. Personalisation requires Service improvement analytics: select that choice first, and keep it enabled while Personalisation is active. Turn off Personalisation before withdrawing Service improvement. It is optional and can be withdrawn in Account settings.
+                  {' '}to using my account actions and chosen interests to build a private recommendation profile. This may reveal religious or philosophical beliefs. Selecting Personalisation also enables Service improvement analytics, which remains enabled while Personalisation is active. Turn off Personalisation before withdrawing Service improvement. It is optional and can be withdrawn in Account settings.
                 </span>
               </label>
 
