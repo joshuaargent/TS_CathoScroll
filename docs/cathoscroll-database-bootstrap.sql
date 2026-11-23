@@ -8152,7 +8152,6 @@ BEGIN
     SELECT coalesce(sum(d.viewable_impressions), 0) AS viewable_impressions,
       coalesce(sum(d.clicks), 0) AS clicks,
       coalesce(sum(d.active_duration_ms), 0) AS active_duration_ms,
-      coalesce(sum(d.active_duration_ms), 0) AS active_duration_ms,
       count(DISTINCT d.campaign_id) FILTER (WHERE d.viewable_impressions > 0) AS active_campaigns
     FROM catho_private.sponsor_campaign_daily AS d
     JOIN campaigns AS c ON c.id = d.campaign_id
