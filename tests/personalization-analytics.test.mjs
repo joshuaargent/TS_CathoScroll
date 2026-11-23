@@ -109,6 +109,16 @@ test('canonical bootstrap and existing-database upgrade keep final RPC definitio
   }
 });
 
+test('feed-card analytics accepts only the declared event shape and empty metadata', () => {
+  for (const sql of [bootstrap, upgrade, analyticsConsentUpgrade]) {
+    const body = finalFunctionDefinition(sql, 'public.record_feed_card_analytics_events');
+    assert.match(body, /jsonb_object_keys\(v_event\)\)\s*<>\s*7/);
+    assert.match(body, /v_event\s*\?&\s*ARRAY\['event_id','session_id','event_type','card_type','card_id','duration_ms','metadata'\]/);
+    assert.match(body, /v_event->'metadata'\s*<>\s*'\{\}'::jsonb/);
+    assert.doesNotMatch(body, /jsonb_object_keys\(v_event\)\)\s*>\s*7/);
+  }
+});
+
 test('emergency bootstrap inventory matches the reconciled production schema', () => {
   const functionStarts = [...bootstrap.matchAll(/CREATE(?: OR REPLACE)? FUNCTION\s+([a-z0-9_]+\.[a-z0-9_]+)\s*\(/gi)];
   assert.ok(functionStarts.length >= 110, 'The bootstrap must retain the reconciled database function inventory');
