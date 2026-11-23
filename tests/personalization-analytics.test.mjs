@@ -324,6 +324,7 @@ test('signup collects separate, unchecked explicit consent on web and native', (
   assert.ok(signupForm.includes('Personalised recommendations — I explicitly consent'));
   assert.match(signupForm, /Selecting Personalisation also enables Service improvement analytics/);
   assert.match(signupForm, /if \(enabled\) setServiceImprovementConsent\(true\)/);
+  assert.match(signupForm, /personalizationConsent && \([\s\S]*?name="serviceImprovementConsent" value="true"/);
   assert.match(signupForm, /name="serviceImprovementConsent"/);
   assert.match(signupForm, /name="sponsorMeasurementConsent"/);
   assert.match(signupForm, /const \[personalizationConsent, setPersonalizationConsent\] = useState\(false\)/);
@@ -354,6 +355,7 @@ test('web and native account/settings screens reuse the same components', () => 
   assert.match(accountSection, /I explicitly consent to CathoScroll using my account actions and selected interests to personalise my recommendations/);
   assert.match(accountSection, /Enabling Personalisation also enables Service improvement analytics, which remains enabled while Personalisation is active/);
   assert.match(accountSection, /p_consent_version: '2026-11-22-v7'/);
+  assert.doesNotMatch(accountSection, /Enable and synchronise Service improvement analytics before enabling Personalisation/);
   assert.match(accountSection, /analyticsConsentSyncEvent/);
   assert.match(accountSection, /AnalyticsConsentSettingsPanel/);
   assert.match(analyticsSettingsPanel, /checked=\{serviceImprovement\}[\s\S]*?disabled=\{disabled \|\| saving \|\| !personalizationStatusKnown \|\| personalizationEnabled\}/);
