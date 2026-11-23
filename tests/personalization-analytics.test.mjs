@@ -611,7 +611,7 @@ COMMIT;
   assert.equal(combinedUpgrade, expected, 'the runnable bundle must exactly match the reviewed component SQL');
   assert.equal((combinedUpgrade.match(/^BEGIN;$/gm) ?? []).length, 1);
   assert.equal((combinedUpgrade.match(/^COMMIT;$/gm) ?? []).length, 1);
-  assert.match(combinedUpgrade, /DO \\$release_upgrade_guard\\$/);
+  assert.match(combinedUpgrade, /DO \$release_upgrade_guard\$/);
   assert.match(combinedUpgrade, /already applied; do not rerun this versioned bundle/);
 });
 
