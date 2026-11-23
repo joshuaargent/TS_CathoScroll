@@ -428,6 +428,7 @@ test('personalisation and service improvement consent dependency is enforced', (
   assert.match(analyticsSetter, /Turn off Personalisation before withdrawing Service improvement analytics/);
   assert.match(analyticsSetter, /v_previous_version = p_consent_version/);
   assert.match(analyticsSetter, /profile_refreshed_at = NULL/);
+  assert.match(analyticsSetter, /v_previous_version IS DISTINCT FROM p_consent_version/);
   assert.match(signupTrigger, /INSERT INTO catho_private\.user_analytics_consents/);
   assert.match(signupTrigger, /personalization_consent_version/);
   assert.match(signupTrigger, /service_improvement_consent/);
