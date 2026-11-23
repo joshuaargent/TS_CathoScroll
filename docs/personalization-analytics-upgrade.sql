@@ -1,9 +1,9 @@
--- EXISTING DATABASE UPGRADE ONLY.
--- Run as one transaction so a failure cannot leave a partial schema or reset.
--- Apply docs/analytics-consent-and-sponsor-opt-out-upgrade.sql first: this
--- upgrade depends on its consent ledger and history tables. It does not create
--- new SQL migration files or alter sponsor measurement. The clean-install
--- equivalent is maintained in docs/cathoscroll-database-bootstrap.sql.
+-- COMPONENT 2/2: existing-database personalisation upgrade.
+-- Do not execute this component by itself for release 2.4.0. Run the single-transaction
+-- docs/cathoscroll-production-upgrade-2.4.0.sql bundle instead.
+-- This component depends on the analytics consent ledger created by component 1.
+-- It does not create Supabase migration files or alter sponsor measurement. The
+-- clean-install equivalent is maintained in docs/cathoscroll-database-bootstrap.sql.
 
 -- Consented, private recommendation personalisation (model 2026-11-20-v4).
 BEGIN;
