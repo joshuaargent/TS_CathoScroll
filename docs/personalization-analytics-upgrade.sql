@@ -500,6 +500,7 @@ AS $function$
 DECLARE
   v_user_id uuid := auth.uid();
   v_now timestamptz := statement_timestamp();
+  v_sponsor_measurement boolean := false;
 BEGIN
   IF v_user_id IS NULL THEN RAISE EXCEPTION 'Authentication required' USING ERRCODE='42501'; END IF;
   IF p_enabled IS NULL THEN RAISE EXCEPTION 'A consent choice is required' USING ERRCODE='22023'; END IF;
@@ -507,12 +508,24 @@ BEGIN
     RAISE EXCEPTION 'Update CathoScroll and review the current personalisation notice before enabling recommendations' USING ERRCODE='42501';
   END IF;
   PERFORM 1 FROM auth.users WHERE id = v_user_id FOR UPDATE;
-  IF p_enabled IS TRUE AND NOT EXISTS (
-    SELECT 1 FROM catho_private.user_analytics_consents AS consent
-    WHERE consent.user_id = v_user_id AND consent.service_improvement IS TRUE
-  ) THEN
-    RAISE EXCEPTION 'Enable Service improvement analytics before enabling Personalisation'
-      USING ERRCODE = '42501';
+  IF p_enabled IS TRUE THEN
+    SELECT CASE WHEN consent.consent_version = 3
+      THEN coalesce(consent.sponsor_measurement, false)
+      ELSE false END
+    INTO v_sponsor_measurement
+    FROM catho_private.user_analytics_consents AS consent
+    WHERE consent.user_id = v_user_id;
+
+    IF NOT EXISTS (
+      SELECT 1 FROM catho_private.user_analytics_consents AS consent
+      WHERE consent.user_id = v_user_id
+        AND consent.service_improvement IS TRUE
+        AND consent.consent_version = 3
+    ) THEN
+      -- Personalisation opt-in also grants the required Service improvement
+      -- purpose. The shared account-row lock keeps the two consent changes atomic.
+      PERFORM public.set_user_analytics_consent(v_user_id, true, v_sponsor_measurement, 3);
+    END IF;
   END IF;
   IF p_enabled THEN
     INSERT INTO catho_private.user_personalization_consents
@@ -625,12 +638,12 @@ DECLARE
   v_personalization boolean := NEW.raw_user_meta_data ->> 'personalization_consent' = 'true'
     AND NEW.raw_user_meta_data ->> 'personalization_consent_version' = '2026-11-22-v7';
   v_service_improvement boolean := NEW.raw_user_meta_data ->> 'analytics_consent_version' = '3'
-    AND NEW.raw_user_meta_data ->> 'service_improvement_consent' = 'true';
+    AND (NEW.raw_user_meta_data ->> 'service_improvement_consent' = 'true' OR v_personalization);
   v_sponsor_measurement boolean := NEW.raw_user_meta_data ->> 'analytics_consent_version' = '3'
     AND NEW.raw_user_meta_data ->> 'sponsor_measurement_consent' = 'true';
 BEGIN
   IF v_personalization IS TRUE AND v_service_improvement IS NOT TRUE THEN
-    RAISE EXCEPTION 'Personalisation requires Service improvement analytics'
+    RAISE EXCEPTION 'Personalisation must also enable Service improvement analytics'
       USING ERRCODE = '42501';
   END IF;
 
