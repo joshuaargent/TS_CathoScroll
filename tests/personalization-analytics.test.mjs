@@ -461,10 +461,10 @@ test('personalisation and service improvement consent dependency is enforced', (
   assert.match(manager, /if \(remote\.personalizationEnabled && !pendingChoices\.serviceImprovement\)/);
   assert.match(manager, /pendingPurposeSet\.has\('sponsorMeasurement'\)[\s\S]*?remote\.sponsorMeasurement/);
   assert.match(analyticsSetter, /Turn off Personalisation before withdrawing Service improvement analytics/);
-  assert.match(privacyPage, /Personalisation is optional and is off by default[\s\S]*?Service improvement analytics is a prerequisite for Personalisation/);
+  assert.match(privacyPage, /Personalisation is optional and is off by default[\s\S]*?Enabling Personalisation also enables Service improvement analytics/);
   assert.match(privacyPage, /keep it enabled while Personalisation is active/);
   assert.match(privacyPage, /turn off Personalisation before withdrawing Service improvement/);
-  assert.match(cookiePage, /Personalisation is a separate optional choice that requires Service improvement analytics to remain enabled/);
+  assert.match(cookiePage, /Enabling Personalisation automatically enables Service improvement analytics/);
 });
 
 test('retired user subscription tier is absent from the bootstrap', () => {
