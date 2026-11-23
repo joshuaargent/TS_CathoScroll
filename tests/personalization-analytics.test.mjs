@@ -689,25 +689,6 @@ test('release reset preserves prior analytics consent choices before clearing cu
   assert.match(reset, /SELECT user_id, service_improvement, sponsor_measurement,\s*false, false, consent_version/);
   assert.doesNotMatch(reset, /DELETE FROM catho_private\.user_analytics_consent_history|TRUNCATE[^;]*user_analytics_consent_history/);
 });
-);
-  const consentRegrantEnd = upgrade.indexOf('$personalization_consent_regrant$;', consentRegrantStart);
-  assert.ok(resetMarkerDefinition >= 0 && resetMarkerDefinition < consentRegrantStart,
-    'the durable reset marker must exist before the older consent-version cleanup');
-  assert.ok(consentRegrantStart >= 0 && consentRegrantEnd > consentRegrantStart,
-    'the pre-reset personalisation cleanup must be present');
-  const consentRegrant = upgrade.slice(consentRegrantStart, consentRegrantEnd);
-  assert.match(consentRegrant, /IF NOT EXISTS \([\s\S]*?analytics_release_resets[\s\S]*?2026-11-22-analytics-consent-reset-v2[\s\S]*?\) THEN/,
-    'rerunning this upgrade must not invalidate personalisation grants made by a later release');
-
-
-  const cache = readFileSync(new URL('../src/lib/offline/ranked-feed-cache.ts', import.meta.url), 'utf8');
-  assert.match(cache, /personalizationConsentVersion = '2026-11-22-v7'/);
-  assert.match(cache, /DELETE FROM offline_personalization_consent_cache/);
-  assert.doesNotMatch(cache, /WHERE enabled = 1 OR pending_sync = 0/);
-
-  const analyticsConsent = readFileSync(new URL('../src/lib/analytics-consent.ts', import.meta.url), 'utf8');
-  assert.match(analyticsConsent, /cathoscroll\.analytics-consent\.v2/);
-});
 
 test('all-unchecked analytics choices remain undecided while explicit withdrawals retain history', () => {
   for (const sql of [analyticsConsentUpgrade, bootstrap]) {
