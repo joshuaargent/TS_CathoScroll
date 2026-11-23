@@ -14,7 +14,6 @@ BEGIN;
 -- No anonymous engagement analytics, sponsor delivery counts or served counters
 -- are created or retained. Only explicit signed-in opt-ins produce measurements.
 
-
 CREATE TABLE IF NOT EXISTS catho_private.user_analytics_consents (
   user_id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   service_improvement boolean NOT NULL DEFAULT false,
@@ -3041,7 +3040,6 @@ GRANT EXECUTE ON FUNCTION public.get_admin_content_analytics(text, text, timesta
 
 NOTIFY pgrst, 'reload schema';
 
-
 -- COMPONENT 2/2: existing-database personalisation upgrade.
 -- Do not execute this component by itself for release 2.4.0. Run the single-transaction
 -- docs/cathoscroll-production-upgrade-2.4.0.sql bundle instead.
@@ -3050,7 +3048,6 @@ NOTIFY pgrst, 'reload schema';
 -- clean-install equivalent is maintained in docs/cathoscroll-database-bootstrap.sql.
 
 -- Consented, private recommendation personalisation (model 2026-11-20-v4).
-
 CREATE TABLE IF NOT EXISTS catho_private.user_personalization_consents (
   user_id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   enabled boolean NOT NULL DEFAULT false,
@@ -4516,6 +4513,5 @@ END;
 $release_analytics_reset$;
 
 NOTIFY pgrst, 'reload schema';
-
 
 COMMIT;
