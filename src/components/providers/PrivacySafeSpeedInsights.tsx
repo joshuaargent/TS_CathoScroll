@@ -3,7 +3,7 @@
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import { useCallback, useSyncExternalStore, type ComponentProps } from 'react';
 import { useAuth } from '@/components/providers/AuthProvider';
-import { analyticsConsentChangeEvent, hasSyncedAnalyticsConsent } from '@/lib/analytics-consent';
+import { analyticsConsentChangeEvent, hasAnalyticsConsent, hasSyncedAnalyticsConsent } from '@/lib/analytics-consent';
 
 type SpeedInsightsEvent = Parameters<NonNullable<ComponentProps<typeof SpeedInsights>['beforeSend']>>[0];
 
