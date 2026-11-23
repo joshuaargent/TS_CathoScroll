@@ -1000,7 +1000,9 @@ function App() {
         const databases = await openNativeDatabases(secureAuthStorage);
         // Remove the retired signed-out analytics queue and its stored events from existing installs.
         try {
-          await databases.catalogue.execute('DROP TABLE IF EXISTS offline_anonymous_analytics_outbox');
+          await databases.catalogue.transaction(async (database) => {
+            await database.execute('DROP TABLE IF EXISTS offline_anonymous_analytics_outbox');
+          });
           clearNativeStatusNotice('anonymous-analytics-outbox-cleanup');
         } catch (cause) {
           console.error('Unable to purge the retired anonymous analytics outbox:', cause);
