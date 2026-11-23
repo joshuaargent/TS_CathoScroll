@@ -569,8 +569,8 @@ test('all profile reads and rebuilds require the new explicit personalisation co
 
 test('production upgrade bundle executes both SQL components in one atomic transaction', () => {
   const stripComponentTransaction = (source) => source
-    .replace(/(^|\\n)BEGIN;\\s*\\n/, '$1')
-    .replace(/\\nCOMMIT;\\s*$/, '')
+    .replace(/(^|\n)BEGIN;\s*\n/, '$1')
+    .replace(/\nCOMMIT;\s*$/, '')
     .trim();
   const expected = `-- CathoScroll existing-production upgrade for release 2.4.0.
 -- Canonical atomic runner: execute this entire file once, as one SQL script.
