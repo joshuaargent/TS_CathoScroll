@@ -205,7 +205,9 @@ begin
   set window_started_at=v_window,event_count=v_used+jsonb_array_length(p_events) where user_id=v_user_id;
 
   for v_event in select value from jsonb_array_elements(p_events) loop
-    if jsonb_typeof(v_event)<>'object' or (select count(*) from jsonb_object_keys(v_event))>7 then
+    if jsonb_typeof(v_event)<>'object'
+      or (select count(*) from jsonb_object_keys(v_event))<>7
+      or not (v_event ?& ARRAY['event_id','session_id','event_type','card_type','card_id','duration_ms','metadata']) then
       raise exception 'invalid event' using errcode='22023';
     end if;
     v_event_id_text:=v_event->>'event_id';
@@ -226,8 +228,8 @@ begin
       or v_card_type is null or v_card_type<>'top-comment'
       or v_card_id is null or length(v_card_id) not between 1 and 64
       or v_duration not between 0 and 300000
-      or (v_event ? 'metadata' and jsonb_typeof(v_event->'metadata')<>'object')
-      or octet_length(coalesce(v_event->'metadata','{}'::jsonb)::text)>512 then
+      or jsonb_typeof(v_event->'metadata')<>'object'
+      or v_event->'metadata'<>'{}'::jsonb then
       raise exception 'invalid event fields' using errcode='22023';
     end if;
     insert into catho_private.feed_card_analytics_events(user_id,event_id,event_type,card_type,card_id,session_id,duration_ms,metadata)
