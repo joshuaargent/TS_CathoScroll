@@ -426,6 +426,7 @@ test('personalisation and service improvement consent dependency is enforced', (
   assert.match(personalisationSetter, /IF NOT FOUND THEN\s+v_sponsor_measurement := false;/);
   assert.match(personalisationSetter, /refresh_user_interest_profile\(v_user_id\)/);
   assert.match(analyticsSetter, /Turn off Personalisation before withdrawing Service improvement analytics/);
+  assert.match(analyticsSetter, /v_previous_version = p_consent_version/);
   assert.match(analyticsSetter, /profile_refreshed_at = NULL/);
   assert.match(signupTrigger, /INSERT INTO catho_private\.user_analytics_consents/);
   assert.match(signupTrigger, /personalization_consent_version/);
