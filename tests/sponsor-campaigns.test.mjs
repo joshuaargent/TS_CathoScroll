@@ -36,6 +36,8 @@ test('campaign inventory is private and supports bounded, weighted delivery', ()
   assert.doesNotMatch(bootstrap, /served_count bigint NOT NULL/);
   assert.match(bootstrap, /sponsor_campaign_events_one_viewable_per_session_idx/);
   assert.match(bootstrap, /sponsor_campaign_events_one_click_per_session_idx/);
+  assert.match(bootstrap, /sponsor_campaign_placement_receipts_campaign_idx/);
+  assert.match(sponsorOptOutUpgrade, /sponsor_campaign_placement_receipts_campaign_idx/);
   assert.match(bootstrap, /cathoscroll-prune-sponsor-campaign-events/);
 });
 
