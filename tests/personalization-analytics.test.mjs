@@ -627,3 +627,16 @@ test('explicit-interest writes serialize with Personalisation withdrawal', () =>
     assert.ok(interestDelete > consentCheck);
   }
 });
+
+
+test('release reset preserves prior analytics consent choices before clearing current grants', () => {
+  const resetStart = upgrade.lastIndexOf('DO $release_analytics_reset$');
+  const resetEnd = upgrade.indexOf('$release_analytics_reset$;', resetStart);
+  assert.ok(resetStart >= 0 && resetEnd > resetStart);
+  const reset = upgrade.slice(resetStart, resetEnd);
+  const historyInsert = reset.indexOf('INSERT INTO catho_private.user_analytics_consent_history');
+  const currentDelete = reset.indexOf('DELETE FROM catho_private.user_analytics_consents');
+  assert.ok(historyInsert >= 0 && currentDelete > historyInsert);
+  assert.match(reset, /SELECT user_id, service_improvement, sponsor_measurement,\s*false, false, consent_version/);
+  assert.doesNotMatch(reset, /DELETE FROM catho_private\.user_analytics_consent_history|TRUNCATE[^;]*user_analytics_consent_history/);
+});
