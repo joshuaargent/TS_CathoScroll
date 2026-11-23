@@ -1376,6 +1376,17 @@ BEGIN
     SELECT 1 FROM catho_private.analytics_release_resets
     WHERE reset_key = '2026-11-22-analytics-consent-reset-v2'
   ) THEN
+    -- Preserve the previous account-level choices as an explicit reset event
+    -- before removing current grants. This does not treat an unticked purpose
+    -- as a refusal; it records the previous state and the new off state.
+    INSERT INTO catho_private.user_analytics_consent_history (
+      user_id, previous_service_improvement, previous_sponsor_measurement,
+      service_improvement, sponsor_measurement, consent_version, recorded_at
+    )
+    SELECT user_id, service_improvement, sponsor_measurement,
+      false, false, consent_version, statement_timestamp()
+    FROM catho_private.user_analytics_consents;
+
     DELETE FROM catho_private.user_analytics_consents;
     DELETE FROM catho_private.user_personalization_consents;
 
