@@ -423,6 +423,7 @@ test('personalisation and service improvement consent dependency is enforced', (
   assert.match(legacySetter, /set_my_personalization_consent\(false, '2026-11-22-v7'\)/);
   assert.match(personalisationSetter, /FROM auth\.users WHERE id = v_user_id FOR UPDATE/);
   assert.match(personalisationSetter, /set_user_analytics_consent\(v_user_id, true, v_sponsor_measurement, 3\)/);
+  assert.match(personalisationSetter, /IF NOT FOUND THEN\s+v_sponsor_measurement := false;/);
   assert.match(personalisationSetter, /refresh_user_interest_profile\(v_user_id\)/);
   assert.match(analyticsSetter, /Turn off Personalisation before withdrawing Service improvement analytics/);
   assert.match(analyticsSetter, /profile_refreshed_at = NULL/);
