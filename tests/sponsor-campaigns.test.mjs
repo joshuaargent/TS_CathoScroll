@@ -264,10 +264,15 @@ test('top-comment selection and sponsor retention work remain bounded', () => {
 
 
 test('sponsor analytics SQL exposes one unambiguous active-duration metric', async () => {
-  const sql = await readFile(new URL('../docs/analytics-consent-and-sponsor-opt-out-upgrade.sql', import.meta.url), 'utf8');
-  const start = sql.lastIndexOf('CREATE OR REPLACE FUNCTION public.get_admin_sponsor_analytics');
-  const end = sql.indexOf('$function$;', start);
-  assert.ok(start >= 0 && end > start);
-  const definition = sql.slice(start, end);
-  assert.equal((definition.match(/AS active_duration_ms/g) ?? []).length, 1);
+  const [bootstrap, upgrade] = await Promise.all([
+    readFile(new URL('../docs/cathoscroll-database-bootstrap.sql', import.meta.url), 'utf8'),
+    readFile(new URL('../docs/analytics-consent-and-sponsor-opt-out-upgrade.sql', import.meta.url), 'utf8'),
+  ]);
+  for (const sql of [bootstrap, upgrade]) {
+    const start = sql.lastIndexOf('CREATE OR REPLACE FUNCTION public.get_admin_sponsor_analytics');
+    const end = sql.indexOf('$function$;', start);
+    assert.ok(start >= 0 && end > start);
+    const definition = sql.slice(start, end);
+    assert.equal((definition.match(/AS active_duration_ms/g) ?? []).length, 2);
+  }
 });
