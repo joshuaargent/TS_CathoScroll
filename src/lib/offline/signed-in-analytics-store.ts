@@ -7,6 +7,7 @@ export type SignedInAnalyticsPayload = object & {
   event_type: string;
   campaign_id?: string;
   placement_receipt?: string;
+  duration_ms?: number | null;
 };
 
 export interface SignedInAnalyticsOutbox {
