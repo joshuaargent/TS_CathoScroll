@@ -309,7 +309,7 @@ test('Service improvement cannot be withdrawn while Personalisation is enabled',
   assert.match(consent, /p_service_improvement IS NOT TRUE AND EXISTS[\s\S]*?user_personalization_consents/);
   assert.match(consent, /Turn off Personalisation before withdrawing Service improvement analytics/);
   assert.match(refresh, /v_service_improvement IS TRUE/);
-  assert.match(settings, /Personalisation requires Service improvement analytics to be enabled first and kept enabled while Personalisation is active/);
+  assert.match(settings, /Enabling Personalisation also enables Service improvement analytics, which remains enabled while Personalisation is active/);
 });
 
 test('personalisation settings disclose the profile purpose and sponsor isolation', () => {
@@ -352,7 +352,7 @@ test('web and native account/settings screens reuse the same components', () => 
   assert.match(accountView, /PersonalizationAccountSection/);
   assert.match(accountSection, /set_my_personalization_consent/);
   assert.match(accountSection, /I explicitly consent to CathoScroll using my account actions and selected interests to personalise my recommendations/);
-  assert.match(accountSection, /Personalisation requires Service improvement analytics to be enabled first and kept enabled while Personalisation is active/);
+  assert.match(accountSection, /Enabling Personalisation also enables Service improvement analytics, which remains enabled while Personalisation is active/);
   assert.match(accountSection, /p_consent_version: '2026-11-22-v7'/);
   assert.match(accountSection, /analyticsConsentSyncEvent/);
   assert.match(accountSection, /AnalyticsConsentSettingsPanel/);
