@@ -36,7 +36,7 @@ export default function CookiesPage() {
 
           <p className="text-text-secondary leading-relaxed">
             CathoScroll uses cookies and similar technologies for core functionality, authentication,
-            security, essential preferences, and offline support. Account-linked first-party site and server-side product analytics are off by default unless you enable the relevant optional choice. Personalisation is a separate optional choice that requires Service improvement analytics to remain enabled. CathoScroll does not collect anonymous topic, comment or sponsor engagement statistics, and does not count sponsor deliveries. These analytics are not used for cross-site advertising or sponsor targeting profiles.
+            security, essential preferences, and offline support. Account-linked first-party site and server-side product analytics are off by default unless you enable the relevant optional choice. Personalisation is a separate optional choice. Enabling it also enables Service improvement analytics, which remains enabled while Personalisation is active. CathoScroll does not collect anonymous topic, comment or sponsor engagement statistics, and does not count sponsor deliveries. These analytics are not used for cross-site advertising or sponsor targeting profiles.
           </p>
         </section>
 
@@ -70,7 +70,7 @@ export default function CookiesPage() {
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            Personalisation is a separate optional choice but requires Service improvement analytics to remain enabled. Passive reading signals inform private recommendations while Personalisation is active. Turn off Personalisation before withdrawing Service improvement. Withdrawing Service improvement clears cached personalised pages that may have used passive signals; offline reading falls back to cached general content or the local catalogue until fresh personalised pages can be downloaded. Sponsor measurement is separate and applies only to signed-in users who explicitly opt in. It records account-linked viewable impressions, clicks and viewing duration; frequency is derived from those opted-in events. Signed-out sponsor placements remain available but are not measured. No sponsor delivery counters are recorded.
+            Personalisation is a separate optional choice that automatically enables Service improvement analytics. Passive reading signals inform private recommendations while Personalisation is active. Turn off Personalisation before withdrawing Service improvement. Withdrawing Service improvement clears cached personalised pages that may have used passive signals; offline reading falls back to cached general content or the local catalogue until fresh personalised pages can be downloaded. Sponsor measurement is separate and applies only to signed-in users who explicitly opt in. It records account-linked viewable impressions, clicks and viewing duration; frequency is derived from those opted-in events. Signed-out sponsor placements remain available but are not measured. No sponsor delivery counters are recorded.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
