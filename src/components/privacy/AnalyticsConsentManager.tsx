@@ -619,8 +619,8 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
         </h2>
         <p id="analytics-consent-description" className="text-text-secondary mt-3 text-sm leading-relaxed">
           {managing
-            ? 'Choose optional analytics. Personalisation requires Service improvement analytics; Sponsor measurement is separate.'
-            : 'Optional analytics measure signed-in topic/comment engagement and site performance; opted-in aggregates may inform shared topic ordering without profiling individual readers. Sponsor measurement separately records viewability, clicks on viewable placements and frequency. Catholic-content activity may reveal religious or philosophical beliefs. Personalisation requires Service improvement analytics to remain enabled. Passive reading signals can inform private recommendations while Personalisation is active. Sponsor placements remain visible when measurement is off; no delivery or anonymous engagement counters are retained.'}
+            ? 'Choose optional analytics. Selecting Personalisation also enables Service improvement analytics; Sponsor measurement is separate.'
+            : 'Optional analytics measure signed-in topic/comment engagement and site performance; opted-in aggregates may inform shared topic ordering without profiling individual readers. Sponsor measurement separately records viewability, clicks on viewable placements and frequency. Catholic-content activity may reveal religious or philosophical beliefs. Enabling Personalisation automatically enables Service improvement analytics, which remains enabled while Personalisation is active. Passive reading signals can inform private recommendations while Personalisation is active. Sponsor placements remain visible when measurement is off; no delivery or anonymous engagement counters are retained.'}
         </p>
 
         {!managing ? (
@@ -685,7 +685,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
               </span>
             </label>
             <p className="text-text-muted text-xs leading-relaxed">
-              Essential operation, sign-in, account synchronisation, bookmarks, likes, progress, notes and general feed ranking continue regardless of these choices. Personalisation requires Service improvement analytics; turn off Personalisation before withdrawing Service improvement. Sponsor measurement remains separate.
+              Essential operation, sign-in, account synchronisation, bookmarks, likes, progress, notes and general feed ranking continue regardless of these choices. Enabling Personalisation automatically enables Service improvement analytics; turn off Personalisation before withdrawing Service improvement. Sponsor measurement remains separate.
             </p>
             <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
               <button
