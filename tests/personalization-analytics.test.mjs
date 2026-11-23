@@ -593,6 +593,77 @@ test('release reset leaves every account undecided and clears analytics and pers
   assert.match(reset, /missing\s+row\s+is\s+the\s+not-yet-decided\s+state/i);
   assert.match(reset, /analytics_release_resets/);
   assert.match(reset, /2026-11-22-analytics-consent-reset-v2/);
+  const resetMarkerDefinition = upgrade.indexOf('CREATE TABLE IF NOT EXISTS catho_private.analytics_release_resets');
+  const consentRegrantStart = upgrade.indexOf('DO $personalization_consent_regrant
+
+  const cache = readFileSync(new URL('../src/lib/offline/ranked-feed-cache.ts', import.meta.url), 'utf8');
+  assert.match(cache, /personalizationConsentVersion = '2026-11-22-v7'/);
+  assert.match(cache, /DELETE FROM offline_personalization_consent_cache/);
+  assert.doesNotMatch(cache, /WHERE enabled = 1 OR pending_sync = 0/);
+
+  const analyticsConsent = readFileSync(new URL('../src/lib/analytics-consent.ts', import.meta.url), 'utf8');
+  assert.match(analyticsConsent, /cathoscroll\.analytics-consent\.v2/);
+});
+
+test('all-unchecked analytics choices remain undecided while explicit withdrawals retain history', () => {
+  for (const sql of [analyticsConsentUpgrade, bootstrap]) {
+    const setter = finalFunctionDefinition(sql, 'public.set_user_analytics_consent');
+    assert.match(setter, /IF p_service_improvement IS FALSE AND p_sponsor_measurement IS FALSE THEN/);
+    assert.match(setter, /IF v_previous_service IS TRUE OR v_previous_sponsor IS TRUE THEN[\s\S]*?INSERT INTO catho_private\.user_analytics_consent_history/);
+    assert.ok(setter.includes('DELETE FROM catho_private.user_analytics_consents WHERE user_id = p_user_id'));
+    assert.match(setter, /RETURN public\.get_user_analytics_consent\(p_user_id\)/);
+  }
+});
+
+
+test('native privacy cleanup and analytics providers remain type-safe', () => {
+  const native = readFileSync(new URL('../native/main.tsx', import.meta.url), 'utf8');
+  const analyticsProvider = readFileSync(new URL('../src/components/providers/PrivacySafeAnalytics.tsx', import.meta.url), 'utf8');
+  const speedProvider = readFileSync(new URL('../src/components/providers/PrivacySafeSpeedInsights.tsx', import.meta.url), 'utf8');
+  const outbox = readFileSync(new URL('../src/lib/offline/signed-in-analytics-store.ts', import.meta.url), 'utf8');
+
+  assert.match(native, /databases\.catalogue\.transaction\(async \(database\) => \{\s*await database\.execute\('DROP TABLE IF EXISTS offline_anonymous_analytics_outbox'\)/);
+  assert.doesNotMatch(native, /databases\.catalogue\.execute\(/);
+  assert.match(analyticsProvider, /import \{[^}]*hasAnalyticsConsent[^}]*hasSyncedAnalyticsConsent[^}]*\} from '@\/lib\/analytics-consent'/);
+  assert.match(speedProvider, /import \{[^}]*hasAnalyticsConsent[^}]*hasSyncedAnalyticsConsent[^}]*\} from '@\/lib\/analytics-consent'/);
+  assert.match(outbox, /duration_ms\?: number \| null/);
+});
+
+
+test('explicit-interest writes serialize with Personalisation withdrawal', () => {
+  for (const sql of [bootstrap, upgrade]) {
+    const interests = finalFunctionDefinition(sql, 'public.set_my_personalization_interests');
+    const accountLock = interests.indexOf('FROM auth.users AS account WHERE account.id = v_user_id FOR KEY SHARE');
+    const consentCheck = interests.indexOf('FROM catho_private.user_personalization_consents');
+    const interestDelete = interests.indexOf('DELETE FROM catho_private.user_explicit_category_interests');
+    assert.ok(accountLock >= 0);
+    assert.ok(consentCheck > accountLock);
+    assert.ok(interestDelete > consentCheck);
+  }
+});
+
+
+test('release reset preserves prior analytics consent choices before clearing current grants', () => {
+  const resetStart = upgrade.lastIndexOf('DO $release_analytics_reset$');
+  const resetEnd = upgrade.indexOf('$release_analytics_reset$;', resetStart);
+  assert.ok(resetStart >= 0 && resetEnd > resetStart);
+  const reset = upgrade.slice(resetStart, resetEnd);
+  const historyInsert = reset.indexOf('INSERT INTO catho_private.user_analytics_consent_history');
+  const currentDelete = reset.indexOf('DELETE FROM catho_private.user_analytics_consents');
+  assert.ok(historyInsert >= 0 && currentDelete > historyInsert);
+  assert.match(reset, /SELECT user_id, service_improvement, sponsor_measurement,\s*false, false, consent_version/);
+  assert.doesNotMatch(reset, /DELETE FROM catho_private\.user_analytics_consent_history|TRUNCATE[^;]*user_analytics_consent_history/);
+});
+);
+  const consentRegrantEnd = upgrade.indexOf('$personalization_consent_regrant$;', consentRegrantStart);
+  assert.ok(resetMarkerDefinition >= 0 && resetMarkerDefinition < consentRegrantStart,
+    'the durable reset marker must exist before the older consent-version cleanup');
+  assert.ok(consentRegrantStart >= 0 && consentRegrantEnd > consentRegrantStart,
+    'the pre-reset personalisation cleanup must be present');
+  const consentRegrant = upgrade.slice(consentRegrantStart, consentRegrantEnd);
+  assert.match(consentRegrant, /IF NOT EXISTS \([\s\S]*?analytics_release_resets[\s\S]*?2026-11-22-analytics-consent-reset-v2[\s\S]*?\) THEN/,
+    'rerunning this upgrade must not invalidate personalisation grants made by a later release');
+
 
   const cache = readFileSync(new URL('../src/lib/offline/ranked-feed-cache.ts', import.meta.url), 'utf8');
   assert.match(cache, /personalizationConsentVersion = '2026-11-22-v7'/);
