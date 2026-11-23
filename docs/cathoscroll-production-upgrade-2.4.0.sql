@@ -1804,6 +1804,8 @@ CREATE INDEX IF NOT EXISTS sponsor_campaign_placement_receipts_expiry_idx
   ON catho_private.sponsor_campaign_placement_receipts(expires_at);
 CREATE INDEX IF NOT EXISTS sponsor_campaign_placement_receipts_user_idx
   ON catho_private.sponsor_campaign_placement_receipts(user_id, campaign_id);
+CREATE INDEX IF NOT EXISTS sponsor_campaign_placement_receipts_campaign_idx
+  ON catho_private.sponsor_campaign_placement_receipts(campaign_id);
 ALTER TABLE catho_private.sponsor_campaign_placement_receipts ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON TABLE catho_private.sponsor_campaign_placement_receipts FROM PUBLIC, anon, authenticated, service_role;
 
