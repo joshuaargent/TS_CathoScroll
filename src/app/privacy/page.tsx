@@ -245,7 +245,7 @@ export default function PrivacyPage() {
 
           <p className="text-text-secondary mt-4 leading-relaxed">
             Service improvement analytics, Personalisation and Sponsor measurement are optional,
-            separately presented choices. Personalisation requires Service improvement analytics to
+            separately presented choices. Enabling Personalisation automatically enables Service improvement analytics, which remains enabled while Personalisation is active. Personalisation requires Service improvement analytics to
             remain enabled; turn off Personalisation before withdrawing Service improvement. Sponsor
             measurement remains separate. We rely on your consent under Article 6(1)(a) for these purposes.
             CathoScroll focuses on Catholic theology and related subjects, so account-linked
