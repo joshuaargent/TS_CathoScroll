@@ -178,7 +178,7 @@ test('personalisation consent is opt-in and versioned', () => {
   assert.match(bootstrap, /consent_version/);
   assert.match(settings, /This is optional and off until you enable it/);
   assert.match(settings, /your account actions and selected categories are used/);
-  assert.match(settings, /Personalisation requires Service improvement analytics to be enabled first and kept enabled while Personalisation is active/);
+  assert.match(settings, /Enabling Personalisation also enables Service improvement analytics, which remains enabled while Personalisation is active/);
   assert.match(bootstrap, /capture_signup_personalization_consent/);
   assert.match(bootstrap, /NEW\.raw_user_meta_data ->> 'personalization_consent' = 'true'/);
   assert.match(bootstrap, /AFTER INSERT ON auth\.users/);
@@ -322,8 +322,8 @@ test('signup collects separate, unchecked explicit consent on web and native', (
   assert.match(signupForm, /name="personalizationConsent"/);
   assert.match(signupForm, /type="checkbox"/);
   assert.ok(signupForm.includes('Personalised recommendations — I explicitly consent'));
-  assert.match(signupForm, /Personalisation requires Service improvement analytics/);
-  assert.doesNotMatch(signupForm, /if \(event\.target\.checked\) setServiceImprovementConsent\(true\)/);
+  assert.match(signupForm, /Selecting Personalisation also enables Service improvement analytics/);
+  assert.match(signupForm, /if \(enabled\) setServiceImprovementConsent\(true\)/);
   assert.match(signupForm, /name="serviceImprovementConsent"/);
   assert.match(signupForm, /name="sponsorMeasurementConsent"/);
   assert.match(signupForm, /const \[personalizationConsent, setPersonalizationConsent\] = useState\(false\)/);
@@ -420,13 +420,14 @@ test('personalisation and service improvement consent dependency is enforced', (
   assert.match(legacySetter, /IF p_enabled IS TRUE THEN[\s\S]*RAISE EXCEPTION/);
   assert.match(legacySetter, /set_my_personalization_consent\(false, '2026-11-22-v7'\)/);
   assert.match(personalisationSetter, /FROM auth\.users WHERE id = v_user_id FOR UPDATE/);
-  assert.match(personalisationSetter, /Enable Service improvement analytics before enabling Personalisation/);
+  assert.match(personalisationSetter, /set_user_analytics_consent\(v_user_id, true, v_sponsor_measurement, 3\)/);
   assert.match(personalisationSetter, /refresh_user_interest_profile\(v_user_id\)/);
   assert.match(analyticsSetter, /Turn off Personalisation before withdrawing Service improvement analytics/);
   assert.match(analyticsSetter, /profile_refreshed_at = NULL/);
   assert.match(signupTrigger, /INSERT INTO catho_private\.user_analytics_consents/);
   assert.match(signupTrigger, /personalization_consent_version/);
   assert.match(signupTrigger, /service_improvement_consent/);
+  assert.match(signupTrigger, /service_improvement_consent' = 'true' OR v_personalization/);
   assert.match(signupTrigger, /sponsor_measurement_consent/);
   assert.match(signupTrigger, /IF v_personalization IS TRUE THEN[\s\S]*?INSERT INTO catho_private\.user_personalization_consents/);
   assert.match(signupTrigger, /IF v_service_improvement IS TRUE OR v_sponsor_measurement IS TRUE THEN[\s\S]*?INSERT INTO catho_private\.user_analytics_consents[\s\S]*?INSERT INTO catho_private\.user_analytics_consent_history/);
