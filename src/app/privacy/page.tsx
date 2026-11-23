@@ -137,7 +137,7 @@ export default function PrivacyPage() {
             Personalisation is optional and is off by default. If you explicitly opt in,
             CathoScroll uses your direct account actions, such as progress, likes, bookmarks and
             relevant community interactions, together with the categories you choose, to create a
-            private recommendation profile. Service improvement analytics is a prerequisite for Personalisation. You must enable it first and keep it enabled while Personalisation is active; turn off Personalisation before withdrawing Service improvement. Eligible reading signals (including viewable impressions, reading duration, swipe depth, skips, completions and return visits) may then be collected for service reporting and inform recommendations while Personalisation is enabled. Sponsor measurement remains separate and optional.
+            private recommendation profile. Enabling Personalisation also enables Service improvement analytics, which remains enabled while Personalisation is active; turn off Personalisation before withdrawing Service improvement. Eligible reading signals (including viewable impressions, reading duration, swipe depth, skips, completions and return visits) may then be collected for service reporting and inform recommendations while Personalisation is enabled. Sponsor measurement remains separate and optional.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
