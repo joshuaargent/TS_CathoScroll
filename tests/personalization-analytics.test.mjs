@@ -594,3 +594,17 @@ test('all-unchecked analytics choices remain undecided while explicit withdrawal
     assert.match(setter, /RETURN public\.get_user_analytics_consent\(p_user_id\)/);
   }
 });
+
+
+test('native privacy cleanup and analytics providers remain type-safe', () => {
+  const native = readFileSync(new URL('../native/main.tsx', import.meta.url), 'utf8');
+  const analyticsProvider = readFileSync(new URL('../src/components/providers/PrivacySafeAnalytics.tsx', import.meta.url), 'utf8');
+  const speedProvider = readFileSync(new URL('../src/components/providers/PrivacySafeSpeedInsights.tsx', import.meta.url), 'utf8');
+  const outbox = readFileSync(new URL('../src/lib/offline/signed-in-analytics-store.ts', import.meta.url), 'utf8');
+
+  assert.match(native, /databases\.catalogue\.transaction\(async \(database\) => \{\s*await database\.execute\('DROP TABLE IF EXISTS offline_anonymous_analytics_outbox'\)/);
+  assert.doesNotMatch(native, /databases\.catalogue\.execute\(/);
+  assert.match(analyticsProvider, /import \{[^}]*hasAnalyticsConsent[^}]*hasSyncedAnalyticsConsent[^}]*\} from '@\/lib\/analytics-consent'/);
+  assert.match(speedProvider, /import \{[^}]*hasAnalyticsConsent[^}]*hasSyncedAnalyticsConsent[^}]*\} from '@\/lib\/analytics-consent'/);
+  assert.match(outbox, /duration_ms\?: number \| null/);
+});
