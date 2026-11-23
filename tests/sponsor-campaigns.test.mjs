@@ -2,8 +2,9 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-const [bootstrap, feedCore, cardRegistry, placementRegistry, sponsorCard, campaignManager, campaignAdminRoute, deliveryRoute, eventRoute, campaignLib, campaignPage] = await Promise.all([
+const [bootstrap, sponsorOptOutUpgrade, feedCore, cardRegistry, placementRegistry, sponsorCard, campaignManager, campaignAdminRoute, deliveryRoute, eventRoute, campaignLib, campaignPage, sponsorClient] = await Promise.all([
   readFile(new URL('../docs/cathoscroll-database-bootstrap.sql', import.meta.url), 'utf8'),
+  readFile(new URL('../docs/analytics-consent-and-sponsor-opt-out-upgrade.sql', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/TopicFeedCore.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/feed-card-registry.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/lib/feed-card-placement-registry.ts', import.meta.url), 'utf8'),
@@ -14,6 +15,7 @@ const [bootstrap, feedCore, cardRegistry, placementRegistry, sponsorCard, campai
   readFile(new URL('../src/app/api/content/sponsor-campaign-events/route.ts', import.meta.url), 'utf8'),
   readFile(new URL('../src/lib/sponsor-campaigns.ts', import.meta.url), 'utf8'),
   readFile(new URL('../src/app/admin/sponsor-campaigns/page.tsx', import.meta.url), 'utf8'),
+  readFile(new URL('../src/lib/sponsor-analytics-client.ts', import.meta.url), 'utf8'),
 ]);
 
 function functionBody(name) {
@@ -30,13 +32,16 @@ test('campaign inventory is private and supports bounded, weighted delivery', ()
   assert.match(bootstrap, /REVOKE ALL ON TABLE public\.sponsor_campaigns FROM PUBLIC, anon, authenticated, service_role/);
   assert.match(bootstrap, /CREATE TABLE catho_private\.sponsor_campaign_events/);
   assert.match(bootstrap, /CREATE TABLE catho_private\.sponsor_campaign_daily/);
-  assert.match(bootstrap, /CREATE TABLE catho_private\.sponsor_campaign_user_frequency/);
+  assert.doesNotMatch(bootstrap, /CREATE TABLE catho_private\.sponsor_campaign_user_frequency/);
+  assert.doesNotMatch(bootstrap, /served_count bigint NOT NULL/);
   assert.match(bootstrap, /sponsor_campaign_events_one_viewable_per_session_idx/);
   assert.match(bootstrap, /sponsor_campaign_events_one_click_per_session_idx/);
+  assert.match(bootstrap, /sponsor_campaign_placement_receipts_campaign_idx/);
+  assert.match(sponsorOptOutUpgrade, /sponsor_campaign_placement_receipts_campaign_idx/);
   assert.match(bootstrap, /cathoscroll-prune-sponsor-campaign-events/);
 });
 
-test('weighted campaign selector enforces payment, dates, targeting, caps and concurrency', () => {
+test('weighted campaign selector enforces payment, dates, targeting and opted-in caps without skipping concurrent placements', () => {
   const selector = functionBody(
     'public.get_weighted_sponsor_campaigns',
     'ALTER FUNCTION public.get_weighted_sponsor_campaigns'
@@ -52,65 +57,113 @@ test('weighted campaign selector enforces payment, dates, targeting, caps and co
   assert.match(selector, /daily_impression_cap/);
   assert.match(selector, /total_impression_cap/);
   assert.match(selector, /frequency_cap_per_user_24h/);
-  assert.match(selector, /recent_viewable\.event_type = 'viewable_impression'/);
-  assert.doesNotMatch(selector, /recent_served\.event_type = 'served'/);
-  assert.match(selector, /recent_viewable\.event_type = 'viewable_impression'/);
-  assert.doesNotMatch(selector, /recent_served\.event_type = 'served'/);
+  assert.match(selector, /recent\.event_type = 'viewable_impression'/);
+  assert.match(selector, /lifetime\.event_type = 'viewable_impression'/);
+  assert.doesNotMatch(selector, /event_type = 'served'/);
   assert.match(selector, /frequency_cap_per_user_total/);
-  assert.match(selector, /pg_advisory_xact_lock/);
-  assert.match(selector, /FOR UPDATE OF campaign SKIP LOCKED/);
+  assert.match(selector, /lifetime\.received_at >= statement_timestamp\(\) - interval '180 days'/);
+  assert.match(selector, /FROM catho_private\.sponsor_campaign_events AS lifetime/);
+  assert.doesNotMatch(selector, /rolling_window/);
+  assert.doesNotMatch(selector, /FOR UPDATE OF campaign SKIP LOCKED/);
   assert.match(selector, /campaign\.placement_weight/);
   assert.match(selector, /daily\.viewable_impressions/);
   assert.match(selector, /daily\.event_date >= v_today - 29/);
-  assert.match(selector, /viewable_impressions[\s\S]*placement_weight::numeric ASC/);
+  assert.match(selector, /viewable_impressions[\s\S]*placement_weight::numeric \/ \(1 \+ coalesce/);
   assert.match(selector, /p_limit > 1/);
   assert.doesNotMatch(selector, /ORDER BY -pg_catalog\.ln\(greatest\(pg_catalog\.random/);
 });
 
-test('signed-in and anonymous selectors derive category from the published topic and share campaign caps', () => {
+test('measured and unmeasured sponsor selectors never count deliveries', () => {
   const signedIn = functionBody('public.get_weighted_sponsor_campaigns');
-  const anonymous = functionBody('public.get_anonymous_sponsor_campaigns');
+  const unmeasured = functionBody('public.get_unmeasured_sponsor_campaigns');
+  const upgradeStart = sponsorOptOutUpgrade.lastIndexOf('CREATE OR REPLACE FUNCTION public.get_unmeasured_sponsor_campaigns');
+  const upgradeEnd = sponsorOptOutUpgrade.indexOf('$function$;', upgradeStart);
+  const unmeasuredUpgrade = sponsorOptOutUpgrade.slice(upgradeStart, upgradeEnd + '$function$;'.length);
   assert.ok(signedIn.endsWith('$function$;'));
-  assert.ok(anonymous.endsWith('$function$;'));
-  for (const selector of [signedIn, anonymous]) {
-    assert.match(selector, /SELECT (?:topic|t)\.category_slug INTO v_topic_category_slug/);
-    assert.match(selector, /v_topic_category_slug = ANY\(campaign\.target_category_slugs\)|v_topic_category_slug=ANY\(campaign\.target_category_slugs\)/);
+  assert.ok(unmeasured.endsWith('$function$;'));
+  assert.equal(unmeasuredUpgrade, unmeasured, 'bootstrap and upgrade unmeasured selectors must match');
+  const weightedUpgradeStart = sponsorOptOutUpgrade.lastIndexOf('CREATE OR REPLACE FUNCTION public.get_weighted_sponsor_campaigns');
+  const weightedUpgradeEnd = sponsorOptOutUpgrade.indexOf('$function$;', weightedUpgradeStart);
+  const weightedUpgrade = sponsorOptOutUpgrade.slice(weightedUpgradeStart, weightedUpgradeEnd + '$function$;'.length);
+  assert.equal(weightedUpgrade, signedIn, 'bootstrap and upgrade weighted selectors must match');
+
+  for (const selector of [signedIn, unmeasured]) {
+    assert.match(selector, /SELECT topic\.category_slug INTO v_topic_category_slug/);
     assert.match(selector, /public\.topics/);
     assert.match(selector, /is_published/);
-    assert.match(selector, /p_topic_id IS NULL/);
-    assert.doesNotMatch(selector, /p_category_slug\s*(?:=|=ANY)/);
-    assert.match(selector, /anonymous_sponsor_campaign_daily/);
+    assert.match(selector, /target_category_slugs/);
+    assert.match(selector, /target_topic_ids/);
+    assert.doesNotMatch(selector, /FOR UPDATE OF campaign SKIP LOCKED/);
+    assert.doesNotMatch(selector, /served_count|anonymous_sponsor_campaign_daily|sponsor_campaign_user_frequency/);
+    assert.doesNotMatch(selector, /INSERT INTO catho_private\.sponsor_campaign_daily/);
+    assert.doesNotMatch(selector, /UPDATE public\.sponsor_campaigns/);
   }
-  assert.match(signedIn, /campaign\.served_count \+ coalesce/);
-  assert.match(signedIn, /campaign\.daily_impression_cap/);
-  assert.match(signedIn, /FROM catho_private\.anonymous_sponsor_campaign_daily AS daily[\s\S]*?campaign\.daily_impression_cap/);
-  assert.match(signedIn, /FROM catho_private\.anonymous_sponsor_campaign_daily AS daily[\s\S]*?campaign\.total_impression_cap/);
-  assert.match(signedIn, /FROM catho_private\.anonymous_sponsor_campaign_daily AS daily[\s\S]*?placement_weight::numeric ASC/);
-  assert.match(anonymous, /FROM catho_private\.sponsor_campaign_daily d[\s\S]*?campaign\.daily_impression_cap/);
-  assert.match(anonymous, /FROM catho_private\.sponsor_campaign_daily d[\s\S]*?placement_weight/);
-  assert.match(signedIn, /placement_weight::numeric ASC/);
+
+  assert.match(signedIn, /sponsor_measurement/);
+  assert.match(signedIn, /frequency_cap_per_user_24h/);
+  assert.match(signedIn, /frequency_cap_per_user_total/);
+  assert.match(signedIn, /recent\.event_type = 'viewable_impression'/);
+  assert.match(signedIn, /lifetime\.event_type = 'viewable_impression'/);
+  assert.match(signedIn, /lifetime\.received_at >= statement_timestamp\(\) - interval '180 days'/);
+  assert.match(signedIn, /daily_impression_cap/);
+  assert.match(signedIn, /total_impression_cap/);
+  assert.match(signedIn, /daily\.viewable_impressions/);
+  assert.match(signedIn, /placement_weight::numeric \/ \(1 \+ coalesce/);
+  assert.match(signedIn, /sponsor_campaign_placement_receipts/);
+  assert.match(signedIn, /measurement_receipt/);
+
+  assert.doesNotMatch(unmeasured, /p_session_token|session_token|session_id/);
+  assert.match(unmeasured, /p_category_slug/);
+  assert.match(unmeasured, /p_topic_id/);
+  assert.match(unmeasured, /p_category_slug IS NOT NULL AND p_category_slug <> v_topic_category_slug/);
+  assert.doesNotMatch(bootstrap, /CREATE OR REPLACE FUNCTION public\.record_anonymous_sponsor_campaign_event/);
+  assert.match(sponsorOptOutUpgrade, /DROP TABLE IF EXISTS catho_private\.anonymous_sponsor_campaign_daily/);
 });
 
-test('sponsor event recording requires a served and viewable placement', () => {
+test('sponsor event recording requires explicit consent and records viewability, clicks and active duration', () => {
   const recorder = functionBody(
     'public.record_sponsor_campaign_event',
     'ALTER FUNCTION public.record_sponsor_campaign_event'
   );
-  assert.match(recorder, /event_type='served'/);
-  assert.match(recorder, /event_type='viewable_impression'/);
+  assert.match(recorder, /p_event_type NOT IN \('viewable_impression', 'click', 'active_duration'\)/);
+  assert.match(recorder, /sponsor_measurement/);
+  assert.match(recorder, /event_type = 'viewable_impression'/);
+  assert.doesNotMatch(recorder, /event_type\s*=\s*'served'/);
+  assert.doesNotMatch(recorder, /served_count/);
+  assert.match(recorder, /p_placement_receipt/);
+  assert.match(recorder, /p_duration_ms/);
+  assert.match(recorder, /duration_ms/);
+  assert.match(recorder, /p_event_type = 'active_duration'/);
+  assert.match(recorder, /active_duration_ms/);
+  assert.match(recorder, /receipt\.id = p_placement_receipt/);
   assert.match(recorder, /ON CONFLICT DO NOTHING/);
   assert.match(recorder, /sponsor_campaign_daily/);
   assert.match(eventRoute, /getAuthenticatedUserFromRequest/);
   assert.match(eventRoute, /isSameOriginOrNativeRequest/);
-  assert.match(deliveryRoute, /if \(!headers\.has\('Access-Control-Allow-Origin'\)\)/);
-  assert.match(eventRoute, /if \(!headers\.has\('Access-Control-Allow-Origin'\)\)/);
-  assert.doesNotMatch(deliveryRoute, /&& !headers\.has\('Vary'\)/);
-  assert.doesNotMatch(eventRoute, /&& !headers\.has\('Vary'\)/);
-  assert.match(deliveryRoute, /if \(!headers\.has\('Access-Control-Allow-Origin'\)\)/);
-  assert.match(eventRoute, /if \(!headers\.has\('Access-Control-Allow-Origin'\)\)/);
-  assert.doesNotMatch(deliveryRoute, /&& !headers\.has\('Vary'\)/);
-  assert.doesNotMatch(eventRoute, /&& !headers\.has\('Vary'\)/);
   assert.match(eventRoute, /checkApiRateLimit/);
+  assert.match(eventRoute, /if \(!consent\.sponsorMeasurement\) return respond/);
+  assert.match(eventRoute, /code: 'CONSENT_REQUIRED'/);
+  assert.match(eventRoute, /\}, 403\)/);
+  assert.ok(sponsorClient.includes("denyAnalyticsConsentInMemory('sponsorMeasurement', userId)"));
+  assert.ok(sponsorClient.includes('requestAnalyticsConsentSync()'));
+  assert.ok(sponsorClient.includes('clearSponsorAnalyticsOutbox(userId)'));
+  assert.match(eventRoute, /placementReceipt/);
+  assert.match(eventRoute, /p_placement_receipt: placementReceipt/);
+});
+
+test('viewability caps are rechecked under a campaign lock when events are recorded', () => {
+  const recorder = functionBody('public.record_sponsor_campaign_event');
+  const upgradeStart = sponsorOptOutUpgrade.lastIndexOf('CREATE OR REPLACE FUNCTION public.record_sponsor_campaign_event');
+  const upgradeEnd = sponsorOptOutUpgrade.indexOf('$function$;', upgradeStart);
+  const upgradeRecorder = sponsorOptOutUpgrade.slice(upgradeStart, upgradeEnd + '$function$;'.length);
+  assert.equal(recorder, upgradeRecorder, 'bootstrap and upgrade event recorders must match');
+  assert.match(recorder, /SELECT campaign\.\* INTO v_campaign[\s\S]*?FOR UPDATE/);
+  for (const cap of ['daily_impression_cap', 'total_impression_cap', 'frequency_cap_per_user_24h', 'frequency_cap_per_user_total']) {
+    assert.ok(recorder.includes(cap), cap + ' must be enforced when recording viewability');
+  }
+  assert.match(recorder, /IF p_event_type = 'viewable_impression' THEN[\s\S]*?RETURN false/);
+  assert.match(eventRoute, /data !== true[\s\S]*?409/);
+  assert.match(sponsorClient, /response\.status === 400 \|\| response\.status === 403 \|\| response\.status === 409/);
 });
 
 test('sponsored feed cards are disclosed and inserted separately from organic recommendations', () => {
@@ -128,6 +181,7 @@ test('sponsored feed cards are disclosed and inserted separately from organic re
   assert.match(cardRegistry, /SponsorFeedCard/);
   assert.match(sponsorCard, /Sponsored/);
   assert.match(sponsorCard, /viewable_impression/);
+  assert.doesNotMatch(sponsorCard, /recordAnonymousSponsorCampaignEvent/);
   assert.match(sponsorCard, /IntersectionObserver/);
   assert.match(sponsorCard, /1000/);
   assert.match(sponsorCard, /target="_blank"/);
@@ -142,9 +196,10 @@ test('sponsored feed cards are disclosed and inserted separately from organic re
   assert.match(sponsorCard, /onDoubleClick=/);
   assert.doesNotMatch(sponsorCard, /campaign\.cta_label\}\s*<ExternalLink/);
   assert.doesNotMatch(sponsorCard, /bg-accent text-white hover:bg-accent\/90/);
-  assert.match(feedCore, /Anonymous placements share an in-memory session token for frequency caps/);
-  assert.match(feedCore, /const measurementEnabled = hasAnalyticsConsent\('sponsorMeasurement', userId\)/);
-  assert.match(feedCore, /const sessionId = measurementEnabled[\s\S]*?createSponsorPlacementId\(\)[\s\S]*?createSponsorSessionId\(\)[\s\S]*?: null/);
+  assert.match(deliveryRoute, /Sponsor measurement is account-only/);
+  assert.match(deliveryRoute, /Sponsor delivery remains available[\s\S]*?never counted or stored/);
+  assert.match(feedCore, /const measurementEnabled = Boolean\(userId && hasSyncedAnalyticsConsent\('sponsorMeasurement', userId\)\)/);
+  assert.match(feedCore, /const sessionId = measurementEnabled \? createSponsorPlacementId\(\) : null/);
   assert.match(feedCore, /sessionId: string \| null/);
   assert.match(deliveryRoute, /getAuthenticatedUserFromRequest/);
   assert.match(deliveryRoute, /isSameOriginOrNativeRequest/);
@@ -176,7 +231,7 @@ test('administrator campaign reporting reads aggregate-only daily metrics', () =
     'ALTER FUNCTION public.get_admin_sponsor_campaign_analytics'
   );
   assert.match(analytics, /admin_users/);
-  assert.match(analytics, /p_to-p_from>179/);
+  assert.match(analytics, /p_to\s*-\s*p_from\s*>\s*179/);
   assert.match(analytics, /sponsor_campaign_daily/);
   assert.match(analytics, /viewable_impressions/);
   assert.match(analytics, /click_through_rate/);
@@ -207,4 +262,19 @@ test('top-comment selection and sponsor retention work remain bounded', () => {
   assert.match(bootstrap, /prune_sponsor_campaign_events\(statement_timestamp\(\) - interval ''180 days'', 5000\)/);
   assert.doesNotMatch(bootstrap, /prune_sponsor_campaign_events\(clock_timestamp\(\)/);
   assert.match(bootstrap, /NOTIFY pgrst, 'reload schema';\s*-- End of CathoScroll application-schema and catalogue bootstrap\./);
+});
+
+
+test('sponsor analytics SQL exposes one unambiguous active-duration metric', async () => {
+  const [bootstrap, upgrade] = await Promise.all([
+    readFile(new URL('../docs/cathoscroll-database-bootstrap.sql', import.meta.url), 'utf8'),
+    readFile(new URL('../docs/analytics-consent-and-sponsor-opt-out-upgrade.sql', import.meta.url), 'utf8'),
+  ]);
+  for (const sql of [bootstrap, upgrade]) {
+    const start = sql.lastIndexOf('CREATE OR REPLACE FUNCTION public.get_admin_sponsor_analytics');
+    const end = sql.indexOf('$function$;', start);
+    assert.ok(start >= 0 && end > start);
+    const definition = sql.slice(start, end);
+    assert.equal((definition.match(/AS active_duration_ms/g) ?? []).length, 2);
+  }
 });

@@ -28,7 +28,7 @@ globalThis.window = {
   localStorage: {
     getItem(key) {
       if (key.includes('.account.')) return JSON.stringify({
-        version: 1, serviceImprovement: true, sponsorMeasurement: true,
+        version: 3, serviceImprovement: true, sponsorMeasurement: true,
         updatedAt: '2026-11-20T12:00:00.000Z',
       });
       return null;
@@ -130,12 +130,11 @@ test('Top Comments viewability requires half visibility for one continuous secon
   assert.ok(hub.includes('Discussion open rate'));
   assert.ok(hub.includes('Comment active time'));
   assert.ok(hub.includes('Sponsor click-through'));
-  assert.ok(hub.includes('Unique signed-in viewers'));
-  assert.ok(hub.includes('Topic likes'));
-  assert.ok(hub.includes('Completed topics'));
+  assert.ok(hub.includes("duration(t.topic_active_duration_ms)"));
+  assert.ok(hub.includes('Topic completion rate'));
   const bootstrap = await readFile(new URL('../docs/cathoscroll-database-bootstrap.sql', import.meta.url), 'utf8');
-  assert.ok(bootstrap.toLowerCase().includes('delete from catho_private.feed_card_analytics_daily_viewers v using doomed d'));
-  assert.ok(bootstrap.toLowerCase().includes('event_date<p_before::date'));
+  assert.match(bootstrap.toLowerCase(), /delete from catho_private\.feed_card_analytics_daily_viewers as viewer\s+using expired_viewers/);
+  assert.ok(bootstrap.toLowerCase().includes("viewer.event_date < (p_before at time zone 'utc')::date"));
   assert.ok(!source.includes("'save'"));
   assert.ok(!source.includes("'share'"));
   assert.ok(!source.includes("'like'"));

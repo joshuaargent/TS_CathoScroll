@@ -14,7 +14,7 @@ import {
 } from '@/lib/sponsor-campaigns';
 import { createFeedRefreshCoordinator } from '@/lib/feed-refresh-coordinator';
 import { siteConfig } from '@/lib/constants';
-import { analyticsConsentChangeEvent, hasAnalyticsConsent } from '@/lib/analytics-consent';
+import { analyticsConsentChangeEvent, hasSyncedAnalyticsConsent } from '@/lib/analytics-consent';
 import { buildFeedEntryMap, collectReservedCommentIds, flattenFeedEntryMap, reconcileFeedBoundary, type FeedEntry, type FeedEntryMap } from '@/lib/feed-entry-map';
 import {
   invokeRegisteredFeedEntryLifecycle,
@@ -46,18 +46,10 @@ function appendUniqueFeedTopics(existing: Topic[], incoming: Topic[]): Topic[] {
   return additions.length > 0 ? [...existing, ...additions] : existing;
 }
 
-let ephemeralSponsorSessionId: string | null = null;
-
 function createSponsorPlacementId(): string | null {
   return typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
     ? crypto.randomUUID()
     : null;
-}
-
-function createSponsorSessionId(): string | null {
-  if (ephemeralSponsorSessionId) return ephemeralSponsorSessionId;
-  ephemeralSponsorSessionId = createSponsorPlacementId();
-  return ephemeralSponsorSessionId;
 }
 type ViewerProps = {
   topics: Topic[];
@@ -133,6 +125,8 @@ export function TopicFeedCore({
   const sponsorSessionUserId = useRef(userId);
   const sponsorLoadingRef = useRef(false);
   const sponsorRequestVersion = useRef(0);
+  const sponsorConsentRevision = useRef(0);
+  const sponsorMeasurementState = useRef(Boolean(userId && hasSyncedAnalyticsConsent('sponsorMeasurement', userId)));
   const sponsorDueByTopicId = useRef(new Set<string>());
   const sponsorDirectionByTopicId = useRef(new Map<string, FeedEntryDirection>());
   const [activeTopCommentIndex, setActiveTopCommentIndex] = useState(0);
@@ -175,8 +169,9 @@ export function TopicFeedCore({
   useEffect(() => {
     if (sponsorSessionUserId.current === userId) return;
     sponsorSessionUserId.current = userId;
-    // Never reuse an anonymous sponsor session token across sign-in/account changes.
-    ephemeralSponsorSessionId = null;
+    sponsorMeasurementState.current = Boolean(userId && hasSyncedAnalyticsConsent('sponsorMeasurement', userId));
+    sponsorConsentRevision.current += 1;
+    // Clear sponsor placement IDs and cached selections across account changes.
     seenTopCommentUserId.current = userId;
     topCommentCadenceUserId.current = userId;
     seenTopCommentIds.current.clear();
@@ -205,12 +200,10 @@ export function TopicFeedCore({
   const loadSponsorCampaigns = useCallback(
     async (topic: Topic): Promise<{ campaigns: SponsorFeedCampaign[]; sessionId: string | null; retryable?: boolean }> => {
 
-      // Anonymous placements share an in-memory session token for frequency caps;
-      // signed-in placements get unique IDs so separate card views are not deduplicated.
-      const measurementEnabled = hasAnalyticsConsent('sponsorMeasurement', userId);
-      const sessionId = measurementEnabled
-        ? (userId ? createSponsorPlacementId() : createSponsorSessionId())
-        : null;
+      // Sponsor measurement is account-linked and requires explicit consent.
+      // Signed-out visitors and accounts without consent receive unmeasured placements.
+      const measurementEnabled = Boolean(userId && hasSyncedAnalyticsConsent('sponsorMeasurement', userId));
+      const sessionId = measurementEnabled ? createSponsorPlacementId() : null;
       if (measurementEnabled && !sessionId) return { campaigns: [], sessionId: null, retryable: true };
 
       try {
@@ -241,7 +234,6 @@ export function TopicFeedCore({
             signal: controller.signal,
             body: JSON.stringify({
               sessionId,
-              sponsorMeasurementConsent: measurementEnabled,
               categorySlug: topic.categorySlug ?? null,
               topicId: topic.id,
             }),
@@ -362,14 +354,25 @@ export function TopicFeedCore({
       if (inFlight) return inFlight;
 
       const requestedUserId = userId;
-      const requestedMeasurementEnabled = hasAnalyticsConsent('sponsorMeasurement', requestedUserId);
+      const requestedMeasurementEnabled = Boolean(requestedUserId && hasSyncedAnalyticsConsent('sponsorMeasurement', requestedUserId));
+      const requestedConsentRevision = sponsorConsentRevision.current;
       const request = loadSponsorCampaigns(topic)
         .then((result) => {
-          // A consent change while the request is in flight invalidates its
-          // visitor/session token. Keep the sponsor placement, but never cache
-          // or expose the token after the user withdraws measurement.
-          if (hasAnalyticsConsent('sponsorMeasurement', requestedUserId) !== requestedMeasurementEnabled) {
-            return { ...result, sessionId: null };
+          // Any sponsor-consent transition invalidates receipts issued while
+          // the request was in flight, including withdraw-and-regrant races.
+          const measurementStillEnabled = Boolean(requestedUserId && hasSyncedAnalyticsConsent('sponsorMeasurement', requestedUserId));
+          if (
+            sponsorConsentRevision.current !== requestedConsentRevision ||
+            measurementStillEnabled !== requestedMeasurementEnabled
+          ) {
+            return {
+              ...result,
+              campaigns: result.campaigns.map((campaign) => ({
+                ...campaign,
+                measurement_receipt: null,
+              })),
+              sessionId: null,
+            };
           }
           // Cache both successful and empty results. A missing placement is a
           // stable decision for this topic during the current feed session.
@@ -404,14 +407,16 @@ export function TopicFeedCore({
   );
 
   useEffect(() => {
-    const handleConsentChange = (event: Event) => {
-      const detail = (event as CustomEvent<{ userId?: string | null }>).detail;
-      if ((detail?.userId ?? null) !== (userId ?? null)) return;
-      if (hasAnalyticsConsent('sponsorMeasurement', userId)) return;
+    const clearMeasuredPlacements = () => {
+      const measurementEnabled = Boolean(userId && hasSyncedAnalyticsConsent('sponsorMeasurement', userId));
+      if (measurementEnabled !== sponsorMeasurementState.current) {
+        sponsorMeasurementState.current = measurementEnabled;
+        sponsorConsentRevision.current += 1;
+      }
+      if (measurementEnabled) return;
 
-      // Remove any token created before withdrawal from both the feed cache and
-      // the currently mounted card. Campaign delivery remains in the queue.
-      ephemeralSponsorSessionId = null;
+      // Remove measurement receipts created before withdrawal/objection from
+      // the feed cache and currently mounted card. Sponsor delivery remains available.
       sponsorResultsByTopicId.current.clear();
       sponsorCardsByTopicId.current.clear();
 
@@ -420,7 +425,16 @@ export function TopicFeedCore({
       const boundaries = currentMap.boundaries.map((boundary) => ({
         ...boundary,
         entries: boundary.entries.map((entry) =>
-          entry.type === 'sponsor' ? { ...entry, sessionId: '' } : entry
+          entry.type === 'sponsor'
+            ? {
+                ...entry,
+                sessionId: '',
+                campaigns: entry.campaigns.map((campaign) => ({
+                  ...campaign,
+                  measurement_receipt: null,
+                })),
+              }
+            : entry
         ),
       }));
       const byTopicId = new Map(boundaries.map((boundary) => [boundary.topicId, boundary] as const));
@@ -428,8 +442,16 @@ export function TopicFeedCore({
       feedEntryMapRef.current = nextMap;
       setFeedEntryMap(nextMap);
     };
-    window.addEventListener(analyticsConsentChangeEvent, handleConsentChange);
-    return () => window.removeEventListener(analyticsConsentChangeEvent, handleConsentChange);
+    const handleAccountConsentChange = (event: Event) => {
+      if (userId === null) return;
+      const detail = (event as CustomEvent<{ userId?: string | null }>).detail;
+      if (detail?.userId !== userId) return;
+      clearMeasuredPlacements();
+    };
+    window.addEventListener(analyticsConsentChangeEvent, handleAccountConsentChange);
+    return () => {
+      window.removeEventListener(analyticsConsentChangeEvent, handleAccountConsentChange);
+    };
   }, [setFeedEntryMap, userId]);
 
   const loadMoreTopComments = useCallback(async () => {

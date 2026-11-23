@@ -37,6 +37,8 @@ export default function SignupPage() {
 
     const confirmPassword = String(formData.get('confirmPassword') ?? '');
     const personalizationConsent = formData.get('personalizationConsent') === 'true';
+    const serviceImprovementConsent = formData.get('serviceImprovementConsent') === 'true';
+    const sponsorMeasurementConsent = formData.get('sponsorMeasurementConsent') === 'true';
 
     const invalidUsername = usernameError(username);
     if (invalidUsername) {
@@ -70,6 +72,10 @@ export default function SignupPage() {
             username,
             display_name: username,
             personalization_consent: personalizationConsent,
+            personalization_consent_version: personalizationConsent ? '2026-11-22-v7' : null,
+            analytics_consent_version: '3',
+            service_improvement_consent: serviceImprovementConsent,
+            sponsor_measurement_consent: sponsorMeasurementConsent,
           },
         },
       });

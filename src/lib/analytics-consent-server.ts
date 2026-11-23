@@ -6,6 +6,7 @@ export type StoredAnalyticsConsent = {
   updatedAt: string | null;
   version: number;
   exists: boolean;
+  personalizationEnabled: boolean;
 };
 
 export async function getStoredAnalyticsConsent(userId: string): Promise<StoredAnalyticsConsent> {
@@ -22,13 +23,18 @@ export async function getStoredAnalyticsConsent(userId: string): Promise<StoredA
     typeof value.sponsorMeasurement !== 'boolean' ||
     !(value.updatedAt === null || typeof value.updatedAt === 'string') ||
     typeof value.version !== 'number' ||
-    typeof value.exists !== 'boolean'
+    typeof value.exists !== 'boolean' ||
+    typeof value.personalizationEnabled !== 'boolean'
   ) throw new Error('The account analytics consent response is invalid.');
+  // Old consent versions do not authorise collection under the revised
+  // disclosures. Treat them as undecided until the account makes a new choice.
+  const currentConsent = value.version === 3 && value.exists === true;
   return {
-    serviceImprovement: value.serviceImprovement,
-    sponsorMeasurement: value.sponsorMeasurement,
-    updatedAt: value.updatedAt,
-    version: value.version,
-    exists: value.exists,
+    serviceImprovement: currentConsent && value.serviceImprovement,
+    sponsorMeasurement: currentConsent && value.sponsorMeasurement,
+    updatedAt: currentConsent ? value.updatedAt : null,
+    version: 3,
+    exists: currentConsent,
+    personalizationEnabled: value.personalizationEnabled,
   };
 }

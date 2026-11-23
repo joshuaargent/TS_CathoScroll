@@ -23,7 +23,9 @@ test('public general ranking is aggregate-based and avoids account history', () 
   const bootstrap = read('../docs/cathoscroll-database-bootstrap.sql');
   const fnStart = bootstrap.lastIndexOf('CREATE OR REPLACE FUNCTION public.get_public_general_topic_page');
   assert.ok(fnStart >= 0, 'emergency bootstrap includes the public ranking function');
-  const fn = bootstrap.slice(fnStart);
+  const fnEnd = bootstrap.indexOf('$function$;', fnStart);
+  assert.ok(fnEnd > fnStart, 'public ranking function has a complete body');
+  const fn = bootstrap.slice(fnStart, fnEnd);
   assert.match(fn, /catho_private\.feed_analytics_daily/);
   assert.match(fn, /viewable_impressions/);
   assert.match(fn, /completions/);

@@ -1,26 +1,46 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import {
   analyticsConsentChangeEvent,
+  analyticsConsentVersion,
   analyticsConsentManageEvent,
+  analyticsConsentSyncEvent,
+  clearLegacyAnalyticsConsentStorage,
   denyAnalyticsConsentInMemory,
   getAnalyticsConsentStorageKey,
   readAnalyticsConsent,
   saveAnalyticsConsent,
   type AnalyticsConsent,
 } from '@/lib/analytics-consent';
-import { setAnonymousFeedAnalyticsEnabled } from '@/lib/anonymous-feed-analytics-client';
-import {
-  clearAnonymousSponsorAnalyticsQueue,
-  clearSponsorAnalyticsOutbox,
-} from '@/lib/sponsor-analytics-client';
+import { clearSponsorAnalyticsOutbox } from '@/lib/sponsor-analytics-client';
 import {
   clearFeedAnalyticsOutbox,
 } from '@/lib/feed-analytics-client';
 import {
   clearFeedCardAnalyticsOutbox,
 } from '@/lib/feed-card-analytics-client';
+
+export async function clearAnalyticsConsentQueues(
+  userId: string | null,
+  previous: AnalyticsConsent | null,
+  next: Pick<AnalyticsConsent, 'serviceImprovement' | 'sponsorMeasurement'>
+): Promise<void> {
+  const clearService = previous === null || previous.serviceImprovement !== next.serviceImprovement;
+  const clearSponsor = previous === null || previous.sponsorMeasurement !== next.sponsorMeasurement;
+  const tasks: Promise<unknown>[] = [];
+  if (clearService) {
+    if (userId) {
+      tasks.push(clearFeedAnalyticsOutbox(userId));
+      tasks.push(clearFeedCardAnalyticsOutbox(userId));
+    }
+  }
+  if (clearSponsor) {
+    if (userId) tasks.push(clearSponsorAnalyticsOutbox(userId));
+  }
+  await Promise.all(tasks);
+}
 
 type AnalyticsConsentManagerProps = {
   userId?: string | null;
@@ -41,6 +61,11 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
   const consentMutationRef = useRef(0);
   const dialogRef = useRef<HTMLElement | null>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
+  const managingRef = useRef(false);
+
+  useEffect(() => {
+    clearLegacyAnalyticsConsentStorage();
+  }, []);
 
   useEffect(() => {
     activeUserIdRef.current = userId;
@@ -128,21 +153,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
     previous: AnalyticsConsent | null,
     next: Pick<AnalyticsConsent, 'serviceImprovement' | 'sponsorMeasurement'>
   ) => {
-    const clearService = previous === null || previous.serviceImprovement !== next.serviceImprovement;
-    const clearSponsor = previous === null || previous.sponsorMeasurement !== next.sponsorMeasurement;
-    const tasks: Promise<unknown>[] = [];
-    if (clearService) {
-      if (userId) {
-        tasks.push(clearFeedAnalyticsOutbox(userId));
-        tasks.push(clearFeedCardAnalyticsOutbox(userId));
-      }
-      else tasks.push(setAnonymousFeedAnalyticsEnabled(false));
-    }
-    if (clearSponsor) {
-      if (userId) tasks.push(clearSponsorAnalyticsOutbox(userId));
-      tasks.push(Promise.resolve(clearAnonymousSponsorAnalyticsQueue()));
-    }
-    await Promise.all(tasks);
+    await clearAnalyticsConsentQueues(userId, previous, next);
   }, [userId]);
 
   const syncServerConsent = useCallback(async () => {
@@ -182,13 +193,41 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
         const accessToken = await getAccessToken(expectedUserId);
         if (!isCurrentAccount()) return;
         if (!accessToken) {
-          if (!readAnalyticsConsent(expectedUserId)) setVisible(true);
+          if (!readAnalyticsConsent(expectedUserId)) setVisible(false);
           return;
         }
         headers.set('Authorization', 'Bearer ' + accessToken);
         credentials = 'omit';
       }
       if (!isCurrentAccount()) return;
+
+      // A native offline withdrawal is written to the encrypted consent cache
+      // before its server update can run. Do not reconcile account analytics
+      // against the old server personalisation grant until the native feed
+      // has synchronised that pending denial and emits analyticsConsentSyncEvent.
+      const hasPendingNativePersonalizationChange = await new Promise<boolean>((resolve) => {
+        let settled = false;
+        const finish = (pending: boolean) => {
+          if (settled) return;
+          settled = true;
+          window.clearTimeout(timeout);
+          resolve(pending);
+        };
+        const timeout = window.setTimeout(() => finish(false), 300);
+        window.dispatchEvent(new CustomEvent('cathoscroll:personalization-consent-status-request', {
+          detail: {
+            userId: expectedUserId,
+            complete: (result: Promise<{
+              available: boolean;
+              consent: { enabled: boolean; pendingSync: boolean } | null;
+            }>) => {
+              void result.then(({ consent }) => finish(consent?.pendingSync === true)).catch(() => finish(false));
+            },
+          },
+        }));
+      });
+      if (!isCurrentAccount() || hasPendingNativePersonalizationChange) return;
+
       const endpoint = apiBaseUrl
         ? new URL('/api/privacy/analytics-consent', apiBaseUrl).toString()
         : '/api/privacy/analytics-consent';
@@ -201,7 +240,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
       });
       if (!isCurrentAccount()) return;
       if (!response.ok) {
-        if (!readAnalyticsConsent(expectedUserId)) setVisible(true);
+        if (!readAnalyticsConsent(expectedUserId)) setVisible(false);
         return;
       }
       const payload: unknown = await response.json();
@@ -213,17 +252,37 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
         updatedAt?: unknown;
         version?: unknown;
         exists?: unknown;
+        personalizationEnabled?: unknown;
       };
       if (
         typeof remote.serviceImprovement !== 'boolean' ||
         typeof remote.sponsorMeasurement !== 'boolean' ||
         typeof remote.exists !== 'boolean' ||
-        remote.version !== 1 ||
+        typeof remote.personalizationEnabled !== 'boolean' ||
+        remote.version !== 3 ||
         !(remote.updatedAt === null || typeof remote.updatedAt === 'string')
       ) return;
 
       const local = readAnalyticsConsent(expectedUserId);
-      if (local && (local.syncPending || !remote.exists)) {
+      if (local?.syncPending === true) {
+        // Synchronise the local choices after reconciling any stale Service
+        // improvement denial against an active server-side Personalisation grant.
+        const pendingPurposeSet = new Set(local.pendingPurposes);
+        const pendingChoices = {
+          serviceImprovement: pendingPurposeSet.has('serviceImprovement')
+            ? local.serviceImprovement
+            : remote.serviceImprovement,
+          sponsorMeasurement: pendingPurposeSet.has('sponsorMeasurement')
+            ? local.sponsorMeasurement
+            : remote.sponsorMeasurement,
+        };
+        if (remote.personalizationEnabled && !pendingChoices.serviceImprovement) {
+          // The server will not accept Service improvement withdrawal while
+          // Personalisation is active. Keep the authoritative grant and still
+          // synchronise any independent Sponsor measurement change.
+          pendingChoices.serviceImprovement = remote.serviceImprovement;
+          pendingPurposeSet.delete('serviceImprovement');
+        }
         const saveResponse = await fetch(endpoint, {
           method: 'POST',
           credentials,
@@ -234,9 +293,9 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
             return nextHeaders;
           })(),
           body: JSON.stringify({
-            serviceImprovement: local.serviceImprovement,
-            sponsorMeasurement: local.sponsorMeasurement,
-            version: 1,
+            serviceImprovement: pendingChoices.serviceImprovement,
+            sponsorMeasurement: pendingChoices.sponsorMeasurement,
+            version: analyticsConsentVersion,
           }),
           signal: controller.signal,
         });
@@ -253,13 +312,39 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
           sponsorMeasurement?: unknown;
           updatedAt?: unknown;
           version?: unknown;
+          exists?: unknown;
         };
         if (
           typeof saved.serviceImprovement !== 'boolean' ||
           typeof saved.sponsorMeasurement !== 'boolean' ||
-          saved.version !== 1 ||
-          typeof saved.updatedAt !== 'string'
+          saved.version !== 3 ||
+          typeof saved.exists !== 'boolean' ||
+          !(saved.updatedAt === null || typeof saved.updatedAt === 'string')
         ) return;
+        if (!saved.exists) {
+          // Withdrawing the final enabled purpose deliberately removes the
+          // current consent row. The server therefore confirms an undecided
+          // state with updatedAt=null rather than a persisted false/false row.
+          if (saved.serviceImprovement || saved.sponsorMeasurement || saved.updatedAt !== null) return;
+          denyAnalyticsConsentInMemory('serviceImprovement', expectedUserId);
+          denyAnalyticsConsentInMemory('sponsorMeasurement', expectedUserId);
+          try {
+            window.localStorage.removeItem(getAnalyticsConsentStorageKey(expectedUserId));
+          } catch (cause) {
+            console.warn('Unable to clear the local analytics consent cache:', cause);
+          }
+          markOwnChoiceWrite();
+          hydrate(null);
+          window.dispatchEvent(new CustomEvent(analyticsConsentChangeEvent, {
+            detail: { userId: expectedUserId },
+          }));
+          if (!managingRef.current) {
+            setVisible(false);
+            setManaging(false);
+          }
+          return;
+        }
+        if (typeof saved.updatedAt !== 'string') return;
         const next = {
           serviceImprovement: saved.serviceImprovement,
           sponsorMeasurement: saved.sponsorMeasurement,
@@ -267,16 +352,47 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
         saveAnalyticsConsent(next, expectedUserId, {
           updatedAt: saved.updatedAt,
           syncPending: false,
+          pendingPurposes: [],
         });
         markOwnChoiceWrite();
         hydrate({
-          version: 1,
+          version: analyticsConsentVersion,
           ...next,
           updatedAt: saved.updatedAt,
           syncPending: false,
+          pendingPurposes: [],
         });
-        setVisible(false);
-        setManaging(false);
+        if (!managingRef.current) {
+          setVisible(false);
+          setManaging(false);
+        }
+        return;
+      }
+
+      if (!remote.exists) {
+        // A missing server row is the authoritative undecided state after a
+        // consent reset. Never replay a previously synced local grant into it.
+        // A genuinely new offline choice is handled above via syncPending.
+        denyAnalyticsConsentInMemory('serviceImprovement', expectedUserId);
+        denyAnalyticsConsentInMemory('sponsorMeasurement', expectedUserId);
+        try {
+          window.localStorage.removeItem(getAnalyticsConsentStorageKey(expectedUserId));
+        } catch (cause) {
+          console.warn('Unable to clear stale local analytics consent:', cause);
+        }
+        markOwnChoiceWrite();
+        await clearAnalyticsConsentQueues(expectedUserId, null, {
+          serviceImprovement: false,
+          sponsorMeasurement: false,
+        });
+        if (!isCurrentAccount()) return;
+        hydrate(null);
+        if (!managingRef.current) {
+          // No first-visit consent modal. Optional collection remains off
+          // until the user makes explicit choices in Account settings.
+          setManaging(false);
+          setVisible(false);
+        }
         return;
       }
 
@@ -306,24 +422,28 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
         saveAnalyticsConsent(next, expectedUserId, {
           updatedAt: remoteUpdatedAt,
           syncPending: false,
+          pendingPurposes: [],
         });
         markOwnChoiceWrite();
         hydrate({
-          version: 1,
+          version: analyticsConsentVersion,
           ...next,
           updatedAt: remoteUpdatedAt,
           syncPending: false,
+          pendingPurposes: [],
         });
-        setVisible(false);
-        setManaging(false);
+        if (!managingRef.current) {
+          setVisible(false);
+          setManaging(false);
+        }
         return;
       }
 
-      if (!local) setVisible(true);
+      if (!local) setVisible(false);
     } catch (cause) {
       if (!isCurrentAccount()) return;
       console.warn('Analytics consent sync is deferred until connectivity is available:', cause);
-      if (!readAnalyticsConsent(expectedUserId)) setVisible(true);
+      if (!readAnalyticsConsent(expectedUserId)) setVisible(false);
     } finally {
       if (syncAbortRef.current === controller) syncAbortRef.current = null;
     }
@@ -343,13 +463,13 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
     next: Pick<AnalyticsConsent, 'serviceImprovement' | 'sponsorMeasurement'>
   ) => {
     if (saving) return;
+    const previous = readAnalyticsConsent(userId);
     consentMutationRef.current += 1;
     syncAbortRef.current?.abort();
     syncAbortRef.current = null;
     setSaving(true);
     setError('');
     try {
-      const previous = readAnalyticsConsent(userId);
       // Apply every withdrawal immediately and keep every newly granted purpose
       // disabled until its pre-consent queue has been cleared.
       const interim = {
@@ -362,18 +482,22 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
       await clearWithdrawnQueues(previous, next);
       saveAnalyticsConsent(next, userId);
       void syncServerConsent();
+      managingRef.current = false;
       setVisible(false);
       setManaging(false);
     } catch (cause) {
       console.error('Unable to apply analytics preferences:', cause);
       setError('Your preference could not be fully saved or pending events could not be cleared. Optional analytics remain disabled until you retry.');
+      let denialPersisted = false;
       try {
         denyAnalyticsConsentInMemory('serviceImprovement', userId);
-      denyAnalyticsConsentInMemory('sponsorMeasurement', userId);
-      saveAnalyticsConsent({ serviceImprovement: false, sponsorMeasurement: false }, userId);
+        denyAnalyticsConsentInMemory('sponsorMeasurement', userId);
+        saveAnalyticsConsent({ serviceImprovement: false, sponsorMeasurement: false }, userId, { syncPending: Boolean(userId) });
+        denialPersisted = true;
       } catch {
         // Keep the modal open and fail closed in memory.
       }
+      if (denialPersisted) void syncServerConsent();
       setServiceImprovement(false);
       setSponsorMeasurement(false);
     } finally {
@@ -383,10 +507,33 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
 
   useEffect(() => {
     if (loading) return;
+
+    // Retire old signed-out grants from the former consent popup. Optional
+    // Service improvement and Sponsor measurement are account-only choices;
+    // signed-out visitors have no optional analytics collection or controls.
+    // Remove the retired anonymous analytics preference from existing browsers.
+    // No current code reads this key or collects anonymous engagement.
+    try {
+      window.localStorage.removeItem('cathoscroll.anonymous-analytics.enabled.v1');
+    } catch (cause) {
+      console.warn('Unable to clear the retired anonymous analytics preference:', cause);
+    }
+
+    const legacySignedOutConsent = readAnalyticsConsent(null);
+    if (legacySignedOutConsent?.serviceImprovement || legacySignedOutConsent?.sponsorMeasurement) {
+      denyAnalyticsConsentInMemory('serviceImprovement', null);
+      denyAnalyticsConsentInMemory('sponsorMeasurement', null);
+      try {
+        saveAnalyticsConsent({ serviceImprovement: false, sponsorMeasurement: false }, null, { syncPending: false });
+      } catch (cause) {
+        console.error('Unable to clear legacy signed-out analytics choices:', cause);
+      }
+    }
+
     const existing = readAnalyticsConsent(userId);
     const hydrationTimer = window.setTimeout(() => {
       hydrate(existing);
-      if (!existing && !userId) setVisible(true);
+      if (!existing && !userId) setVisible(false);
     }, 0);
     if (!existing) {
       // Existing pre-consent queues must not be uploaded after this update.
@@ -400,11 +547,9 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
           tasks.push(clearFeedAnalyticsOutbox(userId));
           tasks.push(clearFeedCardAnalyticsOutbox(userId));
         }
-        else tasks.push(setAnonymousFeedAnalyticsEnabled(false));
       }
       if (!existing.sponsorMeasurement) {
         if (userId) tasks.push(clearSponsorAnalyticsOutbox(userId));
-        tasks.push(Promise.resolve(clearAnonymousSponsorAnalyticsQueue()));
       }
       void Promise.all(tasks).catch((cause) => {
         console.error('Unable to clear disabled analytics queues:', cause);
@@ -412,15 +557,17 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
     }
     const manage = () => {
       hydrate(readAnalyticsConsent(userId));
+      managingRef.current = true;
       setManaging(true);
-      setVisible(true);
+      setVisible(false);
+      void syncServerConsent();
     };
     window.addEventListener(analyticsConsentManageEvent, manage);
     return () => {
       window.clearTimeout(hydrationTimer);
       window.removeEventListener(analyticsConsentManageEvent, manage);
     };
-  }, [clearWithdrawnQueues, hydrate, loading, userId]);
+  }, [clearWithdrawnQueues, hydrate, loading, syncServerConsent, userId]);
 
   useEffect(() => {
     const onConsentChange = (event: Event) => {
@@ -445,9 +592,11 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
       void syncServerConsent();
     }, 0);
     window.addEventListener('online', syncServerConsent);
+    window.addEventListener(analyticsConsentSyncEvent, syncServerConsent);
     return () => {
       window.clearTimeout(syncTimer);
       window.removeEventListener('online', syncServerConsent);
+      window.removeEventListener(analyticsConsentSyncEvent, syncServerConsent);
     };
   }, [loading, syncServerConsent]);
 
@@ -462,20 +611,20 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
         role="dialog"
         tabIndex={-1}
         ref={dialogRef}
-        className="bg-bg-card border-border max-h-[min(90vh,760px)] w-full max-w-xl overflow-y-auto rounded-2xl border p-6 shadow-2xl sm:p-8"
+        className={`bg-bg-card border-border w-full overflow-y-auto rounded-2xl border shadow-2xl ${managing ? 'max-h-[min(90vh,760px)] max-w-xl p-6 sm:p-8' : 'max-h-[min(75vh,420px)] max-w-md p-4 sm:p-5'}`}
       >
         <p className="text-accent text-xs font-bold tracking-[0.16em] uppercase">Your privacy</p>
-        <h2 id="analytics-consent-title" className="text-text-primary mt-2 text-2xl font-bold">
+        <h2 id="analytics-consent-title" className={`text-text-primary mt-2 font-bold ${managing ? 'text-2xl' : 'text-xl'}`}>
           {managing ? 'Manage analytics choices' : 'Help improve CathoScroll'}
         </h2>
         <p id="analytics-consent-description" className="text-text-secondary mt-3 text-sm leading-relaxed">
           {managing
-            ? 'Choose which optional analytics CathoScroll may collect. Both choices are optional and start off unless you have already enabled them.'
-            : 'Optional service improvement analytics help improve CathoScroll. They are not used for recommendations or to infer religious beliefs. Optional sponsor measurement records views, clicks, frequency and topic placement. Either context may reveal religious or philosophical interests. Accept all gives explicit consent to both; Decline optional declines both; Manage choices lets you choose separately.'}
+            ? 'Choose optional analytics. Selecting Personalisation also enables Service improvement analytics; Sponsor measurement is separate.'
+            : 'Optional analytics measure signed-in topic/comment engagement and site performance; opted-in aggregates may inform shared topic ordering without profiling individual readers. Sponsor measurement separately records viewability, clicks on viewable placements and frequency. Catholic-content activity may reveal religious or philosophical beliefs. Enabling Personalisation automatically enables Service improvement analytics, which remains enabled while Personalisation is active. Passive reading signals can inform private recommendations while Personalisation is active. Sponsor placements remain visible when measurement is off; no delivery or anonymous engagement counters are retained.'}
         </p>
 
         {!managing ? (
-          <div className="mt-7 space-y-3">
+          <div className="mt-5 space-y-3">
             <button
               type="button"
               disabled={saving}
@@ -496,7 +645,7 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
               <button
                 type="button"
                 disabled={saving}
-                onClick={() => setManaging(true)}
+                onClick={() => { managingRef.current = true; setManaging(true); }}
                 className="border-border text-text-primary hover:bg-bg-secondary rounded-xl border px-4 py-3 text-sm font-semibold disabled:opacity-50"
               >
                 Manage choices
@@ -514,9 +663,9 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
                 className="accent-accent mt-1 h-4 w-4 shrink-0"
               />
               <span className="min-w-0">
-                <span className="text-text-primary block font-semibold">I explicitly agree to Service improvement analytics</span>
+                <span className="text-text-primary block font-semibold">I explicitly consent to Service improvement analytics</span>
                 <span className="text-text-secondary mt-1 block text-sm leading-relaxed">
-                  Measures topic and Top Comments engagement, signed-out daily aggregates, and site/performance analytics. When signed in, topic/comment activity is linked to your account and may reveal religious or philosophical beliefs (special-category data under UK GDPR). Enabling this choice is your explicit consent to service-improvement measurement only; it is never used for recommendations.
+                  Measures signed-in topic and Top Comments engagement plus Vercel site/performance analytics. Account-linked activity may reveal religious or philosophical beliefs. These signals may inform private recommendations while Personalisation is active. This choice must remain enabled until you turn off Personalisation.
                 </span>
               </span>
             </label>
@@ -529,20 +678,20 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
                 className="accent-accent mt-1 h-4 w-4 shrink-0"
               />
               <span className="min-w-0">
-                <span className="text-text-primary block font-semibold">I explicitly agree to Sponsor measurement</span>
+                <span className="text-text-primary block font-semibold">I explicitly consent to Sponsor measurement</span>
                 <span className="text-text-secondary mt-1 block text-sm leading-relaxed">
-                  Measures sponsor viewability, clicks and frequency. When enabled, signed-in events are account-linked; signed-out frequency uses an in-memory session token hash retained for up to 30 days. Topic placement may reveal religious or philosophical interests (special-category data under UK GDPR). Data is used only for campaign reporting and frequency controls, never for recommendations or individual belief profiling. If declined, sponsor placements still appear; only campaign/day served totals remain, with no visit-level view, click or frequency records.
+                  Measures sponsor viewability, clicks on viewable placements and frequency only for signed-in users who explicitly opt in. Events are account-linked and may reveal religious or philosophical interests. If you decline, sponsor placements still appear, but no sponsor engagement or delivery counters are retained.
                 </span>
               </span>
             </label>
             <p className="text-text-muted text-xs leading-relaxed">
-              Essential operation, sign-in, account synchronisation, bookmarks, likes, progress, notes and general feed ranking continue regardless of these choices. Recommendation personalisation remains controlled separately in signup and Account settings.
+              Essential operation, sign-in, account synchronisation, bookmarks, likes, progress, notes and general feed ranking continue regardless of these choices. Enabling Personalisation automatically enables Service improvement analytics; turn off Personalisation before withdrawing Service improvement. Sponsor measurement remains separate.
             </p>
             <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
               <button
                 type="button"
                 disabled={saving}
-                onClick={() => setManaging(false)}
+                onClick={() => { managingRef.current = false; setManaging(false); }}
                 className="border-border text-text-primary rounded-xl border px-4 py-3 text-sm font-semibold disabled:opacity-50"
               >
                 Back
@@ -567,17 +716,9 @@ export function AnalyticsConsentManager({ userId = null, loading = false, apiBas
 
 export function AnalyticsConsentSettingsButton() {
   return (
-    <button
-      type="button"
-      onClick={() => {
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(new Event(analyticsConsentManageEvent));
-        }
-      }}
-      className="text-accent underline underline-offset-4 hover:no-underline"
-    >
-      Manage analytics choices
-    </button>
+    <Link href="/account#analytics-choices" className="text-accent underline underline-offset-4 hover:no-underline">
+      Manage analytics choices in Account settings
+    </Link>
   );
 }
 

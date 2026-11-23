@@ -31,9 +31,9 @@ The existing topic viewer and interstitial cards use the same vertical gesture c
 
 Topic pagination starts before the final loaded entries. New pages append only unseen topic IDs; an in-flight page can satisfy a pending forward gesture exactly once. A reverse gesture cancels that pending advance. If a page fails, the existing topic remains visible and the user can retry; the feed never appends duplicate topics or changes already visited topic positions. Web server-prop updates and native background catalogue updates use the same deduplicating append rule and preserve the active topic.
 
-Sponsor served events for signed-in placements are recorded by the authenticated delivery API. Viewable-impression and click events use the authenticated sponsor-events endpoint and a separate account-scoped local queue capped at 1,000 events; stable event IDs make retries idempotent. Signed-out sponsor placements use dedicated anonymous selection and event functions, a page-memory session token hashed in the database for frequency controls, and separate campaign daily aggregates. Raw anonymous event/frequency rows are pruned after 30 days. Anonymous topic/comment event batches use a bounded local browser/native queue for restart-safe retry; anonymous sponsor event retries remain memory-only so the sponsor session token is never persisted. Both paths enforce approval, payment status, dates, category/topic targeting, weighted pacing and daily/total caps. Sponsor/admin reporting displays signed-in and anonymous campaign counts separately, with combined CTR labelled. These paid-delivery signals never feed organic topic ranking.
+Sponsor placements are available to signed-in and signed-out visitors, but the selection of an unmeasured placement is not recorded. There are no anonymous sponsor events, visitor/session tokens, delivery counters, campaign/day served totals, or unmeasured frequency records. Signed-in users who explicitly enable Sponsor measurement receive a server-issued placement receipt; only qualifying viewable-impression, click and bounded active-duration events are recorded. Website retries remain in memory; Android and Electron persist only the opted-in signed-in event stream in encrypted account-scoped storage for up to seven days. Event IDs make retries idempotent, and the receipt is checked before an event is accepted. Sponsor reports show only the opted-in population and must not be described as total delivery, reach, or all-visitor CTR. Sponsor activity never feeds organic topic ranking.
 
-Sponsor selection still uses the existing server-side weighted fair-queue allocator. Each placement selects one campaign, records a served event before returning creative, and retains the same placement/session ID when revisited. Only a qualifying viewable impression affects the rolling delivery ratio. Clicks are accepted only after a viewable impression, and sponsor analytics remain separate from organic recommendation signals.
+Unmeasured sponsor selection uses weighted random allocation based on campaign placement weight and eligibility. It does not write a served event or counter. For opted-in users, the selector uses consented viewable-impression aggregates for pacing and applies per-account frequency limits from the opted-in event ledger. Clicks are accepted only after a qualifying viewable impression. Sponsor analytics remain separate from organic recommendation signals.
 
 ## Sponsorship cards
 
@@ -45,7 +45,7 @@ Sponsors are selected from an approved, active campaign pool. Each campaign has 
 
 Paid weight controls a sponsor's proportional share of eligible sponsor impressions. For example, weights 2:1 produce an expected allocation of roughly two impressions to the first sponsor for every one to the second across a sufficiently large sample. This is rolling weighted fair-queue pacing, not a promise that every individual three-slot card contains exactly two and one.
 
-The scheduler uses viewable-impression pacing over a rolling 30-day window. For each eligible campaign it compares `viewable_impressions / placement_weight` and selects the least-delivered campaign for the next single-campaign placement, randomising ties. This is weighted fair queuing: equal weights converge toward equal viewable impressions, while a 2:1 weight pair converges toward a 2:1 viewable-impression ratio. Served-but-never-viewed placements do not improve a campaign's delivery ratio. A campaign with no viewable impressions is treated as under-delivered. The eligible comparison set is recalculated for each matching user/category/topic opportunity, so campaigns that are not eligible for a slot do not distort its allocation.
+For opted-in users, the selector uses consented viewable-impression pacing over a rolling 30-day window. It compares recent consented viewable impressions relative to paid placement weight, then selects from eligible campaigns. For unmeasured visitors, it uses weighted random selection without measuring or counting delivery. Consequently, pacing and caps based on viewable impressions apply only to the opted-in measured population and must not be presented as all-visitor delivery guarantees.
 
 The scheduler must:
 - Prioritise under-delivered campaigns using viewable impressions divided by paid placement weight.
@@ -53,8 +53,8 @@ The scheduler must:
 - Apply per-user and global frequency caps.
 - Avoid immediate repetition where alternatives exist.
 - Keep category targeting and brand-suitability rules.
-- Record served placements, viewable impressions, clicks, and cap/eligibility decisions separately.
-- Use only the deduplicated `viewable_impression` event for pacing; served counts remain safeguards for caps and frequency limits.
+- Record only consented viewable impressions, clicks after viewability and bounded active-duration events. Do not record unmeasured placements or eligibility decisions.
+- Use only deduplicated opted-in `viewable_impression` events for measured pacing and frequency limits. Bounded `active_duration` events contribute to time-on-card reporting only. No served counter exists.
 - Never count a sponsor impression until the placement meets a defined viewability threshold.
 - Keep sponsor events separate from organic topic recommendation signals.
 
@@ -99,11 +99,11 @@ Core event concepts include:
 
 Events must be deduplicated, bounded, batched, rate-limited, and validated server-side. Do not accept arbitrary user IDs, campaign weights, counts, or event timestamps as authoritative. Use server receipt time for reporting; client time is diagnostic only. Avoid storing comment text, quiz answer text, or unnecessary personal data in analytics events.
 
-Offline analytics must never block or delay bookmarks, likes, progress, notes, comments, or other user-facing actions. Analytics may be queued and retried independently; duplicate retries must not inflate counts. Define raw-event retention and retain aggregate reporting separately. Anonymous and signed-in activity should be distinguished without collecting unnecessary identifiers.
+Offline analytics must never block or delay bookmarks, likes, progress, notes, comments, or other user-facing actions. Analytics may be queued and retried independently; duplicate retries must not inflate counts. Define raw-event retention and retain aggregate reporting separately. No anonymous activity is collected. Signed-in activity is collected only under the relevant explicit consent and is separated by purpose.
 
 ## Recommendation system
 
-The weighted-category RPC uses completed topics, bookmarks, likes, comments and other explicit account actions recorded after the user enables personalisation. Operational feed and Top Comments analytics—including impressions, reading duration, swipe depth, skips, return visits and card exposure—are never recommendation inputs. Without personalisation consent, category weights remain neutral and completed-topic history is not used to suppress recommendations. Category weights are frozen into the cursor so pagination remains deterministic; withdrawing consent also normalises already-issued cursors immediately.
+The existing weighted-category RPC has been extended rather than replaced. It uses completed topics, bookmarks, likes, comments and signed-in feed telemetry as recommendation signals only when the account has explicitly enabled personalisation. Without consent, it does not read or aggregate those account-history signals: all category weights remain neutral and completed-topic history is not used to suppress recommendations. Category weights are frozen into the cursor so pagination remains deterministic; withdrawing consent also normalises already-issued cursors immediately.
 
 Feed signals use a 90-day window and a 30-day half-life:
 - Viewable impression: +0.40, capped at +1.20 per topic.
@@ -115,9 +115,9 @@ Feed signals use a 90-day window and a 30-day half-life:
 
 The explicit-action score is clamped between 0 and +8 per topic. Topic scores are aggregated by published category and combined with user-selected category interests. The category weight remains at least 1, using the square root of the non-negative combined preference score. The existing weighted round-robin selection and no-three-consecutive-category safeguard remain intact. Operational feed telemetry does not feed this score.
 
-Recommendation profile signals are read from explicit account-action tables through private SECURITY DEFINER helpers that check `auth.uid()` against the requested account. They are invoked only when recommendation consent is enabled. Authenticated clients cannot read raw analytics rows or query another user's preference signals. A partial `(user_id, created_at)` index supports the bounded 180-day explicit-action lookup. The helper is invoked only when a new recommendation cursor is created, not for every page continuation. The profile refresher does not read operational analytics tables.
+Recommendation profile signals are read through private SECURITY DEFINER helpers that check `auth.uid()` against the requested account. They combine account actions with feed and Top Comments reading signals recorded after consent. Personalisation and Service improvement analytics are separately presented choices, but Personalisation requires Service improvement analytics to remain enabled. Personalisation uses direct account actions and selected categories; passive reading signals are used for recommendations while Personalisation is enabled. Users must turn off Personalisation before withdrawing Service improvement. Authenticated clients cannot read raw analytics rows or query another user's preference signals. A partial `(user_id, created_at)` index supports the bounded evidence lookup. The helper is invoked only when a new recommendation cursor is created, not for every page continuation.
 
-This is a first bounded scoring model, not a trained machine-learning system. It uses only explicit account actions after recommendation consent, caps repeated evidence, decays older actions and preserves cold-start diversity. Impressions, active duration, swipe depth, skips, return visits and Top Comments exposure remain operational analytics only. Topic freshness/quality scoring, additional explicit feedback and model evaluation against controlled experiments remain future work. Sponsor allocation stays separate from organic recommendations.
+This is a bounded scoring model, not a trained machine-learning system. It uses explicit account actions and consented reading signals, caps repeated evidence, decays older activity and preserves cold-start diversity. Sponsor delivery and Sponsor measurement are never recommendation inputs. Topic freshness/quality scoring, additional explicit feedback and controlled model evaluation remain future work.
 
 ## Topic and category analytics
 
@@ -137,13 +137,13 @@ Topic analytics should cover, where data exists:
 
 Category analytics aggregate topic-level metrics and show topic leaders, topic distribution, growth, engagement, completion, and areas with limited content. Distinguish historical metrics that are unavailable from true zero values. Do not fabricate historical impressions or viewing time from existing likes/comments.
 
-Sponsor analytics are separate and show eligible opportunities, viewable impressions, unique reach where measurable, clicks, click-through rate, frequency, and campaign trends. Sponsor dashboards expose only aggregate metrics for their own sponsor and never user identities or raw events.
+Sponsor analytics are separate and show only opted-in viewable impressions, clicks, bounded active viewing duration, click-through rate and frequency. Sponsor dashboards expose aggregate metrics for their own sponsor and never user identities or raw events. They do not report total delivery or reach across all visitors.
 
 ## Sponsor placement eligibility and retry behaviour
 
 The feed distinguishes a successful empty campaign selection from a failed sponsor request. A successful empty response is cached for the topic/session so the same ineligible slot is not repeatedly requested. Authentication, HTTP, timeout and network failures are not cached as empty inventory; the topic's due sponsor slot remains eligible for a retry when revisited. A stale request cannot clear a newer in-flight retry.
 
-The sponsor API can correctly return an empty campaign list when every campaign is ineligible because of date, approval/payment status, targeting, impression caps or per-user frequency caps. This is not a rendering failure: the feed skips the unavailable placement and continues without duplicating a topic. In particular, test campaigns with a five-serves-per-user-per-24-hour cap stop appearing after five successful served events until that rolling cap permits another serve.
+The sponsor API can correctly return an empty campaign list when every campaign is ineligible because of date, approval/payment status or targeting. For opted-in users, configured viewable-impression and per-account frequency caps can also make a campaign ineligible. These caps do not cover unmeasured deliveries, which are deliberately not recorded or counted. This is not a rendering failure: the feed skips the unavailable placement and continues without duplicating a topic.
 
 ## Future topic-card artwork
 
@@ -162,13 +162,13 @@ Run these checks against a preview with test comments and at least two eligible 
 1. **Cadence, group size and ordering:** after five topic advances, Top Comments appears once and contains no more than five comments. With seven eligible unseen comments, the first group reserves five and leaves the remaining two eligible for a later group. At the shared tenth-topic boundary, the order is topic → Top Comments → Sponsored → next topic. No topic is duplicated to make room for either interstitial.
 2. **Forward/reverse traversal:** verify topic A → comment group A → sponsor A → topic B, then reverse topic B → sponsor A → comment group A → topic A. Repeat several times without refreshing.
 3. **Comment position:** move to the second or later comment in a group, leave the group, then revisit it in both directions. The same group and active comment position must return.
-4. **Sponsor identity:** revisiting a sponsor placement must reuse the same campaign and placement/session ID. It must not select a new campaign or increment served count again.
+4. **Sponsor identity:** revisiting an opted-in sponsor placement must reuse the same campaign and placement receipt. It must not create a duplicate viewability event.
 5. **No eligible sponsor:** the due slot is omitted without a blank card, duplicated topic or stuck loading surface. The same empty result is reused for that topic during the session.
 6. **Slow/failing sponsor request:** throttle the network, advance from Top Comments while prefetch is pending, then reverse and advance again. The loading card must remain swipeable, time out cleanly, and ignore late responses after the active entry changes.
 7. **Pagination boundary:** throttle the next topic page and swipe forward at the final loaded topic. A successful page satisfies the pending gesture once; a reverse gesture cancels it. Duplicate IDs never append and prior topic positions remain unchanged.
 8. **Comment inventory:** consume the first 100 comments, load another page, and verify IDs are deduplicated. Refresh the first page while a later page is loaded; cached groups and later inventory must not disappear unexpectedly.
 9. **Refresh/account reset:** a full page/app reload or account change starts a fresh topic/interstitial mapping. Ordinary forward/reverse navigation and background inventory refresh do not.
-10. **Sponsor analytics:** confirm one server-side served event per placement, one qualifying viewable impression, and a click only after a viewable impression. Revisit the same placement and verify event IDs/session IDs prevent double counting. Test offline queuing and stable-ID retry.
+10. **Sponsor analytics:** confirm unmeasured placements create no event, receipt, session token or counter. For opted-in users, verify a server-issued receipt is required, only one qualifying viewable impression is accepted, clicks require prior viewability, retries are idempotent, and native queues are encrypted and account-scoped.
 11. **Web/native data updates:** refresh server topic props on web and update the catalogue in the native shell while a user is on a topic or interstitial. The active entry and all earlier/later ordering must remain stable; only unseen topic IDs may append.
 
 **Route round-trip:** open the original discussion from a comment card, then use browser Back to return to the feed. The same topic, comment group, active comment and sponsor placement should be restored; a full browser/app reload should start a new mapping. If the route remount loses the snapshot, add a root-level in-memory feed-session store before merging.
@@ -219,3 +219,23 @@ Direct bank transfers are recorded against issued invoices. The private ledger s
 ## Bounded feed ranking work
 
 The Top Comments selector first materializes at most the newest 5,000 eligible root comments from its 90-day window, using the existing partial index on visible top-level comment creation time. Like/reply aggregation and ranking then run only across that bounded candidate set. The endpoint retains its shared 30-second cache. This avoids a full 90-day engagement aggregation scan as comment volume grows; if the candidate pool regularly reaches its cap, the next scaling step is a maintained engagement-counter table rather than increasing the limit without bounds.
+
+
+## Canonical analytics architecture (21 November 2026)
+
+The product has four separate systems. They must not be collapsed into one consent purpose or one ranking algorithm:
+
+## Analytics and consent architecture
+
+CathoScroll does not collect anonymous topic/comment engagement, anonymous sponsor measurement or sponsor delivery counters. Signed-out visitors and signed-in users without the relevant opt-in create no analytics events, delivery totals, anonymous identifiers, retry queues or database aggregates.
+
+- **Service improvement analytics:** optional signed-in account-linked topic and Top Comments engagement.
+- **Sponsor measurement:** separate optional signed-in viewability, clicks, active viewing duration and frequency, derived only from consented events.
+- **Personalisation:** separate optional private recommendation profile.
+- **General ranking:** public interactions, curated order, recency and category exposure balancing; no anonymous analytics or sponsor activity.
+
+Sponsor placements remain available when measurement is off. The delivery selector creates no served event or campaign/day counter. Campaign caps, where configured, apply only to opted-in viewable impressions and do not represent all deliveries.
+
+Website analytics retry queues are memory-only. Android and Electron persist only opted-in signed-in analytics in encrypted, account-scoped SQLite outboxes capped at 2,000 events per stream and seven days, with acknowledgement deletion and withdrawal/account-change cleanup. No anonymous native outbox exists.
+
+Consent withdrawal immediately blocks local collection, clears the matching pending stream, aborts uploads and synchronises the denial to the server when connectivity returns. Sponsor measurement must never be used for organic ranking, recommendation profiles or religious-interest sponsor targeting.

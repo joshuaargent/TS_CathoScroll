@@ -7,9 +7,15 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: Existing version tag to build and publish (for example v2.2.0)
+        description: Existing version tag to build and publish (for example v2.4.0)
         required: true
         type: string
+
+      allow_android_signing_key_transition:
+        description: Allow a one-time signer change; existing Android installs will need uninstall/reinstall
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -30,6 +36,18 @@ jobs:
         uses: actions/checkout@v7
         with:
           ref: refs/tags/${{ inputs.release_tag || github.ref_name }}
+          fetch-depth: 0
+
+      - name: Verify release tag is already merged into main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main:refs/remotes/origin/main
+          tag_commit="$(git rev-parse "refs/tags/${RELEASE_TAG}^{commit}")"
+          if ! git merge-base --is-ancestor "$tag_commit" refs/remotes/origin/main; then
+            echo "Release tag must point to a commit already merged into main."
+            exit 1
+          fi
 
       - name: Set up Node.js
         uses: actions/setup-node@v7
@@ -210,7 +228,6 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           CATHOSCROLL_VERSION: ${{ env.RELEASE_TAG }}
-          ANDROID_VERSION_CODE: ${{ env.ANDROID_VERSION_CODE }}
         run: |
           npm run native:build
           npx cap sync android
@@ -234,7 +251,6 @@ jobs:
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
           CATHOSCROLL_VERSION: ${{ env.RELEASE_TAG }}
-          ANDROID_VERSION_CODE: ${{ env.ANDROID_VERSION_CODE }}
         run: bash ./gradlew --no-daemon --stacktrace testReleaseUnitTest assembleRelease
 
       - name: Verify APK output and signing certificate
@@ -246,6 +262,35 @@ jobs:
           apksigner_path="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
           test -x "$apksigner_path"
           "$apksigner_path" verify --verbose --print-certs "$apk"
+
+      - name: Verify signing certificate matches the previous production APK
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          apk="android/app/build/outputs/apk/release/CathoScroll-${RELEASE_TAG#v}.apk"
+          apksigner_path="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          previous_apk_url="$(gh api "repos/$GH_REPO/releases/latest" --jq '.assets[] | select(.name | endswith(".apk")) | .browser_download_url' | head -n 1)"
+          test -n "$previous_apk_url" || { echo "The previous published release has no APK; cannot verify update compatibility."; exit 1; }
+          previous_apk="$RUNNER_TEMP/cathoscroll-previous.apk"
+          curl --fail --location --retry 3 --output "$previous_apk" "$previous_apk_url"
+          previous_certificate="$("$apksigner_path" verify --print-certs "$previous_apk" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -n 1)"
+          current_certificate="$("$apksigner_path" verify --print-certs "$apk" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -n 1)"
+          test -n "$previous_certificate" && test -n "$current_certificate"
+          if [[ "$previous_certificate" != "$current_certificate" ]]; then
+            echo "Android signing certificate differs from the previous production release."
+            echo "Previous: $previous_certificate"
+            echo "Current:  $current_certificate"
+            if [[ "${{ inputs.allow_android_signing_key_transition }}" != "true" ]]; then
+              echo "Refusing publication. Only enable allow_android_signing_key_transition for an intentional first production-signed release."
+              exit 1
+            fi
+            echo "::warning::Existing Android installs signed with the previous certificate cannot update in place and must uninstall/reinstall."
+          else
+            echo "Android update signing certificate matches the previous production release."
+          fi
 
       - name: Upload Android APK
         uses: actions/upload-artifact@v7

@@ -70,6 +70,8 @@ test('the tenth-topic collision is planned as comment then sponsor before naviga
 test('sponsor fetches cannot race feed navigation or account changes', () => {
   assert.match(feedCore, /sponsorRequestVersion/);
   assert.match(feedCore, /sponsorRequestVersion\.current !== requestVersion/);
+  assert.match(feedCore, /sponsorConsentRevision\.current !== requestedConsentRevision/);
+  assert.match(feedCore, /sponsorMeasurementState\.current = measurementEnabled/);
   assert.match(feedCore, /const cancelSponsorRequest = \(\) =>/);
   assert.match(feedCore, /sponsorRequestVersion\.current \+= 1/);
   assert.match(cardRegistry, /onExit: \(entry, direction, cardContext\)/);
@@ -163,6 +165,8 @@ test('topic, comment and sponsor cards use the same shared base card', () => {
   assert.match(cardRegistry, /onEnter: \(entry/);
   assert.match(cardRegistry, /void cardContext\.loadSponsorEntry\(entry, direction, entries\)/);
   assert.match(feedCore, /sponsorResultsByTopicId = useRef\(new Map/);
+  assert.match(feedCore, /campaigns: entry\.campaigns\.map\(\(campaign\) => \(\{[\s\S]*?measurement_receipt: null/);
+  assert.match(feedCore, /campaigns: result\.campaigns\.map\(\(campaign\) => \(\{[\s\S]*?measurement_receipt: null/);
   assert.match(feedCore, /sponsorRequestsByTopicId = useRef\(new Map/);
   assert.match(cardRegistry, /userId=\{context\.userId\}/);
   assert.match(sponsorLoadingCard, /role="status" aria-live="polite" aria-busy=\{!error\}/);
@@ -254,7 +258,7 @@ test('transient sponsor request failures remain retryable and cannot overwrite a
 
 test('sponsor viewability attribution survives card unmounts and remounts', () => {
   assert.match(sponsorCard, /const viewableSponsorPlacements = new Set<string>\(\)/);
-  assert.match(sponsorCard, /getSponsorPlacementKey\(userId, sessionId, campaignId, placementKey\)/);
+  assert.match(sponsorCard, /getSponsorPlacementKey\(userId, sessionId, campaignId, placementKey, placementReceipt\)/);
   assert.match(sponsorCard, /viewableSponsorPlacements\.has\(viewablePlacementKey\)/);
   assert.match(sponsorCard, /rememberViewableSponsorPlacement\(viewablePlacementKey\)/);
   assert.match(sponsorCard, /viewableSponsorPlacements\.size > 5000/);

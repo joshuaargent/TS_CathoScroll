@@ -1,8 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { installAnonymousSponsorAnalyticsListeners, installSponsorAnalyticsListeners } from '@/lib/sponsor-analytics-client';
-import { installAnonymousFeedAnalyticsSync } from '@/lib/anonymous-feed-analytics-client';
+import { installSponsorAnalyticsListeners } from '@/lib/sponsor-analytics-client';
 import { createClient } from '@/lib/supabase/client';
 
 type SponsorAnalyticsSyncProps = {
@@ -17,11 +16,10 @@ export function SponsorAnalyticsSync({
   getAccessToken,
 }: SponsorAnalyticsSyncProps) {
   useEffect(() => {
-    installAnonymousFeedAnalyticsSync();
-    installAnonymousSponsorAnalyticsListeners();
     if (getAccessToken) {
       if (!userId) return;
-      return installSponsorAnalyticsListeners(userId, getAccessToken, apiBaseUrl);
+      const removeSignedInListeners = installSponsorAnalyticsListeners(userId, getAccessToken, apiBaseUrl);
+      return removeSignedInListeners;
     }
 
     const supabase = createClient();

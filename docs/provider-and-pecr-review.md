@@ -1,102 +1,89 @@
-# CathoScroll provider, retention and PECR review
+# Provider, PECR and data-protection review
 
-**Reviewed:** 20 November 2026  
-**Status:** Technical review completed; controller/contract actions remain open.  
-**Project:** Supabase CathoScroll, region eu-north-1 (Stockholm); Vercel team joshuaargent, Hobby plan.
+**Status:** implementation assessment for the CathoScroll controller. This is not a legal opinion or a declaration that provider due diligence is complete.
 
-## Executive findings
+## Current analytics architecture
 
-1. Supabase's primary project region is Stockholm. The Free plan provides one day of API/database log retention and 24-hour Auth audit-log access. It does not include automatic database backups or point-in-time recovery. Supabase offers a DPA, but the controller's acceptance of it has not been verified.
-2. Vercel's connected team is on Hobby. Vercel's current Terms restrict Hobby to personal/non-commercial use; its Fair Use Guidelines say commercial advertising requires Pro or Enterprise. The Vercel DPA applies to Pro and Enterprise, not Hobby. The 19 October 2026 Hobby Terms also permit use of Hobby-plan customer content for model training and sharing with third parties for model development/improvement.
-3. No paid sponsor campaigns are currently active. The owner intends to move to an appropriate commercial hosting plan before accepting paid sponsorship revenue. This is a future commercial-readiness action, not a blocker to the current pre-revenue service. Continue the separate review of Vercel's processor terms, DPA, subprocessors and international-transfer safeguards.
-4. The website holds signed-out topic/comment retry batches in memory only. Native apps now persist a bounded, seven-day queue of anonymous topic/comment event payloads in app-private SQLite so it can survive app termination. The schema contains event UUIDs and public topic/comment IDs only, with no account, visitor or session identifier. The global consent manager provides separate default-off Service improvement analytics and Sponsor measurement choices. Withdrawal clears the matching pending web/native queues and prevents future uploads. Signed-out consent is device-local; signed-in consent is account-scoped and synchronised when online. Sponsor frequency tokens are created only when Sponsor measurement is enabled.
-5. The PECR statistical-purposes exception is not a general permission for account-level tracking or ad measurement. It requires anonymous aggregate statistical output, no individual monitoring/decisions, prompt aggregation/deletion of individual inputs, clear notice and a simple/free objection route. It does not cover individual ad view/click measurement. CathoScroll should not rely on it for account-linked analytics or sponsor performance tracking.
-6. **Production database updated 20 November 2026:** the recommendation-profile refresher now uses explicit account actions only (progress, bookmarks, topic likes, comments, comment likes and replies). It no longer reads the topic-feed or Top Comments analytics tables; the recommendation RPC uses the private explicit-action helper and rebases old cursors. Existing derived profiles were cleared and rebuilt from explicit actions. Operational analytics remain a separate service-measurement purpose. Topic interactions used for recommendations may nevertheless reveal or permit inferences about religious or philosophical beliefs; the controller must document the Article 6 basis and any applicable Article 9 condition.
+CathoScroll does not collect anonymous engagement analytics. The following are not collected for anonymous or non-consenting visitors:
 
-## Verified configuration
+- Topic impressions, viewability, active reading duration, skips or completions.
+- Top Comments card impressions, viewability, duration or opens.
+- Sponsor viewability, clicks, duration or frequency.
+- Sponsor delivery/served counts, campaign/day counters or anonymous reach.
+- Anonymous visitor/session tokens, hashes, event receipts, retry queues or aggregate analytics tables.
 
-### Supabase
+Sponsor cards remain eligible for delivery regardless of consent. Delivery itself is not counted or stored for analytics, pacing or reporting. Unmeasured delivery does not create a client-side session identifier.
 
-- Project ref: lrddjyxnescfozhcxzil.
-- Primary region: eu-north-1 (Stockholm).
-- Current plan: Free (connected account context).
-- Published Free-plan log retention: API/database logs one day; Auth audit-log access 24 hours.
-- Published Free-plan recovery: no automatic backups and no point-in-time recovery.
-- Supabase DPA is available. The connected tools do not expose whether the controller has accepted it.
-- The primary database/Auth/Storage region does not, by itself, establish the location of backups, logs, support access or all subprocessors.
+## Signed-in analytics
 
-### Vercel
+- **Service improvement analytics:** account-linked topic and Top Comments engagement only while the account holder has explicitly enabled the choice. Topic/comment identifiers and bounded event measurements may reveal or permit inference of religious or philosophical interests.
+- **Sponsor measurement:** separate account-linked viewability, click, bounded active-duration and frequency measurement only while explicitly enabled. Event payloads use account, campaign, event, session and event-type fields. They must not contain topic IDs, category IDs, reading history or recommendation-profile data.
+- **Personalisation:** separate account-level recommendation purpose. The derived profile is private and must not be used for sponsor targeting.
+- **General feed ranking:** does not use anonymous analytics or sponsor delivery/measurement events.
 
-- Connected team: joshuaargent.
-- Current plan: Hobby.
-- Production project: ts_cathoscroll.
-- Current production deployment: READY on main at commit `e0da259`. The PR #26 database recommendation correction has been applied and verified, but its web application changes are not deployed yet; the consent 403 and admin analytics UI/chart corrections therefore remain outstanding in the live web app. A PR #29 preview is now READY and includes the merged PR #26 changes plus the Account-page analytics preferences and corrected policy wording. Production deployment remains pending.
-- Published Hobby runtime log retention: one hour; the Hobby analytics product includes one month of Web Analytics history.
-- Vercel Web Analytics documentation says it does not use third-party cookies and derives a request hash discarded after 24 hours. The Hobby plan currently includes one month of Web Analytics history; that is a product reporting window, not a guarantee that every associated operational log has the same retention.
-- Vercel DPA (last updated 17 March 2026) applies to Pro and Enterprise customers, not Hobby.
-- Vercel Terms (19 October 2026) restrict Hobby to personal/non-commercial use and permit model training/use of customer content on Hobby. The fair-use guidance expressly treats advertising as commercial usage.
+Website retry queues are memory-only. Android and Electron persist only consented signed-in analytics streams in encrypted app-private storage, capped at 2,000 events per stream and seven days, deleting acknowledged events and clearing the relevant stream on withdrawal or account change. Consented sponsor events include a server-issued placement receipt; the receipt is stored in the encrypted native outbox and expires server-side after seven days. No anonymous native queue exists.
 
-## PECR source review
+## PECR assessment
 
-### First-party CathoScroll analytics
+Removing anonymous analytics removes the anonymous event pipeline; it does not automatically settle PECR for the remaining signed-in streams. Assess each browser and native storage/access mechanism, including SDK behaviour and any device-side identifiers.
 
-- Website signed-out topic/comment events are held in a bounded module-memory queue. Native events are persisted in a bounded seven-day SQLite outbox; a free opt-out clears pending rows.
-- The signed-out sponsor session token is generated and held in memory only. Only a SHA-256 hash is stored server-side for frequency control.
-- The web analytics retry queue remains in memory and is not written to browser localStorage, sessionStorage or IndexedDB. Native anonymous topic/comment analytics uses a separate app-private SQLite outbox, limited to 2,000 events and seven days, with a user-facing opt-out that clears pending rows. Sponsor frequency tokens remain memory-only.
-- Vercel Web Analytics and Speed Insights use beforeSend handlers to replace sensitive topic/category/search routes with generic labels and strip query strings/fragments.
-- The code review is not a substitute for deployed browser inspection. Verify that no SDK or future change writes/accesses terminal storage for analytics.
+Do not rely on the statistical-purposes exception for sponsor measurement or advertising. Sponsor viewability, click and frequency measurement is treated as advertising measurement and is gated by a separate prior opt-in. Do not assume that an event is outside PECR merely because it is account-linked, first-party, short-lived or held in memory.
 
-### Statistical-purposes exception
+Vercel Web Analytics and Speed Insights are gated behind Service improvement analytics in the current implementation. Verify the actual SDK versions, network requests, browser storage/access and route redaction in deployed web builds. Verify native WebView behaviour separately. If any optional analytics storage/access is used, the consent choice must precede it and withdrawal must stop it.
 
-The ICO's final guidance dated 29 April 2026 allows a narrow statistical-purposes exception for an ISS provider's exclusive service-improvement statistics, where the result is anonymous aggregate data, individual-level inputs are not retained longer than needed, individuals are clearly informed and have a simple/free objection method. It is not available for identifying/tracking individual visitors, retaining browsing histories, profiling individuals/groups, or measuring individual advertising views/clicks. CathoScroll must not rely on it for account-linked event streams or sponsor ad-performance metrics.
+## UK GDPR and special-category risk
 
-The native outbox is app-private SQLite storage on mobile/desktop terminal equipment and must be assessed under PECR Regulation 6; describing it as app-private or anonymous does not remove it from the storage/access rules. The statistical-purposes exception may be relevant because this queue exists solely to upload anonymous service-improvement measurements, does not create visitor tracking or ad measurement, aggregates on the server, and has a simple/free opt-out that clears queued rows. However, the controller must confirm that all Schedule A1 conditions are met, including clear information, a simple and free objection route, aggregation/deletion discipline and no use for individual monitoring or advertising. Do not claim PECR clearance until the controller records that assessment and verifies the deployed native behaviour. The website's memory-only queue and all SDK storage/access behaviour must be assessed separately.
+CathoScroll is a Catholic theology service. Account-linked reading behaviour and recommendation profiles can reveal or permit inference of religious or philosophical beliefs. Where the processing intentionally reveals, infers or uses those beliefs, the controller must identify both an Article 6 lawful basis and an Article 9 condition. Explicit consent may be appropriate, but it must be specific, informed, freely given, affirmative and easy to withdraw.
 
-## UK GDPR analytics position
+Do not use religious beliefs, inferred faith, topic/category history or recommendation profiles to target sponsors. Sponsor measurement is for aggregate campaign reporting and frequency controls only. Sponsors must not receive raw user-level events or reading histories.
 
-- Recommendation personalisation has its own explicit opt-in and withdrawal controls. This consent is purpose-specific.
-- Signed-in topic-feed and Top Comments raw events remain linked to an account for up to 180 days, with a restricted viewer bridge. They record engagement measurements for internal service analytics; the analytics pipeline does not create belief labels/profiles or use events to make individual decisions.
-- Article 6(1)(f) legitimate interests is a possible basis for proportionate internal service measurement, but the controller must complete and approve a purpose/necessity/balancing test. The necessity test must compare account-linked metrics with less intrusive anonymous aggregates.
-- Record the applicable Article 6 basis for operational analytics and complete a purpose/necessity/balancing assessment where legitimate interests is selected. Keep operational measurement separate from the optional recommendation-personalisation profile.
-- Signed-out daily aggregates do not include visitor/session/account identifiers, but small topic/day cells and surrounding request logs still require context-based identifiability review and suppression.
+## Verified provider-account facts (21 November 2026)
 
-## Outstanding controller and operational actions
+The connected account configuration was inspected read-only:
 
-1. Accept and retain the Supabase DPA; review the current subprocessor list, data residency details, transfer impact assessment and transfer mechanism.
-2. Before accepting paid sponsorship revenue, complete the planned move to an appropriate commercial hosting plan. No hosting-plan change is required for the current pre-revenue service.
-3. Confirm Vercel's and Supabase's contractual processor/controller roles for each data stream and record the applicable DPAs.
-4. Set a backup/export policy for Supabase Free, store encrypted backups outside the project, and test a restore. The provider's Free plan does not supply automatic backups/PITR.
-5. Record a purpose-specific Article 6 basis for each analytics stream and approve a legitimate-interests assessment where Article 6(1)(f) is selected.
-6. Verify deployed browser/native network requests, SDK storage behaviour, request metadata, CDN/WAF/function logs and retention settings.
-7. Keep the temporary sponsor-logo compatibility bridge until the logo-free application is deployed. Then run docs/sponsor-logo-removal.sql and verify the old RPC signature and null logo payload are gone.
-8. Disable Supabase TOTP enrolment and verification in hosted Auth settings and remove the existing unverified factor through the Supabase Auth Admin API. Do not delete managed auth schema rows with SQL.
+| Provider | Verified configuration | Legal implication |
+|---|---|---|
+| Supabase | CathoScroll project; AWS region `eu-north-1` (Stockholm); Free organisation plan; PostgreSQL 17.11.0.011 | The database's primary region is Stockholm. This does not mean all support, account, telemetry, log or subprocessor processing stays in that region. |
+| Vercel | `ts_cathoscroll` project; Hobby team plan; current production deployment region `iad1` (US East) | The public Vercel DPA states that it applies to customers on Pro and Enterprise plans. The current Hobby account must not be assumed to have that DPA. This is a release blocker until Vercel confirms an applicable Article 28 processor agreement for the Hobby plan or the account moves to a plan with the required DPA. |
 
-## Sources
+Official provider materials reviewed:
 
-- [ICO: Guidance on storage and access technologies](https://ico.org.uk/for-organisations/direct-marketing-and-privacy-and-electronic-communications/guidance-on-the-use-of-storage-and-access-technologies/)
-- [ICO: Statistical-purposes exception](https://ico.org.uk/for-organisations/direct-marketing-and-privacy-and-electronic-communications/guidance-on-the-use-of-storage-and-access-technologies/what-are-the-exceptions/)
+- Supabase [Data Processing Addendum](https://supabase.com/legal/customer-resources/data-processing-addendum), Version 1 — 1 August 2026. It identifies Supabase Pte. Ltd. as processor, provides for EU SCCs and a UK Addendum, and permits processing by authorised subprocessors. The controller must confirm the applicable agreement is incorporated into the actual account terms and review the current [subprocessor list](https://supabase.com/legal/customer-resources/subprocessor-list).
+- Supabase [Data Residency and Transfers FAQ](https://supabase.com/legal/privacy-resources/data-residency-and-transfers-faq), Version 1 — 6 October 2026. It states that the selected region hosts the primary database, Auth and Storage, but account information, support, telemetry, logs and CDN processing may involve other regions.
+- Vercel [Data Processing Addendum](https://vercel.com/legal/dpa), updated 17 March 2026, effective 31 March 2026. Its scope states that it applies to Vercel processing for customers on Pro and Enterprise plans and describes US primary processing facilities and international transfers. The current Hobby plan's contractual position remains unverified.
+- ICO [data protection fee self-assessment](https://ico.org.uk/for-organisations/data-protection-fee/data-protection-fee-self-assessment/). The ICO says organisations, including sole traders, that use personal information must pay unless exempt. Complete the official self-assessment; do not assume exemption or a fee tier. The GOV.UK registration page states that the organisation's name and address appear on the public register; if operating from home, it says a PO box or alternative address can be provided instead. Decide what lawful business address to publish before registering.
 
-- [Supabase: GDPR compliance](https://supabase.com/docs/guides/security/gdpr-compliance)
-- [Supabase: Pricing and plan comparison](https://supabase.com/pricing)
-- [Supabase: Data Processing Addendum](https://supabase.com/legal/customer-resources/data-processing-addendum)
-- [Vercel: Terms of Service](https://vercel.com/legal/terms)
-- [Vercel: Fair Use Guidelines](https://vercel.com/docs/limits/fair-use-guidelines)
-- [Vercel: Data Processing Addendum](https://vercel.com/legal/dpa)
-- [Vercel: Web Analytics privacy](https://vercel.com/docs/analytics/privacy-policy)
+These checks verify account configuration and public terms only. They do not prove that either provider agreement has been accepted, that a transfer impact assessment has been completed, or that the current subprocessor list has been reviewed and recorded.
+
+## Formspree contact-form integration
+
+The Vercel project has a configured `NEXT_PUBLIC_FORMSPREE_FORM_ID` for both Production and Preview. The contact form is therefore active and sends the submitter's name, email address, subject and message to Formspree. It is not merely an optional integration.
+
+Formspree's [security page](https://formspree.io/security/) states that its services are hosted on AWS in the United States, that it acts as a data processor and that it relies on Standard Contractual Clauses for international transfers. Its public privacy information directs customers to obtain the DPA, subprocessor list, processing locations and retention details through its privacy portal. The controller must obtain and retain the actual DPA and current vendor records, confirm the applicable transfer mechanism and review Formspree's spam-filtering subprocessors. Until this is completed, Formspree's Article 28 and transfer arrangements remain unverified.
+
+## Provider checks still required
+
+The code review does not prove that provider contracts and transfers are compliant. The controller must verify, in the actual accounts and current provider terms:
+
+- Vercel and Supabase processor terms, subprocessors, processing locations and international transfer mechanisms.
+- Any other connected provider receiving account, analytics, authentication, security or payment data.
+- Article 28 processor terms, appropriate transfer safeguards and the required privacy disclosures.
+- Runtime, security and access-log fields and retention, including IP addresses and request metadata.
+- Whether Vercel Web Analytics/Speed Insights processing is covered by the selected consent and disclosed accurately.
+
+## Controller governance still required
+
+- Complete and approve a DPIA screening; complete a full DPIA if the processing is likely to result in high risk. A proportionate DPIA is prudent given the religious-content context and account-linked profiling.
+- Maintain a record of processing activities, retention schedule, data-subject request procedure and consent evidence.
+- Record the Article 6 basis and Article 9 condition for each relevant purpose. If legitimate interests is used for non-special-category operational processing, complete a documented necessity and balancing assessment.
+- Confirm the controller's ICO fee-registration position and pay any fee that is due.
+- Have a UK data-protection solicitor review the final deployed behaviour, notices, provider arrangements and DPIA before release.
+
+## Retention and withdrawal
+
+Signed-in raw analytics events and the restricted viewer bridge are retained for up to 180 days. Separate HMAC-protected API rate-limit records are security data containing endpoint/account-or-client keys, request counts and time-window timestamps; stale rows are opportunistically pruned after two days. Native pending events are capped at 2,000 per stream and seven days, deleted after acknowledgement, and cleared on withdrawal/account change. Consent history is retained as needed to demonstrate the choice. Apply the published account deletion and legal-retention rules consistently.
+
+Withdrawal must take effect locally immediately, stop new collection and uploads, clear the matching pending queue, and synchronise the denial to the server when connectivity returns. Do not silently switch to another lawful basis for the same optional purpose after consent is withdrawn.
 
 
-## 20 November 2026 — UK GDPR analytics assessment update
-
-The detailed controller draft is in [docs/uk-gdpr-analytics-assessment.md](./uk-gdpr-analytics-assessment.md). It separates account-linked service analytics, signed-out aggregate topic/comment statistics, sponsor measurement, sponsor delivery accounting, Vercel telemetry and recommendation personalisation. It recommends a separate explicit service-analytics choice for account-linked topic/comment events and a separate sponsor-measurement choice. Recommendation personalisation remains on signup and Account settings only.
-
-For visitors who decline sponsor measurement, the proposed least-intrusive fallback is a server-side campaign/day served-placement aggregate only. Do not create client viewability/click events, session tokens, hashed session-frequency rows or per-person frequency records for those visitors. Campaign-wide caps and pacing remain available. This preserves delivery accounting without claiming unique reach, viewability, clicks or CTR for opted-out visitors.
-
-The assessment does not approve PECR compliance. The controller must still document whether the signed-out aggregate topic/comment pipeline and native app-private SQLite outbox meet the statutory statistical-purposes exception or require prior consent. Verify the actual deployed browser/native behaviour and all provider logs before sign-off.
-
-## Consent implementation status (consolidated PR #25)
-
-The central optional analytics consent manager and matching API/client gates were merged in PR #25 and deployed to production in commit `e0da259` on 20 November 2026. The three consent and lock-order migrations are recorded as applied in the production database. The manager replaces the legacy single signed-out analytics toggle with two independent, default-off choices: Service improvement analytics and Sponsor measurement. Signed-in choices are account-scoped and synchronised through a private consent ledger; signed-out choices remain device-local and do not create a persistent visitor identifier. Vercel Web Analytics and Speed Insights are gated by Service improvement analytics.
-
-When Sponsor measurement is declined, sponsor cards remain eligible for delivery; campaign/day served totals continue for delivery and pacing; no visitor/session token or hash is created; no per-user/per-session frequency row or sponsor served-event receipt is written; and no client viewability/click event is collected. The database now accepts null session IDs/tokens for this path. This behaviour is included in the current production deployment. Browser/native end-to-end verification remains outstanding.
-
-The initial consent migration was executed transactionally against the existing production schema and rolled back before permanent application, followed by rolled-back consent/sponsor-selector smoke tests. No separately billed disposable Supabase branch was created, so a separate clean-install PostgreSQL run remains outstanding. GitHub CI validates the SQL copies and application tests. The consent UI and client-side enforcement are live in production. Browser/native end-to-end verification and a separate clean-install PostgreSQL test remain outstanding; controller/legal approval is still required.
+On withdrawal, the server removes the account-linked raw event records and placement receipts for the withdrawn purpose and rebuilds recent aggregate tables from the remaining opted-in event ledger. Native pending queues are cleared locally; historical daily aggregates older than the raw-event retention window may remain only as non-identifying totals.

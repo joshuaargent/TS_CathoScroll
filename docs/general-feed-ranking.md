@@ -1,55 +1,41 @@
 # General feed ranking
 
-## Purpose
+## Ranking model
 
-CathoScroll has two distinct ranking layers:
+CathoScroll has three distinct content-ordering modes:
 
-1. **General ranking** is the default for signed-out visitors and signed-in accounts with personalisation disabled. It uses site-wide engagement and public content interactions. It does not read a visitor's account history.
-2. **Personalised ranking** is available only after a user explicitly enables personalisation. The recommendation RPC uses only that account's explicit actions recorded after consent (progress/completions, bookmarks, topic likes, comments, comment likes and replies) and the categories the user selects. It never reads operational feed or Top Comments analytics events.
+1. **General feed:** a shared site-wide ranking for signed-in and signed-out readers. It uses public interaction signals (likes, bookmarks and top-level comments), curated topic order, recency, category-exposure balancing and only the signed-in Service improvement aggregates permitted by consent. It does not use anonymous engagement analytics or sponsor activity.
+2. **Category pages:** curated `order_index, id` order within the selected published category.
+3. **Personalised feed:** available only after the account holder explicitly enables Personalisation. A private account profile schedules categories; topics within each category remain in curated order.
 
-Personalisation is not required to receive a ranked feed.
+Sponsor selection is a separate placement system. Sponsor delivery and sponsor measurement never influence organic topic ranking.
 
-## General ranking signals
+## General ranking implementation
 
-The production function is `public.get_public_general_topic_page(jsonb, integer)`. It ranks published topics using the rolling 90-day window across `catho_private.feed_analytics_daily` (signed-in aggregates) and `catho_private.anonymous_feed_analytics_daily` (signed-out aggregates):
+The production selector is `public.get_public_general_topic_page(jsonb, integer)`. Its score uses public interaction counts and the signed-in feed analytics daily rollup, which receives only events from users who enabled Service improvement analytics. The query does not read anonymous topic/comment tables, visitor IDs, session IDs, sponsor events or sponsor delivery counts.
 
-- Viewable impressions: strongest exposure signal.
-- Impressions: smaller contribution, to avoid treating every loaded card as meaningful engagement.
-- Completions: positive quality signal.
-- Active reading duration: positive signal, capped per daily aggregate to reduce runaway values.
-- Skips: negative signal.
-- Recency: each day's contribution decays exponentially with a 45-day decay constant (`exp(-age_days / 45)`).
-- Public engagement: topic likes, bookmarks and visible top-level comments contribute logarithmically.
+The selector computes topic scores once per page, then chooses the next topic from the least-served eligible category. Its opaque cursor preserves category offsets and exposure counts and avoids a third consecutive topic from the same category when another eligible category exists. These cursor values are local pagination state, not analytics records.
 
-The score is deliberately transformed so that a topic with a very large historical audience does not permanently dominate newer material. A separate exposure-based exploration bonus gives under-exposed topics a better chance to surface, preventing the feed from becoming a closed loop of the same winners. This is a practical engagement ranking, not a theological judgement about the correctness or importance of a topic.
+## Category pages
 
-## Diversity and pagination
+A category page is a curated browse view. It filters published topics to the selected category and orders them by editorial `order_index, id`. It does not read account history, analytics, sponsor events or anonymous activity.
 
-The selector keeps a per-category served count and offset in its opaque cursor. It chooses the highest-scoring next topic from the least-served eligible category. It avoids a third consecutive topic from the same category where another category has eligible content. Within each category, topics are ordered by general score, then the existing editorial `order_index`, then stable topic ID.
+## Personalisation
 
-The score for each published topic is calculated once per page request and cached in an in-memory JSON ranking map for the selection loop. The cursor records category offsets so the same topic is not intentionally selected twice during ordinary pagination. The ranking score is recomputed when a new page is requested, so engagement changes can affect later pages; already-loaded cards are kept in the active feed session.
+The recommendation RPC uses the account's private post-consent profile and explicitly selected category interests. It does not use sponsor activity. Turning Personalisation off stops new recommendation-signal processing and deletes the derived profile and selected interests according to the consent implementation.
 
-The general path includes completed topics. It does not consult `progress` or any bookmarks, likes, comments or feed telemetry belonging to the current visitor; public engagement counts and account-free site-wide aggregates are shared ranking inputs. Signed-out and opted-out visitors therefore receive the same general ranking logic.
+Native Android and Electron clients can display previously downloaded server-ranked pages from encrypted offline storage. They do not run a separate offline recommendation learner.
 
-## Sponsor separation
+## Analytics boundary
 
-Sponsor selection is a separate paid-placement system. Sponsor delivery must not modify organic topic scores or category weights. Sponsor targeting may use campaign-level category/topic eligibility, but it must not use an individual's recommendation profile or expose personal reading histories to sponsors.
+CathoScroll does not collect anonymous topic impressions, comment-card exposures, sponsor viewability, sponsor clicks, sponsor duration, anonymous frequency, or sponsor delivery counts. No anonymous analytics queue or anonymous analytics database pipeline is part of the product.
 
-## Operational and privacy notes
+Signed-in Service improvement analytics and signed-in Sponsor measurement are separate opt-in streams. Their aggregates may be used for their disclosed purposes only. Sponsor measurement is never used for organic ranking, recommendation profiles or religious-interest ad targeting.
 
-General ranking consumes aggregate site-wide topic metrics from both the signed-in feed analytics daily rollup and the separate signed-out anonymous daily rollup. Anonymous topic impressions, viewable impressions, completions, active duration and skips contribute to the same site-wide score; they are never linked to a current visitor or used as a visitor-specific preference. The score remains an aggregate content-ranking signal, not a profile of signed-out readers. Anonymous comment and sponsor metrics are excluded from organic topic ranking.
+## Operational checks
 
-The ranking function is part of the emergency clean-project bootstrap at `docs/cathoscroll-database-bootstrap.sql`. Production schema changes were applied directly to Supabase; no standalone SQL migration file is maintained for this change.
-
-## Validation performed
-
-- Applied the function directly to the production Supabase database and verified the anonymous aggregate source is included.
-- Executed the function against the live published catalogue and confirmed it returned ranked topic records, category slugs and a continuation cursor.
-- Verified two consecutive pages of ten topics had zero duplicate topic IDs.
-- Optimised the scoring pass from repeated per-slot score calculation to one score calculation per page. After including both signed-in and anonymous daily rollups, a 24-topic production query measured approximately 74.8 ms on its first run and 18.9 ms on a warm repeat, with 3,761 shared-buffer hits on both runs. The earlier pre-optimisation measurement was approximately 76.7 ms and 12,007 buffer hits. These are single production measurements, not a load test.
-- The application integration is on the open draft PR branch. A full application build and automated test run are still required before deployment.
-
-
-## Signed-out analytics contribution
-
-The general feed score now reads both account-free daily topic aggregates and anonymous daily topic aggregates over the same rolling 90-day window. This means signed-out engagement can influence which topics are generally surfaced to everyone, including signed-out and opted-out signed-in visitors. The query still reads no current viewer identity, account progress, or individual history. Anonymous daily data is weighted with the same viewability, completion, active-duration, skip and recency rules as signed-in daily aggregates; exposure-based exploration and category balancing continue to prevent a small set of high-volume topics from dominating.
+- Keep the general ranking independent of sponsor campaign data.
+- Keep category balancing and cursor continuity when changing ranking weights.
+- Do not add anonymous engagement aggregates as a ranking input.
+- Keep sponsor delivery selection separate from feed ordering.
+- Treat all account-linked reading signals as potentially sensitive because the subject matter can reveal or permit inference of religious or philosophical beliefs.

@@ -82,6 +82,12 @@ export default function ContactPage() {
                         required
                       />
 
+                      <p className="text-text-secondary text-sm">
+                        Please do not include passwords, payment details or sensitive personal
+                        information. Contact form submissions are processed by Formspree and
+                        delivered to CathoScroll.
+                      </p>
+
                       <Button
                         type="submit"
                         size="lg"

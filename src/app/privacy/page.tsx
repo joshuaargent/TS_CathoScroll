@@ -13,7 +13,7 @@ export default function PrivacyPage() {
       <div className="mt-16 mb-16">
         <h1 className="text-5xl font-extrabold md:text-7xl">Privacy Policy</h1>
 
-        <p className="text-text-secondary mt-4 text-lg">Last updated: 20 November 2026</p>
+        <p className="text-text-secondary mt-4 text-lg">Last updated: 22 November 2026</p>
       </div>
 
       <div className="space-y-12">
@@ -35,7 +35,7 @@ export default function PrivacyPage() {
           <h2 className="mb-4 text-3xl font-bold">Who We Are</h2>
 
           <p className="text-text-secondary leading-relaxed">
-            CathoScroll is operated by Joshua Argent, who is the data controller for the personal data
+            CathoScroll is operated by Joshua Argent as a sole trader in the United Kingdom. Joshua Argent is the data controller for the personal data
             described in this policy. CathoScroll provides educational resources focused on Catholic
             theology, Scripture, Church history, prayer, apologetics, and related subjects. You can
             contact the controller using the details at the end of this policy.
@@ -62,7 +62,7 @@ export default function PrivacyPage() {
             <li>Quiz progress and quiz results.</li>
             <li>Learning path progress.</li>
             <li>Technical, device, and security data.</li>
-            <li>Optional analytics events and aggregates only where you have enabled the relevant analytics choice.</li>
+            <li>Optional account-linked analytics events and aggregates only where you have enabled the relevant analytics choice.</li>
             <li>Optional analytics consent choices and timestamps for signed-in accounts.</li>
             <li>Optional personalisation consent records, selected category interests, and derived topic-interest scores when you opt in.</li>
             <li>For sponsor representatives: organisation membership, campaign submissions, invoice details, and payment references.</li>
@@ -121,10 +121,10 @@ export default function PrivacyPage() {
             <li>Provide learning paths, quizzes, audio, and other platform features without charging individual users.</li>
             <li>Personalise topic recommendations only where you have explicitly opted in.</li>
             <li>Administer paid sponsor campaigns, invoices, and sponsor account access.</li>
-            <li>Measure sponsored campaign delivery and provide sponsors with aggregate campaign reports.</li>
+            <li>Provide aggregate sponsor reports based only on signed-in users who explicitly enable Sponsor measurement.</li>
             <li>Improve performance and reliability.</li>
-            <li>Measure topic and Top Comments engagement only where Service improvement analytics is enabled.</li>
-            <li>Measure sponsor viewability, clicks and frequency only where Sponsor measurement is enabled.</li>
+            <li>Measure account-linked topic and Top Comments engagement only when Service improvement analytics is enabled; eligible passive reading signals inform recommendations only when Personalisation is also enabled.</li>
+            <li>Measure sponsor viewability, clicks on viewable placements and frequency only where Sponsor measurement is enabled.</li>
             <li>Monitor abuse, spam, fraud, and security issues.</li>
             <li>Comply with legal obligations.</li>
           </ul>
@@ -135,56 +135,27 @@ export default function PrivacyPage() {
 
           <p className="text-text-secondary leading-relaxed">
             Personalisation is optional and is off by default. If you explicitly opt in,
-            CathoScroll uses only explicit account actions recorded after consent (progress and
-            completions, bookmarks, topic likes, comments, comment likes and replies) and
-            the categories you choose to create a private content-interest profile and
-            personalise your topic recommendations. Operational analytics such as impressions,
-            reading time, swipe depth, skips, return visits and Top Comments exposure are
-            never used for recommendation ranking.
+            CathoScroll uses your direct account actions, such as progress, likes, bookmarks and
+            relevant community interactions, together with the categories you choose, to create a
+            private recommendation profile. Enabling Personalisation also enables Service improvement analytics, which remains enabled while Personalisation is active; turn off Personalisation before withdrawing Service improvement. Eligible reading signals (including viewable impressions, reading duration, swipe depth, skips, completions and return visits) may then be collected for service reporting and inform recommendations while Personalisation is enabled. Sponsor measurement remains separate and optional.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            Because CathoScroll focuses on Catholic theology, Scripture and related religious
-            subjects, these account actions and selected categories may reveal or allow
-            inferences about religious or philosophical beliefs. We use the private profile
-            only to rank educational content in your own feed; we do not create a religious-
-            belief or affiliation label. It is not displayed on your public profile and is
-            never shared with sponsors or used for advertising targeting.
+            Because CathoScroll focuses on Catholic theology, Scripture, and related
+            religious subjects, these interests and activity patterns may reveal or allow
+            inferences about religious or philosophical beliefs. We treat this possibility
+            as sensitive and only use this profile for personalising your own educational
+            recommendations after your explicit opt-in. It is not a declaration of your
+            religious affiliation, is not displayed on your public profile, and is not
+            shared with sponsors or used for advertising targeting.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
             You can review the categories and topics influencing your recommendations,
             change your selected interests, or withdraw consent at any time in
             <Link href="/account/personalization" className="text-accent mx-1 hover:underline">Account → Personalisation</Link>.
-            Withdrawing consent stops profile-based recommendation weighting and deletes
-            the derived topic-interest scores and selected category interests. It does not
-            erase separate operational analytics records that are retained for their
-            stated operational period.
-          </p>
-        </section>
-
-        <section>
-          <h2 className="mb-4 text-3xl font-bold">Lawful Bases for Processing</h2>
-
-          <p className="text-text-secondary leading-relaxed">
-            Where UK data protection law applies, the lawful basis depends on the purpose:
-          </p>
-
-          <ul className="text-text-secondary mt-4 list-disc space-y-2 pl-6">
-            <li>Contract: to create and operate your account and provide features you request.</li>
-            <li>Legitimate interests: to secure, maintain, troubleshoot, moderate and prevent abuse, where a documented assessment shows that our interests are not overridden by your rights.</li>
-            <li>Consent: for optional Service improvement analytics and Sponsor measurement, including account-linked topic/comment analytics when signed in.</li>
-            <li>Explicit consent under Article 6(1)(a) and, where topic/comment engagement or sponsor-placement context reveals special-category beliefs, Article 9(2)(a): for the relevant optional analytics processing. Service improvement analytics and Sponsor measurement are separate choices from each other and from recommendation personalisation.</li>
-            <li>Legal obligation: to keep or disclose information where applicable law requires it.</li>
-            <li>Consent: for optional personalisation. Because this processing may reveal religious or philosophical beliefs, we rely on your explicit consent under Article 6(1)(a) UK GDPR and the Article 9(2)(a) exception for the relevant special-category processing.</li>
-          </ul>
-
-          <p className="text-text-secondary mt-4 leading-relaxed">
-            Service improvement analytics and sponsor measurement are optional and off by default. They are collected only after you enable the relevant choice in the analytics settings. Topic and comment engagement in a Catholic-content service may reveal religious or philosophical beliefs. Sponsor-measurement events can also be associated with the topic placement where a sponsor appeared. The relevant consent choices explain this possibility and are separate from recommendation personalisation. Operational analytics are not used to personalise recommendations or infer religious beliefs. Recommendation personalisation uses explicit account actions only after its own opt-in; it does not read these analytics events. We do not create a religious-affiliation label or make decisions about users from operational analytics.
-          </p>
-
-          <p className="text-text-secondary mt-4 leading-relaxed">
-            You may withdraw personalisation consent in Account settings and analytics consent using Manage analytics choices on the Cookie Policy page. Withdrawal stops future optional collection, clears pending local analytics queues and synchronises signed-in consent changes when the device reconnects. It does not affect processing carried out before withdrawal or essential account and synchronisation features.
+            Withdrawing Personalisation stops recommendation weighting and deletes the derived
+            profile and selected category interests. Service improvement analytics remains enabled for service reporting unless you withdraw it after turning off Personalisation. Its passive signals are no longer used for recommendations when Personalisation is off.
           </p>
         </section>
 
@@ -192,11 +163,15 @@ export default function PrivacyPage() {
           <h2 className="mb-4 text-3xl font-bold">Automated Recommendations</h2>
 
           <p className="text-text-secondary leading-relaxed">
-            Personalised ranking uses only the explicit account actions and selected categories
-            described above. It does not read operational analytics events and only changes the
-            order of educational topics in your feed; it does not determine access to essential
-            services or make decisions with legal or similarly significant effects. You can turn
-            it off and delete the derived profile through Account settings.
+            If you opt in to personalisation, automated ranking uses a private profile derived from
+            account actions (progress, bookmarks, likes, comments, comment likes and replies), and your
+            selected categories. Eligible passive reading signals (viewable impressions, reading
+            duration, swipe depth, skips, completions, return visits and Top Comments exposure)
+            are included under Service improvement analytics, which must remain enabled while Personalisation is active; they inform recommendations only while Personalisation is also enabled.
+            It orders educational topics in your own feed and does not determine access to
+            essential services, prices, employment, credit, insurance, or other decisions with
+            legal or similarly significant effects. You can turn off personalisation and delete
+            the derived profile through Account settings.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
@@ -227,11 +202,7 @@ export default function PrivacyPage() {
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            Sponsors receive aggregate campaign performance reporting. Campaign/day served totals include
-            all eligible deliveries, while viewability, click and click-through measurements include
-            only visits where Sponsor measurement was enabled. They do not receive user identities,
-            individual reading histories, private notes, personalisation profiles, or raw user-level
-            analytics events.
+            Sponsors receive aggregate campaign reports calculated only from signed-in users who explicitly enable Sponsor measurement. Reports contain only opted-in viewable impressions and clicks; they are not total delivery, total reach or all-platform performance. Sponsors do not receive user identities, individual reading histories, private notes, Personalisation profiles or raw user-level analytics events. Sponsor deliveries are not counted.
           </p>
         </section>
 
@@ -239,81 +210,58 @@ export default function PrivacyPage() {
           <h2 className="mb-4 text-3xl font-bold">Analytics</h2>
 
           <p className="text-text-secondary leading-relaxed">
-            CathoScroll offers two separate optional analytics purposes: Service improvement
-            analytics and Sponsor measurement. Both are off by default and can be changed at any
-            time using Manage analytics choices on the Cookie Policy page. They are separate from
-            recommendation personalisation, are not used for recommendation ranking or belief
-            inference, and are not used to build sponsor targeting profiles.
+            Service improvement analytics measures signed-in topic and Top Comments engagement only while you have enabled it. Events are linked to your account and may reveal religious or philosophical interests; this can involve special-category data. Raw analytics events and the restricted daily viewer bridge are retained for up to 180 days. Separate API rate-limiting records contain an HMAC-protected key derived from the endpoint scope and account or client identifier, a request count and time-window timestamps; they are security controls, not engagement analytics, and stale entries are opportunistically deleted after two days. Withdrawing Service improvement deletes your account-linked feed and Top Comments events and viewer-bridge rows; daily aggregates within the raw retention window are rebuilt without your events. Older daily totals may remain as non-identifying aggregates. CathoScroll does not collect anonymous topic or comment engagement statistics and does not create anonymous analytics queues.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            When Service improvement analytics is enabled, signed-in topic-feed and Top Comments
-            events are linked to the account that generated them. They measure impressions,
-            viewability, active reading time, skips, completions, slide depth, return visits and
-            discussion opens. Raw events and the restricted daily viewer bridge are retained for up
-            to 180 days; daily totals without account or session identifiers are retained longer.
-            Signed-out topic/comment analytics use a separate daily aggregate pipeline without
-            account, visitor or session identifiers. No anonymous unique-person metric is created.
-            Turning off recommendation personalisation does not itself change analytics consent.
-            On Android and Electron, unsent signed-in topic and Top Comments events are persisted in
-            the encrypted private activity database, capped at 2,000 events per stream and seven
-            days. Pending events are cleared when Service improvement analytics is withdrawn. The
-            website keeps unsent account-linked analytics in memory only. Vercel Web Analytics and
-            Speed Insights are loaded only while Service improvement analytics is enabled.
+            Personalisation and Service improvement analytics are separately presented optional choices. Enabling Personalisation automatically enables Service improvement, which remains enabled while Personalisation is active. Passive reading signals—such as impressions, reading duration, swipe depth, skips, completions, return visits and Top Comments exposure—are collected under Service improvement analytics and inform private recommendations while Personalisation is enabled. Turn off Personalisation before withdrawing Service improvement.
+            Withdrawing Personalisation deletes the derived profile; withdrawing Service improvement
+            removes passive reading signals from recommendations. Sponsor measurement is never used
+            for recommendations. Account-linked choices are available at signup and in Account settings.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            When Service improvement analytics is enabled, signed-out visitors contribute to CathoScroll's
-            separate first-party anonymous topic and Top Comments measurement. The browser sends event IDs and the relevant topic
-            or comment identifier, but no account ID, persistent visitor ID, raw session ID or
-            cross-visit profile. The server deduplicates events and stores only UTC daily aggregate
-            counts for impressions, viewability, active duration, skips, completions and discussion
-            opens. Event receipts used only for deduplication become eligible for deletion after 30 days; a scheduled cleanup runs every 15 minutes in bounded batches. On the website, unsent anonymous event batches are held in page memory only. Native apps persist the anonymous topic/comment retry queue in app-private SQLite, capped at 2,000 events and seven days, so it survives app termination and uploads after reconnection. The queue contains no account, visitor or session identifier; users can decline or withdraw Service improvement analytics through Manage analytics choices on the Cookie Policy page, which clears pending local events. The
-            API also applies abuse-prevention rate limits using a keyed HMAC fingerprint of the
-            trusted request IP; stale rate-limit entries become eligible for cleanup after two
-            days. That fingerprint is not joined to feed event aggregates. Standard hosting and
-            security logs may separately process network metadata under their own controls.
-            The aggregate counts do not support an anonymous unique-person or session count.
+            Service improvement analytics is available only to signed-in users who explicitly opt in. It measures account-linked topic and Top Comments engagement; no anonymous topic or comment engagement events or queues are collected. Daily aggregates from consenting accounts may also contribute to the shared general topic ranking shown to all readers. That shared ranking does not use the current reader's account history or create an individual profile. Private Personalisation is separate: passive reading signals inform your own recommendations only while Personalisation is enabled. Signed-in Service improvement events use encrypted native storage, capped at 2,000 events per stream and seven days. Website signed-in queues remain in memory. Vercel Web Analytics and Speed Insights load only while signed-in Service improvement analytics is enabled. CathoScroll removes query strings and fragments and replaces topic, category and search identifiers with generic route labels before sending performance data; Vercel may separately process route, device, browser, country and web-vital information under its own privacy terms.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            Sponsor delivery is separate from Sponsor measurement. Sponsored cards may be shown
-            whether or not you enable Sponsor measurement. If you enable it, a random session token
-            exists only in active page/app memory and its SHA-256 hash is stored for frequency
-            controls; raw sponsor event and frequency rows become eligible for deletion after 30
-            days. If you decline Sponsor measurement, no visitor/session token or hash is created,
-            no per-session frequency record is written, and no viewability/click event is collected.
-            In that case CathoScroll retains only campaign/day served totals needed for delivery and
-            pacing. Campaign-level caps continue to apply. The measured viewability and click rates
-            therefore describe only placements for which Sponsor measurement was enabled, not all
-            people who saw a sponsor card. Failed opted-in sponsor-event sends are retried in memory;
-            the retry queue is not persisted because the session token must not survive an app
-            restart.
+            Sponsor delivery is separate from Sponsor measurement. Sponsor cards remain available when measurement is off and for signed-out visitors. Sponsor measurement is a separate explicit opt-in for signed-in users and records account-linked viewable impressions, clicks and viewing duration; signed-in frequency is derived from the opted-in viewable-impression event ledger. Signed-out sponsor placements are not measured. No anonymous sponsor events, session counters, served totals or delivery counters are created or retained. A placement is viewable when at least 50% of its card remains visible for one continuous second while the page is visible. Signed-in event payloads contain no topic or category IDs, although a campaign's configured context may be apparent from its campaign ID. Sponsor measurement is never used for recommendations or individual belief-based targeting. Withdrawing Sponsor measurement also deletes your account-linked sponsor event records and clears its local queue.
+          </p>
+        </section>
+
+        <section>
+          <h2 className="mb-4 text-3xl font-bold">Lawful Bases and Special Category Data</h2>
+
+          <p className="text-text-secondary leading-relaxed">
+            We process account information and provide features you request, such as sign-in,
+            bookmarks, learning progress, notes and community participation, where necessary to
+            perform our contract with you or take steps at your request before entering a contract
+            (UK GDPR Article 6(1)(b)). We use legitimate interests under Article 6(1)(f), where
+            appropriate and after considering your rights, for service security, abuse prevention,
+            fraud prevention and protecting the integrity of CathoScroll. We process information
+            where necessary to comply with legal obligations under Article 6(1)(c), including
+            applicable accounting and legal requirements.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            When Service improvement analytics is enabled, CathoScroll loads Vercel Web Analytics for
-            aggregate site-level traffic measurement, including visits from people who are not signed in. Vercel states that it does not use
-            third-party cookies and derives a short-lived visitor hash from the incoming request,
-            which is discarded after 24 hours. Its analytics data points may include timestamps,
-            page URLs, referrers, filtered query parameters, approximate geolocation, and device
-            and browser information. CathoScroll preserves ordinary page-level reporting but
-            replaces topic, category and search identifiers with generic route labels, removes
-            query strings and fragments, and applies a strict-origin referrer policy so the browser
-            sends only the referring site's origin. Vercel's own processing and any request-level
-            metadata remain subject to Vercel's privacy documentation and our processor and
-            international-transfer review.
+            Service improvement analytics, Personalisation and Sponsor measurement are optional,
+            separately presented choices. Enabling Personalisation automatically enables Service improvement analytics, which remains enabled while Personalisation is active. Personalisation requires Service improvement analytics to
+            remain enabled; turn off Personalisation before withdrawing Service improvement. Sponsor
+            measurement remains separate. We rely on your consent under Article 6(1)(a) for these purposes.
+            CathoScroll focuses on Catholic theology and related subjects, so account-linked
+            reading activity, selected interests and sponsor placement context may reveal or allow
+            an inference about religious or philosophical beliefs. Where this is special-category
+            personal data, we process it only with your explicit consent under Article 9(2)(a).
+            The relevant choice is off until you actively enable it, and you can withdraw it in
+            Account settings. Withdrawal stops future processing for that purpose and triggers the
+            queue and deletion steps described above.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            When Service improvement analytics is enabled, Vercel Speed Insights measures Core Web Vitals
-            and real-world page performance. Its event hook removes query strings and fragments and replaces
-            topic/category/search identifiers with generic route labels before transmission.
-            Speed Insights reports technical performance and is separate from CathoScroll's
-            account-linked product analytics. Vercel describes its Speed Insights data points as
-            anonymous and says they are not designed to identify visitors or reconstruct browsing
-            sessions; its published data fields include route and URL, device, browser, country and
-            web-vital measurements.
+            Where a browser or app storage/access technology is used for optional analytics or
+            sponsor measurement, we also obtain prior consent under the Privacy and Electronic
+            Communications Regulations (PECR) where required. A UK GDPR lawful basis or explicit
+            consent does not by itself remove a separate PECR consent requirement.
           </p>
         </section>
 
@@ -344,7 +292,7 @@ export default function PrivacyPage() {
           <ul className="text-text-secondary mt-4 list-disc space-y-2 pl-6">
             <li>Supabase for authentication and database services.</li>
             <li>Vercel for hosting, deployment, and site analytics.</li>
-            <li>Formspree for contact-form delivery when the optional form integration is configured.</li>
+            <li>Formspree for contact-form delivery (name, email, subject and message).</li>
           </ul>
         </section>
 
@@ -359,10 +307,13 @@ export default function PrivacyPage() {
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            Supabase and Vercel may also process service metadata, support requests, security
-            logs, and other information through their own operations and subprocessors in
-            additional countries, including the United States and Singapore. This means some
-            personal data may be transferred outside the UK and EEA.
+            Supabase may process account information, support requests, telemetry and logs
+            through its own operations and subprocessors in additional locations, including the
+            United States and Singapore. Vercel's primary processing facilities are in the
+            United States, and its subprocessors may process information in other countries.
+            Formspree states that its services are hosted on AWS in the United States and that
+            it relies on Standard Contractual Clauses when acting as a data processor. This means
+            some personal data may be transferred outside the UK and EEA.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
@@ -371,7 +322,8 @@ export default function PrivacyPage() {
             Data Transfer Addendum or approved Standard Contractual Clauses where applicable.
             Provider information: <Link href="https://supabase.com/legal/customer-resources/data-processing-addendum" className="text-accent underline">Supabase DPA</Link>,
             {' '}<Link href="https://supabase.com/legal/privacy-resources/data-residency-and-transfers-faq" className="text-accent underline">Supabase data residency and transfers</Link>,
-            {' '}and <Link href="https://vercel.com/legal/dpa" className="text-accent underline">Vercel DPA</Link>.
+            {' '}and <Link href="https://vercel.com/legal/dpa" className="text-accent underline">Vercel DPA</Link>,
+            {' '}and <Link href="https://formspree.io/security/" className="text-accent underline">Formspree security and transfer information</Link>.
           </p>
         </section>
 
@@ -379,11 +331,11 @@ export default function PrivacyPage() {
           <h2 className="mb-4 text-3xl font-bold">Data Retention</h2>
 
           <p className="text-text-secondary leading-relaxed">
-            We retain information only for as long as reasonably necessary for the purpose for which it was collected, subject to legal, security, moderation, and accounting requirements. Raw feed, community-card, and sponsor-campaign analytics events, together with the user/day viewer bridge used for unique-viewer reporting, are retained for up to 180 days. Signed-in sponsor frequency-cap records are removed after campaigns have completed or been rejected and the applicable 180-day cutoff has passed. Anonymous sponsor session-frequency and event records are created only when Sponsor measurement is enabled and are removed after 30 days. When Sponsor measurement is declined, no such session records are created; campaign/day served totals without visitor/session identifiers are retained longer. Signed-in analytics consent choices and their change history are retained for as long as needed to demonstrate and administer your choice, subject to account deletion and applicable legal requirements.
+            We retain information only for as long as reasonably necessary for the purpose for which it was collected, subject to legal, security, moderation, and accounting requirements. Raw signed-in feed, community-card and sponsor-campaign analytics events, together with the user/day viewer bridge used for unique-viewer reporting, are retained for up to 180 days or until the relevant consent is withdrawn. Separate HMAC-protected API rate-limiting keys, request counts and time-window timestamps are used for security and abuse prevention; stale entries are opportunistically deleted after two days and are not engagement analytics or recommendation inputs. Server-issued sponsor placement receipts used to validate opted-in viewability and clicks expire after seven days and are deleted when Sponsor measurement is withdrawn. Signed-in sponsor frequency limits are derived from the opted-in viewable-impression event ledger; no separate per-user frequency table is retained. No anonymous topic, comment or sponsor engagement events, queues or delivery counters are created or retained. Signed-in analytics consent choices and their change history are retained for as long as needed to demonstrate and administer your choice, subject to account deletion and applicable legal requirements.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">
-            While personalisation is enabled, topic-interest scores are derived only from explicit account actions recorded after consent, with a maximum 180-day evidence window and 14-day and 90-day decay horizons. These actions include progress/completions, bookmarks, topic likes, comments, comment likes and replies. Passive operational analytics measurements such as impressions, reading duration, swipe depth, skips, return visits and Top Comments exposure are never used for recommendation personalisation. Explicit category choices remain stored while consent remains enabled. When you withdraw consent, the derived profile and explicit category choices are deleted. Separate operational analytics event records remain subject to their own retention period and are not used for recommendation ranking.
+            While Personalisation is enabled, the private profile uses direct account actions, selected interests and eligible passive reading signals collected under the required Service improvement analytics choice. The passive-signal evidence window is limited to 180 days, with 14-day and 90-day decay horizons. Turn off Personalisation before withdrawing Service improvement. Withdrawing Service improvement then stops new passive analytics, removes passive signals from recommendations and clears cached personalised pages that may have used those signals. Withdrawing Personalisation deletes the derived profile and selected category interests; Service improvement remains enabled for service reporting unless you withdraw it afterward. Sponsor measurement remains separate and is never used for recommendation ranking.
           </p>
 
           <p className="text-text-secondary mt-4 leading-relaxed">

@@ -74,7 +74,6 @@ export async function POST(request: Request) {
     console.error('Unable to verify sponsor-feed authentication:', cause);
     return respond(request, { error: 'Authentication is temporarily unavailable.' }, 503);
   }
-  const isAnonymous = !auth.user;
 
   const rateLimit = await checkApiRateLimit({
     scope: 'sponsor-campaigns:serve',
@@ -111,40 +110,36 @@ export async function POST(request: Request) {
   }
 
   try {
-    const sponsorMeasurementConsent = (parsed.value as Record<string, unknown>).sponsorMeasurementConsent === true;
-    // Anonymous measurement is opt-in per browser. Older clients that do not
-    // send the explicit flag fail closed while sponsor delivery remains enabled.
-    let sponsorMeasurementEnabled = isAnonymous
-      ? sponsorMeasurementConsent && parsed.value.sessionId !== null
-      : parsed.value.sessionId !== null;
+    let accountMeasurementEnabled = false;
     if (auth.user) {
       try {
         const consent = await getStoredAnalyticsConsent(auth.user.id);
-        sponsorMeasurementEnabled = consent.sponsorMeasurement && parsed.value.sessionId !== null;
+        accountMeasurementEnabled = consent.sponsorMeasurement && typeof parsed.value.sessionId === 'string';
       } catch (cause) {
-        // Fail closed for measurement, but never suppress an otherwise eligible
-        // sponsor placement because the optional consent service is unavailable.
+        // Consent lookup failure disables measurement but does not suppress
+        // otherwise eligible sponsor delivery.
         console.error('Unable to verify sponsor measurement consent; serving without measurement:', cause);
-        sponsorMeasurementEnabled = false;
       }
     }
-    const measurementSessionId: string | null = sponsorMeasurementEnabled && typeof parsed.value.sessionId === 'string'
-      ? parsed.value.sessionId
-      : null;
-    const { data, error } = isAnonymous
-      ? await createServiceRoleClient().rpc('get_anonymous_sponsor_campaigns', {
-          p_session_token: measurementSessionId,
+
+    // Sponsor measurement is account-only; every other visitor uses unmeasured selection.
+    // Sponsor delivery remains available to signed-out visitors and non-consenting accounts; these placements are never counted or stored.
+    const sponsorMeasurementEnabled = Boolean(auth.user && accountMeasurementEnabled);
+    const measurementSessionId: string | null = auth.user && sponsorMeasurementEnabled ? parsed.value.sessionId : null;
+    const { data, error } = !sponsorMeasurementEnabled
+      ? await createServiceRoleClient().rpc('get_unmeasured_sponsor_campaigns', {
           p_category_slug: parsed.value.categorySlug,
           p_topic_id: parsed.value.topicId,
           p_limit: 1,
         })
       : await createServiceRoleClient().rpc('get_weighted_sponsor_campaigns', {
           p_user_id: auth.user!.id,
-          p_session_id: measurementSessionId,
+          p_session_id: measurementSessionId as string,
           p_category_slug: parsed.value.categorySlug,
           p_topic_id: parsed.value.topicId,
           p_limit: 1,
-        });
+        })
+;
     if (error) {
       console.error('Unable to select sponsor campaigns:', error.message);
       return respond(request, { error: 'Sponsored content is temporarily unavailable.' }, 503);
@@ -164,6 +159,11 @@ export async function POST(request: Request) {
       return respond(request, { error: 'Sponsored content is temporarily unavailable.' }, 503);
     }
 
+    if (sponsorMeasurementEnabled && data.campaigns.some((campaign: Record<string, unknown>) =>
+      typeof campaign.measurement_receipt !== 'string' || !isValidUuid(campaign.measurement_receipt))) {
+      console.error('Consented sponsor selector omitted a valid placement receipt.');
+      return respond(request, { error: 'Sponsored content is temporarily unavailable.' }, 503);
+    }
     return respond(request, { campaigns: data.campaigns, generated_at: data.generated_at });
   } catch (cause) {
     console.error('Sponsor campaign selection failed:', cause);

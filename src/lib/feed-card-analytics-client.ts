@@ -1,7 +1,7 @@
 'use client';
 
 import type { SignedInAnalyticsOutbox } from './offline/signed-in-analytics-store';
-import { createConsentBoundAbortSignal, hasAnalyticsConsent } from './analytics-consent';
+import { analyticsConsentChangeEvent, createConsentBoundAbortSignal, denyAnalyticsConsentInMemory, hasAnalyticsConsent, hasSyncedAnalyticsConsent, requestAnalyticsConsentSync } from './analytics-consent';
 
 type FeedCardEventType = 'impression' | 'viewable_impression' | 'active_duration' | 'skip' | 'completion' | 'open';
 type QueuedEvent = {
@@ -110,6 +110,9 @@ export async function flushFeedCardAnalytics(userId: string, keepalive = false) 
     if (persistentOutbox) await persistentOutbox.clearStream(userId, 'comment');
     return;
   }
+  // Hold events collected after an offline opt-in until the account consent
+  // update has been acknowledged by the server.
+  if (!hasSyncedAnalyticsConsent('serviceImprovement', userId)) return;
   if (!navigator.onLine || flushingUsers.has(userId)) return;
   flushingUsers.add(userId);
   const consentRequest = createConsentBoundAbortSignal('serviceImprovement', userId);
@@ -151,7 +154,19 @@ export async function flushFeedCardAnalytics(userId: string, keepalive = false) 
         if (persistentOutbox) await persistentOutbox.clearStream(userId, 'comment');
         break;
       }
-      if (!response.ok) break;
+      if (!response.ok) {
+        if (response.status === 403) {
+          const rejection = await response.clone().json().catch(() => null) as { code?: string } | null;
+          if (rejection?.code === 'CONSENT_REQUIRED') {
+            denyAnalyticsConsentInMemory('serviceImprovement', userId);
+            await clearFeedCardAnalyticsOutbox(userId).catch((cause: unknown) => {
+              console.error('Unable to clear comment analytics after server-side consent withdrawal:', cause);
+            });
+            requestAnalyticsConsentSync();
+          }
+        }
+        break;
+      }
       const accepted = new Set(batch.map((event) => event.event_id));
       if (persistentOutbox) await persistentOutbox.acknowledge(userId, 'comment', [...accepted]);
       writeQueue(userId, readQueue(userId).filter((event) => !accepted.has(event.event_id)));
@@ -181,11 +196,17 @@ export function installFeedCardAnalyticsListeners(
     if (document.visibilityState === 'hidden') void flushFeedCardAnalytics(userId, true);
   };
   flush();
+  const onConsentChange = (event: Event) => {
+    const detail = (event as CustomEvent<{ userId?: string | null }>).detail;
+    if ((detail?.userId ?? null) === userId) flush();
+  };
   window.addEventListener('online', flush);
+  window.addEventListener(analyticsConsentChangeEvent, onConsentChange);
   window.addEventListener('pagehide', flushOnHide);
   document.addEventListener('visibilitychange', flushOnHide);
   return () => {
     window.removeEventListener('online', flush);
+    window.removeEventListener(analyticsConsentChangeEvent, onConsentChange);
     window.removeEventListener('pagehide', flushOnHide);
     document.removeEventListener('visibilitychange', flushOnHide);
     if (transports.get(userId) === installed) {

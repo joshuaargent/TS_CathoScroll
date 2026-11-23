@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { FormEvent } from 'react';
 import Link from 'next/link';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
@@ -25,6 +26,10 @@ export function SignupFormView({
   onToggleConfirmPassword: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
+  const [personalizationConsent, setPersonalizationConsent] = useState(false);
+  const [serviceImprovementConsent, setServiceImprovementConsent] = useState(false);
+  const [sponsorMeasurementConsent, setSponsorMeasurementConsent] = useState(false);
+
   return (
     <div className="container py-12">
       <div className="mt-8 mb-10">
@@ -115,22 +120,69 @@ export function SignupFormView({
               </button>
             </div>
 
-            <div className="border-border bg-bg-secondary/40 rounded-xl border p-3">
+            <div className="border-border bg-bg-secondary/40 space-y-4 rounded-xl border p-4">
               <label htmlFor="signup-personalization-consent" className="flex cursor-pointer items-start gap-2.5">
                 <input
                   id="signup-personalization-consent"
                   name="personalizationConsent"
                   type="checkbox"
                   value="true"
+                  checked={personalizationConsent}
+                  onChange={(event) => {
+                    const enabled = event.target.checked;
+                    setPersonalizationConsent(enabled);
+                    if (enabled) setServiceImprovementConsent(true);
+                  }}
                   disabled={loading || !online}
                   className="accent-accent mt-0.5 h-4 w-4 shrink-0"
                 />
                 <span className="text-text-secondary text-xs leading-relaxed">
-                  <span className="text-text-primary font-semibold">Optional — I explicitly consent to CathoScroll using my account actions (progress, bookmarks, likes and comments) and selected interests to personalise recommendations. These signals may reveal religious or philosophical beliefs; they are used to rank content, not to label your beliefs. Operational analytics are separate and are not used for recommendations.</span>{' '}
-                  This is not needed to use CathoScroll. My profile is private, is not used for sponsor targeting, and I can withdraw consent in Account settings. See the{' '}
-                  <Link href="/privacy" className="text-accent font-medium underline">Privacy Policy</Link>.
+                  <span className="text-text-primary font-semibold">Personalised recommendations — I explicitly consent</span>
+                  {' '}to using my account actions and chosen interests to build a private recommendation profile. This may reveal religious or philosophical beliefs. Selecting Personalisation also enables Service improvement analytics, which remains enabled while Personalisation is active. Turn off Personalisation before withdrawing Service improvement. It is optional and can be withdrawn in Account settings.
                 </span>
               </label>
+
+              <label htmlFor="signup-service-analytics-consent" className="flex cursor-pointer items-start gap-2.5">
+                <input
+                  id="signup-service-analytics-consent"
+                  name="serviceImprovementConsent"
+                  type="checkbox"
+                  value="true"
+                  checked={serviceImprovementConsent}
+                  onChange={(event) => setServiceImprovementConsent(event.target.checked)}
+                  disabled={loading || !online || personalizationConsent}
+                  className="accent-accent mt-0.5 h-4 w-4 shrink-0"
+                />
+                <span className="text-text-secondary text-xs leading-relaxed">
+                  <span className="text-text-primary font-semibold">Service improvement analytics — I explicitly consent</span>
+                  {' '}— optional account-linked measurement of signed-in topic/comment engagement and site performance. Aggregated results may inform shared topic ordering for all readers, without profiling you individually. Activity may reveal religious or philosophical interests. This choice must remain enabled while Personalisation is active. Reading signals inform recommendations only while Personalisation is enabled too.
+                </span>
+              </label>
+              {personalizationConsent && (
+                <input type="hidden" name="serviceImprovementConsent" value="true" />
+              )}
+
+              <label htmlFor="signup-sponsor-measurement-consent" className="flex cursor-pointer items-start gap-2.5">
+                <input
+                  id="signup-sponsor-measurement-consent"
+                  name="sponsorMeasurementConsent"
+                  type="checkbox"
+                  value="true"
+                  checked={sponsorMeasurementConsent}
+                  onChange={(event) => setSponsorMeasurementConsent(event.target.checked)}
+                  disabled={loading || !online}
+                  className="accent-accent mt-0.5 h-4 w-4 shrink-0"
+                />
+                <span className="text-text-secondary text-xs leading-relaxed">
+                  <span className="text-text-primary font-semibold">Sponsor measurement — I explicitly consent</span>
+                  {' '}— optional account-linked viewability, click and frequency measurement. Placement context may reveal religious or philosophical interests. Sponsor placements still appear if this is off.
+                </span>
+              </label>
+
+              <p className="text-text-muted text-xs leading-relaxed">
+                All choices are optional and can be changed later. Enabling Personalisation also enables Service improvement analytics; turn off Personalisation before withdrawing Service improvement. Sponsor measurement remains separate. See the{' '}
+                <Link href="/privacy" className="text-accent font-medium underline">Privacy Policy</Link>.
+              </p>
             </div>
 
             {error && (

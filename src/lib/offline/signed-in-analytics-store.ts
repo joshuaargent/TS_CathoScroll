@@ -6,6 +6,8 @@ export type SignedInAnalyticsPayload = object & {
   session_id: string;
   event_type: string;
   campaign_id?: string;
+  placement_receipt?: string;
+  duration_ms?: number | null;
 };
 
 export interface SignedInAnalyticsOutbox {
@@ -15,6 +17,32 @@ export interface SignedInAnalyticsOutbox {
   acknowledge(userId: string, stream: SignedInAnalyticsStream, eventIds: string[]): Promise<void>;
   clearUser(userId: string): Promise<void>;
   clearStream(userId: string, stream: SignedInAnalyticsStream): Promise<void>;
+}
+
+const releaseConsentResetMigration = 'analytics-consent-v2-release-reset';
+
+export async function resetLegacySignedInAnalyticsOutbox(database: OfflineDatabase): Promise<void> {
+  await database.transaction(async (db) => {
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS offline_native_migrations (
+        migration_key TEXT PRIMARY KEY,
+        applied_at TEXT NOT NULL
+      )
+    `);
+    const rows = await db.query(
+      'SELECT migration_key FROM offline_native_migrations WHERE migration_key = ?',
+      [releaseConsentResetMigration]
+    );
+    if (rows.length > 0) return;
+    // The 2.4.0 consent reset invalidates every pre-release analytics grant.
+    // Discard pending encrypted events once; subsequent newly consented events
+    // remain durable across normal application restarts.
+    await db.execute('DROP TABLE IF EXISTS offline_signed_in_analytics_outbox');
+    await db.execute(
+      'INSERT INTO offline_native_migrations (migration_key, applied_at) VALUES (?, ?)',
+      [releaseConsentResetMigration, new Date().toISOString()]
+    );
+  });
 }
 
 const maximumEventsPerStream = 2000;

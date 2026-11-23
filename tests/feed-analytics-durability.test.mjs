@@ -32,7 +32,7 @@ function createTestWindow() {
       getItem(key) {
         if (key.includes('.account.')) {
           return JSON.stringify({
-            version: 1,
+            version: 3,
             serviceImprovement: true,
             sponsorMeasurement: true,
             updatedAt: '2026-11-20T12:00:00.000Z',
@@ -46,7 +46,7 @@ function createTestWindow() {
 }
 
 
-const [analytics, sponsor, sponsorAnalytics, topicFeed, cardRegistry, readme, sponsorClient, sync, layout, nativeMain, bootstrap, anonymousAnalytics, sponsorSync, cardAnalytics, anonymousOutbox, signedInOutbox] = await Promise.all([
+const [analytics, sponsor, sponsorAnalytics, topicFeed, cardRegistry, readme, sponsorClient, sync, layout, nativeMain, bootstrap, cardAnalytics, signedInOutbox, upgrade, personalUpgrade] = await Promise.all([
   readFile(new URL('../src/lib/feed-analytics-client.ts', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/topic/SponsorFeedCard.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/lib/sponsor-analytics-client.ts', import.meta.url), 'utf8'),
@@ -58,60 +58,52 @@ const [analytics, sponsor, sponsorAnalytics, topicFeed, cardRegistry, readme, sp
   readFile(new URL('../src/app/layout.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../native/main.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../docs/cathoscroll-database-bootstrap.sql', import.meta.url), 'utf8'),
-  readFile(new URL('../src/lib/anonymous-feed-analytics-client.ts', import.meta.url), 'utf8'),
-  readFile(new URL('../src/components/providers/SponsorAnalyticsSync.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/lib/feed-card-analytics-client.ts', import.meta.url), 'utf8'),
-  readFile(new URL('../src/lib/offline/anonymous-analytics-store.ts', import.meta.url), 'utf8'),
   readFile(new URL('../src/lib/offline/signed-in-analytics-store.ts', import.meta.url), 'utf8'),
+  readFile(new URL('../docs/analytics-consent-and-sponsor-opt-out-upgrade.sql', import.meta.url), 'utf8'),
+  readFile(new URL('../docs/personalization-analytics-upgrade.sql', import.meta.url), 'utf8'),
 ]);
 
 
-test('signed-out topic/comment analytics uses a durable native outbox and a bounded web memory queue', () => {
-  assert.ok(anonymousAnalytics.includes('const pendingEvents: AnonymousFeedAnalyticsEvent[] = [];'));
-  assert.ok(anonymousAnalytics.includes('configureAnonymousFeedAnalyticsOutbox'));
-  assert.ok(anonymousAnalytics.includes('persistentOutbox.pending(40)'));
-  assert.ok(anonymousAnalytics.includes('setAnonymousFeedAnalyticsEnabled'));
-  assert.ok(anonymousAnalytics.includes('anonymousAnalyticsPreferenceKey'));
-  assert.ok(anonymousAnalytics.includes("window.addEventListener('online'"));
-  assert.ok(anonymousAnalytics.includes("window.addEventListener('pageshow'"));
-  assert.doesNotMatch(anonymousAnalytics, /sessionStorage|indexedDB/);
-  assert.ok(anonymousOutbox.includes('offline_anonymous_analytics_outbox'));
-  assert.ok(anonymousOutbox.includes('maximumEvents = 2000'));
-  assert.ok(anonymousOutbox.includes('maximumAgeMs = 7 * 24 * 60 * 60 * 1000'));
-  assert.ok(anonymousOutbox.includes('INSERT OR IGNORE'));
-  assert.ok(anonymousOutbox.includes('async clear()'));
-  assert.doesNotMatch(anonymousOutbox, /user_id|session_id|visitor_id|account_id/i);
+test('anonymous analytics queues are removed while opted-in signed-in queues remain durable', () => {
+  assert.doesNotMatch(nativeMain, /NativeAnonymousAnalyticsOutbox|configureAnonymousFeedAnalyticsOutbox/);
+  assert.doesNotMatch(sponsorAnalytics, /anonymousQueue|recordAnonymousSponsorCampaignEvent|AnonymousQueuedSponsor/);
+  assert.doesNotMatch(sponsor, /recordAnonymousSponsorCampaignEvent/);
   assert.ok(analytics.includes('const pendingQueues = new Map'));
   assert.ok(cardAnalytics.includes('const pendingQueues = new Map'));
   assert.ok(signedInOutbox.includes('offline_signed_in_analytics_outbox'));
   assert.ok(sponsorAnalytics.includes('const pendingQueues = new Map'));
   assert.doesNotMatch(analytics + cardAnalytics + sponsorAnalytics, /localStorage|sessionStorage|indexedDB/);
-  assert.ok(sponsorSync.includes('installAnonymousFeedAnalyticsSync();'));
   assert.ok(layout.includes('<SponsorAnalyticsSync />'));
   assert.ok(nativeMain.includes('<SponsorAnalyticsSync'));
+  const finalModel = bootstrap.slice(bootstrap.lastIndexOf('-- FINAL ANALYTICS MODEL'));
+  assert.match(finalModel, /DROP TABLE IF EXISTS catho_private\.anonymous_feed_analytics_daily/);
+  assert.match(finalModel, /DROP TABLE IF EXISTS catho_private\.anonymous_sponsor_campaign_daily/);
+  assert.doesNotMatch(bootstrap, /CREATE TABLE catho_private\.sponsor_campaign_user_frequency/);
 });
 
-test('anonymous sponsor event retries stay in memory and never persist the session token', () => {
-  const anonymousQueueStart = sponsorAnalytics.indexOf('const anonymousQueue:');
-  assert.ok(anonymousQueueStart >= 0);
-  const anonymousQueueSource = sponsorAnalytics.slice(anonymousQueueStart);
-  assert.match(anonymousQueueSource, /recordAnonymousSponsorCampaignEvent/);
-  assert.match(anonymousQueueSource, /flushAnonymousSponsorCampaignEvents/);
-  assert.match(anonymousQueueSource, /window\.addEventListener\('online'/);
-  assert.doesNotMatch(anonymousQueueSource, /localStorage|sessionStorage|indexedDB/);
-  assert.match(sponsorSync, /installAnonymousSponsorAnalyticsListeners\(\)/);
-  assert.match(sponsor, /recordAnonymousSponsorCampaignEvent/);
-});
-
-test('anonymous analytics receipts and sponsor session records use 30-day retention', () => {
-  assert.match(bootstrap, /anonymous_sponsor_events[\s\S]*?interval '?30 days'?/);
-  assert.match(bootstrap, /anonymous_sponsor_session_frequency[\s\S]*?interval '?30 days'?/);
-  assert.match(bootstrap, /anonymous_feed_event_receipts[\s\S]*?interval '?30 days'?/);
+test('topic analytics sessions are account-scoped and reset when consent queues are cleared', () => {
+  assert.match(analytics, /const sessionIdsByUser = new Map<string, string>\(\)/);
+  assert.match(analytics, /function getSessionId\(userId: string\): string \| null/);
+  assert.match(analytics, /sessionIdsByUser\.delete\(userId\)/);
+  assert.match(analytics, /session_id: currentSessionId/);
+  assert.doesNotMatch(analytics, /const sessionId = createUuid\(\)/);
+  assert.match(analytics, /!hasAnalyticsConsent\('serviceImprovement', userId\) \|\| !rememberTopic\(completedTopicsByUser/);
 });
 
 test('signed-in feed and sponsor raw-event retention remains 180 days', () => {
-  assert.match(bootstrap, /prune_feed_analytics_events\(statement_timestamp\(\) - interval ''180 days''/);
+  for (const sql of [bootstrap, upgrade]) {
+    assert.match(sql, /prune_feed_analytics_events\(statement_timestamp\(\) - interval ''180 days''/);
+    assert.match(sql, /cathoscroll-prune-feed-analytics/);
+  }
+  for (const sql of [bootstrap, upgrade, personalUpgrade]) {
+    assert.match(sql, /prune_feed_card_analytics_events\(statement_timestamp\(\) - interval ''180 days''/);
+    assert.match(sql, /DELETE FROM catho_private\.feed_card_analytics_event_limits/);
+    assert.match(sql, /cathoscroll-prune-feed-card-analytics/);
+  }
+  assert.match(bootstrap, /DELETE FROM catho_private\.feed_analytics_event_limits/);
   assert.match(bootstrap, /prune_sponsor_campaign_events\(statement_timestamp\(\) - interval ''180 days''/);
+  assert.match(upgrade, /CREATE OR REPLACE FUNCTION catho_private\.prune_sponsor_campaign_events/);
 });
 
 test('feed analytics retains active-page events until server acknowledgement and retries on reconnect', () => {
@@ -120,7 +112,11 @@ test('feed analytics retains active-page events until server acknowledgement and
   assert.ok(analytics.includes("persistentOutbox.enqueue(userId, 'topic', event)"));
   assert.ok(analytics.includes('flush();'));
   assert.ok(analytics.includes("window.addEventListener('online', flush)"));
-  assert.ok(analytics.includes('if (!response.ok) break'));
+  assert.ok(analytics.includes('if (!response.ok) {'));
+  assert.ok(analytics.includes("rejection?.code === 'CONSENT_REQUIRED'"));
+  assert.ok(analytics.includes("denyAnalyticsConsentInMemory('serviceImprovement', userId)"));
+  assert.ok(analytics.includes('requestAnalyticsConsentSync()'));
+  assert.ok(analytics.includes('clearFeedAnalyticsOutbox(userId)'));
   assert.ok(analytics.includes("persistentOutbox.acknowledge(userId, 'topic', [...acceptedIds])"));
 });
 
@@ -153,14 +149,20 @@ test('sponsor analytics queue stays in memory and flushes without a visible spon
   assert.ok(sponsorAnalytics.includes('queued.sessionId === event.sessionId'));
 });
 
-test('README distinguishes site-wide analytics ranking from explicit-action personalisation', () => {
-  assert.ok(readme.includes('site-wide, account-free engagement aggregates'));
-  assert.ok(readme.includes('adjusted only by their own explicit account actions and selected categories'));
-  assert.ok(readme.includes('Operational analytics are never used to personalise an individual\'s feed'));
-  assert.ok(readme.includes('Operational feed and Top Comments analytics'));
-  assert.doesNotMatch(readme, /recommendation RPC also reads the last 90 days of feed telemetry/);
-  assert.ok(readme.includes('Native apps use the same shared feed components and API endpoints as the website'));
-  assert.ok(readme.includes('Anonymous sponsor viewable/click events use a bounded in-memory retry queue'));
+test('README distinguishes aggregate general ranking from consented personalisation signals', () => {
+  assert.ok(readme.includes('public interactions, curated order, recency and category balancing'));
+  assert.ok(readme.includes('Personalised ranking'));
+  assert.ok(readme.includes('direct account actions and selected categories'));
+  assert.ok(readme.includes('passive reading signals'));
+  assert.ok(readme.includes('Enabling Personalisation automatically enables Service improvement analytics, which remains enabled while Personalisation is active; turn off Personalisation before withdrawing Service improvement.'));
+  assert.ok(readme.includes('collected only under the separate Service improvement opt-in'));
+  assert.ok(readme.includes('inform recommendations only while Personalisation is also enabled'));
+  assert.ok(readme.includes('inform recommendations only while Personalisation is also enabled'));
+  assert.ok(readme.includes('Sponsor measurement remains separate'));
+  assert.doesNotMatch(readme, /Operational analytics are never used to personalise an individual/);
+  assert.match(readme, /Native apps use the same shared feed components and API endpoints as the website/);
+  assert.match(readme, /No anonymous topic\/comment\/sponsor analytics and no sponsor delivery counters are collected/i);
+  assert.doesNotMatch(readme, /Anonymous sponsor viewable\/click events use a bounded in-memory retry queue/);
 });
 
 test('sponsor analytics bounds the in-memory queue and sends the retained events', async () => {
@@ -306,6 +308,10 @@ test('Top Comments refresh uses the tested coordinator with an explicit reconnec
 
 test('native signed-in topic and comment analytics use the encrypted private database outbox', () => {
   assert.match(signedInOutbox, /offline_signed_in_analytics_outbox/);
+  assert.match(signedInOutbox, /analytics-consent-v2-release-reset/);
+  assert.match(signedInOutbox, /DROP TABLE IF EXISTS offline_signed_in_analytics_outbox/);
+  assert.match(nativeMain, /resetLegacySignedInAnalyticsOutbox\(cacheDatabase\)/);
+  assert.match(nativeMain, /DROP TABLE IF EXISTS offline_anonymous_analytics_outbox/);
   assert.match(signedInOutbox, /maximumEventsPerStream = 2000/);
   assert.match(signedInOutbox, /maximumAgeMs = 7 \* 24 \* 60 \* 60 \* 1000/);
   assert.match(signedInOutbox, /stream IN \('topic', 'comment', 'sponsor'\)/);

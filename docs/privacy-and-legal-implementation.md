@@ -1,172 +1,55 @@
-# Privacy, legal, and personalisation implementation notes
+# Privacy and legal implementation
 
-**Status:** Product controls and first-pass policy wording implemented. This document is an engineering/privacy record, not legal advice or a completed Data Protection Impact Assessment (DPIA).
+**Controller working implementation record — legal approval required**
 
-## Canonical public policies
+## Final collection model
 
-The website and native app render the same policy components:
+CathoScroll collects no anonymous engagement analytics and no sponsor delivery counters. This includes signed-out visitors and signed-in users who have not enabled the relevant optional purpose.
 
-- `/privacy` — Privacy Policy.
-- `/terms` — Terms of Service.
-- `/cookies` — Cookie Policy.
+No anonymous topic/comment impressions, viewability, duration, skips, completions or opens are collected. No anonymous sponsor views, clicks, duration, frequency, served totals, campaign/day totals, visitor/session identifiers, retry queues, event receipts, database aggregates or native SQLite outboxes are retained.
 
-The policy pages are shared React components imported by the native app. Update the source component once; do not create a second native-only policy copy.
+Sponsor placements remain available when measurement is off. Delivery selection and display create no analytics record.
 
-The current commercial model is deliberately simple:
+## Optional signed-in purposes
 
-- Individual users do not pay for learning, account, or community features.
-- There are no user premium memberships, paid learning subscriptions, or paid content tiers.
-- The only paid offering is sponsorship bought by businesses and organisations.
-- Sponsor invoices are reconciled against direct bank transfers outside the app. CathoScroll does not process user card payments or use Stripe.
-- Sponsored placements are visibly labelled and kept separate from organic topic ranking.
-- Sponsor representatives receive aggregate campaign reporting, not user identities, reading histories, or personalisation profiles.
+- **Service improvement analytics:** account-linked topic and Top Comments engagement, only after explicit opt-in.
+- **Sponsor measurement:** account-linked sponsor viewability, clicks, bounded active viewing duration and frequency, only after a separate explicit opt-in.
+- **Personalisation:** a private recommendation profile, only after explicit opt-in. It must not be used for sponsor targeting.
 
-## Personalisation data map
+The Catholic theology context means reading signals may reveal or permit inference of religious/philosophical beliefs. Where processing intentionally reveals, infers or uses those beliefs, document both the Article 6 lawful basis and Article 9 condition. Explicit consent under Article 9(2)(a) may be suitable if it is specific, informed, freely given, affirmative, recorded and easy to withdraw.
 
-### Purpose and scope
+## Consent and withdrawal
 
-Optional personalisation improves a signed-in user's own educational topic recommendations. It is not an advertising product, a religious-affiliation classifier, or a user eligibility/credit/employment decision system.
+Consent choices must be separate by purpose, presented in clear language, off by default and separate from terms of service. Withdrawal must be as easy as giving consent. It must immediately block new local collection, clear the matching pending web/native queue, abort active uploads and synchronise the denial to the server when connectivity returns.
 
-CathoScroll's subject matter includes Catholic theology and other religious topics. Reading and interaction patterns may therefore reveal or permit inferences about religious or philosophical beliefs. The optional profile stores content-interest scores for recommendation ordering only.
+Personalisation and Service improvement analytics are separately presented choices. Enabling Personalisation automatically enables Service improvement, which remains enabled while Personalisation is active; Service improvement may also be enabled independently. Personalisation covers direct account actions and selected categories used for recommendations. Passive reading signals are processed under Service improvement and inform recommendations while Personalisation is enabled. Users must turn off Personalisation before withdrawing Service improvement.
 
-### Data involved
+## PECR
 
-| Data | Source | Use | Consent state |
-|---|---|---|---|
-| Impressions, active duration, swipe depth, skips, return visits, Top Comments exposure | Operational analytics tables | Service measurement only; never used for recommendation weighting. | Collected only under Service improvement analytics consent |
-| Progress/completions, bookmarks, topic likes, comments, comment likes, replies | Existing account activity | Explicit topic-interest evidence | Read for recommendation weighting only when separate personalisation consent is enabled |
-| Selected categories | Account settings | Strong user-declared interest signal | Stored only while enabled |
-| Derived topic/category scores | Private profile tables | Rank the user's own recommendations | Created/refreshed only while enabled |
-| Consent version and timestamps | Signup trigger / account settings RPC | Demonstrate opt-in and withdrawal | Stored as a private audit record |
+The anonymous statistical pipelines have been removed rather than relying on a statistical-purposes exception. This does not settle PECR for signed-in analytics. Inspect the actual browser and native storage/access behaviour of all analytics SDKs, WebViews, SQLite stores and identifiers. Obtain prior consent where required. Do not assume first-party, account-linked, memory-only or short-lived processing is exempt.
 
-The profile is not displayed on public profiles, is not provided to sponsors, and is not used for user-level sponsor targeting. Sponsors may choose contextual category or topic placement criteria for a campaign; those criteria are not derived from a user's private personalisation profile or inferred beliefs. No raw comment text is included in the profile. The system does not intentionally infer a user's religious affiliation or make a statement about their beliefs.
+Sponsor viewability, clicks, bounded active viewing duration and frequency are advertising measurement and are gated behind prior Sponsor measurement consent. For opted-in accounts, a short-lived server-issued placement receipt validates that the campaign was selected; it expires after seven days and is deleted on withdrawal. No sponsor delivery count is collected for users who decline.
 
-### Consent collection and withdrawal
+## Data minimisation and retention
 
-- Consent is off by default and is not required to create or use an account.
-- Signup uses a separate, unticked checkbox with an express statement of consent and a link to the Privacy Policy.
-- The same shared signup presentation is used on web and native.
-- When a new Auth user is inserted with the affirmative signup choice, the private `catho_private.capture_signup_personalization_consent()` trigger records the versioned consent row. A later edit to user metadata does not re-enable consent.
-- Existing users can opt in or withdraw in Account settings. The detailed route is `/account/personalization`.
-- The shared AccountPageView and PersonalizationSettingsPage are used by web and native; platform-specific authentication/session storage remains in the web/native adapters.
-- Withdrawal records the choice, deletes derived topic scores and explicit category choices, and prevents further account-history recommendation weighting.
-- Existing cursors are neutralised on the next recommendation RPC call after withdrawal; category weights become equal and completed-topic suppression is disabled. A new sign-in or page reload is not required for this server-side check to take effect.
-- The production database now uses explicit account actions only for recommendation profiles. Operational analytics events are not read by recommendation functions. The upgrade cleared old derived profiles and rebuilt active profiles from eligible account actions; operational analytics records remain under their separate retention policy.
+Signed-in raw analytics events and the restricted viewer bridge are retained for up to 180 days. Separate HMAC-protected API rate-limit records contain endpoint/account-or-client keys, request counts and time-window timestamps; stale rows are opportunistically pruned after two days and are not engagement analytics. Native pending events are encrypted, account-scoped, capped at 2,000 per stream and seven days, deleted after acknowledgement and cleared on withdrawal/account change. Website queues are memory-only. Sponsor events contain no topic/category IDs or reading-history fields.
 
-Consent version currently recorded by signup and the account RPC: `2026-11-19-v3`.
+Keep recommendation profiles private and delete the derived profile and selected interests when Personalisation is withdrawn. Keep consent history only as long as needed to evidence and administer the choice, subject to account deletion and legal obligations.
 
-### Recommendation behaviour
+## Required controller work
 
-All account-history recommendation weighting is behind the explicit consent flag. The production profile uses explicit account actions (progress, bookmarks, topic likes, comments, comment likes and replies), derived explicit-action scores and selected categories. Operational feed and Top Comments telemetry are excluded from recommendation weighting.
+- Complete DPIA screening and a proportionate DPIA; complete a full DPIA if processing is likely to result in high risk.
+- Maintain a record of processing activities, purpose-specific retention schedule, data-subject request process and consent evidence.
+- Verify Vercel, Supabase and all other processor terms, subprocessors, processing locations, Article 28 terms and international transfer safeguards.
+- Inspect production SDK requests, browser storage/access, native WebView behaviour and security logs.
+- Document Article 6 and Article 9 bases for each purpose; complete a legitimate-interests assessment where that basis is relied upon.
+- Complete the ICO fee self-assessment and confirm registration status. As a sole trader, the controller may fall into Tier 1 (£52 annually where turnover is no more than £632,000 or staff numbers no more than 10), unless a specific exemption applies. Do not assume exemption; consider the public-register address before registering.
+- Update privacy information with controller identity, purposes, bases/conditions, data categories, recipients, transfers, retention, rights and complaint route.
+- Obtain UK data-protection solicitor review and controller sign-off before release.
 
-When consent is disabled:
+This document is not a legal opinion and does not certify provider contracts, transfers, ICO registration or deployed runtime behaviour.
 
-- The recommendation RPC does not read or aggregate account-history preference signals.
-- Every category has a neutral baseline weight.
-- Completed-topic history is not used to suppress topics.
-- The normal catalogue ordering, pagination, diversity and safety rules remain in place.
 
-When consent is enabled, the bounded scoring model uses explicit account actions recorded after consent only, with a maximum 180-day evidence window. It maintains 14-day and 90-day decay horizons and refreshes at most every five minutes. Operational analytics events—including impressions, reading duration, swipe depth, skips, return visits and Top Comments exposure—are never recommendation inputs. Sponsor delivery signals are also never recommendation inputs.
+## Consent withdrawal and data removal
 
-## Analytics and retention
-
-- Raw topic feed, community-card, and sponsor-campaign analytics events, together with the user/day viewer bridge used for unique-viewer reporting, are retained for up to 180 days.
-- Daily totals that do not contain user or session identifiers are retained longer.
-- Behavioural topic-interest evidence is bounded to 90 days.
-- Explicit account-interaction evidence (including likes, bookmarks, progress and comment engagement) is bounded to 180 days.
-- Explicit category selections and derived profile rows are deleted on personalisation withdrawal.
-- Sponsor campaign reporting is maintained separately from organic topic and comment recommendation signals. Sponsor frequency-cap rows for completed or rejected campaigns are pruned after the campaign has ended and the applicable 180-day cutoff has passed.
-- Sponsor invoice/payment ledger retention needs a documented accounting retention period, confirmed with the operator's accountant before sponsor volume increases.
-
-Do not describe aggregate analytics as a unique count of all visitors where the relevant pipeline only measures authenticated users.
-
-## Public policy alignment
-
-The public Privacy Policy distinguishes signed-in account-linked topic/comment/sponsor analytics from signed-out daily entity aggregates. Signed-out topic/comment aggregates contain no account ID, raw session ID or persistent visitor ID; event UUID receipts are retained for 30 days. Website retry batches remain in page memory; Android and Electron persist signed-in topic/comment/sponsor retry batches in the encrypted private activity database (2,000 per stream, seven-day expiry, acknowledgement deletion and account-switch cleanup) and signed-out topic/comment events in a separate app-private SQLite outbox with a free opt-out. Anonymous sponsor frequency uses a random in-memory token whose SHA-256 hash is retained for up to 30 days; raw sponsor event/frequency rows are pruned after 30 days. Campaign-level aggregates are used for sponsor reporting. The policy keeps operational analytics and recommendation personalisation as separate purposes.
-
-The Terms and Cookie Policy state that individual learning, account and community features are free and that business/organisation sponsorship is the only paid offering. There are no user premium tiers, paid learning subscriptions, or in-app card payments. Sponsor invoices are settled through direct bank transfer outside the app.
-
-## Lawful-basis and DPIA work
-
-The current policy wording identifies:
-- Article 6(1)(a) UK GDPR consent for optional personalisation and the separate optional operational analytics purposes; and
-- Article 9(2)(a) explicit consent where personalisation, account-linked topic/comment analytics, or topic-linked sponsor measurement reveals special-category religious or philosophical belief data.
-
-The sponsor-measurement consent statement discloses that anonymous event attribution includes the topic placement where a sponsor appeared. The controller must confirm whether that context meets the Article 9 revealing test; if it does not approve the explicit-consent condition, topic-level attribution must be removed before sponsor measurement is enabled.
-
-The signup and account statements expressly identify topic-reading activity and selected interests, explain that these may reveal religious or philosophical beliefs, and state the personalisation purpose. The checkbox is separate from acceptance of the Terms and is unticked by default. The user can withdraw from Account settings. This follows the ICO's guidance that special-category processing needs both an Article 6 lawful basis and an Article 9 condition, and that explicit consent should be specific, affirmative, clear, identify the nature of the sensitive data, separate, and withdrawable: [ICO — Special category data](https://ico.org.uk/for-organisations/uk-gdpr-guidance-and-resources/lawful-basis/a-guide-to-lawful-basis/special-category-data/) and [ICO — Explicit consent](https://ico.org.uk/for-organisations/uk-gdpr-guidance-and-resources/lawful-basis/special-category-data/what-are-the-conditions-for-processing/).
-
-The consent request is separate, optional, affirmative, specific, and withdrawable. The account controls provide withdrawal without requiring a support request.
-
-**Outstanding before broad production rollout:**
-
-1. Complete and approve a documented DPIA. Because the processing may infer special-category beliefs through profiling, assess whether the processing is likely to be high risk, document necessity/proportionality, risks to users, safeguards, residual risk, and the decision to proceed.
-2. Confirm whether users under 18 may enable personalisation and whether additional age-related safeguards are required. The Terms currently state a minimum age of 13; this does not by itself settle every question about valid explicit consent for minors.
-3. Confirm the controller's full legal identity and postal contact address for the Privacy Policy. The current public policy identifies Joshua Argent and the published email address but does not state a postal address.
-4. Confirm the actual Supabase and Vercel hosting regions, applicable international-transfer safeguards, current processor agreements, and subprocessors. Do not promise a specific transfer mechanism until verified.
-5. Set and document retention periods for sponsor financial records and moderation/security records with appropriate accounting/legal advice.
-6. Verify the live production privacy notice matches the exact consent wording and implementation version before enabling the signup checkbox on the production domain.
-
-## Policy change checklist
-
-When personalisation, analytics, sponsorship, or data providers change:
-
-- Update the Privacy Policy, Cookie Policy, and this implementation note together.
-- Update the signup and account consent text if the purpose, categories, recipient, or profile use changes.
-- Bump the consent version and decide whether existing users must be asked again.
-- Update both the fresh-project bootstrap and the versioned upgrade SQL.
-- Check RLS, function grants, trigger behaviour, retention jobs, and the recommendation consent gate.
-- Run the privacy, signup, recommendation, native/web parity, and migration tests.
-- Re-check the public policies on both website and native builds.
-
-## Legal review boundary
-
-The policy text is an engineering draft based on the current implementation and published product decisions. It should be reviewed by a UK data-protection solicitor or qualified privacy professional before being treated as a final legal assessment. The presence of an opt-in checkbox does not, by itself, prove that all UK GDPR, Data Protection Act 2018, PECR, children's privacy, or international-transfer obligations have been satisfied.
-
-
-## Separate operational-analytics legal assessment
-
-The optional personalisation consent does **not** cover operational product analytics. Signed-in topic/comment events remain account-linked and raw events plus the user/day viewer bridge are retained for up to 180 days. Android and Electron persist unsent signed-in topic/comment/sponsor events in an encrypted private outbox for up to seven days; the web queues remain memory-only. Signed-out topic/comment events are stored only as daily entity aggregates, with event UUID receipts deleted after 30 days and no anonymous unique-person count. Signed-in sponsor events use their existing authenticated pipeline; signed-out sponsor delivery uses separate campaign aggregates and a hashed in-memory session token for frequency protection, with raw anonymous event/frequency rows deleted after 30 days. These streams support aggregate admin/sponsor reporting and product measurement; they are never inputs to recommendation weighting. Personalisation uses explicit account actions only when its separate consent is enabled.
-
-Operational analytics are used for engagement measurement, reliability and product improvement. They do not calculate belief labels or profiles, make individual decisions, or use analytics events for sponsor targeting. The controller must record an appropriate Article 6 basis for each operational purpose and keep that processing separate from optional recommendation personalisation.
-
-
-## Verified provider regions and transfer dependencies
-
-- Supabase project `lrddjyxnescfozhcxzil` is in AWS `eu-north-1` (Stockholm). Supabase's current data-residency guidance says the primary database, Auth, Storage origin and backups remain in the selected region, but account/billing data, support access, usage telemetry and some subprocessor processing may occur elsewhere, including Singapore and the United States. Supabase's current DPA supplements its Terms of Service, includes SCCs and the UK Addendum, and is not described as Pro-only; verify the accepted terms and account records for this organisation: [DPA](https://supabase.com/legal/customer-resources/data-processing-addendum), [data residency and transfers FAQ](https://supabase.com/legal/privacy-resources/data-residency-and-transfers-faq).
-- The connected Vercel team is currently on Hobby and the project uses region `iad1` (US East). Vercel's DPA is available on Pro/Enterprise and includes the UK IDTA; the controller should review the applicable processor terms, subprocessors and transfer safeguards as part of the provider review. No paid sponsor campaigns are currently active. The owner intends to move to an appropriate commercial plan before accepting paid sponsorship revenue. This is a future commercial-readiness action, not a blocker to the current pre-revenue service: [Vercel pricing](https://vercel.com/pricing), [Vercel DPA](https://vercel.com/legal/dpa).
-- The public Privacy Policy now discloses these current locations and transfer possibilities. Re-check regions and provider terms whenever deployment configuration or provider plans change.
-
-## 20 November 2026 — operational analytics and provider review
-
-Account-linked topic/comment analytics are collected under Service improvement analytics consent and retained independently of recommendation consent. The production recommendation-profile refresher no longer reads topic-feed or Top Comments analytics events; it uses explicit account actions only. Operational analytics therefore remain a service-improvement purpose and are not used to personalise recommendations or create belief labels. Article 6(1)(f) legitimate interests may be considered for proportionate internal service measurement, subject to a written purpose/necessity/balancing test. Recommendation personalisation remains a separate opt-in feature.
-
-The ICO finalised its updated PECR storage/access guidance on 29 April 2026. Website topic/comment retry queues are held in JavaScript memory only. Android and Electron persist signed-in topic/comment/sponsor events in the encrypted private activity database and anonymous topic/comment events in a separate app-private SQLite outbox. The anonymous queue contains no account, visitor or session identifier and can be disabled through the Cookie Policy preference, which clears pending rows. The signed-out sponsor token remains memory-only; only its hash is retained server-side. The native queue is still storage on terminal equipment and requires a recorded PECR Schedule A1 assessment before release. The statistical-purposes exception is narrow and cannot be used for account-level visitor tracking or measuring individual ad views/clicks; do not rely on it for the account-linked or sponsor event streams.
-
-Provider facts verified on 20 November 2026: Supabase project region eu-north-1 (Stockholm), Free plan; Supabase Free exposes one day of API/database logs and 24 hours of Auth audit-log access and has no automatic database backups/PITR. Supabase offers a DPA, but project acceptance has not been verified. Vercel connected team is Hobby; its DPA applies to Pro/Enterprise, and its published plan terms and data-use provisions remain part of the controller's provider review. No paid sponsor campaigns are currently active. The owner intends to upgrade to an appropriate commercial plan before accepting paid sponsorship revenue; this is a future commercial-readiness action, not a current service blocker.
-
-The active production deployment is still on main, not the logo-free PR branch. Keep the temporary sponsor-logo compatibility bridge in place until the logo-free build is deployed; then apply the existing removal SQL and verify both RPC signatures and payloads.
-
-
-## Controller draft assessment — 20 November 2026
-
-A separate purpose-by-purpose UK GDPR assessment has been added at [docs/uk-gdpr-analytics-assessment.md](./uk-gdpr-analytics-assessment.md). It recommends preserving existing detailed analytics for people who make a separate optional choice, because account-linked topic/comment activity in a Catholic-content service may reveal or permit inferences about religious/philosophical beliefs. The assessment recommends a separate explicit service-analytics statement and a distinct sponsor-measurement choice; neither is personalisation consent.
-
-For sponsor-measurement opt-outs, the proposed fallback is campaign/day served-placement aggregates only, without client viewability/click events, visitor/session tokens, or per-person frequency records. Campaign-wide pacing and caps remain. Account access, account synchronisation, bookmarks, likes, progress, notes and general feed ranking remain unaffected by optional analytics choices.
-
-**Status:** PR #25 was merged and its application code deployed to production in commit `e0da259` on 20 November 2026. The three consent migrations are recorded as applied in production. Controller approval of Article 6 and Article 9 positions, PECR Regulation 6 treatment, DPIA residual risk, children/age safeguards, provider contracts and international transfers remains outstanding. The deployed technical controls do not constitute legal clearance.
-
-## Optional analytics consent (separate from recommendation personalisation)
-
-Draft PR #25 introduces a separate, optional consent manager for two purposes:
-
-- **Service improvement analytics:** topic and Top Comments engagement, signed-in account-linked event collection, signed-out daily aggregate collection, and Vercel Web Analytics/Speed Insights. The notice expressly explains that engagement with Catholic content may reveal or permit inferences about religious or philosophical beliefs. The service choice is explicit, independent and off by default.
-- **Sponsor measurement:** sponsor viewability, clicks and visitor/session frequency. Anonymous event attribution includes the topic placement where the sponsor appeared, which may reveal religious/philosophical interests. The separate control therefore expressly identifies this context and requires explicit consent under Article 9(2)(a) where the revealing test is met, alongside Article 6(1)(a). This is separate from sponsor delivery. Declining it does not remove sponsor cards or stop campaign/day served totals.
-
-The first-visit interface offers Accept all, Decline optional and Manage choices. Under Manage choices, the two purposes have separate unchecked-by-default controls. Essential operation, sign-in, account synchronisation, bookmarks, likes, progress, notes and general feed ranking are not optional analytics. Recommendation personalisation remains separately controlled by the signup and Account settings consent.
-
-Signed-in consent is stored in catho_private.user_analytics_consents, with a private history table and server-side gates on signed-in analytics ingestion. Signed-out consent is device-local and separate from account consent; the signed-out aggregate event pipeline does not add a visitor/session identifier. On withdrawal, local collection stops immediately and pending purpose-specific native/web queues are cleared. Signed-in changes retry server synchronisation when connectivity returns.
-
-When Sponsor measurement is declined, sponsor selection receives a null session token/ID. The database still increments campaign/day served totals but does not write anonymous session events, signed-in served-session events, or per-session/per-user frequency rows. The viewability/click event endpoints are gated. Sponsor delivery and campaign-wide caps continue.
-
-**Deployment status (20 November 2026):** PR #25's consent UI, client gates and API changes are deployed in production commit `e0da259`; the three consent and lock-order migrations are applied. The PR #26 explicit-action-only recommendation database correction has now been applied and verified directly in production. The PR #26 same-origin GET fix, analytics/chart corrections, admin cleanup and related web changes are merged to `main` but are not yet deployed; the current production web app still needs that deployment. Browser/native end-to-end verification and controller/legal approval remain outstanding.
+Withdrawing Service improvement deletes the account-linked raw topic and Top Comments event records and user/day viewer bridges. The affected recent daily aggregates are rebuilt from the remaining opted-in event records, and the private recommendation profile is refreshed without passive reading signals. Withdrawing Sponsor measurement deletes that account's sponsor event records and placement receipts, then rebuilds recent campaign/day viewability, click and active-duration aggregates from the remaining opted-in records. Local pending queues are cleared immediately. Aggregates older than the raw-event retention window may remain only as non-identifying totals with no user-level event or viewer bridge.

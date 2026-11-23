@@ -4,7 +4,8 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { DoorOpen, Share2 } from 'lucide-react';
 
 import type { SponsorFeedCampaign } from '@/lib/sponsor-campaigns';
-import { recordAnonymousSponsorCampaignEvent, recordSponsorCampaignEvent } from '@/lib/sponsor-analytics-client';
+import { hasSyncedAnalyticsConsent } from '@/lib/analytics-consent';
+import { recordSponsorCampaignEvent } from '@/lib/sponsor-analytics-client';
 import { FeedInterstitialMotion } from './FeedInterstitialMotion';
 import { BaseFeedCard } from './BaseFeedCard';
 
@@ -36,8 +37,8 @@ function createEventId() {
 // revisit does not lose the fact that the impression was already recorded.
 const viewableSponsorPlacements = new Set<string>();
 
-function getSponsorPlacementKey(userId: string | null, sessionId: string, campaignId: string, placementKey: string) {
-  return JSON.stringify([userId ?? 'anonymous', sessionId, placementKey, campaignId]);
+function getSponsorPlacementKey(userId: string, sessionId: string, campaignId: string, placementKey: string, receipt: string) {
+  return JSON.stringify([userId, sessionId, placementKey, campaignId, receipt]);
 }
 
 function rememberViewableSponsorPlacement(key: string) {
@@ -69,8 +70,10 @@ export function SponsorFeedCard({
   const safeIndex = Math.min(activeIndex, Math.max(0, campaigns.length - 1));
   const campaign = campaigns[safeIndex];
   const campaignId = campaign?.campaign_id;
-  const viewablePlacementKey = campaignId
-    ? getSponsorPlacementKey(userId, sessionId, campaignId, placementKey)
+  const placementReceipt = campaign?.measurement_receipt ?? null;
+  const sponsorMeasurementEnabled = Boolean(userId && hasSyncedAnalyticsConsent('sponsorMeasurement', userId));
+  const viewablePlacementKey = campaignId && userId && sponsorMeasurementEnabled && placementReceipt
+    ? getSponsorPlacementKey(userId, sessionId, campaignId, placementKey, placementReceipt)
     : null;
 
   useEffect(() => {
@@ -78,40 +81,65 @@ export function SponsorFeedCard({
   }, [previewMode, campaigns]);
 
   const recordEvent = useCallback(
-    async (targetCampaignId: string, eventType: 'viewable_impression' | 'click') => {
-      if (previewMode) return false;
-      const event = { campaignId: targetCampaignId, eventId: createEventId(), sessionId, eventType };
-      if (!userId) {
-        return recordAnonymousSponsorCampaignEvent({ ...event, placementKey }, sponsorApiBaseUrl);
-      }
-      return recordSponsorCampaignEvent(userId, event, getAccessToken, sponsorApiBaseUrl);
+    async (
+      targetCampaignId: string,
+      eventType: 'viewable_impression' | 'click' | 'active_duration',
+      durationMs?: number,
+    ) => {
+      if (previewMode || !sponsorMeasurementEnabled || !userId || !placementReceipt) return false;
+      const eventId = createEventId();
+      return recordSponsorCampaignEvent(userId, {
+        campaignId: targetCampaignId,
+        eventId,
+        sessionId,
+        placementReceipt,
+        eventType,
+        ...(durationMs === undefined ? {} : { durationMs }),
+      }, getAccessToken, sponsorApiBaseUrl);
     },
-    [getAccessToken, placementKey, previewMode, sessionId, sponsorApiBaseUrl, userId]
+    [getAccessToken, placementReceipt, previewMode, sessionId, sponsorApiBaseUrl, sponsorMeasurementEnabled, userId]
   );
+
+
 
   useEffect(() => {
     const node = cardRef.current;
-    if (previewMode || !node || !campaignId || !viewablePlacementKey || viewableSponsorPlacements.has(viewablePlacementKey)) return;
+    if (previewMode || !node || !campaignId || !viewablePlacementKey) return;
 
     let timer: number | null = null;
     let visible = false;
-    let cancelled = false;
-
-    const clearTimer = () => {
+    let viewable = viewableSponsorPlacements.has(viewablePlacementKey);
+    let activeSince: number | null = null;
+    const clearViewTimer = () => {
       if (timer !== null) {
         window.clearTimeout(timer);
         timer = null;
       }
     };
-
+    const flushDuration = (resume: boolean) => {
+      if (activeSince !== null) {
+        const elapsed = Math.max(0, Math.round(Date.now() - activeSince));
+        activeSince = null;
+        if (elapsed > 0) void recordEvent(campaignId, 'active_duration', Math.min(elapsed, 60000));
+      }
+      if (resume && viewable && visible && document.visibilityState === 'visible') {
+        activeSince = Date.now();
+      }
+    };
+    const startDuration = () => {
+      if (!viewable || !visible || document.visibilityState !== 'visible' || activeSince !== null) return;
+      activeSince = Date.now();
+    };
     const scheduleViewable = () => {
-      if (timer !== null || !visible || document.visibilityState !== 'visible') return;
+      if (timer !== null || viewable || !visible || document.visibilityState !== 'visible') return;
       timer = window.setTimeout(() => {
         timer = null;
-        if (!visible || document.visibilityState !== 'visible' || cancelled) return;
+        if (!visible || document.visibilityState !== 'visible') return;
+        viewable = true;
         void recordEvent(campaignId, 'viewable_impression').then((recorded) => {
           if (recorded) rememberViewableSponsorPlacement(viewablePlacementKey);
         });
+        startDuration();
       }, 1000);
     };
 
@@ -119,26 +147,39 @@ export function SponsorFeedCard({
       ? new IntersectionObserver((entries) => {
           const entry = entries[0];
           visible = Boolean(entry?.isIntersecting && entry.intersectionRatio >= 0.5);
-          if (visible) scheduleViewable();
-          else clearTimer();
+          if (visible) {
+            if (viewable) startDuration();
+            else scheduleViewable();
+          } else {
+            clearViewTimer();
+            flushDuration(false);
+          }
         }, { threshold: [0, 0.5, 1] })
       : null;
 
     if (observer) observer.observe(node);
     else {
       visible = true;
-      scheduleViewable();
+      if (viewable) startDuration();
+      else scheduleViewable();
     }
 
+    const durationInterval = window.setInterval(() => flushDuration(true), 5000);
     const onVisibilityChange = () => {
-      if (document.visibilityState === 'visible') scheduleViewable();
-      else clearTimer();
+      if (document.visibilityState === 'visible') {
+        if (viewable) startDuration();
+        else scheduleViewable();
+      } else {
+        clearViewTimer();
+        flushDuration(false);
+      }
     };
     document.addEventListener('visibilitychange', onVisibilityChange);
 
     return () => {
-      cancelled = true;
-      clearTimer();
+      clearViewTimer();
+      flushDuration(false);
+      window.clearInterval(durationInterval);
       observer?.disconnect();
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };

@@ -78,16 +78,22 @@ export async function POST(request: Request) {
     !('sponsorMeasurement' in parsed.value) ||
     typeof parsed.value.sponsorMeasurement !== 'boolean' ||
     !('version' in parsed.value) ||
-    parsed.value.version !== 1
+    parsed.value.version !== 3
   ) return respond(request, { error: 'Invalid analytics consent preferences.' }, 400);
 
   const { data, error } = await createServiceRoleClient().rpc('set_user_analytics_consent', {
     p_user_id: authenticated.user.id,
     p_service_improvement: parsed.value.serviceImprovement,
     p_sponsor_measurement: parsed.value.sponsorMeasurement,
-    p_consent_version: 1,
+    p_consent_version: 3,
   });
   if (error) {
+    if (error.code === '42501' && error.message.includes('Turn off Personalisation before withdrawing Service improvement analytics')) {
+      return respond(request, {
+        error: 'Turn off Personalisation before withdrawing Service improvement analytics.',
+        code: 'PERSONALISATION_REQUIRES_SERVICE_IMPROVEMENT',
+      }, 409);
+    }
     console.error('Unable to save analytics consent:', error.message);
     return respond(request, { error: 'Analytics preferences are temporarily unavailable.' }, 503);
   }

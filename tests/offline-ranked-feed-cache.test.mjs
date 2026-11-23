@@ -9,6 +9,22 @@ const [cache, native, audit, privacy] = await Promise.all([
   readFile(new URL('../src/app/privacy/page.tsx', import.meta.url), 'utf8'),
 ]);
 
+test('fresh native Account loads can read encrypted personalisation consent and withdraw offline', async () => {
+  const account = await readFile(new URL('../src/components/account/PersonalizationAccountSection.tsx', import.meta.url), 'utf8');
+  const panel = await readFile(new URL('../src/components/account/AnalyticsConsentSettingsPanel.tsx', import.meta.url), 'utf8');
+  assert.match(cache, /async getCachedConsent\(userId: string\)/);
+  assert.match(cache, /pending_sync FROM offline_personalization_consent_cache/);
+  assert.match(native, /personalization-consent-status-request/);
+  assert.match(account, /client\.auth\.getSession\(\)/);
+  assert.match(account, /readNativePersonalizationCache\(sessionUser\.id\)/);
+  assert.match(account, /forcedOfflineWithdrawal/);
+  assert.match(account, /syncNativeConsent\(accountUserId, false, true\)/);
+  assert.match(account, /personalizationStatusKnown/);
+  assert.match(panel, /disabled=\{disabled \|\| saving \|\| !personalizationStatusKnown \|\| personalizationEnabled\}/);
+  assert.match(panel, /disabled=\{disabled \|\| saving\}/);
+  assert.match(panel, /previous\?\.serviceImprovement === true/);
+});
+
 test('offline general feed reuses the latest cached server-ranked pages', () => {
   assert.match(cache, /offline_ranked_feed_pages/);
   assert.match(cache, /mode TEXT NOT NULL CHECK \(mode IN \('general', 'personalized'\)\)/);
@@ -32,6 +48,26 @@ test('offline personalisation only reuses encrypted cached server pages with fre
   assert.match(native, /personalizedFeedCacheRef\.current\.save\('personalized', user\.id, null, page\)/);
   assert.match(privacy, /12 hours after the last successful consent check/);
   assert.match(privacy, /cleared when[\s\S]*?personalisation is withdrawn or the account changes/);
+});
+
+test('Service improvement is locked during Personalisation and stale withdrawals clear cached passive-signal pages', () => {
+  const start = cache.indexOf('async clearPersonalizedPages(userId: string)');
+  const end = cache.indexOf('async clearUser(userId: string)', start);
+  assert.ok(start >= 0 && end > start);
+  const clearPages = cache.slice(start, end);
+  assert.match(clearPages, /DELETE FROM offline_ranked_feed_pages/);
+  assert.doesNotMatch(clearPages, /offline_personalization_consent_cache/);
+  assert.match(native, /analyticsConsentChangeEvent/);
+  assert.match(native, /detail\.choice === 'serviceImprovement'/);
+  assert.match(native, /detail\.consent\?\.serviceImprovement === false/);
+  assert.match(native, /detail\.consent\?\.serviceImprovement === true && detail\.consent\.syncPending === false/);
+  assert.match(native, /cache\.clearPersonalizedPages\(user\.id\)/);
+  assert.match(native, /pendingServiceImprovementCacheRefreshUserIdRef/);
+  assert.match(native, /readAnalyticsConsent\(user\.id\)/);
+  assert.match(native, /serviceImprovementWithdrawalPending/);
+  assert.match(native, /!serviceImprovementWithdrawalPending && user\?\.id && personalizedFeedCacheRef/);
+  assert.match(native, /await personalizedFeedCacheRef\.current\.clearPersonalizedPages\(user\.id\)/);
+  assert.match(native, /offline reading falls back to the cached general feed or local catalogue/);
 });
 
 test('personalised page cache is initialised only after the encrypted private database opens', () => {
@@ -85,12 +121,35 @@ test('withdrawal clears the stale personalised page before the replacement feed 
   assert.doesNotMatch(native, /setFeedPersonalized\(detail\.enabled\)/);
 });
 
+test('all pre-release native personalisation choices and pages are invalidated', () => {
+  assert.match(cache, /personalizationConsentVersion = '2026-11-22-v7'/);
+  assert.match(cache, /personalization_consent_version/);
+  assert.match(cache, /DELETE FROM offline_personalization_consent_cache/);
+  assert.doesNotMatch(cache, /WHERE enabled = 1 OR pending_sync = 0/);
+  assert.match(cache, /DELETE FROM offline_ranked_feed_pages WHERE mode = \?/);
+  const tableCreate = cache.indexOf('CREATE TABLE IF NOT EXISTS offline_personalization_consent_cache');
+  const versionCheck = cache.indexOf('SELECT cache_value FROM offline_ranked_feed_cache_meta WHERE cache_key = ?', tableCreate);
+  const staleGrantDelete = cache.indexOf('DELETE FROM offline_personalization_consent_cache', versionCheck);
+  assert.ok(tableCreate >= 0 && versionCheck > tableCreate && staleGrantDelete > versionCheck);
+});
+
 test('personalised offline pages are invalidated when the recommendation model changes', () => {
   assert.match(cache, /offline_ranked_feed_cache_meta/);
   assert.match(cache, /personalized_model_version/);
-  assert.match(cache, /explicit-actions-v3/);
+  assert.match(cache, /activity-signals-v4/);
   const modelCheck = cache.indexOf('SELECT cache_value FROM offline_ranked_feed_cache_meta');
   const pageInvalidation = cache.indexOf('DELETE FROM offline_ranked_feed_pages WHERE mode = ?', modelCheck);
   const modelWrite = cache.indexOf('INSERT OR REPLACE INTO offline_ranked_feed_cache_meta', pageInvalidation);
   assert.ok(modelCheck >= 0 && pageInvalidation > modelCheck && modelWrite > pageInvalidation);
+});
+
+
+test('offline cached consent never allows empty category interests to be saved', async () => {
+  const account = await readFile(new URL('../src/components/account/PersonalizationAccountSection.tsx', import.meta.url), 'utf8');
+  assert.match(account, /setCategoryInterestsLoaded\(false\)/);
+  assert.match(account, /!categoryInterestsLoaded \|\| selectedCategories\.length > 20/);
+  assert.match(account, /disabled=\{!status\.enabled \|\| !categoryInterestsLoaded/);
+  assert.match(account, /Saved category interests are not available offline/);
+  assert.match(account, /Topic-interest details are unavailable offline/);
+  assert.match(account, /loading \|\| !categoryInterestsLoaded \? '—' : status\.category_interests/);
 });

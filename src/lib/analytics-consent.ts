@@ -1,9 +1,14 @@
 'use client';
 
-export const analyticsConsentStorageKey = 'cathoscroll.analytics-consent.v1';
+export const analyticsConsentStorageKey = 'cathoscroll.analytics-consent.v2';
 export const analyticsConsentChangeEvent = 'cathoscroll:analytics-consent-change';
 export const analyticsConsentManageEvent = 'cathoscroll:analytics-consent-manage';
-export const analyticsConsentVersion = 1 as const;
+export const analyticsConsentSyncEvent = 'cathoscroll:analytics-consent-sync';
+
+export function requestAnalyticsConsentSync(): void {
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event(analyticsConsentSyncEvent));
+}
+export const analyticsConsentVersion = 3 as const;
 
 function storageKeyForUser(userId?: string | null): string {
   return userId
@@ -21,6 +26,7 @@ export type AnalyticsConsent = {
   sponsorMeasurement: boolean;
   updatedAt: string;
   syncPending: boolean;
+  pendingPurposes: AnalyticsConsentChoice[];
 };
 
 export type AnalyticsConsentChoice = 'serviceImprovement' | 'sponsorMeasurement';
@@ -81,15 +87,28 @@ function emptyConsent(): AnalyticsConsent {
     sponsorMeasurement: false,
     updatedAt: '',
     syncPending: false,
+    pendingPurposes: [],
   };
 }
 
 export function readAnalyticsConsent(userId?: string | null): AnalyticsConsent | null {
   if (typeof window === 'undefined') return null;
   try {
-    const raw = window.localStorage.getItem(storageKeyForUser(userId));
+    const storageKey = storageKeyForUser(userId);
+    const raw = window.localStorage.getItem(storageKey);
     if (!raw) return null;
     const parsed: unknown = JSON.parse(raw);
+    if (
+      typeof parsed === 'object' &&
+      parsed !== null &&
+      'version' in parsed &&
+      parsed.version !== analyticsConsentVersion
+    ) {
+      // Release consent-version changes invalidate old local grants even
+      // when a native device has not reconnected to the server yet.
+      window.localStorage.removeItem(storageKey);
+      return null;
+    }
     if (
       typeof parsed !== 'object' ||
       parsed === null ||
@@ -101,25 +120,73 @@ export function readAnalyticsConsent(userId?: string | null): AnalyticsConsent |
       typeof parsed.sponsorMeasurement !== 'boolean' ||
       !('updatedAt' in parsed) ||
       typeof parsed.updatedAt !== 'string' ||
-      ('syncPending' in parsed && typeof parsed.syncPending !== 'boolean')
+      ('syncPending' in parsed && typeof parsed.syncPending !== 'boolean') ||
+      ('pendingPurposes' in parsed && (
+        !Array.isArray(parsed.pendingPurposes) ||
+        !parsed.pendingPurposes.every((choice: unknown) => choice === 'serviceImprovement' || choice === 'sponsorMeasurement')
+      ))
     ) return null;
+    const parsedSyncPending = 'syncPending' in parsed && parsed.syncPending === true;
+    const pendingPurposes: AnalyticsConsentChoice[] = 'pendingPurposes' in parsed
+      ? parsed.pendingPurposes as AnalyticsConsentChoice[]
+      : parsedSyncPending ? ['serviceImprovement', 'sponsorMeasurement'] : [];
     const serviceDenied = deniedOverrides.has(overrideKey('serviceImprovement', userId));
     const sponsorDenied = deniedOverrides.has(overrideKey('sponsorMeasurement', userId));
     const storageWriteFailedForDenial = Boolean(userId) && (
       (serviceDenied && parsed.serviceImprovement) ||
       (sponsorDenied && parsed.sponsorMeasurement)
     );
+    const effectivePendingPurposes = storageWriteFailedForDenial
+      ? Array.from(new Set([
+          ...pendingPurposes,
+          ...(serviceDenied && parsed.serviceImprovement ? ['serviceImprovement' as const] : []),
+          ...(sponsorDenied && parsed.sponsorMeasurement ? ['sponsorMeasurement' as const] : []),
+        ]))
+      : pendingPurposes;
     return {
       version: analyticsConsentVersion,
       serviceImprovement: parsed.serviceImprovement && !serviceDenied,
       sponsorMeasurement: parsed.sponsorMeasurement && !sponsorDenied,
       updatedAt: parsed.updatedAt,
-      syncPending: ('syncPending' in parsed ? parsed.syncPending === true : false) ||
-        storageWriteFailedForDenial,
+      syncPending: parsedSyncPending || storageWriteFailedForDenial,
+      pendingPurposes: effectivePendingPurposes,
     };
   } catch {
     return null;
   }
+}
+
+export function clearLegacyAnalyticsConsentStorage(): void {
+  if (typeof window === 'undefined') return;
+  const legacyPrefix = 'cathoscroll.analytics-consent.v1';
+  try {
+    window.localStorage.removeItem(legacyPrefix);
+    window.localStorage.removeItem(legacyPrefix + '.anonymous');
+    for (let index = window.localStorage.length - 1; index >= 0; index -= 1) {
+      const key = window.localStorage.key(index);
+      if (key?.startsWith(legacyPrefix + '.account.')) {
+        window.localStorage.removeItem(key);
+      }
+    }
+    window.localStorage.removeItem('cathoscroll.anonymous-analytics.enabled.v1');
+  } catch {
+    // The v2 namespace is authoritative and old values are never read.
+  }
+}
+
+export function clearLegacyAnonymousAnalyticsConsent(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.removeItem(storageKeyForUser(null));
+  } catch {
+    // The signed-out consent gate still returns false if storage is unavailable.
+  }
+  clearLegacyAnalyticsConsentStorage();
+  for (const choice of ['serviceImprovement', 'sponsorMeasurement'] as const) {
+    deniedOverrides.add(overrideKey(choice, null));
+    getConsentChannel()?.postMessage({ type: 'deny', choice, userId: null });
+  }
+  window.dispatchEvent(new CustomEvent(analyticsConsentChangeEvent, { detail: { userId: null } }));
 }
 
 export function getAnalyticsConsent(userId?: string | null): AnalyticsConsent {
@@ -127,22 +194,32 @@ export function getAnalyticsConsent(userId?: string | null): AnalyticsConsent {
 }
 
 export function hasAnalyticsConsent(choice: AnalyticsConsentChoice, userId?: string | null): boolean {
+  // Optional analytics are account-only. Signed-out visitors have no
+  // anonymous analytics or sponsor delivery measurement.
+  if (!userId) return false;
   if (deniedOverrides.has(overrideKey(choice, userId))) return false;
   return getAnalyticsConsent(userId)[choice] === true;
+}
+
+export function hasSyncedAnalyticsConsent(choice: AnalyticsConsentChoice, userId?: string | null): boolean {
+  const consent = readAnalyticsConsent(userId);
+  return hasAnalyticsConsent(choice, userId) && consent?.syncPending !== true;
 }
 
 export function saveAnalyticsConsent(
   choices: Pick<AnalyticsConsent, 'serviceImprovement' | 'sponsorMeasurement'>,
   userId?: string | null,
-  options: { updatedAt?: string; syncPending?: boolean } = {}
+  options: { updatedAt?: string; syncPending?: boolean; pendingPurposes?: AnalyticsConsentChoice[] } = {}
 ): AnalyticsConsent {
   if (typeof window === 'undefined') throw new Error('Analytics preferences are unavailable.');
+  const syncPending = options.syncPending ?? Boolean(userId);
   const next: AnalyticsConsent = {
     version: analyticsConsentVersion,
     serviceImprovement: choices.serviceImprovement === true,
     sponsorMeasurement: choices.sponsorMeasurement === true,
     updatedAt: options.updatedAt ?? new Date().toISOString(),
-    syncPending: options.syncPending ?? Boolean(userId),
+    syncPending,
+    pendingPurposes: options.pendingPurposes ?? (syncPending ? ['serviceImprovement', 'sponsorMeasurement'] : []),
   };
   window.localStorage.setItem(storageKeyForUser(userId), JSON.stringify(next));
   for (const choice of ['serviceImprovement', 'sponsorMeasurement'] as const) {

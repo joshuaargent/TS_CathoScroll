@@ -51,13 +51,12 @@ import { OfflineCommentCache } from '@/lib/offline/comment-cache';
 import { OfflineTopicCountCache, type CachedTopicCounts } from '@/lib/offline/topic-count-cache';
 import { loadTopicActivity } from '@/lib/topic-activity';
 import { siteConfig } from '@/lib/constants';
-import { configureAnonymousFeedAnalyticsOutbox } from '@/lib/anonymous-feed-analytics-client';
+import { analyticsConsentChangeEvent, analyticsConsentSyncEvent, readAnalyticsConsent } from '@/lib/analytics-consent';
 import { configureFeedAnalyticsOutbox, clearFeedAnalyticsOutbox } from '@/lib/feed-analytics-client';
 import { configureFeedCardAnalyticsOutbox, clearFeedCardAnalyticsOutbox } from '@/lib/feed-card-analytics-client';
 import { configureSponsorAnalyticsOutbox, clearSponsorAnalyticsOutbox } from '@/lib/sponsor-analytics-client';
-import { NativeSignedInAnalyticsOutbox } from '@/lib/offline/signed-in-analytics-store';
-import { NativeAnonymousAnalyticsOutbox } from '@/lib/offline/anonymous-analytics-store';
-import { OfflineRankedFeedCache } from '@/lib/offline/ranked-feed-cache';
+import { NativeSignedInAnalyticsOutbox, resetLegacySignedInAnalyticsOutbox } from '@/lib/offline/signed-in-analytics-store';
+import { OfflineRankedFeedCache, type CachedPersonalizationConsent } from '@/lib/offline/ranked-feed-cache';
 import type { TopFeedComment } from '@/lib/feed-comments';
 import type { RecommendationCursor } from '@/lib/recommendations';
 import type { GeneralFeedCursor } from '@/lib/content';
@@ -646,6 +645,7 @@ function App() {
   const [catalogue, setCatalogue] = useState<OfflineCatalogue | null>(null);
   const generalFeedCacheRef = useRef<OfflineRankedFeedCache | null>(null);
   const personalizedFeedCacheRef = useRef<OfflineRankedFeedCache | null>(null);
+  const pendingServiceImprovementCacheRefreshUserIdRef = useRef<string | null>(null);
   const [firstPage, setFirstPage] = useState<CataloguePage | null>(null);
   const [feedPersonalized, setFeedPersonalized] = useState(false);
   const [feedGeneralRanked, setFeedGeneralRanked] = useState(false);
@@ -706,11 +706,24 @@ function App() {
     async function loadFeed() {
       controller = new AbortController();
       try {
+        if (
+          user?.id &&
+          pendingServiceImprovementCacheRefreshUserIdRef.current === user.id &&
+          personalizedFeedCacheRef.current
+        ) {
+          await personalizedFeedCacheRef.current.clearPersonalizedPages(user.id);
+          pendingServiceImprovementCacheRefreshUserIdRef.current = null;
+        }
+
+        const localAnalyticsConsent = user?.id ? readAnalyticsConsent(user.id) : null;
+        const serviceImprovementWithdrawalPending =
+          localAnalyticsConsent?.serviceImprovement === false && localAnalyticsConsent.syncPending === true;
+
         if (!navigator.onLine) {
           let page: CataloguePage | null = null;
           let offlinePersonalized = false;
           let offlineGeneralRanked = false;
-          if (user?.id && personalizedFeedCacheRef.current &&
+          if (!serviceImprovementWithdrawalPending && user?.id && personalizedFeedCacheRef.current &&
               await personalizedFeedCacheRef.current.hasFreshConsent(user.id)) {
             page = await personalizedFeedCacheRef.current.load('personalized', user.id, null) as CataloguePage | null;
             offlinePersonalized = Boolean(page);
@@ -735,11 +748,17 @@ function App() {
           const pendingConsent = await personalizedFeedCacheRef.current?.getPendingConsent(user.id);
           if (pendingConsent === false) {
             const { error: withdrawalError } = await createClient().rpc('set_my_personalization_consent', { p_enabled: false });
-            if (!withdrawalError) await personalizedFeedCacheRef.current?.setConsent(user.id, false, false);
+            if (!withdrawalError) {
+              await personalizedFeedCacheRef.current?.setConsent(user.id, false, false);
+              // Release the queued account-analytics preference only after
+              // the server has accepted the linked personalisation withdrawal.
+              window.dispatchEvent(new Event(analyticsConsentSyncEvent));
+            }
           }
           const { data: status, error: statusError } =
             await createClient().rpc('get_my_personalization_status');
           personalizedEnabled =
+            !serviceImprovementWithdrawalPending &&
             pendingConsent !== false &&
             !statusError &&
             typeof status === 'object' &&
@@ -872,6 +891,23 @@ function App() {
   }, [catalogueMessage]);
 
   useEffect(() => {
+    function readPersonalizationConsentCache(event: Event) {
+      const detail = (event as CustomEvent<{
+        userId?: unknown;
+        complete?: (result: Promise<{ available: boolean; consent: CachedPersonalizationConsent | null }>) => void;
+      }>).detail;
+      if (!detail || typeof detail.userId !== 'string') return;
+      const cache = personalizedFeedCacheRef.current;
+      const result = cache
+        ? cache.getCachedConsent(detail.userId).then((consent) => ({ available: true, consent }))
+        : Promise.resolve({ available: false, consent: null });
+      detail.complete?.(result);
+    }
+    window.addEventListener('cathoscroll:personalization-consent-status-request', readPersonalizationConsentCache);
+    return () => window.removeEventListener('cathoscroll:personalization-consent-status-request', readPersonalizationConsentCache);
+  }, []);
+
+  useEffect(() => {
     function syncPersonalizationConsent(event: Event) {
       const detail = (event as CustomEvent<{
         userId?: unknown;
@@ -896,6 +932,44 @@ function App() {
     window.addEventListener('cathoscroll:personalization-consent-changed', syncPersonalizationConsent);
     return () => window.removeEventListener('cathoscroll:personalization-consent-changed', syncPersonalizationConsent);
   }, []);
+
+  useEffect(() => {
+    function clearPassiveSignalRecommendations(event: Event) {
+      const detail = (event as CustomEvent<{
+        userId?: unknown;
+        choice?: unknown;
+        consent?: { serviceImprovement?: unknown; syncPending?: unknown };
+      }>).detail;
+      if (!detail || typeof detail.userId !== 'string') return;
+      const serviceImprovementNeedsRefresh =
+        detail.choice === 'serviceImprovement' ||
+        detail.consent?.serviceImprovement === false ||
+        (detail.consent?.serviceImprovement === true && detail.consent.syncPending === false);
+      if (!serviceImprovementNeedsRefresh) return;
+
+      const cache = personalizedFeedCacheRef.current;
+      if (!user?.id || detail.userId !== user.id || !cache) {
+        pendingServiceImprovementCacheRefreshUserIdRef.current = detail.userId;
+        return;
+      }
+      pendingServiceImprovementCacheRefreshUserIdRef.current = null;
+      void cache.clearPersonalizedPages(user.id).then(() => {
+        // Cached personalised pages may have been ranked using passive reading
+        // signals. Remove them immediately while preserving the separate
+        // Personalisation grant; offline reading falls back to the cached general feed or local catalogue.
+        setFirstPage(null);
+        setFeedAttempt((attempt) => attempt + 1);
+      }).catch((cause: unknown) => {
+        console.error('Unable to clear passive-signal personalised feed pages:', cause);
+        notifyNativeStatus('Saved personalised pages could not be refreshed after analytics consent changed.', {
+          id: 'personalized-feed-cache',
+        });
+      });
+    }
+
+    window.addEventListener(analyticsConsentChangeEvent, clearPassiveSignalRecommendations);
+    return () => window.removeEventListener(analyticsConsentChangeEvent, clearPassiveSignalRecommendations);
+  }, [user?.id]);
 
   useEffect(() => {
     const message = activityStatus && activityStatus.userId === user?.id ? activityStatus.error : '';
@@ -924,12 +998,17 @@ function App() {
       let failure = 'Unable to open app storage. Please try again.';
       try {
         const databases = await openNativeDatabases(secureAuthStorage);
+        // Remove the retired signed-out analytics queue and its stored events from existing installs.
         try {
-          await configureAnonymousFeedAnalyticsOutbox(new NativeAnonymousAnalyticsOutbox(databases.catalogue));
-          clearNativeStatusNotice('anonymous-analytics-outbox');
+          await databases.catalogue.transaction(async (database) => {
+            await database.execute('DROP TABLE IF EXISTS offline_anonymous_analytics_outbox');
+          });
+          clearNativeStatusNotice('anonymous-analytics-outbox-cleanup');
         } catch (cause) {
-          console.error('Durable anonymous analytics storage is unavailable:', cause);
-          notifyNativeStatus('Some signed-out analytics may not be retained if the app closes before upload.', { id: 'anonymous-analytics-outbox' });
+          console.error('Unable to purge the retired anonymous analytics outbox:', cause);
+          notifyNativeStatus('Retired anonymous analytics data could not be cleared yet. The app will retry on its next launch.', {
+            id: 'anonymous-analytics-outbox-cleanup',
+          });
         }
         const localCatalogue = new OfflineCatalogue(databases.catalogue);
         try {
@@ -968,6 +1047,7 @@ function App() {
             });
           }
           try {
+            await resetLegacySignedInAnalyticsOutbox(cacheDatabase);
             const signedInOutbox = new NativeSignedInAnalyticsOutbox(cacheDatabase);
             await Promise.all([
               configureFeedAnalyticsOutbox(signedInOutbox),

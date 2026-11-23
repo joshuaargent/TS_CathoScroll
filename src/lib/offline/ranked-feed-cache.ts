@@ -12,10 +12,17 @@ export interface RankedFeedPage {
   nextCursor: RankedFeedCursor | null;
 }
 
+export interface CachedPersonalizationConsent {
+  enabled: boolean;
+  checkedAt: string;
+  pendingSync: boolean;
+}
+
 const maximumPagesPerOwner = 30;
 const maximumPageAgeMs = 14 * 24 * 60 * 60 * 1000;
 const consentFreshnessMs = 12 * 60 * 60 * 1000;
-const personalizedModelVersion = 'explicit-actions-v3';
+const personalizedModelVersion = 'activity-signals-v4';
+const personalizationConsentVersion = '2026-11-22-v7';
 
 function assertOwner(mode: RankedFeedMode, userId: string | null): string {
   if (mode === 'general') return 'public';
@@ -92,6 +99,27 @@ export class OfflineRankedFeedCache {
         const columns = await db.query('PRAGMA table_info(offline_personalization_consent_cache)');
         if (!columns.some((column) => column.name === 'pending_sync')) {
           await db.execute('ALTER TABLE offline_personalization_consent_cache ADD COLUMN pending_sync INTEGER NOT NULL DEFAULT 0 CHECK (pending_sync IN (0, 1))');
+        }
+        const consentVersionRows = await db.query(
+          'SELECT cache_value FROM offline_ranked_feed_cache_meta WHERE cache_key = ?',
+          ['personalization_consent_version']
+        );
+        if (
+          consentVersionRows.length !== 1 ||
+          consentVersionRows[0].cache_value !== personalizationConsentVersion
+        ) {
+          // This release resets every existing account to an undecided state.
+          // Remove all cached grants, denials and pending choices: the server-side
+          // reset is authoritative, and no pre-release local choice may be replayed.
+          await db.execute('DELETE FROM offline_personalization_consent_cache');
+          await db.execute(
+            'DELETE FROM offline_ranked_feed_pages WHERE mode = ?',
+            ['personalized']
+          );
+          await db.execute(
+            'INSERT OR REPLACE INTO offline_ranked_feed_cache_meta (cache_key, cache_value) VALUES (?, ?)',
+            ['personalization_consent_version', personalizationConsentVersion]
+          );
         }
       }
       await this.prune(db);
@@ -200,6 +228,35 @@ export class OfflineRankedFeedCache {
     });
   }
 
+  async getCachedConsent(userId: string): Promise<CachedPersonalizationConsent | null> {
+    assertOwner('personalized', userId);
+    if (!this.allowPersonalizedCache) throw new Error('Personalisation consent must use encrypted private storage.');
+    return this.database.transaction(async (db) => {
+      await this.prune(db);
+      const rows = await db.query(
+        'SELECT enabled, checked_at, pending_sync FROM offline_personalization_consent_cache WHERE user_id = ?',
+        [userId]
+      );
+      if (
+        rows.length !== 1 ||
+        (rows[0].enabled !== 0 && rows[0].enabled !== 1) ||
+        typeof rows[0].checked_at !== 'string' ||
+        (rows[0].pending_sync !== 0 && rows[0].pending_sync !== 1)
+      ) return null;
+      const checkedAt = Date.parse(rows[0].checked_at);
+      const pendingSync = rows[0].pending_sync === 1;
+      if (
+        !pendingSync &&
+        (!Number.isFinite(checkedAt) || checkedAt > Date.now() || Date.now() - checkedAt > consentFreshnessMs)
+      ) return null;
+      return {
+        enabled: rows[0].enabled === 1,
+        checkedAt: rows[0].checked_at,
+        pendingSync,
+      };
+    });
+  }
+
   async getPendingConsent(userId: string): Promise<boolean | null> {
     assertOwner('personalized', userId);
     if (!this.allowPersonalizedCache) throw new Error('Personalisation consent must use encrypted private storage.');
@@ -211,6 +268,15 @@ export class OfflineRankedFeedCache {
       if (rows.length !== 1 || rows[0].pending_sync !== 1 || (rows[0].enabled !== 0 && rows[0].enabled !== 1)) return null;
       return rows[0].enabled === 1;
     });
+  }
+
+  async clearPersonalizedPages(userId: string): Promise<void> {
+    assertOwner('personalized', userId);
+    if (!this.allowPersonalizedCache) throw new Error('Personalised pages require encrypted private storage.');
+    await this.database.transaction((db) => db.execute(
+      'DELETE FROM offline_ranked_feed_pages WHERE mode = ? AND owner_id = ?',
+      ['personalized', userId]
+    ));
   }
 
   async clearUser(userId: string): Promise<void> {
