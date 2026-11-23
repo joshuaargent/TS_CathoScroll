@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useSyncExternalStore } from 'react';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { Analytics, type BeforeSendEvent } from '@vercel/analytics/react';
-import { analyticsConsentChangeEvent, clearLegacyAnonymousAnalyticsConsent, hasSyncedAnalyticsConsent } from '@/lib/analytics-consent';
+import { analyticsConsentChangeEvent, clearLegacyAnonymousAnalyticsConsent, hasAnalyticsConsent, hasSyncedAnalyticsConsent } from '@/lib/analytics-consent';
 
 function sanitisePageUrl(rawUrl: string): string {
   const url = new URL(rawUrl);
