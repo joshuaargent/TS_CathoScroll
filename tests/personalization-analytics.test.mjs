@@ -567,7 +567,7 @@ test('all profile reads and rebuilds require the new explicit personalisation co
   }
 });
 
-test('production upgrade bundle executes both SQL components in one atomic transaction', () => {
+test('production upgrade bundle is atomic and refuses to rerun after a successful commit', () => {
   const stripComponentTransaction = (source) => source
     .replace(/(^|\n)BEGIN;\s*\n/, '$1')
     .replace(/\nCOMMIT;\s*$/, '')
@@ -582,6 +582,26 @@ test('production upgrade bundle executes both SQL components in one atomic trans
 
 BEGIN;
 
+-- This is a versioned upgrade, not a repeatable schema synchronisation job.
+-- A failed execution rolls back the marker and can be retried. Once committed,
+-- refuse to rerun this historical bundle so newer RPC definitions and consent
+-- versions cannot be overwritten by the 2.4.0 component SQL.
+DO $release_upgrade_guard$
+DECLARE
+  v_already_applied boolean := false;
+BEGIN
+  IF to_regclass('catho_private.analytics_release_resets') IS NOT NULL THEN
+    SELECT EXISTS (
+      SELECT 1 FROM catho_private.analytics_release_resets
+      WHERE reset_key = '2026-11-22-analytics-consent-reset-v2'
+    ) INTO v_already_applied;
+  END IF;
+  IF v_already_applied THEN
+    RAISE EXCEPTION 'CathoScroll 2.4.0 production upgrade is already applied; do not rerun this versioned bundle.';
+  END IF;
+END;
+$release_upgrade_guard$;
+
 ${stripComponentTransaction(analyticsConsentUpgrade)}
 
 ${stripComponentTransaction(upgrade)}
@@ -591,6 +611,8 @@ COMMIT;
   assert.equal(combinedUpgrade, expected, 'the runnable bundle must exactly match the reviewed component SQL');
   assert.equal((combinedUpgrade.match(/^BEGIN;$/gm) ?? []).length, 1);
   assert.equal((combinedUpgrade.match(/^COMMIT;$/gm) ?? []).length, 1);
+  assert.match(combinedUpgrade, /DO \\$release_upgrade_guard\\$/);
+  assert.match(combinedUpgrade, /already applied; do not rerun this versioned bundle/);
 });
 
 test('release reset leaves every account undecided and clears analytics and personalisation state', () => {
