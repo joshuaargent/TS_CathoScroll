@@ -7898,7 +7898,8 @@ BEGIN
     p_service_improvement, p_sponsor_measurement, p_consent_version, v_now
   );
 
-  IF v_previous_service IS DISTINCT FROM p_service_improvement
+  IF (v_previous_service IS DISTINCT FROM p_service_improvement
+      OR v_previous_version IS DISTINCT FROM p_consent_version)
      AND pg_catalog.to_regclass('catho_private.user_personalization_consents') IS NOT NULL THEN
     UPDATE catho_private.user_personalization_consents
     SET profile_refreshed_at = NULL
@@ -9251,7 +9252,8 @@ BEGIN
     p_service_improvement, p_sponsor_measurement, p_consent_version, v_now
   );
 
-  IF v_previous_service IS DISTINCT FROM p_service_improvement
+  IF (v_previous_service IS DISTINCT FROM p_service_improvement
+      OR v_previous_version IS DISTINCT FROM p_consent_version)
      AND pg_catalog.to_regclass('catho_private.user_personalization_consents') IS NOT NULL THEN
     UPDATE catho_private.user_personalization_consents
     SET profile_refreshed_at = NULL
