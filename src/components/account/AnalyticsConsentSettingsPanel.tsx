@@ -172,7 +172,7 @@ export function AnalyticsConsentSettingsPanel({
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
         <p className="text-text-muted text-xs">
-          {!personalizationStatusKnown ? 'Service improvement can be changed only after Personalisation status is confirmed. Sponsor measurement can still be changed or withdrawn.' : 'Personalisation requires Service improvement analytics. Enable Service improvement before Personalisation, and turn off Personalisation before withdrawing it. Sponsor measurement remains separate.'}
+          {!personalizationStatusKnown ? 'Service improvement can be changed only after Personalisation status is confirmed. Sponsor measurement can still be changed or withdrawn.' : 'Enabling Personalisation automatically enables Service improvement analytics, which remains enabled while Personalisation is active. Turn off Personalisation before withdrawing it. Sponsor measurement remains separate.'}
         </p>
         <button
           type="button"
